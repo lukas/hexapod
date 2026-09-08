@@ -23,7 +23,7 @@ the current commanded foot positions (the direct chord-vs-arc /
 anchor-vs-current-position inconsistency of TripodGait's stance law,
 which freezes each stance foot's velocity at its nominal anchor).
 
-PRE-REGISTERED SUPPORT BAR (written before the first rollout): a
+HISTORICAL S1/S2/S3 BAR (retained descriptively, written before the first rollout): a
 command-side stance-sweep correction (re-projecting stance sweeps
 onto the exact commanded twist; swing/touchdown retained) is
 SUPPORTED only if on ALL FOUR arc cells (wz=+/-0.15 at starts 0 and
@@ -34,9 +34,13 @@ twist-inconsistent:
       commanded positions > 0.10, or
   S3  per-foot implied-wz spread (max-min of per-foot medians)
       > 0.20 * |wz_cmd|.
-Attenuation that first appears at safe/act/pads (execution) does NOT
-support a command re-projection and is reported as the measured
-outcome instead.
+S1/S2 can also detect a COMMON wrong rigid twist; S3 can reflect feet
+sampling different phases of a shared time-varying twist. None establishes
+mutually incompatible foot paths. The review-added consistency check uses
+the best-fit residual, separately from this unchanged historical bar.
+Stage differences alone do not identify a cause or demote friction-cone
+engagement: nominal FK and true mesh geometry differ, and contact selection
+is from the last physics solve while positions are endpoint samples.
 
 Isolated read-only diagnostic: no shared code changed, no training,
 scripted TripodGait only, stock stance/cadence, frozen plant pins
@@ -99,6 +103,10 @@ BAR = {"wz_gain_lo": 0.90, "wz_gain_hi": 1.10,
        "cmd_resid_norm": 0.10, "implied_wz_spread_frac": 0.20}
 EDGE_ERODE_TICKS = 2   # drop this many ticks at each stance-segment edge
 MIN_FEET = 3           # per-tick twist fit needs >= 3 same-phase stance feet
+# Review-added diagnostic threshold, NOT a rewrite of the historical BAR.
+PATH_RESID_NORM = 0.10
+EXPECTED_KEYS = {(0.08, wz, round(phase, 6))
+                 for wz in (-0.15, 0.0, 0.15) for phase in (0.0, math.pi)}
 
 
 # ---------------------------------------------------------------- pure math
@@ -258,41 +266,150 @@ def sweep_segments(des_xy: np.ndarray, pads_xy: np.ndarray,
     return rows
 
 
-def support_verdict(cells: list[dict]) -> dict:
-    """Mechanically evaluate the pre-registered support bar over the
-    arc cells (wz_cmd != 0)."""
-    arc = [c for c in cells if abs(c["wz_cmd"]) > 1e-9]
+def _cell_key(c: dict, *, reference: bool = False):
+    phase = (c.get("scripted_start_phase", c.get("phase_offset"))
+             if reference else c.get("phase_offset"))
+    return (round(float(c["vx_cmd"]), 6), round(float(c["wz_cmd"]), 6),
+            round(float(phase) % (2 * math.pi), 6))
+
+
+def _nonfinite(value) -> bool:
+    if isinstance(value, dict):
+        return any(_nonfinite(v) for v in value.values())
+    if isinstance(value, (list, tuple, np.ndarray)):
+        return any(_nonfinite(v) for v in value)
+    return isinstance(value, (float, np.floating)) and not math.isfinite(value)
+
+
+def _finite_number(value) -> bool:
+    return (isinstance(value, (int, float, np.number))
+            and not isinstance(value, (bool, np.bool_))
+            and math.isfinite(float(value)))
+
+
+def _feasibility_reasons(feasibility) -> list[str]:
+    if not isinstance(feasibility, dict):
+        return ["missing feasibility evidence"]
+    reasons = []
+    if (_nonfinite(feasibility) or feasibility.get("raw_ik_calls", 0) <= 0
+            or feasibility.get("raw_ik_failures") != 0):
+        reasons.append("invalid feasibility / raw IK evidence")
+    margins = feasibility.get("joint_margins", {})
+    for axis in ("yaw", "hip", "knee"):
+        margin = margins.get(axis, {}).get("margin_deg")
+        if not _finite_number(margin) or margin < 2.0:
+            reasons.append(f"feasibility {axis} margin missing or below 2 degrees")
+    return reasons
+
+
+def validate_matrix(cells: list[dict], *, parity_required: bool = True,
+                    feasibility=None) -> dict:
+    """Fail closed for the fixed six-cell original-target diagnostic."""
+    reasons = _feasibility_reasons(feasibility)
+    keys = []
+    for i, c in enumerate(cells):
+        try:
+            key = _cell_key(c)
+            keys.append(key)
+        except (KeyError, TypeError, ValueError):
+            reasons.append(f"cell {i}: missing or invalid identity")
+        if _nonfinite(c):
+            reasons.append(f"cell {i}: nonfinite data")
+        if c.get("fell") is not False:
+            reasons.append(f"cell {i}: fall/termination status missing or failed")
+        if c.get("error") or c.get("n_scored_ticks", 0) < 200:
+            reasons.append(f"cell {i}: insufficient scored ticks")
+        body = c.get("body", {})
+        if not all(_finite_number(body.get(k)) for k in ("vx_med", "wz_med")):
+            reasons.append(f"cell {i}: missing finite body measurements")
+        des = c.get("stages", {}).get("des", {}).get("plan") or {}
+        required = ("wz_med", "resid_norm", "cmd_exact_resid_norm",
+                    "implied_wz_spread")
+        if (des.get("n_fits", 0) <= 0
+                or not all(_finite_number(des.get(k)) for k in required)):
+            reasons.append(f"cell {i}: missing finite des-stage fits")
+        if parity_required and c.get("parity", {}).get("ok") is not True:
+            reasons.append(f"cell {i}: missing or failed parity")
+    if len(keys) != len(set(keys)):
+        reasons.append("duplicate matrix cells")
+    if len(cells) != 6 or set(keys) != EXPECTED_KEYS:
+        reasons.append("expected exactly four unique arc and two straight cells")
+    return {"valid": not reasons, "reasons": reasons}
+
+
+def support_verdict(cells: list[dict], *, validation=None) -> dict:
+    """Preserve historical diagnostics; support requires valid evidence AND
+    incompatible paths, rather than merely a common wrong rigid twist."""
     checks = []
-    for c in arc:
-        des = (c.get("stages", {}).get("des", {}) or {}).get("plan")
-        if not des:
-            checks.append({"cell": [c["vx_cmd"], c["wz_cmd"]],
-                           "start": c["phase_offset"], "breach": None,
-                           "reason": "no des-stage fits"})
+    for c in cells:
+        if not _finite_number(c.get("wz_cmd")) or abs(c["wz_cmd"]) <= 1e-9:
+            continue
+        des = (c.get("stages", {}).get("des", {}) or {}).get("plan") or {}
+        required = ("wz_med", "cmd_exact_resid_norm", "implied_wz_spread",
+                    "resid_norm")
+        if not all(_finite_number(des.get(k)) for k in required):
+            checks.append({"cell": [c.get("vx_cmd"), c["wz_cmd"]],
+                           "start": c.get("phase_offset"), "breach": None,
+                           "path_inconsistent": None,
+                           "reason": "no finite des-stage fits"})
             continue
         gain = des["wz_med"] / c["wz_cmd"]
         s1 = not (BAR["wz_gain_lo"] <= gain <= BAR["wz_gain_hi"])
-        s2 = des.get("cmd_exact_resid_norm", 0.0) > BAR["cmd_resid_norm"]
-        spread = des.get("implied_wz_spread")
-        s3 = (spread is not None
-              and spread > BAR["implied_wz_spread_frac"] * abs(c["wz_cmd"]))
+        s2 = des["cmd_exact_resid_norm"] > BAR["cmd_resid_norm"]
+        spread = des["implied_wz_spread"]
+        s3 = spread > BAR["implied_wz_spread_frac"] * abs(c["wz_cmd"])
         checks.append({"cell": [c["vx_cmd"], c["wz_cmd"]],
-                       "start": c["phase_offset"],
-                       "des_wz_gain": gain,
-                       "cmd_exact_resid_norm":
-                           des.get("cmd_exact_resid_norm"),
+                       "start": c["phase_offset"], "des_wz_gain": gain,
+                       "cmd_exact_resid_norm": des["cmd_exact_resid_norm"],
                        "implied_wz_spread": spread,
                        "S1": s1, "S2": s2, "S3": s3,
-                       "breach": bool(s1 or s2 or s3)})
-    supported = (len(checks) == 4
-                 and all(c["breach"] is True for c in checks))
-    return {"bar": BAR, "checks": checks, "supported": supported}
+                       "breach": bool(s1 or s2 or s3),
+                       "best_fit_resid_norm": des["resid_norm"],
+                       "path_inconsistent": des["resid_norm"] > PATH_RESID_NORM})
+    legacy = len(checks) == 4 and all(c["breach"] is True for c in checks)
+    inconsistent = (len(checks) == 4
+                    and all(c["path_inconsistent"] is True for c in checks))
+    valid = validation is not None and validation.get("valid") is True
+    return {"bar": BAR, "checks": checks, "legacy_bar_supported": legacy,
+            "path_inconsistency_threshold": PATH_RESID_NORM,
+            "path_inconsistency_rule": "review-added best-fit residual; historical S1/S2/S3 unchanged",
+            "supported": bool(valid and inconsistent and legacy),
+            "validation_passed": valid,
+            "interpretation": ("Command consistency is a kinematic diagnostic, not a causal "
+                               "friction or execution localization test. A common wrong "
+                               "rigid twist is distinct from incompatible foot paths.")}
+
+
+class _EndpointKinematics:
+    """Read endpoint transforms on private MjData without touching live state.
+
+    Live contact sensors remain the last solved substep at endpoint time-h.
+    They select a solve-time contact population, not endpoint contacts.
+    """
+    def __init__(self, env):
+        self.env = env
+        self.mj = env._mujoco
+        self.scratch = self.mj.MjData(env.model)
+
+    def sample(self) -> dict:
+        e, s = self.env, self.scratch
+        d = e.data
+        s.qpos[:] = d.qpos
+        s.mocap_pos[:] = d.mocap_pos
+        s.mocap_quat[:] = d.mocap_quat
+        self.mj.mj_kinematics(e.model, s)
+        R = s.xmat[e._chassis_bid].reshape(3, 3)
+        pads = (s.xpos[e._pad_bids] - s.xpos[e._chassis_bid]) @ R
+        return {"q_act": e._state.joint_position.copy(),
+                "pads_xy": pads[:, :2].copy(),
+                "contact": np.asarray([a >= 0 and float(d.sensordata[a]) > CONTACT_N
+                                        for a in e._touch_adr]),
+                "endpoint_time_s": float(d.time),
+                "contact_solve_time_s": float(d.time - e.model.opt.timestep)}
 
 
 # ---------------------------------------------------------------- rollout
-def rollout(*, cfg_set, vx_cmd, wz_cmd, seed, episode_seconds,
-            phase_offset=0.0) -> dict:
-    env = pta.make_env(cfg_set, seed, episode_seconds)
+def _assert_frozen_env(env) -> dict:
     identity = model_identity(env)
     contract = motor_contract(env.cfg)
     if identity["model_variant"] != "full_mesh":
@@ -307,6 +424,14 @@ def rollout(*, cfg_set, vx_cmd, wz_cmd, seed, episode_seconds,
               "slew_limit_deg_s", "resolved_vel_max_counts_s_max"):
         if abs(float(contract[k]) - PIN[k]) > 1e-9:
             raise RuntimeError(f"pin fail: contract {k}={contract[k]}")
+
+    return identity
+
+
+def rollout(*, cfg_set, vx_cmd, wz_cmd, seed, episode_seconds,
+            phase_offset=0.0) -> dict:
+    env = pta.make_env(cfg_set, seed, episode_seconds)
+    identity = _assert_frozen_env(env)
 
     obs, info = env.reset()
     if phase_offset:
@@ -323,7 +448,7 @@ def rollout(*, cfg_set, vx_cmd, wz_cmd, seed, episode_seconds,
     gait.sync_plant_stance(*pta.WALK_PLANT)
     gait.reset_phase(phase=phase_offset)
 
-    d = env.data
+    endpoint = _EndpointKinematics(env)
     rows = []
     step = 0
     fell = False
@@ -340,18 +465,12 @@ def rollout(*, cfg_set, vx_cmd, wz_cmd, seed, episode_seconds,
                   float(gait._om_smooth))
             obs, r, term, trunc, info = env.step(act)
             if step >= hold_n + ramp_n and info.get("goal_mode") == "walk":
-                R = d.xmat[env._chassis_bid].reshape(3, 3)
-                cx = d.xpos[env._chassis_bid]
-                pads_b = (d.xpos[env._pad_bids] - cx) @ R
+                sample = endpoint.sample()
                 rows.append({
+                    **sample,
                     "q_des": q_des.copy(),
                     "q_safe": env.safety._last_safe.copy(),
-                    "q_act": env._state.joint_position.copy(),
-                    "pads_xy": pads_b[:, :2].copy(),
                     "plan_stance": plan_stance,
-                    "contact": np.array(
-                        [float(d.sensordata[x]) > CONTACT_N
-                         for x in env._touch_adr]),
                     "cmd_twist": (sm[0], sm[1], sm[2]),
                     "vx_body": float(env._body_vel_xy()[0]),
                     "wz_body": float(env._body_wz()),
@@ -368,7 +487,15 @@ def rollout(*, cfg_set, vx_cmd, wz_cmd, seed, episode_seconds,
     out = {"vx_cmd": vx_cmd, "wz_cmd": wz_cmd, "seed": seed,
            "phase_offset": phase_offset, "fell": fell,
            "n_scored_ticks": len(rows), "model_identity": identity,
-           "edge_erode_ticks": EDGE_ERODE_TICKS}
+           "edge_erode_ticks": EDGE_ERODE_TICKS,
+           "sampling": {
+               "control_dt_s": float(env.dt),
+               "physics_dt_s": float(env.model.opt.timestep),
+               "joint_and_pad_positions": "post-step endpoint; pad transforms from private kinematics",
+               "contact": "last solved physics substep at endpoint minus physics_dt_s; touch > CONTACT_N",
+               "contact_threshold_N": CONTACT_N,
+               "command_phase": "phase used to command the completed control interval",
+               "geometry": "des/safe/act use nominal FK; pads use true mesh body origins"}}
     if len(rows) < 200:
         out["error"] = "insufficient scored ticks"
         return out
@@ -383,6 +510,10 @@ def rollout(*, cfg_set, vx_cmd, wz_cmd, seed, episode_seconds,
                          for f in range(6)], axis=1)
     sel_cont = np.stack([erode_segments(contact[:, f], EDGE_ERODE_TICKS)
                          for f in range(6)], axis=1)
+    plan_contact = plan_st & contact
+    sel_plan_contact = np.stack([
+        erode_segments(plan_contact[:, f], EDGE_ERODE_TICKS)
+        for f in range(6)], axis=1)
     pos = {"des": np.stack([fk_body_xy(r["q_des"]) for r in rows]),
            "safe": np.stack([fk_body_xy(r["q_safe"]) for r in rows]),
            "act": np.stack([fk_body_xy(r["q_act"]) for r in rows]),
@@ -394,6 +525,7 @@ def rollout(*, cfg_set, vx_cmd, wz_cmd, seed, episode_seconds,
                                   cmd_twists=(cmd_tw if name == "des"
                                               else None)),
             "contact": analyze_stage(p, sel_cont, dt),
+            "plan_contact": analyze_stage(p, sel_plan_contact, dt),
         }
     out["stages"] = stages
     segs = sweep_segments(pos["des"], pos["pads"], plan_st)
@@ -413,9 +545,21 @@ def rollout(*, cfg_set, vx_cmd, wz_cmd, seed, episode_seconds,
         "segments": segs,
     }
     out["duty_contact"] = np.mean(contact, axis=0).tolist()
+    out["duty_plan_contact"] = np.mean(plan_contact, axis=0).tolist()
     out["scuff_frac_planswing_in_contact"] = float(
         np.mean(contact[~plan_st])) if (~plan_st).any() else None
     return out
+
+
+def _json_safe(value):
+    """Invalid numbers are rejected before serialization; write strict JSON."""
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    if isinstance(value, (float, np.floating)) and not math.isfinite(value):
+        return None
+    return value
 
 
 def main() -> int:
@@ -426,75 +570,103 @@ def main() -> int:
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--episode-seconds", type=float, default=15.0)
     ap.add_argument("--parity-json", type=Path, default=None,
-                    help="root_fullcone scripted audit JSON; body medians "
-                         "must match bit-for-bit (behavior neutrality)")
+                    help="required for valid support: complete six-cell scripted reference")
     ap.add_argument("--label", default="")
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
-
     cfg_set = json.loads(args.cfg_json.read_text())
     cfg_set = [c for c in cfg_set if not c.startswith("env.model_source=")]
     cfg_set.append("env.model_source=mesh")
-    cells = []
-    for c in args.cells.split(","):
-        vx, wz = c.split(":")
-        cells.append((float(vx), float(wz)))
+    cells = [tuple(map(float, c.split(":"))) for c in args.cells.split(",")]
     offsets = [float(x) for x in args.phase_offsets.split(",")]
-
-    # fail-closed kinematic feasibility (stock stance, all cells)
+    errors, results = [], []
+    requested = [{"vx_cmd": vx, "wz_cmd": wz, "phase_offset": po}
+                 for po in offsets for vx, wz in cells]
+    try:
+        keys = [_cell_key(c) for c in requested]
+        if len(keys) != 6 or len(set(keys)) != 6 or set(keys) != EXPECTED_KEYS:
+            errors.append("expected exactly four unique arc and two straight cells")
+    except (TypeError, ValueError):
+        errors.append("invalid/nonfinite requested matrix identity")
+    if not math.isfinite(args.episode_seconds) or args.episode_seconds <= 2.0:
+        errors.append("invalid episode duration")
     from rl_move.sim.probe_turn_stancearm import feasibility_guard
-    feas = feasibility_guard(*pta.WALK_PLANT, cells)
-    print(json.dumps({"feasibility": feas}), flush=True)
-
+    feas = None
+    if not errors:
+        try:
+            feas = feasibility_guard(*pta.WALK_PLANT, cells)
+            errors.extend(_feasibility_reasons(feas))
+        except (SystemExit, RuntimeError, ValueError) as exc:
+            errors.append(f"feasibility failed: {exc}")
     parity_ref = {}
-    if args.parity_json is not None:
-        ref = json.loads(args.parity_json.read_text())
-        for r in ref["results"]:
-            key = (round(r["vx_cmd"], 6), round(r["wz_cmd"], 6),
-                   round(r.get("scripted_start_phase") or 0.0, 6))
-            parity_ref[key] = (r["wz_med"], r["vx_med"])
-
-    results = []
-    parity_fail = 0
-    for po in offsets:
-        for vx, wz in cells:
-            r = rollout(cfg_set=cfg_set, vx_cmd=vx, wz_cmd=wz,
-                        seed=args.seed,
-                        episode_seconds=args.episode_seconds,
-                        phase_offset=po)
-            key = (round(vx, 6), round(wz, 6), round(po, 6))
-            if key in parity_ref and "body" in r:
-                ref_wz, ref_vx = parity_ref[key]
-                ok = (abs(r["body"]["wz_med"] - ref_wz) < 1e-9
-                      and abs(r["body"]["vx_med"] - ref_vx) < 1e-9)
-                r["parity"] = {"ref_wz_med": ref_wz, "ref_vx_med": ref_vx,
-                               "ok": bool(ok)}
-                if not ok:
-                    parity_fail += 1
-            results.append(r)
-            print(json.dumps({"cell": [vx, wz], "start": po,
-                              "fell": r.get("fell"),
-                              "body": r.get("body"),
-                              "des": (r.get("stages", {})
-                                      .get("des", {}) or {}).get("plan"),
-                              "pads": (r.get("stages", {})
-                                       .get("pads", {}) or {}).get("plan"),
-                              "parity": r.get("parity")}),
-                  flush=True)
-
-    verdict = support_verdict(results)
-    out = {"schema": "probe_turn_twistfit/1", "label": args.label,
+    if args.parity_json is None:
+        errors.append("missing parity reference")
+    else:
+        try:
+            ref = json.loads(args.parity_json.read_text())
+            if _nonfinite(ref):
+                errors.append("nonfinite parity reference")
+            if ref.get("policy") != "scripted":
+                errors.append("parity policy mismatch")
+            for field, expected in (("seed", args.seed),
+                                    ("episode_seconds", args.episode_seconds)):
+                if field in ref and ref[field] != expected:
+                    errors.append(f"parity {field} mismatch")
+            if "cfg_set" in ref:
+                def config_map(items):
+                    return {k: v for item in items for k, v in [item.split("=", 1)]
+                            if k != "env.model_source"}
+                if config_map(ref["cfg_set"]) != config_map(cfg_set):
+                    errors.append("parity configuration mismatch")
+            for row in ref["results"]:
+                key = _cell_key(row, reference=True)
+                if key in parity_ref:
+                    errors.append("duplicate parity reference cell")
+                parity_ref[key] = row
+                if row.get("seed") != args.seed:
+                    errors.append("parity row seed mismatch")
+            if set(parity_ref) != EXPECTED_KEYS or len(ref["results"]) != 6:
+                errors.append("missing or unexpected parity reference cells")
+        except (OSError, ValueError, TypeError, KeyError) as exc:
+            errors.append(f"invalid parity reference: {exc}")
+    if not errors:
+        for po in offsets:
+            for vx, wz in cells:
+                r = rollout(cfg_set=cfg_set, vx_cmd=vx, wz_cmd=wz,
+                            seed=args.seed, episode_seconds=args.episode_seconds,
+                            phase_offset=po)
+                ref = parity_ref[_cell_key(r)]
+                body = r.get("body", {})
+                values = [body.get("wz_med"), body.get("vx_med"),
+                          ref.get("wz_med"), ref.get("vx_med")]
+                ok = (all(_finite_number(v) for v in values)
+                      and values[0] == values[2] and values[1] == values[3]
+                      and r.get("fell") is False and ref.get("fell") is False
+                      and _finite_number(r.get("n_scored_ticks"))
+                      and r.get("n_scored_ticks") == ref.get("n_walk_ticks"))
+                r["parity"] = {"ok": bool(ok), "ref_wz_med": ref.get("wz_med"),
+                               "ref_vx_med": ref.get("vx_med"),
+                               "scope": "exact body medians, scored count and fall status; not full trace parity"}
+                results.append(r)
+                print(json.dumps(_json_safe({"cell": [vx, wz], "start": po,
+                    "body": body, "parity": r["parity"]}), allow_nan=False), flush=True)
+    validation = validate_matrix(results, feasibility=feas)
+    validation["reasons"] = errors + validation["reasons"]
+    validation["valid"] = not validation["reasons"]
+    verdict = support_verdict(results, validation=validation)
+    out = {"schema": "probe_turn_twistfit/2", "label": args.label,
            "policy": "scripted", "seed": args.seed,
-           "episode_seconds": args.episode_seconds,
-           "cfg_set": cfg_set, "feasibility": feas,
-           "pin": PIN, "bar": BAR,
-           "parity_fail_cells": parity_fail,
+           "episode_seconds": args.episode_seconds, "cfg_set": cfg_set,
+           "feasibility": feas, "pin": PIN, "bar": BAR,
+           "validation": validation,
+           "parity_fail_cells": sum(r.get("parity", {}).get("ok") is not True
+                                    for r in results),
            "support_verdict": verdict, "results": results}
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(out, indent=1, default=float))
-    print(json.dumps({"support_verdict": verdict,
-                      "parity_fail_cells": parity_fail}), flush=True)
-    return 0 if parity_fail == 0 else 3
+    args.out.write_text(json.dumps(_json_safe(out), indent=1, default=float,
+                                  allow_nan=False))
+    print(json.dumps({"support_verdict": verdict, "validation": validation}), flush=True)
+    return 0 if validation["valid"] else 3
 
 
 if __name__ == "__main__":

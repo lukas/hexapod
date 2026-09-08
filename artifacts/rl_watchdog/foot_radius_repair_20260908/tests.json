@@ -1,0 +1,11 @@
+{
+  "base": "5dcd8b50eded965827c2c9be272ff99e44c754fa",
+  "command": "uv run --active pytest -q hexapod_walker/prototype_sts3215/rl_move/tests/test_foot_geom_radius.py hexapod_walker/prototype_sts3215/rl_move/tests/test_mjx_host.py hexapod_walker/prototype_sts3215/rl_move/tests/test_sim_env.py -k 'foot_geom_radius or prepare_shared_model or shared_ or default_off_model or actual_env_path or invalid_radius or resize_matches or size_only or unsupported_or_missing or runtime_helper'",
+  "environment": "Existing project venv; uv --active; no dependency installation",
+  "local_mujoco": "3.12.0",
+  "passed": 28,
+  "deselected": 49,
+  "elapsed_seconds": 1.04,
+  "controller_mujoco_api_smoke": "3.11.0",
+  "scope": "Focused collision, default-off parity, private/shared host integration; no full policy assay or deployment"
+}

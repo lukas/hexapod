@@ -299,33 +299,21 @@ def set_foot_ground_torsion_friction(model, mu_torsion: float) -> None:
 
 
 def set_foot_geom_radius(model, radius_m: float) -> None:
-    """Set the foot contact SPHERE radius (``geom_size[:, 0]``) to a
-    probe/diagnostic value. cfg ``env.foot_geom_radius_m`` (0 = keep the
-    XML default, currently a 4.5 mm point-like sphere per foot,
-    ``mesh_mujoco/hexapod_mesh_mjx.xml`` ``L{i}_foot``).
+    """Reject unsafe in-place resizing of a compiled model.
 
-    Built 2026-09-08 as the next named-but-unbuilt structural-lever
-    candidate on the walkcurr slip-floor question, after the torsional-
-    friction lever (``set_foot_ground_torsion_friction``) was measured
-    and REFUTED for straight-line slip (flat-to-worse, see STATUS.md
-    09-08 ~03:5x). MuJoCo's sphere-plane contact is a single point
-    regardless of radius, but the radius still sets the torque arm for
-    the geom's ROLLING-friction column (``geom_friction[:, 2]``) and
-    the contact's rolling-resistance moment scales with it — a bigger
-    radius could plausibly raise the effective rolling drag without
-    inflating the SLIDING friction pair (which is already calibrated
-    against tape-measured travel, see ``set_foot_ground_friction``).
-    Only the ``L{i}_foot`` geoms are touched (``L{i}_pad_col`` matched
-    for forward-compat but does not exist in the current XML — no-op
-    there). Default 0.0 leaves the model untouched (bit-exact off);
-    this is diagnostic-only (frozen-checkpoint probes), not a trained-
-    from lever, until/unless a probe shows it moves the floor."""
-    import mujoco
-    for i in range(6):
-        for gname in (f"L{i}_foot", f"L{i}_pad_col"):
-            gid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, gname)
-            if gid >= 0:
-                model.geom_size[gid, 0] = float(radius_m)
+    ``geom_size`` alone leaves MuJoCo's collision bounds/BVH stale.
+    Use ``build_model(foot_geom_radius_m=...)`` or the private env cfg
+    instead; those compile the contact geometry before creating MjData.
+    Zero remains a no-op. Friction coefficients and body inertia remain
+    unchanged by the supported construction path. Rolling coefficients
+    already have length units, with no extra sphere-radius multiplier.
+    """
+    radius = float(radius_m)
+    if not np.isfinite(radius) or radius < 0.0:
+        raise ValueError("env.foot_geom_radius_m must be finite and >= 0")
+    if radius != 0.0:
+        raise ValueError("cannot resize a compiled model; use "
+                         "build_model(foot_geom_radius_m=...) before MjData")
 
 
 def leg_chassis_collision_from_cfg(cfg) -> bool:
@@ -584,6 +572,24 @@ class SimHexapodBalanceEnv(_GymBase):
         # must never be mutated per episode, so the shim path runs with
         # model DR disabled. Default (None): private model, as always.
         self._owns_model = model is None
+        _r_foot = float(cfg_get(self.cfg, "env", "foot_geom_radius_m",
+                                default=0.0))
+        if not np.isfinite(_r_foot) or _r_foot < 0.0:
+            raise ValueError("env.foot_geom_radius_m must be finite and >= 0")
+        if model is not None and _r_foot != 0.0:
+            # Shared host prep must compile the radius before put_model and
+            # shim construction. Never resize a shared model here. Reject
+            # an old size-only prep rather than silently mixing physics.
+            gids = [mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, name)
+                    for i in range(6) for name in (f"L{i}_foot", f"L{i}_pad_col")]
+            gids = [gid for gid in gids if gid >= 0]
+            if (not gids
+                    or np.any(model.geom_type[gids] != mujoco.mjtGeom.mjGEOM_SPHERE)
+                    or np.any(model.geom_size[gids, 0] != _r_foot)
+                    or np.any(model.geom_rbound[gids] != _r_foot)
+                    or np.any(model.geom_aabb[gids, 3:] != _r_foot)):
+                raise ValueError("shared foot radius must be compiled with "
+                                 "build_model(foot_geom_radius_m=...) before shims")
         # cfg env.model_source: mesh-family (corrected kinematics) or the
         # legacy primitive model — see servo_model.resolve_model_source.
         # Shared models arrive pre-built from the same cfg, so the resolved
@@ -613,7 +619,7 @@ class SimHexapodBalanceEnv(_GymBase):
                 mesh_visuals=mesh_visuals,
                 leg_chassis_collision=leg_chassis_collision_from_cfg(
                     self.cfg),
-                source=self._model_source)
+                source=self._model_source, foot_geom_radius_m=_r_foot)
         self.data = mujoco.MjData(self.model)
         self._substeps = max(1, int(round(self.dt / self.model.opt.timestep)))
         self._qadr = joint_qpos_addrs(self.model)
@@ -665,13 +671,6 @@ class SimHexapodBalanceEnv(_GymBase):
                                   default=0.0))
             if _mu_t > 0.0:
                 set_foot_ground_torsion_friction(self.model, _mu_t)
-            # Diagnostic-only foot contact-sphere radius override
-            # (default 0 = keep XML default, bit-exact off) — see
-            # set_foot_geom_radius.
-            _r_foot = float(cfg_get(self.cfg, "env", "foot_geom_radius_m",
-                                     default=0.0))
-            if _r_foot > 0.0:
-                set_foot_geom_radius(self.model, _r_foot)
 
         # Pristine copies for DR restore at every reset.
         self._base_body_mass = self.model.body_mass.copy()

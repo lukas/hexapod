@@ -1,0 +1,12 @@
+{
+  "scope": "Standalone in-memory toy model only; exact new helper executed under existing cloud MuJoCo; no source files/processes changed.",
+  "result": {
+    "mujoco": "3.11.0",
+    "contact_count": 1,
+    "distance": -0.002,
+    "mass_exact": true,
+    "inertia_exact": true,
+    "friction_exact": true,
+    "rbound": 0.012
+  }
+}

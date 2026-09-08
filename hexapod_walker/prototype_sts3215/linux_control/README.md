@@ -248,6 +248,29 @@ as `robot_pose.visual_joint_bias_deg` in the vision config. This corrects only
 the displayed AprilTag yaw/hip angles; it never moves a motor or rewrites a
 servo zero. Knees remain visually unobservable without tibia/yoke markers.
 
+`/vision` owns one camera at a time. To see several USB cameras at once, run
+the submodule's multi-camera server instead
+(`uv run hexapod-camera-server --indices <i> ... --native-avfoundation <i> ...`,
+conventionally on `:8766`), and prefer the native AVFoundation path — the
+OpenCV backend has produced torn frames here.
+
+Two traps when several cameras are attached, both documented with measurements
+in [`hexapod-tracker/docs/LLM_HANDOFF.md`](../hexapod-tracker/docs/LLM_HANDOFF.md):
+
+- **Stopping the `/vision` camera does not release it.** After
+  `POST /api/vision/camera/stop`, `/api/vision/state` reports the camera `off`,
+  but the `:8898` process can still hold the device; another process then fails
+  to open it with `AVFoundationErrorDomain Code=-11817`, naming the holder in
+  `AVErrorPIDKey`. Only restarting that process frees the camera, and
+  restarting `:8898` is not free — it is the robot-control surface, and
+  `make web-8898-restart` relaunches from the working tree, so it changes the
+  served code.
+- **One USB 2.0 bus carries about two full-resolution OV9281 streams.** These
+  cameras have no compressed mode, so several on a single hub will starve.
+  Spread them across separate USB host controllers; a hub adds no bandwidth.
+  Torn, blocky frames usually mean two processes opened the same camera rather
+  than a saturated bus.
+
 ## Fast test / deploy loop
 
 For UI and controller edits, use the local helper instead of retyping the

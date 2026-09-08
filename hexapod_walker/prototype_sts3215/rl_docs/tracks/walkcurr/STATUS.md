@@ -1,3 +1,101 @@
+## 2026-09-08 ~10:3x-11:3x (triage cycle; assigned seed7 halfgrav cont10m pair) — both RETENTION-verdicted at 50M cumulative; built + shipped the "swing-count floor" pricing lever the 0.30/0.45-dose legduty-ratio FAILs named as the only open branch; 2 mechanism-health canaries launched
+
+One plain sentence: verdicted the two assigned seed7 halfgrav cart_foot
++10M continuations (ON holds its 22/24 gait band, matched OFF control
+technically retains falls/slip but its gait_valid keeps degrading,
+widening the gap), then used the free GPU capacity to build and launch
+the genuinely-new pricing design the legduty-ratio-charge dose-
+escalation FAILs (03:3x, 10:1x-10:2x below) explicitly named as the
+only remaining open branch instead of inventing filler.
+
+**`cw-walkscratch-easy0905-cartfoot-halfgrav-s7-acq1-cont10m` (ON) ->
+RETENTION PASS:** gait_valid HOLDS its established 40M band exactly
+(6/6, 6/6, 4/6, 6/6 = 22/24, same 2 chronic startjitter/det leg4
+sacrifices), slip/m med 1.60/1.90/1.70/1.86 all within +/-20% of the
+40M read (1.556/1.7215/1.6635/1.794), 0 falls/terminations in all 24
+episodes, reward still rising (quarters 246/706/1160/1451).
+
+**`cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s7-acq1-cont10m`
+(OFF) -> RETENTION PASS (narrow) / gait quality WORSENS:** clears its
+own registered gate (0 new falls, slip/m in-band: 1.76/1.97/1.78/1.98
+vs 40M's 1.90/1.91/1.83/1.93 -- that gate has no gait-retention
+clause) but gait_valid actually drops 10/24 -> 7/24 (0/6,4/6,0/6,3/6
+vs 40M's 0/6,5/6,0/6,5/6), both stochastic groups losing an extra
+episode to a newly-flagged leg1. Net: the ON/OFF gait-quality gap
+WIDENS at 50M (22/24 vs 7/24) rather than narrowing. SKILLS.md row
+added. Matches fb_20260908T103028_2eaaf6's report-only numbers exactly
+(cited, no rebuttal needed).
+
+**Built `reward.walk_leg_duty_ratio_swing_min_count` /
+`_swing_window_s` (both default 0.0/off, bit-exact legacy):** the
+0.30-dose and 0.45-dose legduty-ratio-charge FAILs (03:3x, 10:1x-10:2x
+below) both showed the identical within-episode trade -- a flagged
+leg's peer-relative duty ratio recovers above target (gait_valid
+flips True) while that SAME episode's slip gets WORSE -- consistent
+with the leg buying credit by dragging/planting longer rather than by
+completing real steps. The new keys let `walk_legduty_ratio_charge`
+zero a leg's effective ratio credit whenever its trailing qualifying-
+swing count (same stride-filtered definition `walk_swing_gate` already
+uses) is below a floor, regardless of how high its duty has climbed --
+closing that specific escape hatch without reopening the (already
+closed 11/11 FAIL) multiplicative-gate class this charge was built to
+differ from. Extended `walk_legduty_ratio_charge`'s signature
+backward-compatibly (`swing_counts=None, swing_min_count=0.0`
+defaults reproduce the exact prior 2-arg behavior byte-for-byte).
+6 new + 9 existing `test_task_semantics.py` bank tests green (plain-
+function unit proofs: default-off matches the old signature exactly;
+a leg with ratio>=target but a swing count below floor is charged the
+FULL target shortfall; a leg clearing both bars is charged nothing;
+the floor never REDUCES an already-low-ratio leg's charge, only adds).
+Landed on disk this cycle but git-committed inside concurrent cycles'
+own unrelated snapshot commits (shared-workspace mechanics, not a
+bug) -- `bc8643f2` (walk_task.py mechanism + SKILLS.md row) and
+`cfb7e364` (test bank); this cycle's own launch-time snapshot
+`fb587e11`/`5878754a` covers the ledger/run-doc side. Confirmed no
+regression via targeted runs (`-k "leg_duty_ratio"` 15/15,
+`-k "walk_leg_duty or walk_swing_gate or walk_duty_gate or
+walk_duty_band or walk_gait_gate"` 23/23) plus a full-file run (35
+pre-existing failures, ALL in unrelated mechanisms -- score/kernel_yaw/
+slipwalk/freeprog/amp/fullcircle/joycanary/recover/walkcurr_pf-swing-
+chargeramp-loadslip-stagea-rung0-idle_term-sv_pretrain -- none
+touching duty_ratio/swing_gate/duty_band/gait_gate).
+
+**Launched the swing-floor mechanism-health canary pair (n=2 seeds,
+batched):** `cw-walkscratch-crutchoff-{s0,s1}-widen8-legdutyratio-
+swingfloor`, each a one-lever respec of its own already-PASSED
+0.30-dose `...-legdutyratiofresh-guardfix1` sibling (byte-identical
+seed/init-from/heading-set/DR/motor cfg, only
+`walk_leg_duty_ratio_swing_min_count=2.0` /
+`_swing_window_s=4.0` added). Both VERIFIED RUNNING at launch
+(train-1, train-7); both finished their 2M steps within the cycle
+(fast canary, ~1-2 min at this fps) -- s0 ledger already reads
+FINISHED (wandb history confirms full 2,097,152 steps), s1 still
+finalizing; gate eval artifacts were not yet synced at cycle end
+(`defer-final-artifacts` CPU finalizer in flight) -- leave the
+MECHANISM-HEALTH verdict (does post-grace telemetry fire? does the
+specific "gait_valid recovers via worse slip" episode-level trade
+disappear vs the matched 0.30-dose sibling?) for the next reader per
+each run's own pre-registered gate text.
+
+Capacity: 2 launches this cycle (well under the 4/cycle cap), both
+2M canaries so negligible GPU-step budget. 7+ pods free at read time
+throughout; no other track had launch-ready work (todaypolicy/
+standwalk/assistfade each blocked on their own new-mechanism-design
+prerequisite per their own STATUS; cpg/amp DONE-or-maintenance;
+seed10/seed11 halfgrav 40M ACQ reads still training, owned
+concurrently) -- this was the one genuinely new, buildable lever on
+the board, so it got built and launched rather than left idle.
+
+Evidence: `ops.sh review cw-walkscratch-easy0905-cartfoot-halfgrav-
+{s7,offctrl-s7}-acq1-cont10m`; W&B `pmcso0fk`/`wlq0i0k6`;
+`rl_move/tests/test_task_semantics.py` (`test_walk_leg_duty_ratio_
+swing_floor_*`, 6 new tests); `rl_move/sim/walk_task.py`
+(`walk_legduty_ratio_charge` docstring + swing-floor bookkeeping);
+commits `bc8643f2`/`cfb7e364`/`fb587e11`/`5878754a`. RL_LOG 09-08
+~10:3x-11:3x. CYCLE_WORKED touched.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~11:5x (operator-kicked cycle; staged-DR device/exposure verification + joint-space 2x2 completion) — Warp endpoint/reset-pool delivery PROVEN on device; joint-space equal-40M pair launched; exposure-claim corrections recorded additively
 
 One plain sentence: we proved on the actual GPU/Warp device that the

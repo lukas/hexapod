@@ -122,12 +122,22 @@ def stance_geometry(hip_deg: float, knee_deg: float) -> dict:
 
 
 def feasibility_guard(hip_deg: float, knee_deg: float,
-                      cells: list[tuple[float, float]]) -> dict:
+                      cells: list[tuple[float, float]],
+                      period_scale: float = 1.0) -> dict:
     """Fail-closed kinematic guard: sweep the commanded gait at every
-    cell (4 s @100 Hz > 5 periods) and assert IK success plus every
-    commanded joint inside the hardware axis limits."""
+    cell (>=3 full effective periods, >=4 s) and assert IK success plus
+    every commanded joint inside the hardware axis limits.
+
+    ``period_scale`` (default 1.0, bit-exact with the original
+    stance-only guard) generalizes this to the cadence lever
+    (SCALE_PERIOD 0.40..2.00, `probe_turn_cadence.py`): a slower
+    cadence needs a longer sweep window to still cover several full
+    gait cycles."""
     g = TripodGait(vx=0.0)
     g.sync_plant_stance(hip_deg, knee_deg)
+    if period_scale != 1.0:
+        g.set_scales(period_scale=period_scale)
+    n_ticks = max(400, int(math.ceil(3.0 * g.period * g.period_scale / 0.01)))
     qs = []
     # desired_deg silently substitutes a finite neutral pose when _leg_ik
     # returns None. Observe the actual module global used by TripodGait,
@@ -153,7 +163,7 @@ def feasibility_guard(hip_deg: float, knee_deg: float,
         for vx, wz in cells:
             g.reset_phase(phase=0.0)
             g.set_velocity(vx=vx, omega=wz)
-            for i in range(400):
+            for i in range(n_ticks):
                 q = g.desired_deg(i * 0.01)
                 if ik_failures:
                     raise SystemExit(
@@ -183,7 +193,8 @@ def feasibility_guard(hip_deg: float, knee_deg: float,
                              f"{margins[nm]} at stance ({hip_deg},{knee_deg})")
     return {"stance": stance_geometry(hip_deg, knee_deg),
             "joint_margins": margins,
-            "raw_ik_calls": ik_calls, "raw_ik_failures": ik_failures}
+            "raw_ik_calls": ik_calls, "raw_ik_failures": ik_failures,
+            "period_scale": period_scale, "n_ticks_per_cell": n_ticks}
 
 
 def fit_twist_resid(pos: np.ndarray, vel: np.ndarray, sel: np.ndarray):
@@ -221,6 +232,7 @@ def xcorr_lag_ticks(x: np.ndarray, y: np.ndarray, max_lag: int) -> int:
 def rollout(*, policy: str, model, model_obs_width, cfg_set, vx_cmd, wz_cmd,
             seed, episode_seconds, phase_offset=0.0,
             stance_hip_deg=None, stance_knee_deg=None,
+            period_scale: float = 1.0,
             plant: str = "twin") -> dict:
     env = pta.make_env(cfg_set, seed, episode_seconds)
     if model_obs_width is not None:
@@ -264,6 +276,8 @@ def rollout(*, policy: str, model, model_obs_width, cfg_set, vx_cmd, wz_cmd,
     if policy == "scripted":
         gait = TripodGait(vx=0.0)
         gait.sync_plant_stance(st_hip, st_knee)
+        if period_scale != 1.0:
+            gait.set_scales(period_scale=period_scale)
         gait.reset_phase(phase=phase_offset)
 
     rows = []
@@ -313,6 +327,9 @@ def rollout(*, policy: str, model, model_obs_width, cfg_set, vx_cmd, wz_cmd,
     out = {"policy": policy, "vx_cmd": vx_cmd, "wz_cmd": wz_cmd,
            "seed": seed, "phase_offset": phase_offset,
            "stance_hip_deg": st_hip, "stance_knee_deg": st_knee,
+           "period_scale": period_scale,
+           "period_eff_s": (gait.period * gait.period_scale
+                            if gait is not None else None),
            "planned_stance": stance_geometry(st_hip, st_knee), "fell": fell,
            "n_scored_ticks": len(rows), "model_identity": identity,
            "motor_contract": {k: contract[k] for k in
@@ -337,6 +354,15 @@ def rollout(*, policy: str, model, model_obs_width, cfg_set, vx_cmd, wz_cmd,
     out["body"] = {"vx_med": float(np.median([r["vx_body"] for r in rows])),
                    "wz_med": float(np.median([r["wz_body"] for r in rows]))}
     out["duty_contact"] = np.mean(contact, axis=0).round(4).tolist()
+    # cadence-comparability metric (review 20260908T014636: a slower
+    # period_scale visits FEWER stance/swing reversals in the same
+    # window -- report the raw event count and rate so a cadence
+    # comparison can tell "genuinely fewer usable cycles" apart from a
+    # real per-cycle improvement).
+    liftoffs = (contact[:-1].astype(int) - contact[1:].astype(int)) > 0
+    out["reversal_count"] = liftoffs.sum(axis=0).tolist()
+    scored_s = len(rows) * dt
+    out["reversal_rate_hz"] = (liftoffs.sum(axis=0) / scored_s).round(4).tolist()
 
     # material-contact slip: world-frame pad XY speed while loaded/contact
     v_w = np.linalg.norm(np.diff(pads_w[:, :, :2], axis=0), axis=2) / dt
@@ -417,7 +443,9 @@ def rollout(*, policy: str, model, model_obs_width, cfg_set, vx_cmd, wz_cmd,
 
     # per-leg measurements
     per = {}
-    max_lag = 40
+    period_eff_s = gait.period * gait.period_scale if gait is not None else None
+    period_eff_ms = period_eff_s * 1000.0 if period_eff_s else None
+    max_lag = min(100, int(round(40 * max(1.0, period_scale))))
     for f in range(6):
         e = {}
         if plan_sw is not None:
@@ -430,6 +458,13 @@ def rollout(*, policy: str, model, model_obs_width, cfg_set, vx_cmd, wz_cmd,
             e["contact_lag_ms"] = 10 * xcorr_lag_ticks(
                 plan_sw[:, f].astype(float),
                 (~contact[:, f]).astype(float), max_lag)
+            # FRACTIONAL lag (review 20260908T014636: a longer period
+            # stretches the whole cycle, so an unchanged ABSOLUTE ms lag
+            # is a SMALLER fraction of the cycle -- report both so a
+            # cadence comparison isn't read as "generic rate relief"
+            # off the absolute number alone).
+            if period_eff_ms:
+                e["contact_lag_frac"] = e["contact_lag_ms"] / period_eff_ms
             e["scuff_frac"] = float(np.mean(contact[plan_sw[:, f], f])) \
                 if plan_sw[:, f].any() else None
             st_med = (np.median(pads_wz[~plan_sw[:, f], f])

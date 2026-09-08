@@ -54,6 +54,27 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   Cycle 20260908T005017 owns a bounded SIM-only lift-phase comparison on
   pinned model/config hashes, existing seed and unchanged motor limits.
   See artifacts/rl_watchdog/turnpipeline_review_20260908.md.
+  FOLLOW-UP (2026-09-08, on the frozen full-mesh plant, all zero-training):
+  three in-limits scripted-gait dial levers were each measured against the
+  same pre-registered both-signs-gain bar and all three CLOSED —
+  lift-only phase lead (`artifacts/rl_watchdog/turn_liftlead_20260908/`,
+  the executed gait is already phase-self-aligned), stance-posture
+  yaw-arm extension (`artifacts/rl_watchdog/turn_stancearm_20260908/`,
+  +19% arm gain sheds into loaded-pad slip instead of rotation), and
+  cadence/`period_scale` (`artifacts/rl_watchdog/turn_cadence_20260908/`,
+  BOTH directions regress -14%/-16% at period_scale 1.5 despite a
+  confirmed swing-execution improvement — fractional lag -28%, lift
+  tracking +272% — plus a NEW straight-line phase-dependent yaw-sign
+  bias at the slower cadence). No 2M canary was justified for any of the
+  three (bar unmet every time). Each closure's own vx side-finding
+  (arm +12-21%, cadence +19%) is a candidate SPEED lever for the
+  speed-soft walk stack, not a turn-authority fix — cadence's side-
+  finding specifically WORSENS straight drift (unlike the stance-arm
+  one, which halved it), so it needs its own bias fix before reuse.
+  No further in-limits kinematic/timing/geometry dial remains nominated;
+  the next lever (if pursued) needs a genuinely new mechanism (direct
+  traction/force-budget diagnostic) or a fleet-wide plant/hardware
+  contract change, both operator-scoped per q_20260908T0050Z.
 - SHARDED KNEE-FRAME FIX (2026-09-07): before commit dd248bd8/37c8e808,
   `MjxShardedVecEnv` workers stored raw mujoco-frame `q_nom` into
   `_q_nom`/`_cmd`/seq frames (missing `_mujoco_to_logical_q`), so every

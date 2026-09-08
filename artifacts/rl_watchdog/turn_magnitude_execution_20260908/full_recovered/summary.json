@@ -1,0 +1,41 @@
+{
+  "status": "COMPLETE",
+  "decision": "STOP",
+  "groups": {
+    "wz_neg_phase0": {
+      "wz_sign": -1,
+      "authority": false,
+      "allocation": false
+    },
+    "wz_neg_phase1": {
+      "wz_sign": -1,
+      "authority": false,
+      "allocation": false
+    },
+    "wz_pos_phase0": {
+      "wz_sign": 1,
+      "authority": false,
+      "allocation": false
+    },
+    "wz_pos_phase1": {
+      "wz_sign": 1,
+      "authority": false,
+      "allocation": false
+    }
+  },
+  "both_sign_authority": false,
+  "both_sign_allocation": false,
+  "states": 8,
+  "available_states": 8,
+  "branch_slots": 40,
+  "executed_branches": 40,
+  "continuous_baselines": 4,
+  "straight_rollouts": 6,
+  "total_rollouts": 50,
+  "zero_parity": true,
+  "pulse_prefix_vector_parity": true,
+  "straight_parity": true,
+  "straight_retention": true,
+  "wall_seconds": 37.31931948661804,
+  "no_PPO": true
+}

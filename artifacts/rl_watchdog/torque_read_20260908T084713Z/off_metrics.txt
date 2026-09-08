@@ -1,0 +1,378 @@
+# Cached W&B data for cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1-torque1x-c1
+
+## wandb_summary.json
+{
+ "id": "c4inur4k",
+ "state": "running",
+ "url": "[REDACTED_URL]",
+ "notes": "WHAT THIS RUN IS TRYING TO LEARN: the default goal mix from config.yaml (hold / lean / track / unload / rise) \u2014 by fine-tuning the existing checkpoint ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s7_acq1.zip (task env: joint_walk).\n\nrespec of cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1: Plain English: matched joint-space control for the Cartesian torque-removal canary \u2014 does the fresh-scratch JOINT-space walker keep walking when the 3x torque training-wheels are removed? 2M warm continuation of the FROZEN 40M parent cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1 (ckpt sha256 f4b962c1a851b2b413625d631969b9d63e509633f2f64629733c2141982d014e, mesh_mjx twin 0-mesh/91-geom 4.806kg), changing ONLY dr.torque_scale 3,3->1,1; seed 7, rewards/PPO/motor limits unchanged, no cart_foot keys; matched ON sibling launched same cycle. Frozen protocol: artifacts/rl_watchdog/cartfoot_fresh_torque_guidance_20260908/PLAN.md (operator-authorized 4M total). Prediction-if-true: zero terminations, movement floor held, gait_valid >= own 3x source count 19/24 at 1x. Prediction-if-false: terminations or movement-floor loss at 1x. Strongest alternative: the frozen parent already passes 1x zero-shot (matched no-training parent-1x baseline eval runs alongside; child==zero-shot is NOT a training gain). If only ON fails while OFF retains health, that supports differential Cartesian torque sensitivity in this seed/recipe.\n\n=== REWARD FUNCTION (resolved config.yaml + --cfg-set; meanings/formulas: rl_docs/REWARD.md; per-term training curves: env/* in W&B) ===\n  reward.alive = 0.0\n  reward.curl_milestone_mm = [40.0, 15.0]\n  reward.height_sigma_mm = 20.0\n  reward.k_action = 0.0   [cfg-set]\n  reward.k_action_delta = 0.01   [cfg-set]\n  reward.k_curl_progress = 120.0\n  reward.k_current = 0.0   [cfg-set]\n  reward.k_gyro = 0.0   [cfg-set]\n  reward.k_height = 0.0   [cfg-set]\n  reward.k_loadslip_excess = 0.0   [cfg-set]\n  reward.k_park_duty = 0.0   [cfg-set]\n  reward.k_pitch = 0.0   [cfg-set]\n  reward.k_rise_finish = 1.0\n  reward.k_rise_milestone = 2.0\n  reward.k_rise_progress = 100.0\n  reward.k_roll = 0.0   [cfg-set]\n  reward.k_step_event = 0.0   [cfg-set]\n  reward.k_track = 0.0   [cfg-set]\n  reward.k_unload = 0.2\n  reward.k_walk_freeprog = 2.0   [cfg-set]\n  reward.k_walk_heading = 0.0   [cfg-set]\n  reward.k_walk_idle_charge = 0.0   [cfg-set]\n  reward.rise_finish_sigma_mm = 8.0\n  reward.rise_hold_curl_sigma_mm = 20.0\n  reward.safety_termination_penalty = 24.0   [cfg-set]\n  reward.term_penalty = 24.0   [cfg-set]\n  reward.track_sigma_deg = 1.5\n  reward.unload_sigma_a = 0.15\n  reward.unload_sigma_n = 1.0\n  reward.unload_tilt_sigma_deg = 4.0\n  reward.walk_freeprog_cap_m_s = 0.06   [cfg-set]\n  reward.walk_kernel_vel_ema = 1.0   [cfg-set]\n  reward.walk_kernel_vel_tau_s = 0.1   [cfg-set]",
+ "config": {
+  "impl": "warp",
+  "seed": 7,
+  "task": "joint_walk",
+  "no_dr": false,
+  "n_envs": 4096,
+  "cfg_set": [
+   "env.model_source=mesh_mjx",
+   "control.hz=100",
+   "goal.walk_pure=1",
+   "goal.walk_speed_min_m_s=0.06",
+   "goal.walk_speed_max_m_s=0.06",
+   "goal.walk_heading_max_rad=0.0",
+   "goal.walk_cmd_resample_s=0.0",
+   "goal.walk_cmd_metrics=1",
+   "goal.walk_cmd_hold_s=0.0",
+   "goal.walk_cmd_ramp_s=0.0",
+   "goal.joint_action_bias_hip_deg=40.0",
+   "goal.joint_action_bias_knee_deg=35.0",
+   "goal.joint_action_box_yaw_deg=15.0",
+   "goal.joint_action_box_hip_deg=20.0",
+   "goal.joint_action_box_knee_deg=25.0",
+   "reward.k_walk_freeprog=2.0",
+   "reward.walk_freeprog_cap_m_s=0.06",
+   "reward.walk_kernel_vel_ema=1.0",
+   "reward.walk_kernel_vel_tau_s=0.1",
+   "reward.term_penalty=24",
+   "reward.safety_termination_penalty=24",
+   "reward.k_track=0.0",
+   "reward.k_roll=0.0",
+   "reward.k_pitch=0.0",
+   "reward.k_height=0.0",
+   "reward.k_gyro=0.0",
+   "reward.k_action=0.0",
+   "reward.k_action_delta=0.01",
+   "reward.k_current=0.0",
+   "reward.k_walk_heading=0.0",
+   "reward.k_step_event=0.0",
+   "reward.k_park_duty=0.0",
+   "reward.k_walk_idle_charge=0.0",
+   "reward.k_loadslip_excess=0.0",
+   "bus.write_speed=4096",
+   "bus.servo_vel_max_counts_s=write_speed",
+   "bus.write_acc=1000",
+   "safety.max_delta_q_deg=3.6",
+   "safety.max_current_a=100",
+   "safety.max_roll_deg=30",
+   "safety.max_pitch_deg=30",
+   "struct_comp.enabled=0",
+   "dr.latency_scale=0,0",
+   "dr.deadband_scale=0,0",
+   "dr.torque_scale=1,1",
+   "dr.encoder_noise_deg=0",
+   "dr.tilt_noise_deg=0",
+   "dr.gyro_noise_deg_s=0"
+  ],
+  "n_steps": 128,
+  "trainer": "train_ppo_mjx",
+  "dr_scale": 0,
+  "model_dr": false,
+  "batch_size": 131072,
+  "reward_cfg": {
+   "alive": 0,
+   "k_gyro": 0,
+   "k_roll": 0,
+   "k_pitch": 0,
+   "k_track": 0,
+   "k_action": 0,
+   "k_height": 0,
+   "k_unload": 0.2,
+   "k_current": 0,
+   "k_park_duty": 0,
+   "k_step_event": 0,
+   "term_penalty": 24,
+   "k_rise_finish": 1,
+   "k_action_delta": 0.01,
+   "k_walk_heading": 0,
+   "unload_sigma_a": 0.15,
+   "unload_sigma_n": 1,
+   "height_sigma_mm": 20,
+   "k_curl_progress": 120,
+   "k_rise_progress": 100,
+   "k_walk_freeprog": 2,
+   "track_sigma_deg": 1.5,
+   "k_rise_milestone": 2,
+   "curl_milestone_mm": [
+    40,
+    15
+   ],
+   "k_loadslip_excess": 0,
+   "k_walk_idle_charge": 0,
+   "walk_kernel_vel_ema": 1,
+   "rise_finish_sigma_mm": 8,
+   "unload_tilt_sigma_deg": 4,
+   "walk_freeprog_cap_m_s": 0.06,
+   "walk_kernel_vel_tau_s": 0.1,
+   "rise_hold_curl_sigma_mm": 20,
+   "safety_termination_penalty": 24
+  },
+  "learning_rate": 0.0003,
+  "mjx_iterations": null,
+  "motor_contract": {
+   "control.hz": 100,
+   "bus.write_acc": 1000,
+   "backend_profile": "mjx_tickparams:warp",
+   "bus.write_speed": 4096,
+   "bus.servo_params": "",
+   "slew_limit_deg_s": 360,
+   "servo_params_source": "/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json+vel_max=4096cps",
+   "bus.profile_ramp_steps": 0,
+   "safety.max_delta_q_deg": 3.6,
+   "bus.servo_vel_max_counts_s": "write_speed",
+   "resolved_vel_max_deg_s_max": 360,
+   "resolved_vel_max_deg_s_min": 360,
+   "resolved_vel_max_counts_s_max": 4096
+  },
+  "canary_baseline": {
+   "hold_a": 0,
+   "hold_b": 0,
+   "lower_a": 0,
+   "lower_b": 0,
+   "walk_fwd_a": 0,
+   "walk_fwd_b": 0,
+   "rise_flat_a": 0,
+   "rise_flat_b": 0,
+   "rise_bridge_a": 0,
+   "rise_bridge_b": 0,
+   "rise_crouch_a": 0,
+   "rise_crouch_b": 0
+  },
+  "episode_seconds": 20,
+  "predictive_live": false,
+  "recover_buckets": {
+   "0": [
+    "plant_catch"
+   ],
+   "1": [
+    "onefoot_micro"
+   ],
+   "2": [
+    "onefoot_mid"
+   ],
+   "3": [
+    "onefoot"
+   ],
+   "4": [
+    "park"
+   ],
+   "5": [
+    "crouch_shallow"
+   ],
+   "6": [
+    "crouch_mid"
+   ],
+   "7": [
+    "crouch_deep"
+   ],
+   "8": [
+    "partial_high"
+   ],
+   "9": [
+    "partial_mid"
+   ],
+   "10": [
+    "partial_low"
+   ],
+   "11": [
+    "zero"
+   ],
+   "12": [
+    "tangle_mild"
+   ],
+   "13": [
+    "tangle_mid"
+   ],
+   "14": [
+    "repair_one"
+   ],
+   "15": [
+    "repair_two"
+   ],
+   "16": [
+    "tangle_60"
+   ],
+   "17": [
+    "tangle_70"
+   ],
+   "18": [
+    "tangle_80"
+   ],
+   "19": [
+    "tangle_90"
+   ],
+   "20": [
+    "tangle"
+   ],
+   "21": [
+    "bank"
+   ],
+   "22": [
+    "flip"
+   ]
+  },
+  "walk_curriculum": false,
+  "canary_protected": [],
+  "predictive_actor": false,
+  "sim_model_source": "/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json+vel_max=4096cps",
+  "canary_stop_after": 3,
+  "mjx_ls_iterations": null,
+  "recover_cert_envs": 8,
+  "recover_cert_every": 1000000,
+  "recover_replay_mix": {
+   "focus": 0.5,
+   "weakest": 0.15,
+   "recent_three": 0.25,
+   "uniform_older": 0.1,
+   "training_error_overlay": 0.1
+  },
+  "walkcurr_cert_every": 500000,
+  "eval_episode_seconds": 20,
+  "recover_population_id": null,
+  "walkcurr_cert_cfg_set": [],
+  "walkcurr_cert_episodes": 8,
+  "recover_population_runs": [],
+  "walk_curriculum_version": 1,
+  "recover_population_member": -1,
+  "recover_retention_buckets": 3,
+  "recover_rollback_fraction": 0.6,
+  "recover_population_run_ids": [],
+  "recover_full_retention_every": 2,
+  "recover_rollback_after_steps": 4000000,
+  "recover_population_bootstrap_steps": 5242880,
+  "recover_population_bootstrap_rollouts": 10,
+  "recover_population_barrier_timeout_seconds": 900
+ },
+ "summary": {
+  "time/fps": 17869,
+  "train/std": 0.13520713,
+  "train/loss": 32.852005,
+  "global_step": 2097152,
+  "env/height_mm": 24.183718920312455,
+  "env/wrong_way": 0.012969970703125,
+  "env/walk_speed": 0.10671608444005376,
+  "env/reward_gyro": 0,
+  "env/reward_roll": 0,
+  "env/reward_task": 0,
+  "env/reward_walk": 1.2085865701479723,
+  "train/approx_kl": 0.004900641,
+  "env/abs_roll_deg": 2.3392170374782326,
+  "env/reward_alive": 0,
+  "env/reward_pitch": 0,
+  "env/reward_still": 0,
+  "env/roll_ref_deg": 0,
+  "env/roll_rel_deg": 0.03561738404481947,
+  "env/still_factor": 0,
+  "env/walk_vel_err": 0.0430329748715148,
+  "train/clip_range": 0.2,
+  "train/value_loss": 68.036606,
+  "env/abs_pitch_deg": 1.5668504142021815,
+  "env/cmd_speed_m_s": 0.05999999999996019,
+  "env/height_err_mm": 24.183718920312455,
+  "env/height_ref_mm": 0,
+  "env/max_current_a": 2.3155690155197637,
+  "env/pitch_ref_deg": 0,
+  "env/reward_action": 0,
+  "env/reward_height": 0,
+  "env/reward_unload": 0,
+  "env/track_err_deg": 3.1243139957060646,
+  "env/mean_current_a": 1.445974071940649,
+  "env/reward_current": 0,
+  "env/walk_dir_valid": 0.998321533203125,
+  "train/entropy_loss": 10.465768,
+  "env/pct_within_1deg": 0.085845947265625,
+  "env/v_along_cmd_m_s": 0.08173215378447513,
+  "env/v_cross_abs_m_s": 0.04288077783078562,
+  "rollout/ep_len_mean": 487.88,
+  "rollout/ep_rew_mean": 544.5965,
+  "train/clip_fraction": 0.027775954,
+  "train/learning_rate": 0.0003,
+  "env/reward_walk_prog": 0,
+  "env/walk_cmd_mode_id": 0,
+  "joystick/v_along_m_s": 0.08173215378447513,
+  "time/env_steps_per_s": 14035.334424385184,
+  "time/total_env_steps": 2097152,
+  "train/wrong_way_frac": 0.016632080078125,
+  "env/tilt_settle_scale": 1,
+  "joystick/active_ticks": 2097152.0,
+  "train/v_cross_abs_m_s": 0.042461518215752024,
+  "env/reward_current_max": 0,
+  "env/reward_termination": 0,
+  "env/walk_height_factor": 0.7210417459789009,
+  "log_std_anneal/all/std": 0.1353402552423966,
+  "terminations/truncated": 261,
+  "env/reward_action_delta": -0.008069466667267646,
+  "env/walk_freeprog_cross": 0.017916364421998614,
+  "env/walk_freeprog_score": 0.5882666113689122,
+  "env/walk_loadslip_ratio": 7.511135801171477,
+  "log_std_anneal/all/frac": 0.786432,
+  "env/walk_direction_valid": 0.99298095703125,
+  "env/walk_loadslip_factor": 0.0035224371545334006,
+  "log_std_anneal/all/value": -1.9999632622451784,
+  "train/explained_variance": 0.2222864,
+  "env/walk_direction_err_deg": 34.6093160362363,
+  "train/cmd_speed_active_m_s": 0.05999999999996019,
+  "train/policy_gradient_loss": -0.0011942302,
+  "train/v_along_ratio_active": 1.3622025630754893,
+  "env/walk_kernel_sigma_v_m_s": 0.04999999999997124,
+  "env/walk_kernel_vel_ema_err": 0.0430329748715148,
+  "env/reward_walk_freeprog_pen": -0.561670635259684,
+  "env/walk_direction_wrong_way": 0.10990226811727824,
+  "optimization/reward_per_tick": 1.185337882488966,
+  "joystick/v_along_m_s_cumulative": 0.07810829210015556,
+  "optimization/reward_per_tick_ema": 1.071755313311897,
+  "train/v_along_ratio_active_cumulative": 1.301804868332302,
+  "optimization/reward_per_tick_cumulative": 1.1379579827400903
+ }
+}
+
+## wandb_history.csv (last 50 of 50 rows)
+_runtime,_step,_timestamp,env/abs_pitch_deg,env/abs_roll_deg,env/cmd_speed_m_s,env/height_err_mm,env/height_mm,env/height_ref_mm,env/max_current_a,env/mean_current_a,env/pct_within_1deg,env/pitch_ref_deg,env/reward_action,env/reward_action_delta,env/reward_alive,env/reward_current,env/reward_current_max,env/reward_gyro,env/reward_height,env/reward_pitch,env/reward_roll,env/reward_still,env/reward_task,env/reward_termination,env/reward_unload,env/reward_walk,env/reward_walk_freeprog_pen,env/reward_walk_prog,env/roll_ref_deg,env/roll_rel_deg,env/still_factor,env/tilt_settle_scale,env/track_err_deg,env/v_along_cmd_m_s,env/v_cross_abs_m_s,env/walk_cmd_mode_id,env/walk_dir_valid,env/walk_direction_err_deg,env/walk_direction_valid,env/walk_direction_wrong_way,env/walk_freeprog_cross,env/walk_freeprog_score,env/walk_height_factor,env/walk_kernel_sigma_v_m_s,env/walk_kernel_vel_ema_err,env/walk_loadslip_factor,env/walk_loadslip_ratio,env/walk_speed,env/walk_vel_err,env/wrong_way,global_step,joystick/active_ticks,joystick/v_along_m_s,joystick/v_along_m_s_cumulative,log_std_anneal/all/frac,log_std_anneal/all/std,log_std_anneal/all/value,optimization/reward_per_tick,optimization/reward_per_tick_cumulative,optimization/reward_per_tick_ema,rollout/ep_len_mean,rollout/ep_rew_mean,terminations/truncated,time/env_steps_per_s,time/fps,time/total_env_steps,train/approx_kl,train/clip_fraction,train/clip_range,train/cmd_speed_active_m_s,train/entropy_loss,train/explained_variance,train/learning_rate,train/loss,train/policy_gradient_loss,train/std,train/v_along_ratio_active,train/v_along_ratio_active_cumulative,train/v_cross_abs_m_s,train/value_loss,train/wrong_way_frac
+51.984177438,0,1788855327.5460098,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0,,,,0,0.13535856547978906,-1.9998279809951782,,,,,,,,,,,,,,,,,,,,,,,,
+88.138451882,1,1788855363.699659,1.3693049101196515,2.1761897026056656,0.05999999999996019,23.3683066071535,23.3683066071535,0,2.2046882674489994,1.3632131099990452,0.15472412109375,0,0,-0.007886277634274647,0,0,0,0,0,0,0,0,0,0,0,1.071462251564784,-0.3979131358956339,0,0,-0.3603712624730904,0,1,2.853686179499163,0.06955648636798352,0.040471774263817505,0,0.993927001953125,41.500645072041564,0.980712890625,0.12714712471994025,0.01631727856719258,0.517995770100763,0.7323034048476454,0.04999999999997124,0.04173991648492229,0.03919207939927894,6.711758493347821,0.0992931242536836,0.04173991648492229,0.02545166015625,524288,524288,0.06955648636798352,0.06955648636798352,,,,1.0339280181478898,1.0339280181478898,1.0339280181478898,101.14,100.92202758789062,262,6092.0587193243155,,524288,,,,0.05999999999996019,,,,,,,1.1592747728004946,1.1592747728004946,0.040471774263817505,,0.02545166015625
+88.668740074,2,1788855364.2305892,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,524288,,,,0.262144,0.13535246179209706,-1.9998730747451783,,,,,,,,,,,,,,,,,,,,,,,,
+91.983146917,3,1788855363.7014108,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,524288,,,,,,,,,,101.14,,,,,,,,,,,,,,,,,,,,
+91.983185561,4,1788855363.701489,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,524288,,,,,,,,,,,100.92203,,,,,,,,,,,,,,,,,,,
+91.983199409,5,1788855363.7015042,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,524288,,,,,,,,,,,,,,9711,,,,,,,,,,,,,,,,
+108.967258267,6,1788855384.5283718,1.551052020443746,2.422893409848063,0.05999999999996019,24.336154172488023,24.336154172488023,0,2.322430935761998,1.4472701415469655,0.09112548828125,0,0,-0.008059194786871933,0,0,0,0,0,0,0,0,0,0,0,1.2051647281994657,-0.5472195186388935,0,0,0.046952930712554186,0,1,3.1727302300135936,0.0791263510533494,0.04308399778894648,0,0.998199462890625,35.40989704109125,0.992706298828125,0.12398167788742354,0.01759772208337695,0.5866006417078419,0.7183170725706186,0.04999999999997124,0.04125641345989877,0.0017804995308785565,8.28550826062512,0.10488542361555865,0.04125641345989877,0.012908935546875,1048576,1048576.0,0.0791263510533494,0.07434141871066707,,,,1.1603269884362817,1.0971275032920857,1.046567915176729,222.77,238.82382202148438,244,9809.903622409644,,1048576,,,,0.05999999999996019,,,,,,,1.3187725175566984,1.239023645178759,0.04177788602638171,,0.0191802978515625
+109.901232355,7,1788855385.4628007,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1048576,,,,0.524288,0.13534635837963707,-1.9999181684951781,,,,,,,,,,,,,,,,,,,,,,,,
+111.987480291,8,1788855384.546696,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1048576,,,,,,,,,,222.77,,,,,,,,,,,,,,,,,,,,
+111.98756653,9,1788855384.546755,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1048576,,,,,,,,,,,238.82382,,,,,,,,,,,,,,,,,,,
+111.987594126,10,1788855384.5467658,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1048576,,,,,,,,,,,,,,14012,,,,,,,,,,,,,,,,
+111.987618323,11,1788855384.5467758,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1048576,,,,,,,,,,,,,,,,0.028193608,,,,,,,,,,,,,,
+111.987666635,12,1788855384.546792,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1048576,,,,,,,,,,,,,,,,,0.14737065,,,,,,,,,,,,,
+111.987693918,13,1788855384.5468006,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1048576,,,,,,,,,,,,,,,,,,0.2,,,,,,,,,,,,
+111.988111801,14,1788855384.5468078,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1048576,,,,,,,,,,,,,,,,,,,,10.45885,,,,,,,,,,
+111.988138531,15,1788855384.546814,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1048576,,,,,,,,,,,,,,,,,,,,,0.22909302,,,,,,,,,
+111.988151036,16,1788855384.5468197,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1048576,,,,,,,,,,,,,,,,,,,,,,0.0003,,,,,,,,
+111.988166915,17,1788855384.5468252,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1048576,,,,,,,,,,,,,,,,,,,,,,,33.303173,,,,,,,
+111.988179522,18,1788855384.546831,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1048576,,,,,,,,,,,,,,,,,,,,,,,,0.009229953,,,,,,
+111.988198835,19,1788855384.5471072,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1048576,,,,,,,,,,,,,,,,,,,,,,,,,0.13531788,,,,,
+111.988211635,20,1788855384.5473526,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1048576,,,,,,,,,,,,,,,,,,,,,,,,,,,,,74.07871,
+129.861750131,21,1788855405.4232125,1.5784641415880283,2.473347706052805,0.05999999999996019,24.287647812343494,24.287647812343494,0,2.3180567166313177,1.4477020712824618,0.083648681640625,0,0,-0.008078365505416721,0,0,0,0,0,0,0,0,0,0,0,1.1991522591128214,-0.5524273420140368,0,0,-0.10275881034779652,0,1,3.2397227227727643,0.08201817719481265,0.04340952297946026,0,0.99798583984375,34.70769906604595,0.992279052734375,0.11520836536982931,0.018397655772779315,0.5832400060697305,0.7191975824457113,0.04999999999997124,0.043350678403100966,0.0024037841719470976,7.75170080356082,0.10720089726577711,0.043350678403100966,0.01519775390625,1572864,1572864.0,0.08201817719481265,0.0769003382053823,,,,1.1722390418872237,1.1221646828237983,1.0591350278477785,353.12,388.9196472167969,245,12308.710791209442,,1572864,,,,0.05999999999996019,,,,,,,1.3669696199144512,1.2816723034211306,0.04232176501074078,,0.017852783203125
+130.773967237,22,1788855406.3354,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1572864,,,,0.786432,0.1353402552423966,-1.9999632622451782,,,,,,,,,,,,,,,,,,,,,,,,
+131.991772347,23,1788855405.4243104,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1572864,,,,,,,,,,353.12,,,,,,,,,,,,,,,,,,,,
+131.991821977,24,1788855405.4243479,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1572864,,,,,,,,,,,388.91965,,,,,,,,,,,,,,,,,,,
+131.991838705,25,1788855405.424359,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1572864,,,,,,,,,,,,,,16434,,,,,,,,,,,,,,,,
+131.991878409,26,1788855405.4243677,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1572864,,,,,,,,,,,,,,,,0.0041486043,,,,,,,,,,,,,,
+131.991893473,27,1788855405.424374,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1572864,,,,,,,,,,,,,,,,,0.026075363,,,,,,,,,,,,,
+131.99191959,28,1788855405.42438,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1572864,,,,,,,,,,,,,,,,,,0.2,,,,,,,,,,,,
+131.991934338,29,1788855405.4243858,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1572864,,,,,,,,,,,,,,,,,,,,10.464345,,,,,,,,,,
+131.991948025,30,1788855405.424392,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1572864,,,,,,,,,,,,,,,,,,,,,0.19528145,,,,,,,,,
+131.991962707,31,1788855405.4243975,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1572864,,,,,,,,,,,,,,,,,,,,,,0.0003,,,,,,,,
+131.991979653,32,1788855405.424403,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1572864,,,,,,,,,,,,,,,,,,,,,,,32.852837,,,,,,,
+131.991994684,33,1788855405.4244087,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1572864,,,,,,,,,,,,,,,,,,,,,,,,-0.0009424498,,,,,,
+131.992008529,34,1788855405.424566,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1572864,,,,,,,,,,,,,,,,,,,,,,,,,0.13523336,,,,,
+131.992020945,35,1788855405.4247448,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1572864,,,,,,,,,,,,,,,,,,,,,,,,,,,,,69.26212,
+151.496819349,36,1788855427.0581963,1.5668504142021815,2.3392170374782326,0.05999999999996019,24.183718920312458,24.183718920312458,0,2.3155690155197637,1.445974071940649,0.085845947265625,0,0,-0.008069466667267646,0,0,0,0,0,0,0,0,0,0,0,1.2085865701479723,-0.561670635259684,0,0,0.03561738404481947,0,1,3.1243139957060646,0.08173215378447513,0.04288077783078562,0,0.998321533203125,34.6093160362363,0.99298095703125,0.10990226811727825,0.017916364421998614,0.5882666113689122,0.7210417459789009,0.04999999999997124,0.0430329748715148,0.0035224371545334006,7.511135801171477,0.10671608444005376,0.0430329748715148,0.012969970703125,2097152,2097152.0,0.08173215378447513,0.07810829210015556,,,,1.185337882488966,1.1379579827400903,1.0717553133118973,487.88,544.5964965820312,261,14035.334424385183,,2097152,,,,0.05999999999996019,,,,,,,1.3622025630754893,1.301804868332302,0.042461518215752024,,0.016632080078125
+151.995033818,37,1788855427.0753849,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2097152,,,,,,,,,,487.88,,,,,,,,,,,,,,,,,,,,
+151.995065858,38,1788855427.0754263,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2097152,,,,,,,,,,,544.5965,,,,,,,,,,,,,,,,,,,
+151.995082503,39,1788855427.0754364,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2097152,,,,,,,,,,,,,,17869,,,,,,,,,,,,,,,,
+151.995092321,40,1788855427.075444,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2097152,,,,,,,,,,,,,,,,0.004900641,,,,,,,,,,,,,,
+151.995102421,41,1788855427.0754511,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2097152,,,,,,,,,,,,,,,,,0.027775954,,,,,,,,,,,,,
+151.995110533,42,1788855427.0754576,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2097152,,,,,,,,,,,,,,,,,,0.2,,,,,,,,,,,,
+151.995117784,43,1788855427.075463,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2097152,,,,,,,,,,,,,,,,,,,,10.465768,,,,,,,,,,
+151.9951275,44,1788855427.0754693,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2097152,,,,,,,,,,,,,,,,,,,,,0.2222864,,,,,,,,,
+151.995137564,45,1788855427.075475,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2097152,,,,,,,,,,,,,,,,,,,,,,0.0003,,,,,,,,
+151.995145804,46,1788855427.0754802,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2097152,,,,,,,,,,,,,,,,,,,,,,,32.852005,,,,,,,
+151.995153767,47,1788855427.0754862,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2097152,,,,,,,,,,,,,,,,,,,,,,,,-0.0011942302,,,,,,
+151.995161995,48,1788855427.0757122,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2097152,,,,,,,,,,,,,,,,,,,,,,,,,0.13520713,,,,,
+151.995239977,49,1788855427.0759828,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2097152,,,,,,,,,,,,,,,,,,,,,,,,,,,,,68.036606,

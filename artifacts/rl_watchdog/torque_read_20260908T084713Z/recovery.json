@@ -1,0 +1,162 @@
+{
+  "utc": "2026-09-08T08:34:22.689027+00:00",
+  "reason_off_failed": "Old train9 evaluator rejected --video-fps25 before rollout; original log preserved.",
+  "reason_on_noncomparable": "Old train5 joint_task.py predates the Cartesian branch and ignores ON Cartesian cfg. Old completed report retained as invalid comparison evidence, never overwritten.",
+  "source_checks": {
+    "rl_move/sim/eval_checkpoint.py": {
+      "hexapod-sweep-friction": "c03bcf64fe58b454a484a4690756985b309e65c9d94abda0a7e97aa02c164eeb",
+      "hexapod-mjx-train-4": "c03bcf64fe58b454a484a4690756985b309e65c9d94abda0a7e97aa02c164eeb",
+      "hexapod-mjx-train-8": "c03bcf64fe58b454a484a4690756985b309e65c9d94abda0a7e97aa02c164eeb",
+      "hexapod-mjx-train-5": "c03bcf64fe58b454a484a4690756985b309e65c9d94abda0a7e97aa02c164eeb",
+      "hexapod-mjx-train-9": "c03bcf64fe58b454a484a4690756985b309e65c9d94abda0a7e97aa02c164eeb"
+    },
+    "rl_move/sim/sim_env.py": {
+      "hexapod-sweep-friction": "24e9446b29f9e92a41ffb63d3a91842e01ce9d40b4bcf84f9409cc8b1aa01bd7",
+      "hexapod-mjx-train-4": "24e9446b29f9e92a41ffb63d3a91842e01ce9d40b4bcf84f9409cc8b1aa01bd7",
+      "hexapod-mjx-train-8": "24e9446b29f9e92a41ffb63d3a91842e01ce9d40b4bcf84f9409cc8b1aa01bd7",
+      "hexapod-mjx-train-5": "24e9446b29f9e92a41ffb63d3a91842e01ce9d40b4bcf84f9409cc8b1aa01bd7",
+      "hexapod-mjx-train-9": "24e9446b29f9e92a41ffb63d3a91842e01ce9d40b4bcf84f9409cc8b1aa01bd7"
+    },
+    "rl_move/sim/goal_task.py": {
+      "hexapod-sweep-friction": "c22d6a637cfcfed95cf47339e7045092d3761fa73479107c22f7d8429df238d1",
+      "hexapod-mjx-train-4": "c22d6a637cfcfed95cf47339e7045092d3761fa73479107c22f7d8429df238d1",
+      "hexapod-mjx-train-8": "c22d6a637cfcfed95cf47339e7045092d3761fa73479107c22f7d8429df238d1",
+      "hexapod-mjx-train-5": "c22d6a637cfcfed95cf47339e7045092d3761fa73479107c22f7d8429df238d1",
+      "hexapod-mjx-train-9": "c22d6a637cfcfed95cf47339e7045092d3761fa73479107c22f7d8429df238d1"
+    },
+    "rl_move/sim/joint_task.py": {
+      "hexapod-sweep-friction": "bdd43cb1cb5fafefe8baa1ff7816e4ac3e8ae22f861874c64c81441d49b713d7",
+      "hexapod-mjx-train-4": "bdd43cb1cb5fafefe8baa1ff7816e4ac3e8ae22f861874c64c81441d49b713d7",
+      "hexapod-mjx-train-8": "bdd43cb1cb5fafefe8baa1ff7816e4ac3e8ae22f861874c64c81441d49b713d7",
+      "hexapod-mjx-train-5": "bdd43cb1cb5fafefe8baa1ff7816e4ac3e8ae22f861874c64c81441d49b713d7",
+      "hexapod-mjx-train-9": "bdd43cb1cb5fafefe8baa1ff7816e4ac3e8ae22f861874c64c81441d49b713d7"
+    },
+    "rl_move/sim/walk_task.py": {
+      "hexapod-sweep-friction": "5de8199df6794511979d126a8dd94cde066a790dd8612c4672257cf6a7c991dc",
+      "hexapod-mjx-train-4": "5de8199df6794511979d126a8dd94cde066a790dd8612c4672257cf6a7c991dc",
+      "hexapod-mjx-train-8": "5de8199df6794511979d126a8dd94cde066a790dd8612c4672257cf6a7c991dc",
+      "hexapod-mjx-train-5": "5de8199df6794511979d126a8dd94cde066a790dd8612c4672257cf6a7c991dc",
+      "hexapod-mjx-train-9": "5de8199df6794511979d126a8dd94cde066a790dd8612c4672257cf6a7c991dc"
+    },
+    "rl_move/sim/cart_foot_decode.py": {
+      "hexapod-sweep-friction": "bb7010d8383798316316a0e6faf1176d3dd6f838c62d1458c7ee68aa866ef26b",
+      "hexapod-mjx-train-4": "bb7010d8383798316316a0e6faf1176d3dd6f838c62d1458c7ee68aa866ef26b",
+      "hexapod-mjx-train-8": "bb7010d8383798316316a0e6faf1176d3dd6f838c62d1458c7ee68aa866ef26b",
+      "hexapod-mjx-train-5": "bb7010d8383798316316a0e6faf1176d3dd6f838c62d1458c7ee68aa866ef26b",
+      "hexapod-mjx-train-9": "bb7010d8383798316316a0e6faf1176d3dd6f838c62d1458c7ee68aa866ef26b"
+    },
+    "rl_move/sim/domain_rand.py": {
+      "hexapod-sweep-friction": "8fe3abf594900d37b57268f70d8219fdbdcf7da5d6f862ce6b0fe95db7819e73",
+      "hexapod-mjx-train-4": "8fe3abf594900d37b57268f70d8219fdbdcf7da5d6f862ce6b0fe95db7819e73",
+      "hexapod-mjx-train-8": "8fe3abf594900d37b57268f70d8219fdbdcf7da5d6f862ce6b0fe95db7819e73",
+      "hexapod-mjx-train-5": "8fe3abf594900d37b57268f70d8219fdbdcf7da5d6f862ce6b0fe95db7819e73",
+      "hexapod-mjx-train-9": "8fe3abf594900d37b57268f70d8219fdbdcf7da5d6f862ce6b0fe95db7819e73"
+    },
+    "rl_move/sim/servo_model.py": {
+      "hexapod-sweep-friction": "e2325426ede9ae566575cca0c9cff1f429190fadbf6291b705980c9d51c1fff8",
+      "hexapod-mjx-train-4": "e2325426ede9ae566575cca0c9cff1f429190fadbf6291b705980c9d51c1fff8",
+      "hexapod-mjx-train-8": "e2325426ede9ae566575cca0c9cff1f429190fadbf6291b705980c9d51c1fff8",
+      "hexapod-mjx-train-5": "e2325426ede9ae566575cca0c9cff1f429190fadbf6291b705980c9d51c1fff8",
+      "hexapod-mjx-train-9": "e2325426ede9ae566575cca0c9cff1f429190fadbf6291b705980c9d51c1fff8"
+    },
+    "rl_move/sim/deployed_transport.py": {
+      "hexapod-sweep-friction": "8ae32345111cc4252de0bcc137cd2509deb24488305072f5525b22212cf98c12",
+      "hexapod-mjx-train-4": "8ae32345111cc4252de0bcc137cd2509deb24488305072f5525b22212cf98c12",
+      "hexapod-mjx-train-8": "8ae32345111cc4252de0bcc137cd2509deb24488305072f5525b22212cf98c12",
+      "hexapod-mjx-train-5": "8ae32345111cc4252de0bcc137cd2509deb24488305072f5525b22212cf98c12",
+      "hexapod-mjx-train-9": "8ae32345111cc4252de0bcc137cd2509deb24488305072f5525b22212cf98c12"
+    },
+    "rl_move/config.yaml": {
+      "hexapod-sweep-friction": "ea90091f567e7efaff0c0614fa6eb1e76bb1b148c81d983bc6ea27571e9252d9",
+      "hexapod-mjx-train-4": "ea90091f567e7efaff0c0614fa6eb1e76bb1b148c81d983bc6ea27571e9252d9",
+      "hexapod-mjx-train-8": "ea90091f567e7efaff0c0614fa6eb1e76bb1b148c81d983bc6ea27571e9252d9",
+      "hexapod-mjx-train-5": "ea90091f567e7efaff0c0614fa6eb1e76bb1b148c81d983bc6ea27571e9252d9",
+      "hexapod-mjx-train-9": "ea90091f567e7efaff0c0614fa6eb1e76bb1b148c81d983bc6ea27571e9252d9"
+    },
+    "rl_move/config.py": {
+      "hexapod-sweep-friction": "ba4513632dbb68d8fdf857f373fa80935e28593f05c082d813b082604e098db4",
+      "hexapod-mjx-train-4": "ba4513632dbb68d8fdf857f373fa80935e28593f05c082d813b082604e098db4",
+      "hexapod-mjx-train-8": "ba4513632dbb68d8fdf857f373fa80935e28593f05c082d813b082604e098db4",
+      "hexapod-mjx-train-5": "ba4513632dbb68d8fdf857f373fa80935e28593f05c082d813b082604e098db4",
+      "hexapod-mjx-train-9": "ba4513632dbb68d8fdf857f373fa80935e28593f05c082d813b082604e098db4"
+    },
+    "rl_move/env.py": {
+      "hexapod-sweep-friction": "721806bee29c20dadffd7ab347a4e0b811c90fe88e220f2fe1a1e250d7c4e208",
+      "hexapod-mjx-train-4": "721806bee29c20dadffd7ab347a4e0b811c90fe88e220f2fe1a1e250d7c4e208",
+      "hexapod-mjx-train-8": "721806bee29c20dadffd7ab347a4e0b811c90fe88e220f2fe1a1e250d7c4e208",
+      "hexapod-mjx-train-5": "721806bee29c20dadffd7ab347a4e0b811c90fe88e220f2fe1a1e250d7c4e208",
+      "hexapod-mjx-train-9": "721806bee29c20dadffd7ab347a4e0b811c90fe88e220f2fe1a1e250d7c4e208"
+    },
+    "rl_move/body_ik.py": {
+      "hexapod-sweep-friction": "bf6369199018cb86c187fc226ac2557545832e43ed4489b244de325941754d06",
+      "hexapod-mjx-train-4": "bf6369199018cb86c187fc226ac2557545832e43ed4489b244de325941754d06",
+      "hexapod-mjx-train-8": "bf6369199018cb86c187fc226ac2557545832e43ed4489b244de325941754d06",
+      "hexapod-mjx-train-5": "bf6369199018cb86c187fc226ac2557545832e43ed4489b244de325941754d06",
+      "hexapod-mjx-train-9": "bf6369199018cb86c187fc226ac2557545832e43ed4489b244de325941754d06"
+    },
+    "rl_move/safety.py": {
+      "hexapod-sweep-friction": "e64db0dc6afb409ef840cbd2e5a0254ec475b702d4483067f4f308a2638332ad",
+      "hexapod-mjx-train-4": "e64db0dc6afb409ef840cbd2e5a0254ec475b702d4483067f4f308a2638332ad",
+      "hexapod-mjx-train-8": "e64db0dc6afb409ef840cbd2e5a0254ec475b702d4483067f4f308a2638332ad",
+      "hexapod-mjx-train-5": "e64db0dc6afb409ef840cbd2e5a0254ec475b702d4483067f4f308a2638332ad",
+      "hexapod-mjx-train-9": "e64db0dc6afb409ef840cbd2e5a0254ec475b702d4483067f4f308a2638332ad"
+    },
+    "rl_move/robot_state.py": {
+      "hexapod-sweep-friction": "f8689b385114f79f3159cbbf2d2f903f087fb3da3ca6a4e9619d83c2dbce2def",
+      "hexapod-mjx-train-4": "f8689b385114f79f3159cbbf2d2f903f087fb3da3ca6a4e9619d83c2dbce2def",
+      "hexapod-mjx-train-8": "f8689b385114f79f3159cbbf2d2f903f087fb3da3ca6a4e9619d83c2dbce2def",
+      "hexapod-mjx-train-5": "f8689b385114f79f3159cbbf2d2f903f087fb3da3ca6a4e9619d83c2dbce2def",
+      "hexapod-mjx-train-9": "f8689b385114f79f3159cbbf2d2f903f087fb3da3ca6a4e9619d83c2dbce2def"
+    }
+  },
+  "matching_motor_model_and_packages": true,
+  "expected_model": {
+    "variant": "mesh_mjx_twin",
+    "nmesh": 0,
+    "ngeom": 91,
+    "mass_kg": 4.80573
+  },
+  "checkpoint_sha256": {
+    "hexapod-mjx-train-5": "569dfa7f5851307839559b53f636754d9c599432979707198a061597ceb78579",
+    "hexapod-mjx-train-9": "f4b962c1a851b2b413625d631969b9d63e509633f2f64629733c2141982d014e"
+  },
+  "only_source_cfg_change": "dr.torque_scale=3,3 ->1,1",
+  "protocol": "24 episodes: 6 each walk det/sto and start-jitter det/sto; seed0,20s,dr0,100Hz; video25fps",
+  "new_outputs": {
+    "hexapod-mjx-train-5": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_c1_s7_acq1_torque1x_zeroshot_evalfix1",
+    "hexapod-mjx-train-9": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s7_acq1_torque1x_zeroshot_evalfix1"
+  },
+  "preserved": [
+    "old_on_report.json",
+    "failed_off_eval_offctrl-s7-acq1-torque1x-zeroshot.log",
+    "before.json",
+    "child_comparison.json"
+  ],
+  "status": "Both corrected frozen-parent evaluators are running and advancing; each3/24clips complete at08:34:30UTC; final reports pending.",
+  "verified_progress": [
+    {
+      "pod": "hexapod-mjx-train-5",
+      "pid": 1155623,
+      "from_utc": "2026-09-08T08:33:36.850449+00:00",
+      "to_utc": "2026-09-08T08:34:30.021290+00:00",
+      "clips_from": 1,
+      "clips_to": 3,
+      "cpu_ticks_from": 25698,
+      "cpu_ticks_to": 70881,
+      "completed_simulated_seconds": 60.0,
+      "completed_frames": 1500
+    },
+    {
+      "pod": "hexapod-mjx-train-9",
+      "pid": 4143559,
+      "from_utc": "2026-09-08T08:33:36.877380+00:00",
+      "to_utc": "2026-09-08T08:34:30.020723+00:00",
+      "clips_from": 1,
+      "clips_to": 3,
+      "cpu_ticks_from": 27840,
+      "cpu_ticks_to": 76302,
+      "completed_simulated_seconds": 60.0,
+      "completed_frames": 1500
+    }
+  ]
+}

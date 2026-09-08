@@ -1,0 +1,25 @@
+# cycle_20260908T082731_cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1-torque1x-c1 [FINISHED]
+
+(showing newest 5 kB of 36 kB — raise tail_kb for more)
+…[08:39:16] $ grep -n "^## Goal\|^## Now\|^## Next\|^Goal:\|^Now:\|^Next:" rl_docs/tracks/walkcurr/STATUS.md | head -10
+[08:39:16]   -> 2 lines: 2426:Now: read the lswin gate when the watcher lands it. Next if 10604:## Goal (DONE gate — UNMET, track retired before reaching it)
+[08:39:29] $ touch rl_move/orchestrator/CYCLE_WORKED && echo touched
+[08:39:29]   -> 1 line: touched
+[08:39:42] agent:
+## Summary
+
+**Assigned run (`cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1-torque1x-c1`):** already correctly triaged and verdicted by a concurrent cycle by the time I finished my own independent read — I verified it matches: 0/24 terminations, gait_valid 23/24 exactly tied to the frozen 3x source's own pattern (6/6/6/5/6), median forward 0.127 m/s clears the 0.03 m/s floor, no new recurring sacrificed-leg pattern. I independently pulled the zero-shot 1x parent baseline (never landed on the controller — CANARY frozen protocol ran it on train-5) and confirmed it: catastrophic failure zero-shot (slip 57–185/m, forward progress ~0.04–0.29 m over 20 s, visually skating in place), which refutes the plan's "child==zero-shot, no training gain" alternative — the 2M retrain is a genuine recovery, not free transfer. This matched the already-recorded verdict, so I did not re-verdict (ops.sh dedup rule).
+
+**Real work this cycle — doc-sync correction:** found that a prior "root watchdog" audit (`artifacts/rl_watchdog/cartfoot_depth_read_20260908/`) had already corrected the seed7 `cont10m` durability pair's ledger verdicts from PARITY-HOLDS to FAIL-GAIT-RETENTION (OFF control) / INCONCLUSIVE-CONTROL-DRIFT (ON), but that correction never propagated into `STATUS.md` or `SKILLS.md`, which still told the stale "n=3/3 all seeds HOLD" story. Corrected both docs (new dated entries, old entries kept for audit trail per convention), added an `RL_LOG.md` line, and committed/pushed via `snapshot.sh` (`f93fd8e2`).
+
+**Refill:** none launched. Capacity checked twice; free pods were being actively and continuously claimed by other concurrent cycles for legitimate non-duplicative walkcurr arms (`widen8-cartfoot-freshinit-{c1,offctrl}`, `cartfoot-halfgrav-{,off}s7`) within the same few minutes. The seed7 `cont10m` control-drift line is explicitly closed (no auto-extension without a new hypothesis; a same-name redo was already correctly REFUSED by the launcher). The torque1x line is closed per its own frozen plan. Other tracks (amp, cpg, standwalk/assistfade/todaypolicy) remain blocked per every recent entry today. `CYCLE_WORKED` touched.
+[08:39:42] === RESULT: success (94 turns, 12m10s, $3.76) ===
+## Summary
+
+**Assigned run (`cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1-torque1x-c1`):** already correctly triaged and verdicted by a concurrent cycle by the time I finished my own independent read — I verified it matches: 0/24 terminations, gait_valid 23/24 exactly tied to the frozen 3x source's own pattern (6/6/6/5/6), median forward 0.127 m/s clears the 0.03 m/s floor, no new recurring sacrificed-leg pattern. I independently pulled the zero-shot 1x parent baseline (never landed on the controller — CANARY frozen protocol ran it on train-5) and confirmed it: catastrophic failure zero-shot (slip 57–185/m, forward progress ~0.04–0.29 m over 20 s, visually skating in place), which refutes the plan's "child==zero-shot, no training gain" alternative — the 2M retrain is a genuine recovery, not free transfer. This matched the already-recorded verdict, so I did not re-verdict (ops.sh dedup rule).
+
+**Real work this cycle — doc-sync correction:** found that a prior "root watchdog" audit (`artifacts/rl_watchdog/cartfoot_depth_read_20260908/`) had already corrected the seed7 `cont10m` durability pair's ledger verdicts from PARITY-HOLDS to FAIL-GAIT-RETENTION (OFF control) / INCONCLUSIVE-CONTROL-DRIFT (ON), but that correction never propagated into `STATUS.md` or `SKILLS.md`, which still told the stale "n=3/3 all seeds HOLD" story. Corrected both docs (new dated entries, old entries kept for audit trail per convention), added an `RL_LOG.md` line, and committed/pushed via `snapshot.sh` (`f93fd8e2`).
+
+**Refill:** none launched. Capacity checked twice; free pods were being actively and continuously claimed by other concurrent cycles for legitimate non-duplicative walkcurr arms (`widen8-cartfoot-freshinit-{c1,offctrl}`, `cartfoot-halfgrav-{,off}s7`) within the same few minutes. The seed7 `cont10m` control-drift line is explicitly closed (no auto-extension without a new hypothesis; a same-name redo was already correctly REFUSED by the launcher). The torque1x line is closed per its own frozen plan. Other tracks (amp, cpg, standwalk/assistfade/todaypolicy) remain blocked per every recent entry today. `CYCLE_WORKED` touched.
+=== CYCLE END: success ===
+

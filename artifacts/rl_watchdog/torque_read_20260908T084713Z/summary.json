@@ -1,0 +1,2330 @@
+{
+  "read_completed_utc": "2026-09-08T08:54:17.776587+00:00",
+  "scope": "Read-only six exact24-episode reports; corrected evalfix1 baselines only. No source/ledger/doc mutations, simulations, renders or PPO.",
+  "source_commit": "1e9736a846b3257bd899860fef80c2954990c654",
+  "runs": {
+    "on": {
+      "registered_gate": "MECHANISM-HEALTH CANARY ONLY: do not judge skill acquisition, close a behavior/reward class, or require mature gait at this checkpoint. FROZEN (PLAN.md 2026-09-08 08:02): 4 panels walk det/sto + walk_startjitter det/sto, 6 eps each, seed 0, unchanged evaluator flags, dr.torque_scale=1,1. HEALTH RETAINED = 0 terminations in 24/24 AND median net forward >=0.03 m/s in >=1 ordinary walk panel AND gait_valid >= own 3x source count ON 23/24 (per-panel source 6/6/5/6) AND no NEW recurring sacrificed-leg pattern (leg sacrificed >=3/6 in a panel where source had <3/6; report every leg/panel count incl. chronic deficits). PARTIAL = movement+no-term hold but gait/leg retention fails -> record exact episodes, no promotion, no extension. SEPARATE slip read (not pass/fail): mean slip/m all 4 panels for source3x vs zero-shot parent1x vs trained child1x; trained ON/OFF ratio <=1.2 in >=3/4 panels supports slip parity. Compare vs frozen-parent zero-shot 1x baseline before any adaptation claim; audit realized randomization/reset summaries. No automatic 40M continuation, extra seeds, or dose grid.",
+      "ledger_status_at_read": "CANARY_PASS",
+      "ledger_verdict_at_read": "CANARY PASS - HEALTH RETAINED (mechanism-health only, per frozen PLAN.md protocol; do not read as skill-acquisition verdict). 0/24 terminations. Median net forward 0.127 m/s (walk/det, fwd 2.53m/20s) clears the 0.03 m/s floor. gait_valid 23/24 (det 6/6, sto 6/6, startjitter/det 5/6, startjitter/sto 6/6) exactly ties the frozen 3x source's own count (6/6/6/5/6=23/24) with NO new recurring sacrificed-leg pattern -- the single startjitter/det leg4 sacrifice is the SAME episode index as the 3x source (bit-identical det-mode fingerprint, only slip/speed differ). HEALTH RETAINED per the plan's literal bar. Separate slip read (informational, not pass/fail): slip/m rises 1.3-1.7x vs the 3x source in all 4 panels (3.73/5.23/3.72/5.26 vs 2.79/3.23/2.77/3.06) -- expected cost of removing the torque crutch. ON/OFF ratio at 1x: 0.84/0.91/0.88/0.91x -- Cartesian STILL at-or-under joint-space in all 4 panels even under reduced torque, reinforcing the fresh-init parity finding under a harder condition. Frame strip (contact_sheet.png) shows continued forward translation, no collapse. Per plan: closing this 2M read, no automatic 40M continuation/dose grid (would need a new recorded hypothesis).",
+      "requested_child_steps": 2000000,
+      "reports": {
+        "source": {
+          "source_path": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_c1_s7_acq1_gate/report.json",
+          "checkpoint": "/workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_c1_s7_acq1.zip",
+          "metadata": {
+            "task": "joint_walk",
+            "dr_scale": 0,
+            "seed": 0,
+            "model_source": "mesh_mjx",
+            "model_variant": "mesh_mjx_twin",
+            "model_nmesh": 0,
+            "model_ngeom": 91,
+            "model_mass_kg": 4.80573,
+            "motor_contract": {
+              "bus.write_speed": 4096,
+              "bus.write_acc": 1000,
+              "bus.servo_vel_max_counts_s": "write_speed",
+              "bus.servo_params": "",
+              "resolved_vel_max_deg_s_min": 360,
+              "resolved_vel_max_deg_s_max": 360,
+              "resolved_vel_max_counts_s_max": 4096,
+              "safety.max_delta_q_deg": 3.6,
+              "control.hz": 100,
+              "slew_limit_deg_s": 360,
+              "bus.profile_ramp_steps": 0,
+              "servo_params_source": "/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json+vel_max=4096cps",
+              "backend_profile": "servo_profile_np"
+            },
+            "policy_std": 0.135,
+            "start_jitter_panel": {
+              "start_jitter_deg": 3,
+              "start_bad_prob": 0.25,
+              "start_bad_max_joints": 1,
+              "start_bad_deg_min": 8,
+              "start_bad_deg_max": 16
+            }
+          },
+          "groups": {
+            "walk/det": {
+              "episodes": 6,
+              "gait_valid": 6,
+              "terminations": 0,
+              "mean_slip_per_m": 2.791,
+              "mean_progress_ratio": 3.258,
+              "median_net_forward_m_s": 0.1845,
+              "mean_episode_current_max_a": 2.63,
+              "worst_current_max_a": 2.63,
+              "mean_episode_current_p95_a": 1.9,
+              "sacrificed_leg_counts": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "sacrificed_leg_episodes": {
+                "0": [],
+                "1": [],
+                "2": [],
+                "3": [],
+                "4": [],
+                "5": []
+              }
+            },
+            "walk/sto": {
+              "episodes": 6,
+              "gait_valid": 6,
+              "terminations": 0,
+              "mean_slip_per_m": 3.219666666666667,
+              "mean_progress_ratio": 2.744333333333333,
+              "median_net_forward_m_s": 0.15797499999999998,
+              "mean_episode_current_max_a": 2.73,
+              "worst_current_max_a": 2.76,
+              "mean_episode_current_p95_a": 2.0549999999999997,
+              "sacrificed_leg_counts": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "sacrificed_leg_episodes": {
+                "0": [],
+                "1": [],
+                "2": [],
+                "3": [],
+                "4": [],
+                "5": []
+              }
+            },
+            "walk_startjitter/det": {
+              "episodes": 6,
+              "gait_valid": 5,
+              "terminations": 0,
+              "mean_slip_per_m": 2.7893333333333334,
+              "mean_progress_ratio": 3.3246666666666664,
+              "median_net_forward_m_s": 0.192075,
+              "mean_episode_current_max_a": 2.5683333333333334,
+              "worst_current_max_a": 2.66,
+              "mean_episode_current_p95_a": 1.9283333333333332,
+              "sacrificed_leg_counts": [
+                0,
+                0,
+                0,
+                0,
+                1,
+                0
+              ],
+              "sacrificed_leg_episodes": {
+                "0": [],
+                "1": [],
+                "2": [],
+                "3": [],
+                "4": [
+                  1
+                ],
+                "5": []
+              }
+            },
+            "walk_startjitter/sto": {
+              "episodes": 6,
+              "gait_valid": 6,
+              "terminations": 0,
+              "mean_slip_per_m": 3.095,
+              "mean_progress_ratio": 2.853833333333333,
+              "median_net_forward_m_s": 0.160025,
+              "mean_episode_current_max_a": 2.7016666666666667,
+              "worst_current_max_a": 2.79,
+              "mean_episode_current_p95_a": 2.0666666666666664,
+              "sacrificed_leg_counts": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "sacrificed_leg_episodes": {
+                "0": [],
+                "1": [],
+                "2": [],
+                "3": [],
+                "4": [],
+                "5": []
+              }
+            }
+          },
+          "total_gait_valid": 23,
+          "total_terminations": 0
+        },
+        "zero": {
+          "source_path": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_c1_s7_acq1_torque1x_zeroshot_evalfix1/report.json",
+          "checkpoint": "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_c1_s7_acq1.zip",
+          "metadata": {
+            "task": "joint_walk",
+            "dr_scale": 0,
+            "seed": 0,
+            "model_source": "mesh_mjx",
+            "model_variant": "mesh_mjx_twin",
+            "model_nmesh": 0,
+            "model_ngeom": 91,
+            "model_mass_kg": 4.80573,
+            "motor_contract": {
+              "bus.write_speed": 4096,
+              "bus.write_acc": 1000,
+              "bus.servo_vel_max_counts_s": "write_speed",
+              "bus.servo_params": "",
+              "resolved_vel_max_deg_s_min": 360,
+              "resolved_vel_max_deg_s_max": 360,
+              "resolved_vel_max_counts_s_max": 4096,
+              "safety.max_delta_q_deg": 3.6,
+              "control.hz": 100,
+              "slew_limit_deg_s": 360,
+              "bus.profile_ramp_steps": 0,
+              "servo_params_source": "/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json+vel_max=4096cps",
+              "backend_profile": "servo_profile_np"
+            },
+            "policy_std": 0.135,
+            "start_jitter_panel": {
+              "start_jitter_deg": 3,
+              "start_bad_prob": 0.25,
+              "start_bad_max_joints": 1,
+              "start_bad_deg_min": 8,
+              "start_bad_deg_max": 16
+            }
+          },
+          "groups": {
+            "walk/det": {
+              "episodes": 6,
+              "gait_valid": 6,
+              "terminations": 0,
+              "mean_slip_per_m": 3.65,
+              "mean_progress_ratio": 2.531,
+              "median_net_forward_m_s": 0.14250000000000002,
+              "mean_episode_current_max_a": 2.54,
+              "worst_current_max_a": 2.54,
+              "mean_episode_current_p95_a": 2.1,
+              "sacrificed_leg_counts": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "sacrificed_leg_episodes": {
+                "0": [],
+                "1": [],
+                "2": [],
+                "3": [],
+                "4": [],
+                "5": []
+              }
+            },
+            "walk/sto": {
+              "episodes": 6,
+              "gait_valid": 6,
+              "terminations": 0,
+              "mean_slip_per_m": 5.652,
+              "mean_progress_ratio": 1.6393333333333333,
+              "median_net_forward_m_s": 0.093975,
+              "mean_episode_current_max_a": 2.5533333333333332,
+              "worst_current_max_a": 2.57,
+              "mean_episode_current_p95_a": 2.1283333333333334,
+              "sacrificed_leg_counts": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "sacrificed_leg_episodes": {
+                "0": [],
+                "1": [],
+                "2": [],
+                "3": [],
+                "4": [],
+                "5": []
+              }
+            },
+            "walk_startjitter/det": {
+              "episodes": 6,
+              "gait_valid": 5,
+              "terminations": 0,
+              "mean_slip_per_m": 3.7291666666666665,
+              "mean_progress_ratio": 2.507,
+              "median_net_forward_m_s": 0.13067499999999999,
+              "mean_episode_current_max_a": 2.5616666666666665,
+              "worst_current_max_a": 2.61,
+              "mean_episode_current_p95_a": 2.115,
+              "sacrificed_leg_counts": [
+                0,
+                0,
+                0,
+                0,
+                1,
+                0
+              ],
+              "sacrificed_leg_episodes": {
+                "0": [],
+                "1": [],
+                "2": [],
+                "3": [],
+                "4": [
+                  1
+                ],
+                "5": []
+              }
+            },
+            "walk_startjitter/sto": {
+              "episodes": 6,
+              "gait_valid": 6,
+              "terminations": 0,
+              "mean_slip_per_m": 5.488666666666667,
+              "mean_progress_ratio": 1.6751666666666667,
+              "median_net_forward_m_s": 0.092825,
+              "mean_episode_current_max_a": 2.558333333333333,
+              "worst_current_max_a": 2.59,
+              "mean_episode_current_p95_a": 2.1416666666666666,
+              "sacrificed_leg_counts": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "sacrificed_leg_episodes": {
+                "0": [],
+                "1": [],
+                "2": [],
+                "3": [],
+                "4": [],
+                "5": []
+              }
+            }
+          },
+          "total_gait_valid": 23,
+          "total_terminations": 0
+        },
+        "child": {
+          "source_path": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_c1_s7_acq1_torque1x_c1_gate/report.json",
+          "checkpoint": "/workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_c1_s7_acq1_torque1x_c1.zip",
+          "metadata": {
+            "task": "joint_walk",
+            "dr_scale": 0,
+            "seed": 0,
+            "model_source": "mesh_mjx",
+            "model_variant": "mesh_mjx_twin",
+            "model_nmesh": 0,
+            "model_ngeom": 91,
+            "model_mass_kg": 4.80573,
+            "motor_contract": {
+              "bus.write_speed": 4096,
+              "bus.write_acc": 1000,
+              "bus.servo_vel_max_counts_s": "write_speed",
+              "bus.servo_params": "",
+              "resolved_vel_max_deg_s_min": 360,
+              "resolved_vel_max_deg_s_max": 360,
+              "resolved_vel_max_counts_s_max": 4096,
+              "safety.max_delta_q_deg": 3.6,
+              "control.hz": 100,
+              "slew_limit_deg_s": 360,
+              "bus.profile_ramp_steps": 0,
+              "servo_params_source": "/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json+vel_max=4096cps",
+              "backend_profile": "servo_profile_np"
+            },
+            "policy_std": 0.135,
+            "start_jitter_panel": {
+              "start_jitter_deg": 3,
+              "start_bad_prob": 0.25,
+              "start_bad_max_joints": 1,
+              "start_bad_deg_min": 8,
+              "start_bad_deg_max": 16
+            }
+          },
+          "groups": {
+            "walk/det": {
+              "episodes": 6,
+              "gait_valid": 6,
+              "terminations": 0,
+              "mean_slip_per_m": 3.727,
+              "mean_progress_ratio": 2.547,
+              "median_net_forward_m_s": 0.12669999999999998,
+              "mean_episode_current_max_a": 2.57,
+              "worst_current_max_a": 2.57,
+              "mean_episode_current_p95_a": 2.14,
+              "sacrificed_leg_counts": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "sacrificed_leg_episodes": {
+                "0": [],
+                "1": [],
+                "2": [],
+                "3": [],
+                "4": [],
+                "5": []
+              }
+            },
+            "walk/sto": {
+              "episodes": 6,
+              "gait_valid": 6,
+              "terminations": 0,
+              "mean_slip_per_m": 5.231,
+              "mean_progress_ratio": 1.748,
+              "median_net_forward_m_s": 0.09725,
+              "mean_episode_current_max_a": 2.5816666666666666,
+              "worst_current_max_a": 2.62,
+              "mean_episode_current_p95_a": 2.1483333333333334,
+              "sacrificed_leg_counts": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "sacrificed_leg_episodes": {
+                "0": [],
+                "1": [],
+                "2": [],
+                "3": [],
+                "4": [],
+                "5": []
+              }
+            },
+            "walk_startjitter/det": {
+              "episodes": 6,
+              "gait_valid": 5,
+              "terminations": 0,
+              "mean_slip_per_m": 3.6786666666666665,
+              "mean_progress_ratio": 2.529166666666667,
+              "median_net_forward_m_s": 0.13665,
+              "mean_episode_current_max_a": 2.575,
+              "worst_current_max_a": 2.59,
+              "mean_episode_current_p95_a": 2.1483333333333334,
+              "sacrificed_leg_counts": [
+                0,
+                0,
+                0,
+                0,
+                1,
+                0
+              ],
+              "sacrificed_leg_episodes": {
+                "0": [],
+                "1": [],
+                "2": [],
+                "3": [],
+                "4": [
+                  1
+                ],
+                "5": []
+              }
+            },
+            "walk_startjitter/sto": {
+              "episodes": 6,
+              "gait_valid": 6,
+              "terminations": 0,
+              "mean_slip_per_m": 5.184,
+              "mean_progress_ratio": 1.7576666666666667,
+              "median_net_forward_m_s": 0.10047500000000001,
+              "mean_episode_current_max_a": 2.5683333333333334,
+              "worst_current_max_a": 2.58,
+              "mean_episode_current_p95_a": 2.1566666666666667,
+              "sacrificed_leg_counts": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "sacrificed_leg_episodes": {
+                "0": [],
+                "1": [],
+                "2": [],
+                "3": [],
+                "4": [],
+                "5": []
+              }
+            }
+          },
+          "total_gait_valid": 23,
+          "total_terminations": 0
+        }
+      },
+      "health": {
+        "zero": {
+          "classification_under_original_gate": "HEALTH RETAINED",
+          "zero_terminations": true,
+          "movement_floor": true,
+          "gait_count_retained": true,
+          "new_recurring_patterns": []
+        },
+        "child": {
+          "classification_under_original_gate": "HEALTH RETAINED",
+          "zero_terminations": true,
+          "movement_floor": true,
+          "gait_count_retained": true,
+          "new_recurring_patterns": []
+        }
+      },
+      "child_vs_zero": {
+        "walk/det": {
+          "mean_slip_delta": 0.07699999999999996,
+          "mean_slip_ratio": 1.0210958904109588,
+          "median_forward_speed_delta_m_s": -0.015800000000000036,
+          "median_forward_speed_ratio": 0.8891228070175436,
+          "mean_progress_delta": 0.016000000000000014,
+          "gait_count_delta": 0
+        },
+        "walk/sto": {
+          "mean_slip_delta": -0.42100000000000026,
+          "mean_slip_ratio": 0.9255130927105449,
+          "median_forward_speed_delta_m_s": 0.003275,
+          "median_forward_speed_ratio": 1.034849694067571,
+          "mean_progress_delta": 0.10866666666666669,
+          "gait_count_delta": 0
+        },
+        "walk_startjitter/det": {
+          "mean_slip_delta": -0.05049999999999999,
+          "mean_slip_ratio": 0.9864581005586592,
+          "median_forward_speed_delta_m_s": 0.005975000000000008,
+          "median_forward_speed_ratio": 1.0457241247369429,
+          "mean_progress_delta": 0.022166666666666668,
+          "gait_count_delta": 0
+        },
+        "walk_startjitter/sto": {
+          "mean_slip_delta": -0.30466666666666686,
+          "mean_slip_ratio": 0.9444916798250941,
+          "median_forward_speed_delta_m_s": 0.007650000000000004,
+          "median_forward_speed_ratio": 1.0824131430110424,
+          "mean_progress_delta": 0.08250000000000002,
+          "gait_count_delta": 0
+        }
+      },
+      "config_checks": {
+        "zero_vs_child_equal": true,
+        "source3x_to_zero1x_differences": {
+          "dr.torque_scale": [
+            "3,3",
+            "1,1"
+          ]
+        },
+        "frozen_parent_sha_matches_weight_read": true
+      },
+      "reward_trajectory": [
+        {
+          "global_step": 524288,
+          "reward_per_tick": 0.9868659342282626,
+          "ep_rew_mean": 102.0223617553711,
+          "ep_len_mean": 101.14
+        },
+        {
+          "global_step": 1048576,
+          "reward_per_tick": 1.1008395357057452,
+          "ep_rew_mean": 233.1372528076172,
+          "ep_len_mean": 222.77
+        },
+        {
+          "global_step": 1572864,
+          "reward_per_tick": 1.1095517771318555,
+          "ep_rew_mean": 380.2589111328125,
+          "ep_len_mean": 353.12
+        },
+        {
+          "global_step": 2097152,
+          "reward_per_tick": 1.1254282044246793,
+          "ep_rew_mean": 525.8482666015625,
+          "ep_len_mean": 487.88
+        }
+      ],
+      "actual_child_steps": 2097152
+    },
+    "off": {
+      "registered_gate": "MECHANISM-HEALTH CANARY ONLY: do not judge skill acquisition, close a behavior/reward class, or require mature gait at this checkpoint. FROZEN (PLAN.md 2026-09-08 08:02): 4 panels walk det/sto + walk_startjitter det/sto, 6 eps each, seed 0, unchanged evaluator flags, dr.torque_scale=1,1. HEALTH RETAINED = 0 terminations in 24/24 AND median net forward >=0.03 m/s in >=1 ordinary walk panel AND gait_valid >= own 3x source count OFF 19/24 (per-panel source 6/6/1/6; chronic leg-4 sacrifice in walk_startjitter/det 5/6 is a PRE-EXISTING deficit, report it, it does not newly fail retention) AND no NEW recurring sacrificed-leg pattern (leg sacrificed >=3/6 in a panel where source had <3/6; report every leg/panel count). PARTIAL = movement+no-term hold but gait/leg retention fails -> record exact episodes, no promotion, no extension. SEPARATE slip read (not pass/fail): mean slip/m all 4 panels for source3x vs zero-shot parent1x vs trained child1x; trained ON/OFF ratio <=1.2 in >=3/4 panels supports slip parity. Compare vs frozen-parent zero-shot 1x baseline before any adaptation claim; audit realized randomization/reset summaries. No automatic 40M continuation, extra seeds, or dose grid.",
+      "ledger_status_at_read": "CANARY PASS - PARTIAL RETENTION",
+      "ledger_verdict_at_read": "CANARY PASS - PARTIAL RETENTION (mechanism-health canary; mechanism itself is healthy -- training/inference ran fine, 0 terminations, real forward movement -- but the plan's gait-retention bar is only PARTIALLY met, per frozen PLAN.md protocol). 0/24 terminations, movement floor held (walk/det fwd 2.43m/20s = 0.12 m/s, >>0.03). Gait retention fails the plan's recurring-leg condition: gait_valid drops to 12/24 (det 0/6, sto 6/6, startjitter/det 0/6, startjitter/sto 6/6) vs the 3x source's 19/24 (6/6/6/1/6). walk/det is the disqualifying panel -- it was FULLY CLEAN at the 3x source (gait_valid 6/6, sac=[] every episode) and is now leg4-sacrificed in ALL 6/6 episodes at 1x torque, a genuinely NEW recurring pattern per the plan's own definition (>=3/6 now vs <3/6 at source). startjitter/det softens further too (1/6->0/6, same leg4, not new but worse). No termination, so this is PARTIAL not a negative-health failure: 'movement+no-term hold but gait retention fails.' Notably this is the OPPOSITE of the plan's differential-sensitivity hypothesis -- OFF (joint-space) degrades under torque removal while ON (Cartesian, matched sibling, CANARY PASS this cycle) does not; if anything this argues the Cartesian action space is MORE robust to torque removal here, not less. Slip/m rises 1.5-1.8x vs the 3x source in all 4 panels (4.44/5.74/4.24/5.75 vs 2.83/3.41/2.84/3.22). Frame strip shows continued forward translation, no collapse -- a gait-quality partial, not a fall/instability. Per plan: no promotion, no automatic extension; this 2M read is closed.",
+      "requested_child_steps": 2000000,
+      "reports": {
+        "source": {
+          "source_path": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s7_acq1_gate/report.json",
+          "checkpoint": "/workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s7_acq1.zip",
+          "metadata": {
+            "task": "joint_walk",
+            "dr_scale": 0,
+            "seed": 0,
+            "model_source": "mesh_mjx",
+            "model_variant": "mesh_mjx_twin",
+            "model_nmesh": 0,
+            "model_ngeom": 91,
+            "model_mass_kg": 4.80573,
+            "motor_contract": {
+              "bus.write_speed": 4096,
+              "bus.write_acc": 1000,
+              "bus.servo_vel_max_counts_s": "write_speed",
+              "bus.servo_params": "",
+              "resolved_vel_max_deg_s_min": 360,
+              "resolved_vel_max_deg_s_max": 360,
+              "resolved_vel_max_counts_s_max": 4096,
+              "safety.max_delta_q_deg": 3.6,
+              "control.hz": 100,
+              "slew_limit_deg_s": 360,
+              "bus.profile_ramp_steps": 0,
+              "servo_params_source": "/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json+vel_max=4096cps",
+              "backend_profile": "servo_profile_np"
+            },
+            "policy_std": 0.135,
+            "start_jitter_panel": {
+              "start_jitter_deg": 3,
+              "start_bad_prob": 0.25,
+              "start_bad_max_joints": 1,
+              "start_bad_deg_min": 8,
+              "start_bad_deg_max": 16
+            }
+          },
+          "groups": {
+            "walk/det": {
+              "episodes": 6,
+              "gait_valid": 6,
+              "terminations": 0,
+              "mean_slip_per_m": 2.826,
+              "mean_progress_ratio": 3.155,
+              "median_net_forward_m_s": 0.1879,
+              "mean_episode_current_max_a": 2.58,
+              "worst_current_max_a": 2.58,
+              "mean_episode_current_p95_a": 1.89,
+              "sacrificed_leg_counts": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "sacrificed_leg_episodes": {
+                "0": [],
+                "1": [],
+                "2": [],
+                "3": [],
+                "4": [],
+                "5": []
+              }
+            },
+            "walk/sto": {
+              "episodes": 6,
+              "gait_valid": 6,
+              "terminations": 0,
+              "mean_slip_per_m": 3.4115,
+              "mean_progress_ratio": 2.607666666666667,
+              "median_net_forward_m_s": 0.15225,
+              "mean_episode_current_max_a": 2.6816666666666666,
+              "worst_current_max_a": 2.74,
+              "mean_episode_current_p95_a": 2.0566666666666666,
+              "sacrificed_leg_counts": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "sacrificed_leg_episodes": {
+                "0": [],
+                "1": [],
+                "2": [],
+                "3": [],
+                "4": [],
+                "5": []
+              }
+            },
+            "walk_startjitter/det": {
+              "episodes": 6,
+              "gait_valid": 1,
+              "terminations": 0,
+              "mean_slip_per_m": 2.849833333333333,
+              "mean_progress_ratio": 3.0901666666666667,
+              "median_net_forward_m_s": 0.184375,
+              "mean_episode_current_max_a": 2.565,
+              "worst_current_max_a": 2.64,
+              "mean_episode_current_p95_a": 1.89,
+              "sacrificed_leg_counts": [
+                0,
+                1,
+                0,
+                0,
+                5,
+                0
+              ],
+              "sacrificed_leg_episodes": {
+                "0": [],
+                "1": [
+                  2
+                ],
+                "2": [],
+                "3": [],
+                "4": [
+                  0,
+                  1,
+                  2,
+                  3,
+                  5
+                ],
+                "5": []
+              }
+            },
+            "walk_startjitter/sto": {
+              "episodes": 6,
+              "gait_valid": 6,
+              "terminations": 0,
+              "mean_slip_per_m": 3.256666666666667,
+              "mean_progress_ratio": 2.751,
+              "median_net_forward_m_s": 0.15795,
+              "mean_episode_current_max_a": 2.671666666666667,
+              "worst_current_max_a": 2.72,
+              "mean_episode_current_p95_a": 2.0416666666666665,
+              "sacrificed_leg_counts": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "sacrificed_leg_episodes": {
+                "0": [],
+                "1": [],
+                "2": [],
+                "3": [],
+                "4": [],
+                "5": []
+              }
+            }
+          },
+          "total_gait_valid": 19,
+          "total_terminations": 0
+        },
+        "zero": {
+          "source_path": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s7_acq1_torque1x_zeroshot_evalfix1/report.json",
+          "checkpoint": "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s7_acq1.zip",
+          "metadata": {
+            "task": "joint_walk",
+            "dr_scale": 0,
+            "seed": 0,
+            "model_source": "mesh_mjx",
+            "model_variant": "mesh_mjx_twin",
+            "model_nmesh": 0,
+            "model_ngeom": 91,
+            "model_mass_kg": 4.80573,
+            "motor_contract": {
+              "bus.write_speed": 4096,
+              "bus.write_acc": 1000,
+              "bus.servo_vel_max_counts_s": "write_speed",
+              "bus.servo_params": "",
+              "resolved_vel_max_deg_s_min": 360,
+              "resolved_vel_max_deg_s_max": 360,
+              "resolved_vel_max_counts_s_max": 4096,
+              "safety.max_delta_q_deg": 3.6,
+              "control.hz": 100,
+              "slew_limit_deg_s": 360,
+              "bus.profile_ramp_steps": 0,
+              "servo_params_source": "/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json+vel_max=4096cps",
+              "backend_profile": "servo_profile_np"
+            },
+            "policy_std": 0.135,
+            "start_jitter_panel": {
+              "start_jitter_deg": 3,
+              "start_bad_prob": 0.25,
+              "start_bad_max_joints": 1,
+              "start_bad_deg_min": 8,
+              "start_bad_deg_max": 16
+            }
+          },
+          "groups": {
+            "walk/det": {
+              "episodes": 6,
+              "gait_valid": 0,
+              "terminations": 0,
+              "mean_slip_per_m": 4.403,
+              "mean_progress_ratio": 2.001,
+              "median_net_forward_m_s": 0.11775,
+              "mean_episode_current_max_a": 2.52,
+              "worst_current_max_a": 2.52,
+              "mean_episode_current_p95_a": 2.12,
+              "sacrificed_leg_counts": [
+                0,
+                0,
+                0,
+                0,
+                6,
+                0
+              ],
+              "sacrificed_leg_episodes": {
+                "0": [],
+                "1": [],
+                "2": [],
+                "3": [],
+                "4": [
+                  0,
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ],
+                "5": []
+              }
+            },
+            "walk/sto": {
+              "episodes": 6,
+              "gait_valid": 6,
+              "terminations": 0,
+              "mean_slip_per_m": 5.974,
+              "mean_progress_ratio": 1.5473333333333334,
+              "median_net_forward_m_s": 0.090225,
+              "mean_episode_current_max_a": 2.5733333333333333,
+              "worst_current_max_a": 2.58,
+              "mean_episode_current_p95_a": 2.1483333333333334,
+              "sacrificed_leg_counts": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "sacrificed_leg_episodes": {
+                "0": [],
+                "1": [],
+                "2": [],
+                "3": [],
+                "4": [],
+                "5": []
+              }
+            },
+            "walk_startjitter/det": {
+              "episodes": 6,
+              "gait_valid": 0,
+              "terminations": 0,
+              "mean_slip_per_m": 4.434,
+              "mean_progress_ratio": 1.9711666666666667,
+              "median_net_forward_m_s": 0.11579999999999999,
+              "mean_episode_current_max_a": 2.5633333333333335,
+              "worst_current_max_a": 2.59,
+              "mean_episode_current_p95_a": 2.1283333333333334,
+              "sacrificed_leg_counts": [
+                0,
+                1,
+                0,
+                0,
+                6,
+                0
+              ],
+              "sacrificed_leg_episodes": {
+                "0": [],
+                "1": [
+                  2
+                ],
+                "2": [],
+                "3": [],
+                "4": [
+                  0,
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ],
+                "5": []
+              }
+            },
+            "walk_startjitter/sto": {
+              "episodes": 6,
+              "gait_valid": 6,
+              "terminations": 0,
+              "mean_slip_per_m": 5.7735,
+              "mean_progress_ratio": 1.5886666666666667,
+              "median_net_forward_m_s": 0.093375,
+              "mean_episode_current_max_a": 2.58,
+              "worst_current_max_a": 2.6,
+              "mean_episode_current_p95_a": 2.166666666666667,
+              "sacrificed_leg_counts": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "sacrificed_leg_episodes": {
+                "0": [],
+                "1": [],
+                "2": [],
+                "3": [],
+                "4": [],
+                "5": []
+              }
+            }
+          },
+          "total_gait_valid": 12,
+          "total_terminations": 0
+        },
+        "child": {
+          "source_path": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s7_acq1_torque1x_c1_gate/report.json",
+          "checkpoint": "/workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s7_acq1_torque1x_c1.zip",
+          "metadata": {
+            "task": "joint_walk",
+            "dr_scale": 0,
+            "seed": 0,
+            "model_source": "mesh_mjx",
+            "model_variant": "mesh_mjx_twin",
+            "model_nmesh": 0,
+            "model_ngeom": 91,
+            "model_mass_kg": 4.80573,
+            "motor_contract": {
+              "bus.write_speed": 4096,
+              "bus.write_acc": 1000,
+              "bus.servo_vel_max_counts_s": "write_speed",
+              "bus.servo_params": "",
+              "resolved_vel_max_deg_s_min": 360,
+              "resolved_vel_max_deg_s_max": 360,
+              "resolved_vel_max_counts_s_max": 4096,
+              "safety.max_delta_q_deg": 3.6,
+              "control.hz": 100,
+              "slew_limit_deg_s": 360,
+              "bus.profile_ramp_steps": 0,
+              "servo_params_source": "/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json+vel_max=4096cps",
+              "backend_profile": "servo_profile_np"
+            },
+            "policy_std": 0.135,
+            "start_jitter_panel": {
+              "start_jitter_deg": 3,
+              "start_bad_prob": 0.25,
+              "start_bad_max_joints": 1,
+              "start_bad_deg_min": 8,
+              "start_bad_deg_max": 16
+            }
+          },
+          "groups": {
+            "walk/det": {
+              "episodes": 6,
+              "gait_valid": 0,
+              "terminations": 0,
+              "mean_slip_per_m": 4.439,
+              "mean_progress_ratio": 2.077,
+              "median_net_forward_m_s": 0.1217,
+              "mean_episode_current_max_a": 2.56,
+              "worst_current_max_a": 2.56,
+              "mean_episode_current_p95_a": 2.15,
+              "sacrificed_leg_counts": [
+                0,
+                0,
+                0,
+                0,
+                6,
+                0
+              ],
+              "sacrificed_leg_episodes": {
+                "0": [],
+                "1": [],
+                "2": [],
+                "3": [],
+                "4": [
+                  0,
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ],
+                "5": []
+              }
+            },
+            "walk/sto": {
+              "episodes": 6,
+              "gait_valid": 6,
+              "terminations": 0,
+              "mean_slip_per_m": 5.749666666666666,
+              "mean_progress_ratio": 1.6083333333333334,
+              "median_net_forward_m_s": 0.09570000000000001,
+              "mean_episode_current_max_a": 2.5749999999999997,
+              "worst_current_max_a": 2.6,
+              "mean_episode_current_p95_a": 2.1683333333333334,
+              "sacrificed_leg_counts": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "sacrificed_leg_episodes": {
+                "0": [],
+                "1": [],
+                "2": [],
+                "3": [],
+                "4": [],
+                "5": []
+              }
+            },
+            "walk_startjitter/det": {
+              "episodes": 6,
+              "gait_valid": 0,
+              "terminations": 0,
+              "mean_slip_per_m": 4.224,
+              "mean_progress_ratio": 2.1415,
+              "median_net_forward_m_s": 0.12545,
+              "mean_episode_current_max_a": 2.5749999999999997,
+              "worst_current_max_a": 2.61,
+              "mean_episode_current_p95_a": 2.165,
+              "sacrificed_leg_counts": [
+                0,
+                1,
+                0,
+                0,
+                6,
+                0
+              ],
+              "sacrificed_leg_episodes": {
+                "0": [],
+                "1": [
+                  2
+                ],
+                "2": [],
+                "3": [],
+                "4": [
+                  0,
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ],
+                "5": []
+              }
+            },
+            "walk_startjitter/sto": {
+              "episodes": 6,
+              "gait_valid": 6,
+              "terminations": 0,
+              "mean_slip_per_m": 5.815,
+              "mean_progress_ratio": 1.5835,
+              "median_net_forward_m_s": 0.0945,
+              "mean_episode_current_max_a": 2.585,
+              "worst_current_max_a": 2.61,
+              "mean_episode_current_p95_a": 2.1783333333333332,
+              "sacrificed_leg_counts": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "sacrificed_leg_episodes": {
+                "0": [],
+                "1": [],
+                "2": [],
+                "3": [],
+                "4": [],
+                "5": []
+              }
+            }
+          },
+          "total_gait_valid": 12,
+          "total_terminations": 0
+        }
+      },
+      "health": {
+        "zero": {
+          "classification_under_original_gate": "PARTIAL",
+          "zero_terminations": true,
+          "movement_floor": true,
+          "gait_count_retained": false,
+          "new_recurring_patterns": [
+            {
+              "group": "walk/det",
+              "leg": 4,
+              "source_count": 0,
+              "count": 6,
+              "episodes": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5
+              ]
+            }
+          ]
+        },
+        "child": {
+          "classification_under_original_gate": "PARTIAL",
+          "zero_terminations": true,
+          "movement_floor": true,
+          "gait_count_retained": false,
+          "new_recurring_patterns": [
+            {
+              "group": "walk/det",
+              "leg": 4,
+              "source_count": 0,
+              "count": 6,
+              "episodes": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5
+              ]
+            }
+          ]
+        }
+      },
+      "child_vs_zero": {
+        "walk/det": {
+          "mean_slip_delta": 0.036000000000000476,
+          "mean_slip_ratio": 1.0081762434703612,
+          "median_forward_speed_delta_m_s": 0.003950000000000009,
+          "median_forward_speed_ratio": 1.0335456475583864,
+          "mean_progress_delta": 0.07600000000000007,
+          "gait_count_delta": 0
+        },
+        "walk/sto": {
+          "mean_slip_delta": -0.22433333333333394,
+          "mean_slip_ratio": 0.962448387456757,
+          "median_forward_speed_delta_m_s": 0.005475000000000008,
+          "median_forward_speed_ratio": 1.060681629260183,
+          "mean_progress_delta": 0.06099999999999994,
+          "gait_count_delta": 0
+        },
+        "walk_startjitter/det": {
+          "mean_slip_delta": -0.20999999999999996,
+          "mean_slip_ratio": 0.952638700947226,
+          "median_forward_speed_delta_m_s": 0.00965000000000002,
+          "median_forward_speed_ratio": 1.0833333333333335,
+          "mean_progress_delta": 0.17033333333333345,
+          "gait_count_delta": 0
+        },
+        "walk_startjitter/sto": {
+          "mean_slip_delta": 0.04150000000000009,
+          "mean_slip_ratio": 1.0071880142028233,
+          "median_forward_speed_delta_m_s": 0.001125000000000001,
+          "median_forward_speed_ratio": 1.0120481927710843,
+          "mean_progress_delta": -0.005166666666666764,
+          "gait_count_delta": 0
+        }
+      },
+      "config_checks": {
+        "zero_vs_child_equal": true,
+        "source3x_to_zero1x_differences": {
+          "dr.torque_scale": [
+            "3,3",
+            "1,1"
+          ]
+        },
+        "frozen_parent_sha_matches_weight_read": true
+      },
+      "reward_trajectory": [
+        {
+          "global_step": 524288,
+          "reward_per_tick": 1.0339280181478898,
+          "ep_rew_mean": 100.92202758789062,
+          "ep_len_mean": 101.14
+        },
+        {
+          "global_step": 1048576,
+          "reward_per_tick": 1.1603269884362817,
+          "ep_rew_mean": 238.82382202148438,
+          "ep_len_mean": 222.77
+        },
+        {
+          "global_step": 1572864,
+          "reward_per_tick": 1.1722390418872237,
+          "ep_rew_mean": 388.9196472167969,
+          "ep_len_mean": 353.12
+        },
+        {
+          "global_step": 2097152,
+          "reward_per_tick": 1.185337882488966,
+          "ep_rew_mean": 544.5964965820312,
+          "ep_len_mean": 487.88
+        }
+      ],
+      "actual_child_steps": 2097152
+    }
+  },
+  "paired_trained_slip": {
+    "walk/det": {
+      "on_mean": 3.727,
+      "off_mean": 4.439,
+      "ratio": 0.8396035143050237,
+      "at_most_1p2": true
+    },
+    "walk/sto": {
+      "on_mean": 5.231,
+      "off_mean": 5.749666666666666,
+      "ratio": 0.9097918719925793,
+      "at_most_1p2": true
+    },
+    "walk_startjitter/det": {
+      "on_mean": 3.6786666666666665,
+      "off_mean": 4.224,
+      "ratio": 0.8708964646464645,
+      "at_most_1p2": true
+    },
+    "walk_startjitter/sto": {
+      "on_mean": 5.184,
+      "off_mean": 5.815,
+      "ratio": 0.891487532244196,
+      "at_most_1p2": true
+    }
+  },
+  "pairing": {
+    "on": {
+      "source_to_zero": {
+        "walk/det": {
+          "randomization_equal_except_intentional_torque": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries_equal": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        "walk/sto": {
+          "randomization_equal_except_intentional_torque": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries_equal": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        "walk_startjitter/det": {
+          "randomization_equal_except_intentional_torque": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries_equal": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries": [
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 2.9
+            },
+            {
+              "bad_start_joints": [
+                17
+              ],
+              "start_offset_max_deg": 10.1
+            },
+            {
+              "bad_start_joints": [
+                1
+              ],
+              "start_offset_max_deg": 14.7
+            },
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 3
+            },
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 3
+            },
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 2.9
+            }
+          ]
+        },
+        "walk_startjitter/sto": {
+          "randomization_equal_except_intentional_torque": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries_equal": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries": [
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 2.9
+            },
+            {
+              "bad_start_joints": [
+                11
+              ],
+              "start_offset_max_deg": 12.1
+            },
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 2.7
+            },
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 2.9
+            },
+            {
+              "bad_start_joints": [
+                3
+              ],
+              "start_offset_max_deg": 11
+            },
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 3
+            }
+          ]
+        }
+      },
+      "zero_to_child": {
+        "walk/det": {
+          "randomization_equal_except_intentional_torque": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries_equal": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        "walk/sto": {
+          "randomization_equal_except_intentional_torque": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries_equal": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        "walk_startjitter/det": {
+          "randomization_equal_except_intentional_torque": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries_equal": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries": [
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 2.9
+            },
+            {
+              "bad_start_joints": [
+                17
+              ],
+              "start_offset_max_deg": 10.1
+            },
+            {
+              "bad_start_joints": [
+                1
+              ],
+              "start_offset_max_deg": 14.7
+            },
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 3
+            },
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 3
+            },
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 2.9
+            }
+          ]
+        },
+        "walk_startjitter/sto": {
+          "randomization_equal_except_intentional_torque": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries_equal": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries": [
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 2.9
+            },
+            {
+              "bad_start_joints": [
+                11
+              ],
+              "start_offset_max_deg": 12.1
+            },
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 2.7
+            },
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 2.9
+            },
+            {
+              "bad_start_joints": [
+                3
+              ],
+              "start_offset_max_deg": 11
+            },
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 3
+            }
+          ]
+        }
+      }
+    },
+    "off": {
+      "source_to_zero": {
+        "walk/det": {
+          "randomization_equal_except_intentional_torque": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries_equal": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        "walk/sto": {
+          "randomization_equal_except_intentional_torque": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries_equal": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        "walk_startjitter/det": {
+          "randomization_equal_except_intentional_torque": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries_equal": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries": [
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 2.9
+            },
+            {
+              "bad_start_joints": [
+                17
+              ],
+              "start_offset_max_deg": 10.1
+            },
+            {
+              "bad_start_joints": [
+                1
+              ],
+              "start_offset_max_deg": 14.7
+            },
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 3
+            },
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 3
+            },
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 2.9
+            }
+          ]
+        },
+        "walk_startjitter/sto": {
+          "randomization_equal_except_intentional_torque": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries_equal": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries": [
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 2.9
+            },
+            {
+              "bad_start_joints": [
+                11
+              ],
+              "start_offset_max_deg": 12.1
+            },
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 2.7
+            },
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 2.9
+            },
+            {
+              "bad_start_joints": [
+                3
+              ],
+              "start_offset_max_deg": 11
+            },
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 3
+            }
+          ]
+        }
+      },
+      "zero_to_child": {
+        "walk/det": {
+          "randomization_equal_except_intentional_torque": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries_equal": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        "walk/sto": {
+          "randomization_equal_except_intentional_torque": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries_equal": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        },
+        "walk_startjitter/det": {
+          "randomization_equal_except_intentional_torque": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries_equal": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries": [
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 2.9
+            },
+            {
+              "bad_start_joints": [
+                17
+              ],
+              "start_offset_max_deg": 10.1
+            },
+            {
+              "bad_start_joints": [
+                1
+              ],
+              "start_offset_max_deg": 14.7
+            },
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 3
+            },
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 3
+            },
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 2.9
+            }
+          ]
+        },
+        "walk_startjitter/sto": {
+          "randomization_equal_except_intentional_torque": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries_equal": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "reset_jitter_summaries": [
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 2.9
+            },
+            {
+              "bad_start_joints": [
+                11
+              ],
+              "start_offset_max_deg": 12.1
+            },
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 2.7
+            },
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 2.9
+            },
+            {
+              "bad_start_joints": [
+                3
+              ],
+              "start_offset_max_deg": 11
+            },
+            {
+              "bad_start_joints": [],
+              "start_offset_max_deg": 3
+            }
+          ]
+        }
+      }
+    }
+  },
+  "weights": {
+    "on": {
+      "checkpoints": [
+        {
+          "name": "ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_c1_s7_acq1.zip",
+          "sha256": "569dfa7f5851307839559b53f636754d9c599432979707198a061597ceb78579",
+          "bytes": 4469273,
+          "num_timesteps": 40370176
+        },
+        {
+          "name": "ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_c1_s7_acq1_torque1x_c1.zip",
+          "sha256": "b35674730fd9bae7482828e3483c5a0c19d41dca5d24ef2e03ce8e1d5d4dcc73",
+          "bytes": 4469270,
+          "num_timesteps": 2097152
+        }
+      ],
+      "non_log_std_numel": 237203,
+      "non_log_std_changed_tensor_count": 16,
+      "non_log_std_l2_delta": 0.47604635029280984,
+      "non_log_std_relative_l2": 0.010336513609797239,
+      "non_log_std_max_abs_delta": 0.010035276412963867,
+      "changed_tensors": [
+        {
+          "key": "mlp_extractor.policy_net.0.weight",
+          "changed_elements": 15872,
+          "numel": 18432,
+          "max_abs_delta": 0.0019518733024597168
+        },
+        {
+          "key": "mlp_extractor.policy_net.0.bias",
+          "changed_elements": 256,
+          "numel": 256,
+          "max_abs_delta": 0.0011333462316542864
+        },
+        {
+          "key": "mlp_extractor.policy_net.2.weight",
+          "changed_elements": 65532,
+          "numel": 65536,
+          "max_abs_delta": 0.0011178553104400635
+        },
+        {
+          "key": "mlp_extractor.policy_net.2.bias",
+          "changed_elements": 256,
+          "numel": 256,
+          "max_abs_delta": 0.0009276606142520905
+        },
+        {
+          "key": "mlp_extractor.policy_net.4.weight",
+          "changed_elements": 32767,
+          "numel": 32768,
+          "max_abs_delta": 0.0012454427778720856
+        },
+        {
+          "key": "mlp_extractor.policy_net.4.bias",
+          "changed_elements": 128,
+          "numel": 128,
+          "max_abs_delta": 0.0007881391793489456
+        },
+        {
+          "key": "mlp_extractor.value_net.0.weight",
+          "changed_elements": 15872,
+          "numel": 18432,
+          "max_abs_delta": 0.010035276412963867
+        },
+        {
+          "key": "mlp_extractor.value_net.0.bias",
+          "changed_elements": 256,
+          "numel": 256,
+          "max_abs_delta": 0.004046879708766937
+        },
+        {
+          "key": "mlp_extractor.value_net.2.weight",
+          "changed_elements": 65536,
+          "numel": 65536,
+          "max_abs_delta": 0.006117202341556549
+        },
+        {
+          "key": "mlp_extractor.value_net.2.bias",
+          "changed_elements": 256,
+          "numel": 256,
+          "max_abs_delta": 0.004237059503793716
+        },
+        {
+          "key": "mlp_extractor.value_net.4.weight",
+          "changed_elements": 32758,
+          "numel": 32768,
+          "max_abs_delta": 0.003643140196800232
+        },
+        {
+          "key": "mlp_extractor.value_net.4.bias",
+          "changed_elements": 128,
+          "numel": 128,
+          "max_abs_delta": 0.0028606653213500977
+        },
+        {
+          "key": "action_net.weight",
+          "changed_elements": 2304,
+          "numel": 2304,
+          "max_abs_delta": 0.0017884178087115288
+        },
+        {
+          "key": "action_net.bias",
+          "changed_elements": 18,
+          "numel": 18,
+          "max_abs_delta": 0.0010170340538024902
+        },
+        {
+          "key": "value_net.weight",
+          "changed_elements": 128,
+          "numel": 128,
+          "max_abs_delta": 0.003053732216358185
+        },
+        {
+          "key": "value_net.bias",
+          "changed_elements": 1,
+          "numel": 1,
+          "max_abs_delta": 0.0007291790097951889
+        }
+      ],
+      "unchanged_tensors": [],
+      "log_std_parent": [
+        -2.0002315044403076,
+        -1.9985092878341675,
+        -2.0013375282287598,
+        -1.9983240365982056,
+        -2.000326633453369,
+        -2.0017025470733643,
+        -1.9997831583023071,
+        -1.9984363317489624,
+        -2.002743721008301,
+        -1.9989981651306152,
+        -2.0009703636169434,
+        -2.00156831741333,
+        -1.9995023012161255,
+        -1.998360276222229,
+        -2.000012159347534,
+        -2.0004382133483887,
+        -1.9997245073318481,
+        -2.001512289047241
+      ],
+      "log_std_child": [
+        -1.9997141361236572,
+        -2.0004446506500244,
+        -2.0011563301086426,
+        -1.9999654293060303,
+        -1.999983549118042,
+        -2.0009124279022217,
+        -2.0002400875091553,
+        -2.0006847381591797,
+        -2.0008130073547363,
+        -1.9998984336853027,
+        -2.000446081161499,
+        -2.0006251335144043,
+        -2.000359296798706,
+        -1.9996665716171265,
+        -2.001171350479126,
+        -2.000608205795288,
+        -2.0005218982696533,
+        -2.001591205596924
+      ]
+    },
+    "off": {
+      "checkpoints": [
+        {
+          "name": "ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s7_acq1.zip",
+          "sha256": "f4b962c1a851b2b413625d631969b9d63e509633f2f64629733c2141982d014e",
+          "bytes": 4469273,
+          "num_timesteps": 40370176
+        },
+        {
+          "name": "ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s7_acq1_torque1x_c1.zip",
+          "sha256": "6be940af06a2ed96094781062e9907af7ad12c1a5d92c9b1b342293919d08f60",
+          "bytes": 4469270,
+          "num_timesteps": 2097152
+        }
+      ],
+      "non_log_std_numel": 237203,
+      "non_log_std_changed_tensor_count": 16,
+      "non_log_std_l2_delta": 0.52581151386523,
+      "non_log_std_relative_l2": 0.011385454923750392,
+      "non_log_std_max_abs_delta": 0.015401706099510193,
+      "changed_tensors": [
+        {
+          "key": "mlp_extractor.policy_net.0.weight",
+          "changed_elements": 15872,
+          "numel": 18432,
+          "max_abs_delta": 0.002870112657546997
+        },
+        {
+          "key": "mlp_extractor.policy_net.0.bias",
+          "changed_elements": 256,
+          "numel": 256,
+          "max_abs_delta": 0.0010468070395290852
+        },
+        {
+          "key": "mlp_extractor.policy_net.2.weight",
+          "changed_elements": 65535,
+          "numel": 65536,
+          "max_abs_delta": 0.0009835530072450638
+        },
+        {
+          "key": "mlp_extractor.policy_net.2.bias",
+          "changed_elements": 256,
+          "numel": 256,
+          "max_abs_delta": 0.0005947588942945004
+        },
+        {
+          "key": "mlp_extractor.policy_net.4.weight",
+          "changed_elements": 32768,
+          "numel": 32768,
+          "max_abs_delta": 0.0011706029472406954
+        },
+        {
+          "key": "mlp_extractor.policy_net.4.bias",
+          "changed_elements": 128,
+          "numel": 128,
+          "max_abs_delta": 0.00047872401773929596
+        },
+        {
+          "key": "mlp_extractor.value_net.0.weight",
+          "changed_elements": 15871,
+          "numel": 18432,
+          "max_abs_delta": 0.015401706099510193
+        },
+        {
+          "key": "mlp_extractor.value_net.0.bias",
+          "changed_elements": 256,
+          "numel": 256,
+          "max_abs_delta": 0.004489198327064514
+        },
+        {
+          "key": "mlp_extractor.value_net.2.weight",
+          "changed_elements": 65535,
+          "numel": 65536,
+          "max_abs_delta": 0.009642712771892548
+        },
+        {
+          "key": "mlp_extractor.value_net.2.bias",
+          "changed_elements": 256,
+          "numel": 256,
+          "max_abs_delta": 0.006809897720813751
+        },
+        {
+          "key": "mlp_extractor.value_net.4.weight",
+          "changed_elements": 32708,
+          "numel": 32768,
+          "max_abs_delta": 0.003610074520111084
+        },
+        {
+          "key": "mlp_extractor.value_net.4.bias",
+          "changed_elements": 128,
+          "numel": 128,
+          "max_abs_delta": 0.0029128938913345337
+        },
+        {
+          "key": "action_net.weight",
+          "changed_elements": 2304,
+          "numel": 2304,
+          "max_abs_delta": 0.0028984956443309784
+        },
+        {
+          "key": "action_net.bias",
+          "changed_elements": 18,
+          "numel": 18,
+          "max_abs_delta": 0.0004000850021839142
+        },
+        {
+          "key": "value_net.weight",
+          "changed_elements": 128,
+          "numel": 128,
+          "max_abs_delta": 0.00294601172208786
+        },
+        {
+          "key": "value_net.bias",
+          "changed_elements": 1,
+          "numel": 1,
+          "max_abs_delta": 0.0006490983068943024
+        }
+      ],
+      "unchanged_tensors": [],
+      "log_std_parent": [
+        -1.9998725652694702,
+        -1.9995815753936768,
+        -2.000110387802124,
+        -1.9975827932357788,
+        -1.9994162321090698,
+        -1.9992012977600098,
+        -1.9997018575668335,
+        -2.0014398097991943,
+        -2.0000977516174316,
+        -1.9998836517333984,
+        -2.000398635864258,
+        -2.0001258850097656,
+        -1.9988017082214355,
+        -2.000096321105957,
+        -1.9996402263641357,
+        -1.9999208450317383,
+        -2.0004563331604004,
+        -2.0005745887756348
+      ],
+      "log_std_child": [
+        -2.001091241836548,
+        -2.001138925552368,
+        -2.0018770694732666,
+        -1.99997878074646,
+        -2.001363515853882,
+        -2.0003395080566406,
+        -2.000540018081665,
+        -2.000614881515503,
+        -2.0000133514404297,
+        -2.0017385482788086,
+        -2.0014381408691406,
+        -2.000624895095825,
+        -1.9997990131378174,
+        -1.9999881982803345,
+        -2.0003490447998047,
+        -1.9998016357421875,
+        -2.0018527507781982,
+        -2.002098798751831
+      ]
+    }
+  },
+  "frozen_parent_provenance": {
+    "checkpoint_sha256": {
+      "hexapod-mjx-train-5": "569dfa7f5851307839559b53f636754d9c599432979707198a061597ceb78579",
+      "hexapod-mjx-train-9": "f4b962c1a851b2b413625d631969b9d63e509633f2f64629733c2141982d014e"
+    },
+    "only_source_cfg_change": "dr.torque_scale=3,3 ->1,1",
+    "protocol": "24 episodes: 6 each walk det/sto and start-jitter det/sto; seed0,20s,dr0,100Hz; video25fps",
+    "source_checks": {
+      "rl_move/sim/eval_checkpoint.py": {
+        "hexapod-sweep-friction": "c03bcf64fe58b454a484a4690756985b309e65c9d94abda0a7e97aa02c164eeb",
+        "hexapod-mjx-train-4": "c03bcf64fe58b454a484a4690756985b309e65c9d94abda0a7e97aa02c164eeb",
+        "hexapod-mjx-train-8": "c03bcf64fe58b454a484a4690756985b309e65c9d94abda0a7e97aa02c164eeb",
+        "hexapod-mjx-train-5": "c03bcf64fe58b454a484a4690756985b309e65c9d94abda0a7e97aa02c164eeb",
+        "hexapod-mjx-train-9": "c03bcf64fe58b454a484a4690756985b309e65c9d94abda0a7e97aa02c164eeb"
+      },
+      "rl_move/sim/sim_env.py": {
+        "hexapod-sweep-friction": "24e9446b29f9e92a41ffb63d3a91842e01ce9d40b4bcf84f9409cc8b1aa01bd7",
+        "hexapod-mjx-train-4": "24e9446b29f9e92a41ffb63d3a91842e01ce9d40b4bcf84f9409cc8b1aa01bd7",
+        "hexapod-mjx-train-8": "24e9446b29f9e92a41ffb63d3a91842e01ce9d40b4bcf84f9409cc8b1aa01bd7",
+        "hexapod-mjx-train-5": "24e9446b29f9e92a41ffb63d3a91842e01ce9d40b4bcf84f9409cc8b1aa01bd7",
+        "hexapod-mjx-train-9": "24e9446b29f9e92a41ffb63d3a91842e01ce9d40b4bcf84f9409cc8b1aa01bd7"
+      },
+      "rl_move/sim/goal_task.py": {
+        "hexapod-sweep-friction": "c22d6a637cfcfed95cf47339e7045092d3761fa73479107c22f7d8429df238d1",
+        "hexapod-mjx-train-4": "c22d6a637cfcfed95cf47339e7045092d3761fa73479107c22f7d8429df238d1",
+        "hexapod-mjx-train-8": "c22d6a637cfcfed95cf47339e7045092d3761fa73479107c22f7d8429df238d1",
+        "hexapod-mjx-train-5": "c22d6a637cfcfed95cf47339e7045092d3761fa73479107c22f7d8429df238d1",
+        "hexapod-mjx-train-9": "c22d6a637cfcfed95cf47339e7045092d3761fa73479107c22f7d8429df238d1"
+      },
+      "rl_move/sim/joint_task.py": {
+        "hexapod-sweep-friction": "bdd43cb1cb5fafefe8baa1ff7816e4ac3e8ae22f861874c64c81441d49b713d7",
+        "hexapod-mjx-train-4": "bdd43cb1cb5fafefe8baa1ff7816e4ac3e8ae22f861874c64c81441d49b713d7",
+        "hexapod-mjx-train-8": "bdd43cb1cb5fafefe8baa1ff7816e4ac3e8ae22f861874c64c81441d49b713d7",
+        "hexapod-mjx-train-5": "bdd43cb1cb5fafefe8baa1ff7816e4ac3e8ae22f861874c64c81441d49b713d7",
+        "hexapod-mjx-train-9": "bdd43cb1cb5fafefe8baa1ff7816e4ac3e8ae22f861874c64c81441d49b713d7"
+      },
+      "rl_move/sim/walk_task.py": {
+        "hexapod-sweep-friction": "5de8199df6794511979d126a8dd94cde066a790dd8612c4672257cf6a7c991dc",
+        "hexapod-mjx-train-4": "5de8199df6794511979d126a8dd94cde066a790dd8612c4672257cf6a7c991dc",
+        "hexapod-mjx-train-8": "5de8199df6794511979d126a8dd94cde066a790dd8612c4672257cf6a7c991dc",
+        "hexapod-mjx-train-5": "5de8199df6794511979d126a8dd94cde066a790dd8612c4672257cf6a7c991dc",
+        "hexapod-mjx-train-9": "5de8199df6794511979d126a8dd94cde066a790dd8612c4672257cf6a7c991dc"
+      },
+      "rl_move/sim/cart_foot_decode.py": {
+        "hexapod-sweep-friction": "bb7010d8383798316316a0e6faf1176d3dd6f838c62d1458c7ee68aa866ef26b",
+        "hexapod-mjx-train-4": "bb7010d8383798316316a0e6faf1176d3dd6f838c62d1458c7ee68aa866ef26b",
+        "hexapod-mjx-train-8": "bb7010d8383798316316a0e6faf1176d3dd6f838c62d1458c7ee68aa866ef26b",
+        "hexapod-mjx-train-5": "bb7010d8383798316316a0e6faf1176d3dd6f838c62d1458c7ee68aa866ef26b",
+        "hexapod-mjx-train-9": "bb7010d8383798316316a0e6faf1176d3dd6f838c62d1458c7ee68aa866ef26b"
+      },
+      "rl_move/sim/domain_rand.py": {
+        "hexapod-sweep-friction": "8fe3abf594900d37b57268f70d8219fdbdcf7da5d6f862ce6b0fe95db7819e73",
+        "hexapod-mjx-train-4": "8fe3abf594900d37b57268f70d8219fdbdcf7da5d6f862ce6b0fe95db7819e73",
+        "hexapod-mjx-train-8": "8fe3abf594900d37b57268f70d8219fdbdcf7da5d6f862ce6b0fe95db7819e73",
+        "hexapod-mjx-train-5": "8fe3abf594900d37b57268f70d8219fdbdcf7da5d6f862ce6b0fe95db7819e73",
+        "hexapod-mjx-train-9": "8fe3abf594900d37b57268f70d8219fdbdcf7da5d6f862ce6b0fe95db7819e73"
+      },
+      "rl_move/sim/servo_model.py": {
+        "hexapod-sweep-friction": "e2325426ede9ae566575cca0c9cff1f429190fadbf6291b705980c9d51c1fff8",
+        "hexapod-mjx-train-4": "e2325426ede9ae566575cca0c9cff1f429190fadbf6291b705980c9d51c1fff8",
+        "hexapod-mjx-train-8": "e2325426ede9ae566575cca0c9cff1f429190fadbf6291b705980c9d51c1fff8",
+        "hexapod-mjx-train-5": "e2325426ede9ae566575cca0c9cff1f429190fadbf6291b705980c9d51c1fff8",
+        "hexapod-mjx-train-9": "e2325426ede9ae566575cca0c9cff1f429190fadbf6291b705980c9d51c1fff8"
+      },
+      "rl_move/sim/deployed_transport.py": {
+        "hexapod-sweep-friction": "8ae32345111cc4252de0bcc137cd2509deb24488305072f5525b22212cf98c12",
+        "hexapod-mjx-train-4": "8ae32345111cc4252de0bcc137cd2509deb24488305072f5525b22212cf98c12",
+        "hexapod-mjx-train-8": "8ae32345111cc4252de0bcc137cd2509deb24488305072f5525b22212cf98c12",
+        "hexapod-mjx-train-5": "8ae32345111cc4252de0bcc137cd2509deb24488305072f5525b22212cf98c12",
+        "hexapod-mjx-train-9": "8ae32345111cc4252de0bcc137cd2509deb24488305072f5525b22212cf98c12"
+      },
+      "rl_move/config.yaml": {
+        "hexapod-sweep-friction": "ea90091f567e7efaff0c0614fa6eb1e76bb1b148c81d983bc6ea27571e9252d9",
+        "hexapod-mjx-train-4": "ea90091f567e7efaff0c0614fa6eb1e76bb1b148c81d983bc6ea27571e9252d9",
+        "hexapod-mjx-train-8": "ea90091f567e7efaff0c0614fa6eb1e76bb1b148c81d983bc6ea27571e9252d9",
+        "hexapod-mjx-train-5": "ea90091f567e7efaff0c0614fa6eb1e76bb1b148c81d983bc6ea27571e9252d9",
+        "hexapod-mjx-train-9": "ea90091f567e7efaff0c0614fa6eb1e76bb1b148c81d983bc6ea27571e9252d9"
+      },
+      "rl_move/config.py": {
+        "hexapod-sweep-friction": "ba4513632dbb68d8fdf857f373fa80935e28593f05c082d813b082604e098db4",
+        "hexapod-mjx-train-4": "ba4513632dbb68d8fdf857f373fa80935e28593f05c082d813b082604e098db4",
+        "hexapod-mjx-train-8": "ba4513632dbb68d8fdf857f373fa80935e28593f05c082d813b082604e098db4",
+        "hexapod-mjx-train-5": "ba4513632dbb68d8fdf857f373fa80935e28593f05c082d813b082604e098db4",
+        "hexapod-mjx-train-9": "ba4513632dbb68d8fdf857f373fa80935e28593f05c082d813b082604e098db4"
+      },
+      "rl_move/env.py": {
+        "hexapod-sweep-friction": "721806bee29c20dadffd7ab347a4e0b811c90fe88e220f2fe1a1e250d7c4e208",
+        "hexapod-mjx-train-4": "721806bee29c20dadffd7ab347a4e0b811c90fe88e220f2fe1a1e250d7c4e208",
+        "hexapod-mjx-train-8": "721806bee29c20dadffd7ab347a4e0b811c90fe88e220f2fe1a1e250d7c4e208",
+        "hexapod-mjx-train-5": "721806bee29c20dadffd7ab347a4e0b811c90fe88e220f2fe1a1e250d7c4e208",
+        "hexapod-mjx-train-9": "721806bee29c20dadffd7ab347a4e0b811c90fe88e220f2fe1a1e250d7c4e208"
+      },
+      "rl_move/body_ik.py": {
+        "hexapod-sweep-friction": "bf6369199018cb86c187fc226ac2557545832e43ed4489b244de325941754d06",
+        "hexapod-mjx-train-4": "bf6369199018cb86c187fc226ac2557545832e43ed4489b244de325941754d06",
+        "hexapod-mjx-train-8": "bf6369199018cb86c187fc226ac2557545832e43ed4489b244de325941754d06",
+        "hexapod-mjx-train-5": "bf6369199018cb86c187fc226ac2557545832e43ed4489b244de325941754d06",
+        "hexapod-mjx-train-9": "bf6369199018cb86c187fc226ac2557545832e43ed4489b244de325941754d06"
+      },
+      "rl_move/safety.py": {
+        "hexapod-sweep-friction": "e64db0dc6afb409ef840cbd2e5a0254ec475b702d4483067f4f308a2638332ad",
+        "hexapod-mjx-train-4": "e64db0dc6afb409ef840cbd2e5a0254ec475b702d4483067f4f308a2638332ad",
+        "hexapod-mjx-train-8": "e64db0dc6afb409ef840cbd2e5a0254ec475b702d4483067f4f308a2638332ad",
+        "hexapod-mjx-train-5": "e64db0dc6afb409ef840cbd2e5a0254ec475b702d4483067f4f308a2638332ad",
+        "hexapod-mjx-train-9": "e64db0dc6afb409ef840cbd2e5a0254ec475b702d4483067f4f308a2638332ad"
+      },
+      "rl_move/robot_state.py": {
+        "hexapod-sweep-friction": "f8689b385114f79f3159cbbf2d2f903f087fb3da3ca6a4e9619d83c2dbce2def",
+        "hexapod-mjx-train-4": "f8689b385114f79f3159cbbf2d2f903f087fb3da3ca6a4e9619d83c2dbce2def",
+        "hexapod-mjx-train-8": "f8689b385114f79f3159cbbf2d2f903f087fb3da3ca6a4e9619d83c2dbce2def",
+        "hexapod-mjx-train-5": "f8689b385114f79f3159cbbf2d2f903f087fb3da3ca6a4e9619d83c2dbce2def",
+        "hexapod-mjx-train-9": "f8689b385114f79f3159cbbf2d2f903f087fb3da3ca6a4e9619d83c2dbce2def"
+      }
+    },
+    "matching_motor_model_and_packages": true
+  },
+  "slip_parity_criterion": {
+    "required_panels": 3,
+    "met_panels": 4,
+    "supported": true
+  },
+  "conclusion": "The retention asymmetry exists zero-shot: corrected frozen ON parent at1x already retains23/24 gait with zero terminations; corrected OFF parent already has12/24 with the same new chronic walk/det leg4 pattern seen in its child. Both2M children preserve those exact gait classifications. There is no acquired gait recovery. Real policy/value weights moved, and slip changes are small and mixed: ON improves3/4 panel means but ordinary-det slip worsens2.1% with11.1% less net-forward speed; OFF improves2/4 slip means. This does not support the old catastrophic-zero-shot recovery narrative.",
+  "pending": "None of the six required reports is pending after canonical staging; no additional evaluation is warranted for this finite read.",
+  "limitations": [
+    "Source hashes/config/package and motor parity come from published recovery receipts plus exact report metadata; no stale original ON baseline enters calculations.",
+    "All report summaries use seed0,DR0,20s,100Hz,policy_std rounded0.135 and MJX twin0meshes91geoms4.80573kg. Policy log_std tensors do differ slightly with training; full values are preserved in weights.json.",
+    "All reported reset/randomization comparisons are explicit. No early termination occurs, but summary equality still does not prove full reset vectors, hidden states or every RNG draw identical.",
+    "Six nominal deterministic repeats are one condition. This is one training-seed2M comparison, not a new mature-skill or hardware qualification.",
+    "Normal torque removes one idealization only:4096counts/s write-speed setting,1000acceleration,3.6deg/tick,no sensor noise,DR0 and100A configured safety limit remain.",
+    "Parent1x vs child1x reveals observed checkpoint changes after training, not a fully controlled decomposition of actor-weight versus exploration-std effects. Non-log-std movement rules out a std-only unchanged-policy explanation.",
+    "Close the finite2M read under the original plan. No automatic40M extension, new seed or dose grid follows."
+  ],
+  "doc_passages": {
+    "rl_docs/tracks/walkcurr/STATUS.md": {
+      "commit": "e56e535f48ea53a096b7ddfed525839880d948ec",
+      "sha256": "ca8e5aa02d452821048614b2abbd71358fb2a7dd26a742353cbfc9c6e862bdba",
+      "excerpts": [
+        {
+          "first_line": 44,
+          "last_line": 65,
+          "text": "\n**`cartfoot-freshinit-{c1,offctrl}-s7-acq1-torque1x-c1` verdicts\n(CANARY PASS / CANARY PASS - PARTIAL RETENTION, torque-removal\nmechanism-health pair, triaged this cycle, unowned):** frozen 2M\ncanary per `artifacts/rl_watchdog/cartfoot_fresh_torque_guidance_\n20260908/PLAN.md`, dr.torque_scale 3,3->1,1 off each arm's frozen\n40M checkpoint. 0/24 terminations both arms. ON (Cartesian) ties its\nown 3x source's gait_valid count exactly (23/24) with zero new\npattern. OFF (joint-space) DROPS 19/24->12/24 -- `walk/det` newly\n100%-sacrifices leg4 (was fully clean, 6/6, at the 3x source), a\ngenuinely NEW recurring pattern per the plan's own definition. This\nis the OPPOSITE of the plan's hypothesized differential-Cartesian-\nsensitivity direction: here the JOINT-SPACE control is the one that\ndegrades under torque removal, not the Cartesian arm. Slip rises\n1.3-1.8x on both arms vs their own 3x sources (expected); ON/OFF\nratio at 1x (0.84-0.91x) still favors Cartesian, reinforcing PARITY\nunder a harder condition. Neither arm falls -- gait-quality effect,\nnot instability. Per the frozen plan: 2M read now closed, no\nautomatic 40M continuation/dose grid without a new recorded\nhypothesis. The plan's called-for zero-shot (untrained) 1x baseline\nwas NOT run this cycle -- do not yet call the OFF-arm asymmetry\n\"acquired\" vs inherent-zero-shot without it."
+        },
+        {
+          "first_line": 237,
+          "last_line": 258,
+          "text": "\n**`cartfoot-freshinit-{c1,offctrl}-s7-acq1-torque1x-c1` verdicts\n(CANARY PASS / CANARY PASS - PARTIAL RETENTION, torque-removal\nmechanism-health pair, triaged this cycle, unowned):** frozen 2M\ncanary per `artifacts/rl_watchdog/cartfoot_fresh_torque_guidance_\n20260908/PLAN.md`, dr.torque_scale 3,3->1,1 off each arm's frozen\n40M checkpoint. 0/24 terminations both arms. ON (Cartesian) ties its\nown 3x source's gait_valid count exactly (23/24) with zero new\npattern. OFF (joint-space) DROPS 19/24->12/24 -- `walk/det` newly\n100%-sacrifices leg4 (was fully clean, 6/6, at the 3x source), a\ngenuinely NEW recurring pattern per the plan's own definition. This\nis the OPPOSITE of the plan's hypothesized differential-Cartesian-\nsensitivity direction: here the JOINT-SPACE control is the one that\ndegrades under torque removal, not the Cartesian arm. Slip rises\n1.3-1.8x on both arms vs their own 3x sources (expected); ON/OFF\nratio at 1x (0.84-0.91x) still favors Cartesian, reinforcing PARITY\nunder a harder condition. Neither arm falls -- gait-quality effect,\nnot instability. Per the frozen plan: 2M read now closed, no\nautomatic 40M continuation/dose grid without a new recorded\nhypothesis. The plan's called-for zero-shot (untrained) 1x baseline\nwas NOT run this cycle -- do not yet call the OFF-arm asymmetry\n\"acquired\" vs inherent-zero-shot without it."
+        }
+      ]
+    },
+    "rl_docs/SKILLS.md": {
+      "commit": "e56e535f48ea53a096b7ddfed525839880d948ec",
+      "sha256": "c8c67acee9be886463b9cd299b460925879d372cc9f4a63275ca07ea470b3464",
+      "excerpts": [
+        {
+          "first_line": 1409,
+          "last_line": 1413,
+          "text": "### walkcurr cart_foot torque1x mechanism-health canary (seed7): Cartesian STILL parity-or-better under 1x torque; joint-space control develops a NEW chronic leg -- opposite of the hypothesized differential-sensitivity direction (09-08)\n\n| Finding | Checkpoint | Evidence | Envelope / limits |\n|---|---|---|---|\n| **Removing the 3x torque training-wheels crutch from the frozen 40M fresh-init checkpoints (dr.torque_scale 3,3->1,1, 2M mechanism-health canary, frozen protocol) leaves the Cartesian (ON) arm's gait retention fully intact (23/24, tied to its own 3x source, no new pattern) while the matched joint-space (OFF) control develops a genuinely NEW chronic leg4 sacrifice in walk/det (0/6->6/6, a panel that was fully clean at the 3x source) -- the OPPOSITE of the pre-registered hypothesis that Cartesian would be the more torque-sensitive arm.** ON: 0/24 terms, gait_valid 23/24 (6/6/6/5/6, bit-identical single-episode sjdet leg4 sacrifice as the 3x source). OFF: 0/24 terms, gait_valid drops 19/24->12/24 (6/6/6/1/6 -> 0/6/6/0/6), walk/det newly 100%-sacrificed (source was 6/6 clean, sac=[] every episode). Neither arm falls; both keep the movement floor (fwd >=1.9m/20s, >>0.03 m/s bar) -- this is a gait-quality/leg-utilization effect, not an instability. Slip/m rises 1.3-1.8x vs each arm's own 3x source in all 4 panels for both arms (expected cost of less torque authority); ON stays at-or-under OFF in all 4 panels even at 1x (0.84-0.91x ratio), reinforcing the fresh-init PARITY finding under a harder condition. | `ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_c1_s7_acq1_torque1x_c1.zip` (CANARY PASS) / `..._offctrl_s7_acq1_torque1x_c1.zip` (CANARY PASS - PARTIAL RETENTION) | `logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_{c1,offctrl}_s7_acq1_torque1x_c1_gate/report.json`; frozen protocol `artifacts/rl_watchdog/cartfoot_fresh_torque_guidance_20260908/PLAN.md`; W&B `wd6y9n9n` (ON) / `c4inur4k` (OFF). | 2M mechanism-health canary only, per the frozen plan -- no automatic 40M continuation, extra seed, or dose grid (would need a new recorded hypothesis). The zero-shot (untrained) 1x-torque baseline for each frozen parent, called for in the plan to separate \"zero-shot torque sensitivity\" from \"adaptation,\" was NOT run this cycle -- the HEALTH RETAINED/PARTIAL calls above use only the trained-child vs trained-source comparison, not a zero-shot control; do not yet claim this is an *acquired* asymmetry rather than an inherent zero-shot one. Single seed (7) only. |"
+        }
+      ]
+    }
+  },
+  "correction_recommendation": {
+    "history_preserving_action": "Append/prepend a dated corrected-zero-shot read in STATUS and a dated correction under the torque row in SKILLS; retain older entries as historical observations and link them to this correction. Do not edit completed cycle logs.",
+    "actual_false_claim": "Cycle20260908T082731 final summary at08:39:42 explicitly claims catastrophic zero-shot57\u2013185/m and genuine2M recovery. Its old train5 evaluator lacked Cartesian decode. Withdraw that interpretation; the corrected ON zero-shot already passes retention.",
+    "current_docs_nuance": "Published e56e535f STATUS44\u201365 and237\u2013258 and SKILLS1413 do NOT assert catastrophic recovery; they explicitly defer acquired-asymmetry claims because zero-shot was not run in that cycle. Update that pending caveat with the completed corrected result rather than falsely accusing those passages of the cycle-log claim.",
+    "replace_malformed_gait_tuples": "Use ON6/6,6/6,5/6,6/6; OFF source6/6,6/6,1/6,6/6 and zero/child0/6,6/6,0/6,6/6. Prior prose has spurious fifth numbers. Replace bit-identical fingerprint with same sacrificed-leg episode indices; other reported trajectory metrics differ.",
+    "proposed_text": "Corrected frozen-parent1x baselines (evalfix1, source matched to child evaluator) show ON health retention23/24 and OFF partial retention12/24 before retraining. Their2M children keep these gait counts and recurring-leg patterns, so the asymmetry is zero-shot, not an acquired gait recovery. Trained mean-slip ON/OFF ratios are0.840/0.910/0.871/0.891 (all4<=1.2). Small mixed slip/speed changes after real weight updates are reported separately. The earlier catastrophic ON baseline used the wrong action decoder and cannot support adaptation. This finite2M read is closed; no automatic extension."
+  },
+  "evidence_sha256": {
+    "off_child_report.txt": "a3005fc9d877b389de5d04003149880a5796752ab3dba60fdc2ecbfd3d6e1647",
+    "on_zero_report.txt": "0ed840e9629dc66e1cb4cc7ff8c062ba87848a48caf11d27206dc224704ff00d",
+    "on_run.txt": "b0303e7f2db0d2b495ec4d7d635918c28ab9de6b4609b95a54acd5c2c5432bed",
+    "off_child_report.json": "cf3aba49119021a8d94be61ad17271187246b58b61eaf6ccefc34cdf6e81e750",
+    "audit_weights.py": "77fc4b20acefcc1c664cde8e378cbb13f3eba3d7ae887dcb193bca4bb320091c",
+    "on_child_report.txt": "1fedabccf5c8bbca888282ddba3f46ef1c3b47f885a7a6f12955655f89d0e87c",
+    "weights.json": "79ad151cbf12a959a9179c1b43ff166f1eaba49b06aa1f68ee91545ca35fb2e8",
+    "off_source_report.txt": "e10bf07505dcfba253a72dc8639cd5a491a595683b72ad33f8b4e17908d3a728",
+    "on_ledger.json": "65e5b7deefc50f7e70d84ba8039e0a2331f8d37b1d909d6fd561d5aed1ffc01f",
+    "off_ledger.json": "0b52f2649f5ce51f003a71e981e2dbf255688b654ab236869d619871a081bf45",
+    "off_zero_report.json": "666921124a0726b56784c0ddf3ce3737c3e461591c8a0da5f284e5c6d4ccc92d",
+    "off_metrics.txt": "e4b9f35394b0d0d4252ee8c3050aebc57918b69c840d4376d88b9401f82de816",
+    "on_source_report.txt": "b20c4e1bad6f6dd11d6ca5aa35abf67063043c839ddc250a220329c50a088f6b",
+    "on_metrics.txt": "f5991b949ad667e552d613cd442ed5dbe606c685167f620f5a6dfdc0684864bb",
+    "off_run.txt": "7bf9af038a7aa4b7f46f90fa6858ed2edd6eb9c56bf3ccea9ecda1c04a816747",
+    "recovery_recipes.json": "f1dde88327388691ab5e4bce88049f3692c037e15f885f2766452c980db4b281",
+    "on_source_report.json": "ebc274667eba5860de2deeed7a8be8cd2df0408d8716713f8b3a69ca6d496964",
+    "on_child_report.json": "cb2dd5eb053bb98566221c155e889cd4dd642a251b5959ee313c7ec97446a56e",
+    "PLAN.md": "3594fc58eaeda87a34630e5708e2f317d336d87a8a630d85144533f403987a08",
+    "cycle082731.txt": "cf0b366a46599b0ac1885b8216ab491e73e0d908691dc9c82aa094069484ea04",
+    "off_source_report.json": "ef983327c5d27c6941f72e4466ee0964caed85460b770ebad542aaa6ecbca007",
+    "publication.json": "09096d36a72f3b38d664ad0e761518503d47038226bb9c9c75227bf0d9113757",
+    "recovery.json": "156b5b07129b2c05e5f47cb9dfa9590e8bc89945cacb532acd98f6a41d91778d",
+    "on_zero_report.json": "03adac19e8cff5ed130aae0bea97973d327bbcc7b6229c3162a8faa868e2d1d1",
+    "analyze.py": "e50baacfb1c5310e941a0ba194a901b8a1bcd038143dffc532b2d1e552652c74",
+    "off_zero_report.txt": "7bc916c3b70db68db4e8893a3f9a1375e053603464e5feb23f86df6e31b48b35"
+  },
+  "publication": {
+    "manifest": "publication.json",
+    "original_captures_retained_locally": "/tmp/hexapod-torque-read-20260908T084713Z",
+    "sanitized_files": [
+      "on_run.txt",
+      "on_ledger.json",
+      "off_ledger.json",
+      "off_metrics.txt",
+      "on_metrics.txt",
+      "off_run.txt"
+    ],
+    "original_read_completed_utc": "2026-09-08T08:54:17.776587+00:00"
+  }
+}

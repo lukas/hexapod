@@ -1,0 +1,322 @@
+{
+  "on": {
+    "checkpoints": [
+      {
+        "name": "ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_c1_s7_acq1.zip",
+        "sha256": "569dfa7f5851307839559b53f636754d9c599432979707198a061597ceb78579",
+        "bytes": 4469273,
+        "num_timesteps": 40370176
+      },
+      {
+        "name": "ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_c1_s7_acq1_torque1x_c1.zip",
+        "sha256": "b35674730fd9bae7482828e3483c5a0c19d41dca5d24ef2e03ce8e1d5d4dcc73",
+        "bytes": 4469270,
+        "num_timesteps": 2097152
+      }
+    ],
+    "non_log_std_numel": 237203,
+    "non_log_std_changed_tensor_count": 16,
+    "non_log_std_l2_delta": 0.47604635029280984,
+    "non_log_std_relative_l2": 0.010336513609797239,
+    "non_log_std_max_abs_delta": 0.010035276412963867,
+    "changed_tensors": [
+      {
+        "key": "mlp_extractor.policy_net.0.weight",
+        "changed_elements": 15872,
+        "numel": 18432,
+        "max_abs_delta": 0.0019518733024597168
+      },
+      {
+        "key": "mlp_extractor.policy_net.0.bias",
+        "changed_elements": 256,
+        "numel": 256,
+        "max_abs_delta": 0.0011333462316542864
+      },
+      {
+        "key": "mlp_extractor.policy_net.2.weight",
+        "changed_elements": 65532,
+        "numel": 65536,
+        "max_abs_delta": 0.0011178553104400635
+      },
+      {
+        "key": "mlp_extractor.policy_net.2.bias",
+        "changed_elements": 256,
+        "numel": 256,
+        "max_abs_delta": 0.0009276606142520905
+      },
+      {
+        "key": "mlp_extractor.policy_net.4.weight",
+        "changed_elements": 32767,
+        "numel": 32768,
+        "max_abs_delta": 0.0012454427778720856
+      },
+      {
+        "key": "mlp_extractor.policy_net.4.bias",
+        "changed_elements": 128,
+        "numel": 128,
+        "max_abs_delta": 0.0007881391793489456
+      },
+      {
+        "key": "mlp_extractor.value_net.0.weight",
+        "changed_elements": 15872,
+        "numel": 18432,
+        "max_abs_delta": 0.010035276412963867
+      },
+      {
+        "key": "mlp_extractor.value_net.0.bias",
+        "changed_elements": 256,
+        "numel": 256,
+        "max_abs_delta": 0.004046879708766937
+      },
+      {
+        "key": "mlp_extractor.value_net.2.weight",
+        "changed_elements": 65536,
+        "numel": 65536,
+        "max_abs_delta": 0.006117202341556549
+      },
+      {
+        "key": "mlp_extractor.value_net.2.bias",
+        "changed_elements": 256,
+        "numel": 256,
+        "max_abs_delta": 0.004237059503793716
+      },
+      {
+        "key": "mlp_extractor.value_net.4.weight",
+        "changed_elements": 32758,
+        "numel": 32768,
+        "max_abs_delta": 0.003643140196800232
+      },
+      {
+        "key": "mlp_extractor.value_net.4.bias",
+        "changed_elements": 128,
+        "numel": 128,
+        "max_abs_delta": 0.0028606653213500977
+      },
+      {
+        "key": "action_net.weight",
+        "changed_elements": 2304,
+        "numel": 2304,
+        "max_abs_delta": 0.0017884178087115288
+      },
+      {
+        "key": "action_net.bias",
+        "changed_elements": 18,
+        "numel": 18,
+        "max_abs_delta": 0.0010170340538024902
+      },
+      {
+        "key": "value_net.weight",
+        "changed_elements": 128,
+        "numel": 128,
+        "max_abs_delta": 0.003053732216358185
+      },
+      {
+        "key": "value_net.bias",
+        "changed_elements": 1,
+        "numel": 1,
+        "max_abs_delta": 0.0007291790097951889
+      }
+    ],
+    "unchanged_tensors": [],
+    "log_std_parent": [
+      -2.0002315044403076,
+      -1.9985092878341675,
+      -2.0013375282287598,
+      -1.9983240365982056,
+      -2.000326633453369,
+      -2.0017025470733643,
+      -1.9997831583023071,
+      -1.9984363317489624,
+      -2.002743721008301,
+      -1.9989981651306152,
+      -2.0009703636169434,
+      -2.00156831741333,
+      -1.9995023012161255,
+      -1.998360276222229,
+      -2.000012159347534,
+      -2.0004382133483887,
+      -1.9997245073318481,
+      -2.001512289047241
+    ],
+    "log_std_child": [
+      -1.9997141361236572,
+      -2.0004446506500244,
+      -2.0011563301086426,
+      -1.9999654293060303,
+      -1.999983549118042,
+      -2.0009124279022217,
+      -2.0002400875091553,
+      -2.0006847381591797,
+      -2.0008130073547363,
+      -1.9998984336853027,
+      -2.000446081161499,
+      -2.0006251335144043,
+      -2.000359296798706,
+      -1.9996665716171265,
+      -2.001171350479126,
+      -2.000608205795288,
+      -2.0005218982696533,
+      -2.001591205596924
+    ]
+  },
+  "off": {
+    "checkpoints": [
+      {
+        "name": "ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s7_acq1.zip",
+        "sha256": "f4b962c1a851b2b413625d631969b9d63e509633f2f64629733c2141982d014e",
+        "bytes": 4469273,
+        "num_timesteps": 40370176
+      },
+      {
+        "name": "ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s7_acq1_torque1x_c1.zip",
+        "sha256": "6be940af06a2ed96094781062e9907af7ad12c1a5d92c9b1b342293919d08f60",
+        "bytes": 4469270,
+        "num_timesteps": 2097152
+      }
+    ],
+    "non_log_std_numel": 237203,
+    "non_log_std_changed_tensor_count": 16,
+    "non_log_std_l2_delta": 0.52581151386523,
+    "non_log_std_relative_l2": 0.011385454923750392,
+    "non_log_std_max_abs_delta": 0.015401706099510193,
+    "changed_tensors": [
+      {
+        "key": "mlp_extractor.policy_net.0.weight",
+        "changed_elements": 15872,
+        "numel": 18432,
+        "max_abs_delta": 0.002870112657546997
+      },
+      {
+        "key": "mlp_extractor.policy_net.0.bias",
+        "changed_elements": 256,
+        "numel": 256,
+        "max_abs_delta": 0.0010468070395290852
+      },
+      {
+        "key": "mlp_extractor.policy_net.2.weight",
+        "changed_elements": 65535,
+        "numel": 65536,
+        "max_abs_delta": 0.0009835530072450638
+      },
+      {
+        "key": "mlp_extractor.policy_net.2.bias",
+        "changed_elements": 256,
+        "numel": 256,
+        "max_abs_delta": 0.0005947588942945004
+      },
+      {
+        "key": "mlp_extractor.policy_net.4.weight",
+        "changed_elements": 32768,
+        "numel": 32768,
+        "max_abs_delta": 0.0011706029472406954
+      },
+      {
+        "key": "mlp_extractor.policy_net.4.bias",
+        "changed_elements": 128,
+        "numel": 128,
+        "max_abs_delta": 0.00047872401773929596
+      },
+      {
+        "key": "mlp_extractor.value_net.0.weight",
+        "changed_elements": 15871,
+        "numel": 18432,
+        "max_abs_delta": 0.015401706099510193
+      },
+      {
+        "key": "mlp_extractor.value_net.0.bias",
+        "changed_elements": 256,
+        "numel": 256,
+        "max_abs_delta": 0.004489198327064514
+      },
+      {
+        "key": "mlp_extractor.value_net.2.weight",
+        "changed_elements": 65535,
+        "numel": 65536,
+        "max_abs_delta": 0.009642712771892548
+      },
+      {
+        "key": "mlp_extractor.value_net.2.bias",
+        "changed_elements": 256,
+        "numel": 256,
+        "max_abs_delta": 0.006809897720813751
+      },
+      {
+        "key": "mlp_extractor.value_net.4.weight",
+        "changed_elements": 32708,
+        "numel": 32768,
+        "max_abs_delta": 0.003610074520111084
+      },
+      {
+        "key": "mlp_extractor.value_net.4.bias",
+        "changed_elements": 128,
+        "numel": 128,
+        "max_abs_delta": 0.0029128938913345337
+      },
+      {
+        "key": "action_net.weight",
+        "changed_elements": 2304,
+        "numel": 2304,
+        "max_abs_delta": 0.0028984956443309784
+      },
+      {
+        "key": "action_net.bias",
+        "changed_elements": 18,
+        "numel": 18,
+        "max_abs_delta": 0.0004000850021839142
+      },
+      {
+        "key": "value_net.weight",
+        "changed_elements": 128,
+        "numel": 128,
+        "max_abs_delta": 0.00294601172208786
+      },
+      {
+        "key": "value_net.bias",
+        "changed_elements": 1,
+        "numel": 1,
+        "max_abs_delta": 0.0006490983068943024
+      }
+    ],
+    "unchanged_tensors": [],
+    "log_std_parent": [
+      -1.9998725652694702,
+      -1.9995815753936768,
+      -2.000110387802124,
+      -1.9975827932357788,
+      -1.9994162321090698,
+      -1.9992012977600098,
+      -1.9997018575668335,
+      -2.0014398097991943,
+      -2.0000977516174316,
+      -1.9998836517333984,
+      -2.000398635864258,
+      -2.0001258850097656,
+      -1.9988017082214355,
+      -2.000096321105957,
+      -1.9996402263641357,
+      -1.9999208450317383,
+      -2.0004563331604004,
+      -2.0005745887756348
+    ],
+    "log_std_child": [
+      -2.001091241836548,
+      -2.001138925552368,
+      -2.0018770694732666,
+      -1.99997878074646,
+      -2.001363515853882,
+      -2.0003395080566406,
+      -2.000540018081665,
+      -2.000614881515503,
+      -2.0000133514404297,
+      -2.0017385482788086,
+      -2.0014381408691406,
+      -2.000624895095825,
+      -1.9997990131378174,
+      -1.9999881982803345,
+      -2.0003490447998047,
+      -1.9998016357421875,
+      -2.0018527507781982,
+      -2.002098798751831
+    ]
+  }
+}

@@ -5,7 +5,7 @@ import sys
 import numpy as np
 import pytest
 
-import merge_motion_library as mm
+from rl_move.sim import merge_motion_library as mm
 
 TICK_KEYS = mm.TICK_KEYS
 

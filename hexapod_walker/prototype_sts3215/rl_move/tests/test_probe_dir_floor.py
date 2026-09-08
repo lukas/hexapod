@@ -10,7 +10,7 @@ import sys
 
 import pytest
 
-import probe_dir_floor as pdf
+from rl_move.sim import probe_dir_floor as pdf
 
 
 def _run(tmp_path, extra_args, seconds=6.0, seed=0):

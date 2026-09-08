@@ -1,0 +1,545 @@
+{
+  "retrieved_at_utc": "2026-09-08 03:25:48 UTC",
+  "scope": "Read-only exact-report comparison; this artifact is not a formal ledger verdict or a training launch.",
+  "sources": {
+    "off": {
+      "run": "cw-walkscratch-crutchoff-s0-widen8-legdutyratio-offctrl10m",
+      "report_path": "logs/ckpt_eval/cw_walkscratch_crutchoff_s0_widen8_legdutyratio_offctrl10m_gate/report.json",
+      "checkpoint_md5": "ce8e200539e0e67d22b0fe3b22757f69",
+      "checkpoint_bytes": 4469269,
+      "checkpoint_steps": 10485760
+    },
+    "on": {
+      "run": "cw-walkscratch-crutchoff-s0-widen8-legdutyratio-on10m",
+      "report_path": "logs/ckpt_eval/cw_walkscratch_crutchoff_s0_widen8_legdutyratio_on10m_gate/report.json",
+      "checkpoint_md5": "5c6b4932a0ff5ecd7559fab0d91394e7",
+      "checkpoint_bytes": 4469269,
+      "checkpoint_steps": 10485760
+    },
+    "source": {
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s0-widen8-acq1-legdutyratiofresh-guardfix1",
+      "report_path": "logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxis_nokick_crutchoff_s0_widen8_acq1_legdutyratiofresh_guardfix1_gate/report.json",
+      "checkpoint_md5": "2156daae67933cd1bc1a66accf422edb",
+      "checkpoint_steps": 2097152,
+      "prior_exposure": "Already trained and exposed to active charge=150 for the corrected 2M stage; not random or never exposed."
+    },
+    "access": "Native authenticated eval_report/get_run tools; literal exact gate headers, no fallback matches.",
+    "checkpoint_verification": "MD5, bytes and endpoint steps independently provided by root's controller/copy verification; this reader did not redownload ZIPs."
+  },
+  "preregistration": {
+    "gate": "Paired +10M acquisition only; same24episode det/sto walk/startjitter panel, seed0. Each arm must retain>=21/24 gait_valid,0newfalls,noNEWchronic leg sacrifice relative to corrected2Msource. Compare on/off paired per-leg duty, gait, commandprogress andslip bygroup. Claim benefit only from better held-out leguse/gait without newfalls or command/slip regression; equal outcomes mean no demonstrated continued-charge advantage at thisduration. Do not compare rawreturns across differingrewardscales. Use existingpruner/normalintermediateevals; retaincheckpoints onfailure. No automatic furtherbudget, newseed or finalwalking/joystickqualification.",
+    "on_created": "2026-09-08T02:10:38+00:00",
+    "off_created": "2026-09-08T02:11:53+00:00",
+    "history_commit": "eb095e34d",
+    "history_path": "hexapod_walker/prototype_sts3215/rl_move/orchestrator/experiments.json",
+    "history_note": "The first Git commit containing these run names preserves the same gate text before the off-control report was available."
+  },
+  "launch_match": {
+    "code_sha": "78e18bb1408fc061bc817917bcd2a3f43001da86",
+    "cfg_key_count": 82,
+    "cfg_differences": [
+      {
+        "key": "reward.walk_leg_duty_ratio_charge",
+        "on": 150,
+        "off": 0
+      }
+    ],
+    "non_cfg_flag_differences": [
+      "--out-name",
+      "--notes"
+    ],
+    "common_flags": {
+      "--task": "joint_walk",
+      "--episode-seconds": "20",
+      "--n-steps": "128",
+      "--batch-size": "131072",
+      "--gamma": "0.995",
+      "--gae-lambda": "0.97",
+      "--net-arch": "256,256,128",
+      "--activation-fn": "",
+      "--log-std-init": "-1.0",
+      "--log-std-final": "-2.0",
+      "--dr-scale": "0.0",
+      "--require-gpu-physics": true,
+      "--eval-every": "1000000",
+      "--video-every": "2000000",
+      "--best-ckpt": true,
+      "--n-envs": "4096",
+      "--impl": "warp",
+      "--host-workers": "24",
+      "--seed": "2",
+      "--init-from": "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxis_nokick_crutchoff_s0_widen8_acq1_legdutyratiofresh_guardfix1.zip",
+      "--defer-final-artifacts": true
+    },
+    "common_cfg_except_charge": {
+      "env.model_source": "mesh_mjx",
+      "control.hz": "100",
+      "goal.walk_pure": "1",
+      "goal.walk_speed_min_m_s": "0.06",
+      "goal.walk_speed_max_m_s": "0.06",
+      "goal.walk_heading_max_rad": "0.0",
+      "goal.walk_cmd_resample_s": "6.0",
+      "goal.walk_cmd_metrics": "1",
+      "goal.walk_cmd_hold_s": "0.0",
+      "goal.walk_cmd_ramp_s": "0.0",
+      "goal.joint_action_bias_hip_deg": "40.0",
+      "goal.joint_action_bias_knee_deg": "35.0",
+      "goal.joint_action_box_yaw_deg": "15.0",
+      "goal.joint_action_box_hip_deg": "20.0",
+      "goal.joint_action_box_knee_deg": "25.0",
+      "reward.k_walk_freeprog": "2.0",
+      "reward.walk_freeprog_cap_m_s": "0.06",
+      "reward.walk_kernel_vel_ema": "1.0",
+      "reward.walk_kernel_vel_tau_s": "0.1",
+      "reward.term_penalty": "24",
+      "reward.safety_termination_penalty": "24",
+      "reward.k_track": "0.0",
+      "reward.k_roll": "0.0",
+      "reward.k_pitch": "0.0",
+      "reward.k_height": "0.0",
+      "reward.k_gyro": "0.0",
+      "reward.k_action": "0.0",
+      "reward.k_action_delta": "0.01",
+      "reward.k_current": "0.0",
+      "reward.k_walk_heading": "0.0",
+      "reward.k_step_event": "0.0",
+      "reward.k_park_duty": "0.0",
+      "reward.k_walk_idle_charge": "0.0",
+      "reward.k_loadslip_excess": "0.0",
+      "bus.write_speed": "4096",
+      "bus.servo_vel_max_counts_s": "write_speed",
+      "bus.write_acc": "1000",
+      "safety.max_delta_q_deg": "3.6",
+      "safety.max_current_a": "100",
+      "safety.max_roll_deg": "30",
+      "safety.max_pitch_deg": "30",
+      "struct_comp.enabled": "0",
+      "dr.latency_scale": "1,1",
+      "dr.deadband_scale": "1,1",
+      "dr.torque_scale": "1.0,1.0",
+      "dr.encoder_noise_deg": "0.09",
+      "dr.tilt_noise_deg": "0.3",
+      "dr.gyro_noise_deg_s": "0.5",
+      "ease.gravity_scale": "1.0",
+      "goal.walk_heading_set": "[0.0,0.7853981633974483,-0.7853981633974483,1.5707963267948966,-1.5707963267948966,2.356194490192345,-2.356194490192345,3.141592653589793]",
+      "goal.walk_stop_frac": "0.0",
+      "dr.mass_scale": "0.85,1.20",
+      "dr.leg_mass_jitter_pct": "0.10",
+      "dr.link_len_scale_pct": "0.02",
+      "dr.link_len_leg_pct": "0.012",
+      "dr.com_offset_m": "0.012",
+      "dr.friction_scale": "0.6,1.4",
+      "dr.contact_stiff_scale": "0.7,2.0",
+      "dr.ground_tilt_deg": "2.0",
+      "dr.kp_scale_pct": "0.20",
+      "dr.kv_scale_pct": "0.25",
+      "dr.vel_scale": "0.85,1.10",
+      "dr.cmd_drop_prob_max": "0.05",
+      "dr.placement_noise_deg": "2.0",
+      "dr.bad_start_prob": "0.25",
+      "dr.bad_start_max_joints": "3",
+      "dr.bad_start_deg": "8.0,35.0",
+      "dr.joint_zero_bias_deg": "1.0",
+      "dr.gyro_bias_deg_s": "0.5",
+      "dr.imu_bias_deg": "1.0",
+      "dr.imu_mount_deg": "10.0",
+      "dr.imu_pos_xy_m": "0.07",
+      "dr.imu_pos_z_m": "-0.02,0.10",
+      "dr.action_noise": "0.02",
+      "dr.fault_prob": "0.3",
+      "dr.ext_push_prob": "0.3",
+      "dr.walk_kick_prob": "0.0",
+      "dr.walk_push_prob": "0.3",
+      "reward.walk_leg_duty_ratio_target": "0.30",
+      "reward.walk_leg_duty_ratio_grace_s": "3.0",
+      "reward.walk_leg_duty_ratio_tau_s": "1.0"
+    }
+  },
+  "evaluation_match": {
+    "common_report_metadata": {
+      "task": "joint_walk",
+      "dr_scale": 0,
+      "seed": 0,
+      "model_source": "mesh_mjx",
+      "model_variant": "mesh_mjx_twin",
+      "model_nmesh": 0,
+      "model_ngeom": 91,
+      "model_mass_kg": 4.80573,
+      "motor_contract": {
+        "bus.write_speed": 4096,
+        "bus.write_acc": 1000,
+        "bus.servo_vel_max_counts_s": "write_speed",
+        "bus.servo_params": "",
+        "resolved_vel_max_deg_s_min": 360,
+        "resolved_vel_max_deg_s_max": 360,
+        "resolved_vel_max_counts_s_max": 4096,
+        "safety.max_delta_q_deg": 3.6,
+        "control.hz": 100,
+        "slew_limit_deg_s": 360,
+        "bus.profile_ramp_steps": 0,
+        "servo_params_source": "/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json+vel_max=4096cps",
+        "backend_profile": "servo_profile_np"
+      },
+      "start_jitter_panel": {
+        "start_jitter_deg": 3,
+        "start_bad_prob": 0.25,
+        "start_bad_max_joints": 1,
+        "start_bad_deg_min": 8,
+        "start_bad_deg_max": 16
+      },
+      "policy_std": 0.135
+    },
+    "report_metadata_match": {
+      "task": true,
+      "dr_scale": true,
+      "seed": true,
+      "model_source": true,
+      "model_variant": true,
+      "model_nmesh": true,
+      "model_ngeom": true,
+      "model_mass_kg": true,
+      "motor_contract": true,
+      "start_jitter_panel": true,
+      "policy_std": true
+    },
+    "episode_checks": {
+      "n": 24,
+      "comparison": "For every corresponding (group,index), JSON-structural equality of reported randomization and reset_start_jitter, plus equality of mode and start_kind. The same reset/randomization comparison also matches the source.",
+      "all_mode_match": true,
+      "all_start_kind_match": true,
+      "all_start_kind": "plant",
+      "all_reset_start_jitter_match": true,
+      "all_randomization_match": true,
+      "all_source_reset_match": true,
+      "all_source_randomization_match": true,
+      "mismatches": []
+    },
+    "recovery": "Standard ops.sh podeval on retained train-1 evaluator code. Root did not alter eval physics/flags/RNG. Off evaluation rendered legacy 100 Hz video, not newer paced-video code; camera pacing is not simulation control rate.",
+    "limits": "Reports do not persist a full effective cfg dump or evaluator source hash. Launch specifications and recorded model/motor/panel/reset/randomization contracts match; identical evaluator source/runtime bytes are not independently established."
+  },
+  "summaries": {
+    "off": {
+      "walk/det": {
+        "n": 6,
+        "gait": 5,
+        "terms": [],
+        "progMed": 0.923,
+        "slipMed": 8.448500000000001,
+        "fwdMed": 0.3835,
+        "sac": [
+          {
+            "i": 0,
+            "legs": [
+              5
+            ]
+          }
+        ],
+        "dutyMed": [
+          0.22999999999999998,
+          0.69,
+          0.3,
+          0.305,
+          0.71,
+          0.275
+        ]
+      },
+      "walk/sto": {
+        "n": 6,
+        "gait": 6,
+        "terms": [],
+        "progMed": 1.0210000000000001,
+        "slipMed": 6.8205,
+        "fwdMed": 1.0165,
+        "sac": [],
+        "dutyMed": [
+          0.495,
+          0.545,
+          0.44499999999999995,
+          0.345,
+          0.5249999999999999,
+          0.39
+        ]
+      },
+      "walk_startjitter/det": {
+        "n": 6,
+        "gait": 6,
+        "terms": [],
+        "progMed": 1.0165,
+        "slipMed": 9.094,
+        "fwdMed": 0.6839999999999999,
+        "sac": [],
+        "dutyMed": [
+          0.435,
+          0.635,
+          0.43000000000000005,
+          0.44999999999999996,
+          0.6950000000000001,
+          0.41500000000000004
+        ]
+      },
+      "walk_startjitter/sto": {
+        "n": 6,
+        "gait": 4,
+        "terms": [],
+        "progMed": 0.6755,
+        "slipMed": 12.716999999999999,
+        "fwdMed": 0.5795,
+        "sac": [
+          {
+            "i": 2,
+            "legs": [
+              5
+            ]
+          },
+          {
+            "i": 3,
+            "legs": [
+              0
+            ]
+          }
+        ],
+        "dutyMed": [
+          0.325,
+          0.735,
+          0.315,
+          0.365,
+          0.6950000000000001,
+          0.345
+        ]
+      }
+    },
+    "on": {
+      "walk/det": {
+        "n": 6,
+        "gait": 6,
+        "terms": [],
+        "progMed": 0.9215,
+        "slipMed": 9.6965,
+        "fwdMed": 0.47550000000000003,
+        "sac": [],
+        "dutyMed": [
+          0.245,
+          0.665,
+          0.315,
+          0.3,
+          0.7,
+          0.29500000000000004
+        ]
+      },
+      "walk/sto": {
+        "n": 6,
+        "gait": 6,
+        "terms": [],
+        "progMed": 0.9625,
+        "slipMed": 7.890000000000001,
+        "fwdMed": 1.009,
+        "sac": [],
+        "dutyMed": [
+          0.54,
+          0.5549999999999999,
+          0.455,
+          0.36,
+          0.485,
+          0.41500000000000004
+        ]
+      },
+      "walk_startjitter/det": {
+        "n": 6,
+        "gait": 6,
+        "terms": [],
+        "progMed": 0.9889999999999999,
+        "slipMed": 9.6525,
+        "fwdMed": 0.7235,
+        "sac": [],
+        "dutyMed": [
+          0.45499999999999996,
+          0.64,
+          0.43,
+          0.475,
+          0.665,
+          0.43500000000000005
+        ]
+      },
+      "walk_startjitter/sto": {
+        "n": 6,
+        "gait": 4,
+        "terms": [],
+        "progMed": 0.648,
+        "slipMed": 12.6555,
+        "fwdMed": 0.6054999999999999,
+        "sac": [
+          {
+            "i": 2,
+            "legs": [
+              5
+            ]
+          },
+          {
+            "i": 3,
+            "legs": [
+              0
+            ]
+          }
+        ],
+        "dutyMed": [
+          0.37,
+          0.72,
+          0.32999999999999996,
+          0.375,
+          0.69,
+          0.375
+        ]
+      }
+    },
+    "source": {
+      "walk/det": {
+        "n": 6,
+        "gait": 5,
+        "terms": [],
+        "progMed": 0.8654999999999999,
+        "slipMed": 10.091000000000001,
+        "fwdMed": 0.363,
+        "sac": [
+          {
+            "i": 0,
+            "legs": [
+              5
+            ]
+          }
+        ],
+        "dutyMed": [
+          0.235,
+          0.665,
+          0.305,
+          0.315,
+          0.6950000000000001,
+          0.28
+        ]
+      },
+      "walk/sto": {
+        "n": 6,
+        "gait": 6,
+        "terms": [],
+        "progMed": 0.9530000000000001,
+        "slipMed": 8.129,
+        "fwdMed": 0.9994999999999999,
+        "sac": [],
+        "dutyMed": [
+          0.535,
+          0.55,
+          0.445,
+          0.33999999999999997,
+          0.5,
+          0.405
+        ]
+      },
+      "walk_startjitter/det": {
+        "n": 6,
+        "gait": 6,
+        "terms": [],
+        "progMed": 1.005,
+        "slipMed": 9.4185,
+        "fwdMed": 0.7155,
+        "sac": [],
+        "dutyMed": [
+          0.44,
+          0.63,
+          0.42000000000000004,
+          0.485,
+          0.6499999999999999,
+          0.445
+        ]
+      },
+      "walk_startjitter/sto": {
+        "n": 6,
+        "gait": 4,
+        "terms": [],
+        "progMed": 0.6799999999999999,
+        "slipMed": 12.3225,
+        "fwdMed": 0.6214999999999999,
+        "sac": [
+          {
+            "i": 2,
+            "legs": [
+              5
+            ]
+          },
+          {
+            "i": 3,
+            "legs": [
+              0
+            ]
+          }
+        ],
+        "dutyMed": [
+          0.33999999999999997,
+          0.725,
+          0.32,
+          0.375,
+          0.665,
+          0.33999999999999997
+        ]
+      }
+    }
+  },
+  "sole_gait_flip": {
+    "group": "walk/det",
+    "index": 0,
+    "leg": 5,
+    "source": {
+      "duty_cycle": [
+        0.22,
+        0.84,
+        0.18,
+        0.31,
+        0.85,
+        0.09
+      ],
+      "progress_ratio": 0.286,
+      "slip_per_m": 21.359,
+      "gait_valid": false
+    },
+    "on": {
+      "gait_valid": true,
+      "terminated": false,
+      "term_reason": "",
+      "progress_ratio": 0.269,
+      "slip_per_m": 22.466,
+      "duty_cycle": [
+        0.23,
+        0.88,
+        0.16,
+        0.31,
+        0.85,
+        0.11
+      ],
+      "sacrificed_legs": []
+    },
+    "off": {
+      "gait_valid": false,
+      "terminated": false,
+      "term_reason": "",
+      "progress_ratio": 0.284,
+      "slip_per_m": 19.606,
+      "duty_cycle": [
+        0.19,
+        0.89,
+        0.13,
+        0.31,
+        0.86,
+        0.07
+      ],
+      "sacrificed_legs": [
+        5
+      ]
+    },
+    "threshold": "Evaluator sacrificed-leg rule is duty_w < 0.10 (or duty_w > 0.95 with zero swings). Displayed duty_cycle values are rounded. The flip is approximately 0.09 source -> 0.11 on vs 0.07 off; no gate/reward threshold change.",
+    "source_code": "rl_move/sim/eval_checkpoint.py:925"
+  },
+  "interpretation": {
+    "retention": "Both arms meet the original numeric retention criteria: on 22/24, off 21/24, no terminations, no newly sacrificed episodes or leg identities relative to the corrected source.",
+    "benefit": "No demonstrated clean continued-charge benefit under the pre-registered conjunction. On gains one gait threshold crossing, but median progress is lower in all four groups and median slip is higher in three of four. These are descriptive fixed-panel differences, not a significance claim.",
+    "continuation": "No automatic further budget follows from this gate. A separately preregistered bounded paired duration experiment can be scientifically reasonable if its specific question is whether the one-episode leg-use gain broadens without command/slip cost; it is not justified as an already-proven charge improvement. Retain both endpoints, preserve paired budgets and existing initialization/RNG, set explicit progress/slip non-regression tolerances and stop/continue criteria before new results. No launch recommended as automatic follow-through.",
+    "limits": "One existing RNG/initialization and a fixed 24-episode panel; the source already had 2M charge exposure. This tests continued charge versus withdrawal after shared exposure, not charge versus never exposed. No raw reward comparison across scales. No new video inspection or walking/joystick qualification is claimed."
+  }
+}

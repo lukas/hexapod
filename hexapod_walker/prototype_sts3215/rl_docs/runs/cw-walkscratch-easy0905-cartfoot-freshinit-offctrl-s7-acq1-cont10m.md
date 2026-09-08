@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-08T07:46:06+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 10000000
 
 **parent**: cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1
+
+**wandb_id**: irimsdt7
 
 **hypothesis**: This cycle's ON cont10m (cartfoot-freshinit-c1-s7-acq1-cont10m, already running) tests whether the fresh-init cart_foot ON arm's 40M slip PARITY (0.94-0.99x vs OFF) holds or degrades at 50M cumulative, mirroring fork(a)'s late-onset-degradation shape. That comparison is only valid against a matched OFF continuation at the SAME depth -- this run is that missing matched control, warm-started from the OFF arm's own PASSed 40M acquisition checkpoint, same +10M budget as its ON sibling.
 

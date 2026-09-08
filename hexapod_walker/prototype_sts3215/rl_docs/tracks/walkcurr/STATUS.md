@@ -1,3 +1,58 @@
+## 2026-09-08 ~07:5x (triage cycle) — fork (b) seed10 40M continuation lands ACQ PASS - PARITY (band-match): matches base family band, with the SAME benign det-only leg-underuse quirk already precedented in halfgrav-s0-c1
+
+One plain sentence: the assigned finished run this cycle is the
+relaunched (`-c1b`, activation-fn-blanked) 40M continuation of the
+fork(b) fresh-init cart_foot seed10 arm, and it lands in the base
+family's own established PASS band on falls/distance/slip, with a
+det-mode single-leg-underuse quirk that is not new -- the exact same
+shape was already logged as non-blocking for `halfgrav-s0-c1`.
+
+**`base-cartfoot-fresh-s10-c1b` verdict (ACQ PASS - PARITY,
+band-match):** 0/24 falls; fwd_dist_m med 2.64-3.72m/20s
+(0.13-0.19 m/s); slip_per_m med 2.61-3.70 (det 2.61-2.71 inside the
+2.6-3.4 base band, sto 3.21-3.70 at/slightly above it); reward rising
+every quarter, no plateau (-496.8->634.6->1386.8->1660.9). Det mode
+(both walk/det and walk_startjitter/det) shows leg[1] (sometimes also
+[4]) at duty_cycle 0.07-0.12 vs siblings' 0.51-0.58, identically
+across all 6 episodes (deterministic policy, no per-episode
+randomization in det) -- `gait_valid` 0/6 both det scenarios. The
+SAME legs clear duty>=0.13 and `gait_valid` 6/6 under stochastic
+action noise in both sto scenarios, and swing_count for the
+"sacrificed" legs is 72-100 (still cycling every episode, not frozen
+at 0 like the unrelated gSDE chronic-park class). This exact
+det-only/vanishes-under-sto fingerprint is already in this file as a
+non-gate-blocking base-family quirk (`halfgrav-s0-c1`: "repeatable
+leg-1 underuse -- duty 0.09 vs 0.3+ siblings -- vanishes under
+sto/jitter") -- read as a family-wide det-mode characteristic, not a
+new cart_foot-specific pathology. Frame strips (`walk_det_0.png`,
+`walk_sto_0.png`) show steady forward body translation in both
+modes, no drag/flag-leg visible on video.
+
+**Scope note:** this is an absolute-band match only. The matched OFF
+control for this exact seed (`cartfoot-freshoffctrl-s10-c1`) is still
+training on another pod -- a seed10-specific ON-vs-OFF slip ratio is
+not yet available and could still show fork(a)'s inflation even
+though the absolute numbers land in-band. Do not cite this as a 2nd
+independent ratio replicate of the seed7 PARITY finding until that
+control lands; SKILLS.md row records this distinction explicitly.
+
+**No refill this cycle beyond the standing cohort:** the fork(b)
+cohort's remaining open work (seed10 OFF control, seed11 acquisition
+pair, seed7 cont10m durability pair) is already in flight on other
+pods per the concurrency list; no new non-duplicative walkcurr arm
+identified this cycle. Free capacity (train-0/2/4/5/7/8/9/10/11, 9
+pods) checked against tracks.json -- other tracks' next steps all
+need an unbuilt reward-mechanism design pass (standwalk/assistfade)
+or are Robot-Lab-owned (amp M6) or search-exhausted (cpg); no filler
+launched.
+
+Evidence: `ops.sh review cw-walkscratch-easy0905-base-cartfoot-fresh-
+s10-c1b`; `logs/ckpt_eval/cw_walkscratch_easy0905_base_cartfoot_
+fresh_s10_c1b_gate/report.json`; W&B `d9xbrnil`; SKILLS.md new row;
+RL_LOG 09-08 ~07:5x.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~07:3x (triage cycle) — fork (b) seed7 acquisition pair reads clean PARITY: fresh-init cart_foot does NOT show fork(a)'s slip inflation
 
 One plain sentence: the two runs assigned this cycle are the matched

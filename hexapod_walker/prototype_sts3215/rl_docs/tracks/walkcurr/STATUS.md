@@ -1,3 +1,58 @@
+## 2026-09-08 ~12:3x (triage cycle; assigned `footgeom0135-fix1`) — the VALID retry of the foot-radius geometry lever closes CANARY FAIL - MECHANISM: bigger foot contact sphere is worse, not better, once the champion adapts to it; no new refill licensed, board already fully claimed
+
+One plain sentence: growing the foot contact sphere from 4.5mm to
+13.5mm looked like a 15-26% slip win in a frozen zero-shot eval, but
+once the champion policy actually trains against the new geometry for
+2M steps, slip gets WORSE in all 4 gate groups, not better — the
+"prediction if false" branch, closing this lever as REFUTED.
+
+**`cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-
+allaxiskickhalf-nocrutch1x-c1-footgeom0135-fix1` -> CANARY FAIL -
+MECHANISM.** This is the valid retry of `...-footgeom0135-c1`, which
+was invalidated same-day (launched before the `foot_geom_radius`
+compile fix `d54506ef` landed 5 min later, so its collision bounds
+were byte-identical to the unmodified 4.5mm sphere despite the cfg
+value). Confirmed THIS run is not the same bug: created 12:04:17 UTC,
+~3h after the fix landed, and early-training `env/walk_loadslip_
+ratio` reads 6.24 here vs 7.48 in the byte-identical-bug c1 run —
+different physics, a real read. Gate (own-DR panel vs the champion
+cont40m baseline det 4.98/sto 5.17/sj-det 5.10/sj-sto 5.42): slip/m
+came back WORSE in 4/4 groups — det 5.63 (+13%), sto 5.75 (+11%),
+sj/det 5.43 (+6%), sj/sto 5.95 (+10%) — where PASS needed >=10%
+improvement in >=3/4 groups. 0 terminations across all 24 episodes
+(falls clause clean) and gait_valid is healthy (22/24, no chronic
+single-leg sacrifice, only 2 isolated 1/6-episode sac events) — this
+is a pure slip regression, not a gait breakdown; contact-sheet frames
+show normal alternating-leg translation. Joins torsional friction
+(03:5x) and the footslip tangent-charge reward mechanism as REFUTED
+slip-improvement levers; `cont40m` stays the settled champion. No
+further foot-geometry dose is licensed by this closure.
+
+Refill: full board re-checked (`launch_run.py status`, 11 GPU pods
+live-free) — every currently-training line this prompt names as
+concurrently-owned (`crutchoff-{s0,s2}-widen8/widenbis180-
+legdutyratio-swingfloor`, `cartfoot-halfgrav-{s12,offctrl-s12}-
+acq1`, `headset-crossgrav-...-guardfix1`) or already claimed per the
+top-of-file entries above is untouched; `assistfade-rung3-
+legdutyratio-swingfloor-{s0,s1}` (cross-track use of walkcurr's own
+swing-floor mechanism) likewise in flight elsewhere. Other tracks:
+joystick/amp DONE, cpg closed, standwalk/assistfade/todaypolicy each
+blocked on their own new-mechanism prerequisite or Codex-owned
+turn-authority repair (out of scope here). This footgeom0135 closure
+opens no new hypothesis by itself (a REFUTED structural lever, not a
+fork) and every live open fork already has an owner — nothing
+genuinely runnable without duplicating concurrent work or inventing
+filler. CYCLE_WORKED touched (verdict + this STATUS entry).
+
+Evidence: `ops.sh review cw-walkscratch-easy0905-headset-crossgrav-
+medhead-dr-allaxiskickhalf-nocrutch1x-c1-footgeom0135-fix1`;
+`logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_
+allaxiskickhalf_nocrutch1x_c1_footgeom0135_fix1_gate/report.json` vs
+`..._c1_acq1_cont40m_gate/report.json`; W&B `6cpralxn`. RL_LOG
+09-08 ~12:3x.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~12:2x (refill cycle; no completion assigned, capacity re-check found 9 free GPU pods/empty backlog) — extended the swing-count-floor mechanism's generalization test to a 2nd heading-lineage (widenbis180); self-caught and killed a duplicate launch of the SAME lineage under a stale second name (widenrear180) before it wasted meaningful GPU time
 
 One plain sentence: the board was already fully claimed by concurrent

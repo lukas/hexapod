@@ -52,11 +52,9 @@ HERE = Path(__file__).resolve().parent.parent  # prototype_sts3215/
 FASTENERS = HERE / "fasteners"
 SCAD_DIR = FASTENERS / "scad"
 
-if str(HERE) not in sys.path:
-    sys.path.insert(0, str(HERE))
 
-from fastener_registry import build_all_fastener_instances  # noqa: E402
-from fasteners import _parametric  # noqa: E402
+from fastener_registry import build_all_fastener_instances
+from fasteners import _parametric
 
 
 # ---------------------------------------------------------------------------

@@ -35,14 +35,11 @@ Usage
 """
 import argparse
 import math
-import os
-import sys
 
 import numpy as np
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import mujoco  # noqa: E402
-import mujoco_prototype as MP  # noqa: E402
+import mujoco
+import mujoco_prototype as MP
 
 I_IDLE = 0.20
 I_STALL = 2.70

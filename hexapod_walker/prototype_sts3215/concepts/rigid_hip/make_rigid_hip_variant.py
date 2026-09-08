@@ -142,7 +142,6 @@ from trimesh.transformations import rotation_matrix
 HERE = os.path.abspath(os.path.dirname(__file__))
 PROTO_DIR = os.path.abspath(os.path.join(HERE, "..", ".."))
 STL_DIR = os.path.join(HERE, "stl")
-sys.path.insert(0, PROTO_DIR)
 
 import hexapod_prototype as hp  # noqa: E402  (read-only input)
 
@@ -777,8 +776,6 @@ def _access_hole_xy() -> list[tuple[float, float]]:
     return out
 
 
-
-
 def make_bearing_6805() -> trimesh.Trimesh:
     """Visual 6805-2RS stand-in in the CAP frame, seated on the pedestal.
 
@@ -790,8 +787,6 @@ def make_bearing_6805() -> trimesh.Trimesh:
     bore = _cyl_y(BOSS_OD / 2.0, PED_Y1 - 1.0, PED_Y1 + BEARING_W + 1.0,
                   x=0.0, z=AXIS_Z)
     return _diff(outer, [bore])
-
-
 
 
 def chassis_whitelist_violations(mesh: trimesh.Trimesh,
@@ -818,8 +813,6 @@ def chassis_whitelist_violations(mesh: trimesh.Trimesh,
     return int(bad.sum()), (float(d[bad].max()) if bad.any() else 0.0)
 
 
-
-
 def _wago5_scene_frames() -> list[np.ndarray]:
     """World 4x4 for the four seated splice nuts (visuals).  The wago5
     visual's local -X is the wire-entry face; rotate it outward."""
@@ -832,8 +825,6 @@ def _wago5_scene_frames() -> list[np.ndarray]:
             out.append(_trans([sx * x_c, sy * y_c, zf])
                        @ _rotz(-sy * np.pi / 2.0))
     return out
-
-
 
 
 # ---------------------------------------------------------------------------

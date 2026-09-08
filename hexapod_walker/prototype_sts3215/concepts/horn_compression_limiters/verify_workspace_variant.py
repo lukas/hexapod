@@ -16,8 +16,6 @@ import numpy as np
 
 
 HERE = Path(__file__).resolve().parent
-PROTO_DIR = HERE.parents[1]
-sys.path.insert(0, str(PROTO_DIR))
 sys.path.insert(0, str(HERE))
 
 import _verify_prototype as verify  # noqa: E402

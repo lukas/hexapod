@@ -48,7 +48,6 @@ PROTO_DIR = HERE.parent.parent                    # prototype_sts3215
 CAD_STEP_DIR = PROTO_DIR / "cad_step_test"        # base BREP ports + export tail
 RIGID_DIR = PROTO_DIR / "concepts" / "rigid_hip"  # rv (constants for cv import)
 sys.path.insert(0, str(CAD_STEP_DIR))
-sys.path.insert(0, str(PROTO_DIR))
 sys.path.insert(0, str(RIGID_DIR))
 sys.path.insert(0, str(HERE))
 

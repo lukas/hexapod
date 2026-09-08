@@ -55,11 +55,8 @@ import yaml
 
 _THIS_DIR = Path(__file__).resolve().parent
 _PROTOTYPE_DIR = _THIS_DIR.parent
-for p in (str(_PROTOTYPE_DIR), str(_PROTOTYPE_DIR / "motor_setup")):
-    if p not in sys.path:
-        sys.path.insert(0, p)
 
-from wire_harness_plan import (  # noqa: E402
+from wire_harness_plan import (
     STOCK_PIGTAIL_MM,
     WIRE_HARNESS_PLAN,
 )

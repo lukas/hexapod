@@ -34,13 +34,10 @@ import time
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 PROTO_DIR = os.path.dirname(THIS_DIR)
-REPO_ROOT = os.path.dirname(os.path.dirname(PROTO_DIR))
 
 # Add the prototype dir (for `hexapod_prototype`, `_verify_prototype`,
 # `keepout_volumes`) AND this `scripts/` dir (for sibling-script
 # imports below).
-if PROTO_DIR not in sys.path:
-    sys.path.insert(0, PROTO_DIR)
 if THIS_DIR not in sys.path:
     sys.path.insert(0, THIS_DIR)
 

@@ -25,7 +25,6 @@ import json
 import math
 import shutil
 import subprocess
-import sys
 import tempfile
 import zipfile
 from pathlib import Path
@@ -42,11 +41,8 @@ import trimesh
 
 
 HERE = Path(__file__).resolve().parent
-PROTO_DIR = HERE.parent
-if str(PROTO_DIR) not in sys.path:
-    sys.path.insert(0, str(PROTO_DIR))
 
-import hexapod_prototype as hp  # noqa: E402
+import hexapod_prototype as hp
 
 
 # Official tag36h11 codedata[0..18].

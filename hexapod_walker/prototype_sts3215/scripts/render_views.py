@@ -42,8 +42,6 @@ import trimesh
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 PROTO_DIR = os.path.dirname(THIS_DIR)
-if PROTO_DIR not in sys.path:
-    sys.path.insert(0, PROTO_DIR)
 
 STL_DIR = os.path.join(PROTO_DIR, "stl_prototype")
 VIEWS_DIR = os.path.join(PROTO_DIR, "artifacts", "views")

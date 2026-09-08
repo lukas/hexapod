@@ -16,16 +16,13 @@ from __future__ import annotations
 import argparse
 import math
 import os
-import sys
 import time
 
 import mujoco
 import numpy as np
 
-THIS_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, THIS_DIR)
-import hexapod_prototype as HP  # noqa: E402
-from part_palette import PART_COLORS  # noqa: E402
+import hexapod_prototype as HP
+from part_palette import PART_COLORS
 
 
 M = 0.001  # mm -> m

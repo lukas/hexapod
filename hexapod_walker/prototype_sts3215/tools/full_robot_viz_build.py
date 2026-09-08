@@ -54,13 +54,12 @@ import trimesh
 from trimesh.transformations import rotation_matrix
 
 _HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(_HERE.parent))
 
-import hexapod_prototype as HP  # noqa: E402
-import _verify_prototype as V  # noqa: E402
-import fastener_registry as FR  # noqa: E402
-from motor_setup import wire_harness_plan as WHP  # noqa: E402
-from motor_setup.feetech_bus import joint_to_servo_id  # noqa: E402
+import hexapod_prototype as HP
+import _verify_prototype as V
+import fastener_registry as FR
+from motor_setup import wire_harness_plan as WHP
+from motor_setup.feetech_bus import joint_to_servo_id
 
 OUT_DIR = _HERE.parent / "full_robot_viz"
 STL_DIR = OUT_DIR / "stl"

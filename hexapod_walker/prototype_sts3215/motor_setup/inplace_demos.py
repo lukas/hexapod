@@ -46,22 +46,17 @@ import sys
 import time
 from pathlib import Path
 
-_HERE = Path(__file__).resolve().parent
-_ROOT = _HERE.parent
-for _p in (_HERE, _ROOT, _ROOT / "linux_control"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from feetech_bus import (  # noqa: E402
+from feetech_bus import (
     ADDR_TORQUE_ENABLE, BAUD_DEFAULT, COUNTS_PER_DEG, FeetechBus, JOINT_SIGN,
     N_JOINTS, WALK_ACC, WALK_SPEED, count_to_deg, deg_to_count,
     joint_to_servo_id, normalize_acc, normalize_speed, standing_pose_degrees,
 )
-from motion_telemetry import (  # noqa: E402
+from motion_telemetry import (
     MotionLog, default_log_path, joint_name, run_hold_log,
 )
-from hexapod_core.tripod_gait import FEMUR_MM, TIBIA_MM  # noqa: E402
-from urt2_bench import default_port, keystroke_abort_watch, limp_now  # noqa: E402
+from hexapod_core.tripod_gait import FEMUR_MM, TIBIA_MM
+from urt2_bench import default_port, keystroke_abort_watch, limp_now
 
 # SRAM torque limit (0..1000). Softened for demos so PID can't hammer
 # through backlash as hard. Volatile — restored to 1000 after limp/finish.
@@ -3626,7 +3621,6 @@ def frames_air_trident(seconds: float = 34.0):
         yield pose
 
 
-
 # ---------------------------------------------------------------------------
 # SIMULATION SWARM — a sitting air dance choreographed to the song
 # (Big Thief, 4:13).  The beat grid and loudness envelope were measured
@@ -6820,7 +6814,6 @@ def frames_air_converge(seconds: float = 7.0):
                 hip=hip_c * (1.0 - b) + hip_t * b,
                 knee=knee_c * (1.0 - b) + knee_t * b)
         yield pose
-
 
 
 def frames_air_canon(seconds: float = 3.0):

@@ -32,15 +32,13 @@ Run:
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
 import numpy as np
 
 _HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(_HERE.parent))
 
-import hexapod_prototype as HP  # noqa: E402
+import hexapod_prototype as HP
 import sts3215_testfit as TF  # noqa: E402  (servo + cradle + yoke geometry)
 
 

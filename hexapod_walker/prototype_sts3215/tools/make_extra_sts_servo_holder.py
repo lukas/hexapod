@@ -44,15 +44,12 @@ Run from the repo root:
 from __future__ import annotations
 
 import os
-import sys
 
 import numpy as np
 
-sys.path.insert(0, os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..")))
 
-import hexapod_prototype as hp  # noqa: E402
-from trimesh.transformations import rotation_matrix  # noqa: E402
+import hexapod_prototype as hp
+from trimesh.transformations import rotation_matrix
 
 OUT_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "extra_stl"))

@@ -19,7 +19,6 @@ import argparse
 import json
 import math
 import os
-import sys
 from pathlib import Path
 from typing import Callable
 
@@ -29,13 +28,6 @@ THIS_DIR = Path(__file__).resolve().parent
 PROTO_DIR = THIS_DIR.parent
 ROOT_DIR = PROTO_DIR.parents[1]
 
-for path in (
-    PROTO_DIR,
-    PROTO_DIR / "linux_control",
-    PROTO_DIR / "motor_setup",
-):
-    if str(path) not in sys.path:
-        sys.path.insert(0, str(path))
 
 DEG2RAD = math.pi / 180.0
 COUNTS_PER_DEG = 4096.0 / 360.0

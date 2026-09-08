@@ -232,18 +232,13 @@ already in the BOM, zero new SKUs.
 
 from __future__ import annotations
 
-import os
-import sys
 from dataclasses import dataclass, field
 from typing import Tuple
 
 import numpy as np
 
-_HERE = os.path.dirname(os.path.abspath(__file__))
-if _HERE not in sys.path:
-    sys.path.insert(0, _HERE)
 
-import hexapod_prototype as HP  # noqa: E402
+import hexapod_prototype as HP
 
 
 # ---------------------------------------------------------------------------
@@ -1306,7 +1301,6 @@ def _emit_imu_pad_fasteners() -> list[FastenerInstance]:
     return []
 
 
-
 # Sandwich-joint clamp-cap fasteners (2 x M3 self-tap per hip + knee cradle)
 # ---------------------------------------------------------------------------
 
@@ -1388,8 +1382,6 @@ def _emit_clamp_cap_fasteners(
 # ---------------------------------------------------------------------------
 # IMU pad mount fasteners (M3 x 8 SHCS + M3 heat-set insert pair)
 # ---------------------------------------------------------------------------
-
-
 
 
 # ---------------------------------------------------------------------------

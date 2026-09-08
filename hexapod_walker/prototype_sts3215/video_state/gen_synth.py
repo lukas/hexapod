@@ -24,17 +24,15 @@ import csv
 import glob
 import math
 import os
-import sys
 
 import cv2
 import numpy as np
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-import mujoco  # noqa: E402
-import mujoco_prototype as mp  # noqa: E402
+import mujoco
+import mujoco_prototype as mp
 
-from detect import RobotDetector  # noqa: E402
-from build_dataset import CROP, ROOT, square_crop  # noqa: E402
+from detect import RobotDetector
+from build_dataset import CROP, ROOT, square_crop
 
 RENDER_W, RENDER_H = 640, 360   # same 16:9 aspect as the bench camera
 N_JOINTS = 18

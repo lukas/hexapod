@@ -32,7 +32,6 @@ LOAD_MANIFEST = (
     / "mujoco_onshape_study_manifest.json"
 )
 
-sys.path.insert(0, str(PROTO_DIR))
 sys.path.insert(0, str(PROTO_DIR / "tools"))
 import hexapod_prototype as hp  # noqa: E402
 import make_chorn_variant as ch  # noqa: E402

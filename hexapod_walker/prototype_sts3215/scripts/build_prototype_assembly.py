@@ -36,8 +36,6 @@ from trimesh.transformations import rotation_matrix
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROTO_DIR = os.path.dirname(SCRIPT_DIR)
-if PROTO_DIR not in sys.path:
-    sys.path.insert(0, PROTO_DIR)
 
 import hexapod_prototype as HP  # noqa: E402
 

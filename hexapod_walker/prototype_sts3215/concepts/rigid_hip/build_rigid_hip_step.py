@@ -38,7 +38,6 @@ HERE = Path(__file__).resolve().parent            # concepts/rigid_hip
 PROTO_DIR = HERE.parent.parent                    # prototype_sts3215
 CAD_STEP_DIR = PROTO_DIR / "cad_step_test"        # base BREP ports + export tail
 sys.path.insert(0, str(CAD_STEP_DIR))
-sys.path.insert(0, str(PROTO_DIR))
 sys.path.insert(0, str(HERE))
 
 from step_common import StepPart, export_all, write_bundle  # noqa: E402

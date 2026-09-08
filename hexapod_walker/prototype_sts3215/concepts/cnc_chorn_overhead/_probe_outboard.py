@@ -34,7 +34,6 @@ from trimesh.transformations import rotation_matrix
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "rigid_hip"))
-sys.path.insert(0, str(HERE.parent.parent))
 
 import hexapod_prototype as hp  # noqa: E402
 import make_rigid_hip_variant as rv  # noqa: E402

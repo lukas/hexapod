@@ -84,7 +84,6 @@ import threading
 from contextlib import redirect_stdout
 
 _PROTO_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, _PROTO_DIR)
 sys.path.insert(0, os.path.join(_PROTO_DIR, "scripts"))
 
 import numpy as np

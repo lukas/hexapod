@@ -14,15 +14,12 @@ point-in-slab test for candidate side-wall boxes.
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 
 import numpy as np
 import trimesh
 from trimesh.transformations import rotation_matrix
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-import hexapod_prototype as HP  # noqa: E402
+import hexapod_prototype as HP
 
 
 def _trans(v):

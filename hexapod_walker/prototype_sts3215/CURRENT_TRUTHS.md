@@ -122,32 +122,29 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   Continue authorized simulation diagnostics without waiting for an operator
   reply on the separate fleet-calibration question.
   See artifacts/rl_watchdog/full_cone_review_20260908/CORRECTION.md.
-  TWIST-CONSISTENCY MEASUREMENT (2026-09-08 ~04:1x UTC, frozen plant,
-  zero training): the focus-note same-phase commanded-vs-actual
-  stance-path measurement ran clean (probe_turn_twistfit.py, snapshot
-  046c708a; parity bit-exact vs root_fullcone on 6/6 cells, zero
-  falls/IK failures). The COMMANDED stance paths are already
-  consistent with the single commanded rigid twist (des-stage wz gain
-  0.9998, exact-twist residual 1.5-1.8%, per-foot implied-wz spread
-  ~0.1% of command) — the pre-registered support bar failed 0/4 arc
-  cells, so the command-side stance-sweep correction is CLOSED with
-  no preflight or canary. The twist collapse happens at the
-  SafetyLayer slew-clip stage (safe-stage wz -74% vs vx -24%,
-  per-leg twist-incoherent, spread 0.208 rad/s) and executed contact
-  is ~anti-phased with the commanded windows (P(contact|cmd stance)
-  ~0.44 vs ~0.70 in cmd swing). Achieved gains (wz 0.428 / vx 0.465)
-  match the analytic slew-cap amplitude ratio 0.457 at period 0.75 s
-  and 15.39 deg commanded yaw amplitude: combined-arc undertracking
-  is ~fully the pinned 0.375 deg/tick contract at this
-  cadence/amplitude; friction-cone saturation (root_fullcone) is a
-  secondary sink. Achieved arc curvature is nearly correct (1.73 vs
-  1.875 commanded) — the deficit is arc speed, not direction. Saved
-  (not launched) next in-limits mechanism: command-level turn/walk
-  TIME-MULTIPLEXING (pure-turn tracks ~0.88 gain vs ~0.43 combined);
-  recorded negative prediction against any per-tick slew-feasibility
-  twist governor (uniform rescale), per the omega-discount and
-  cadence-1.5 closures. Evidence:
-  artifacts/rl_watchdog/turn_twistfit_20260908/.
+  TWIST-CONSISTENCY REVIEW (2026-09-08): the six-cell frozen
+  command-path measurement did not meet its preregistered support bar:
+  commanded yaw gain about0.9998, residual0.015-0.018, and implied-yaw
+  spread about0.00015rad/s. The proposed command-side stance-sweep
+  correction remains unsupported; no canary follows. The original safe,
+  actual-joint and pad summaries are descriptive and do not uniquely
+  localize the execution loss. A matching triangular slew-amplitude
+  estimate does not establish that the rate cap fully explains body motion
+  or that friction-cone engagement is secondary. The repaired probe
+  (7ca821fb1;46 tests including full-mesh trajectory parity) samples pad
+  transforms at the private endpoint, labels solve-time contacts, adds
+  planned-stance AND loaded-contact fits, validates the complete reference
+  matrix, and distinguishes common wrong twist from simultaneous
+  incompatibility. Original report comparison established exact body
+  medians/count/fall parity, not recorded trajectory parity.
+  Evidence: artifacts/rl_watchdog/twistfit_review_20260908/ and original
+  artifacts/rl_watchdog/turn_twistfit_20260908/. Original continuous
+  joystick tracking and qualification gates remain in force.
+  Generic command-level walk/turn time slicing is not an executable next
+  candidate: an earlier fixed-duty bank was already negative, and a
+  transition-free mixture of the current matched endpoints predicts less
+  yaw at equal achieved forward progress. A distinct measured transition
+  mechanism would be required before revisiting it.
 
 - SHARDED KNEE-FRAME FIX (2026-09-07): before commit dd248bd8/37c8e808,
   `MjxShardedVecEnv` workers stored raw mujoco-frame `q_nom` into

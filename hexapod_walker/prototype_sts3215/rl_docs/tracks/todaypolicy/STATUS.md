@@ -1,74 +1,54 @@
 # todaypolicy - working policy bundle for today's demo
 
-Last updated: 2026-09-08 ~04:1x UTC — stance-path twist-consistency
-measured on the frozen plant; command-side stance-sweep correction
-CLOSED (pre-registered support bar cleanly unmet), no preflight/canary.
+Last updated: 2026-09-08 ~04:28 UTC — reviewed the stance-path probe;
+command correction remains unsupported. Diagnostic repair deployed7ca821fb1.
 
-## Latest update (2026-09-08 ~04:1x UTC) — STANCE-PATH TWIST-CONSISTENCY
-MEASURED: the COMMANDED stance paths are already consistent with the
-single commanded rigid twist; the collapse is at the slew-clip stage.
+## Latest review — timing, support validation and causal scope
 
-`rl_move/sim/probe_turn_twistfit.py` (snapshot 046c708a; 9-test unit
-bank) ran the focus-note measurement in the frozen worktree: same-phase
-commanded vs actual stance XY paths, per-tick single-twist LSQ fits at
-four pipeline stages (des/safe/act/pads), frozen fullmesh34/4.80573 kg,
-exact `cfg_frozen_audit.json`, seed 0, arcs +/-0.15 + straight at
-starts 0/pi, 15 s, zero falls, zero IK failures, behavior parity
-bit-exact vs root_fullcone scripted medians on all 6 cells.
+The original six frozen full-mesh cells (34 meshes,4.80573kg,100Hz,
+seed0,arcs±0.15 and straight at phases0/pi) did not breach the historical
+command-path support bar: desired-stage yaw gain about0.9998,
+command-twist residual0.015–0.018, implied-yaw spread about0.00015rad/s.
+This does not justify the proposed command-side stance correction or a
+training canary.
 
-- Pre-registered support bar (S1 wz gain outside [0.9,1.1] / S2
-  exact-twist residual >0.10 / S3 per-foot implied-wz spread
-  >0.20*|wz|) breached on 0/4 arc cells: des-stage gain 0.9998,
-  residual 0.015-0.018, spread ~1.5e-4 rad/s. The stance-sweep
-  correction candidate from 025505 is CLOSED without a canary.
-- NEW localization: the post-SafetyLayer command (safe stage) already
-  collapses wz 0.150->0.039 (-74%) vs vx -24%, and is twist-INCOHERENT
-  across legs (per-foot implied-wz spread 0.208 rad/s). Executed
-  contact is ~anti-phased with commanded windows (P(contact|cmd
-  stance) ~0.44 vs ~0.70 in cmd swing; segment amp_ratio ~0.21).
-- Achieved gains (wz 0.428, vx 0.465) match the analytic slew-cap
-  amplitude ratio 37.5*T/4 / 15.39 deg = 0.457: the combined-arc
-  undertracking is ~fully the pinned rate contract at this
-  cadence/amplitude; cone saturation is the secondary sink. Achieved
-  CURVATURE is nearly right (1.73 vs 1.875): the deficit is arc
-  speed, not steering direction.
-- Saved next in-limits mechanism (designed, NOT launched):
-  command-level turn/walk TIME-MULTIPLEXING (pure-turn tracks ~0.88
-  gain vs ~0.43 combined because the tangential servo budget is not
-  shared with vx); gate = 60 s averaged-course tracking A/B vs the
-  simultaneous baseline at equal average vx, both signs beyond start
-  scatter, straight health, slip, zero IK failures. Recorded negative
-  prediction: a per-tick slew-feasibility twist governor (uniform
-  rescale) is argued against by the omega-discount and cadence-1.5
-  closures — do not spend a canary on it without contrary evidence.
+The original claim that the rate cap “fully” explains undertracking and
+that friction is secondary is withdrawn. Safe-target attenuation and
+contact timing are measured descriptions; the fits mix nominal FK with
+mesh geometry and different contact selections. A triangle-wave amplitude
+estimate agreeing with body gains is not unique causal identification.
+The repaired probe samples pad transforms at the private endpoint,
+explicitly labels last-solve touch data, adds planned-stance∩loaded-contact
+selection and requires the full unique six-cell reference matrix.
+Simultaneous best-fit residual separates inconsistent paths from a common
+wrong twist; the added threshold is identified as review-added rather than
+retroactively preregistered. All46 focused tests pass, including full-mesh
+per-tick action/physics parity for private endpoint reads.
 
-Evidence: `artifacts/rl_watchdog/turn_twistfit_20260908/`
-(README + twistfit_fm.json + probe copy + log).
+Original baseline parity means exact body medians, scored count and fall
+status. Those historical reports do not contain full trajectories.
+Evidence: artifacts/rl_watchdog/twistfit_review_20260908/ and
+artifacts/rl_watchdog/turn_twistfit_20260908/.
 
-Contact-wrench accounting passed the substep angular-momentum closure check.
-Opposing yaw moments and contact-couple contributions are measured, but do not
-uniquely establish inconsistent commanded stance paths. The original cone
-statistic was a planar slide projection. The completed 12-cell rerun preserves
-all original behavior and uses valid condim6 elliptic full-cone accounting:
-a contact is near the boundary in 48.0-58.5% of slipping-foot samples versus
-4.1-8.4% with the planar projection. Mixed sub-boundary/boundary behavior
-remains; this does not establish a unique cause. Evidence:
-artifacts/rl_watchdog/root_fullcone_20260908/. The isolated torsion dose0.1->0.005 m
-reduced scripted arc yaw magnitude9-14%, increased forward speed about17-20%,
-and changed straight drift, with zero observed falls in its six cells.
-The lower coefficient assumes a uniform-pressure contact patch; it is not
-measured calibration, an established physical cap, or proof that the original
-coefficient is unphysical. Modified-contact sensitivity is separate from
-frozen-plant qualification. No original both-signs/straight-health preflight
-passed, so no canary or fleet-model change follows from this evidence.
-Continue authorized simulation diagnostics without waiting for an operator
-reply on the separate fleet-calibration question.
-See artifacts/rl_watchdog/full_cone_review_20260908/CORRECTION.md.
+Generic walk/turn time multiplexing is withdrawn as the next experiment.
+The hardware_delivery track already tested fixed1.6s time slicing at
+duties0.3/0.5/0.7 without beating continuous alternatives. A mixture of
+the current matched pure/combined endpoints also predicts worse yaw at
+equal achieved forward progress. This estimate ignores transients and is
+not a universal bound; a new proposal needs a distinct transition
+mechanism and must retain the original continuous joystick requests and
+qualification gates. A60s averaged-course metric cannot replace them.
 
-Next: DONE 2026-09-08 ~04:1x — the same-phase commanded/actual path
-evidence was measured (see Latest update above): commanded paths are
-twist-consistent, so no stance-path correction/preflight follows; the
-saved next mechanism is command-level turn/walk time-multiplexing.
+Contact-wrench accounting passed substep momentum closure. The completed
+12-cell full-cone rerun preserved original behavior: contact usage is near
+the condim6 elliptic boundary in48.0–58.5% of slipping-foot samples versus
+4.1–8.4% for the old planar projection. Mixed behavior remains; it does not
+establish a unique cause. The probe-only torsion dose0.1→0.005m reduced
+scripted arc yaw magnitude9–14% and increased forward speed17–20% with
+zero observed falls. The lower value is a patch assumption, not measured
+calibration or a physical cap. No plant change or canary follows.
+See artifacts/rl_watchdog/root_fullcone_20260908/ and
+artifacts/rl_watchdog/full_cone_review_20260908/CORRECTION.md.
 
 ## Previous update (2026-09-08 ~02:1x UTC) — CADENCE (period_scale)
 EXPERIMENT DONE ON THE FROZEN FULL-MESH PLANT: CLOSED, REGRESSED BOTH

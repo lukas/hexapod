@@ -70,3 +70,13 @@ be mutually exclusive. A future correction must itself pass the actual-path IK,
 limit and touchdown/liftoff continuity guard: integrating an exact arc generally
 moves the endpoints of the old chord. No correction is implemented here, and the
 existing stock-gait feasibility guard is unchanged.
+
+## Deployed matrix verification
+
+Root deployed7ca821fb1 and repeated the original six-cell frozen15s
+matrix in the existing isolated steering worktree. All six body medians,
+scored counts and fall statuses match the original reference exactly;
+validation passes with zero failures. Both legacy and reviewed support
+remain false. The reviewed result is twistfit_fm.json in this directory.
+No plant/config/assets were changed. This rerun validates diagnostic
+sampling and negative support; it does not establish causal localization.

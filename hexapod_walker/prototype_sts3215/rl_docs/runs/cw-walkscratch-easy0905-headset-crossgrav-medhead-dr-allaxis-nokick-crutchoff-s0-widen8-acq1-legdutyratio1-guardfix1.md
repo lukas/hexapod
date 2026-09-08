@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-08T00:35:55+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s0-widen8-acq1
+
+**wandb_id**: nh3lt3o3
 
 **hypothesis**: BUG-FIX RELAUNCH of s0-widen8-acq1-legdutyratio1 (the retrofit-onto-entrenched-checkpoint arm): the operator's fix (ebad6d0d) added g_ratio to the shared contact-bookkeeping activation guard -- the original run's charge was silently inert (bit-identical to charge=0) on this recipe, its result is INVALID. This relaunch uses the fixed code (16/16 leg_duty_ratio+adjacent bank tests green). Same retrofit hypothesis: does the charge repair a habit already baked in over 40M steps.
 

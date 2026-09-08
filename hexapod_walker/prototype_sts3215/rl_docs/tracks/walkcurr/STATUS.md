@@ -1,3 +1,52 @@
+## 2026-09-08 ~00:4x (same cycle, self-correction) — CORRECTION: all 4 original `walk_leg_duty_ratio_charge` canaries below were silently INERT (activation-guard bug); operator-fixed same cycle; all 4 relaunched as `-guardfix1`
+
+**The bug**: the new `walk_leg_duty_ratio_charge` contact-bookkeeping
+block (EMA update) was gated behind the SAME shared activation
+condition every other per-leg gate in `sim_env.py`'s step() shares
+(`g_gait > 0.0 or g_duty > 0.0 or g_swing > 0.0 or g_dband > 0.0 or
+k_drag > 0.0 or k_park > 0.0 or ...`) — but I never added `g_ratio >
+0.0` to that list. On the ACTUAL launched recipe (the widen8-acq1/
+widenbis180 cfg_set: `k_park_duty=0`, `k_step_event=0`, no other gate
+armed) that whole block never ran, so `self._legduty_ratio_ema` never
+updated past its `[1.0]*6` seed — the charge computed a shortfall of
+0.0 EVERY tick regardless of actual behavior, silently bit-identical
+to `walk_leg_duty_ratio_charge=0.0`. My own bank tests never caught
+this because `WALK_LEGDUTY_RATIO_OVERRIDES` inherits `WALK_OVERRIDES`,
+which already sets `k_step_event=1.0`/`k_drag_loaded=10.0`/
+`k_park_duty=1.0` — those kept the shared block alive in every bank
+test regardless of my own bug, masking it completely.
+
+**Caught by the operator** (commit `ebad6d0d`, "Activate standalone
+leg-duty ratio reward contact tracking", ~15 min after my snapshot
+`e24a2ab6`): one-line fix (`or g_dband > 0.0 or g_ratio > 0.0` in
+`sim_env.py`) + a new regression test
+(`test_walk_leg_duty_ratio_charge_sparse_launch_activation`) that
+reproduces the EXACT sparse-activation configuration (every other
+gate zeroed) the real launches use and proves the charge now fires
+correctly. Pulled + reconfirmed: 16/16 leg_duty_ratio+adjacent bank
+tests green. A concurrent orchestrator cycle had already caught this
+independently and relaunched `s0-widen8-acq1-legdutyratiofresh` as
+`-guardfix1`; verdicted all 4 original bugged runs `CANARY FAIL -
+INFRASTRUCTURE` (ledger + W&B notes) and relaunched the remaining 3
+(`s1-widen8-acq1-legdutyratiofresh`, `s0-widen8-acq1-legdutyratio1`,
+`s0-widenbis180-legdutyratiofresh`) as their own `-guardfix1` twins,
+same hypotheses/gates, fixed code. Spot-confirmed the fix engages in
+real training: `s0-widen8-acq1-legdutyratiofresh-guardfix1`'s own
+`wandb_history.csv` shows `env/reward_walk_leg_duty_ratio` genuinely
+non-zero (-18.9, -22.8) with real `walk_leg_duty_ratio_shortfall`
+(0.13-0.15) — the charge is live this time. All 4 `-guardfix1` arms
+VERIFIED RUNNING/FINISHED as of this entry (2M canaries train fast);
+read those, not the original 4, for the mechanism's real first read.
+
+Lesson for the next per-leg reward-shaping mechanism in this file:
+the shared activation-guard list at the top of the contact-
+bookkeeping block is EASY to forget a new gate's flag from, and the
+bank's own inherited `WALK_OVERRIDES` baseline (which already arms
+several older gates) will not expose the omission — a sparse/minimal
+override dict (every other gate explicitly zeroed, matching the REAL
+launch recipe) needs its own dedicated bank test, not just the
+standard `WALK_OVERRIDES`-inherited one.
+
 ## 2026-09-08 ~00:2x (refill cycle; 11/11 GPU free, backlog empty) — BUILT + BANK-PROVED `reward.walk_leg_duty_ratio_charge`, the "duty-balance reward TARGET" scoped since 09-07 ~23:2x, and launched the first 4-canary test batch
 
 **Plain English**: a brand-new per-leg reward charge that ADDS a

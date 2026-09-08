@@ -681,6 +681,27 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   report.json`, W&B `xyz4gzvh`.
 
 ## Known Tooling Gotchas
+- **A new per-leg contact-bookkeeping mechanism must add its own gate
+  flag to the SHARED activation-guard condition** in `sim_env.py`'s
+  step() (the `if (... or g_dband > 0.0 or ...) and s_ref > 1e-3:`
+  block every `walk_duty_gate`/`walk_swing_gate`/`walk_duty_band_gate`
+  price shares) — forgetting it (2026-09-08,
+  `reward.walk_leg_duty_ratio_charge`'s first launch) makes the new
+  mechanism SILENTLY INERT (bit-identical to its own cfg being 0.0)
+  on any recipe where every OTHER listed gate is also off, because the
+  whole contact/EMA bookkeeping block never executes. Bank tests that
+  inherit `WALK_OVERRIDES` (which already arms `k_step_event`/
+  `k_drag_loaded`/`k_park_duty` etc.) will NOT catch this — they keep
+  the shared block alive regardless of the new mechanism's own guard
+  omission. A dedicated bank test using a SPARSE override dict (every
+  other gate explicitly zeroed, matching the real launch recipe) is
+  required to expose it; see
+  `test_walk_leg_duty_ratio_charge_sparse_launch_activation`
+  (`test_task_semantics.py`), added by the operator (commit
+  `ebad6d0d`) after catching the omission in 4 already-launched
+  canaries ~15 min post-launch. All 4 were verdicted `CANARY FAIL -
+  INFRASTRUCTURE` and relaunched as `-guardfix1` twins on the fixed
+  code; read those, not the originals.
 - Any dedicated MJX assay/cert env built AFTER construction (a fresh
   `MjxVecEnv`/`MjxShardedVecEnv` stood up mid-training by a callback,
   e.g. `train_ppo_mjx._BcAnchorAnnealGateCb._build()`) does NOT

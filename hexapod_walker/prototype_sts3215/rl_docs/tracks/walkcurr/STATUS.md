@@ -1,3 +1,80 @@
+## 2026-09-08 ~08:3x CORRECTION (doc-sync cycle) — seed7 durability was NOT "PARITY HOLDS": its own registered gait-retention gate FAILS, downgrading the paired ON/OFF read to INCONCLUSIVE; seed10/seed11 unaffected
+
+One plain sentence: my assigned run this cycle (the seed7 torque1x
+ON canary) was already correctly triaged by a concurrent process
+before I could act on it, so instead I reconciled this doc with a
+ledger correction ("root watchdog" independent audit,
+`artifacts/rl_watchdog/cartfoot_depth_read_20260908/`) that had
+already landed in `experiments.json`/`RL_LOG.md` but never made it
+into this file's prose or `SKILLS.md`'s row -- the entry directly
+below this one is now STALE for the seed7 pair specifically and
+should be read through this correction.
+
+**What changed:** `cartfoot-freshinit-offctrl-s7-acq1-cont10m`'s OWN
+registered gate (distinct from seed10's/seed11's, and written with
+an explicit gait-retention clause: "gait_valid staying in-or-above
+its established 6/6 (det)/1-6 (startjitter/det) band") is FAILED, not
+PASSED -- the report shows 6/6->0/6 (walk/det) and 1/6->0/6
+(startjitter/det), aggregate 19->12/24. Slip means and 0-falls still
+hold (2.81/3.41/2.83/3.30/m, matching the entry below), but the
+gate's own text says a control that drifts like this makes the
+paired ON/OFF read INCONCLUSIVE, not a credit/blame call on the
+Cartesian mechanism. The matched ON run
+(`cartfoot-freshinit-c1-s7-acq1-cont10m`) is correspondingly
+CORRECTED from "ACQ PASS" to "INCONCLUSIVE - CONTROL DRIFT": its own
+narrow mean-slip/fall predicate still passes (ratios 0.99/0.97/0.97/
+0.93x, 0 terms), but ON gait_valid also declines 23->11/24 (not
+symmetric-and-harmless as the stale entry below claims -- the
+independent audit found the ON-side decline is larger than the
+OFF-side one, and includes one new stochastic-jitter failure, not
+only deterministic-mode softening).
+
+**Does NOT change:** the 40M ACQUISITION-level PARITY finding for
+seed7 (`cartfoot-freshinit-c1-s7-acq1` ACQ PASS - PARITY) is a
+different, already-closed read at a different budget and is
+untouched. The separate torque1x mechanism-health canary pair
+(same cycle, frozen 2M protocol off the FROZEN 40M checkpoints) is
+explicitly unaffected per its own verdict text. Seed10's and
+seed11's durability verdicts stand as recorded below -- their
+registered gates do not carry the same explicit gait-retention
+clause, so their "HOLDS" calls do not need the same correction (an
+independent audit note on seed11 flags its OWN real ON gait decline,
+23->19/24, as a caveat worth reporting, but that seed's registered
+gate is slip+falls only, so its ACQ PASS verdict is not itself
+wrong -- report the caveat, do not silently relabel the verdict).
+
+**Net effect on the n=3 durability cohort:** 2/3 seeds (10, 11) show
+clean-by-their-own-gate durability HOLDS at 50M; seed7 is
+INCONCLUSIVE on its own stricter gate (0 falls, slip in-band, but
+the matched control's gait health did not survive to be a valid
+comparator). This is not evidence AGAINST fresh-init cart_foot
+durability -- no new falls or slip blowup anywhere -- but the "3/3
+clean HOLDS" framing in the entry below overstates what seed7
+actually showed. Per that run's own verdict text, no automatic
+extension/redo is licensed without a new recorded hypothesis (a
+same-name relaunch attempt was already correctly REFUSED by the
+launcher as a duplicate this cycle) -- this line is closed until
+someone registers a fresh design (e.g., a differently-named repeat
+control at the same depth) with its own hypothesis.
+
+Evidence: `artifacts/rl_watchdog/cartfoot_depth_read_20260908/README.md`
++ `metrics.json`; corrected ledger verdicts for
+`cartfoot-freshinit-{c1,offctrl}-s7-acq1-cont10m` (`ops.sh entry
+<run>` shows the live corrected text); SKILLS.md row corrected in
+the same cycle; RL_LOG 09-08 ~08:2x8/08:29 already carried the raw
+correction lines this doc-sync closes the loop on.
+
+**No refill this cycle beyond the doc sync above:** capacity checked
+(9/11 GPU pods free at last look, 2 freshly claimed by concurrent
+cycles for `widen8-cartfoot-freshinit-c1` and
+`cartfoot-halfgrav-{,off}s7`) -- both are non-duplicative walkcurr
+arms already in flight from other cycles; no additional
+non-duplicative launch-ready arm identified after checking the
+`cont10m` line (closed per above) and the torque1x line (closed per
+its own frozen plan, no auto-continuation).
+
+--- prior entry below (seed7 portions superseded by the correction above) ---
+
 ## 2026-09-08 ~08:3x (triage cycle) — seed7 durability HOLDS + seed11 durability HOLDS (2/3 cohort) + seed10 OFF durability HOLDS + torque1x mechanism-health canary pair lands (Cartesian robust, joint-space develops a new chronic leg)
 
 One plain sentence: this cycle's one assigned run was seed7's matched

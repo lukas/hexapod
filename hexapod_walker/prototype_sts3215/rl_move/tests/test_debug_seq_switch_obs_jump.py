@@ -54,6 +54,24 @@ def _run_to_end(env, events):
     return obs
 
 
+def test_ledger_cfg_set_reads_configured_state_and_keeps_explicit_override(tmp_path, monkeypatch):
+    import json
+    from rl_move.sim.debug_seq_switch_obs_jump import _ledger_cfg_set
+
+    state = tmp_path / "state"
+    state.mkdir()
+    entry = {"run": "fixture", "extra_args": ["--cfg-set", "goal.mode_seq=1.0"]}
+    (state / "experiments.json").write_text(json.dumps([entry]))
+    monkeypatch.setenv("HEXAPOD_STATE_DIR", str(state))
+    monkeypatch.delenv("LEDGER", raising=False)
+    assert _ledger_cfg_set("fixture") == ["goal.mode_seq=1.0"]
+    explicit = tmp_path / "explicit.json"
+    entry["extra_args"] = ["--cfg-set", "goal.mode_seq=0.0"]
+    explicit.write_text(json.dumps([entry]))
+    monkeypatch.setenv("LEDGER", str(explicit))
+    assert _ledger_cfg_set("fixture") == ["goal.mode_seq=0.0"]
+
+
 def test_same_family_switch_zero_jump():
     env = _make_env(0, 12.0, "walk:6,lower:6")
     env.reset()

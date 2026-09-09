@@ -133,8 +133,9 @@ def _ledger_cfg_set(run: str) -> list[str]:
     ledger's extra_args (same lookup `ops.sh evalcmd`/`sessioncmd` use:
     prefer an entry that actually ran over a later REFUSED stub)."""
     import os
-    ledger = Path(os.environ.get(
-        "LEDGER", _PROTO / "rl_move/orchestrator/experiments.json"))
+    from rl_move.orchestrator import state_dir
+    ledger = Path(os.environ.get("LEDGER") or state_dir.resolve_state_dir() / "experiments.json")
+    state_dir.require_state_dir(ledger.parent)
     entry, fallback = None, None
     for e in json.loads(ledger.read_text()):
         if isinstance(e, dict) and e.get("run") == run and e.get(

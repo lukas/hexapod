@@ -6,6 +6,64 @@ Accepted facts, not narrative. This file wins on factual evidence and run
 verdicts; `RL_GOALS.md` owns purpose and priorities, including Lukas's
 2026-09-08 clarification. Older mission/allocation prose does not override it.
 
+## assistfade rung3 behavior-gated residual-anneal mechanism CLOSED 2/2 on its own last named lever; the entire "fade assist to full raw authority" family is now exhausted on mesh/100Hz across every mechanism tried (2026-09-09 ~15:3x)
+
+`cw-assistfade-rung3-residualgate-{s0,s1}-minprog015` (the last of the
+two levers the 14:5x FAIL-STILL-STUCK gate named — lower `train.
+residual_anneal_min_progress` 0.35->0.15 instead of raising the
+pre-latch blend floor, which the 15:1x entry below already closed
+4/4) **both FAIL-STILL-STUCK, exactly the pre-registered bar**:
+`residual_anneal/frac` reads 0.0 for every one of 123 logged points
+across the full 6.05M-step budget in BOTH seeds (`residual_anneal/
+gate_pass` constant 0 throughout) — the gate never latches even at
+the easier bar. The periodic `gate_cmd_prog_frac` assay (12 checks
+each) shows the same non-sustaining shape as every prior read: s0
+oscillates -0.06..+0.04 with no trend, s1 peaks at 0.19 near 2M steps
+then reverses through zero to -0.03 by 6M. Held-out DR-0 gate
+reproduces the exact chronic single-leg-parked signature this whole
+mechanism was built to route around: `walk/det` `gait_valid` 0/6 in
+BOTH seeds, one leg permanently sacrificed every episode (s0 leg5,
+s1 leg3, the latter with `over_current` termination in all 6
+episodes). `ep_rew_mean` rose cleanly both seeds (per the 08-21
+ruling, weighed against the gate's own designed unassisted-capability
+diagnostic, which is exactly what shows this reward rise is
+heavy-assist reward, not raw-policy capability — not a case for
+"continue").
+
+**This closes BOTH named levers of the behavior-gated residual-anneal
+mechanism** (raise `goal.walk_residual_anneal_v0`: closed 4/4 across
+2 doses x 2 seeds, see the 15:1x entry below; lower `train.
+residual_anneal_min_progress`: closed 2/2 here) — no further dose/bar
+variant of this mechanism is licensed. Combined with the 09-09 ~07:5x-
+08:0x closure of every per-leg reward-shaping repair (6/6 mechanisms/
+doses) and the 09-07 ~14:5x closure of every calendar-scheduled
+rung 1-4 lever (~20 arms: rung1 both tiers, rung2 4/4 habituation
+doses, rung3 8/8 schedule levers incl. nostdanneal x2, rung4 2/2
+handoff variants), **every mechanism this track has tried for making
+assistance fade to full raw-policy authority — calendar-scheduled or
+behavior-gated, with or without per-leg reward shaping — has now
+failed to ignite clean six-leg walking on mesh/100Hz, ~36 total
+canary/acquisition arms across the whole family.** Only rung 0 (a
+PERMANENT BC anchor / phase-lock that never fades) reaches ignition;
+its champion (`cw-walkteach-scripted-allhead-acq12m{,-s1}`) remains
+the track's one production-usable output and is already the
+`todaypolicy` walk-role upgrade candidate. Per `RL_GOALS.md`, `any_means`
+permits a permanent scripted-gait anchor/composition outright, so this
+does not block Goal 1 delivery — it specifically closes the narrower
+"and eventually needs zero assistance" sub-question. Do not launch
+another dose/schedule/gate variant of the fade-to-full-authority idea
+on this lineage; the only way to reopen this sub-question is a
+genuinely different structural mechanism (not a parameter of the
+existing blend/anneal), which is design work, not a launch. `tracks.json`
+`assistfade.status` updated to match.
+Evidence: `ops.sh review cw-assistfade-rung3-residualgate-{s0,s1}-
+minprog015`; `logs/experiments/cw-assistfade-rung3-residualgate-{s0,
+s1}-minprog015/wandb_history.csv` (`residual_anneal/frac` max()==0.0,
+`gate_pass` constant 0 across all 123 rows in both files);
+`logs/ckpt_eval/cw_assistfade_rung3_residualgate_{s0,s1}_minprog015_
+gate/report.json`; W&B `cw1sy8e6`/`ix57kkn1`; `rl_docs/tracks/
+assistfade/STATUS.md` 2026-09-09 ~15:3x entry; RL_LOG 09-09 15:37/15:38.
+
 ## assistfade rung3 residual-anneal-GATE "raise v0" escalation lever CLOSED 4/4 across dose (2026-09-09 ~15:1x)
 
 Following the 07:5x-08:0x per-leg-charge closure below, a structurally

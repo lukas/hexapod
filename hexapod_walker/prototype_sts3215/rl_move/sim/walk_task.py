@@ -714,6 +714,29 @@ def walk_legslip_ratio_charge(ema: list, target: float
     return worst_excess, ratios
 
 
+# Per-LEG swing-INITIATION reward INCOME (`reward.walk_leg_swing_
+# initiation_income`, 2026-09-08 -- the OTHER concrete lead the
+# loadslip-ratio-charge closure named alongside swing-gap-charge: "a
+# positive swing-initiation income for the currently-most-loaded leg"
+# (CURRENT_TRUTHS/walkcurr STATUS.md 2026-09-08 ~19:1x). Pulled out as
+# its own pure helper (mirroring `walk_legduty_ratio_charge`/
+# `walk_legslip_ratio_charge` above) so the "was this leg the single
+# most-loaded of all six" decision at the heart of the mechanism is
+# unit-testable without a full env rollout -- see
+# `rl_move/tests/test_walk_task.py`.
+def walk_leg_swing_initiation_maxload(loads: list) -> list:
+    """Per-leg bool: was ``loads[i]`` the single highest of all 6?
+    Strict ``> 0`` guards the degenerate all-zero snapshot (nobody
+    loaded yet, e.g. right at episode reset) from awarding a spurious
+    "most loaded" claim to every leg at once; ties AT the max are all
+    flagged True (a `>=` comparison, matching the "pay whoever is
+    tied for heaviest" convention -- a genuine simultaneous tie is
+    rare with continuous EMA floats but should not silently pick an
+    arbitrary winner if it ever happens)."""
+    worst = max(loads) if loads else 0.0
+    return [ld > 1e-6 and ld >= worst for ld in loads]
+
+
 class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
     """Joint-action goal env + walk mode (obs 59 + 11 + 2 vel feedback)."""
 
@@ -6478,6 +6501,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 # the mechanism is off.
                 prev_load_ema_snapshot = (
                     list(self._swinit_load_ema) if g_swinit > 0.0 else None)
+                prev_maxload_flags = (
+                    walk_leg_swing_initiation_maxload(prev_load_ema_snapshot)
+                    if prev_load_ema_snapshot is not None else None)
                 wts_excess = []
                 wts_td_events = 0
                 wts_lo_events = 0
@@ -6571,11 +6597,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         # degenerate all-zero tick (nobody loaded yet,
                         # e.g. right at episode reset) from awarding a
                         # spurious "most loaded" claim.
-                        if prev_load_ema_snapshot is not None:
-                            self._liftoff_was_maxload[f] = (
-                                prev_load_ema_snapshot[f] > 1e-6
-                                and prev_load_ema_snapshot[f]
-                                >= max(prev_load_ema_snapshot))
+                        if prev_maxload_flags is not None:
+                            self._liftoff_was_maxload[f] = \
+                                prev_maxload_flags[f]
                         # TRANSITION-WINDOW liftoff charge: retrospective
                         # lump over the trailing `walk_transition_lo_
                         # ticks` per-tick excess samples already

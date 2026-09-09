@@ -8,6 +8,7 @@ from rl_move.sim.walk_task import (
     transition_window_liftoff,
     transition_window_tick,
     transition_window_touchdown,
+    walk_leg_swing_initiation_maxload,
     walk_legduty_ratio_charge,
 )
 
@@ -125,3 +126,28 @@ def test_sum_aggregation_includes_each_swing_floor_shortfall():
         swing_min_count=2.0, agg="sum")
     assert charge == 2.0
     assert ratios == [1.0] * 6
+
+
+def test_maxload_all_zero_snapshot_flags_nobody():
+    # Degenerate reset-tick guard: no leg has loaded up yet, so no leg
+    # gets a spurious "most loaded" claim.
+    assert walk_leg_swing_initiation_maxload([0.0] * 6) == [False] * 6
+
+
+def test_maxload_flags_only_the_single_highest_leg():
+    assert walk_leg_swing_initiation_maxload(
+        [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+    ) == [False, False, False, False, False, True]
+
+
+def test_maxload_ties_at_the_max_are_all_flagged():
+    assert walk_leg_swing_initiation_maxload(
+        [5.0, 5.0, 1.0, 1.0, 1.0, 1.0]
+    ) == [True, True, False, False, False, False]
+
+
+def test_maxload_ignores_a_barely_positive_leg_below_the_epsilon_guard():
+    # A near-zero (but technically max) load must not count as "loaded".
+    assert walk_leg_swing_initiation_maxload(
+        [0.0, 0.0, 0.0, 0.0, 0.0, 1e-9]
+    ) == [False] * 6

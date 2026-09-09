@@ -38,6 +38,29 @@ mechanism, or whether the value function is already well-calibrated
 (pointing back at something else entirely, e.g. multi-step temporal
 commitment rather than a single-tick advantage problem).
 
+UPDATE 2026-09-09 (this entry): the original per-heading pinned mode
+below (Reads 1/2 in rl_docs/tracks/walkcurr/STATUS.md) was found
+INCONCLUSIVE — holding one heading fixed for a full 20s episode
+(``pinned_heading_cfg``'s ``walk_cmd_resample_s=0.0``) is itself OOD
+relative to training, which resamples the commanded heading every 6s
+even within this exact recipe's own 20s training episodes
+(``goal.walk_cmd_resample_s=6.0`` in every widen8/crutchoff launch
+command). The V-G residual exploded and flipped sign between a 5s and
+a 20s full pin, tracking the pin duration, not a clean calibration
+signal. ``--natural-resample`` (added this entry) fixes exactly that:
+it runs the SAME matched cfg-set with NO heading override at all (the
+recipe's own ``goal.walk_heading_set``/``walk_cmd_resample_s=6.0``
+apply unchanged, so the heading naturally resamples mid-episode just
+like training), and buckets EVERY tick post-hoc by the CURRENT
+commanded heading read directly off the observation (``heading_cos``,
+the same on/off-axis classifier ``heading_adv_norm``/
+``heading_selfdistill`` already use, same default ``cos_max=0.5``)
+instead of by which heading was requested at reset. This is the
+"resample-matched" fix named as option (a) in the previous entry's
+STATUS.md writeup (option (b), instrumenting the actual training
+rollout buffer's own GAE, is a larger change and was not attempted
+here).
+
 Method: build the exact matched env/cfg-set stack a pinned-heading-
 panel run uses (reuses train_ppo_sim._parse_cfg_set + eval_checkpoint's
 own ENV_CLASSES/pinned_heading_cfg -- no reimplementation), load the
@@ -72,12 +95,19 @@ from pathlib import Path
 import numpy as np
 
 from .eval_checkpoint import ENV_CLASSES, heading_label, pinned_heading_cfg
+from .heading_selfdistill import heading_cos, heading_frame_width, heading_vref_index
 from .servo_model import SimServoParams
 
 
-def _build_env(task: str, cfg_set: list[str] | None, angle: float,
-               speed: float, seed: int, dr_scale: float,
-               episode_seconds: float | None = None):
+def _build_env(task: str, cfg_set: list[str] | None, angle: float | None,
+               speed: float | None, seed: int, dr_scale: float,
+               episode_seconds: float | None = None, natural: bool = False):
+    """``natural=True`` skips the ``pinned_heading_cfg`` override
+    entirely (``angle``/``speed`` are ignored): the run's own
+    ``--cfg-set goal.walk_heading_set=...``/``walk_cmd_resample_s=...``
+    apply unchanged, so the commanded heading resamples mid-episode
+    exactly like training instead of being pinned for the whole
+    episode."""
     from .train_ppo_sim import _parse_cfg_set
     from rl_move.config import load_config
     cfg = load_config()
@@ -85,8 +115,9 @@ def _build_env(task: str, cfg_set: list[str] | None, angle: float,
         for key, parsed in _parse_cfg_set(cfg_set).items():
             sect, name = key.split(".", 1)
             cfg.setdefault(sect, {})[name] = parsed
-    for name, val in pinned_heading_cfg(angle, speed).items():
-        cfg.setdefault("goal", {})[name] = val
+    if not natural:
+        for name, val in pinned_heading_cfg(angle, speed).items():
+            cfg.setdefault("goal", {})[name] = val
     has_dr_ov = bool(cfg.get("dr"))
     env_cls = ENV_CLASSES[task]
     kw = {}
@@ -122,6 +153,53 @@ def _episode_trace(env, model, *, deterministic: bool) -> tuple[list, list]:
     return values, rewards
 
 
+def _resolve_vref_index(model) -> int:
+    """Index of ``[vx_ref, vy_ref]`` inside one plain-walk-task obs
+    frame for THIS model's live action space, with a loud error
+    (never a silently-wrong index) if the obs layout is not the plain
+    walk-task frame this diagnostic (like ``heading_selfdistill``/
+    ``heading_adv_norm``) assumes."""
+    n_act = int(model.action_space.shape[0])
+    idx = heading_vref_index(n_act)
+    frame_w = heading_frame_width(n_act)
+    obs_dim = int(model.observation_space.shape[0])
+    if obs_dim != frame_w:
+        raise SystemExit(
+            "--natural-resample obs-width mismatch: expected "
+            f"{frame_w} (n_act={n_act}) got {obs_dim} -- this "
+            "checkpoint's obs layout is not the plain walk-task frame "
+            "this diagnostic's index math assumes (phase/yaw-cmd/mode/"
+            "recover/fault tail or stacked history frames unbuilt)")
+    return idx
+
+
+def _episode_trace_with_cos(env, model, *, deterministic: bool,
+                            vref_idx: int) -> tuple[list, list, list]:
+    """Like ``_episode_trace`` but also returns, per tick, the cosine
+    of the CURRENTLY commanded heading vs. forward (read straight off
+    the observation the action was sampled from) — the on/off-axis
+    classification the natural-resample mode buckets residuals by."""
+    import torch
+
+    obs, _ = env.reset()
+    if hasattr(model, "reset"):
+        model.reset()
+    values, rewards, cos_list = [], [], []
+    done = False
+    while not done:
+        obs_t, _ = model.policy.obs_to_tensor(obs)
+        with torch.no_grad():
+            v = model.policy.predict_values(obs_t)
+        values.append(float(v.item()))
+        vref = np.asarray(obs[vref_idx:vref_idx + 2], dtype=np.float64)
+        cos_list.append(float(heading_cos(vref[None, :])[0]))
+        a, _ = model.predict(obs, deterministic=deterministic)
+        obs, r, term, trunc, _info = env.step(a)
+        rewards.append(float(r))
+        done = term or trunc
+    return values, rewards, cos_list
+
+
 def _returns_to_go(rewards: list[float], gamma: float) -> list[float]:
     out = [0.0] * len(rewards)
     running = 0.0
@@ -131,15 +209,102 @@ def _returns_to_go(rewards: list[float], gamma: float) -> list[float]:
     return out
 
 
+def _group_stats(residuals: list[float], values: list[float],
+                  returns: list[float]) -> dict:
+    if not residuals:
+        return {"n_ticks": 0}
+    res_np = np.asarray(residuals, dtype=np.float64)
+    g_np = np.asarray(returns, dtype=np.float64)
+    g_range = float(g_np.max() - g_np.min()) if len(g_np) else 0.0
+    return {
+        "n_ticks": len(residuals),
+        "mean_residual": round(float(res_np.mean()), 4),
+        "median_residual": round(float(np.median(res_np)), 4),
+        "mean_abs_residual": round(float(np.abs(res_np).mean()), 4),
+        "residual_frac_of_return_range": (
+            round(float(np.abs(res_np).mean()) / g_range, 4)
+            if g_range > 1e-9 else None),
+        "mean_V": round(float(np.mean(values)), 4),
+        "mean_G": round(float(np.mean(g_np)), 4),
+    }
+
+
+def _run_natural_resample(model, args) -> dict:
+    vref_idx = _resolve_vref_index(model)
+    on_res, off_res = [], []
+    on_v, off_v, on_g, off_g = [], [], [], []
+    ep_returns = []
+    off_axis_ticks_frac = []
+    for ep_i in range(args.episodes):
+        env = _build_env(args.task, args.cfg_set, None, None,
+                          args.seed + ep_i, args.dr_scale,
+                          args.episode_seconds, natural=True)
+        values, rewards, cos_list = _episode_trace_with_cos(
+            env, model, deterministic=not args.stochastic,
+            vref_idx=vref_idx)
+        env.close()
+        g = _returns_to_go(rewards, args.gamma)
+        ep_returns.append(round(sum(rewards), 2))
+        n_off = 0
+        for v, gt, c in zip(values, g, cos_list):
+            resid = v - gt
+            if c <= args.cos_max:
+                off_res.append(resid); off_v.append(v); off_g.append(gt)
+                n_off += 1
+            else:
+                on_res.append(resid); on_v.append(v); on_g.append(gt)
+        off_axis_ticks_frac.append(round(n_off / max(1, len(cos_list)), 3))
+    report = {
+        "checkpoint": str(args.checkpoint), "gamma": args.gamma,
+        "episodes": args.episodes, "deterministic": not args.stochastic,
+        "mode": "natural_resample", "cos_max": args.cos_max,
+        "episode_seconds": args.episode_seconds,
+        "off_axis_ticks_frac_per_episode": off_axis_ticks_frac,
+        "groups": {
+            "on_axis": _group_stats(on_res, on_v, on_g),
+            "off_axis": _group_stats(off_res, off_v, off_g),
+        },
+        "episode_returns": ep_returns,
+    }
+    for grp in ("on_axis", "off_axis"):
+        s = report["groups"][grp]
+        if s["n_ticks"]:
+            print(f"[diag_value_calibration] natural_resample {grp}: "
+                  f"n={s['n_ticks']} mean_residual={s['mean_residual']:+.3f} "
+                  f"mean_abs={s['mean_abs_residual']:.3f} "
+                  f"mean_V={s['mean_V']:.2f} mean_G={s['mean_G']:.2f}")
+        else:
+            print(f"[diag_value_calibration] natural_resample {grp}: "
+                  "n=0 ticks (never visited this episode set)")
+    return report
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                   formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("checkpoint", type=Path)
     ap.add_argument("--task", default="joint_walk")
     ap.add_argument("--cfg-set", action="append", default=None)
-    ap.add_argument("--headings", type=str, required=True,
+    ap.add_argument("--headings", type=str, default=None,
                     help="comma-separated heading angles in DEGREES, "
-                         "e.g. 0,180,90,-90,135,-135")
+                         "e.g. 0,180,90,-90,135,-135 (required unless "
+                         "--natural-resample)")
+    ap.add_argument("--natural-resample", action="store_true",
+                    help="do NOT pin the heading: run the matched "
+                         "cfg-set's own goal.walk_heading_set/"
+                         "walk_cmd_resample_s unchanged (heading "
+                         "resamples mid-episode exactly like training) "
+                         "and bucket every tick's V-G residual by the "
+                         "CURRENT commanded heading read off the obs "
+                         "(on-axis vs off-axis, --cos-max threshold) "
+                         "instead of by which heading was requested at "
+                         "reset. Fixes the full-episode-pin OOD "
+                         "artifact found in the per-heading mode "
+                         "(rl_docs/tracks/walkcurr/STATUS.md 09-09).")
+    ap.add_argument("--cos-max", type=float, default=0.5,
+                    help="on/off-axis threshold for --natural-resample, "
+                         "matching heading_selfdistill/heading_adv_norm's "
+                         "own default")
     ap.add_argument("--speed", type=float, default=0.06)
     ap.add_argument("--dr-scale", type=float, default=0.0,
                     help="matches eval_checkpoint.py's --dr-scale "
@@ -158,9 +323,19 @@ def main() -> None:
                          "deterministic-mean stall specifically)")
     ap.add_argument("--out", type=Path, default=None)
     args = ap.parse_args()
+    if not args.natural_resample and not args.headings:
+        ap.error("--headings is required unless --natural-resample")
 
     from .gru_policy import load_checkpoint_auto
     model = load_checkpoint_auto(args.checkpoint, device="cpu")
+
+    if args.natural_resample:
+        report = _run_natural_resample(model, args)
+        if args.out is not None:
+            args.out.parent.mkdir(parents=True, exist_ok=True)
+            args.out.write_text(json.dumps(report, indent=2))
+            print(f"[diag_value_calibration] wrote {args.out}")
+        return
 
     headings = [math.radians(float(x)) for x in args.headings.split(",")]
     report: dict = {"checkpoint": str(args.checkpoint), "gamma": args.gamma,

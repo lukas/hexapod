@@ -1208,6 +1208,58 @@ def pinned_speed_cfg(speed: float) -> dict:
     }
 
 
+# Pinned-heading panel (2026-09-09, walkcurr widen8 command-following
+# gap: the standard gate's mid-episode `walk_cmd_resample_s` panel
+# samples headings in a RANDOM sequence per episode, so a bad heading
+# hides inside a pooled per-episode course_err/gait_valid average — a
+# per-tick decomposition of the crutchoff/widen8 champion found
+# forward-ish commands track cleanly (dir_err ~25-30deg, gait_valid
+# clean) while lateral (+-90deg) already re-triggers the classic
+# chronic-leg-sacrifice fingerprint and backward-ish (+-135/180deg)
+# collapses outright (dir_err 62-79deg, slip 15-44/m, 2 legs
+# sacrificed) — a real, sustained per-heading pathology the pooled
+# resample panel obscures, not transition noise (see walkcurr STATUS
+# ~09-09 late entry). This panel makes that visible directly: ONE
+# episode per named heading, command PINNED for the whole episode (no
+# resample, no stops/yaw), speed fixed at ``speed``. Mirrors
+# ``pinned_speed_cfg`` exactly (same sample-time-key mechanism); default
+# absent = off, existing reports unchanged.
+PINNED_HEADING_DEFAULTS = (0.0, math.pi / 4, -math.pi / 4, math.pi / 2,
+                           -math.pi / 2, 3 * math.pi / 4, -3 * math.pi / 4,
+                           math.pi)
+_HEADING_LABELS = {0.0: "h000", math.pi / 4: "h+45", -math.pi / 4: "h-45",
+                   math.pi / 2: "h+90", -math.pi / 2: "h-90",
+                   3 * math.pi / 4: "h+135", -3 * math.pi / 4: "h-135",
+                   math.pi: "h180"}
+
+
+def heading_label(angle: float) -> str:
+    for a, lab in _HEADING_LABELS.items():
+        if abs(angle - a) < 1e-6:
+            return lab
+    return f"h{math.degrees(angle):+.0f}"
+
+
+def pinned_heading_cfg(angle: float, speed: float = 0.06) -> dict:
+    """goal.* overrides that pin the walk command to one heading.
+
+    Same sample-time-key mechanism as ``pinned_speed_cfg``; ``speed`` is
+    fixed too (default matches this campaign's common training speed)
+    so a heading row isolates heading, not an incidental speed change.
+    """
+    return {
+        "walk_speed_min_m_s": float(speed),
+        "walk_speed_max_m_s": float(speed),
+        "walk_heading_set": [float(angle)],  # draw_heading() checks h_set first
+        "walk_cmd_mode": "legacy",
+        "walk_cmd_stage": -1.0,
+        "walk_cmd_resample_s": 0.0,
+        "walk_stop_frac": 0.0,
+        "walk_yaw_zero_frac": 1.0,
+        "walk_lp_curriculum": 0.0,
+    }
+
+
 def _wandb_push(report: dict, out: Path, args) -> None:
     """Best-effort: mirror the harness summary into the training run's
     W&B page (operator 08-10: slip/m & friends must be findable in W&B,
@@ -1379,6 +1431,22 @@ def main() -> None:
                          f"= defaults {PINNED_SPEED_DEFAULTS}. Rows "
                          "report as walk@<speed>/<det|sto>. Default "
                          "absent = off, report unchanged.")
+    ap.add_argument("--pinned-heading-panel", nargs="*", type=float,
+                    default=None, metavar="RAD",
+                    help="extra walk rows with the command PINNED to "
+                         "each given heading (radians; fixed speed, no "
+                         "resample/stops/yaw — see pinned_heading_cfg); "
+                         "no values = the widen8 8-way default "
+                         f"{PINNED_HEADING_DEFAULTS}. Rows report as "
+                         "walk@<label>/<det|sto>, one episode per "
+                         "heading — isolates a per-heading pathology "
+                         "(e.g. backward/lateral) a randomized "
+                         "mid-episode resample panel pools away. "
+                         "Default absent = off, report unchanged.")
+    ap.add_argument("--pinned-heading-speed", type=float, default=0.06,
+                    help="fixed speed used by --pinned-heading-panel "
+                         "rows (default matches the common training "
+                         "speed; keep it fixed across a comparison)")
     ap.add_argument("--start-jitter-panel",
                     action=argparse.BooleanOptionalAction, default=True,
                     help="add walk-like eval rows with explicit reset.* "
@@ -1917,6 +1985,80 @@ def main() -> None:
                         if ce:
                             line += f" course1s {np.mean(ce):.1f}deg"
                         line += f" | gait_valid {n_valid}/{len(eps)}"
+                        print(line)
+            finally:
+                env._wc_on = wc_saved
+                for k, old in saved.items():
+                    if old is _PIN_MISSING:
+                        goal_cfg.pop(k, None)
+                    else:
+                        goal_cfg[k] = old
+
+        if args.pinned_heading_panel is not None:
+            headings = (tuple(args.pinned_heading_panel)
+                       or PINNED_HEADING_DEFAULTS)
+            report["pinned_heading_panel"] = list(headings)
+            for m in ALL_MODES:
+                if hasattr(gen, f"p_{m}"):
+                    setattr(gen, f"p_{m}", 1.0 if m == "walk" else 0.0)
+            goal_cfg = env.cfg.setdefault("goal", {})
+            pin_keys = pinned_heading_cfg(0.0, args.pinned_heading_speed).keys()
+            saved = {k: goal_cfg.get(k, _PIN_MISSING) for k in pin_keys}
+            wc_saved = getattr(env, "_wc_on", False)
+            env._wc_on = False
+            try:
+                for tag, det in passes:
+                    for h in headings:
+                        goal_cfg.update(
+                            pinned_heading_cfg(h, args.pinned_heading_speed))
+                        label = f"walk@{heading_label(h)}"
+                        eps = []
+                        for k in range(args.per_mode):
+                            scheduled = (k == 0
+                                         or k % args.video_every == 0)
+                            video_timing = {} if args.video_fps is not None else None
+                            ep, frames = run_episode(
+                                env, model, deterministic=det,
+                                video=not args.no_video,
+                                annotate=_annotate_frame,
+                                end_posture_gate=args.end_posture_gate,
+                                valid_plant_gate=args.valid_plant_gate,
+                                video_fps=args.video_fps,
+                                video_timing=video_timing)
+                            if ep.get("mode", "walk") != "walk":
+                                raise SystemExit(
+                                    f"[eval_checkpoint] pinned-heading "
+                                    f"row {label} sampled mode "
+                                    f"'{ep.get('mode')}' — walk "
+                                    f"forcing broke; aborting.")
+                            eps.append(ep)
+                            if frames and (scheduled
+                                           or not ep.get("gait_valid",
+                                                         True)):
+                                _save_video(
+                                    frames, out / f"{label}_{tag}_{k}",
+                                    timing=video_timing)
+                        report["episodes"][f"{label}/{tag}"] = eps
+                        n_ok = sum(e["success"] for e in eps)
+                        pr = [e["progress_ratio"] for e in eps
+                              if e.get("progress_ratio") is not None]
+                        spm = [e["slip_per_m"] for e in eps
+                               if e.get("slip_per_m") is not None]
+                        de = [e["direction_err_mean_deg"] for e in eps
+                              if "direction_err_mean_deg" in e]
+                        n_valid = sum(bool(e.get("gait_valid"))
+                                      for e in eps)
+                        sac = [e.get("sacrificed_legs") for e in eps
+                               if e.get("sacrificed_legs")]
+                        line = (f"[{tag}] {label}: {n_ok}/{len(eps)}"
+                                f" | gait_valid {n_valid}/{len(eps)}")
+                        if pr:
+                            line += (f" | prog_ratio {np.mean(pr):.2f}"
+                                     f" slip/m {np.mean(spm):.2f}")
+                        if de:
+                            line += f" dir_err {np.mean(de):.1f}deg"
+                        if sac:
+                            line += f" sac {sac}"
                         print(line)
             finally:
                 env._wc_on = wc_saved

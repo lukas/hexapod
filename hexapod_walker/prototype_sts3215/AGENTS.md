@@ -63,10 +63,12 @@ the retired `test_task_semantics.py` rollout bank.
 
 ## Orchestrator state is in `.state/`, not here
 
-Ledger, launch queue, run stories and `RL_LOG.md` live in the separate
-`lukas/hexapod-state` repo, cloned at `<checkout>/.state` (`make state`
-here refreshes it). `rl_docs/runs` and `RL_LOG.md` in this directory are
-symlinks into it. Details: `rl_move/orchestrator/state_dir.py` and the
+Ledger, launch queue, run stories, `RL_LOG.md`, and the machine-written
+journals (`rl_docs/SKILLS.md`, `rl_move/orchestrator/OPERATOR_QUESTIONS.md`,
+`rl_docs/tracks/*/STATUS.md`) live in the separate `lukas/hexapod-state`
+repo, cloned at `<checkout>/.state` (`make state` here refreshes it). The
+paths with those names in this tree are read-only symlinks into it; edit
+the `.state/...` path. Details: `rl_move/orchestrator/state_dir.py` and the
 repo-root `AGENTS.md`.
 
 ## MuJoCo robot simulation

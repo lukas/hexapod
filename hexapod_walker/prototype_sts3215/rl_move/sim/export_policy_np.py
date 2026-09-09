@@ -4,6 +4,11 @@ Supported actor architectures:
 
 * PPO ``MlpPolicy``: two tanh layers and a linear action head (legacy
   artifact layout, still accepted unchanged).
+* PPO ``MlpPolicy`` with a deeper stack and/or ELU activation (e.g.
+  ``net-arch 256,256,128``): exports as the generic N-layer
+  ``"layers"`` format instead (see ``rl_move/np_policy.py``); the
+  legacy two-matrix layout above is untouched when the actor actually
+  is Linear,Tanh,Linear,Tanh.
 * ``DualGruActorCriticPolicy``: the two actor GRU cells plus their two
   tanh action heads. Both hidden states persist and advance every tick;
   the six-wide mode one-hot at the observation tail selects the output.
@@ -39,6 +44,7 @@ from rl_move.np_policy import (
     ARCH_MLP,
     MODE_ONEHOT_ORDER,
     NumpyDualGruModel,
+    NumpyMLPNLayerModel,
     pack_f32,
     validate_np_policy,
 )
@@ -63,6 +69,47 @@ def _two_layer_tanh(net, *, name: str):
         raise ValueError(
             f"{name}: expected Linear,Tanh,Linear,Tanh; got {net!r}")
     return net[0], net[2]
+
+
+def _generic_hidden_layers(net, *, name: str):
+    """Split an arbitrary-depth Sequential into (Linear, activation) pairs.
+
+    Every hidden layer must share ONE activation (all ``Tanh`` or all
+    ``ELU``) so a single ``meta.activation`` string describes the whole
+    stack; this matches every net-arch this project trains today
+    (SB3's ``MlpExtractor`` applies one ``activation_fn`` throughout).
+    Returns ``(linears, activation_name)``.
+    """
+    import torch.nn as nn
+
+    layers = list(net)
+    if not layers or len(layers) % 2 != 0:
+        raise ValueError(
+            f"{name}: expected alternating Linear/activation pairs, "
+            f"got {net!r}")
+    linears: list = []
+    activation_name: str | None = None
+    for i in range(0, len(layers), 2):
+        lin, act = layers[i], layers[i + 1]
+        if not isinstance(lin, nn.Linear):
+            raise ValueError(f"{name}: expected Linear at index {i}, got {lin!r}")
+        if isinstance(act, nn.Tanh):
+            this_name = "tanh"
+        elif isinstance(act, nn.ELU):
+            this_name = "elu"
+        else:
+            raise ValueError(
+                f"{name}: unsupported activation {act!r} at index {i + 1} "
+                "(only Tanh/ELU are exportable)")
+        if activation_name is None:
+            activation_name = this_name
+        elif activation_name != this_name:
+            raise ValueError(
+                f"{name}: mixed activations ({activation_name} then "
+                f"{this_name}) are not exportable")
+        linears.append(lin)
+    assert activation_name is not None  # len(layers) > 0 guaranteed above
+    return linears, activation_name
 
 
 def _packed_head(net, action_net, *, name: str) -> dict:
@@ -108,7 +155,14 @@ def _structural_meta(pol, architecture: str) -> dict:
 
 def _mlp_payload(pol, meta: dict) -> dict:
     net = pol.mlp_extractor.policy_net
-    first, second = _two_layer_tanh(net, name="MLP actor")
+    try:
+        first, second = _two_layer_tanh(net, name="MLP actor")
+    except ValueError:
+        # Not the frozen legacy 2-layer-tanh shape (e.g. net-arch
+        # 256,256,128 + ELU): fall back to the generic N-layer format.
+        # This never touches the legacy branch above, which stays
+        # byte-for-byte identical for every existing 2-layer-tanh actor.
+        return _mlp_payload_nlayer(pol, meta)
     meta["hidden"] = [int(first.out_features), int(second.out_features)]
     return {
         "meta": meta,
@@ -118,6 +172,22 @@ def _mlp_payload(pol, meta: dict) -> dict:
         "b2": _t2l(second.bias),
         "Wout": _t2l(pol.action_net.weight),
         "bout": _t2l(pol.action_net.bias),
+    }
+
+
+def _mlp_payload_nlayer(pol, meta: dict) -> dict:
+    net = pol.mlp_extractor.policy_net
+    linears, activation = _generic_hidden_layers(net, name="MLP actor")
+    meta["hidden"] = [int(lin.out_features) for lin in linears]
+    meta["activation"] = activation
+    return {
+        "meta": meta,
+        "layers": [
+            {"W": _tpack(lin.weight), "b": _tpack(lin.bias)}
+            for lin in linears
+        ],
+        "Wout": _tpack(pol.action_net.weight),
+        "bout": _tpack(pol.action_net.bias),
     }
 
 
@@ -164,6 +234,21 @@ def _dual_gru_payload(pol, meta: dict) -> dict:
 
 
 def _parity_mlp(model, payload: dict, samples: int = 200) -> float:
+    if "layers" in payload:
+        # Generic N-layer path: run through the ACTUAL production loader
+        # class, not a re-derived formula, so parity also exercises the
+        # exact code the robot/sim runtime will execute.
+        numpy_model = NumpyMLPNLayerModel(payload)
+        rng = np.random.default_rng(0)
+        worst = 0.0
+        for _ in range(samples):
+            obs = rng.normal(
+                0, 1, payload["meta"]["obs_dim"]).astype(np.float32)
+            action_np = numpy_model.act(obs)
+            action_sb3, _ = model.predict(obs, deterministic=True)
+            worst = max(
+                worst, float(np.max(np.abs(action_np - action_sb3))))
+        return worst
     W1 = np.asarray(payload["W1"])
     b1 = np.asarray(payload["b1"])
     W2 = np.asarray(payload["W2"])

@@ -13,6 +13,7 @@ from rl_move.np_policy import (
     ARCH_DUAL_GRU,
     MAX_POLICY_BYTES,
     NumpyDualGruModel,
+    NumpyMLPNLayerModel,
     load_np_policy,
     validate_np_policy,
 )
@@ -93,6 +94,81 @@ def test_export_obs75_mlp_keeps_legacy_matrix_layout(tmp_path):
     assert all(key in payload for key in
                ("W1", "b1", "W2", "b2", "Wout", "bout"))
     assert load_np_policy(artifact).observation_space.shape == (75,)
+
+
+def test_export_deep_elu_mlp_uses_generic_layers_format(tmp_path):
+    """net-arch 256,256,128 + ELU (the walkcurr widen8 shape) exports."""
+    import torch.nn as nn
+    from stable_baselines3 import PPO
+
+    model = PPO(
+        "MlpPolicy", _ExportEnv(72), n_steps=8, batch_size=8,
+        n_epochs=1, seed=11, device="cpu",
+        policy_kwargs={"net_arch": [10, 9, 7], "activation_fn": nn.ELU})
+    _stamp(model)
+    checkpoint = tmp_path / "deep.zip"
+    artifact = tmp_path / "deep.json"
+    model.save(checkpoint)
+
+    payload = export(
+        str(checkpoint), str(artifact), training_hz=100.0,
+        extra_meta={"phase_hz": 1.333333,
+                    "walk_phase_run_on_yaw": True})
+
+    # Legacy fixed-schema keys are absent; this is the new format only.
+    assert "layers" in payload and "W1" not in payload
+    assert payload["meta"]["architecture"] == "mlp"
+    assert payload["meta"]["activation"] == "elu"
+    assert payload["meta"]["hidden"] == [10, 9, 7]
+
+    errors, info = validate_np_policy(json.loads(artifact.read_text()))
+    assert errors == []
+    assert info["hidden"] == [10, 9, 7]
+
+    loaded = load_np_policy(artifact)
+    assert isinstance(loaded, NumpyMLPNLayerModel)
+    assert loaded.recurrent is False
+    obs = np.zeros(72, dtype=np.float32)
+    action, _ = loaded.predict(obs)
+    assert action.shape == (18,)
+    assert np.all(np.isfinite(action))
+
+    # Same parity bar as the legacy path: exact production loader class.
+    rng = np.random.default_rng(1)
+    worst = 0.0
+    for _ in range(50):
+        probe = rng.normal(0, 1, 72).astype(np.float32)
+        a_np = loaded.act(probe)
+        a_sb3, _ = model.predict(probe, deterministic=True)
+        worst = max(worst, float(np.max(np.abs(a_np - a_sb3))))
+    assert worst < 1e-5
+
+
+def test_generic_hidden_layers_refuses_mixed_activation():
+    """A hand-built Tanh-then-ELU stack must fail loudly, not silently.
+
+    (Unit-level: SB3 checkpoints always rebuild one activation_fn from
+    policy_kwargs on load, so this shape cannot round-trip through a
+    real .zip -- exercise the splitter directly instead.)
+    """
+    import torch.nn as nn
+
+    from rl_move.sim.export_policy_np import _generic_hidden_layers
+
+    net = nn.Sequential(
+        nn.Linear(4, 3), nn.Tanh(), nn.Linear(3, 3), nn.ELU())
+    with pytest.raises(ValueError, match="mixed activations"):
+        _generic_hidden_layers(net, name="MLP actor")
+
+
+def test_generic_hidden_layers_refuses_unsupported_activation():
+    import torch.nn as nn
+
+    from rl_move.sim.export_policy_np import _generic_hidden_layers
+
+    net = nn.Sequential(nn.Linear(4, 3), nn.ReLU())
+    with pytest.raises(ValueError, match="unsupported activation"):
+        _generic_hidden_layers(net, name="MLP actor")
 
 
 def test_export_refuses_unstamped_checkpoint(tmp_path):

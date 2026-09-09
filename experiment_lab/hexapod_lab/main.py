@@ -245,6 +245,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         settings.observation_camera_devices,
         legacy_device_name=settings.observation_camera_name,
         capture_allowed=observation_capture_allowed,
+        vision_service_url=settings.observation_vision_service_url,
     )
 
     @asynccontextmanager

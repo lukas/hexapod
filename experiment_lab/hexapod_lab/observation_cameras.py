@@ -30,7 +30,8 @@ class ObservationCameras:
     PAUSED_SECONDS = 0.5
 
     def __init__(self, device_name="", *, camera_id="iphone", name="iPhone", device_uid="",
-                 capture_allowed=None, min_frame_detail=0.0):
+                 capture_allowed=None, min_frame_detail=0.0, vision_service_url="",
+                 vision_service_width=1280):
         if not isinstance(camera_id, str) or not _CAMERA_ID.fullmatch(camera_id):
             raise ValueError("Camera id must contain only letters, digits, underscores, or hyphens")
         self.camera_id = camera_id
@@ -43,6 +44,13 @@ class ObservationCameras:
                 or not math.isfinite(min_frame_detail) or min_frame_detail < 0):
             raise ValueError("Minimum frame detail must be a finite nonnegative number")
         self.min_frame_detail = float(min_frame_detail)
+        # When set, read frames from the camera server rather than opening the
+        # device here. The device's active format is global, so both opening
+        # it means fighting over size and rate; two cameras on one USB
+        # controller cannot both stream; and capture fixes in hexapod_tracker
+        # do not reach this package until its venv is reinstalled.
+        self.vision_service_url = str(vision_service_url or "").strip()
+        self.vision_service_width = int(vision_service_width)
         if self.device_uid:
             self.FRESH_SECONDS = 20.0
         self._lock = threading.Lock()
@@ -126,6 +134,21 @@ class ObservationCameras:
             return self._jpeg
 
     def _open_capture(self):
+        if self.vision_service_url:
+            # No device is opened, so the permission and in-use checks below
+            # do not apply; the camera server owns the hardware.
+            from .vision_service_capture import VisionServiceCapture
+
+            self._ensure_capture_allowed()
+            with self._lock:
+                self._permission_status = "delegated"
+            return VisionServiceCapture(
+                self.vision_service_url,
+                stable_id=self.device_uid,
+                device_name=self.device_name,
+                width=self.vision_service_width,
+            )
+
         # These macOS dependencies are optional unless a camera is configured.
         from hexapod_tracker.avfoundation_capture import AVFoundationYuvCapture
         from hexapod_tracker import avfoundation_capture as native
@@ -390,7 +413,8 @@ class ObservationCameras:
 class ObservationCameraCollection:
     """Independent configured cameras, routed by stable public identifiers."""
 
-    def __init__(self, specs=(), *, legacy_device_name="", capture_allowed=None):
+    def __init__(self, specs=(), *, legacy_device_name="", capture_allowed=None,
+                 vision_service_url=""):
         self._cameras = {}
         configurations = list(specs)
         self.has_robot_cameras = bool(configurations)
@@ -406,17 +430,24 @@ class ObservationCameraCollection:
                 raise ValueError("Camera id must contain only letters, digits, underscores, or hyphens")
             if camera_id in self._cameras:
                 raise ValueError("Camera ids must be unique")
-            for field in ("name", "device_name", "device_uid"):
+            for field in ("name", "device_name", "device_uid", "vision_service_url"):
                 if not isinstance(spec.get(field, ""), str):
                     raise ValueError("Camera names and device identities must be strings")
             device_name = spec.get("device_name", "").strip()
             device_uid = spec.get("device_uid", "").strip()
             if not (device_name or device_uid):
                 raise ValueError("A camera needs an exact device name or unique device id")
+            # A per-camera url wins over the collection default, so one camera
+            # can stay on direct capture while the rest read the server.
+            camera_service_url = spec.get("vision_service_url", "").strip() or vision_service_url
             self._cameras[camera_id] = ObservationCameras(
                 device_name, camera_id=camera_id, name=spec.get("name", camera_id),
-                device_uid=device_uid, capture_allowed=capture_allowed if device_uid else None,
+                device_uid=device_uid,
+                # Direct capture needs the permission gate; reading the server
+                # opens no device, so the gate would only block needlessly.
+                capture_allowed=capture_allowed if (device_uid and not camera_service_url) else None,
                 min_frame_detail=spec.get("min_frame_detail", 0.0),
+                vision_service_url=camera_service_url,
             )
 
     def start(self):

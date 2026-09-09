@@ -1,5 +1,34 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## `rl_only` off-axis-heading leg-sacrifice repair: a value(critic)-vs-realized-return diagnostic was built and run — result is real but INCONCLUSIVE, dominated by a full-pin-episode reward-scale/OOD artifact, so it does NOT license a critic-recalibration mechanism yet (2026-09-09 ~22:1x)
+
+With every named mechanism (exposure/composition x5, PPO-advantage-norm)
+closed at ~21:3x, this checks a genuinely different, previously-untested
+axis (zero GPU spend): does the CRITIC already mispredict return at the
+broken headings, which would explain why advantage-driven policy updates
+never move the mean? New tool `rl_move/sim/diag_value_calibration.py`
+(+ 6 tests) replays the frozen champion and diffs `V(s_t)` (SB3
+`predict_values`) against the realized discounted return-to-go per
+tick. Short (~5s) episodes show V systematically UNDER-predicting return,
+worse at broken headings (-107 healthy vs -404/-470/-602 broken). But
+re-run at the campaign's own 20s pinned-heading-panel convention, the
+sign FLIPS for most broken headings and the scale explodes (+71 to
++1606), traced to raw episode returns reaching **-66,000** at the broken
+headings vs a few thousand at the healthy control — this is the
+`walk_leg_duty_ratio_charge`/`walk_leg_swing_gap_charge` pair's own
+documented uncapped-accumulation design compounding over a full 20s of
+sustained sacrifice, a scenario normal training (which resamples heading
+every `walk_cmd_resample_s=6.0`) never actually presents to the critic.
+**Verdict: this specific diagnostic reading is not trustworthy evidence
+either way** — do not build a critic-recalibration mechanism from these
+numbers. A fair version would match training's own 6s resample cadence
+or instrument real training-rollout GAE estimates instead of a synthetic
+full-pin episode; left for whoever picks this up next. Zero GPU spend,
+zero launches, champion untouched. Evidence: `logs/diag_value_
+calibration/widen8_s0_cont10m_{det_n10,sto_n10,det_20s_n8}.json`,
+snapshots `4455033b`/`93e11216`, `rl_docs/tracks/walkcurr/STATUS.md`
+2026-09-09 ~22:1x entry.
+
 ## `rl_only` off-axis-heading leg-sacrifice repair: the PPO-advantage-normalization lever (the last named mechanism) is ALSO CLOSED, 2/2 seeds — this sub-question now has NO named untried mechanism left; it goes back to design (2026-09-09 ~21:3x)
 
 Per-heading (on-axis vs off-axis) advantage normalization

@@ -50,6 +50,9 @@ MCU_SKIP_PREFIXES = (
 )
 
 _lock = threading.Lock()
+# Disk writes and sink replacement may wait on the filesystem. Keep that
+# wait separate from the ring/sequence lock acquired by motion-side emit().
+_sink_lock = threading.Lock()
 _fh = None
 _err_fh = None
 _path: Path | None = None
@@ -182,7 +185,7 @@ def _refresh_broadcast_targets(port: int) -> None:
 def _write_line(line: str, payload: bytes, is_error: bool) -> None:
     """Worker-side durable write + UDP fanout. Never called by motion code."""
     global _err_fh
-    with _lock:
+    with _sink_lock:
         try:
             if _fh is not None:
                 _fh.write(line + "\n")
@@ -200,6 +203,7 @@ def _write_line(line: str, payload: bytes, is_error: bool) -> None:
                 _err_fh.flush()
             except Exception:
                 pass
+    with _lock:
         dests = list(_targets)
         sock = _sock
     if sock is not None:
@@ -376,16 +380,20 @@ def configure(*, host: str | None = None, port: int | None = None,
 
     out = path or events_path()
     out.parent.mkdir(parents=True, exist_ok=True)
+    with _sink_lock:
+        if _fh is None or _path != out:
+            replacement = out.open("a", encoding="utf-8", buffering=1)
+            previous = _fh
+            # Keep a configured sink visible throughout replacement so emit()
+            # never enters configure() just because a previous sink is closing.
+            _fh = replacement
+            _path = out
+            if previous is not None:
+                try:
+                    previous.close()
+                except Exception:
+                    pass
     with _lock:
-        if _fh is not None and _path != out:
-            try:
-                _fh.close()
-            except Exception:
-                pass
-            _fh = None
-        _path = out
-        if _fh is None:
-            _fh = out.open("a", encoding="utf-8", buffering=1)
         _ensure_sock()
     _ensure_worker()
 

@@ -816,6 +816,72 @@ class SimHexapodBalanceEnv(_GymBase):
         self._settle_lean = (0.0, 0.0)
         self._z0 = 0.0
 
+        # Residual-blend GATED anneal (2026-09-09, assistfade rung 3
+        # "blend-schedule fix" — rl_docs/tracks/assistfade/STATUS.md
+        # 09-09 ~07:5x closure: 6/6 per-leg reward-shaping addons FAIL
+        # on rung3's chronic single-leg sacrifice, all layered on the
+        # SAME unchanged residual-fade base whose blend anneals UP on
+        # a fixed step-count calendar (sched.key=goal.walk_residual_
+        # blend) regardless of whether the policy is actually ready —
+        # already-closed budget/schedule-SHAPE levers (stdslow,
+        # latehandover, longbudget, 6 arms) show tweaking that
+        # calendar's timing/slope doesn't help either. This is a
+        # STRUCTURALLY different lever: don't anneal on a calendar at
+        # all — hold the blend at a low value until a dedicated
+        # ignition-quality assay of the policy's OWN unassisted output
+        # passes (mirrors rung 2's already-proven train.bc_anchor_
+        # anneal_gate contingent-anneal design, ported from an
+        # anchor-LOSS coefficient to this action-space BLEND). Armed by
+        # goal.walk_residual_anneal_gate>0 (default 0 = bit-exact off,
+        # requires goal.walk_residual_gate>0 — fails closed, nothing to
+        # anneal otherwise). Broadcast-driven like the other trainer
+        # ramps (apply_residual_blend_frac, sim_env.py convention
+        # shared with apply_drag_allow_frac/apply_term_penalty_frac/
+        # etc in walk_task.py) rather than the self-clocked sched.*
+        # engine, because the anneal START POINT depends on external
+        # (assay) state the per-env tick clock cannot observe alone.
+        # Armed-but-unbroadcast sits at the RAMP START (blend stays
+        # LOW, matching "hold until proven ready" — the opposite
+        # convention from the other ramps, which sit at TARGET when
+        # unbroadcast, because those ramps loosen a safety-relevant
+        # charge that must default to its validated value for any
+        # eval/play path that never broadcasts; here the mechanism
+        # itself (goal.walk_residual_gate) already defaults OFF for
+        # any such path, and this ramp's only consumer is the training
+        # loop's own callback, which always broadcasts frac=0 at
+        # rollout 0 before any other value could be read).
+        self._residual_blend_ramp: dict | None = None
+        self._residual_blend_override: float | None = None
+        _rba_gate = float(cfg_get(
+            self.cfg, "goal", "walk_residual_anneal_gate",
+            default=0.0) or 0.0) > 0.0
+        if _rba_gate:
+            if float(cfg_get(self.cfg, "goal", "walk_residual_gate",
+                             default=0.0) or 0.0) <= 0.0:
+                raise ValueError(
+                    "goal.walk_residual_anneal_gate is set but goal."
+                    "walk_residual_gate<=0 — there is no residual "
+                    "blend mechanism armed to anneal, this flag would "
+                    "silently no-op")
+            _rba_start = float(cfg_get(
+                self.cfg, "goal", "walk_residual_anneal_v0",
+                default=0.05))
+            _rba_target = float(np.clip(cfg_get(
+                self.cfg, "goal", "walk_residual_blend", default=1.0),
+                0.0, 1.0))
+            if not 0.0 <= _rba_start <= _rba_target:
+                raise ValueError(
+                    "goal.walk_residual_anneal_v0 "
+                    f"({_rba_start:g}) must be in [0, goal."
+                    f"walk_residual_blend] ({_rba_target:g}) — the "
+                    "gated anneal only ever RAISES the blend (more "
+                    "raw-policy authority) from a low start toward "
+                    "the cfg target, never the reverse")
+            self._residual_blend_ramp = {
+                "start": _rba_start, "target": _rba_target, "frac": 0.0,
+            }
+            self._residual_blend_override = _rba_start
+
         if _gym is not None:
             self.observation_space = self._obs_space_box(N_OBS)
             self.action_space = _gym.spaces.Box(
@@ -2723,6 +2789,29 @@ class SimHexapodBalanceEnv(_GymBase):
             return int(self.episode_steps)
         return min(int(self.episode_steps), max(1, int(limit)))
 
+    def apply_residual_blend_frac(self, frac: float) -> dict:
+        """Move the live assistfade rung-3 residual blend to ``frac``
+        of the GATED anneal (0 = the low start, held until the
+        trainer's own ignition-gate callback latches a pass; 1 = the
+        cfg ``goal.walk_residual_blend`` target); see the
+        ``goal.walk_residual_anneal_gate`` block in ``__init__``.
+        Mirrors ``apply_drag_allow_frac``'s contract exactly: raises
+        when the gate is not armed, so a broadcast that silently
+        no-ops is never a hidden failure mode. VecEnv ``env_method``
+        hook (sharded workers can't be poked in-process)."""
+        if self._residual_blend_ramp is None:
+            raise RuntimeError(
+                "apply_residual_blend_frac called but goal."
+                "walk_residual_anneal_gate is not set (>0) in this "
+                "env's cfg — the residual-blend gated anneal is not "
+                "armed")
+        f = min(max(float(frac), 0.0), 1.0)
+        s = self._residual_blend_ramp["start"]
+        t = self._residual_blend_ramp["target"]
+        self._residual_blend_override = s + f * (t - s)
+        self._residual_blend_ramp["frac"] = f
+        return {"frac": f, "blend": self._residual_blend_override}
+
     def apply_profile_ramp_frac(self, frac: float) -> dict:
         """Move the live write profile to ``frac`` of the ramp
         (0 = gentle start, 1 = the cfg target dose); trainer-driven —
@@ -2841,19 +2930,30 @@ class SimHexapodBalanceEnv(_GymBase):
         # blend*(raw-ref) term; "reduce reference amplitude" = the
         # shrinking (1-blend) weight left on ref) — an explicit
         # assume-and-go simplification (OPERATOR_QUESTIONS.md) instead
-        # of two independently-scheduled knobs. `blend` is meant to be
-        # driven by the existing generic sched.* engine above
-        # (sched.key="goal.walk_residual_blend", v0 small -> v1=1.0)
-        # so no new trainer-side ramp callback is needed. Only active
-        # on WALK ticks with a live command-conditioned teacher — never
-        # touches rise/hold/lower/getup. Bank: test_assistfade_rung3_*
-        # (test_task_semantics.py).
+        # of two independently-scheduled knobs. `blend` is either (a)
+        # driven by the generic sched.* engine above (sched.key=
+        # "goal.walk_residual_blend", v0 small -> v1=1.0, a fixed
+        # step-count calendar — the original rung-3 recipe, now
+        # closed 6/6 arms per rl_docs/tracks/assistfade/STATUS.md
+        # 09-09), or (b) held at ``self._residual_blend_override``
+        # when the GATED anneal is armed (goal.walk_residual_anneal_
+        # gate>0, see __init__/apply_residual_blend_frac) — a
+        # structurally different, behavior-contingent schedule instead
+        # of a calendar one. Only active on WALK ticks with a live
+        # command-conditioned teacher — never touches rise/hold/lower/
+        # getup. Bank: test_residual_blend_anneal.py (rl_move/tests),
+        # historical bank test_assistfade_rung3_* (test_task_
+        # semantics.py, retired 09-08, not extended).
         if (float(cfg_get(self.cfg, "goal", "walk_residual_gate",
                           default=0.0)) > 0.0
                 and getattr(self, "_walk_bc_gait", None) is not None
                 and getattr(self, "n_act", 0) == N_JOINTS):
-            _res_blend = float(np.clip(cfg_get(
-                self.cfg, "goal", "walk_residual_blend", default=1.0),
+            _res_override = getattr(self, "_residual_blend_override",
+                                     None)
+            _res_blend = float(np.clip(
+                _res_override if _res_override is not None
+                else cfg_get(self.cfg, "goal", "walk_residual_blend",
+                            default=1.0),
                 0.0, 1.0))
             if _res_blend < 1.0:
                 _res_goal = self._current_goal()

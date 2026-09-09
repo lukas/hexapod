@@ -737,6 +737,47 @@ def walk_leg_swing_initiation_maxload(loads: list) -> list:
     return [ld > 1e-6 and ld >= worst for ld in loads]
 
 
+# HEADING-CONDITIONED CHARGE DOSE MULTIPLIER (2026-09-09, the concrete
+# "targets relative to the commanded heading rather than a fixed
+# absolute value" lever the pinned-heading-panel finding named as the
+# next licensed lever -- STATUS.md 2026-09-09 ~11:5x-12:0x). The
+# per-heading eval tool built that same cycle found the widen8
+# leg-sacrifice-repair champion (walk_leg_duty_ratio_charge +
+# walk_leg_swing_gap_charge, both dose10) is clean on forward-ish
+# headings (0, +-45deg) but chronically sacrifices ONE leg (always the
+# same leg for a given heading) on every other heading in the 8-way
+# set, BYTE-IDENTICAL before/after a heading-reweighted-SAMPLING
+# canary (2/2 seeds, more DATA exposure on the broken headings has
+# zero effect -- CLOSED). This is a DIFFERENT lever: instead of more
+# training data at hard headings, scale the two proven charges'
+# PRICE (not their target/threshold) up as the commanded heading
+# moves away from forward, so the SAME calibrated mechanism bites
+# harder exactly where the champion's forward-tuned dose (calibrated
+# on an all-forward 288-episode corpus, see walk_legduty_ratio_charge
+# above) is evidently too weak to override the forward-tripod pattern.
+# ``cos_heading`` is ``goal.vx_ref / s_ref`` (no atan2 needed -- the
+# command is drawn as ``speed*cos(ang), speed*sin(ang)`` with ang=0
+# forward, see `_sample_walk`), so this reads only the ALREADY-
+# COMMANDED velocity reference every walk-mode reward call has on
+# hand -- no gait clock, no phase table, no per-leg role assignment,
+# no motion prior: pure reward-shaping conditioned on an existing
+# observation, same category as the already-live `k_walk_heading`
+# term above. mult=1.0 at heading=0 (forward, unchanged pricing);
+# mult=1+2*gain at heading=180 (straight backward, the worst
+# fingerprint in the panel). Default ``gain=0.0`` -> mult=1.0 always,
+# bit-exact legacy (the caller skips computing ``cos_heading`` at all
+# when its own gain is 0, so this adds zero cost when off).
+def walk_heading_charge_mult(cos_heading: float, gain: float) -> float:
+    """Dose multiplier in ``[1, 1+2*gain]``: 1.0 exactly forward
+    (``cos_heading=1``), ``1+2*gain`` exactly backward
+    (``cos_heading=-1``), smooth in between. ``gain<=0`` returns 1.0
+    (no-op) regardless of ``cos_heading``."""
+    if gain <= 0.0:
+        return 1.0
+    c = max(-1.0, min(1.0, float(cos_heading)))
+    return 1.0 + gain * (1.0 - c)
+
+
 class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
     """Joint-action goal env + walk mode (obs 59 + 11 + 2 vel feedback)."""
 
@@ -4940,7 +4981,11 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # reward.walk_leg_duty_ratio_charge (0.0),
             # reward.walk_leg_duty_ratio_target (0.30, the calibrated
             # passing-population's own p10 worst-leg ratio),
-            # reward.walk_leg_duty_ratio_grace_s (3.0).
+            # reward.walk_leg_duty_ratio_grace_s (3.0),
+            # reward.walk_leg_duty_ratio_heading_gain (0.0, 2026-09-09
+            # -- see walk_heading_charge_mult: scales this charge's
+            # dose up as the commanded heading moves off forward,
+            # mult 1.0 fwd -> 1+2*gain straight back; 0 = off).
             g_ratio = float(cfg_get(self.cfg, "reward",
                                     "walk_leg_duty_ratio_charge",
                                     default=0.0))
@@ -4954,6 +4999,11 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             g_ratio_swingfloor = float(cfg_get(
                 self.cfg, "reward",
                 "walk_leg_duty_ratio_swing_min_count", default=0.0))
+            # Heading-conditioned dose gain (see walk_heading_charge_mult
+            # above). Default 0.0 = mult always 1.0, bit-exact legacy.
+            g_ratio_head_gain = float(cfg_get(
+                self.cfg, "reward",
+                "walk_leg_duty_ratio_heading_gain", default=0.0))
             r_ratio = 0.0
             if g_ratio > 0.0 and s_ref > 1e-3:
                 ratio_grace_s = float(cfg_get(
@@ -4981,7 +5031,14 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         swing_counts=ratio_swing_counts,
                         swing_min_count=g_ratio_swingfloor,
                         agg=ratio_agg)
-                    r_ratio = -g_ratio * worst_shortfall
+                    g_ratio_eff = g_ratio
+                    if g_ratio_head_gain > 0.0:
+                        ratio_mult = walk_heading_charge_mult(
+                            goal.vx_ref / s_ref, g_ratio_head_gain)
+                        g_ratio_eff = g_ratio * ratio_mult
+                        info["walk_leg_duty_ratio_heading_mult"] = \
+                            ratio_mult
+                    r_ratio = -g_ratio_eff * worst_shortfall
                     info["walk_leg_duty_ratio_shortfall"] = worst_shortfall
                     info["reward_walk_leg_duty_ratio"] = r_ratio
             # Per-LEG load-SLIP reward CHARGE (reward.walk_leg_
@@ -5082,10 +5139,21 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # reward.walk_leg_swing_gap_grace_s (3.0, seconds of gap
             # tolerated before it counts -- a leg mid-stance for a
             # normal stride period is not yet "stuck"),
-            # reward.walk_leg_swing_gap_cap_s (4.0).
+            # reward.walk_leg_swing_gap_cap_s (4.0),
+            # reward.walk_leg_swing_gap_heading_gain (0.0, 2026-09-09
+            # -- same heading-conditioned dose gain as the duty-ratio
+            # charge's own key above, independent cfg/state; 0 = off).
             g_swinggap = float(cfg_get(self.cfg, "reward",
                                        "walk_leg_swing_gap_charge",
                                        default=0.0))
+            # Heading-conditioned dose gain, same shape/rationale as
+            # walk_leg_duty_ratio_heading_gain above (own cfg key so
+            # the two charges' heading doses can be swept
+            # independently). Default 0.0 = mult always 1.0,
+            # bit-exact legacy.
+            g_gap_head_gain = float(cfg_get(
+                self.cfg, "reward",
+                "walk_leg_swing_gap_heading_gain", default=0.0))
             r_gap = 0.0
             if g_swinggap > 0.0 and s_ref > 1e-3:
                 gap_grace_s = float(cfg_get(
@@ -5098,7 +5166,13 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     default=4.0))
                 priced_gap = (min(excess, gap_cap_s)
                               if gap_cap_s > 0.0 else excess)
-                r_gap = -g_swinggap * priced_gap
+                g_gap_eff = g_swinggap
+                if g_gap_head_gain > 0.0:
+                    gap_mult = walk_heading_charge_mult(
+                        goal.vx_ref / s_ref, g_gap_head_gain)
+                    g_gap_eff = g_swinggap * gap_mult
+                    info["walk_leg_swing_gap_heading_mult"] = gap_mult
+                r_gap = -g_gap_eff * priced_gap
                 info["walk_leg_swing_gap_worst_s"] = worst_gap
                 info["reward_walk_leg_swing_gap"] = r_gap
             # Per-LEG swing-INITIATION reward INCOME

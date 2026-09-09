@@ -2,7 +2,9 @@
 
 Last compacted: 2026-08-30 for the `todaypolicy` sixth-track update.
 Archive copy: `archive/CURRENT_TRUTHS_2026-08-30_pre_todaypolicy_compaction.md`.
-Accepted facts, not narrative. If old prose disagrees, this file wins.
+Accepted facts, not narrative. This file wins on factual evidence and run
+verdicts; `RL_GOALS.md` owns purpose and priorities, including Lukas's
+2026-09-08 clarification. Older mission/allocation prose does not override it.
 
 ## `walk_leg_loadslip_ratio_charge` family CLOSED (2026-09-08 ~19:1x)
 
@@ -203,17 +205,22 @@ at repository root; corrected interpretation in
 change walkcurr's separate prior-free evidence or the formal ledger.
 
 ## Mission
-Six registered tracks live in `rl_move/orchestrator/tracks.json`:
-- `joystick`: RL from scripted gait to joystick control.
-- `amp`: from-scratch AMP program; done at MuJoCo transfer M5.
-- `cpg`: direct low-dimensional CPG/SE2 controller search.
-- `walkcurr`: prior-free PPO walking; no BC, gait clock, or motion prior.
-- `standwalk`: keep trying for ONE mesh/100 Hz policy that can sit,
-  rise, joystick-walk, and lower.
-- `todaypolicy`: deliver a useful policy-controlled MuJoCo/controller
-  bundle today. It may compose policy+state pieces and does not mark
-  `standwalk` green.
-Out-of-scope operator runs get honest triage but no agent follow-ups.
+
+Two parallel physical outcomes are defined in `RL_GOALS.md` (2026-09-08):
+
+- `any_means`: smooth physical joystick walking by any effective means, to
+  advance physical builds now. Methods: `joystick`, `amp`, `cpg`, `standwalk`,
+  `assistfade`, `todaypolicy`.
+- `rl_only`: the same physical outcome with walking learned entirely through
+  RL and no demonstrations in its training lineage. Method: `walkcurr`.
+
+The seven stable method IDs and parent mappings live in
+`rl_move/orchestrator/tracks.json`. Random initialization with BC/AMP or
+scripted-gait assistance still belongs to `any_means`. Physical delivery and
+clean RL research proceed in parallel; neither requires every method green.
+Historical method gates/verdicts below remain evidence, not a claim of either
+parent goal's physical completion. This clarification does not reopen closed
+recipes. Out-of-scope operator runs get honest triage but no agent follow-ups.
 
 ## Today Answer
 - DELIVERED 2026-08-30: `todaypolicy-mlpsf-tuck-v1` packaged, all TODAY

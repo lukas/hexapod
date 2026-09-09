@@ -1,5 +1,16 @@
 # Agent conventions — prototype_sts3215
 
+## Two parallel walking goals
+
+Read [RL_GOALS.md](RL_GOALS.md) for purpose and priorities and
+[RL_PLAN.md](RL_PLAN.md) for the operating plan. `any_means` delivers smooth
+physical joystick walking using any effective method so physical builds
+progress now. `rl_only` targets the same result with walking learned entirely
+through RL, with no demonstrations anywhere in the policy's training lineage.
+Teacher/BC/AMP/assisted methods serve `any_means`. Both goals proceed in
+parallel; simulation or method PASS does not establish physical completion.
+Root `AGENTS.md` still governs observed, bounded hardware work and ownership.
+
 ## Python commands: use uv
 
 Use `uv` for local Python work in this project. Do not run bare

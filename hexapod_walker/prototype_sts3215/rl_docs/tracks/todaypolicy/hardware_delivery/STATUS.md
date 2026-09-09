@@ -1,6 +1,12 @@
 # todaypolicy / hardware_delivery — measured controller delivery
 
-Last updated: 2026-09-05 ~11:0x UTC.
+Recorded envelope-evaluation update: 2026-09-05 ~11:0x UTC.
+
+Parent scope clarified 2026-09-08: `todaypolicy` serves Goal 1 (`any_means`)
+in `RL_GOALS.md`: smooth physical joystick walking now, alongside clean RL
+research. The recorded CPU/simulation results below are method milestones;
+they do not establish physical completion. Physical handoffs go through
+Robot Lab's serialized guarded runner under standing authority.
 
 ## DONE 09-05: delivery-branch verification (op `fb_20260905T075426_969b3d`)
 
@@ -156,7 +162,9 @@ more than speed-made-good; `env_shared` should not be used.
 
 ## Boundaries
 
-- No physical robot access from this track (unchanged).
-- `standwalk`'s single-policy goal is unchanged; this is delivery
-  glue, not the monolithic policy.
+- The envelope-evaluation work recorded here remains CPU/simulation-only.
+  Goal 1's physical trials proceed separately through Robot Lab; cloud RL
+  cycles do not control the physical robot directly.
+- `standwalk` retains its single-policy method milestone; physical delivery
+  does not wait for it.
 - Do not edit Codex-owned files listed at top until the handoff.

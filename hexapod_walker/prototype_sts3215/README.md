@@ -1,8 +1,13 @@
 # Hexapod STS3215 prototype
 
 Tabletop 3D-printed hexapod driven by Feetech STS3215 bus servos and an
-Arduino Uno Q. The work is split into four areas that share the robot; start
-at the entry point for the one you're working on:
+Arduino Uno Q. We pursue [two goals in parallel](RL_GOALS.md): smooth
+physical joystick walking by any effective means, and the same outcome with
+walking learned entirely through RL, without demonstrations. The first path
+keeps physical builds progressing while the harder research continues.
+
+The work is split into four areas that share the robot; start at the entry
+point for the one you're working on:
 
 | You are here to… | Start at |
 |------------------|----------|

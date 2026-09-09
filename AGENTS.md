@@ -114,9 +114,15 @@ What is there: `experiments.json` (the ledger — one entry per launched run,
 the source of truth), `backlog.json` / `backlog_failed.json` (launch queue),
 `pending_evals.json`, `rl_docs/runs/<run>.md` (per-run stories, GENERATED
 from the ledger — never edit), `RL_LOG.md` (one-line-per-cycle log, append
-only via `ops.sh logline`). `hexapod_walker/prototype_sts3215/rl_docs/runs`
-and `RL_LOG.md` in this repo are symlinks into `.state`, so existing paths
-keep working once `.state` exists. Code resolves the real paths through
+only via `ops.sh logline`), and the machine-written journals
+`OPERATOR_QUESTIONS.md`, `rl_docs/SKILLS.md`, `rl_docs/tracks/<track>/STATUS.md`.
+In this repo, `hexapod_walker/prototype_sts3215/rl_docs/runs`, `RL_LOG.md`,
+`rl_docs/SKILLS.md`, `rl_move/orchestrator/OPERATOR_QUESTIONS.md` and each
+track `STATUS.md` are symlinks into `.state`, so existing read paths keep
+working once `.state` exists. To EDIT a journal, open the `.state/...` path
+(editors refuse to write through a symlink). Human-owned docs stay here:
+`STATUS.md`, `CURRENT_TRUTHS.md`, `RL_PLAN.md`, `RESEARCH_RULES.md`, the
+track design docs. Code resolves the real paths through
 `rl_move/orchestrator/state_dir.py`; do not add `HERE / "experiments.json"`
 style paths again. Curated prose (`STATUS.md`, `CURRENT_TRUTHS.md`,
 `RL_PLAN.md`, `rl_docs/tracks/*/STATUS.md`) and config (`tracks.json`,

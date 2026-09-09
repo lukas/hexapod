@@ -326,8 +326,32 @@ def _live_robot_ids(bus: FeetechBus) -> set[int]:
     return ids
 
 
+# A single STS3215 stalls at 2.70 A on the 12 V bus (I_STALL in
+# scripts/standup_current_sim.py), so no honest per-servo reading gets
+# near 10 A. Anything above this is bus corruption, not current: the
+# 09-09 stand-up (experiment 922434955b) self-aborted on a 106.50 A
+# sample — 16384 raw counts, 0x4000, one flipped bit at 6.5 mA/count —
+# while the run's true peak was 2.88 A. mcu_feetech_bus applies no mask
+# to the raw current count, unlike the adjacent load_pct.
+IMPLAUSIBLE_CURRENT_A = 10.0
+
+# Consecutive implausible reads on one joint before the tracker calls it
+# a real telemetry fault instead of a transient flipped bit. Same
+# three-consecutive-reads rule the project uses for missing servo IDs.
+IMPLAUSIBLE_FAULT_READS = 3
+
+
 class CurrentPeakTracker:
-    """Track per-joint and global peak |current| during a motion phase."""
+    """Track per-joint and global peak |current| during a motion phase.
+
+    Readings at or above ``IMPLAUSIBLE_CURRENT_A`` are physically
+    impossible on this bus and are kept out of the peak so one corrupted
+    sample cannot poison a current guard or a run's reported peak. They
+    are counted, not hidden: ``discarded`` and ``implausible_joints``
+    expose them per sweep, and ``telemetry_fault_joint`` is set once a
+    joint returns ``IMPLAUSIBLE_FAULT_READS`` implausible reads in a row
+    — a persistent fault a caller should still stop on.
+    """
 
     def __init__(self):
         self.max_a: dict[int, float] = {}
@@ -339,11 +363,18 @@ class CurrentPeakTracker:
         # Full feedback dicts from the most recent sweep — callers can
         # log "what the servos are saying", not just the current peak.
         self.last_fb: list[dict] = []
+        # Implausible-reading bookkeeping (see the class docstring).
+        self.discarded = 0
+        self.discarded_peak_a = 0.0
+        self.implausible_joints: set[int] = set()
+        self.telemetry_fault_joint: int | None = None
+        self._implausible_run: dict[int, int] = {}
 
     def sample(self, bus: FeetechBus, live: set[int]) -> None:
         self.samples += 1
         t = time.monotonic() - self._t0
         sweep: list[dict] = []
+        implausible: set[int] = set()
         for joint in range(N_JOINTS):
             sid = joint_to_servo_id(joint)
             if sid not in live:
@@ -353,6 +384,19 @@ class CurrentPeakTracker:
                 continue
             sweep.append(fb)
             a = abs(float(fb["current_a"]))
+            if a >= IMPLAUSIBLE_CURRENT_A:
+                # Corrupt sample: keep it out of the peak, count it, and
+                # only escalate if this joint keeps doing it.
+                implausible.add(joint)
+                self.discarded += 1
+                self.discarded_peak_a = max(self.discarded_peak_a, a)
+                run = self._implausible_run.get(joint, 0) + 1
+                self._implausible_run[joint] = run
+                if (run >= IMPLAUSIBLE_FAULT_READS
+                        and self.telemetry_fault_joint is None):
+                    self.telemetry_fault_joint = joint
+                continue
+            self._implausible_run[joint] = 0
             prev = self.max_a.get(joint, 0.0)
             if a > prev:
                 self.max_a[joint] = a
@@ -361,6 +405,25 @@ class CurrentPeakTracker:
                 self.peak_joint = joint
                 self.peak_t_s = t
         self.last_fb = sweep
+        self.implausible_joints = implausible
+
+    def sweep_peak_a(self) -> tuple[float, int | None]:
+        """Plausible |current| peak of the MOST RECENT sweep only.
+
+        ``peak_a`` is a running max over the whole phase, so once any
+        sample exceeds a guard threshold that guard stays tripped for
+        the rest of the run. A guard that wants "is the robot over the
+        limit right now" needs this instead.
+        """
+        peak, peak_joint = 0.0, None
+        for fb in self.last_fb:
+            joint = int(fb["joint"])
+            if joint in self.implausible_joints:
+                continue
+            a = abs(float(fb["current_a"]))
+            if a > peak:
+                peak, peak_joint = a, joint
+        return peak, peak_joint
 
     def print_report(self, *, phase: str) -> None:
         print(f"  Max current during {phase}:")

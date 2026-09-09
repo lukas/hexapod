@@ -1,5 +1,40 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## `rl_only` off-axis-heading leg-sacrifice repair: 5th independent mechanism tried, 0 passes — the exposure/batch-composition axis is now CLOSED end-to-end (2026-09-09 ~20:3x)
+
+A heading-conditioned ISOLATION curriculum (`cw-walkscratch-crutchoff-{s0,s1}
+-widen8-plusduty-headisoremix-canary2m`: `goal.walk_heading_set` restricted
+to ONLY the 5 chronically-broken headings for the whole 2M-step run — zero
+forward episodes anywhere, not even on mid-episode resample) CLOSED
+`CANARY FAIL - MECHANISM (efficacy)` 2/2 seeds: DET off-axis (±90/±135/180°,
+n=15) `gait_valid` byte-identical to the frozen parent in BOTH seeds (0/15
+child vs 0/15 parent), sacrificed-leg sets matching leg-for-leg at every
+heading/episode, STO also matching (2/15 true at h180 in both). This was
+the ~19:4x entry's own named candidate 1 (an untried "isolation" curriculum,
+distinct from the already-closed 83%-reweight exposure lever) — testing it
+at its logical 100%-exposure extreme shows **the entire exposure/batch-
+composition axis is now closed end-to-end**: 0% (untouched baseline) -> 83%
+(reweight, ~12:0x) -> 100% (this isolation canary), zero effect at every
+point. This is the **5th** independent mechanism to fail the same chronic
+front-leg (leg0/leg5) off-axis sacrifice on the widen8/crutchoff champion,
+after heading-exposure reweighting (FAIL-MECHANISM ~12:0x), heading-gain
+dose-scaling (FAIL-MECHANISM ~12:4x), headexplore's wide-`log_std` (ACQ
+FAIL-MECHANISM ~16:2x), and self-distillation (FAIL-MECHANISM ~19:4x, entry
+below). **Ruling (unchanged, now doubly confirmed): this sub-question does
+not get another dose/schedule/exposure/architecture variant of an already-
+tried mechanism family — including the isolation-curriculum idea itself,
+now also closed.** The only remaining named candidate is candidate 2 from
+the ~19:4x entry: per-heading critic/advantage normalization so off-axis
+timesteps aren't structurally under-weighted in the shared PPO batch — a
+genuinely different, PPO-loss-level mechanism (still UNBUILT, its own
+design/test/canary cycle, not a repeat of any exposure-axis lever).
+Practical impact: none on current delivery — the champion checkpoint is
+untouched, the already-captured `rl_only` sim demo never exercises the
+failed range, and the limitation stays labeled in `bundle_rlonly_v1/
+GO_NOGO.md`. Evidence: `rl_docs/tracks/walkcurr/STATUS.md` 2026-09-09
+~20:2x/~20:3x entries; ledger verdicts on both headisoremix-canary2m runs;
+W&B `pskh1tt2`/`t47vv9n9`.
+
 ## `rl_only` off-axis-heading leg-sacrifice repair: 4 independent mechanisms tried, 0 passes (2026-09-09 ~19:4x)
 
 Self-distillation (`heading_selfdistill.py`, advantage-filtered imitation of

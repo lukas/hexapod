@@ -2,8 +2,83 @@
 from __future__ import annotations
 
 import time
+from collections import deque
 from dataclasses import dataclass, field
+from math import isfinite
 from typing import Callable
+
+
+class CadenceStats:
+    """Observe tick starts, including waits and work after stage timers stop.
+
+    This is passive telemetry: it never sleeps or changes the control clock.
+    Totals cover the run; percentile storage is bounded to the latest window.
+    """
+
+    def __init__(self, period_s: float, *, grace_s: float = 0.0,
+                 window_size: int = 1000):
+        if not isfinite(period_s) or period_s <= 0:
+            raise ValueError("period_s must be finite and positive")
+        if not isfinite(grace_s) or grace_s < 0 or window_size < 1:
+            raise ValueError("invalid cadence grace or window size")
+        self.period_s = period_s
+        self.grace_s = grace_s
+        self.previous_start = None
+        self.last_period_s = None
+        self.intervals = 0
+        self.elapsed_s = 0.0
+        self.max_period_s = 0.0
+        self.late_intervals = 0
+        self._recent = deque(maxlen=window_size)
+
+    def observe(self, started_at: float) -> None:
+        if not isfinite(started_at):
+            return
+        if self.previous_start is None:
+            self.previous_start = started_at
+            return
+        period = started_at - self.previous_start
+        if period <= 0:
+            return
+        self.previous_start = started_at
+        self.last_period_s = period
+        self.intervals += 1
+        self.elapsed_s += period
+        self.max_period_s = max(self.max_period_s, period)
+        self.late_intervals += period > self.period_s + self.grace_s + 1e-9
+        self._recent.append(period)
+
+    @property
+    def measured_hz(self) -> float | None:
+        return self.intervals / self.elapsed_s if self.intervals else None
+
+    def summary(self) -> dict:
+        recent = sorted(self._recent)
+
+        def percentile_ms(fraction):
+            if not recent:
+                return None
+            pos = (len(recent) - 1) * fraction
+            lo = int(pos)
+            hi = min(lo + 1, len(recent) - 1)
+            return round((recent[lo] + (recent[hi] - recent[lo])
+                          * (pos - lo)) * 1000.0, 3)
+
+        return {
+            "target_hz": round(1.0 / self.period_s, 3),
+            "measured_hz": (round(self.measured_hz, 3)
+                            if self.intervals else None),
+            "intervals": self.intervals,
+            "mean_period_ms": (round(self.elapsed_s / self.intervals * 1000, 3)
+                               if self.intervals else None),
+            "max_period_ms": (round(self.max_period_s * 1000, 3)
+                              if self.intervals else None),
+            "late_intervals": self.late_intervals,
+            "late_grace_ms": round(self.grace_s * 1000, 3),
+            "recent_intervals": len(recent),
+            "recent_p95_period_ms": percentile_ms(0.95),
+            "recent_p99_period_ms": percentile_ms(0.99),
+        }
 
 
 @dataclass

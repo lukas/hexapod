@@ -161,6 +161,17 @@ or several consecutive meaningful misses, is reported as a timing fault
 and the runner stops commanding motion.
 Every session logs `rl_drive_*.csv` like any episode.
 
+Configured `policy_hz`/`inner_hz` are rate contracts, not measured throughput.
+Episode summaries include `timing.cadence`: measured tick-start frequency,
+mean/max period and late intervals across the run, plus explicitly labeled
+recent p95/p99 periods over the latest 1,000 intervals. CSV `period_ms` and
+live drive `measured_loop_hz` include logging, status publication and waits
+between ticks that the narrower `service_ms` timer excludes. The first tick
+has no measured interval. This cumulative outer-loop rate includes waiting
+and neutral-hold ticks; it is not inference or servo-write throughput.
+These measurements observe the loop without
+changing its scheduling or safety thresholds.
+
 ## Full-test communication recording
 
 The physical robot web service automatically starts the existing passive

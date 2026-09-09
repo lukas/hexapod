@@ -72,6 +72,7 @@ from hexapod_core.joint_frame import (                     # noqa: E402
 from rl_move.robot_state import (                          # noqa: E402
     DEG2RAD, N_JOINTS, RAD2DEG, RobotState, RobotStateEstimator,
 )
+from rl_move.control_loop import CadenceStats             # noqa: E402
 from rl_move.safety import AXIS_LIMITS_DEG, SafetyLayer    # noqa: E402
 from async_bus_guard import (                            # noqa: E402
     AsyncSamplerCleanupError, clear_bus_quarantine, quarantine_bus,
@@ -659,7 +660,9 @@ def _ms_stats(values: list[float]) -> dict:
 
 
 class _TimingStats:
-    def __init__(self):
+    def __init__(self, period_s: float = DT):
+        self.cadence = CadenceStats(
+            period_s, grace_s=_timing_late_grace(period_s))
         self.count = 0
         self.maxes = {k: 0.0 for k in _TIMING_KEYS}
         self.totals = {k: 0.0 for k in _TIMING_KEYS}
@@ -673,8 +676,8 @@ class _TimingStats:
 
     def summary(self) -> dict:
         if self.count <= 0:
-            return {"ticks": 0}
-        out = {"ticks": self.count}
+            return {"ticks": 0, "cadence": self.cadence.summary()}
+        out = {"ticks": self.count, "cadence": self.cadence.summary()}
         for k in _TIMING_KEYS:
             name = k[:-2] + "_ms"
             out["mean_" + name] = round(
@@ -2724,7 +2727,7 @@ class _EpisodeLog:
                "q_cmd_err_max_deg", "q_cmd_err_joint", "action_abs_max",
                "mono_s", "wall_elapsed_s", "unix_s", "walk_engaged",
                "learned_policy_active", "state_age_ms", "position_age_ms",
-               "imu_age_ms", "bus_write_due", "snapshot_seq"])
+               "imu_age_ms", "bus_write_due", "snapshot_seq", "period_ms"])
         try:
             from event_log import emit
             emit("rl_episode", f"{mode} started ({self.csv_path.name})",
@@ -2817,7 +2820,8 @@ class _EpisodeLog:
                round(now_mono, 6), round(now_mono - self._started_mono, 6),
                round(time.time(), 6), int(walk_engaged),
                int(learned_policy_active), state_age_ms, pos_age_ms,
-               imu_age_ms, int(bus_write_due), timing.get("snapshot_seq", "")])
+               imu_age_ms, int(bus_write_due), timing.get("snapshot_seq", ""),
+               r_ms("period_s")])
         self._n += 1
         if self._n % 25 == 0:      # survive a mid-run kill: flush each ~1 s
             self._f.flush()
@@ -3561,7 +3565,7 @@ def _run_policy_move_impl(drive, mode: str, *, on_progress=None,
     max_cur = 0.0
     tilt_rel_max = 0.0
     t_end = 0.0
-    timing_stats = _TimingStats()
+    timing_stats = _TimingStats(timing.policy_dt)
     consecutive_late = 0
     progress_every = max(1, int(round(timing.policy_hz / 5.0)))
     result: dict = {"ok": True, "mode": mode,
@@ -3636,6 +3640,7 @@ def _run_policy_move_impl(drive, mode: str, *, on_progress=None,
             break
         t = i * timing.policy_dt
         tick_t0 = time.monotonic()
+        timing_stats.cadence.observe(tick_t0)
         stage_t = tick_t0
         phase_after = phase
         if mode == "walk":
@@ -3873,6 +3878,7 @@ def _run_policy_move_impl(drive, mode: str, *, on_progress=None,
             consecutive_late = 0
         runner_timing = {
             "service_s": service_s,
+            "period_s": timing_stats.cadence.last_period_s,
             "obs_s": obs_s,
             "policy_s": policy_s,
             "safety_s": safety_s,
@@ -3914,7 +3920,8 @@ def _run_policy_move_impl(drive, mode: str, *, on_progress=None,
                 "msg": timing_error,
                 "t_s": round(t, 2), "overruns": overruns,
                 "timing_ms": {k[:-2]: round(v * 1000.0, 3)
-                              for k, v in runner_timing.items()},
+                              for k, v in runner_timing.items()
+                              if v is not None},
             })
             break
         if pending_seen:
@@ -4704,7 +4711,7 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
     t = 0.0
     i = 0
     last_hold_refresh_t = -DRIVE_HOLD_REFRESH_S
-    timing_stats = _TimingStats()
+    timing_stats = _TimingStats(timing.policy_dt)
     consecutive_late = 0
     progress_every = max(1, int(round(timing.policy_hz / 5.0)))
     result: dict = {"ok": True, "mode": "drive",
@@ -4868,6 +4875,7 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
             break
         t = i * timing.policy_dt
         tick_t0 = time.monotonic()
+        timing_stats.cadence.observe(tick_t0)
         stage_t = tick_t0
         write_due = False
         vx_t, vy_t, wz_t, dh_t, hb_age, stop_req = cmd.get()
@@ -5237,6 +5245,7 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
             consecutive_late = 0
         runner_timing = {
             "service_s": service_s,
+            "period_s": timing_stats.cadence.last_period_s,
             "obs_s": obs_s,
             "policy_s": policy_s,
             "safety_s": safety_s,
@@ -5291,6 +5300,9 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
             "rot60_k": canon.k if canon is not None else None,
             "stopping": stopping, "overruns": overruns,
             "drive_write_hz": round(inner_hz, 3),
+            "measured_loop_hz": (
+                round(timing_stats.cadence.measured_hz, 3)
+                if timing_stats.cadence.measured_hz is not None else None),
             "drive_write_due": bool(write_due),
             "timing_ms": {
                 "service": round(service_s * 1000.0, 3),

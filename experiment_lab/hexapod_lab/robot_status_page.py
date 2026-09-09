@@ -7,7 +7,7 @@ def robot_status_panel() -> str:
 .robot-now{margin:0 0 2.5rem;padding:1.5rem;border:1px solid #35463e;border-radius:18px;background:#141c19;color:#e8f1ec;font:15px/1.5 system-ui,-apple-system,BlinkMacSystemFont,sans-serif}
 .robot-now *{box-sizing:border-box}.robot-now h2,.robot-now h3,.robot-now p{margin:0}.robot-now h2{font-size:1.4rem;line-height:1.3;letter-spacing:-.025em}.robot-now h3{font-size:1rem;line-height:1.4}
 .robot-now .rn-header{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1rem}.robot-now .rn-badge{display:inline-flex;align-items:center;gap:.45rem;border:1px solid #53665b;border-radius:99px;padding:.25rem .6rem;color:#bac7c0;font-size:.74rem;font-weight:650;white-space:nowrap}.robot-now .rn-dot{width:7px;height:7px;background:currentColor;border-radius:50%;flex:none}
-.robot-now .rn-execution{border:1px solid #4b5b4f;border-left:4px solid #93a996;border-radius:12px;padding:1rem 1.15rem;margin-bottom:1.3rem;background:#1a251e}.robot-now .rn-execution h3{font-size:.8rem;letter-spacing:.025em;font-weight:650;color:#bac9bf}.robot-now .rn-execution-headline{font-size:1.2rem;font-weight:700;line-height:1.4;letter-spacing:-.02em;margin-top:.3rem}.robot-now .rn-execution-reason{font-size:.94rem;color:#c7d3cb;line-height:1.55;margin-top:.4rem}.robot-now .rn-next{font-size:.94rem;margin-top:.65rem;line-height:1.5}.robot-now .rn-next strong{color:#e5efe8}.robot-now .rn-task{font-size:.76rem;color:#a7b9ad;margin-top:.6rem;overflow-wrap:anywhere}.robot-now[data-execution='blocked'] .rn-execution{border-left-color:#ffd280}.robot-now[data-execution='preparing'] .rn-execution{border-left-color:#8dcaf2}.robot-now[data-execution='running'] .rn-execution{border-left-color:#b7f34a}.robot-now .rn-health-header{display:flex;justify-content:space-between;align-items:center;gap:.8rem;margin-bottom:.65rem}.robot-now .rn-health-header h3{font-size:.8rem;font-weight:650;color:#adbbb3}
+.robot-now .rn-execution{border:1px solid #4b5b4f;border-left:4px solid #93a996;border-radius:12px;padding:1rem 1.15rem;margin-bottom:1.3rem;background:#1a251e}.robot-now .rn-execution h3{font-size:.8rem;letter-spacing:.025em;font-weight:650;color:#bac9bf}.robot-now .rn-execution-headline{font-size:1.2rem;font-weight:700;line-height:1.4;letter-spacing:-.02em;margin-top:.3rem}.robot-now .rn-execution-reason{font-size:.94rem;color:#c7d3cb;line-height:1.55;margin-top:.4rem}.robot-now .rn-next{font-size:.94rem;margin-top:.65rem;line-height:1.5}.robot-now .rn-next strong{color:#e5efe8}.robot-now .rn-task{font-size:.76rem;color:#a7b9ad;margin-top:.6rem;overflow-wrap:anywhere}.robot-now .rn-log{font-size:.85rem;margin-top:.5rem}.robot-now .rn-log a{color:#b7f34a;text-decoration:none;border-bottom:1px solid #4b5b4f}.robot-now[data-execution='blocked'] .rn-execution{border-left-color:#ffd280}.robot-now[data-execution='preparing'] .rn-execution{border-left-color:#8dcaf2}.robot-now[data-execution='running'] .rn-execution{border-left-color:#b7f34a}.robot-now .rn-health-header{display:flex;justify-content:space-between;align-items:center;gap:.8rem;margin-bottom:.65rem}.robot-now .rn-health-header h3{font-size:.8rem;font-weight:650;color:#adbbb3}
 .robot-now[data-health='healthy'] .rn-badge{color:#b7f34a;border-color:#526e36}.robot-now[data-health='needs_attention'] .rn-badge{color:#ffd280;border-color:#826b3d}.robot-now[data-health='offline'] .rn-badge{color:#ffb3aa;border-color:#84534e}
 .robot-now .rn-body{display:block}.robot-now .rn-summary{font-size:1.05rem;font-weight:650}.robot-now .rn-detail{color:#adbbb3;margin-top:.25rem}.robot-now .rn-metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.7rem;margin:1.1rem 0 0}.robot-now .rn-metric{min-width:0;border-top:1px solid #35463e;padding-top:.65rem}.robot-now dt{font-size:.74rem;color:#a7b6ac;margin-bottom:.2rem}.robot-now dd{margin:0;font-size:.96rem;font-weight:650;overflow-wrap:anywhere}.robot-now dd[data-tone='good']{color:#b7f34a}.robot-now dd[data-tone='warn']{color:#ffd280}.robot-now .rn-check{font-size:.8rem;font-weight:500}
 .robot-now figcaption{color:#a7b6ac;font-size:.75rem;margin-top:.4rem}.robot-now [hidden]{display:none!important}
@@ -51,6 +51,7 @@ def robot_status_panel() -> str:
     <p class="rn-execution-reason" data-rn="execution_reason">Waiting for the latest execution report.</p>
     <p class="rn-next"><strong>Next:</strong> <span data-rn="execution_next">Wait for the status check.</span></p>
     <p class="rn-task" data-rn="execution_task" hidden></p>
+    <p class="rn-log" data-rn="execution_log_wrap" hidden><a data-rn="execution_log" href="#">Open the live agent log &rarr;</a></p>
   </div>
   <div class="rn-body" data-rn="body">
     <div>
@@ -320,6 +321,7 @@ def robot_status_panel() -> str:
     text('execution_next', nextAction);
     text('execution_task', '');
     nodes.execution_task.hidden = true;
+    nodes.execution_log_wrap.hidden = true;
   }
 
   function renderExecution(execution, confirmedIdle) {
@@ -348,6 +350,15 @@ def robot_status_panel() -> str:
     if (updated) metadata.push('Updated ' + updated);
     text('execution_task', metadata.join(' · '));
     nodes.execution_task.hidden = metadata.length === 0;
+    // The report names the experiment it is working on, so link to it rather
+    // than leaving the operator to find the run by hand.
+    const runId = typeof report.experiment_id === 'string' ? report.experiment_id.trim() : '';
+    if (runId && report.stale !== true) {
+      nodes.execution_log.href = '/experiments/' + encodeURIComponent(runId);
+      nodes.execution_log_wrap.hidden = false;
+    } else {
+      nodes.execution_log_wrap.hidden = true;
+    }
   }
 
   function expandReadiness(shouldOpen) {

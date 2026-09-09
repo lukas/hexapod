@@ -8,6 +8,7 @@ from rl_move.sim.walk_task import (
     transition_window_liftoff,
     transition_window_tick,
     transition_window_touchdown,
+    walk_heading_charge_mult,
     walk_leg_swing_initiation_maxload,
     walk_legduty_ratio_charge,
 )
@@ -151,3 +152,44 @@ def test_maxload_ignores_a_barely_positive_leg_below_the_epsilon_guard():
     assert walk_leg_swing_initiation_maxload(
         [0.0, 0.0, 0.0, 0.0, 0.0, 1e-9]
     ) == [False] * 6
+
+
+# walk_heading_charge_mult: the heading-conditioned charge-dose lever
+# (2026-09-09) built to fix the pinned-heading-panel's per-heading
+# leg-sacrifice finding (STATUS.md 2026-09-09 ~11:5x-12:0x).
+
+def test_heading_mult_off_gain_is_always_one():
+    # gain<=0 is the default/off path: bit-exact 1.0 regardless of
+    # heading, including at exactly-backward where a bug would be
+    # most visible (biggest possible multiplier if gain were live).
+    assert walk_heading_charge_mult(1.0, 0.0) == 1.0
+    assert walk_heading_charge_mult(-1.0, 0.0) == 1.0
+    assert walk_heading_charge_mult(0.0, 0.0) == 1.0
+    assert walk_heading_charge_mult(-1.0, -0.5) == 1.0
+
+
+def test_heading_mult_forward_is_always_one_regardless_of_gain():
+    # cos_heading=1.0 (pure forward command) must never be up-priced,
+    # whatever the gain -- this lever must not touch the champion's
+    # already-clean forward-ish behavior.
+    assert walk_heading_charge_mult(1.0, 0.5) == pytest.approx(1.0)
+    assert walk_heading_charge_mult(1.0, 5.0) == pytest.approx(1.0)
+
+
+def test_heading_mult_backward_hits_the_full_1_plus_2gain_ceiling():
+    assert walk_heading_charge_mult(-1.0, 0.5) == pytest.approx(2.0)
+    assert walk_heading_charge_mult(-1.0, 1.0) == pytest.approx(3.0)
+
+
+def test_heading_mult_sideways_is_the_1_plus_gain_midpoint():
+    # cos_heading=0.0 (+-90deg) is exactly the panel's own worst-hit
+    # headings besides straight back.
+    assert walk_heading_charge_mult(0.0, 0.5) == pytest.approx(1.5)
+
+
+def test_heading_mult_clamps_out_of_range_cos_input():
+    # Defensive clamp: callers pass vx_ref/s_ref, which is
+    # numerically guaranteed in [-1, 1] but the clamp keeps this
+    # helper safe standalone too.
+    assert walk_heading_charge_mult(1.5, 1.0) == pytest.approx(1.0)
+    assert walk_heading_charge_mult(-1.5, 1.0) == pytest.approx(3.0)

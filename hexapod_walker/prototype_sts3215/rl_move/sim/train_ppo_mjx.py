@@ -4439,6 +4439,16 @@ def main(argv: list[str] | None = None) -> int:
                     np.mean([e["r"] for e in buf]))
                 payload["rollout/ep_len_mean"] = float(
                     np.mean([e["l"] for e in buf]))
+            # heading_selfdistill diagnostics (walkcurr, 09-09): see
+            # heading_selfdistill.heading_selfdistill_wandb_payload's
+            # own docstring -- this callback is the only place SB3-
+            # logger keys reach W&B in this file, so these 3 keys were
+            # otherwise silent on W&B even while the mechanism fired
+            # (gap flagged CURRENT_TRUTHS/walkcurr STATUS 09-09 ~17:1x).
+            # Zero-cost / additive-only when the module is off/absent.
+            from .heading_selfdistill import heading_selfdistill_wandb_payload
+            payload.update(heading_selfdistill_wandb_payload(
+                getattr(self.model, "logger", None)))
             if run is not None:
                 import wandb
                 wandb.log(payload)

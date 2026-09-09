@@ -175,6 +175,38 @@ def attach_heading_selfdistill(model, *, coef: float, grad_clip: float,
     model._heading_selfdistill_vref_idx = idx
 
 
+HEADING_SELFDISTILL_WANDB_KEYS = (
+    "train/heading_selfdistill_loss",
+    "train/heading_selfdistill_off_axis_frac",
+    "train/heading_selfdistill_n_keep",
+)
+
+
+def heading_selfdistill_wandb_payload(logger) -> dict:
+    """Pulls this module's 3 SB3-logger keys (recorded by
+    ``_heading_selfdistill_step`` via ``self.logger.record`` before
+    ``super().train()`` runs each rollout) into a plain dict for a
+    caller's own ``wandb.log(payload)`` call. train_ppo_mjx.py builds
+    its W&B ``train/*``/``rollout/*`` charts entirely from a hand-built
+    per-rollout payload dict, not a generic SB3-logger-to-W&B bridge,
+    so these keys were otherwise silent on W&B even while the
+    mechanism was firing (gap flagged CURRENT_TRUTHS/walkcurr STATUS
+    2026-09-09 ~17:1x). Zero-cost / additive-only: ``logger=None`` or
+    a key never recorded this rollout (module not attached, coef=0, or
+    a no-op rollout) yields an empty/partial dict, never raises."""
+    out: dict = {}
+    if logger is None:
+        return out
+    name_to_value = getattr(logger, "name_to_value", None)
+    if not name_to_value:
+        return out
+    for k in HEADING_SELFDISTILL_WANDB_KEYS:
+        v = name_to_value.get(k)
+        if v is not None:
+            out[k] = float(v)
+    return out
+
+
 def make_heading_selfdistill_ppo_class(base_cls):
     """``HeadingSelfDistillPPO``: ``base_cls`` (compose with
     BCAnchorPPO/MirrorPPO/YawCreditPPO as needed) + one advantage-

@@ -7,6 +7,9 @@ physical robot may remain on an older or mixed revision.
 ## Robots
 
 - [`hexapod-1.yaml`](hexapod-1.yaml) — original/legacy STS3215 assembly.
+- [`hexapod-2.yaml`](hexapod-2.yaml) — owner-confirmed two-lower/one-upper
+  bearing assembly, with the spacer-equipped-parts retrofit in progress.
+  Its exact installed CAD revision and per-leg retrofit progress are unrecorded.
 
 ## Active diagnostics
 
@@ -25,4 +28,3 @@ physical robot may remain on an older or mixed revision.
 - Robot-wide `defaults` apply to all six legs unless a key in
   `per_leg_overrides` says otherwise. Use leg IDs `L0` through `L5`.
 - Append dated history entries rather than erasing an earlier assembly state.
-

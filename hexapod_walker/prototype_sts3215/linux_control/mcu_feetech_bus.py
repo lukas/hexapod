@@ -723,10 +723,15 @@ class McuFeetechBus:
         return bool(line and line.startswith("OK"))
 
     def scan(self, id_range=range(1, 31)) -> list[int]:
+        self.last_scan_error = None
         now = time.monotonic()
         if self._live_cache is not None and now - self._live_cache_t < 2.0:
             return [s for s in self._live_cache if s in id_range]
         line = self._transact("SCAN", timeout=2.5)
+        if line is None:
+            self.last_scan_error = 'Motor controller did not answer SCAN within 2.5 seconds. Motor presence is unknown; check the controller connection and retry.'
+        elif not (line.strip() == 'OK' or line.startswith('OK ')):
+            self.last_scan_error = f'Motor controller rejected SCAN: {line}. Motor presence is unknown.'
         found: list[int] = []
         if line and line.startswith("OK"):
             rest = line[2:].strip()
@@ -735,6 +740,8 @@ class McuFeetechBus:
                     part = part.strip()
                     if part.isdigit():
                         found.append(int(part))
+                    else:
+                        self.last_scan_error = f'Unreadable motor scan reply: {line}. Motor presence is unknown; retry.'
         # Do not cache an empty scan. A single transient empty reply after a
         # dense motion stream must not poison the immediate retry path.
         if found:

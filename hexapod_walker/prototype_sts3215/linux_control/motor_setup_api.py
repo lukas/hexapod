@@ -63,14 +63,19 @@ class MotorSetup:
         # Bypass the MCU's two-second cached inventory after a cable swap.
         if hasattr(bus, '_live_cache'):
             bus._live_cache = None
-        return sorted(bus.scan(range(1, 31)))
+        ids = sorted(bus.scan(range(1, 31)))
+        if getattr(bus, 'last_scan_error', None):
+            raise ValueError(bus.last_scan_error)
+        return ids
 
     def scan(self):
         with self.lock, self.drive._lock:
             bus = self._ready()
             ids = self._scan(bus)
             new_ids = [sid for sid in ids if str(sid) not in self._registry()['servos']]
-            return dict(ok=True, ids=ids, new_ids=new_ids, single=len(new_ids) == 1)
+            assigned_ids = sorted(int(sid) for sid in self._registry()['servos'])
+            return dict(ok=True, ids=ids, new_ids=new_ids, single=len(new_ids) == 1,
+                        missing_ids=[sid for sid in assigned_ids if sid not in ids])
 
     def assign(self, data):
         sid, joint = data.get('source_id'), data.get('joint')

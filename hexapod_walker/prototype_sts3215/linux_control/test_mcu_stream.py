@@ -241,6 +241,17 @@ def test_scan_empty_reply_does_not_poison_live_cache():
     assert bus.scan(range(2, 20)) == [2, 3, 4]
 
 
+def test_scan_reports_transport_errors_separately_from_empty_bus():
+    for reply in (None, 'ERR busy', 'OK garbage'):
+        bus = _mk_bus(b'')
+        bus._transact = lambda *args, **kwargs: reply
+        assert bus.scan() == []
+        assert bus.last_scan_error
+        bus._transact = lambda *args, **kwargs: 'OK '
+        assert bus.scan() == []
+        assert bus.last_scan_error is None
+
+
 def test_step_all_round_trip():
     imu_raw = (0, 0, 16384, 131, -131, 0, 0)   # flat, 1 g, ±1 dps
     servos = [(2 + j, 1, 2048 + 10 * j, 40) for j in range(18)]

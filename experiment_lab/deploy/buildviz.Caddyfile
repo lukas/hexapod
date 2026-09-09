@@ -14,6 +14,7 @@ buildviz.cwd1f0-new-cluster.coreweave.app {
     forward_auth @browser https://hexapod.cwd1f0-new-cluster.coreweave.app {
         uri /auth
         copy_headers X-Hexapod-User
+        header_up X-Hexapod-Original {http.request.scheme}://{http.request.host}{http.request.uri}
         header_up Host hexapod.cwd1f0-new-cluster.coreweave.app
     }
     reverse_proxy 127.0.0.1:5183

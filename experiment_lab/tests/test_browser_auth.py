@@ -115,6 +115,9 @@ def test_login_accepts_the_bound_address_when_a_public_url_is_configured(client)
     response = client.post(f"{local}/login", headers={"Origin": local}, data=payload)
     assert response.status_code == 303
     assert response.headers["location"] == "/"
+    cookie = response.headers["set-cookie"].lower()
+    # Plain http on loopback: the cookie must not be Secure or Safari drops it.
+    assert "httponly" in cookie and "samesite=lax" in cookie and "secure" not in cookie
     # A third-party origin is still refused at the local address.
     assert client.post(f"{local}/login", headers={"Origin": "https://evil.example"},
                        data=payload).status_code == 403

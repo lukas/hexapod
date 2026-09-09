@@ -270,7 +270,11 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
     app.state.robot_status = robot_status
     app.state.observation_cameras = observation_cameras
     app.state.execution_progress = execution_progress
-    install_browser_auth(app, auth, settings.public_base_url)
+    install_browser_auth(
+        app, auth, settings.public_base_url,
+        sso_secret_file=settings.sso_secret_file, sso_users=settings.sso_users,
+        sso_cookie_domain=settings.sso_cookie_domain,
+    )
 
     def require_same_origin_action(
         request: Request, *, header: str, label: str

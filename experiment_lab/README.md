@@ -45,6 +45,43 @@ cleared when the service restarts. The dashboard's **Sign out** button revokes
 the session. Cookie-authenticated writes require a matching Origin; API/MCP
 clients can continue using their existing Authorization headers.
 
+For the shared lab sign-in, configure the service with
+`HEXAPOD_SSO_SECRET_FILE` pointing to a private copy of the controller's
+existing SSO signing secret, `HEXAPOD_SSO_USERS=operator:lukas` (a comma-separated
+`role:name` allowlist), and
+`HEXAPOD_SSO_COOKIE_DOMAIN=.cwd1f0-new-cluster.coreweave.app` for sign-out.
+The launcher defaults to `~/.hexapod/sso-secret` and that single operator.
+Only signed, unexpired `hexapod_sso` cookies for a listed user authenticate;
+missing secrets, invalid cookies, and unlisted users grant no access.
+`X-Hexapod-User` is never trusted. Explicit API Authorization headers retain
+their configured roles, and cookie-authenticated writes require the Lab's
+Origin. Signing out clears the shared cookie in this browser; copied SSO
+cookies remain valid until expiry or signing-secret rotation.
+
+Before enabling the updated launcher, an operator provisions the existing
+controller secret without displaying it (replace the pod/path if configured
+differently). This copies a credential; it does not change the controller:
+
+```sh
+(
+  set -eu
+  umask 077
+  mkdir -p "$HOME/.hexapod"
+  sso_temp=$(mktemp "$HOME/.hexapod/sso-secret.XXXXXX")
+  trap 'rm -f "$sso_temp"' EXIT
+  kubectl --kubeconfig="$HOME/.kube/coreweave.yaml" exec hexapod-sweep-friction -- \
+    cat /workspace/.sso_secret > "$sso_temp"
+  test -s "$sso_temp"
+  chmod 600 "$sso_temp"
+  mv "$sso_temp" "$HOME/.hexapod/sso-secret"
+)
+```
+
+Install the updated Lab package and `scripts/run-hexapod-lab.sh` into the
+background runtime before restarting its LaunchAgent. Use
+`deploy/apply-sso.sh` for the proxy configuration. Re-copy the secret after
+controller key rotation; verification reads the file on each cookie request.
+
 Queue a simulated experiment:
 
 ```sh
@@ -612,7 +649,7 @@ the Lab service after changing its configured device name.
 
 [`deploy/camera-relay.yaml`](deploy/camera-relay.yaml) describes the existing camera service and reverse tunnel on port 8766. Hexapod Lab intentionally uses 8767 so it can run alongside that service. Remote exposure needs a separate authenticated tunnel or a deliberate additional route in the relay; keep TLS and application authentication enabled.
 
-The deployed stable lab URL is `https://robot-lab.cwd1f0-new-cluster.coreweave.app`. Caddy terminates TLS and forwards this hostname without adding another authentication layer; Hexapod Lab itself provides browser sign-in at `/login` and bearer authentication for API/MCP clients. The local service and dual-port SSH tunnel run as macOS LaunchAgents, and the operator token is stored in Keychain under `Hexapod Lab API`. The background-safe runtime and evidence live under `~/Library/Application Support/Hexapod Lab/` because macOS restricts LaunchAgent access to `Documents`.
+The deployed stable lab URL is `https://robot-lab.cwd1f0-new-cluster.coreweave.app`. Caddy terminates TLS and checks browser sessions through the shared sign-in service. Hexapod Lab independently verifies the signed SSO cookie using the configuration above, retains local browser sign-in at `/login`, and accepts bearer authentication for API/MCP clients. The local service and dual-port SSH tunnel run as macOS LaunchAgents, and the operator token is stored in Keychain under `Hexapod Lab API`. The background-safe runtime and evidence live under `~/Library/Application Support/Hexapod Lab/` because macOS restricts LaunchAgent access to `Documents`.
 
 ## Phone AprilTag walk-around
 

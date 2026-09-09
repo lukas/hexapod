@@ -9,11 +9,9 @@ ASSISTANTS_TOKEN="$(/usr/bin/security find-generic-password -a assistants -s 'He
 MOBILE_TOKEN="$(/usr/bin/security find-generic-password -a viewer -s 'Hexapod Research Mobile' -w)"
 export HEXAPOD_API_KEYS="operator:operator:${LAB_TOKEN},operator:assistants:${ASSISTANTS_TOKEN},viewer:iphone:${MOBILE_TOKEN}"
 unset LAB_TOKEN ASSISTANTS_TOKEN MOBILE_TOKEN
-# The public site is fronted by Caddy with the one shared lab login. Caddy
-# forwards that Basic header unchanged, and the Lab already accepts
-# Basic <name>:<token>, so registering the same credential as an operator key
-# makes it sign in here too -- no second form. ~/.hexapod/web-login holds
-# "user" then "password" on two lines, mode 0600.
+# Keep the existing shared Basic credential for clients that use it.
+# Browser SSO is verified separately below; forward_auth supplies no password.
+# ~/.hexapod/web-login holds "user" then "password", mode 0600.
 WEB_LOGIN_FILE="/Users/lukas/.hexapod/web-login"
 if [ -s "$WEB_LOGIN_FILE" ]; then
   WEB_LOGIN_USER="$(sed -n 1p "$WEB_LOGIN_FILE")"
@@ -24,6 +22,16 @@ if [ -s "$WEB_LOGIN_FILE" ]; then
   unset WEB_LOGIN_USER WEB_LOGIN_PASS
 fi
 export HEXAPOD_API_KEYS
+# The controller signs hexapod_sso; verify it in the Lab rather than trusting
+# client-spoofable X-Hexapod-User headers. Provision the existing signing secret
+# as described in README.md. Without it, existing local/API login still works.
+SSO_SECRET_FILE="${HEXAPOD_SSO_SECRET_FILE:-/Users/lukas/.hexapod/sso-secret}"
+if [ -s "$SSO_SECRET_FILE" ]; then
+  export HEXAPOD_SSO_SECRET_FILE="$SSO_SECRET_FILE"
+  export HEXAPOD_SSO_USERS="${HEXAPOD_SSO_USERS:-operator:lukas}"
+  export HEXAPOD_SSO_COOKIE_DOMAIN="${HEXAPOD_SSO_COOKIE_DOMAIN:-.cwd1f0-new-cluster.coreweave.app}"
+fi
+unset SSO_SECRET_FILE
 # The Lab renders the active backend on its pages and in /api/stats, so it
 # must read the same switch the orchestrator does. Without this the UI claims
 # Codex while Claude is doing the work.

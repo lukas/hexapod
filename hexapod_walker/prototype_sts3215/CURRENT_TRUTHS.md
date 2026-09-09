@@ -1,5 +1,45 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## `rl_only` off-axis-heading leg-sacrifice repair: the PPO-advantage-normalization lever (the last named mechanism) is ALSO CLOSED, 2/2 seeds — this sub-question now has NO named untried mechanism left; it goes back to design (2026-09-09 ~21:3x)
+
+Per-heading (on-axis vs off-axis) advantage normalization
+(`cw-walkscratch-crutchoff-{s0,s1}-widen8-plusduty-headadvnorm-canary2m`,
+`train.heading_adv_norm=1`, rescaling each group to its own zero-mean/
+unit-std before PPO's own per-minibatch normalization runs) was the ONE
+remaining named candidate after the ~20:3x entry below closed the entire
+exposure/batch-composition axis — a genuinely different, PPO-loss-level
+mechanism, not another dose/schedule/exposure variant. Mechanism health
+PASS both seeds: `train/heading_adv_norm_applied=1` for the whole run,
+`ep_rew_mean` in-band with the selfdistill twins at the identical depth
+(-372.8/-311.8 vs -362.9/-295.7), zero new terminations. **Efficacy FAILS
+2/2 seeds**, read via `--pinned-heading-panel --baseline <frozen cont10m
+parent>` on-pod (n=3 det+3 sto/heading): DET off-axis (±90/±135/180°,
+n=15) `gait_valid` s1 **0/15 child vs 0/15 parent — byte-identical**
+(sacrificed-leg set matches leg-for-leg at all 5 broken headings); s0
+**0/15 child vs 1/15 parent** (child is if anything worse than its own
+frozen parent). Pooled both seeds: **0/30 vs 1/30**, nowhere near the
+pre-registered `>=6/15-combined` PASS bar. STO showed a small 3/15 vs
+1-2/15 delta on each seed — the same noise-level scale every closed
+sibling mechanism in this family shows at n=3/heading; it does not gate
+this canary. **This closes the PPO-advantage-normalization lever exactly
+as pre-registered.** Combined with the ~20:3x closure of the entire
+exposure/batch-composition axis (reweight, gain-dose, wide-`log_std`,
+self-distillation, 100%-isolation curriculum), **every currently-named
+mechanism for this repair — exposure-level AND PPO-loss-level — has now
+failed, 6 independent mechanisms, 0 passes.** Reopening this sub-question
+needs a genuinely new structural idea; none is currently named. Per the
+same reasoning the assistfade closure used: do not fund another
+dose/schedule/architecture variant of any of these six families.
+Practical impact: none on current delivery — the champion checkpoint is
+untouched, the already-captured `rl_only` sim demo never exercises the
+failed range, and the limitation stays labeled in `bundle_rlonly_v1/
+GO_NOGO.md`. Evidence: `rl_move/sim/heading_adv_norm.py`, `ops.sh entry
+cw-walkscratch-crutchoff-{s0,s1}-widen8-plusduty-headadvnorm-canary2m`,
+on-pod `--pinned-heading-panel --baseline` reads (`logs/ckpt_eval/
+cw_walkscratch_crutchoff_{s0,s1}_widen8_plusduty_headadvnorm_canary2m_
+headpanel/{report.json,baseline/report.json}`), W&B `afxiouh4`/
+`0vs71oi8`, `rl_docs/tracks/walkcurr/STATUS.md` 2026-09-09 ~21:3x entry.
+
 ## `rl_only` off-axis-heading leg-sacrifice repair: 5th independent mechanism tried, 0 passes — the exposure/batch-composition axis is now CLOSED end-to-end (2026-09-09 ~20:3x)
 
 A heading-conditioned ISOLATION curriculum (`cw-walkscratch-crutchoff-{s0,s1}

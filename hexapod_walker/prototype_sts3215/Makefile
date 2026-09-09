@@ -28,16 +28,16 @@ BUILDVIZ_ROOT ?= $(HOME)/buildviz
 # <checkout>/.state, a clone of lukas/hexapod-state -- see
 # rl_move/orchestrator/state_dir.py. Read-only here; the controller writes.
 state:
-	bash $(CURDIR)/rl_move/orchestrator/state_sync.sh
+	bash "$(CURDIR)/rl_move/orchestrator/state_sync.sh"
 
 # Tests. The default developer loop skips @pytest.mark.slow rollouts and
 # runs in parallel (pytest-xdist is in the dev group). `make test` is the
 # whole suite. Rules for adding tests: RESEARCH_RULES.md "Tests".
 test-fast:
-	cd $(CURDIR) && uv run pytest -q -n auto -m "not slow" rl_move/tests linux_control robots
+	uv run pytest -q -n auto -m "not slow" rl_move/tests linux_control robots
 
 test:
-	cd $(CURDIR) && uv run pytest -q -n auto rl_move/tests linux_control robots
+	uv run pytest -q -n auto rl_move/tests linux_control robots
 
 help:
 	@echo "Hexapod prototype CAD targets:"

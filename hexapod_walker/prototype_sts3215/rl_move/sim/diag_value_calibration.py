@@ -76,7 +76,8 @@ from .servo_model import SimServoParams
 
 
 def _build_env(task: str, cfg_set: list[str] | None, angle: float,
-               speed: float, seed: int, dr_scale: float):
+               speed: float, seed: int, dr_scale: float,
+               episode_seconds: float | None = None):
     from .train_ppo_sim import _parse_cfg_set
     from rl_move.config import load_config
     cfg = load_config()
@@ -88,13 +89,16 @@ def _build_env(task: str, cfg_set: list[str] | None, angle: float,
         cfg.setdefault("goal", {})[name] = val
     has_dr_ov = bool(cfg.get("dr"))
     env_cls = ENV_CLASSES[task]
+    kw = {}
+    if episode_seconds is not None:
+        kw["episode_seconds"] = episode_seconds
     # Same semantics as eval_checkpoint.py's make_env: randomize fires
     # when --dr-scale > 0 OR a dr.* override is present in --cfg-set
     # (so an overridden field can be probed even at dr_scale=0).
     return env_cls(params=SimServoParams.from_cfg(cfg),
                    randomize=(dr_scale > 0 or has_dr_ov),
                    dr_scale=dr_scale, seed=seed,
-                   render_mode=None, cfg=cfg)
+                   render_mode=None, cfg=cfg, **kw)
 
 
 def _episode_trace(env, model, *, deterministic: bool) -> tuple[list, list]:
@@ -142,6 +146,10 @@ def main() -> None:
                          "(0.0 = clean/DR-0 read, the pinned-heading-"
                          "panel default for this family)")
     ap.add_argument("--episodes", type=int, default=3)
+    ap.add_argument("--episode-seconds", type=float, default=None,
+                    help="default: the env class's own default (short); "
+                         "pass 20.0 to match this campaign's standard "
+                         "pinned-heading-panel/gate episode length")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--gamma", type=float, default=0.99)
     ap.add_argument("--stochastic", action="store_true",
@@ -167,7 +175,8 @@ def main() -> None:
         ep_returns = []
         for ep_i in range(args.episodes):
             env = _build_env(args.task, args.cfg_set, h, args.speed,
-                              args.seed + ep_i, args.dr_scale)
+                              args.seed + ep_i, args.dr_scale,
+                              args.episode_seconds)
             values, rewards = _episode_trace(
                 env, model, deterministic=not args.stochastic)
             env.close()

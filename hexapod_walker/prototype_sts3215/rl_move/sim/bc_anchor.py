@@ -1412,6 +1412,27 @@ def attach_bc_anchor(model, *, coef: float, cfg: dict | None,
     # anneal value stays bc_anneal_init_coef (see bc_anchor_anneal_value).
 
 
+def gated_ramp_frac(pass_step: int | None, step: int,
+                     ramp_steps: int) -> float:
+    """Pure scheduler, generalizing the "latch-then-ramp" shape below
+    to a plain [0, 1] FRACTION instead of a coefficient value, for use
+    with the ``apply_*_frac`` broadcast convention (see sim_env.py's
+    ramp blocks, e.g. ``apply_drag_allow_frac``) rather than writing a
+    model attribute directly. ``pass_step`` is the training step an
+    external gate FIRST passed (None = never yet), latched once by the
+    caller and never un-latched. Returns 0.0 before/at pass_step (or if
+    it never happens); linearly ramps 0.0 -> 1.0 over ``ramp_steps``
+    training steps from pass_step, then holds at 1.0. First user:
+    assistfade rung 3's ``goal.walk_residual_anneal_gate`` (STATUS.md
+    2026-09-09 "blend-schedule fix": anneal the residual blend UP only
+    once an ignition-quality assay of the policy's own output passes,
+    instead of the retired fixed step-count calendar — rl_docs/
+    tracks/assistfade/STATUS.md 09-09 ~07:5x closure)."""
+    if pass_step is None or step <= pass_step:
+        return 0.0
+    return min(1.0, (step - pass_step) / max(1, int(ramp_steps)))
+
+
 def bc_anchor_anneal_value(coef_init: float, pass_step: int | None,
                            step: int, anneal_steps: int) -> float:
     """Pure scheduler for train.bc_anchor_anneal_gate (assistfade rung
@@ -1427,8 +1448,10 @@ def bc_anchor_anneal_value(coef_init: float, pass_step: int | None,
     gate takes to first pass, matching the doc's "initially" framing.
     From pass_step, linearly ramps coef_init -> 0.0 over anneal_steps
     training steps, then holds at 0.0 (permanently off, matching rung
-    1's already-proven "no ongoing BC/imitation loss" end state)."""
-    if pass_step is None or step <= pass_step:
-        return float(coef_init)
-    frac = min(1.0, (step - pass_step) / max(1, int(anneal_steps)))
+    1's already-proven "no ongoing BC/imitation loss" end state).
+    Delegates the actual latch-then-ramp arithmetic to the generic
+    ``gated_ramp_frac`` (added 09-09 for the residual-blend gate below)
+    — same formula as before this refactor, unit-tested for exact
+    equivalence in test_bc_anchor.py."""
+    frac = gated_ramp_frac(pass_step, step, anneal_steps)
     return float(coef_init) * (1.0 - frac)

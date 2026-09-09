@@ -3485,6 +3485,53 @@ def test_bc_anchor_anneal_value_monotonic_non_increasing():
     assert all(a >= b for a, b in zip(steps, steps[1:])), steps
 
 
+# -- generic gated_ramp_frac (2026-09-09, assistfade rung 3
+# "blend-schedule fix" -- rl_docs/tracks/assistfade/STATUS.md 09-09
+# ~07:5x closure): the [0,1]-fraction generalization bc_anchor_
+# anneal_value now delegates to internally. -----------------------
+def test_gated_ramp_frac_zero_before_and_at_pass():
+    from rl_move.sim.bc_anchor import gated_ramp_frac
+    assert gated_ramp_frac(None, 0, 1_000_000) == 0.0
+    assert gated_ramp_frac(None, 50_000_000, 1_000_000) == 0.0
+    assert gated_ramp_frac(1_000_000, 1_000_000, 1_000_000) == 0.0
+
+
+def test_gated_ramp_frac_ramps_linearly_and_holds_at_one():
+    from rl_move.sim.bc_anchor import gated_ramp_frac
+    pass_step, steps = 1_000_000, 1_000_000
+    assert gated_ramp_frac(
+        pass_step, pass_step + steps // 2, steps) == pytest.approx(0.5)
+    assert gated_ramp_frac(
+        pass_step, pass_step + steps, steps) == pytest.approx(1.0)
+    assert gated_ramp_frac(
+        pass_step, pass_step + 10 * steps, steps) == pytest.approx(1.0)
+
+
+def test_gated_ramp_frac_monotonic_non_decreasing():
+    from rl_move.sim.bc_anchor import gated_ramp_frac
+    vals = [gated_ramp_frac(100, s, 500) for s in range(100, 700, 50)]
+    assert all(a <= b for a, b in zip(vals, vals[1:])), vals
+
+
+def test_bc_anchor_anneal_value_matches_gated_ramp_frac_composition():
+    """bc_anchor_anneal_value(coef, p, s, a) must equal
+    coef * (1 - gated_ramp_frac(p, s, a)) exactly -- pins the 09-09
+    refactor to the identical pre-refactor arithmetic (no behavior
+    change to the already-shipped rung-2 mechanism)."""
+    from rl_move.sim.bc_anchor import (bc_anchor_anneal_value,
+                                       gated_ramp_frac)
+    for pass_step, step, ramp in (
+            (None, 0, 1_000_000), (None, 9_000_000, 1_000_000),
+            (1_000_000, 1_000_000, 1_000_000),
+            (1_000_000, 1_500_000, 1_000_000),
+            (1_000_000, 2_000_000, 1_000_000),
+            (1_000_000, 9_000_000, 1_000_000)):
+        coef = 3.0
+        expect = coef * (1.0 - gated_ramp_frac(pass_step, step, ramp))
+        assert bc_anchor_anneal_value(
+            coef, pass_step, step, ramp) == pytest.approx(expect)
+
+
 def test_attach_bc_anchor_wires_anneal_gate_defaults_off():
     """train.bc_anchor_anneal_gate absent (the default): the anneal
     attributes still exist (so the trainer's getattr check never

@@ -3295,6 +3295,71 @@ def main(argv: list[str] | None = None) -> int:
                   f"walk_loadslip_bootstrap_steps ({_lsb_steps:,}) >= "
                   f"--steps ({args.steps:,}) — the policy will NEVER "
                   "train at the full anti-skate charge in this run")
+
+    # Residual-blend GATED anneal (2026-09-09, assistfade rung 3
+    # "blend-schedule fix" — see sim_env.py's goal.walk_residual_
+    # anneal_gate block in __init__/apply_residual_blend_frac for the
+    # mechanism/why: STATUS.md 09-09 ~07:5x closed 6/6 per-leg reward-
+    # shaping addons on top of the UNCHANGED fixed-calendar residual-
+    # fade schedule; the licensed next lever is a behavior-CONTINGENT
+    # anneal, not another reward term). Single source of truth: goal.
+    # walk_residual_anneal_gate arms BOTH the env-side ramp struct
+    # (sim_env.py) and this trainer-side ignition-gate callback below
+    # — no separate train.* on/off flag, so the two sides cannot
+    # disagree about whether the mechanism is armed.
+    _rba_gate = False
+    _rba_ramp_steps = 4_000_000
+    _rba_check_every = 500_000
+    _rba_assay_episodes = 8
+    _rba_min_progress = 0.35
+    _rba_reseed = False
+    if env_kw.get("cfg") is not None:
+        from rl_move.config import cfg_get as _cfg_get_rba
+        _rba_gate = float(_cfg_get_rba(
+            env_kw["cfg"], "goal", "walk_residual_anneal_gate",
+            default=0.0) or 0.0) > 0.0
+        if _rba_gate:
+            _rba_ramp_steps = int(float(_cfg_get_rba(
+                env_kw["cfg"], "train", "residual_anneal_ramp_steps",
+                default=4_000_000)))
+            _rba_check_every = int(float(_cfg_get_rba(
+                env_kw["cfg"], "train", "residual_anneal_check_every",
+                default=500_000)))
+            _rba_assay_episodes = int(float(_cfg_get_rba(
+                env_kw["cfg"], "train",
+                "residual_anneal_assay_episodes", default=8)))
+            _rba_min_progress = float(_cfg_get_rba(
+                env_kw["cfg"], "train", "residual_anneal_min_progress",
+                default=0.35))
+            _rba_reseed = float(_cfg_get_rba(
+                env_kw["cfg"], "train", "residual_anneal_assay_reseed",
+                default=0.0) or 0.0) > 0.0
+    # Mutable holder (not a local, so the two closures below and the
+    # callback class all see the same latch) — pass_step is None until
+    # the ignition-gate callback latches it; never un-latched.
+    _rba_state = {"pass_step": None}
+
+    def _rba_frac_at(step: int) -> float:
+        from .bc_anchor import gated_ramp_frac
+        return gated_ramp_frac(_rba_state["pass_step"], step,
+                               _rba_ramp_steps)
+
+    def _rba_apply(target_venv, step: int) -> dict | None:
+        if not _rba_gate:
+            return None
+        f = _rba_frac_at(step)
+        return target_venv.env_method("apply_residual_blend_frac", f)[0]
+
+    if _rba_gate:
+        _rba0 = _rba_apply(venv, 0)
+        print("[residual-anneal-gate] armed: held at blend="
+              f"{_rba0['blend']:.3f} until the ignition assay first "
+              f"passes (check every {_rba_check_every:,} steps, "
+              f"{_rba_assay_episodes} episodes/round, min_progress="
+              f"{_rba_min_progress:.2f}, reseed={_rba_reseed}); once "
+              f"latched, ramps to the cfg target over "
+              f"{_rba_ramp_steps:,} steps")
+
     if args.predictive_live:
         capture_indices = list(range(args.pred_capture_envs))
         venv.env_method("dynrep_capture_enable", True,
@@ -4594,6 +4659,202 @@ def main(argv: list[str] | None = None) -> int:
                             vals["excess_scale"]})
 
         callbacks.append(_LoadslipBootstrapCb())
+    if _rba_gate:
+        # See the arming block above (after venv construction) for
+        # the mechanism/why. Structurally mirrors bc_anchor.py's
+        # train.bc_anchor_anneal_gate ignition-gate callback (rung 2),
+        # ported from annealing a BC-LOSS coefficient (model.bc_coef,
+        # read by the PPO update, no env broadcast needed) to
+        # annealing an ENV-SIDE action blend (must broadcast via
+        # env_method, like every other apply_*_frac ramp above) —
+        # hence a standalone class here rather than a shared one.
+        from .walkcurr_cert import (IGNITION_GATE, aggregate_walk_probe,
+                                    failed_probe_row, ignition_gate_pass)
+
+        class _ResidualAnnealGateCb(BaseCallback):
+            """Broadcasts the live residual-blend frac every rollout
+            (held at 0 until the ignition assay first passes, then
+            ramps to 1 over _rba_ramp_steps); periodically runs a
+            dedicated deterministic MJX assay of the policy's OWN
+            (unassisted, blend=1 at construction — see _build) output
+            and latches _rba_state['pass_step'] on the first round
+            that clears the ignition gate."""
+
+            def __init__(self):
+                super().__init__()
+                self._next = int(_rba_check_every)
+                self._env = None
+                self._round = 0
+
+            def _build(self):
+                import copy as _copy
+                ek = _copy.deepcopy(env_kw)
+                cfg_d = ek.get("cfg")
+                if cfg_d is None:
+                    raise RuntimeError(
+                        "residual_anneal_gate env kwargs carry no cfg "
+                        "(env_kw missing 'cfg')")
+                cfg_d.setdefault("goal", {})["walk_probe"] = 1.0
+                # Assay the RAW policy's own unassisted quality, not
+                # whatever low blend the training envs currently sit
+                # at: force walk_residual_anneal_gate off (so this
+                # fresh env's own ramp struct never arms and
+                # _residual_blend_override stays None) and pin the
+                # plain fallback goal.walk_residual_blend to 1.0 (full
+                # raw-policy authority — the reference cancels out
+                # mathematically). goal.walk_residual_gate itself stays
+                # ON (inherited from the training cfg unchanged), so
+                # the mechanism is exercised, just mathematically
+                # inert at blend=1.0 — this is deliberately NOT the
+                # same env state the training envs are in; the gate
+                # question is "can the policy already walk on its
+                # own", not "is the current assisted mix walking".
+                cfg_d.setdefault(
+                    "goal", {})["walk_residual_anneal_gate"] = 0.0
+                cfg_d.setdefault("goal", {})["walk_residual_blend"] = 1.0
+                cert_kw = dict(vec_kw)
+                cert_kw.update(env_kwargs=ek, seed=args.seed + 838383,
+                               pool_per_env=1, desync_episodes=False)
+                n_cert = int(_rba_assay_episodes)
+                if args.host_workers > 0:
+                    from .mjx_sharded_vec_env import MjxShardedVecEnv
+                    env = MjxShardedVecEnv(
+                        env_cls, n_cert,
+                        host_workers=min(n_cert,
+                                         max(1, args.host_workers)),
+                        **cert_kw)
+                else:
+                    from .mjx_vec_env import MjxVecEnv
+                    env = MjxVecEnv(env_cls, n_cert, **cert_kw)
+                # Pure-walk isolation (same fix as bc_anchor's own rung
+                # 2 assay, 2026-09-06 NaN cmd_prog_frac dig-in — see
+                # that callback's _build docstring for the full
+                # rationale): a freshly-built assay env's goal
+                # generator otherwise draws the cfg's full goal-mode
+                # mixture, not a pure walk diet.
+                from .eval_checkpoint import ALL_MODES as _ALL_GOAL_MODES
+                pure_walk_mix = {m: 0.0 for m in _ALL_GOAL_MODES}
+                pure_walk_mix["walk"] = 1.0
+                if hasattr(env_cls, "set_goal_mix"):
+                    env.env_method("set_goal_mix", pure_walk_mix)
+                print("[residual-anneal-gate] deterministic MJX "
+                      f"ignition assay ready: {n_cert} episodes, "
+                      f"{impl or 'jax(default)'} backend, blend forced "
+                      "to 1.0 (raw policy authority), goal isolated "
+                      "to pure walk")
+                return env
+
+            def _assay(self) -> dict:
+                env = self._env
+                env.flush_reset_pools()
+                if _rba_reseed:
+                    env.seed(838383 + 10007 * self._round)
+                else:
+                    env.seed(838383)
+                self._round += 1
+                obs = env.reset()
+                n_envs = int(env.num_envs)
+                finished = np.zeros(n_envs, dtype=bool)
+                rows: list = [None] * n_envs
+                ep_start = np.ones(n_envs, dtype=bool)
+                state = None
+                horizon = int(env.get_attr("episode_steps",
+                                           indices=0)[0]) + 2
+                ticks = 0
+                while not bool(np.all(finished)):
+                    actions, state = self.model.predict(
+                        obs, state=state, episode_start=ep_start,
+                        deterministic=True)
+                    obs, _r, dones, infos = env.step(actions)
+                    ticks += 1
+                    ep_start = np.asarray(dones, dtype=bool)
+                    for i in np.flatnonzero(np.asarray(dones)
+                                            & ~finished):
+                        info = infos[int(i)]
+                        wp = info.get("walk_probe")
+                        rows[i] = (dict(wp) if wp is not None
+                                   else failed_probe_row())
+                        finished[i] = True
+                    if ticks > horizon:
+                        missing = np.flatnonzero(~finished).tolist()
+                        raise RuntimeError(
+                            "residual_anneal_gate assay exceeded the "
+                            f"episode horizon for envs {missing}")
+                return aggregate_walk_probe(rows)
+
+            def _on_step(self) -> bool:
+                return True
+
+            def _on_rollout_start(self) -> None:
+                vals = _rba_apply(venv, self.num_timesteps)
+                if run is not None:
+                    import wandb
+                    wandb.log({
+                        "global_step": self.num_timesteps,
+                        "residual_anneal/frac": vals["frac"],
+                        "residual_anneal/blend": vals["blend"],
+                        "residual_anneal/passed":
+                            float(_rba_state["pass_step"] is not None)})
+
+            def _on_rollout_end(self) -> None:
+                if _rba_state["pass_step"] is not None:
+                    return  # latched at first pass, never re-armed
+                if self.num_timesteps < self._next:
+                    return
+                self._next = ((self.num_timesteps // _rba_check_every)
+                              + 1) * _rba_check_every
+                if self._env is None:
+                    self._env = self._build()
+                t0 = time.time()
+                m = self._assay()
+                gate = dict(IGNITION_GATE)
+                gate["cmd_prog_frac_min"] = float(_rba_min_progress)
+                passed, checks = ignition_gate_pass(m, gate)
+                fails = [k for k, ok in checks.items() if not ok]
+
+                def _f(v):
+                    v = float(v) if v is not None else float("nan")
+                    return v
+                print(f"[residual-anneal-gate] gate check @ "
+                      f"{self.num_timesteps:,}: "
+                      f"{'PASS' if passed else 'FAIL ' + ','.join(fails)}"
+                      f" prog={_f(m.get('cmd_prog_frac')):.3f}"
+                      f" falls={_f(m.get('early_term_rate')):.2f}"
+                      f" contact_sw={_f(m.get('contact_sw_per_s')):.2f}"
+                      f" foot_sw_min={_f(m.get('foot_sw_min_per_s')):.2f}"
+                      f" ({time.time() - t0:.1f}s)")
+                if run is not None:
+                    import wandb
+                    payload = {
+                        "global_step": self.num_timesteps,
+                        "residual_anneal/gate_pass": float(passed)}
+                    for k in ("cmd_prog_frac", "early_term_rate",
+                             "contact_sw_per_s", "foot_sw_min_per_s"):
+                        if (m.get(k) is not None
+                                and float(m[k]) == float(m[k])):
+                            payload[f"residual_anneal/gate_{k}"] = (
+                                float(m[k]))
+                    wandb.log(payload)
+                if passed:
+                    _rba_state["pass_step"] = int(self.num_timesteps)
+                    print("[residual-anneal-gate] ignition gate "
+                          f"PASSED @ {self.num_timesteps:,} — "
+                          f"annealing blend to target over "
+                          f"{_rba_ramp_steps:,} steps from here")
+                    if run is not None:
+                        run.summary["residual_anneal_pass_step"] = (
+                            int(self.num_timesteps))
+
+            def close(self):
+                if self._env is not None:
+                    self._env.close()
+                    self._env = None
+
+            def _on_training_end(self) -> None:
+                self.close()
+
+        callbacks.append(_ResidualAnnealGateCb())
+        print("[residual-anneal-gate] callback registered")
     if args.ent_coef_final is not None:
         class _EntCoefAnnealCb(BaseCallback):
             """Linearly anneal model.ent_coef from args.ent_coef to

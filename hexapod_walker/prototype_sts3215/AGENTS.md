@@ -8,7 +8,9 @@ physical joystick walking using any effective method so physical builds
 progress now. `rl_only` targets the same result with walking learned entirely
 through RL, with no demonstrations anywhere in the policy's training lineage.
 Teacher/BC/AMP/assisted methods serve `any_means`. Both goals proceed in
-parallel; simulation or method PASS does not establish physical completion.
+parallel. Each also requires an interactive joystick sim demo, viewable video
+and reproducible launch path; report sim and physical readiness separately.
+Simulation or method PASS does not establish physical completion.
 Root `AGENTS.md` still governs observed, bounded hardware work and ownership.
 
 ## Python commands: use uv

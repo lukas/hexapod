@@ -28,8 +28,8 @@ AprilTag tracker submodule. Start with that project's `README.md` and
 `AGENTS.md`.
 
 The hexapod has [two parallel walking goals](hexapod_walker/prototype_sts3215/RL_GOALS.md):
-smooth joystick control on the physical robot by any effective means, and
-that same result with walking learned entirely through RL without
+smooth joystick control in simulation and on the physical robot by any
+effective means, and that same result with walking learned entirely through RL without
 demonstrations. The practical path keeps physical builds progressing while
 the demonstration-free research continues.
 

@@ -4,7 +4,8 @@ Small, single-purpose files so no one (human or LLM) has to dig
 through a 5,000-line log to answer a question. Each file says what
 it is for; keep them SHORT when you edit them.
 
-The two physical walking goals are defined in `../RL_GOALS.md`: progress
+The two walking goals, each demonstrated in sim and physically, are defined
+in `../RL_GOALS.md`: progress
 by any effective means, alongside walking learned entirely through RL with
 no demonstrations. Seven method tracks live in
 `../rl_move/orchestrator/tracks.json`: `joystick`, `amp`, `cpg`, `standwalk`,
@@ -13,7 +14,7 @@ Method PASS is not parent-goal completion. Superseded docs live in `../archive/`
 
 | File | What it answers | When to read |
 |------|-----------------|--------------|
-| `../RL_GOALS.md` | The two physical outcomes, demonstration boundary and priorities | Every cycle, first |
+| `../RL_GOALS.md` | The two goals, sim demos, physical evidence, demonstration boundary and priorities | Every cycle, first |
 | `../CURRENT_TRUTHS.md` | Accepted facts and run verdicts; RL_GOALS owns purpose/priorities | Every cycle |
 | `../RL_PLAN.md` | The plan for physical delivery and demonstration-free research in parallel | Every cycle |
 | `../STATUS.md` | Operator-facing digest: how it's going, what's waiting | Catching up; after any story-changing verdict (update it!) |

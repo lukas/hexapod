@@ -211,7 +211,14 @@ def install_browser_auth(
         sessions[session_key(token)] = BrowserSession(principal, now + SESSION_SECONDS)
         response = RedirectResponse(destination, status_code=303)
         # Secure also covers TLS terminated by the configured CoreWeave proxy.
-        secure = request.url.scheme == "https" or urlsplit(public_base_url).scheme == "https"
+        # Secure also covers TLS terminated by the configured CoreWeave proxy,
+        # but a plain-http sign-in on the loopback address (the lab Mac's own
+        # browser) must not get a Secure cookie: Safari drops it and the user
+        # bounces straight back to the login page.
+        loopback_http = (request.url.scheme == "http"
+                         and request.url.hostname in {"127.0.0.1", "localhost", "::1"})
+        secure = (request.url.scheme == "https"
+                  or (urlsplit(public_base_url).scheme == "https" and not loopback_http))
         response.set_cookie(COOKIE_NAME, token, httponly=True, secure=secure, samesite="lax", path="/")
         return private_response(response)
 

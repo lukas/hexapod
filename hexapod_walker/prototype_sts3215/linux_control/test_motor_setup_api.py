@@ -76,6 +76,21 @@ class SetupTests(unittest.TestCase):
         self.assertEqual(self.api.status()['assigned'], 2)
         self.assertEqual(self.api.scan()['new_ids'], [])
 
+    def test_scan_distinguishes_missing_assigned_and_new_ids(self):
+        self.api.assign(self.data)
+        self.bus.ids = [1]
+        result = self.api.scan()
+        self.assertEqual(result['new_ids'], [1])
+        self.assertEqual(result['missing_ids'], [2])
+        self.bus.ids = []
+        self.assertEqual(self.api.scan()['ids'], [])
+
+    def test_scan_transport_failure_is_not_an_empty_inventory(self):
+        self.bus.ids = []
+        self.bus.last_scan_error = 'Controller timeout'
+        with self.assertRaisesRegex(ValueError, 'Controller timeout'):
+            self.api.scan()
+
     def wiggle_bus(self):
         self.api.assign(self.data)
         self.bus.ids.append(3)

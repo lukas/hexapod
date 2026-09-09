@@ -40,6 +40,21 @@ let simFrameLastAt = 0;
 let servosArmed = false;
 let maxVx = 30, maxVy = 18, maxOmega = 0.35;
 const DEFAULT_CPG_CONTROLLER = 'cpg_controller_robust120_yawtrim_v2.json';
+let robotChoicePending = false;
+function syncRobotPicker(url){
+  const picker = $('robotpicker'), input = $('roboturl');
+  if(!picker || !input || !url || robotChoicePending) return;
+  input.value = url;
+  const normalized = url.replace(/\/$/, '');
+  // Recognize the confirmed address of hexapod and retain that working
+  // address when local hostname resolution is unavailable.
+  if(normalized === 'http://192.168.4.39:8080' || normalized === 'http://hexapod.local:8080'){
+    picker.options[0].value = normalized;
+  }
+  const known = Array.from(picker.options).find(o=>o.value === normalized);
+  picker.value = known ? known.value : 'custom';
+  input.hidden = !!known;
+}
 
 function savedRobotUrl(){
   try{ return localStorage.getItem('hexapod.robotUrl') || ''; }
@@ -190,10 +205,11 @@ function applyBackendMeta(meta){
   document.body.classList.toggle('sim-browser-frames',
     targetHasSim && simFrames);
   const robotInput = document.getElementById('roboturl');
-  if(robotInput && robotTargetUrl
+  if(robotInput && robotTargetUrl && !robotChoicePending
       && document.activeElement !== robotInput
       && robotInput.value !== robotTargetUrl)
     robotInput.value = robotTargetUrl;
+  syncRobotPicker(robotTargetUrl);
   if(!simFrames){
     const img = document.getElementById('simframe');
     if(img) img.removeAttribute('src');
@@ -1514,7 +1530,16 @@ const dbgIndex  = ()=> dbgLeg*3 + dbgAxis;
 const dbgLimits = ()=> AXIS_LIM[dbgAxis];
 
 const robotUrlInput = $('roboturl');
-if(robotUrlInput && savedRobotUrl()) robotUrlInput.value = savedRobotUrl();
+syncRobotPicker(savedRobotUrl() || robotTargetUrl || 'http://hexapod.local:8080');
+$('robotpicker').onchange = ()=>{
+  robotChoicePending = true;
+  const custom = $('robotpicker').value === 'custom';
+  robotUrlInput.hidden = !custom;
+  robotUrlInput.value = custom ? '' : $('robotpicker').value;
+  if(custom) robotUrlInput.focus();
+  paintTargetRows();
+};
+robotUrlInput.addEventListener('input', ()=>{ robotChoicePending = true; paintTargetRows(); });
 
 function paintTargetBadge(id, text, cls){
   const el = $(id);
@@ -1554,21 +1579,21 @@ function paintTargetRows(){
   paintTargetBadge('robotlinesend', targetHasRobot ? 'active' : 'idle',
     targetHasRobot ? 'route' : '');
   paintTargetBadge('robotlineconn',
-    robotTargetTransient ? 'restarting…'
-      : (robotTargetAvailable ? 'connected' : 'not connected'),
-    robotTargetTransient ? 'warn'
+    !targetHasRobot ? 'disconnected' : robotTargetTransient ? 'restarting…'
+      : (robotTargetAvailable ? 'connected' : 'unreachable'),
+    !targetHasRobot ? '' : robotTargetTransient ? 'warn'
       : (robotTargetAvailable ? 'ok' : 'bad'));
   paintTargetBadge('simlinesend', targetHasSim ? 'active' : 'idle',
     targetHasSim ? 'route' : '');
   paintTargetBadge('simlineconn',
-    simTargetAvailable ? 'connected' : 'not connected',
-    simTargetAvailable ? 'ok' : 'bad');
+    !targetHasSim ? 'disconnected' : simTargetAvailable ? 'connected' : 'unreachable',
+    !targetHasSim ? '' : simTargetAvailable ? 'ok' : 'bad');
   const rb = $('robotconnect');
   if(rb){
-    rb.textContent = !robotTargetAvailable ? 'Connect'
+    rb.textContent = robotChoicePending ? 'Connect' : !robotTargetAvailable ? 'Connect'
       : (targetHasRobot ? 'Disconnect' : 'Connect');
-    rb.classList.toggle('on', targetHasRobot);
-    rb.title = targetHasRobot
+    rb.classList.toggle('on', targetHasRobot && !robotChoicePending);
+    rb.title = robotChoicePending ? 'Connect to the selected robot' : targetHasRobot
       ? 'Disconnect Robot from this web UI; MuJoCo stays active if connected'
       : 'Connect this laptop web UI to the real robot web server';
   }
@@ -1607,6 +1632,7 @@ async function connectRobotTarget(nextTarget){
       body: JSON.stringify({robot_url:url, target:nextTarget || 'robot'})});
     const d = await r.json().catch(()=>({ok:false, error:'bad response'}));
     if(!r.ok) throw new Error(d.error || 'connect failed');
+    if(d.ok) robotChoicePending = false;
     applyBackendMeta(d);
     setArmed(false);
     const resolved = d.targets && d.targets.robot && d.targets.robot.url;
@@ -1645,6 +1671,7 @@ async function setHubTarget(target){
       body: JSON.stringify(body)});
     const d = await r.json();
     if(!d.ok) throw new Error(d.error || 'target switch failed');
+    robotChoicePending = false;
     applyBackendMeta(d);
     if(target === 'robot' || target === 'both') clearTargetLineMsg('robot');
     if(target === 'sim' || target === 'both') clearTargetLineMsg('sim');
@@ -1676,6 +1703,7 @@ function targetWithout(which){
   return '';
 }
 async function toggleRobotTarget(){
+  if(robotChoicePending) return await connectRobotTarget(targetWith('robot'));
   if(targetHasRobot){
     const next = targetWithout('robot');
     if(!next){
@@ -1702,7 +1730,7 @@ if($('robotconnect')) $('robotconnect').onclick =
 if($('simconnect')) $('simconnect').onclick =
   ()=> toggleSimTarget();
 if($('roboturl')) $('roboturl').addEventListener('keydown', e=>{
-  if(e.key === 'Enter' && !targetHasRobot) toggleRobotTarget();
+  if(e.key === 'Enter' && (!targetHasRobot || robotChoicePending)) toggleRobotTarget();
 });
 
 async function ensureDemoTarget(item){
@@ -1856,17 +1884,27 @@ async function setupLoad(){
   } catch(e){ motorSetupCount = null; motorSetupError = e.message; updateSetupGate(); $('setup-result').textContent = e.message; }
 }
 $('setup-joint').onchange = ()=> { $('setup-replace').checked = false; };
+function setupScanSummary(data){
+  const ids = data.ids, fresh = data.new_ids;
+  let message = ids.length
+    ? ids.length+' motor IDs responded: '+ids.join(', ')+'. '
+    : 'No motors responded in the scanned range (IDs 1–30). ';
+  if(fresh.length === 1) message += '1 new motor: ID '+fresh[0]+'. Choose its joint and assign it.';
+  else if(fresh.length > 1) message += fresh.length+' unassigned IDs: '+fresh.join(', ')+'. Add one new motor at a time.';
+  else if(ids.length) message += 'No new motor found; all responding IDs are already assigned. If you added a motor, it may share an existing ID or may not be responding. Scan it alone to check its ID.';
+  else message += 'Check motor power and the data cable from the controller to the first motor. The scan cannot identify the exact cause; a disconnected chain, ID conflict, or an ID outside this range can also prevent detection.';
+  if(data.missing_ids && data.missing_ids.length)
+    message += ' Saved IDs not responding: '+data.missing_ids.join(', ')+'. Saved assignments do not prove a motor is connected.';
+  return message;
+}
 $('setup-scan').onclick = async ()=>{
   setupBusy = true; setupSource = null; setupButtons();
   $('setup-detected').textContent = 'Scanning…';
   try {
     const data = await setupRequest('/api/setup/scan', {});
     setupSource = data.single ? data.new_ids[0] : null;
-    $('setup-detected').textContent = data.single ? 'New motor detected: ID '+setupSource+' ('+(data.ids.length-1)+' assigned motors connected)' :
-      data.new_ids.length > 1 ? 'Multiple new motors detected ('+data.new_ids.join(', ')+'). Add one new motor at a time; assigned motors can stay connected.' :
-      data.ids.length ? 'All connected motors are assigned. Add the next motor and scan again.' :
-      'No motor answered. Check motor power, data cable and bus connection, then rescan.';
-  } catch(e){ $('setup-detected').textContent = e.message; }
+    $('setup-detected').textContent = setupScanSummary(data);
+  } catch(e){ $('setup-detected').textContent = 'Scan failed — motor presence is unknown. '+e.message; }
   finally {setupBusy = false; setupButtons();}
 };
 $('setup-assign').onclick = async ()=>{

@@ -178,6 +178,8 @@ _PROMOTED = [
     "ppo_goal_cw_walk_wander30",
     "ppo_goal_cw_walk_slow2",
     "ppo_goal_cw_walk_anchorgate",
+    "ppo_goal_cw_walkscratch_crutchoff_s0_widen8_legdutyratio_"
+    "swinggap_dose10_plusduty_acq1_cont10m",
 ]
 
 # Default picker contents: a TOP-TEN (operator request 08-18) — the
@@ -208,6 +210,14 @@ _CURATED = {
     # dep-contract 16-frame memory walker — joystick-gated, slip in
     # the on-robot vref1 band, "a real hardware-ladder rung"
     "ppo_goal_cw_arch_hist16_dep1_c1",
+    # walkcurr `rl_only` recipe-default champion (09-09): the ONLY
+    # walk-group entry here trained with no BC/AMP/motion-prior
+    # anywhere in its lineage (tracks.json `rl_only` contract) — every
+    # other walk row above learned from a demonstrated/scripted gait.
+    # Added so the sim_viewer picker can select it without --all-models
+    # or a hand-typed path (RL_GOALS.md sim-demo requirement).
+    "ppo_goal_cw_walkscratch_crutchoff_s0_widen8_legdutyratio_"
+    "swinggap_dose10_plusduty_acq1_cont10m",
 }
 
 
@@ -308,6 +318,9 @@ _DESC = {
         "NEW one GRU brain for rise+walk+sit (rise still shaky)",
     "ppo_goal_cw_dep_bcgait4_phasedir9_longrun17":
         "phase-BC directions; RL low-slip forward",
+    "ppo_goal_cw_walkscratch_crutchoff_s0_widen8_legdutyratio_"
+    "swinggap_dose10_plusduty_acq1_cont10m":
+        "rl_only (no demo): clean forward; sideways/back drop a leg",
     "ppo_goal_cw_recover_any21_pop3_B14":
         "gets up from sprawls/tangles/belly (R key runs it)",
 }

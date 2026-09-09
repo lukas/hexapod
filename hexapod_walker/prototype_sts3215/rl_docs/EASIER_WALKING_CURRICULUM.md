@@ -1,5 +1,14 @@
 # Easier walking curriculum — operator directive (2026-09-03)
 
+## Parent goal (operator clarification, 2026-09-08)
+
+This `assistfade` method serves **Goal 1 (`any_means`)** in `../RL_GOALS.md`.
+Its BC/teacher/residual-assisted lineages do not qualify for demonstration-free
+Goal 2, even after assistance is removed. Goal 2 proceeds independently through
+clean RL in `walkcurr`. Historical rung verdicts below are unchanged; this
+scope clarification does not reopen them. This method's simulation-only
+boundary does not block Goal 1's separate physical work through Robot Lab.
+
 ## Decision
 
 Reopen the walking-discovery question as a new pragmatic curriculum. Do not
@@ -40,7 +49,7 @@ rung after a clear aligned failure.
    reference amplitude. Keep gait phase observable.
 4. **Phase/contact only:** already failed under the prior reward stack. Revisit
    only after a successful assisted rung supplies an explicit reverse
-   curriculum and matched intermediate-state semantics bank.
+   curriculum and matched run-based mechanism evidence.
 5. **Raw-joint prior-free PPO:** retired negative result; not a launch target.
 
 ## First unproven canary
@@ -84,9 +93,10 @@ fixed headings, command changes/stops, yaw, then DR/pushes.
 
 ## Process requirements
 
-- Build an intermediate-state semantics bank before any new reward mechanism:
-  weight shift, one useful lift, one forward placement, one support transition,
-  two steps then fall, static stand, and clean gait.
+- Use run-based reward decomposition, video and held-out eval evidence for
+  new reward mechanisms, per `../RESEARCH_RULES.md`. Inspect weight shift,
+  lift, placement, support transition and failure modes when relevant;
+  do not recreate rollout-ranking unit-test banks.
 - Use matched controls and seed replication.
 - Judge video and held-out behavior above training return.
 - Keep this simulation-only; do not move or command the physical robot.

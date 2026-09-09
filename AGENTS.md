@@ -1,5 +1,18 @@
 # Agent conventions — hexapod
 
+## Two parallel walking goals
+
+[RL_GOALS.md](hexapod_walker/prototype_sts3215/RL_GOALS.md) is canonical for
+purpose and priorities (Lukas, 2026-09-08): (1) smooth joystick walking on the
+physical robot by any effective means, to advance physical builds now;
+(2) the same physical outcome with walking learned entirely through RL and
+no demonstrations anywhere in its training lineage. BC/AMP/teacher-assisted
+methods belong to the first goal even when assistance is later removed.
+Run both in parallel. Method/simulation gates are milestones, not physical
+goal completion; do not require every method or one monolithic policy to
+succeed before delivering useful walking. Preserve budgets, evidence and
+hardware observation/ownership rules below.
+
 ## MCP and Git: standing authorization
 
 Lukas authorizes routine MCP calls and Git commands needed to complete the

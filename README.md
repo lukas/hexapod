@@ -27,6 +27,12 @@ The current robot is
 AprilTag tracker submodule. Start with that project's `README.md` and
 `AGENTS.md`.
 
+The hexapod has [two parallel walking goals](hexapod_walker/prototype_sts3215/RL_GOALS.md):
+smooth joystick control on the physical robot by any effective means, and
+that same result with walking learned entirely through RL without
+demonstrations. The practical path keeps physical builds progressing while
+the demonstration-free research continues.
+
 `pyproject.toml` and `uv.lock` at the repository root define the ONE Python
 environment for the whole repo: `uv sync` creates `.venv`, and `uv run ...`
 uses it from any directory. The prototype packages are installed editable,

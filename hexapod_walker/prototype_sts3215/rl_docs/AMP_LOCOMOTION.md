@@ -4,6 +4,15 @@ Operator brief, adopted 2026-08-21 as the `amp` track's charter
 (source: `hexapod_amp_rl_cursor_brief.md`). Track status lives in
 `rl_docs/tracks/amp/STATUS.md`.
 
+## Parent goal (operator clarification, 2026-09-08)
+
+AMP is a demonstration-assisted method serving **Goal 1 (`any_means`)** in
+`../RL_GOALS.md`. Random initialization does not make its motion-prior
+training demonstration-free. It cannot establish Goal 2 (`rl_only`).
+This charter defines method milestones; its pipeline is one optional route
+to physical joystick walking, not an exclusive campaign priority or a
+prerequisite for practical physical delivery. Historical results stay intact.
+
 ## Repo adaptation (operator, 2026-08-21 — binding deltas to the brief)
 
 The brief below is binding, with exactly these adaptations:
@@ -24,7 +33,8 @@ The brief below is binding, with exactly these adaptations:
   CPU MuJoCo eval harness (`rl_move/sim/eval_checkpoint.py` path),
   which is a genuinely independent contact/integration path from MJX.
 - **Milestone M6 (hardware)** is delegated to Robot Lab's serialized guarded
-  runner: the cloud RL track is DONE at M5 (MuJoCo transfer) and never controls
+  runner: M5 (MuJoCo transfer) completes the cloud method milestone, not
+  the parent goal's physical acceptance. The cloud cycle never controls
   the physical robot directly. Robot Lab uses standing campaign authority,
   live camera, fresh telemetry, and a remote abort path.
 - **Status output (§18):** write to `rl_docs/tracks/amp/STATUS.md`
@@ -36,9 +46,11 @@ The brief below is binding, with exactly these adaptations:
 
 ## Directive to Cursor
 
-Implement the locomotion program described below as the new primary research line for the 18-DOF hexapod.
+Use the locomotion program below as the AMP method within Goal 1 when its evidence supports the next physical-walking improvement; allocation follows `../RL_PLAN.md`.
 
-Do **not** continue the existing pattern of broad reward sweeps, forward-only PPO specialists, slip-gate optimization, or stand/walk choreography work unless it directly supports this program.
+Within AMP, pursue reward, specialist-policy or stand/walk work only when
+it directly supports this method. This restriction does not govern the
+other Goal 1 methods or Goal 2's demonstration-free RL research.
 
 The target is not merely a gait that avoids falling. The target is one learned policy that:
 
@@ -774,9 +786,11 @@ Hardware damage risk is accepted, but software limits must still prevent obvious
 
 ---
 
-## 14. What to Stop Doing
+## 14. What to Stop Doing Within AMP
 
-Stop spending primary research time on:
+The following exclusions apply to AMP's method scope. They do not prohibit
+Goal 2's task-reward RL or independent Goal 1 delivery. Within AMP, stop
+spending research time on:
 
 - raw PPO from random initialization with only task rewards;
 - slip-reward coefficient sweeps;
@@ -950,7 +964,8 @@ Execute in this order:
 12. Export the actor and run the fixed MuJoCo cross-engine suite.
 13. Integrate the deployment runtime with the AK40 control layer.
 
-Do not branch into additional research tracks until M2 either succeeds or fails with a concrete, instrumented diagnosis.
+Within AMP work, diagnose M2 before adding research branches to this method.
+This sequencing does not pause the other Goal 1 methods or Goal 2.
 
 ---
 

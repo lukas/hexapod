@@ -374,13 +374,37 @@ receipts.
 
 Only a physical analysis with `safety_disposition: stop` latches the whole
 advancement queue. `needs_inspection` parks the scoped plan, and simulation-only
-analysis cannot stop the hardware lane. The hardware runner may inspect the live
-camera, three fresh motor samples, and evidence, then resume the queue itself
-with an audited reason when they establish a normal state. A human can use the
+analysis cannot stop the hardware lane. A supervised recovery task may inspect
+the live camera, three fresh motor samples, and evidence, then resume the queue
+with an audited reason when they establish a normal state. Paused hardware jobs
+cannot launch themselves to perform that recovery. A human can use the
 same dashboard control when hands-on correction was actually necessary. The REST equivalent is
 `POST /api/codex-queue/resume` with `X-Hexapod-Lab: 1`, a nonblank reason, and
 `robot_inspected: true`; MCP exposes `get_robot_status`, `get_queue_controls`,
 `resume_codex_queue`, `resume_runner_safety`, and `report_execution_progress`.
+
+The durable queue pause also gates hardware-capable engineering work. Claiming
+and checking pause happen in one database transaction; paused hardware jobs keep
+their queue position and attempt budget. Explicit offline jobs remain runnable.
+Each claim records the queue-control sequence. Before provider launch and during
+execution, the supervisor verifies the exact lease and checks for any later
+pause, including a pause followed quickly by resume. Cancellation of the assigned
+plan revokes an execution attempt too; already-terminal evidence-only work can
+still finish its receipt.
+
+An interrupted worker's owned process group is stopped and verified absent
+before its lease is released. If execution may have begun, the same job is parked
+with its remaining attempt budget and a completion-only continuation; a newer
+audited resume is required and cannot license replaying motion. Known unstarted
+attempts are returned to the queue without consuming an attempt; any preparation
+files are archived separately. Failed process cleanup retains the running lease
+and stops the affected worker lane, even if saving its evidence also fails.
+Queue pause is not a robot emergency stop: already-issued robot commands still
+use the controller's bounded execution and documented abort/recovery path.
+
+The queue-control migration is additive. Legacy active hardware attempts without
+a recorded claim sequence fail closed. Installing this code does not enable a
+supervisor, clear a queue pause, or resume the robot.
 
 | Variable | Default | Meaning |
 |---|---:|---|

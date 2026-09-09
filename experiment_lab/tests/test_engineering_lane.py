@@ -1408,6 +1408,9 @@ def test_engineering_invoke_uses_real_workspace_tools_environment_and_timeout(
     monkeypatch.setenv("KUBECONFIG", "/tmp/hardware-kubeconfig")
     settings = configured(tmp_path, workspace, codex_bin=Path("/opt/codex"))
     orchestrator = CodexOrchestrator(Store(tmp_path / "lab.sqlite3"), settings)
+    # This transport fixture supplies synthetic IDs; durable pause/lease
+    # admission is exercised with real jobs in test_lab_engineering_pause_*.
+    monkeypatch.setattr(orchestrator.engineering, "execution_revocation_reason", lambda *_a: None)
     monkeypatch.setattr(orchestrator, "_finalize_transcript", lambda *_a, **_k: None)
 
     result = orchestrator._invoke(

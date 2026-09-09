@@ -203,6 +203,8 @@ def test_hardware_invoke_brackets_process_but_offline_invoke_does_not(
         codex_transcript_max_capture_bytes=128 * 1024,
     )
     orchestrator = CodexOrchestrator(Store(tmp_path / "lab.sqlite3"), settings)
+    # Synthetic transport IDs: real leased pause admission has separate coverage.
+    monkeypatch.setattr(orchestrator.engineering, "execution_revocation_reason", lambda *_a: None)
     monkeypatch.setattr(
         orchestrator,
         "_robot_telemetry_url",
@@ -299,6 +301,7 @@ def test_popen_failure_closes_hardware_capture_before_finishing_intent(
         Store(tmp_path / "lab.sqlite3"),
         configured(tmp_path, codex_engineering_workdir=workspace),
     )
+    monkeypatch.setattr(orchestrator.engineering, "execution_revocation_reason", lambda *_a: None)
     monkeypatch.setattr(
         orchestrator,
         "_robot_telemetry_url",
@@ -384,6 +387,8 @@ def test_engineering_child_artifact_can_exceed_bounded_transcript_archive(
         lambda *args, **kwargs: receipts.append((args, kwargs)),
     )
     orchestrator = CodexOrchestrator(store, settings)
+    # This test owns artifact/transport limits, not durable job admission.
+    monkeypatch.setattr(orchestrator.engineering, "execution_revocation_reason", lambda *_a: None)
     result = orchestrator._invoke(
         "engineering",
         {"id": "artifact-limit-job", "attempts": 1},

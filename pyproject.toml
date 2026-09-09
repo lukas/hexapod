@@ -72,6 +72,8 @@ dependencies = [
 dev = [
     "pytest>=8",
     "pytest-xdist>=3.6",      # `uv run pytest -n auto` parallel runs
+    "hexapod-lab",           # test Lab control/queue invariants in the shared env
+    "httpx>=0.27,<1",         # FastAPI TestClient for Lab regression checks
 ]
 # MJX / JAX physics backend (rl_move.sim.mjx_backend, bench_mjx, MJX parity
 # tests). CPU JAX here; CUDA pods install jax[cuda12] + mujoco-warp themselves.
@@ -97,6 +99,7 @@ default-groups = ["dev"]
 # The vision system is its own repo, vendored as a git submodule
 # (`git submodule update --init`). Editable so edits there are live.
 hexapod-tracker = { path = "hexapod_walker/prototype_sts3215/hexapod-tracker", editable = true }
+hexapod-lab = { path = "experiment_lab", editable = true }
 
 [build-system]
 requires = ["hatchling"]

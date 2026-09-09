@@ -8,7 +8,10 @@ physical robot by any effective means, to advance physical builds now;
 (2) the same physical outcome with walking learned entirely through RL and
 no demonstrations anywhere in its training lineage. BC/AMP/teacher-assisted
 methods belong to the first goal even when assistance is later removed.
-Run both in parallel. Method/simulation gates are milestones, not physical
+Both goals must also be shown working in simulation: provide an interactive
+joystick demo, a viewable video and a reproducible launch path for each,
+following `RL_GOALS.md`. Report sim and hardware readiness independently.
+Run both goals in parallel. Method/simulation gates do not establish physical
 goal completion; do not require every method or one monolithic policy to
 succeed before delivering useful walking. Preserve budgets, evidence and
 hardware observation/ownership rules below.

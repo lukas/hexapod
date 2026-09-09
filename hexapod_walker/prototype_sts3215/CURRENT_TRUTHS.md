@@ -206,7 +206,8 @@ change walkcurr's separate prior-free evidence or the formal ledger.
 
 ## Mission
 
-Two parallel physical outcomes are defined in `RL_GOALS.md` (2026-09-08):
+Two parallel goals, each with sim and physical deliverables, are defined in
+`RL_GOALS.md` (2026-09-08):
 
 - `any_means`: smooth physical joystick walking by any effective means, to
   advance physical builds now. Methods: `joystick`, `amp`, `cpg`, `standwalk`,
@@ -219,7 +220,9 @@ The seven stable method IDs and parent mappings live in
 scripted-gait assistance still belongs to `any_means`. Physical delivery and
 clean RL research proceed in parallel; neither requires every method green.
 Historical method gates/verdicts below remain evidence, not a claim of either
-parent goal's physical completion. This clarification does not reopen closed
+parent goal's completion. Each goal also requires its own interactive joystick
+sim demo and viewable video; record sim and physical readiness separately.
+This clarification does not reopen closed
 recipes. Out-of-scope operator runs get honest triage but no agent follow-ups.
 
 ## Today Answer

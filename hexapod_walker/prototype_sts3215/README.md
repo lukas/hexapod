@@ -2,7 +2,8 @@
 
 Tabletop 3D-printed hexapod driven by Feetech STS3215 bus servos and an
 Arduino Uno Q. We pursue [two goals in parallel](RL_GOALS.md): smooth
-physical joystick walking by any effective means, and the same outcome with
+joystick walking in simulation and on the physical robot by any effective
+means, and the same outcome with
 walking learned entirely through RL, without demonstrations. The first path
 keeps physical builds progressing while the harder research continues.
 
@@ -14,6 +15,7 @@ point for the one you're working on:
 | Design/print/assemble the robot (CAD, BOM) | [`PROTOTYPE.md`](PROTOTYPE.md) |
 | Run the physical robot (firmware, control, safety) | `firmware/`, `linux_control/`, `rl_move/API.md` — **read the hardware-safety rules in the repo root `AGENTS.md` first** |
 | Train it in simulation (RL campaign + autonomous agent loop) | [`RL_GOALS.md`](RL_GOALS.md) — the two goals in plain English; then [`rl_docs/README.md`](rl_docs/README.md) (doc index), `RL_PLAN.md`, `RL_LOG.md` |
+| See and steer either goal in simulation | [`sim_viewer/README.md`](sim_viewer/README.md) — viewer/joystick controls; verify the selected policy and configuration against the goal's demo evidence |
 | Track it with cameras and AprilTags | [`hexapod-tracker/README.md`](hexapod-tracker/README.md) — standalone submodule with its own package, configs, UI, tests, and agent instructions |
 
 ## Status URLs

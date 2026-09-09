@@ -333,6 +333,23 @@ function showErr(line){
   if(errbarEl.style.display !== 'flex')
     errbarEl.style.display = 'flex';
 }
+// The toasts are position:fixed and must clear the sticky header. Its height
+// changes with viewport width and status text, so measure it instead of
+// hard-coding an offset (the old 128px slot overlapped the header on
+// narrow windows).
+(()=>{
+  const header = document.querySelector('header');
+  if(!header) return;
+  const apply = ()=>{
+    document.documentElement.style.setProperty(
+      '--header-h', Math.ceil(header.getBoundingClientRect().height)+'px');
+  };
+  apply();
+  if(typeof ResizeObserver === 'function')
+    new ResizeObserver(apply).observe(header);
+  else
+    window.addEventListener('resize', apply);
+})();
 document.getElementById('errbar-close').onclick =
   ()=>{ errbarEl.style.display = 'none'; };
 document.getElementById('errbar-copy').onclick = async ()=>{
@@ -357,7 +374,8 @@ document.getElementById('statuscopy').onclick = async ()=>{
     'robot: '+document.getElementById('robotact').textContent];
   const gpT = (gpEl.getAttribute('aria-label') || gpEl.title || gpEl.textContent).trim();
   if(gpT) parts.push('controller: '+gpT);
-  const sentT = sentEl.textContent.trim();
+  const sentT = (sentEl.classList.contains('bad') && sentEl.title
+    ? sentEl.title : sentEl.textContent).trim();
   if(sentT) parts.push('last: '+sentT);
   const rconT = (document.getElementById('rcon-lines')?.innerText || '').trim();
   if(rconT) parts.push('robot console:\n'+rconT);
@@ -377,16 +395,24 @@ function isOkReceipt(line){
   return /received\s+—.*\bOK\b/i.test(String(line || ''));
 }
 function showSent(line, isErr){
-  sentEl.textContent = line;
   const text = String(line || '');
   const looksBad = /refus|fail|error|not ready|missing|timeout|no bus|unknown|denied|abort/i
     .test(text);
   const bad = !!(isErr || (looksBad && !isOkReceipt(text)));
   sentEl.classList.toggle('bad', bad);
-  if(bad)
+  if(bad){
+    // Show the full error ONCE, in the copyable toast. The header line is a
+    // single truncated row, so it only keeps a short marker (full text in
+    // its tooltip) instead of an unreadable duplicate.
+    sentEl.textContent = 'error \u2014 see message below';
+    sentEl.title = text;
     showErr(line);
-  else if(isOkReceipt(text) && isOkReceipt(errbarText.textContent))
-    errbarEl.style.display = 'none';
+  } else {
+    sentEl.textContent = line;
+    sentEl.title = '';
+    if(isOkReceipt(text) && isOkReceipt(errbarText.textContent))
+      errbarEl.style.display = 'none';
+  }
 }
 
 // Sticky robot console: small, always-visible breadcrumbs from the robot's

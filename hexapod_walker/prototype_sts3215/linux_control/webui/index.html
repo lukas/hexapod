@@ -124,13 +124,15 @@
     <p>If the central server runs on a different computer, open its address and choose Vision there.</p>
   </div></div>
 
-  <div id="offlinebar">● Lost connection to Uno Q — retrying…</div>
-  <div id="errbar" style="display:none">
-    <span id="errbar-text"></span>
-    <button id="errbar-copy" title="Copy the error text">Copy</button>
-    <a id="errbar-log" href="/api/errors?n=50" target="_blank"
-       title="Recent errors as JSON (also: /api/events, /api/logs)">history</a>
-    <button id="errbar-close" title="Dismiss">✕</button>
+  <div id="toasts">
+    <div id="offlinebar">● Lost connection to Uno Q — retrying…</div>
+    <div id="errbar" style="display:none" role="alert">
+      <span id="errbar-text"></span>
+      <button id="errbar-copy" title="Copy the error text">Copy</button>
+      <a id="errbar-log" href="/api/errors?n=50" target="_blank"
+         title="Recent errors as JSON (also: /api/events, /api/logs)">history</a>
+      <button id="errbar-close" title="Dismiss">✕</button>
+    </div>
   </div>
   <div id="view-setup" class="view">
     <div class="pad">

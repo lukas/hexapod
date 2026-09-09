@@ -1,5 +1,83 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## `rl_only` sim-demo champion FAILS the joystick track's own formal randomized DONE-gate arithmetic, dominated by slip (>3x band), not falls or gait validity (2026-09-09 ~23:5x, zero spend, re-read of an existing panel)
+
+The widen8/crutchoff `cont10m` champion (the `rl_only` sim-demo candidate
+named in `STATUS.md`) had never been judged against the joystick track's
+own `eval_joystick_gate.aggregate_gate` zero-falls/slip-cap/direction-
+margin arithmetic (only an older, now-superseded lineage got this check,
+09-06). Ran it for free via `--from-report` against the champion's own
+already-collected 24-episode acquisition-milestone gate report (no fresh
+simulation, no GPU/pod spend). **Result: FAIL** —
+`checks={zero_falls:True, slip_ok:False, dir_ok:False,
+gait_valid_all:False}`, `gait_valid_frac=0.917` (22/24). Zero falls and
+gait validity are close to clean; the FAIL is dominated by **slip/m
+median 9.522 vs the 2.9 teacher-band cap (>3x over)**, with direction
+also missing on both the tick metric (52.58° vs 40° allow) and the
+windowed-1s course metric (29.71° vs 12° allow) — though the direction
+read mixes fixed/pinned-heading episodes rather than a randomized
+joystick session, so it is a looser cross-lineage comparison than the
+slip number. This does not change any already-settled acquisition/
+durability verdict (different, looser bars) and does not reopen the
+separately-closed off-axis-heading front-pair sacrifice question (a
+narrower axis than aggregate slip). It DOES sharpen the honest state of
+the `rl_only` sim-demo: the existing drivevideo captures remain real
+evidence for the interactive-launch-path requirement, but a literal pass
+of the joystick track's own quantitative randomized-session gate is not
+yet established, and slip (not direction or falls) is the dominant
+remaining gap. A slip-reduction mechanism is a genuinely new question
+(the champion's existing per-leg charges target utilization fairness,
+not raw slip magnitude) needing its own design/bank pass — not built
+this cycle to avoid a rushed guess. Evidence: `logs/ckpt_eval/
+cw_walkscratch_crutchoff_s0_widen8_legdutyratio_swinggap_dose10_
+plusduty_acq1_cont10m_contextualgate{,_w1s}/gate_verdict.json`;
+`rl_docs/tracks/walkcurr/STATUS.md` 2026-09-09 ~23:5x entry.
+
+## `rl_only` off-axis-heading leg-sacrifice repair: the reward-price class' last untested cell (dose-corrected sum-aggregation) is ALSO CLOSED, 2/2 seeds — ALL FOUR named mechanism classes (termination, price, exposure/PPO-loss, critic) are now closed (2026-09-09 ~23:4x)
+
+Sum-aggregating the per-leg duty-ratio charge across all six legs (instead
+of pricing only the worst/MIN leg) had previously collapsed training by an
+order of magnitude at charge=150 purely from a reward-scale ceiling issue
+(6x MIN mode's ceiling); the ~05:4x closure named the unexecuted fix
+(dose it down ~1/6 to match MIN's own ceiling) but nobody had run it.
+This cycle read the dose-corrected retry
+(`cw-walkscratch-crutchoff-{s0,s1}-widen8-legdutyratio-sumagg-dose25-alone`,
+charge 150->25, `25*0.30*6=45` matching MIN mode's own `150*0.30=45`
+ceiling exactly). **Mechanism-health PASSES 2/2 seeds**: reward stays
+bounded (quarters `[55.4,107.1,-54.0,-686.4]` / `[52.5,127.8,-48.3,
+-580.0]`, both within the same order of magnitude as the ~-160 MIN-mode
+floor, not the 10x+ blowout dose150/sumagg showed), 0 falls both seeds.
+**Efficacy FAILS 2/2 seeds, decisively**: read at the identical 2M-step
+budget/lineage/seed-index against the sibling MIN-mode dose10-plusduty
+canary, MIN mode scores `walk/det` gait_valid **6/6 with zero sacrificed
+legs in any episode** in both seeds, while the dose-corrected sum-agg
+runs score **4/6 with the SAME leg sacrificed in the SAME episodes as the
+untouched `widen8-acq1` baseline** (s1: byte-identical sac fingerprint,
+ep0 sac[5]/ep5 sac[0,5], to the parent that has no duty-ratio charge at
+all) — pricing every starved leg instead of just the worst produces zero
+measurable behavior change and is strictly worse than the already-adopted
+MIN-mode recipe. **This closes the entire reward-price mechanism class**
+(duty-ratio MIN mode, load-slip, swing-gap, and now sum-aggregation — all
+recalibrated-and-read, none repairs the sacrifice beyond what MIN-mode's
+already-shipped recipe achieves). Combined with the exposure/batch-
+composition axis (5 mechanisms, CURRENT_TRUTHS ~20:3x), the PPO-
+advantage-normalization lever (~21:3x), and the value-calibration angle
+(~22:3x/~22:1x), **all four independently-named mechanism classes
+(termination, price, exposure/PPO-loss, critic) for the chronic off-axis-
+heading front-pair (leg0/leg5) leg sacrifice are now closed.** Reopening
+this sub-question needs a genuinely new structural idea; none is
+currently named. Practical impact: none on current delivery — the
+champion checkpoint (widen8/crutchoff `cont10m`) is untouched, MIN-mode
+duty-ratio charge stays the shipped default, and the already-captured
+`rl_only` sim demo already labels this limitation. Evidence: `ops.sh
+entry cw-walkscratch-crutchoff-{s0,s1}-widen8-legdutyratio-sumagg-dose25-
+alone`, `ops.sh report cw-walkscratch-crutchoff-{s0,s1}-widen8-
+legdutyratio-swinggap-dose10-plusduty` (MIN-mode matched-budget
+comparator), `ops.sh report cw-walkscratch-easy0905-headset-crossgrav-
+medhead-dr-allaxis-nokick-crutchoff-{s0,s1}-widen8-acq1` (untouched
+baseline), W&B `5sw3ra8b`/`htk48exl`, `rl_docs/tracks/walkcurr/STATUS.md`
+2026-09-09 ~23:4x entry.
+
 ## `rl_only` off-axis-heading leg-sacrifice repair: a value(critic)-vs-realized-return diagnostic was built and run — result is real but INCONCLUSIVE, dominated by a full-pin-episode reward-scale/OOD artifact, so it does NOT license a critic-recalibration mechanism yet (2026-09-09 ~22:1x)
 
 With every named mechanism (exposure/composition x5, PPO-advantage-norm)

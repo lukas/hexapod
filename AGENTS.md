@@ -155,7 +155,57 @@ rollout-ranking bank (`test_task_semantics.py`) was retired on
 `make -C hexapod_walker/prototype_sts3215 test-fast` (parallel, skips
 slow) and the whole suite with `make ... test`.
 
-## BuildViz: two-port convention (5183 central, 5173 dev)
+## BuildViz: semantic catalog and shared hubs
+
+Start with MCP **`list_catalog({collection:"hexapods"})`**, then
+**`get_catalog_item({id:"..."})`**, before choosing or creating a build.
+The catalog organizes persistent robots, assemblies, studies, and saved views;
+old build IDs, branches, and versions remain their source addresses. CLI
+fallback: `buildviz catalog list --collection hexapods --json` and
+`buildviz catalog show <id>`. Read the returned source and children rather than
+inferring identity from an old project name or the number of versions.
+
+The three main robot entries on the cloud hub are:
+
+- [Hexapod 1 — original STS](https://buildviz.cwd1f0-new-cluster.coreweave.app/?catalog=hexapod-1)
+  (`hexapod-1`): original RobotLab STS assembly. Its as-built reference is pinned
+  to `prototype_sts3215/hexapod-v1`, branch `main`, version
+  `2026-08-07-f9c91cf`; later design revisions are separate.
+- [Hexapod 2 — STS](https://buildviz.cwd1f0-new-cluster.coreweave.app/?catalog=hexapod-2)
+  (`hexapod-2`): the second built robot. Its association with the main
+  `prototype_sts3215` source is **provisional**, and its exact installed
+  revision is unrecorded. The old bundled `buildviz/hexapod-2` scene is not
+  evidence of this physical robot's identity.
+- [Next hexapod — metal C-clamps](https://buildviz.cwd1f0-new-cluster.coreweave.app/?catalog=hexapod-metal)
+  (`hexapod-metal`): planned purchased-56-mm-bracket build, sourced from
+  `prototype_sts3215/premade-chorn-56`. Custom CNC overhead and split-clamp
+  alternatives remain studies beneath this robot.
+
+Catalog discipline for every agent:
+
+- Use **`create_view`** for an inspection selection of existing geometry,
+  pinned to an exact source branch and revision. Select actual instance IDs
+  or part types. Showing a chassis or leg by itself does not create another
+  robot, build, or experimental branch; an assembly can select components
+  from the same full-robot snapshot without copying geometry.
+- Use **`publish_revision`** for geometry changes under the existing robot or
+  component identity. Classify geometry alternatives, fit coupons, loading
+  setups, and comparisons as **studies**, with an explicit parent. A study
+  can display a whole robot without becoming a physical-robot entry.
+- Every new revision needs a **one- or two-sentence message** stating what
+  changed and why when the reason is known. Preserve original messages and
+  publication times; mark reconstructed notes retrospective. A view-only
+  change belongs to its saved view, not the mechanical revision history.
+- Keep current CAD `source` separate from **`asBuilt`**. Record installed
+  hardware only from evidence; pin as-built and named milestone references.
+  Do not infer installation from the latest scene, a design label, or a
+  version number. Version numbers have been reused; use recorded timestamps
+  and messages to understand sequence.
+- Preserve old source IDs, branches, histories, and URLs. Archive obsolete
+  catalog entries instead of deleting their source histories. Reuse the
+  catalog identity when publishing to an existing source.
+
+### Two-port convention (5183 central, 5173 dev)
 
 BuildViz uses exactly **two** fixed ports. Never start a server on any other
 (random) port.
@@ -190,7 +240,7 @@ Rules:
   ```sh
   npx buildviz register <build-dir> --project <project> --build <build>
   # or send a scene.json layout straight to the hub:
-  npx buildviz push --project <project> --build <build> --version main --scene scene.json
+  npx buildviz push --project <project> --build <build> --version main --scene scene.json -m "Describe the mechanical change and its purpose."
   ```
 
   The per-project `make view-buildviz` targets already do this and open the hub

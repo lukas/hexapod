@@ -7,6 +7,8 @@ from rl_move.np_policy import (
     ARCH_DUAL_GRU,
     MODE_ONEHOT_ORDER,
     NumpyDualGruModel,
+    NumpyMLPNLayerModel,
+    load_np_policy,
     pack_f32,
     unpack_f32,
     validate_np_policy,
@@ -30,6 +32,79 @@ def _policy(training_hz=25.0):
         "Wout": [[0.0] for _ in range(18)],
         "bout": [0.0] * 18,
     }
+
+
+def _nlayer_policy(activation="elu", hidden=(4, 3)):
+    rng = np.random.default_rng(0)
+    layers = []
+    in_dim = 68
+    for h in hidden:
+        layers.append({
+            "W": pack_f32(rng.normal(size=(h, in_dim)).astype(np.float32)),
+            "b": pack_f32(rng.normal(size=h).astype(np.float32)),
+        })
+        in_dim = h
+    return {
+        "meta": {
+            "obs_dim": 68,
+            "act_dim": 18,
+            "activation": activation,
+            "training_hz": 100.0,
+            "joint_frame": "robot_abs",
+            "joint_contract": "robot_abs_tibia_v2",
+        },
+        "layers": layers,
+        "Wout": pack_f32(rng.normal(size=(18, in_dim)).astype(np.float32)),
+        "bout": pack_f32(rng.normal(size=18).astype(np.float32)),
+    }
+
+
+def test_nlayer_mlp_valid_policy_loads_and_runs():
+    obj = _nlayer_policy()
+    errs, info = validate_np_policy(obj)
+    assert errs == []
+    assert info["hidden"] == [4, 3]
+    model = NumpyMLPNLayerModel(obj)
+    assert model.recurrent is False
+    action, state = model.predict(np.zeros(68, dtype=np.float32))
+    assert state is None
+    assert action.shape == (18,)
+    assert np.all(np.isfinite(action))
+    assert np.all(np.abs(action) <= 1.0)
+
+
+def test_nlayer_mlp_dispatches_through_load_np_policy(tmp_path):
+    import json
+
+    path = tmp_path / "deep.json"
+    path.write_text(json.dumps(_nlayer_policy()))
+    loaded = load_np_policy(path)
+    assert isinstance(loaded, NumpyMLPNLayerModel)
+
+
+def test_nlayer_mlp_rejects_bad_activation():
+    obj = _nlayer_policy(activation="relu")
+    errs, _ = validate_np_policy(obj)
+    assert any("activation" in e for e in errs)
+
+
+def test_nlayer_mlp_rejects_shape_mismatch():
+    obj = _nlayer_policy()
+    # Corrupt layers[1].W's input width so it no longer matches
+    # layers[0]'s output width.
+    bad = unpack_f32(obj["layers"][1]["W"])
+    obj["layers"][1]["W"] = pack_f32(bad[:, :-1])
+    errs, _ = validate_np_policy(obj)
+    assert any("shape" in e for e in errs)
+
+
+def test_nlayer_mlp_legacy_two_layer_tanh_still_uses_old_format():
+    """The plain 2-layer-tanh policy() fixture stays on the W1/W2 path."""
+    obj = _policy()
+    errs, info = validate_np_policy(obj)
+    assert errs == []
+    assert "layers" not in obj
+    assert info["hidden"] == [1, 1]
 
 
 def test_validate_np_policy_requires_training_hz():

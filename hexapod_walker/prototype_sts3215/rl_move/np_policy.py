@@ -37,6 +37,18 @@ the observation tail selects the output.  ``NumpyDualGruModel`` owns
 that persistent hidden state and exposes ``reset()`` at episode
 boundaries.
 
+Actors deeper than two hidden layers, or using ``ELU`` instead of
+``tanh`` (e.g. ``net-arch 256,256,128``), export as the generic
+N-layer format instead of the legacy two-matrix layout: a top-level
+``"layers"`` list of ``{"W": <packed>, "b": <packed>}`` objects (one
+per hidden layer, in order) plus the usual ``"Wout"``/``"bout"`` head,
+with ``meta.activation`` one of ``"tanh"``/``"elu"`` naming the single
+activation shared by every hidden layer.  ``NumpyMLPNLayerModel`` is
+the stateless, torch-free runner for this format; it is selected by
+``"layers" in obj``, never by ``meta.architecture`` (which stays
+``"mlp"`` for both layouts) so old validators/loaders that only know
+about ``ARCH_MLP`` still route correctly.
+
 Validation is strict enough to make an upload safe to run: obs_dim
 must fit a known slot, act_dim 18, training_hz must declare the trained
 control rate, every array must have a consistent shape and finite
@@ -70,6 +82,13 @@ ARCH_MLP = "mlp"
 ARCH_DUAL_GRU = "dual_gru"
 _MATS = ("W1", "b1", "W2", "b2", "Wout", "bout")
 _GRU_MATS = ("weight_ih", "weight_hh", "bias_ih", "bias_hh")
+# meta.activation values accepted for the generic N-layer MLP format
+# (obj["layers"] present). The legacy 2-layer format above stays tanh-only.
+_NLAYER_ACTIVATIONS = {
+    "tanh": np.tanh,
+    # torch.nn.ELU default alpha=1.0: x if x>0 else exp(x)-1.
+    "elu": lambda x: np.where(x > 0.0, x, np.expm1(x)),
+}
 
 
 def pack_f32(array) -> dict:
@@ -238,6 +257,61 @@ def _validate_dual_gru(obj: dict, meta: dict, obs: int,
     return errs, {"hidden": [hidden, *(head_dims or [])], "decoded": decoded}
 
 
+def _validate_mlp_nlayer(obj: dict, obs: int, act: int) -> tuple[list[str], dict]:
+    """Validate the generic N-layer ``obj["layers"]`` MLP format."""
+    errs: list[str] = []
+    layers = obj.get("layers")
+    if not isinstance(layers, list) or not layers:
+        return ["layers must be a non-empty list"], {}
+    if len(layers) > 16:
+        return ["layers has an implausible length (>16)"], {}
+    decoded: list[tuple[np.ndarray, np.ndarray]] = []
+    input_dim = obs
+    for i, layer in enumerate(layers):
+        if not isinstance(layer, dict) or "W" not in layer or "b" not in layer:
+            errs.append(f"layers[{i}] must be an object with W and b")
+            continue
+        try:
+            W = unpack_f32(layer["W"], name=f"layers[{i}].W")
+            b = unpack_f32(layer["b"], name=f"layers[{i}].b")
+        except ValueError as exc:
+            errs.append(str(exc))
+            continue
+        if W.ndim != 2 or b.ndim != 1:
+            errs.append(f"layers[{i}] W/b must be rank 2/1, got "
+                        f"{W.shape}/{b.shape}")
+            continue
+        if not (np.all(np.isfinite(W)) and np.all(np.isfinite(b))):
+            errs.append(f"layers[{i}] contains non-finite values")
+            continue
+        if W.shape != (b.shape[0], input_dim):
+            errs.append(
+                f"layers[{i}].W shape {W.shape} != {(b.shape[0], input_dim)}")
+            continue
+        decoded.append((W, b))
+        input_dim = int(W.shape[0])
+    if errs:
+        return errs, {}
+    for key in ("Wout", "bout"):
+        if key not in obj:
+            errs.append(f"missing {key}")
+    if errs:
+        return errs, {}
+    try:
+        Wo = unpack_f32(obj["Wout"], name="Wout")
+        bo = unpack_f32(obj["bout"], name="bout")
+    except ValueError as exc:
+        return [str(exc)], {}
+    if not (np.all(np.isfinite(Wo)) and np.all(np.isfinite(bo))):
+        return ["Wout/bout contains non-finite values"], {}
+    if Wo.shape != (act, input_dim) or bo.shape != (act,):
+        errs.append(
+            f"Wout/bout shape {Wo.shape}/{bo.shape} != "
+            f"{(act, input_dim)}/{(act,)}")
+        return errs, {}
+    return [], {"hidden": [int(w.shape[0]) for w, _ in decoded]}
+
+
 def validate_np_policy(obj) -> tuple[list[str], dict]:
     """Return (errors, info).  Empty errors == runnable policy."""
     errs: list[str] = []
@@ -268,7 +342,15 @@ def validate_np_policy(obj) -> tuple[list[str], dict]:
         errs.append(str(exc))
     if architecture not in (ARCH_MLP, ARCH_DUAL_GRU):
         errs.append(f"unsupported meta.architecture {architecture!r}")
-    if meta.get("activation", "tanh") != "tanh":
+    is_nlayer = architecture == ARCH_MLP and isinstance(obj, dict) and "layers" in obj
+    activation = meta.get("activation", "tanh")
+    if is_nlayer:
+        if activation not in _NLAYER_ACTIVATIONS:
+            errs.append(
+                "meta.activation must be one of "
+                f"{sorted(_NLAYER_ACTIVATIONS)} for the layers format, "
+                f"got {activation!r}")
+    elif activation != "tanh":
         errs.append("activation must be tanh (export_policy_np contract)")
     try:
         training_hz = float(meta["training_hz"])
@@ -303,6 +385,23 @@ def validate_np_policy(obj) -> tuple[list[str], dict]:
         else:
             if action.shape != (18,) or not np.all(np.isfinite(action)):
                 errs.append("dual_gru smoke forward pass failed")
+        return errs, info
+
+    if is_nlayer:
+        layer_errs, layer_info = _validate_mlp_nlayer(
+            obj, int(obs), int(act))
+        errs.extend(layer_errs)
+        if errs:
+            return errs, info
+        info["hidden"] = layer_info["hidden"]
+        try:
+            model = NumpyMLPNLayerModel(obj)
+            action = model.act(np.zeros(int(obs), dtype=np.float64))
+        except (KeyError, TypeError, ValueError) as exc:
+            errs.append(f"mlp_nlayer smoke forward pass failed: {exc}")
+        else:
+            if action.shape != (18,) or not np.all(np.isfinite(action)):
+                errs.append("mlp_nlayer smoke forward pass failed")
         return errs, info
 
     if obs == 81:
@@ -384,6 +483,52 @@ class NumpyMLPModel:
     def act(self, obs: np.ndarray) -> np.ndarray:
         h = np.tanh(self.W1 @ obs + self.b1)
         h = np.tanh(self.W2 @ h + self.b2)
+        return np.clip(self.Wo @ h + self.bo, -1.0, 1.0)
+
+    def predict(self, obs, deterministic: bool = True, **_kw):
+        return self.act(np.asarray(obs, dtype=np.float64)), None
+
+
+class NumpyMLPNLayerModel:
+    """Stateless numpy runner for the generic N-layer MLP format.
+
+    Same duck-typed surface as :class:`NumpyMLPModel` (``.act``,
+    ``.predict``, ``.reset``, ``.observation_space``/``.action_space``,
+    ``.hidden``, ``.recurrent``), so every existing caller of
+    ``load_np_policy`` keeps working unchanged. Selected by ``"layers"
+    in obj`` (see :func:`validate_np_policy`), not by
+    ``meta.architecture`` — deeper nets and non-tanh activations (e.g.
+    the ``net-arch 256,256,128`` + ELU PPO shape) export here instead
+    of the legacy fixed two-matrix layout, which stays byte-for-byte
+    unchanged for existing artifacts.
+    """
+
+    def __init__(self, obj: dict, path: Path | None = None):
+        self.meta = dict(obj["meta"])
+        self.path = path
+        self.layers = [
+            (unpack_f32(layer["W"], name="layers.W"),
+             unpack_f32(layer["b"], name="layers.b"))
+            for layer in obj["layers"]
+        ]
+        self.Wo = unpack_f32(obj["Wout"], name="Wout")
+        self.bo = unpack_f32(obj["bout"], name="bout")
+        activation = str(self.meta.get("activation", "tanh"))
+        if activation not in _NLAYER_ACTIVATIONS:
+            raise ValueError(f"unsupported activation {activation!r}")
+        self._act_fn = _NLAYER_ACTIVATIONS[activation]
+        self.observation_space = _Space(int(self.meta["obs_dim"]))
+        self.action_space = _Space(int(self.meta.get("act_dim", 18)))
+        self.hidden = [int(W.shape[0]) for W, _ in self.layers]
+        self.recurrent = False
+
+    def reset(self) -> None:
+        """Stateless compatibility hook shared with recurrent artifacts."""
+
+    def act(self, obs: np.ndarray) -> np.ndarray:
+        h = np.asarray(obs, dtype=np.float64)
+        for W, b in self.layers:
+            h = self._act_fn(W @ h + b)
         return np.clip(self.Wo @ h + self.bo, -1.0, 1.0)
 
     def predict(self, obs, deterministic: bool = True, **_kw):
@@ -505,13 +650,17 @@ class NumpyDualGruModel:
         return action, self._state_tuple()
 
 
-def load_np_policy(path) -> NumpyMLPModel | NumpyDualGruModel:
+def load_np_policy(
+    path,
+) -> NumpyMLPModel | NumpyMLPNLayerModel | NumpyDualGruModel:
     obj = json.loads(Path(path).read_text())
     errs, _ = validate_np_policy(obj)
     if errs:
         raise ValueError(f"{Path(path).name}: " + "; ".join(errs[:3]))
     if obj["meta"].get("architecture", ARCH_MLP) == ARCH_DUAL_GRU:
         return NumpyDualGruModel(obj, Path(path))
+    if "layers" in obj:
+        return NumpyMLPNLayerModel(obj, Path(path))
     return NumpyMLPModel(obj, Path(path))
 
 

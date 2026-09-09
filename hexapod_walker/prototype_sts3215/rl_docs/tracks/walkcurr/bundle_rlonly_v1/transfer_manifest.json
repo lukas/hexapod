@@ -1,0 +1,64 @@
+{
+  "schema": "hexapod.transfer_candidate.v1",
+  "candidate_name": "walkcurr-rlonly-widen8-crutchoff-s0-cont10m-v1",
+  "parent_goal": "rl_only",
+  "source_demo_summaries": [
+    "logs/manual_drive/cw_walkscratch_crutchoff_s0_widen8_legdutyratio_swinggap_dose10_plusduty_acq1_cont10m_drivevideo_human_20260909_155330/summary.json",
+    "logs/manual_drive/cw_walkscratch_crutchoff_s0_widen8_legdutyratio_swinggap_dose10_plusduty_acq1_cont10m_drivevideo_humanturn_20260909_155146/summary.json"
+  ],
+  "no_physical_robot_motion_performed": true,
+  "candidate_is_composition_not_single_policy": false,
+  "training_lineage_contract": "walkcurr rl_only (tracks.json): no gait clock, no BC teacher, no motion prior, no AMP/demo reward anywhere in this lineage. Champion is a from-scratch PPO checkpoint (crutchoff/widen8 recipe family, easy-physics acquisition + reward-shaping continuations only); no demonstration data enters this lineage at any point. See CURRENT_TRUTHS.md 2026-09-09 rl_only sim-demo entry.",
+  "components": [
+    {
+      "state": "walk_ready -> walk_done (single policy, no stand/lower composition)",
+      "controller": "rl_move/sim/policies/ppo_goal_cw_walkscratch_crutchoff_s0_widen8_legdutyratio_swinggap_dose10_plusduty_acq1_cont10m.zip",
+      "checkpoint_sha256": "1f95c9788f8b92684f834f91ca62db8f514b0d75ccbd732015160bacbc4833a5",
+      "policy_mode": "deterministic",
+      "exported_np_policy": "linux_control/policies/walkscratch_rlonly_widen8_crutchoff_s0_cont10m.json",
+      "exported_np_policy_sha256": "293b6c1990b5fb56f99a05a725a7dfeb61dfa36d2dff62dc3d251d5c599e040b",
+      "export_notes": "First export of this checkpoint's architecture (net-arch 256,256,128, ELU): the exporter only supported the legacy 2-layer-tanh shape before this cycle, so a generic N-layer/ELU export format was built this cycle (rl_move/np_policy.py NumpyMLPNLayerModel, rl_move/sim/export_policy_np.py _mlp_payload_nlayer) -- parity 2.34e-07 over 200 random obs (bar 1e-5), legacy 2-layer artifacts are untouched/bit-exact.",
+      "joystick_contract": {
+        "body_frame_vx_vy_m_s": true,
+        "trained_speed_m_s": 0.06,
+        "trained_heading_set_rad_8way": true,
+        "obs_dim": 72
+      }
+    }
+  ],
+  "no_stand_or_lower_role_in_this_bundle": "This candidate is the WALK role only. It has no learned/scripted stand or lower stage of its own; a physical trial needs a separate stand-up to the walk_ready pose (e.g. the existing todaypolicy tuck stand) or a manual/gantry start, and a separate lower/catch at the end. Do not read this manifest as a full sit-to-walk-to-sit bundle.",
+  "transfer_blockers_or_work": [
+    "PHYSICAL SAFETY: this checkpoint trained with bus.write_speed=4096, bus.write_acc=1000 and safety.max_delta_q_deg=3.6 (360 deg/s per-tick cap) -- the SIM TRAINING contract, not a physical-safe contract. Other exported policies on this project (e.g. walk_allheading_mlp_singleframe_acq1_stdanneal) use bus_write_speed=400/write_acc=20 and max_delta_q_deg=0.375 (37.5 deg/s). Robot Lab MUST independently verify/derate these against real servo/current limits before ANY motion; do not run the exported JSON's contract values as-is. This is flagged in the exported JSON's own meta.PHYSICAL_SAFETY_CAUTION field so it travels with the artifact.",
+    "KNOWN BEHAVIORAL LIMITATION: a SUSTAINED (~15 s) off-forward heading (approx +-90/+-135/180 deg) chronically sacrifices one front leg's swing (root-caused as a policy/exploration gap, not a kinematic ceiling; a fix -- heading self-distillation -- is in flight, not yet landed). Forward and brief-transition headings are clean on video (0 falls, gait_valid=true, sacrificed_legs=[] for the full 26 s captures). RECOMMEND: restrict the first physical trial's command envelope to forward + brief (<5 s) turns/diagonals until this is resolved, per the demo evidence actually shown.",
+    "Run only the read-only hardware preflight first: 18 servos, IMU, pose near walk_ready, tilt within limit (same preflight class as other exported-policy handoffs).",
+    "Joystick commands must stay inside the trained command envelope (0.06 m/s, the 8-way heading set above) until a hardware ladder says otherwise -- this checkpoint was never trained on continuous/arbitrary yaw rates.",
+    "Stop immediately on tip, brownout, high current, missing servo, or hot motor.",
+    "This is a single learned policy with clean rl_only ancestry, but it has NOT been through any physical trial; GO below is for simulation/export readiness, not physical acceptance."
+  ],
+  "demo_metrics": {
+    "human_script": {
+      "terminated": false,
+      "sim_seconds": 26.0,
+      "progress_ratio": 1.203,
+      "slip_per_m": 5.31,
+      "sacrificed_legs": [],
+      "gait_valid": true,
+      "cur_max_a": 2.549,
+      "wrong_course_frac_1s": 0.066,
+      "course_err_1s_med_deg": 20.8
+    },
+    "human_turn_script": {
+      "terminated": false,
+      "sim_seconds": 26.0,
+      "progress_ratio": 1.24,
+      "slip_per_m": 5.578,
+      "sacrificed_legs": [],
+      "gait_valid": true,
+      "cur_max_a": 2.513,
+      "wrong_course_frac_1s": 0.072,
+      "course_err_1s_med_deg": 11.78
+    }
+  },
+  "interactive_launch": "cd hexapod_walker/prototype_sts3215 && sim_viewer/sim_web.sh --walk rl_move/sim/policies/ppo_goal_cw_walkscratch_crutchoff_s0_widen8_legdutyratio_swinggap_dose10_plusduty_acq1_cont10m.zip",
+  "reproducible_video_capture": "ops.sh drivevideo cw-walkscratch-crutchoff-s0-widen8-legdutyratio-swinggap-dose10-plusduty-acq1-cont10m --script human   (and --script human_turn)"
+}

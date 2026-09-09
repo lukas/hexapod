@@ -26,6 +26,7 @@ from rl_move.sim.heading_selfdistill import (
     attach_heading_selfdistill,
     heading_cos,
     heading_frame_width,
+    heading_selfdistill_wandb_payload,
     heading_vref_index,
     make_heading_selfdistill_ppo_class,
 )
@@ -263,10 +264,13 @@ def test_heading_selfdistill_armed_moves_mean_not_log_std():
 class _FakeLogger:
     """Minimal stand-in for SB3's Logger.record, capturing the last
     value written per key (matches how mirror.py/bc_anchor.py's own
-    diagnostics are tested)."""
+    diagnostics are tested). Real SB3 Loggers expose the same
+    dict under ``.name_to_value`` -- alias it here so this fake also
+    exercises heading_selfdistill_wandb_payload's real read path."""
 
     def __init__(self):
         self.values = {}
+        self.name_to_value = self.values
 
     def record(self, key, value):
         self.values[key] = value
@@ -331,3 +335,65 @@ def test_heading_selfdistill_noop_when_no_off_axis_signal(monkeypatch):
     w_after = m.policy.action_net.weight.detach().clone()
     np.testing.assert_allclose(w_before.numpy(), w_after.numpy(),
                                atol=1e-8)
+
+
+# ---------------------------------------------------------------------
+# 4. W&B forwarding (train_ppo_mjx.py's own train/*-to-W&B payload
+#    doesn't read SB3-logger keys generically -- this closes the gap
+#    flagged in the ~17:1x canary triage: the 3 keys above were being
+#    recorded but never reaching W&B).
+# ---------------------------------------------------------------------
+
+def test_heading_selfdistill_wandb_payload_none_logger_is_empty():
+    assert heading_selfdistill_wandb_payload(None) == {}
+
+
+def test_heading_selfdistill_wandb_payload_forwards_recorded_keys():
+    fake_logger = _FakeLogger()
+    fake_logger.record("train/heading_selfdistill_loss", 0.125)
+    fake_logger.record("train/heading_selfdistill_off_axis_frac", 0.4)
+    fake_logger.record("train/heading_selfdistill_n_keep", 37)
+    # An unrelated key some other module recorded must NOT leak through.
+    fake_logger.record("train/entropy_loss", -1.0)
+    payload = heading_selfdistill_wandb_payload(fake_logger)
+    assert payload == {
+        "train/heading_selfdistill_loss": 0.125,
+        "train/heading_selfdistill_off_axis_frac": 0.4,
+        "train/heading_selfdistill_n_keep": 37.0,
+    }
+
+
+def test_heading_selfdistill_wandb_payload_partial_when_module_off():
+    """The masked-out no-op branch only records 2 of the 3 keys (no
+    loss when n_keep==0) -- the payload must include exactly those 2,
+    never a KeyError or a fabricated loss value."""
+    fake_logger = _FakeLogger()
+    fake_logger.record("train/heading_selfdistill_off_axis_frac", 0.0)
+    fake_logger.record("train/heading_selfdistill_n_keep", 0)
+    payload = heading_selfdistill_wandb_payload(fake_logger)
+    assert payload == {
+        "train/heading_selfdistill_off_axis_frac": 0.0,
+        "train/heading_selfdistill_n_keep": 0.0,
+    }
+    assert "train/heading_selfdistill_loss" not in payload
+
+
+def test_heading_selfdistill_wandb_payload_end_to_end_from_real_step():
+    """Full path: a real armed step's self.logger.record calls feed
+    heading_selfdistill_wandb_payload directly (no train_ppo_mjx.py
+    dependency needed in this test), matching what the callback in
+    train_ppo_mjx.py now does every rollout."""
+    cls = make_heading_selfdistill_ppo_class(PPO)
+    m = _make_ppo(cls)
+    attach_heading_selfdistill(m, coef=5.0, grad_clip=0.0, cos_max=0.5,
+                              cfg={})
+    _, callback = m._setup_learn(total_timesteps=16, callback=None)
+    m.collect_rollouts(m.env, callback=callback,
+                      rollout_buffer=m.rollout_buffer, n_rollout_steps=16)
+    fake_logger = _FakeLogger()
+    m.set_logger(fake_logger)
+    m._heading_selfdistill_step()
+    payload = heading_selfdistill_wandb_payload(m.logger)
+    assert set(payload) == {"train/heading_selfdistill_loss",
+                            "train/heading_selfdistill_off_axis_frac",
+                            "train/heading_selfdistill_n_keep"}

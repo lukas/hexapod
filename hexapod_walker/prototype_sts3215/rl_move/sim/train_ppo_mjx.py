@@ -2779,6 +2779,27 @@ def main(argv: list[str] | None = None) -> int:
         print("[mjx-train] heading self-distillation loss ON "
               f"(coef={heading_selfdistill_coef}, "
               f"cos_max={heading_selfdistill_cos_max})")
+    # Per-heading (on-axis vs off-axis) advantage normalization
+    # (cfg-gated, default off -- see rl_move/sim/heading_adv_norm.py;
+    # candidate 2 of the widen8 off-axis-heading repair, the ONE
+    # remaining named lever after CURRENT_TRUTHS 2026-09-09 ~20:3x
+    # closed the entire exposure/batch-composition axis end-to-end).
+    # Plain PPO / DiagGaussianDistribution only -- unbuilt for --gru*
+    # (reuses heading_selfdistill's obs-index math, same restriction).
+    heading_adv_norm = bool(int(float(_parse_cfg_set(args.cfg_set).get(
+        "train.heading_adv_norm", 0.0) or 0.0)))
+    heading_adv_norm_cos_max = float(_parse_cfg_set(args.cfg_set).get(
+        "train.heading_adv_norm_cos_max", 0.5) or 0.5)
+    if heading_adv_norm:
+        if args.gru:
+            raise SystemExit(
+                "train.heading_adv_norm is unbuilt for --gru* policies "
+                "(plain DiagGaussianDistribution only -- see "
+                "heading_adv_norm.py's rationale)")
+        from .heading_adv_norm import make_heading_adv_norm_ppo_class
+        algo_cls = make_heading_adv_norm_ppo_class(algo_cls)
+        print("[mjx-train] per-heading advantage normalization ON "
+              f"(cos_max={heading_adv_norm_cos_max})")
 
     policy_cls: str | type = "MlpPolicy"
     extra_pk: dict = {}
@@ -3882,6 +3903,11 @@ def main(argv: list[str] | None = None) -> int:
             model, coef=heading_selfdistill_coef,
             grad_clip=heading_selfdistill_grad_clip,
             cos_max=heading_selfdistill_cos_max, cfg=env_kw.get("cfg"))
+    if heading_adv_norm:
+        from .heading_adv_norm import attach_heading_adv_norm
+        attach_heading_adv_norm(
+            model, enabled=heading_adv_norm,
+            cos_max=heading_adv_norm_cos_max, cfg=env_kw.get("cfg"))
     # Update-path protection (fb_20260817T005114; default off).
     if args.actor_lr > 0.0:
         from .update_health import (CRITIC_MARKERS,
@@ -4448,6 +4474,11 @@ def main(argv: list[str] | None = None) -> int:
             # Zero-cost / additive-only when the module is off/absent.
             from .heading_selfdistill import heading_selfdistill_wandb_payload
             payload.update(heading_selfdistill_wandb_payload(
+                getattr(self.model, "logger", None)))
+            # heading_adv_norm diagnostics (walkcurr, 09-09): same W&B
+            # forwarding gap as heading_selfdistill above.
+            from .heading_adv_norm import heading_adv_norm_wandb_payload
+            payload.update(heading_adv_norm_wandb_payload(
                 getattr(self.model, "logger", None)))
             if run is not None:
                 import wandb

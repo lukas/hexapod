@@ -1,5 +1,51 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## `rl_only` (walkcurr) non-interactive sim-demo evidence now recorded (2026-09-09 ~18:1x, doc-sync only, zero training spend)
+
+Top-level `STATUS.md` did not yet surface the walkcurr `rl_only` sim-demo
+work landed 09-09 ~11:2x/~14:4x/~15:5x (walkcurr/STATUS.md), so it read as
+if only the `any_means` `todaypolicy-mlpsf-tuck-v1` candidate had any sim
+evidence. Recording the accepted facts here and syncing `STATUS.md`:
+
+- Champion: `ppo_goal_cw_walkscratch_crutchoff_s0_widen8_legdutyratio_
+  swinggap_dose10_plusduty_acq1_cont10m.zip` (widen8/crutchoff recipe
+  default, no BC/AMP/demo anywhere in its lineage — clean `rl_only`
+  ancestry), durability-confirmed at 50M cumulative steps (4/4 arms HOLD,
+  09-09 ~11:2x).
+- Reproducible non-interactive video: `ops.sh drivevideo <run> --script
+  human` / `--script human_turn` (09-09 ~15:5x) — forward, crab-right,
+  diag-left, reverse, **stop**, **restart** sequence, 26 s, 0 falls,
+  `gait_valid=true`, `sacrificed_legs=[]` for the full episode. Artifacts:
+  `logs/manual_drive/cw_walkscratch_crutchoff_s0_widen8_legdutyratio_
+  swinggap_dose10_plusduty_acq1_cont10m_drivevideo_human_20260909_155330/`
+  and `..._drivevideo_humanturn_20260909_155146/`.
+- Reproducible interactive launch: `sim_viewer/sim_web.sh --walk
+  rl_move/sim/policies/<champion above>`; added to the default picker's
+  `_CURATED`/`_PROMOTED`/`_DESC` (09-09 ~14:4x, `play_core.py`,
+  `exp/walkcurr-simviewer-picker-entry`) so it no longer requires
+  `--all-models` or risks the scripted-fallback trap
+  (`web_session.py:_ensure_listed`/`_policy_contract_error`). The one
+  remaining piece — actually clicking through the browser/window HUD to
+  confirm the loaded (non-scripted) policy live — needs a display no cloud
+  pod has; irreducible-to-cloud, same class as a physical-robot dependency,
+  not a design gap (`OPERATOR_QUESTIONS.md` q_20260909T144xZ).
+- Known, honestly-labeled limitation (not hidden by the demo scripts above):
+  a SUSTAINED (~15 s) off-forward heading (±90°/±135°/180°) still
+  chronically sacrifices one front leg's (leg0 or leg5) swing —
+  `--pinned-heading-panel` evidence, `walkcurr/STATUS.md` 09-09 ~11:2x
+  onward. Root-caused ~12:5x-13:3x as a policy/exploration gap (legs sit
+  well inside their ±15° coxa-yaw action box, not railed at the edge), NOT
+  a kinematic ceiling; a fix (log-std widen `headexplore`, closed FAIL on
+  the deterministic mean 09-09 ~16:2x; advantage-filtered self-distillation
+  `heading_selfdistill.py`, canary in flight) is in progress. This
+  limitation does not block the sim-demo deliverable (which shows real
+  current behavior, warts labeled) but does block claiming full
+  "directions actually followed" quality.
+
+This is a documentation-sync entry only — no new run, no new verdict, no
+change to any recipe or gate. Full evidence trail:
+`rl_docs/tracks/walkcurr/STATUS.md` (09-09 ~11:2x, ~14:4x, ~15:5x entries).
+
 ## widen8 `headexplore` (log-std-widen+hold) lever CLOSED 3/3 seeds (2026-09-09 ~16:2x)
 
 Holding `log_std` wide (-0.5, std 0.607, vs. the champion's annealed

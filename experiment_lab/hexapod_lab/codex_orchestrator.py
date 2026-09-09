@@ -2013,7 +2013,7 @@ class CodexOrchestrator:
             self._finish_job(job, "succeeded", result=receipt)
             self._report_progress(
                 "preparing",
-                f"Codex is preparing {target['name']}",
+                f"{self.settings.agent_label} is preparing {target['name']}",
                 (
                     "The full-access engineering runner owns the saved plan "
                     "and may inspect, recover, execute, and record it."
@@ -2049,8 +2049,10 @@ class CodexOrchestrator:
         self._report_progress(
             "preparing",
             (
-                f"Codex is checking {target['name']}"
-                if target else "Codex is checking whether the experiment queue is empty"
+                f"{self.settings.agent_label} is checking {target['name']}"
+                if target
+                else f"{self.settings.agent_label} is checking whether the "
+                     "experiment queue is empty"
             ),
             "It is verifying the saved plan, software, robot health, camera, and safety gates before any action.",
             "Wait for this bounded Codex run to complete or report a specific blocker.",
@@ -2149,7 +2151,7 @@ class CodexOrchestrator:
                     "detail": detail[:2000],
                     "next_action": next_action[:1000],
                     "experiment_id": target["id"] if target else None,
-                    "task_name": "Codex experiment queue",
+                    "task_name": f"{self.settings.agent_label} experiment queue",
                     "ttl_seconds": 3600,
                 },
                 "codex-orchestrator",

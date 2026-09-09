@@ -177,8 +177,8 @@ The three main robot entries on the cloud hub are:
 - [Hexapod 2 — three-bearing STS](https://buildviz.cwd1f0-new-cluster.coreweave.app/?catalog=hexapod-2)
   (`hexapod-2`): the owner confirms **two lower bearings and one upper
   bearing**, with a change to spacer-equipped parts **in progress**. The
-  selected retrofit is `sts-horn-compression-study` (Spacer-equipped horn
-  joints). Its exact installed revision, bearing models, and per-leg retrofit
+  selected retrofit is `sts-horn-compression-study` (Spacer-equipped joint
+  parts). Its exact installed revision, bearing models, and per-leg retrofit
   progress remain unrecorded; see
   `hexapod_walker/prototype_sts3215/robots/hexapod-2.yaml`. The catalog's main
   STS source is only a design reference, and the current rigid-hip design's

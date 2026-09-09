@@ -34,6 +34,15 @@ design_lineage:
   candidate: early_rigid_yaw_support
   evidence: inferred
   reference: concepts/rigid_hip/README.md
+  historical_saved_reference:
+    catalog_item: hexapod-2-bearing-layout-reference
+    url: https://buildviz.cwd1f0-new-cluster.coreweave.app/?catalog=hexapod-2-bearing-layout-reference
+    source:
+      buildId: sts3215-rigid-hip
+      branch: main
+      version: v1
+    evidence: inferred
+    note: "The saved geometry contains two lower bearings and a third upper bearing at each leg. This is a reference for the reported bearing layout; installation of this exact whole-robot version is unconfirmed."
   note: "The earlier rigid-hip description adds an upper bearing to the production lower pair. The current rigid-hip design uses one lower and one upper bearing, so it is not an exact match to this robot's reported configuration."
 
 retrofits:
@@ -42,7 +51,7 @@ retrofits:
     evidence: confirmed
     owner_intent: "Switching it to all the parts with the spacers."
     target_catalog_item: sts-horn-compression-study
-    target_name: "Spacer-equipped horn joints"
+    target_name: "Spacer-equipped joint parts"
     design_reference: concepts/horn_compression_limiters/README.md
     source_build_id: prototype_sts3215/horn-compression-limiters
     source_revision: unrecorded

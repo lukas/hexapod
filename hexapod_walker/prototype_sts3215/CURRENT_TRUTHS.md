@@ -6,31 +6,36 @@ Accepted facts, not narrative. This file wins on factual evidence and run
 verdicts; `RL_GOALS.md` owns purpose and priorities, including Lukas's
 2026-09-08 clarification. Older mission/allocation prose does not override it.
 
-## assistfade rung3 per-leg reward-shaping repair line CLOSED 5/5 (2026-09-09 ~07:5x)
+## assistfade rung3 per-leg reward-shaping repair line CLOSED 6/6, including dose magnitude (2026-09-09 ~07:5x-08:0x)
 
-Every per-leg reward-shaping mechanism tried against rung3's chronic
-single-leg-sacrifice pathology (bare `walk_leg_duty_ratio_charge`,
-swing-count-floor, load-slip-ratio at 2 doses, swing-gap-dose10, and
-now a positive swing-initiation income) FAILS on rung3, 5/5
-mechanisms, each independently validated as reward-mechanism-healthy
-on the unrelated walkcurr/crutchoff lineage at the SAME dose. The
-swing-initiation-income port (2 seeds) shows the chronically-sacrificed
-leg completely unchanged from baseline in one seed (duty_cycle=1.0,
-swing_count=0, byte-for-byte identical) and, in the other seed, a
-DIFFERENT leg newly locking to near-total duty_cycle=1.0 instead of
-the targeted leg recovering. This convergent 5/5 pattern points at
-rung3's residual-fade base recipe's own already-documented
-schedule-collision/sway-dominance root cause as the actual blocker,
-not the choice of reward term. Do not port another per-leg charge/
-income mechanism onto rung3 without first addressing that structural
-base (fix the blend schedule/sway-dominance, or construct a fresh
-rung-3 base). This is scoped to rung3's residual-fade lineage only;
-it does not reopen rung 1/rung 2's own separately-closed findings, and
-it does not speak to the unrelated `walk_leg_loadslip_ratio_charge`
-closure below (walkcurr's own widen8 lineage, already closed on
-efficacy grounds independent of this mechanism-family question).
-Evidence: `ops.sh review cw-assistfade-rung3-legdutyratio-swinit-dose2-{s0,s1}`;
-`rl_docs/tracks/assistfade/STATUS.md` 2026-09-09 ~07:5x entry.
+Every per-leg reward-shaping mechanism-or-dose variant tried against
+rung3's chronic single-leg-sacrifice pathology FAILS, 6/6 attempts:
+bare `walk_leg_duty_ratio_charge` at its original dose (150),
+swing-count-floor, load-slip-ratio at 2 doses, swing-gap-dose10, a
+positive swing-initiation income, AND (the last remaining candidate)
+recalibrating the base charge itself to dose=10 (matching a dose fix
+that worked on the unrelated walkcurr/crutchoff lineage). Each was
+independently validated as reward-mechanism-healthy (no order-of-
+magnitude reward collapse) — the failure is purely on efficacy. In
+every seed of every variant, the named chronically-sacrificed leg
+either stays byte-identically unchanged (duty_cycle=1.0,
+swing_count=0) or gets measurably worse, and a SECOND leg is
+frequently pushed into the same pattern as a side effect. Neither the
+CHOICE of mechanism nor its MAGNITUDE moves this pathology. This
+convergent pattern points at rung3's residual-fade base recipe's own
+already-documented schedule-collision/sway-dominance root cause as
+the actual blocker, not the reward stack. Do not launch another
+per-leg charge/income/dose variant onto rung3 without first
+addressing that structural base (fix the blend schedule/sway-dominance
+mechanism itself, or construct a fresh rung-3 base). This is scoped to
+rung3's residual-fade lineage only; it does not reopen rung 1/rung 2's
+own separately-closed findings, and it does not speak to the unrelated
+`walk_leg_loadslip_ratio_charge` closure below (walkcurr's own widen8
+lineage, already closed on efficacy grounds independent of this
+mechanism-family question).
+Evidence: `ops.sh review cw-assistfade-rung3-legdutyratio-swinit-dose2-{s0,s1}`,
+`cw-assistfade-rung3-legdutyratio-dose10-{s0,s1}`;
+`rl_docs/tracks/assistfade/STATUS.md` 2026-09-09 ~07:5x-08:0x entries.
 
 ## `walk_leg_loadslip_ratio_charge` family CLOSED (2026-09-08 ~19:1x)
 

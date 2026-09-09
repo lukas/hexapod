@@ -1980,6 +1980,30 @@ recipes. Out-of-scope operator runs get honest triage but no agent follow-ups.
   target6`; `ops.sh review cw-assistfade-rung3-legdutyratio-loadslip-
   s0-target6`; `rl_docs/tracks/walkcurr/STATUS.md` 2026-09-08 ~14:5x.
 
+- **2026-09-09 ~13:3x: a third, non-reward lever (wider action-noise std,
+  held flat via the existing `--warm-log-std-override`/`--log-std-final`
+  trainer flags) partially unsticks the widen8 front-pair (legs 0/5)
+  off-heading sacrifice under STOCHASTIC sampling only (n=3/3 seeds,
+  off-axis gait_valid 1-2/15->8-11/15), while the DETERMINISTIC mean
+  stays flat (0-2/15, byte-similar to the untouched parent) at 2M
+  steps, and forward-ish headings are unaffected either mode. This is
+  evidence AGAINST (not a refutation of) the same-day kinematic-
+  action-box-rail hypothesis flagged as an open DIG-IN
+  (`rl_docs/tracks/walkcurr/STATUS.md` 09-09 ~12:5x): a hard rail
+  clipped noise would not be expected to unstick the sacrifice this
+  cleanly. The DIG-IN's own rollout-trace joint-angle-vs-box check is
+  still the authoritative test and has not been run; this only adds a
+  cheap, complementary behavioral signal pointing the same direction
+  ("not railed," a policy-commitment/exploration gap instead). All 3
+  seeds promoted to a matched 10M acquisition (same held std) to test
+  whether the deterministic mean eventually consolidates toward what
+  stochastic sampling is already finding. Evidence: `ops.sh entry
+  cw-walkscratch-crutchoff-{s0,s1,s2}-widen8-plusduty-headexplore-
+  canary2m`; `logs/ckpt_eval/cw_walkscratch_crutchoff_{s0,s1,s2}_
+  widen8_plusduty_headexplore_canary2m_headpanel/{report.json,
+  baseline/report.json}`; `rl_docs/tracks/walkcurr/STATUS.md` 09-09
+  ~13:3x.
+
 ## Real Robot Boundary
 - The robot remains physically owned by the operator, but the active Robot Lab
   campaign grants guarded agents standing authority for bounded observed

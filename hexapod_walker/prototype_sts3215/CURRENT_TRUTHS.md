@@ -1,5 +1,37 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## widen8 `headexplore` (log-std-widen+hold) lever CLOSED 3/3 seeds (2026-09-09 ~16:2x)
+
+Holding `log_std` wide (-0.5, std 0.607, vs. the champion's annealed
+~-2.0 floor) for a further 10M-step acquisition on all 3
+`crutchoff-widen8-legdutyratio-swinggap-dose10-plusduty` seeds FAILS
+to move the DETERMINISTIC mean at the widen8 lineage's 5 chronically-
+broken off-axis headings: gait_valid stays at **0/15 in all 3 seeds**
+(at/below the 2M canary's own 0-2/15 floor), with a byte-identical
+sacrificed-leg set across all 3 independently-trained checkpoints at
+every heading. STOCHASTIC sampling keeps finding/improving off-axis
+gaits in the same window (up to 14/15 on one seed) while the mean
+stays at literal zero — the widest mean/noise gap measured on this
+lineage. `reward_per_tick` stayed healthy throughout (no collapse);
+this is a clean efficacy FAIL, not a reward-mechanism failure. One
+seed (s2) additionally regressed the previously-clean forward-ish
+no-regression floor (7/9 -> 5/9), a second independent instance this
+week of budget alone eroding a clean gait band (matches the cartfoot/
+halfgrav pattern already logged below). This CLOSES the "just needs
+more time" reading for this exact lever: PPO's on-policy gradient
+provably does not consolidate the mean toward stochastic wins here at
+either 2M or 10M budgets — do not fund a further no-lever continuation
+of `headexplore`. The next licensed lever must move the mean directly
+(a heading-weighted entropy bonus, or a self-distillation-of-own-
+successful-stochastic-rollouts auxiliary loss — neither is rule-(a)
+BC/demo/motion-prior, but both are unbuilt CODE with their own
+design/test/canary cycle, not a repeat of this lever). Evidence:
+`ops.sh entry cw-walkscratch-crutchoff-{s0,s1,s2}-widen8-plusduty-
+headexplore-acq1`; `logs/ckpt_eval/cw_walkscratch_crutchoff_{s0,s1,
+s2}_widen8_plusduty_headexplore_acq1_headpanel/report.json`; W&B
+`rzlubwwz`/`mp5qva4v`/`jmvwjqyd`; `rl_docs/tracks/walkcurr/STATUS.md`
+2026-09-09 ~16:2x entry.
+
 Last compacted: 2026-08-30 for the `todaypolicy` sixth-track update.
 Archive copy: `archive/CURRENT_TRUTHS_2026-08-30_pre_todaypolicy_compaction.md`.
 Accepted facts, not narrative. This file wins on factual evidence and run

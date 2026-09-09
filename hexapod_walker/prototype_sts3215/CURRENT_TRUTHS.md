@@ -1,5 +1,32 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## `rl_only` off-axis-heading leg-sacrifice repair: 4 independent mechanisms tried, 0 passes (2026-09-09 ~19:4x)
+
+Self-distillation (`heading_selfdistill.py`, advantage-filtered imitation of
+the policy's own successful stochastic samples into its mean) CLOSED
+`CANARY FAIL - MECHANISM (efficacy)` 2/2 seeds
+(`cw-walkscratch-crutchoff-{s0,s1}-widen8-plusduty-selfdistill-canary2m`):
+DET off-axis (±90/±135/180°, n=15) `gait_valid` byte-identical to the frozen
+parent (s0 1/15=1/15, s1 0/15=0/15), sacrificed-leg sets match leg-for-leg,
+per-leg `duty_cycle` moves noise-level only. This is the **4th** independent
+mechanism to fail the same chronic front-leg (leg0/leg5) off-axis sacrifice
+on the widen8/crutchoff champion, after heading-exposure reweighting
+(FAIL-MECHANISM ~12:0x), heading-gain dose-scaling (FAIL-MECHANISM ~12:4x),
+and headexplore's wide-`log_std` (ACQ FAIL-MECHANISM ~16:2x, entry below).
+The ~13:3x rollout trace already ruled out a kinematic/action-box ceiling.
+**Ruling: this sub-question does not get another dose/schedule/architecture
+variant of an already-tried mechanism family.** Reopening it needs a
+genuinely new structural idea — named candidates, both UNBUILT: (1) a
+heading-conditioned auxiliary curriculum stage training off-axis headings
+in isolation before remixing, or (2) per-heading critic/advantage
+normalization so off-axis timesteps aren't structurally under-weighted in
+the shared PPO batch. Practical impact: none on current delivery — the
+champion checkpoint is untouched, the already-captured rl_only sim demo
+(forward + `human_turn` script) never exercises the failed range, and the
+limitation stays labeled in `bundle_rlonly_v1/GO_NOGO.md`. Evidence:
+`rl_docs/tracks/walkcurr/STATUS.md` 2026-09-09 ~19:4x entry; ledger verdicts
+on both selfdistill-canary2m runs; W&B `qrtdi76y`/`iacvgq9d`.
+
 ## `rl_only` (walkcurr) non-interactive sim-demo evidence now recorded (2026-09-09 ~18:1x, doc-sync only, zero training spend)
 
 Top-level `STATUS.md` did not yet surface the walkcurr `rl_only` sim-demo
@@ -35,12 +62,14 @@ evidence. Recording the accepted facts here and syncing `STATUS.md`:
   `--pinned-heading-panel` evidence, `walkcurr/STATUS.md` 09-09 ~11:2x
   onward. Root-caused ~12:5x-13:3x as a policy/exploration gap (legs sit
   well inside their ±15° coxa-yaw action box, not railed at the edge), NOT
-  a kinematic ceiling; a fix (log-std widen `headexplore`, closed FAIL on
-  the deterministic mean 09-09 ~16:2x; advantage-filtered self-distillation
-  `heading_selfdistill.py`, canary in flight) is in progress. This
-  limitation does not block the sim-demo deliverable (which shows real
-  current behavior, warts labeled) but does block claiming full
-  "directions actually followed" quality.
+  a kinematic ceiling. Four independent repair mechanisms (heading-exposure
+  reweighting, heading-gain dose-scaling, headexplore log-std-widen, and
+  advantage-filtered self-distillation) have all CLOSED FAIL as of 09-09
+  ~19:4x (see the tally entry above) — the gap is not being actively worked
+  pending a genuinely new structural idea. This limitation does not block
+  the sim-demo deliverable (which shows real current behavior, warts
+  labeled) but does block claiming full "directions actually followed"
+  quality.
 
 This is a documentation-sync entry only — no new run, no new verdict, no
 change to any recipe or gate. Full evidence trail:

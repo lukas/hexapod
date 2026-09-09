@@ -1,0 +1,66 @@
+schema_version: 1
+
+robot:
+  id: hexapod-2
+  platform: prototype_sts3215
+  assembly_generation: mixed_three_bearing
+  physical_status: assembled
+  record_created: 2026-09-08
+  record_updated: 2026-09-08
+
+evidence_levels:
+  confirmed: "Directly reported by Lukas for this physical robot."
+  inferred: "Matched to repository design history; not yet physically verified on this robot."
+  unknown: "Not yet inspected or associated with this robot."
+
+assembly:
+  defaults:
+    applicability: "Owner-described robot-wide starting configuration; leg-specific changes during the retrofit are not yet recorded."
+    yaw_bearings:
+      description: "Two lower bearings and one upper bearing."
+      evidence: confirmed
+      lower_count: 2
+      upper_count: 1
+      model: unknown
+      dimensions: unknown
+      user_description: "The second one is a little weird, it has two bearings at the bottom and one bearing at the top, I’m switching it to all the parts with the spacers"
+  per_leg_overrides: {}
+
+as_built_reference:
+  status: unrecorded
+  note: "No exact CAD snapshot, branch, or part revisions have been associated with the installed robot. The current catalog source is a design reference only."
+
+design_lineage:
+  candidate: early_rigid_yaw_support
+  evidence: inferred
+  reference: concepts/rigid_hip/README.md
+  note: "The earlier rigid-hip description adds an upper bearing to the production lower pair. The current rigid-hip design uses one lower and one upper bearing, so it is not an exact match to this robot's reported configuration."
+
+retrofits:
+  - id: spacer_equipped_horn_joints
+    status: in_progress
+    evidence: confirmed
+    owner_intent: "Switching it to all the parts with the spacers."
+    target_catalog_item: sts-horn-compression-study
+    target_name: "Spacer-equipped horn joints"
+    design_reference: concepts/horn_compression_limiters/README.md
+    source_build_id: prototype_sts3215/horn-compression-limiters
+    source_revision: unrecorded
+    installed_parts: unrecorded
+    note: "The selected retrofit family covers spacer-compatible yaw-coxa, femur/hip, and knee-yoke parts. The owner reports work in progress; completion, installed part revisions, spacer dimensions, and per-leg progress are not confirmed."
+
+not_recorded_as_installed:
+  - complete_spacer_parts_retrofit
+
+unknowns:
+  - "Identify the exact installed chassis, coxa, bearing-support, femur, and knee-yoke revisions."
+  - "Read bearing markings or measure the installed bearings; do not infer their models or dimensions from the design lineage."
+  - "Record which spacer-compatible parts have been installed on each leg and which remain to be changed."
+  - "Record the chosen retrofit source revision, actual spacer dimensions, and associated fasteners."
+  - "Confirm whether every leg retains the described two-lower/one-upper bearing arrangement during the retrofit."
+
+history:
+  - date: 2026-09-08
+    event: "Created the second physical-unit record from the owner's identification."
+    evidence: confirmed
+    details: "Lukas identifies the second robot by its two lower bearings and one upper bearing, and reports that its change to spacer-equipped parts is in progress. No exact installed CAD snapshot or completed retrofit is asserted."

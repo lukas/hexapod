@@ -174,11 +174,16 @@ The three main robot entries on the cloud hub are:
   (`hexapod-1`): original RobotLab STS assembly. Its as-built reference is pinned
   to `prototype_sts3215/hexapod-v1`, branch `main`, version
   `2026-08-07-f9c91cf`; later design revisions are separate.
-- [Hexapod 2 — STS](https://buildviz.cwd1f0-new-cluster.coreweave.app/?catalog=hexapod-2)
-  (`hexapod-2`): the second built robot. Its association with the main
-  `prototype_sts3215` source is **provisional**, and its exact installed
-  revision is unrecorded. The old bundled `buildviz/hexapod-2` scene is not
-  evidence of this physical robot's identity.
+- [Hexapod 2 — three-bearing STS](https://buildviz.cwd1f0-new-cluster.coreweave.app/?catalog=hexapod-2)
+  (`hexapod-2`): the owner confirms **two lower bearings and one upper
+  bearing**, with a change to spacer-equipped parts **in progress**. The
+  selected retrofit is `sts-horn-compression-study` (Spacer-equipped horn
+  joints). Its exact installed revision, bearing models, and per-leg retrofit
+  progress remain unrecorded; see
+  `hexapod_walker/prototype_sts3215/robots/hexapod-2.yaml`. The catalog's main
+  STS source is only a design reference, and the current rigid-hip design's
+  one-lower/one-upper stack is not an exact match. The old bundled
+  `buildviz/hexapod-2` scene does not identify this physical robot.
 - [Next hexapod — metal C-clamps](https://buildviz.cwd1f0-new-cluster.coreweave.app/?catalog=hexapod-metal)
   (`hexapod-metal`): planned purchased-56-mm-bracket build, sourced from
   `prototype_sts3215/premade-chorn-56`. Custom CNC overhead and split-clamp

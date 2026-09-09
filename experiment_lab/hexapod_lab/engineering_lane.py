@@ -743,6 +743,8 @@ class EngineeringJobStore:
               lease_owner TEXT,
               lease_token TEXT,
               lease_expires_at TEXT,
+              claimed_control_sequence INTEGER,
+              claimed_completion_only INTEGER NOT NULL DEFAULT 0,
               created_at TEXT NOT NULL,
               started_at TEXT,
               finished_at TEXT,
@@ -780,6 +782,16 @@ class EngineeringJobStore:
             CREATE INDEX IF NOT EXISTS codex_engineering_rl_requests_claim
               ON codex_engineering_rl_requests(status,not_before,created_at);
             """)
+            # Old active attempts have no trustworthy queue-control cutoff.
+            # Leave them NULL so hardware execution fails closed until a new
+            # claim. Serialize discovery+ALTER across supervisor startups.
+            con.execute("BEGIN IMMEDIATE")
+            columns = {row[1] for row in con.execute("PRAGMA table_info(codex_engineering_jobs)")}
+            if "claimed_control_sequence" not in columns:
+                con.execute("ALTER TABLE codex_engineering_jobs ADD COLUMN claimed_control_sequence INTEGER")
+            if "claimed_completion_only" not in columns:
+                con.execute("ALTER TABLE codex_engineering_jobs ADD COLUMN claimed_completion_only INTEGER NOT NULL DEFAULT 0")
+            con.execute("COMMIT")
 
     @staticmethod
     def _row(row) -> Optional[Dict[str, Any]]:
@@ -1247,6 +1259,17 @@ class EngineeringJobStore:
             lane_filter = "AND NOT " + hardware_predicate + " "
         with self.store.connect() as con:
             con.execute("BEGIN IMMEDIATE")
+            control = con.execute(
+                "SELECT sequence,action FROM codex_queue_controls ORDER BY sequence DESC LIMIT 1"
+            ).fetchone()
+            claimed_control_sequence = int(control["sequence"]) if control else 0
+            if control is not None and control["action"] == "pause":
+                if lane == ENGINEERING_LANE_HARDWARE:
+                    con.execute("COMMIT")
+                    return None
+                # ANY must skip hardware jobs, including ambiguous metadata,
+                # but explicit offline work remains independent of this pause.
+                lane_filter = "AND NOT " + hardware_predicate + " "
             self._retire_redundant_analysis_jobs(con, now)
             row = con.execute(
                 "SELECT * FROM codex_engineering_jobs WHERE status IN "
@@ -1289,9 +1312,9 @@ class EngineeringJobStore:
             changed = con.execute(
                 "UPDATE codex_engineering_jobs SET status='running',"
                 "attempts=attempts+1,lease_owner=?,lease_token=?,lease_expires_at=?,"
-                "started_at=COALESCE(started_at,?),updated_at=?,error=NULL "
+                "claimed_control_sequence=?,started_at=COALESCE(started_at,?),updated_at=?,error=NULL "
                 "WHERE id=? AND status IN ('queued','retry') AND attempts<max_attempts",
-                (owner, token, expires, now, now, row["id"]),
+                (owner, token, expires, claimed_control_sequence, now, now, row["id"]),
             ).rowcount
             if changed != 1:
                 con.execute("ROLLBACK")
@@ -1303,6 +1326,17 @@ class EngineeringJobStore:
                 "SELECT status FROM experiments WHERE id=? AND status IN "
                 "('succeeded','failed','cancelled')",
                 (claimed["experiment_id"],),
+            ).fetchone()
+            claimed_completion_only = bool(
+                (saved.get("continuation") or {}).get("completion_only") is True
+                or (terminal_plan is not None and source.get("trigger_kind") == "queue_handoff")
+            )
+            con.execute(
+                "UPDATE codex_engineering_jobs SET claimed_completion_only=? WHERE id=?",
+                (int(claimed_completion_only), claimed["id"]),
+            )
+            claimed = con.execute(
+                "SELECT * FROM codex_engineering_jobs WHERE id=?", (claimed["id"],)
             ).fetchone()
             con.execute("COMMIT")
         claimed_job = self._row(claimed)
@@ -1323,6 +1357,156 @@ class EngineeringJobStore:
                 "reason": "The exact experiment is terminal; finish its evidence only",
             }
         return claimed_job
+
+    def execution_revocation_reason(
+        self, job: Dict[str, Any], owner: str
+    ) -> Optional[str]:
+        """Return why this exact attempt may no longer execute, or None.
+
+        Read persisted ownership and source scope, never caller-supplied lane
+        or cutoff values. A pause after claim revokes a hardware attempt even
+        when another process resumed the queue before this poll.
+        """
+        with self.store.connect() as con:
+            row = con.execute(
+                "SELECT job.*,COALESCE((SELECT MAX(sequence) FROM codex_queue_controls "
+                "WHERE action='pause'),0) AS latest_pause_sequence,"
+                "(SELECT action FROM codex_queue_controls ORDER BY sequence DESC LIMIT 1) "
+                "AS latest_control_action,(SELECT status FROM experiments WHERE id=job.experiment_id) "
+                "AS experiment_status,(SELECT cancel_requested FROM experiments WHERE id=job.experiment_id) "
+                "AS experiment_cancel_requested FROM codex_engineering_jobs AS job WHERE job.id=?",
+                (job.get("id"),),
+            ).fetchone()
+        lease_reason = self._lease_revocation_reason(row, job, owner)
+        if lease_reason:
+            return lease_reason
+        try:
+            source = json.loads(row["source_context_json"])
+        except (ValueError, TypeError):
+            source = None
+        if (isinstance(source, dict) and source.get("trigger_kind") == "queue_handoff"
+                and (row["experiment_status"] == "cancelled" or row["experiment_cancel_requested"])
+                and not row["claimed_completion_only"]):
+            return "the assigned engineering experiment was cancelled after this attempt was claimed"
+        if engineering_job_lane(source) == ENGINEERING_LANE_OFFLINE:
+            return None
+        cutoff = row["claimed_control_sequence"]
+        if cutoff is None:
+            return "hardware engineering attempt has no recorded queue-control cutoff"
+        if row["latest_control_action"] == "pause":
+            return "the durable physical experiment queue is paused"
+        try:
+            later_pause = int(row["latest_pause_sequence"]) > int(cutoff)
+        except (ValueError, TypeError):
+            return "hardware engineering attempt has an invalid queue-control cutoff"
+        if later_pause:
+            return "the physical experiment queue was paused after this engineering attempt was claimed"
+        return None
+
+    @staticmethod
+    def _lease_revocation_reason(row, job: Dict[str, Any], owner: str) -> Optional[str]:
+        if (row is None or row["status"] != "running" or not job.get("lease_token")
+                or row["lease_owner"] != owner or row["lease_token"] != job["lease_token"]):
+            return "engineering job lease is no longer owned by this running attempt"
+        try:
+            expires = datetime.fromisoformat(row["lease_expires_at"].replace("Z", "+00:00"))
+            if expires.tzinfo is None or expires <= datetime.now(timezone.utc):
+                return "engineering job lease has expired or is invalid"
+        except (ValueError, TypeError, AttributeError):
+            return "engineering job lease expiry is missing or invalid"
+        return None
+
+    def defer_unstarted(
+        self, job: Dict[str, Any], owner: str, reason: str
+    ) -> Dict[str, Any]:
+        """Release a verified pre-launch attempt without charging an attempt.
+
+        The supervisor must call this only before creating the child process;
+        after invocation, preserve the spent attempt and park interrupted work.
+        A replaced or expired lease cannot refund another owner's attempt.
+        """
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValueError("unstarted deferral requires a reason")
+        now = utcnow()
+        with self.store.connect() as con:
+            con.execute("BEGIN IMMEDIATE")
+            current = con.execute(
+                "SELECT * FROM codex_engineering_jobs WHERE id=?", (job.get("id"),)
+            ).fetchone()
+            lease_reason = self._lease_revocation_reason(current, job, owner)
+            if lease_reason:
+                con.execute("ROLLBACK")
+                raise EngineeringLaneError(lease_reason)
+            attempts = int(current["attempts"])
+            if attempts < 1:
+                con.execute("ROLLBACK")
+                raise EngineeringLaneError("unstarted attempt counter is invalid")
+            saved = json.loads(current["result_json"]) if current["result_json"] else {}
+            saved["unstarted_defer_receipt"] = {
+                "attempt": attempts, "reason": reason[:6000], "created_at": now,
+                "claimed_control_sequence": current["claimed_control_sequence"],
+                "child_started": False,
+            }
+            con.execute(
+                "UPDATE codex_engineering_jobs SET status='retry',attempts=attempts-1,"
+                "not_before=?,updated_at=?,finished_at=NULL,"
+                "started_at=CASE WHEN attempts=1 THEN NULL ELSE started_at END,"
+                "lease_owner=NULL,lease_token=NULL,lease_expires_at=NULL,claimed_control_sequence=NULL,claimed_completion_only=0,"
+                "error=?,result_json=? WHERE id=?",
+                (now, now, reason[:6000], _canonical(saved), job["id"]),
+            )
+            row = con.execute(
+                "SELECT * FROM codex_engineering_jobs WHERE id=?", (job["id"],)
+            ).fetchone()
+            con.execute("COMMIT")
+        return self._row(row)
+
+    def park_revoked(
+        self, job: Dict[str, Any], owner: str, reason: str
+    ) -> Dict[str, Any]:
+        """Park an invoked attempt only after its child is proven stopped.
+
+        Preserve the spent attempt and record that execution may have started;
+        this is not evidence that robot motion occurred. A later audited resume
+        must be newer than the control sequence recorded when parking.
+        """
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValueError("execution revocation requires a reason")
+        now = utcnow()
+        with self.store.connect() as con:
+            con.execute("BEGIN IMMEDIATE")
+            current = con.execute(
+                "SELECT * FROM codex_engineering_jobs WHERE id=?", (job.get("id"),)
+            ).fetchone()
+            lease_reason = self._lease_revocation_reason(current, job, owner)
+            if lease_reason:
+                con.execute("ROLLBACK")
+                raise EngineeringLaneError(lease_reason)
+            sequence = con.execute(
+                "SELECT COALESCE(MAX(sequence),0) FROM codex_queue_controls"
+            ).fetchone()[0]
+            saved = json.loads(current["result_json"]) if current["result_json"] else {}
+            saved["blocked_control_sequence"] = int(sequence)
+            saved["execution_revocation"] = {
+                "reason": reason[:6000], "execution_may_have_started": True,
+                "attempt": int(current["attempts"]), "created_at": now,
+                "claimed_control_sequence": current["claimed_control_sequence"],
+                "blocked_control_sequence": int(sequence),
+            }
+            saved["continuation"] = {
+                **(saved.get("continuation") or {}), "completion_only": True,
+                "attempts_used": int(current["attempts"]), "reason": reason[:6000],
+            }
+            con.execute(
+                "UPDATE codex_engineering_jobs SET status='blocked',finished_at=?,updated_at=?,"
+                "lease_owner=NULL,lease_token=NULL,lease_expires_at=NULL,error=?,result_json=? WHERE id=?",
+                (now, now, reason[:6000], _canonical(saved), job["id"]),
+            )
+            row = con.execute(
+                "SELECT * FROM codex_engineering_jobs WHERE id=?", (job["id"],)
+            ).fetchone()
+            con.execute("COMMIT")
+        return self._row(row)
 
     def finish(
         self, job: Dict[str, Any], owner: str, result: Dict[str, Any]

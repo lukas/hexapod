@@ -85,6 +85,7 @@ hexapod_walker/prototype_sts3215/sysid/datasets/
 /result.json
 /tmp/
 /artifacts/overseer/
+/artifacts/metaagent/
 
 # Local experiment-lab credentials and recorded run evidence.
 /experiment_lab/.env

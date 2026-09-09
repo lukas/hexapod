@@ -6,6 +6,50 @@ Accepted facts, not narrative. This file wins on factual evidence and run
 verdicts; `RL_GOALS.md` owns purpose and priorities, including Lukas's
 2026-09-08 clarification. Older mission/allocation prose does not override it.
 
+## assistfade rung3 residual-anneal-GATE "raise v0" escalation lever CLOSED 4/4 across dose (2026-09-09 ~15:1x)
+
+Following the 07:5x-08:0x per-leg-charge closure below, a structurally
+different fix was built and tried: a behavior-gated residual-blend
+anneal (hold training-wheel blend low until a dedicated unassisted-
+progress assay passes, instead of a fixed step-count calendar) —
+mechanically PASSED on both seeds, but its own fixed-bar longbudget
+follow-up (6M steps) hit FAIL-STILL-STUCK 2/2 (gate never latched).
+The named escalation from that FAIL text — raise `goal.
+walk_residual_anneal_v0` (the pre-latch blend floor, i.e. how much raw
+-policy authority training itself exposes the actor to) from 0.05 to
+0.3 or 0.5 — was tested as a 2-dose x 2-seed canary grid and is now
+CLOSED 4/4: no dose in either seed clears the matched v0=0.05
+baseline's own `gate_cmd_prog_frac` reading (dose 0.3 regresses
+below baseline in both seeds, at s0 -0.047 vs 0.023 and s1 -0.037 vs
+0.095-0.17; dose 0.5 stays at-or-below baseline, s0 -0.011 vs 0.023,
+s1 0.116 inside the 0.095-0.17 baseline band, not above it). More
+importantly, dose 0.5 walks BOTH seeds back into the byte-identical
+already-closed chronic single-leg-parked signature from the per-leg-
+charge closure below (walk/det gait_valid 0/6, one leg permanently
+sacrificed every episode — s0 leg4, s1 leg1), including in the seed
+with the grid's best raw forward progress (s1, prog med 0.12,
+fwd 0.07m) — it gets there by sacrificing a leg. Dose 0.3 instead
+produces a NEW "stationary shuffle" in both seeds (all six legs
+cycling contact/swing, `gait_valid` 6/6, but prog med negative,
+zero net translation). Since this mechanism's ramp target
+(`goal.walk_residual_blend`, default 1.0 = full raw authority) is the
+SAME endpoint the original fixed-calendar `residualfade-{s0,s1}`
+recipe already tested and closed 6/6, raising the pre-latch floor
+only moves the actor closer to that already-closed endpoint sooner —
+read this as evidence the bottleneck is the eventual high-raw-
+authority endpoint itself, not the schedule (calendar vs behavior-
+gated) or floor magnitude that reaches it. Do not launch another
+v0-raise dose variant on this lineage. The one remaining named lever
+(lower `train.residual_anneal_min_progress` from 0.35) is in flight
+(`residualgate-{s0,s1}-minprog015`, v0 held at the original 0.05); if
+it also fails to ignite clean six-leg walking, this closes the entire
+residual-anneal-gate mechanism family and licenses the 07:5x closure's
+own fallback (construct a fresh rung-3 base) rather than any further
+dose/bar variant of this mechanism.
+Evidence: `ops.sh review cw-assistfade-rung3-residualgate-{s0,s1}-
+v0dose{03,05}`; `rl_docs/tracks/assistfade/STATUS.md` 2026-09-09
+~15:1x entry.
+
 ## assistfade rung3 per-leg reward-shaping repair line CLOSED 6/6, including dose magnitude (2026-09-09 ~07:5x-08:0x)
 
 Every per-leg reward-shaping mechanism-or-dose variant tried against

@@ -282,6 +282,14 @@ exercised, `env/walk_vel_err` flat where the lockstep run sawtoothed
 - `bench_mjx.py` — C vs MJX throughput
 - `requirements-mjx.txt` — optional deps (mujoco-mjx pin MUST match mujoco)
 - `coreweave_pod_gpu.yaml` — H200 bench pod
-- `coreweave_pod_setup.sh` — `HEXAPOD_MJX=1` installs the JAX stack
+- [`../orchestrator/bootstrap_train_pod.sh`](../orchestrator/bootstrap_train_pod.sh)
+  — initialize current GPU training pods
 - `../tests/test_mjx_parity.py` — physics/profile parity (skips without jax)
 - `../tests/test_mjx_vec_env.py` — vec env correctness (skips without jax)
+
+Launch experiments through the [orchestrator](../orchestrator/README.md),
+which records provenance and enforces capacity and phase gates. From
+`prototype_sts3215`, run
+`uv run python rl_move/orchestrator/launch_run.py launch --help` for options.
+The former direct CPU sweep launcher and CPU pod setup were retired after
+the GPU-MJX switch-over.

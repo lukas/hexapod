@@ -55,6 +55,23 @@ place without widening a deliberately narrow one, and pushes anything
 unreachable with `--push`. Worktrees live in `/tmp`, which macOS prunes, so a
 commit existing only there is one cleanup away from gone.
 
+## Manual project overseer: register purpose and evidence
+
+The project overseer is manual-only; do not schedule or enable it without a
+new user request. See
+`hexapod_walker/prototype_sts3215/rl_move/overseer/README.md` for its CLI.
+Discovery inventories existing Claude/Codex/Lab/RL work without controlling it.
+For new long-running work, register a stable agent ID, logical task ID, parent,
+execution owner, goal (`any_means`/`rl_only`) and scope. Children share their
+parent's logical task ID. At meaningful checkpoints record the changed evidence,
+a continue/change/stop assessment and the next bounded step; a heartbeat alone
+is not progress. Report complete nonoverlapping provider cost receipts when
+available; keep unavailable cost unknown. Overseer work and its descendants must
+be marked as such so their spending/activity cannot trigger their own review.
+All paid overseer calls share one durable wake budget: $20 total including
+children, begin wrapping up at $15, $80 per rolling day. Existing execution
+owners retain control; a review proposal is not a stop/restart or hardware command.
+
 ## Python commands: use uv
 
 For all local project Python commands, use `uv` instead of bare

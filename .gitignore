@@ -84,6 +84,7 @@ hexapod_walker/prototype_sts3215/sysid/datasets/
 # Repository-root scratch outputs.
 /result.json
 /tmp/
+/artifacts/overseer/
 
 # Local experiment-lab credentials and recorded run evidence.
 /experiment_lab/.env

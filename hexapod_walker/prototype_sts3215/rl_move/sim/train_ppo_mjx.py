@@ -2756,6 +2756,29 @@ def main(argv: list[str] | None = None) -> int:
         "train.yaw_credit_vf_coef", 0.0) or 0.0)
     yaw_credit_grad_clip = float(_parse_cfg_set(args.cfg_set).get(
         "train.yaw_credit_grad_clip", 0.0) or 0.0)
+    # Heading-restricted, advantage-filtered self-distillation (cfg-
+    # gated, default off -- see rl_move/sim/heading_selfdistill.py;
+    # walkcurr widen8/headexplore campaign's named "push the mean
+    # directly" next lever, CURRENT_TRUTHS 2026-09-09 ~16:2x). Plain-
+    # PPO / DiagGaussianDistribution only -- unbuilt for --gru*.
+    heading_selfdistill_coef = float(_parse_cfg_set(args.cfg_set).get(
+        "train.heading_selfdistill_coef", 0.0) or 0.0)
+    heading_selfdistill_grad_clip = float(_parse_cfg_set(
+        args.cfg_set).get("train.heading_selfdistill_grad_clip", 0.0)
+        or 0.0)
+    heading_selfdistill_cos_max = float(_parse_cfg_set(args.cfg_set).get(
+        "train.heading_selfdistill_cos_max", 0.5) or 0.5)
+    if heading_selfdistill_coef > 0.0:
+        if args.gru:
+            raise SystemExit(
+                "train.heading_selfdistill_coef is unbuilt for --gru* "
+                "policies (plain DiagGaussianDistribution only -- see "
+                "heading_selfdistill.py's rationale)")
+        from .heading_selfdistill import make_heading_selfdistill_ppo_class
+        algo_cls = make_heading_selfdistill_ppo_class(algo_cls)
+        print("[mjx-train] heading self-distillation loss ON "
+              f"(coef={heading_selfdistill_coef}, "
+              f"cos_max={heading_selfdistill_cos_max})")
 
     policy_cls: str | type = "MlpPolicy"
     extra_pk: dict = {}
@@ -3853,6 +3876,12 @@ def main(argv: list[str] | None = None) -> int:
                           vf_coef=yaw_credit_vf_coef,
                           grad_clip=yaw_credit_grad_clip,
                           cfg=env_kw.get("cfg"))
+    if heading_selfdistill_coef > 0.0:
+        from .heading_selfdistill import attach_heading_selfdistill
+        attach_heading_selfdistill(
+            model, coef=heading_selfdistill_coef,
+            grad_clip=heading_selfdistill_grad_clip,
+            cos_max=heading_selfdistill_cos_max, cfg=env_kw.get("cfg"))
     # Update-path protection (fb_20260817T005114; default off).
     if args.actor_lr > 0.0:
         from .update_health import (CRITIC_MARKERS,

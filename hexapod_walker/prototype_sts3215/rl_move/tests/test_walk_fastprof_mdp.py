@@ -566,6 +566,64 @@ def test_pinned_speed_cfg_is_applyable_to_a_live_env():
 
 
 # ------------------------------------------------------------------ #
+# pinned-heading panel command pinning (09-09, widen8 per-heading gap)
+# ------------------------------------------------------------------ #
+
+def test_pinned_heading_cfg_pins_the_sampled_command():
+    from rl_move.sim.eval_checkpoint import (PINNED_HEADING_DEFAULTS,
+                                             pinned_heading_cfg)
+    assert len(PINNED_HEADING_DEFAULTS) == 8
+    assert PINNED_HEADING_DEFAULTS[0] == 0.0
+    assert PINNED_HEADING_DEFAULTS[-1] == pytest.approx(np.pi)
+    for angle in (0.0, np.pi / 2, np.pi):
+        extra = {("goal", k): v
+                 for k, v in pinned_heading_cfg(angle, speed=0.06).items()}
+        env = _walk_env(extra=extra, seed=7)
+        env.reset()
+        traj = env._goal_traj
+        late = slice(int(2.5 / env.dt), None)
+        assert np.allclose(traj.vx[late], 0.06 * np.cos(angle), atol=1e-9)
+        assert np.allclose(traj.vy[late], 0.06 * np.sin(angle), atol=1e-9)
+        if getattr(traj, "wz", None) is not None:
+            assert np.allclose(traj.wz[late], 0.0, atol=1e-12)
+        env.close()
+
+
+def test_pinned_heading_cfg_is_applyable_to_a_live_env():
+    from rl_move.sim.eval_checkpoint import pinned_heading_cfg
+    env = _walk_env(seed=9)
+    env.reset()
+    for k, val in pinned_heading_cfg(np.pi, speed=0.05).items():
+        env.cfg.setdefault("goal", {})[k] = val
+    env.reset()
+    traj = env._goal_traj
+    late = slice(int(2.5 / env.dt), None)
+    assert np.allclose(traj.vx[late], -0.05, atol=1e-9)
+    assert np.allclose(traj.vy[late], 0.0, atol=1e-9)
+    env.close()
+
+
+def test_heading_label_matches_named_defaults():
+    from rl_move.sim.eval_checkpoint import (PINNED_HEADING_DEFAULTS,
+                                             heading_label)
+    labels = [heading_label(a) for a in PINNED_HEADING_DEFAULTS]
+    assert labels == ["h000", "h+45", "h-45", "h+90", "h-90", "h+135",
+                      "h-135", "h180"]
+    assert len(set(labels)) == 8  # no collisions
+
+
+def test_pinned_heading_cfg_default_speed_matches_common_training_speed():
+    """The panel's own --pinned-heading-speed CLI default (0.06) must
+    match this helper's default so a bare `--pinned-heading-panel` call
+    (no explicit speed) reproduces the same command a caller gets by
+    only setting the heading."""
+    from rl_move.sim.eval_checkpoint import pinned_heading_cfg
+    default_cfg = pinned_heading_cfg(0.0)
+    explicit_cfg = pinned_heading_cfg(0.0, speed=0.06)
+    assert default_cfg == explicit_cfg
+
+
+# ------------------------------------------------------------------ #
 # direct loaded-slip excess penalty (reward.k_loadslip_excess —
 # operator order fb_20260820T075230_4a90c6, fast anti-skate V5: the
 # loadslip GATE only zeroes income; skating must be CHARGED)

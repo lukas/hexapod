@@ -205,23 +205,35 @@ def make_heading_selfdistill_ppo_class(base_cls):
                     "super().train() consumes the rollout buffer")
             obs = np.asarray(buf.observations)
             n_steps, n_envs, obs_dim = obs.shape
-            obs_flat = obs.reshape(n_steps * n_envs, obs_dim)
+            n_total = n_steps * n_envs
+            obs_flat = obs.reshape(n_total, obs_dim)
             act = np.asarray(buf.actions)
-            act_flat = act.reshape(n_steps * n_envs, act.shape[-1])
+            act_flat = act.reshape(n_total, act.shape[-1])
             adv_flat = np.asarray(buf.advantages).reshape(-1).astype(
                 np.float64)
             cos_max = float(getattr(self, "heading_selfdistill_cos_max",
                                     0.5))
             cos_h = heading_cos(obs_flat[:, idx:idx + 2])
             off_axis = cos_h <= cos_max
+            off_axis_frac = float(off_axis.mean())
+            logger = getattr(self, "logger", None)
             adv_std = adv_flat.std()
             if adv_std <= 1e-8:
+                if logger is not None:
+                    logger.record("train/heading_selfdistill_off_axis_frac",
+                                  off_axis_frac)
+                    logger.record("train/heading_selfdistill_n_keep", 0)
                 return  # degenerate/no-variance advantage -- no-op
             adv_norm = (adv_flat - adv_flat.mean()) / (adv_std + 1e-8)
             weight = np.clip(adv_norm, 0.0, None) * off_axis
             keep = weight > 0.0
             n_keep = int(keep.sum())
             if n_keep < 8:
+                if logger is not None:
+                    logger.record("train/heading_selfdistill_off_axis_frac",
+                                  off_axis_frac)
+                    logger.record("train/heading_selfdistill_n_keep",
+                                  n_keep)
                 return  # too few usable samples this rollout -- no-op
             w = weight[keep]
             w = w / (w.mean() + 1e-8)  # keep loss scale rollout-stable
@@ -244,5 +256,11 @@ def make_heading_selfdistill_ppo_class(base_cls):
                 th.nn.utils.clip_grad_norm_(
                     self.policy.parameters(), clip)
             self.policy.optimizer.step()
+            if logger is not None:
+                logger.record("train/heading_selfdistill_loss",
+                              float(loss.detach().cpu()))
+                logger.record("train/heading_selfdistill_off_axis_frac",
+                              off_axis_frac)
+                logger.record("train/heading_selfdistill_n_keep", n_keep)
 
     return HeadingSelfDistillPPO

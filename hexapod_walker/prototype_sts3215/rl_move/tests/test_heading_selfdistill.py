@@ -260,6 +260,59 @@ def test_heading_selfdistill_armed_moves_mean_not_log_std():
         "network weights given a rollout with real advantage variance")
 
 
+class _FakeLogger:
+    """Minimal stand-in for SB3's Logger.record, capturing the last
+    value written per key (matches how mirror.py/bc_anchor.py's own
+    diagnostics are tested)."""
+
+    def __init__(self):
+        self.values = {}
+
+    def record(self, key, value):
+        self.values[key] = value
+
+
+def test_heading_selfdistill_logs_diagnostics_on_armed_success():
+    """When the step actually fires, it must log loss/off_axis_frac/
+    n_keep to self.logger -- the gate text's "(if logged)" diagnostics
+    clause this module's own canary triage flagged as missing."""
+    cls = make_heading_selfdistill_ppo_class(PPO)
+    m = _make_ppo(cls)
+    attach_heading_selfdistill(m, coef=5.0, grad_clip=0.0, cos_max=0.5,
+                              cfg={})
+    _, callback = m._setup_learn(total_timesteps=16, callback=None)
+    m.collect_rollouts(m.env, callback=callback,
+                      rollout_buffer=m.rollout_buffer, n_rollout_steps=16)
+    fake_logger = _FakeLogger()
+    m.set_logger(fake_logger)
+    m._heading_selfdistill_step()
+    assert "train/heading_selfdistill_loss" in fake_logger.values
+    assert "train/heading_selfdistill_off_axis_frac" in fake_logger.values
+    assert "train/heading_selfdistill_n_keep" in fake_logger.values
+    assert fake_logger.values["train/heading_selfdistill_n_keep"] >= 8
+    assert 0.0 <= fake_logger.values[
+        "train/heading_selfdistill_off_axis_frac"] <= 1.0
+
+
+def test_heading_selfdistill_logs_zero_n_keep_when_masked_out():
+    """The no-op-via-mask branch (cos_max impossible to hit) must still
+    log off_axis_frac/n_keep=0 so a W&B curve shows the mechanism ran
+    but found no usable signal, rather than going silent."""
+    cls = make_heading_selfdistill_ppo_class(PPO)
+    m = _make_ppo(cls)
+    attach_heading_selfdistill(m, coef=5.0, grad_clip=0.0, cos_max=-2.0,
+                              cfg={})  # impossible bar: cos in [-1,1]
+    _, callback = m._setup_learn(total_timesteps=16, callback=None)
+    m.collect_rollouts(m.env, callback=callback,
+                      rollout_buffer=m.rollout_buffer, n_rollout_steps=16)
+    fake_logger = _FakeLogger()
+    m.set_logger(fake_logger)
+    m._heading_selfdistill_step()
+    assert fake_logger.values["train/heading_selfdistill_n_keep"] == 0
+    assert fake_logger.values["train/heading_selfdistill_off_axis_frac"] == 0.0
+    assert "train/heading_selfdistill_loss" not in fake_logger.values
+
+
 def test_heading_selfdistill_noop_when_no_off_axis_signal(monkeypatch):
     """If every sample in the rollout is masked out (cos_max below any
     achievable heading), the step must be a clean no-op: no

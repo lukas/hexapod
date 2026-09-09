@@ -76,6 +76,9 @@ class Settings:
     claude_engineering_setting_sources: str = "user,project,local"
     claude_max_budget_usd: float = 0.0
     claude_max_attachment_bytes: int = 20 * 1024 * 1024
+    sso_secret_file: Optional[Path] = None
+    sso_users: str = ""
+    sso_cookie_domain: str = ""
 
     @property
     def agent_model(self) -> str:
@@ -112,6 +115,9 @@ class Settings:
             public_base_url=os.getenv("HEXAPOD_PUBLIC_BASE_URL", "").rstrip("/"),
             auto_worker=os.getenv("HEXAPOD_AUTO_WORKER", "true").lower() in {"1", "true", "yes"},
             max_duration_seconds=int(os.getenv("HEXAPOD_MAX_DURATION_SECONDS", "900")),
+            sso_secret_file=_optional_path("HEXAPOD_SSO_SECRET_FILE"),
+            sso_users=os.getenv("HEXAPOD_SSO_USERS", ""),
+            sso_cookie_domain=os.getenv("HEXAPOD_SSO_COOKIE_DOMAIN", ""),
             robot_command_shutdown_seconds=float(os.getenv(
                 "HEXAPOD_ROBOT_COMMAND_SHUTDOWN_SECONDS", "30"
             )),

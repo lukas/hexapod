@@ -10,6 +10,7 @@ import hashlib
 from html import escape
 import secrets
 import time
+from pathlib import Path
 from typing import Dict, Optional
 from urllib.parse import parse_qs, quote, urlsplit
 
@@ -17,6 +18,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from .auth import Principal, TokenAuth
+from .sso import COOKIE_NAME as SSO_COOKIE_NAME, SsoAuth
 
 
 COOKIE_NAME = "hexapod_lab_session"
@@ -79,8 +81,13 @@ button{{width:100%;margin-top:26px;border:0;border-radius:8px;padding:14px;font:
 </main></body></html>"""
 
 
-def install_browser_auth(app: FastAPI, auth: TokenAuth, public_base_url: str) -> None:
+def install_browser_auth(
+    app: FastAPI, auth: TokenAuth, public_base_url: str, *,
+    sso_secret_file: Optional[Path] = None, sso_users: str = "",
+    sso_cookie_domain: str = "",
+) -> None:
     sessions: Dict[str, BrowserSession] = {}
+    sso = SsoAuth(sso_secret_file, sso_users)
 
     def session_key(token: str) -> str:
         return hashlib.sha256(token.encode()).hexdigest()
@@ -122,28 +129,38 @@ def install_browser_auth(app: FastAPI, auth: TokenAuth, public_base_url: str) ->
     @app.middleware("http")
     async def browser_session(request: Request, call_next):
         session = get_session(request)
-        if session and request.url.path not in {"/login", "/logout"}:
+        principal = session.principal if session else None
+        # Explicit API credentials retain their own identity/role. A browser
+        # cookie must not promote a viewer bearer token to an SSO operator.
+        if principal is None and "authorization" not in request.headers:
+            principal = sso.authenticate(request.cookies.get(SSO_COOKIE_NAME, ""))
+        if principal and request.url.path not in {"/login", "/logout"}:
             if request.method not in {"GET", "HEAD", "OPTIONS"} and not same_origin(request):
                 return private_response(JSONResponse({"detail": "Same-origin browser request required"}, status_code=403))
-            request.state.browser_principal = session.principal
+            request.state.browser_principal = principal
         response = await call_next(request)
         path = request.url.path
         browser_page = path in {"/", "/tag-scan", "/tag-layout-history"} or path.startswith("/experiments/")
         if browser_page and response.status_code == 401 and request.method in {"GET", "HEAD"}:
             destination = safe_next(path + ("?" + request.url.query if request.url.query else ""))
             response = RedirectResponse("/login?next=" + quote(destination, safe=""), status_code=303)
-        if response.status_code == 401 and COOKIE_NAME in request.cookies:
+        has_browser_cookie = COOKIE_NAME in request.cookies or SSO_COOKIE_NAME in request.cookies
+        if response.status_code == 401 and has_browser_cookie:
             # An expired session must not reopen a Basic dialog for a video,
             # download, or fetch still in flight. Reloading a page shows login.
             if "WWW-Authenticate" in response.headers:
                 del response.headers["WWW-Authenticate"]
-        if COOKIE_NAME in request.cookies or browser_page or path in {"/login", "/logout"}:
+        if has_browser_cookie or browser_page or path in {"/login", "/logout"}:
             private_response(response)
         return response
 
     @app.get("/login", response_class=HTMLResponse, include_in_schema=False)
     async def show_login(request: Request):
-        return form_response(safe_next(request.query_params.get("next", "/")))
+        destination = safe_next(request.query_params.get("next", "/"))
+        if ("authorization" not in request.headers
+                and sso.authenticate(request.cookies.get(SSO_COOKIE_NAME, ""))):
+            return private_response(RedirectResponse(destination, status_code=303))
+        return form_response(destination)
 
     @app.post("/login", include_in_schema=False)
     async def sign_in(request: Request):
@@ -198,4 +215,9 @@ def install_browser_auth(app: FastAPI, auth: TokenAuth, public_base_url: str) ->
             sessions.pop(session_key(token), None)
         response = RedirectResponse("/login", status_code=303)
         response.delete_cookie(COOKIE_NAME, path="/")
+        if sso_secret_file:
+            response.delete_cookie(
+                SSO_COOKIE_NAME, path="/", domain=sso_cookie_domain or None,
+                secure=True, httponly=True, samesite="lax",
+            )
         return private_response(response)

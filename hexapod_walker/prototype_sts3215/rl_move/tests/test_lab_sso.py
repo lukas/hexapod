@@ -70,9 +70,14 @@ def test_shared_cookie_opens_page_and_api_without_second_login(client):
 
 
 @pytest.mark.parametrize("token", [
-    signed_cookie(secret=b"attacker-key"), signed_cookie(expires=1),
-    signed_cookie("unlisted"), "not-a-token", "%%%%.fake", "x." + "f" * 64,
-    "x." + "f" * 513,
+    # Expiring signatures differ across worker collection times; case IDs must not.
+    pytest.param(signed_cookie(secret=b"attacker-key"), id="wrong-signing-key"),
+    pytest.param(signed_cookie(expires=1), id="expired"),
+    pytest.param(signed_cookie("unlisted"), id="unlisted-user"),
+    pytest.param("not-a-token", id="missing-signature"),
+    pytest.param("%%%%.fake", id="malformed-encoding"),
+    pytest.param("x." + "f" * 64, id="invalid-signature"),
+    pytest.param("x." + "f" * 513, id="oversized-signature"),
 ])
 def test_invalid_cookie_and_forged_forwarded_identity_do_not_authenticate(client, token):
     add_cookie(client, token)

@@ -80,7 +80,11 @@ class ObservationCameras:
             self._stop.clear()
             self._status = "connecting"
             self._thread = threading.Thread(
-                target=self._run_rotating if self.device_uid else self._run,
+                target=(
+                    self._run_service if self.vision_service_url
+                    else self._run_rotating if self.device_uid
+                    else self._run
+                ),
                 name="robot-lab-camera-" + self.camera_id, daemon=True,
             )
             self._thread.start()
@@ -362,6 +366,60 @@ class ObservationCameras:
                 break
         with self._lock:
             self._clear_locked("stopped")
+
+    def _run_service(self):
+        """Poll the camera server for frames.
+
+        Deliberately none of the machinery the direct-capture paths need. The
+        rotating loop exists because only one camera at a time can hold USB
+        bandwidth, so it opens a device, takes a frame, closes it and hands
+        the single global slot to the next camera. Reading the camera server
+        costs no USB and no device handle -- it owns the hardware and captures
+        continuously -- so every camera can poll at once, with no semaphore,
+        no permission gate and no deferred release to quarantine.
+        """
+
+        capture = self._open_capture()
+        with self._lock:
+            self._capture = capture
+        interval = 1.0 / 10.0
+        while not self._stop.is_set():
+            started = self._now()
+            try:
+                ok, image = capture.read()
+                if not ok or image is None:
+                    raise ValueError(
+                        getattr(capture, "last_error", None)
+                        or "The camera server has no frame for this camera"
+                    )
+                self._check_frame_detail(image)
+                jpeg = self._encode(image)
+                height, width = image.shape[:2]
+                with self._lock:
+                    if self._stop.is_set():
+                        break
+                    self._jpeg = jpeg
+                    self._frame_at = getattr(capture, "captured_unix", None) or started
+                    self._sequence += 1
+                    self._width, self._height = int(width), int(height)
+                    self._status = "streaming"
+                    self._last_error = None
+            except Exception as error:
+                # Keep serving: the server may be restarting, and the next
+                # read re-resolves the slot on its own.
+                with self._lock:
+                    self._clear_locked(
+                        "stopped" if self._stop.is_set() else "unavailable",
+                        str(error)[:1000],
+                    )
+                _LOGGER.debug(
+                    "Observation camera %s unavailable: %s", self.camera_id, error
+                )
+                self._stop.wait(1.0)
+            self._stop.wait(max(0.0, interval - (self._now() - started)))
+        with self._lock:
+            self._capture = None
+        capture.release()
 
     def _run(self):
         while not self._stop.is_set():

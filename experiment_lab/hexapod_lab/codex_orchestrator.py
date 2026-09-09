@@ -285,6 +285,10 @@ class CodexCleanupError(CodexRunError):
     pass
 
 
+class EngineeringExecutionRevoked(CodexRunError):
+    """A claimed engineering attempt no longer has execution authority."""
+
+
 _SENSITIVE_KEY_SEGMENTS = {
     "authorization",
     "auth",
@@ -1343,14 +1347,73 @@ class CodexOrchestrator:
                     f"Fatal Codex engineering cleanup fence for {job['id']}: {exc}",
                     flush=True,
                 )
+        except EngineeringExecutionRevoked as exc:
+            self._handle_revoked_engineering(job, str(exc))
         except Exception as exc:
+            # An archive/preparation error can race with pause or cancellation.
+            # Inspect the durable claim again before releasing any normal retry.
+            # Cleanup failures above always retain the lease and stop the lane.
+            reason = self.engineering.execution_revocation_reason(job, self.owner)
+            if reason:
+                self._handle_revoked_engineering(job, reason)
+                return True
             self.engineering.retry(
                 job, self.owner, f"{type(exc).__name__}: {exc}",
                 completion_only=bool(job.get("_engineering_actions_started")),
             )
         return True
 
+    def _handle_revoked_engineering(self, job: Dict[str, Any], reason: str) -> None:
+        # _invoke has proved its process group absent before reaching here.
+        # A revoked running attempt cannot fall through to ordinary retry.
+        try:
+            if job.get("_engineering_launch_attempted"):
+                self.engineering.park_revoked(job, self.owner, reason)
+            else:
+                self._archive_unstarted_engineering_attempt(job, reason)
+                self.engineering.defer_unstarted(job, self.owner, reason)
+        except EngineeringLaneError:
+            # Another owner or lease recovery now controls the durable row.
+            # Do not release or overwrite that newer ownership.
+            print(f"Revoked engineering lease no longer owned: {job['id']}", flush=True)
+        self._report_progress(
+            "blocked" if job.get("_engineering_launch_attempted") else "idle",
+            "Engineering attempt paused or its assignment was revoked",
+            reason,
+            "Preserve the pause; inspect the retained attempt before an audited resume. "
+            "Stopping the agent does not establish the robot's physical state.",
+            self.store.get(job["experiment_id"]),
+        )
+
+    def _raise_if_engineering_revoked(self, job: Dict[str, Any]) -> None:
+        reason = self.engineering.execution_revocation_reason(job, self.owner)
+        if reason:
+            raise EngineeringExecutionRevoked(reason)
+
+    def _archive_unstarted_engineering_attempt(
+        self, job: Dict[str, Any], reason: str
+    ) -> None:
+        """Keep preparation evidence while allowing the unspent attempt to retry.
+
+        This path is only valid before any Popen/invoker attempt. Launched or
+        uncertain process groups always retain their numbered attempt directory.
+        """
+        if job.get("_engineering_launch_attempted"):
+            raise CodexCleanupError("Cannot archive a possibly launched engineering attempt as unstarted")
+        attempt_dir = (self.settings.data_dir / "codex-runs" / job["id"]
+                       / f"attempt-{job['attempts']}")
+        if not attempt_dir.exists():
+            return
+        _atomic_json(attempt_dir / "unstarted.json", {
+            "job_id": job["id"], "attempt": job["attempts"],
+            "reason": reason, "provider_launch_attempted": False,
+            "recorded_at": datetime.now(timezone.utc).isoformat(),
+        })
+        attempt_dir.rename(attempt_dir.with_name(
+            f"unstarted-attempt-{job['attempts']}-{uuid.uuid4().hex}"))
+
     def _process_engineering(self, job: Dict[str, Any]) -> None:
+        self._raise_if_engineering_revoked(job)
         lane = job.get("lane") or engineering_job_lane(
             job.get("source_context")
         )
@@ -1384,10 +1447,6 @@ class CodexOrchestrator:
         after: Optional[Dict[str, Any]] = None
         patch_receipt: Optional[Dict[str, Any]] = None
         try:
-            source = job.get("source_context") or {}
-            job["_engineering_actions_started"] = (
-                engineering_job_lane(source) == ENGINEERING_LANE_HARDWARE
-            )
             result = self._invoke(
                 "engineering",
                 job,
@@ -1397,19 +1456,28 @@ class CodexOrchestrator:
                 engineering_lane=lane,
             )
         finally:
-            after = workspace_snapshot(workspace)
-            if attempt_dir.is_dir():
-                _atomic_json(attempt_dir / "workspace-before.json", before)
-                _atomic_json(attempt_dir / "workspace-after.json", after)
-                patch_receipt = write_workspace_patch(
-                    workspace,
-                    attempt_dir / "workspace.patch",
-                    self.settings.codex_engineering_max_patch_bytes,
-                    base_head=before["head"],
-                )
-                _atomic_json(
-                    attempt_dir / "workspace-patch.json", patch_receipt
-                )
+            execution_error = sys.exc_info()[1]
+            try:
+                after = workspace_snapshot(workspace)
+                if attempt_dir.is_dir():
+                    _atomic_json(attempt_dir / "workspace-before.json", before)
+                    _atomic_json(attempt_dir / "workspace-after.json", after)
+                    patch_receipt = write_workspace_patch(
+                        workspace,
+                        attempt_dir / "workspace.patch",
+                        self.settings.codex_engineering_max_patch_bytes,
+                        base_head=before["head"],
+                    )
+                    _atomic_json(
+                        attempt_dir / "workspace-patch.json", patch_receipt
+                    )
+            except Exception as evidence_error:
+                if not isinstance(execution_error, (CodexCleanupError, EngineeringExecutionRevoked)):
+                    raise
+                # Never downgrade an unproven process cleanup to ordinary retry
+                # merely because recording its workspace also failed.
+                print("Could not archive interrupted engineering workspace: "
+                      f"{type(evidence_error).__name__}", flush=True)
         normalized = validate_engineering_result(
             result, job, project_context["sha256"]
         )
@@ -1509,6 +1577,7 @@ class CodexOrchestrator:
                 and process.get("attempt") == attempt
                 and process.get("returncode") == 0
                 and process.get("finished_at")
+                and not process.get("assignment_revoked")
                 and metadata.get("job_id") == job["id"]
                 and metadata.get("kind") == "engineering"
                 and metadata.get("attempt") == attempt
@@ -2106,6 +2175,8 @@ class CodexOrchestrator:
                 "General Codex action capability is disabled; use a trusted "
                 "deterministic executor"
             )
+        if role == "engineering":
+            self._raise_if_engineering_revoked(job)
         prompt = _redact_text(prompt)
         prompt_bytes = len(prompt.encode("utf-8"))
         transcript_limit = max(
@@ -2124,9 +2195,16 @@ class CodexOrchestrator:
                 "Codex input prompt exceeds the configured transcript byte limit"
             )
         if self.invoker is not None:
-            return _redact_for_model(
+            if role == "engineering":
+                self._raise_if_engineering_revoked(job)
+                job["_engineering_launch_attempted"] = True
+                job["_engineering_actions_started"] = engineering_lane == ENGINEERING_LANE_HARDWARE
+            invoked = _redact_for_model(
                 self.invoker(role, job, {"prompt": prompt, "schema": schema})
             )
+            if role == "engineering":
+                self._raise_if_engineering_revoked(job)
+            return invoked
         run_dir = self.settings.data_dir / "codex-runs" / job["id"] / f"attempt-{job['attempts']}"
         run_dir.mkdir(parents=True, exist_ok=False)
         run_dir.chmod(0o700)
@@ -2149,6 +2227,7 @@ class CodexOrchestrator:
             "experiment_id": job.get("experiment_id"),
             "evidence_manifest_sha256": job.get("evidence_manifest_sha256"),
             "runner_identity": runner_identity,
+            "claimed_control_sequence": job.get("claimed_control_sequence"),
         }
         _atomic_json(run_dir / "metadata.json", metadata)
         communication_capture: Optional[RobotCommunicationCapture] = None
@@ -2267,6 +2346,12 @@ class CodexOrchestrator:
                         flush=True,
                     )
             try:
+                if role == "engineering":
+                    self._raise_if_engineering_revoked(job)
+                    # From this boundary onward an exception cannot prove no
+                    # execution happened. Keep the attempt and reconcile it.
+                    job["_engineering_launch_attempted"] = True
+                    job["_engineering_actions_started"] = engineering_lane == ENGINEERING_LANE_HARDWARE
                 process = subprocess.Popen(
                     wrapped_command,
                     stdin=subprocess.PIPE,
@@ -2332,11 +2417,18 @@ class CodexOrchestrator:
                 stdin_writer.start()
                 parent_deadline = time.monotonic() + timeout + 15
                 while True:
+                    if role == "engineering":
+                        revocation_error = self.engineering.execution_revocation_reason(job, self.owner) or ""
+                        if revocation_error:
+                            _terminate_deadline_wrapper(process, grace_seconds=5)
+                            break
                     remaining = parent_deadline - time.monotonic()
                     if remaining <= 0:
                         raise subprocess.TimeoutExpired(wrapped_command, timeout + 15)
                     try:
                         process.wait(timeout=min(1.0, remaining))
+                        if role == "engineering":
+                            revocation_error = self.engineering.execution_revocation_reason(job, self.owner) or ""
                         break
                     except subprocess.TimeoutExpired:
                         if (
@@ -2404,6 +2496,8 @@ class CodexOrchestrator:
                         "its lease remains fenced for startup recovery"
                     )
                 if marker_error is not None and not active_exception:
+                    if role == "engineering" and revocation_error:
+                        raise EngineeringExecutionRevoked(revocation_error) from marker_error
                     raise marker_error
         for path in (events_path, stderr_path):
             path.chmod(0o600)
@@ -2436,6 +2530,8 @@ class CodexOrchestrator:
             )
         self._finalize_transcript(run_dir, job, role)
         if revocation_error:
+            if role == "engineering":
+                raise EngineeringExecutionRevoked(revocation_error)
             raise CodexRunError(revocation_error)
         if process.returncode == 124:
             raise CodexRunError(

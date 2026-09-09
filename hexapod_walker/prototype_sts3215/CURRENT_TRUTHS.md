@@ -2317,6 +2317,45 @@ recipes. Out-of-scope operator runs get honest triage but no agent follow-ups.
   baseline/report.json}`; `rl_docs/tracks/walkcurr/STATUS.md` 09-09
   ~13:3x.
 
+- **2026-09-09 ~22:3x: the value-calibration hypothesis for the
+  chronic off-axis-heading (leg0/leg5) sacrifice is CLOSED, cleanly.**
+  The prior entry's V(s)-vs-realized-return diagnostic was
+  inconclusive because pinning a heading for a full 20s episode
+  (`walk_cmd_resample_s=0.0`) is itself out-of-distribution — real
+  training resamples the heading every 6s even inside its own 20s
+  episodes. Re-run with `diag_value_calibration.py --natural-resample`
+  (new mode this entry: heading resampling left ON, ticks bucketed
+  post-hoc by whichever heading is actually commanded, via the same
+  `heading_cos` classifier `heading_adv_norm`/`heading_selfdistill`
+  use): on the frozen `cont10m` champion, n=8x20s episodes, the
+  critic's relative prediction error is the SAME ORDER at off-axis
+  states (17.1% of that group's own return range) as at on-axis states
+  (10.7%) — not the order-of-magnitude blowup the OOD full-pin read
+  showed. The raw magnitudes are huge and well-tracked either way
+  (off-axis mean_V=-754 vs mean_G=-775): the critic correctly predicts
+  that committing to an off-axis heading racks up the unbounded
+  `walk_leg_duty_ratio_charge`/`walk_leg_swing_gap_charge` ambient
+  penalty (confirms the 09-08 ~00:2x diagnosis is real, not a panel
+  artifact — 4/8 sampled episodes that drew mostly off-axis headings
+  scored -7.8k to -33.4k; the one all-on-axis episode scored +2.6k).
+  **Conclusion: the critic is not the bottleneck.** PPO's advantage
+  signal is small and correctly-signed at these states because the
+  policy never SAMPLES a qualitatively different trajectory there to
+  produce a large positive advantage — an exploration/sampling
+  question, the same axis the six already-closed mechanisms
+  (reweight, gain-dose, headexplore, self-distillation, isolation-
+  curriculum, PPO-advantage-norm) all targeted and all failed to move.
+  **No 7th mechanism is licensed from value calibration; the off-axis-
+  heading repair now has NO untried named mechanism at all** — the
+  next attempt needs a genuinely new structural idea (different
+  action-space/exploration primitive, or routing around the sacrifice
+  at a higher level), not another lens on reward/advantage/critic
+  machinery already tried seven ways. Evidence: `rl_move/sim/diag_
+  value_calibration.py` (`--natural-resample`, 8 new tests, 27/27
+  green), `logs/diag_value_calibration/widen8_s0_cont10m_natural_
+  resample_{n8,sto_n8}.json`; `rl_docs/tracks/walkcurr/STATUS.md`
+  2026-09-09 ~22:3x.
+
 ## Real Robot Boundary
 - The robot remains physically owned by the operator, but the active Robot Lab
   campaign grants guarded agents standing authority for bounded observed

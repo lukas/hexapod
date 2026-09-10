@@ -264,16 +264,34 @@ def main() -> int:
         first_rejected_t: float | None = None
         idx = 0
         next_frame_at = 0.0
+        # HEARTBEAT FIX (2026-09-10, root-cause of the "full-cfg PASS was a
+        # stalled-locomotion false positive" regression this same investigation
+        # found): the real browser client resends the CURRENT (vx, vy, wz) at
+        # 5 Hz the whole time a drive session is active (app.js `drvHb =
+        # setInterval(drvSend, 200)`, ~3069/3336-3337), because
+        # `SimWebSession._tick_locked`'s own dead-man's-switch
+        # (`_DRIVE_HEARTBEAT_STALE_S = 0.6` real wall-clock seconds,
+        # web_session.py) zeroes traj.vx/vy (silently, ok=True the whole
+        # time) once 0.6s pass without a fresh `/api/rl/drive/cmd` POST. This
+        # loop used to POST only once per phase TRANSITION (phases are 4-5s
+        # apart) and otherwise only GET the read-only `/api/rl/drive` status
+        # -- so the session spent >80% of every phase silently frozen in
+        # "hold", not because of a policy/obs/env bug but because this
+        # capture tool never re-armed the safety heartbeat the real UI always
+        # sends. Resending the ACTIVE phase's command every loop iteration
+        # (this loop already sleeps ~0.2s, matching the browser's own 200ms
+        # cadence) is what a real held joystick input does; do not remove
+        # this without re-checking web_session.py's own heartbeat contract.
+        cur_vx, cur_vy, cur_wz, cur_label = 0.0, 0.0, 0.0, "boot"
         while True:
             elapsed = time.monotonic() - session_t0
             if idx < len(phases) and elapsed >= phases[idx][0]:
-                _, vx, vy, wz, label = phases[idx]
-                cmd_resp = http_post(base_url, "/api/rl/drive/cmd",
-                                    {"vx": vx, "vy": vy, "wz": wz})
-                print(f"[websession_capture] t={elapsed:5.1f}s cmd={label} "
-                     f"vx={vx:+.3f} vy={vy:+.3f} wz={wz:+.3f} -> "
-                     f"status={cmd_resp.get('status')!r}")
+                _, cur_vx, cur_vy, cur_wz, cur_label = phases[idx]
                 idx += 1
+                print(f"[websession_capture] t={elapsed:5.1f}s cmd={cur_label} "
+                     f"vx={cur_vx:+.3f} vy={cur_vy:+.3f} wz={cur_wz:+.3f}")
+            cmd_resp = http_post(base_url, "/api/rl/drive/cmd",
+                                {"vx": cur_vx, "vy": cur_vy, "wz": cur_wz})
             state = http_get(base_url, "/api/rl/drive")
             live = state.get("live") or {}
             row = {"t": round(elapsed, 2),

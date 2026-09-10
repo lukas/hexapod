@@ -2,6 +2,7 @@ import json
 import time
 
 from fastapi.testclient import TestClient
+import httpx
 
 from hexapod_lab.config import Settings
 from hexapod_lab.main import create_app
@@ -63,6 +64,51 @@ def test_duration_limit_and_basic_site_login(tmp_path):
         response = client.post("/api/experiments", headers={"Authorization": "Bearer secret"},
                                json={"name": "too long", "duration_seconds": 3})
         assert response.status_code == 422
+
+
+def test_calibration_proxy_uses_same_operator_login(tmp_path):
+    seen = []
+
+    def upstream(request: httpx.Request):
+        seen.append(request)
+        if request.url.path == "/vision":
+            return httpx.Response(200, text="<html>calibration</html>", headers={
+                "Content-Type": "text/html",
+            })
+        return httpx.Response(200, content=b"jpeg-data", headers={
+            "Content-Type": "image/jpeg",
+        })
+
+    configured = Settings(**{
+        **settings(tmp_path).__dict__,
+        "vision_url": "http://vision.local:8898",
+    })
+    app = create_app(configured, vision_transport=httpx.MockTransport(upstream))
+    with TestClient(app) as client:
+        assert client.get("/vision").status_code == 401
+        assert client.get("/vision", auth=("bob", "read-only")).status_code == 403
+
+        page = client.get("/vision", auth=("alice", "secret"))
+        assert page.status_code == 200
+        assert page.text == "<html>calibration</html>"
+        assert page.headers["cache-control"] == "no-store"
+
+        frame = client.get(
+            "/api/vision/frame.jpg?v=7",
+            auth=("alice", "secret"),
+        )
+        assert frame.status_code == 200
+        assert frame.content == b"jpeg-data"
+        assert seen[-1].url == "http://vision.local:8898/api/vision/frame.jpg?v=7"
+        assert "authorization" not in seen[-1].headers
+
+
+def test_calibration_proxy_is_disabled_without_fixed_upstream(tmp_path):
+    app = create_app(settings(tmp_path))
+    with TestClient(app) as client:
+        response = client.get("/vision", auth=("alice", "secret"))
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Calibration studio is not configured"
 
 
 def test_register_completed_result_and_stream_artifacts(tmp_path):

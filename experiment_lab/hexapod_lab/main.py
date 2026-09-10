@@ -9,7 +9,8 @@ from typing import Any, Dict, Literal, Optional
 import uuid
 
 from fastapi import Body, Depends, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
+import httpx
 from pydantic import BaseModel, Field
 
 from .auth import Principal, TokenAuth
@@ -32,7 +33,22 @@ class CompletedResultIn(ExperimentIn):
     summary_markdown: str = Field(min_length=1, max_length=262_144)
 
 
-def create_app(settings: Optional[Settings] = None) -> FastAPI:
+HOP_BY_HOP_HEADERS = {
+    "connection",
+    "keep-alive",
+    "proxy-authenticate",
+    "proxy-authorization",
+    "te",
+    "trailers",
+    "transfer-encoding",
+    "upgrade",
+}
+
+
+def create_app(
+    settings: Optional[Settings] = None,
+    vision_transport: Optional[httpx.AsyncBaseTransport] = None,
+) -> FastAPI:
     settings = settings or Settings.from_env()
     settings.data_dir.mkdir(parents=True, exist_ok=True)
     auth = TokenAuth(settings.api_keys)
@@ -114,6 +130,66 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         (run_dir / "summary.md").write_text(spec.summary_markdown, encoding="utf-8")
         runner._write_manifest(run_dir)
         return enrich(item)
+
+    async def proxy_vision(request: Request, upstream_path: str):
+        if not settings.vision_url:
+            raise HTTPException(404, "Calibration studio is not configured")
+        query = f"?{request.url.query}" if request.url.query else ""
+        target = f"{settings.vision_url}{upstream_path}{query}"
+        request_headers = {
+            key: value
+            for key, value in request.headers.items()
+            if key.lower() not in HOP_BY_HOP_HEADERS
+            and key.lower() not in {"authorization", "cookie", "host", "content-length"}
+        }
+        body = await request.body()
+        client = httpx.AsyncClient(
+            transport=vision_transport,
+            timeout=httpx.Timeout(connect=3.0, read=None, write=30.0, pool=5.0),
+            follow_redirects=False,
+        )
+        try:
+            upstream = await client.send(
+                client.build_request(
+                    request.method,
+                    target,
+                    headers=request_headers,
+                    content=body,
+                ),
+                stream=True,
+            )
+        except httpx.RequestError as exc:
+            await client.aclose()
+            raise HTTPException(
+                502,
+                "The local calibration studio is unavailable",
+            ) from exc
+
+        response_headers = {
+            key: value
+            for key, value in upstream.headers.items()
+            if key.lower() not in HOP_BY_HOP_HEADERS
+            and key.lower() not in {"content-length", "www-authenticate"}
+        }
+        response_headers["Cache-Control"] = "no-store"
+        response_headers["X-Robots-Tag"] = "noindex, nofollow"
+
+        async def stream():
+            try:
+                if upstream.is_stream_consumed:
+                    yield upstream.content
+                else:
+                    async for chunk in upstream.aiter_raw():
+                        yield chunk
+            finally:
+                await upstream.aclose()
+                await client.aclose()
+
+        return StreamingResponse(
+            stream(),
+            status_code=upstream.status_code,
+            headers=response_headers,
+        )
 
     @app.get("/healthz")
     def health():
@@ -250,10 +326,42 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         return JSONResponse(status_code=400, content={"jsonrpc": "2.0", "id": rpc_id,
                             "error": {"code": -32601, "message": "Method not found"}})
 
+    @app.api_route(
+        "/api/vision/{path:path}",
+        methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    )
+    async def vision_api(
+        path: str,
+        request: Request,
+        _: Principal = Depends(operator),
+    ):
+        return await proxy_vision(request, f"/api/vision/{path}")
+
+    @app.api_route(
+        "/vision",
+        methods=["GET", "POST", "OPTIONS"],
+    )
+    async def vision_root(
+        request: Request,
+        _: Principal = Depends(operator),
+    ):
+        return await proxy_vision(request, "/vision")
+
+    @app.api_route(
+        "/vision/{path:path}",
+        methods=["GET", "POST", "OPTIONS"],
+    )
+    async def vision_assets(
+        path: str,
+        request: Request,
+        _: Principal = Depends(operator),
+    ):
+        return await proxy_vision(request, f"/vision/{path}")
+
     @app.get("/", response_class=HTMLResponse)
     def dashboard(_: Principal = Depends(viewer)):
         cards = "".join(experiment_card(item) for item in store.list()) or "<p>No experiments yet.</p>"
-        return page("Hexapod Lab", f"<h1>Hexapod Lab</h1><p class='lede'>Experiment queue and durable run evidence</p><main>{cards}</main>")
+        return page("Hexapod Lab", f"<nav><a href='/vision'>Camera &amp; calibration →</a></nav><h1>Hexapod Lab</h1><p class='lede'>Experiment queue and durable run evidence</p><main>{cards}</main>")
 
     @app.get("/experiments/{experiment_id}", response_class=HTMLResponse)
     def result_page(experiment_id: str, _: Principal = Depends(viewer)):

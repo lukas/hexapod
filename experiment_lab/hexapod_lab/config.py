@@ -17,6 +17,7 @@ class Settings:
     auto_worker: bool
     max_duration_seconds: int
     max_artifact_bytes: int = 2 * 1024 * 1024 * 1024
+    vision_url: str = ""
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -38,4 +39,5 @@ class Settings:
             max_artifact_bytes=int(os.getenv(
                 "HEXAPOD_MAX_ARTIFACT_BYTES", str(2 * 1024 * 1024 * 1024)
             )),
+            vision_url=os.getenv("HEXAPOD_VISION_URL", "").rstrip("/"),
         )

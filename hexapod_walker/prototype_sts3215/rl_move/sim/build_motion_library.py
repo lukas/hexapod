@@ -86,15 +86,57 @@ TURN_RADIUS_APPROX_M = 0.09  # nominal foot-to-yaw-axis radius for the
                             # slip-metric's rotation-as-speed proxy
 
 
-def _make_env(seed: int, episode_seconds: float):
+def _parse_cfg_set(specs) -> dict:
+    """Same semantics as train_ppo_sim._parse_cfg_set (float / '[..]'
+    JSON list / fallback string), duplicated locally so this CPU-only
+    builder never imports the torch-heavy trainer module."""
+    out = {}
+    for part in (specs or []):
+        k, _, v = part.partition("=")
+        v = v.strip()
+        if v.startswith("["):
+            out[k.strip()] = json.loads(v)
+            continue
+        try:
+            out[k.strip()] = float(v)
+        except ValueError:
+            out[k.strip()] = v
+    return out
+
+
+def _apply_cfg_overrides(cfg: dict, overrides: dict | None) -> dict:
+    """Apply dotted-key overrides ('control.hz': 50.0) in place.
+
+    Empty/None overrides return cfg untouched (bit-exact legacy
+    behavior; the 2026-09-10 50 Hz retrain order is the first user)."""
+    for dotted, val in (overrides or {}).items():
+        parts = dotted.split(".")
+        d = cfg
+        for p in parts[:-1]:
+            d = d.setdefault(p, {})
+        d[parts[-1]] = val
+    return cfg
+
+
+def _make_env(seed: int, episode_seconds: float, cfg_overrides=None):
     """A bare walk env: no reward-mechanism cfg matters here (we only
     read physics/contacts), just the plant/servo/DR baseline every
-    other bank test in this repo already agrees on."""
+    other bank test in this repo already agrees on.
+
+    ``cfg_overrides`` (2026-09-10, 50 Hz deployment retrain order):
+    optional dotted-key dict merged into the loaded config, e.g.
+    {'control.hz': 50.0} to build a library whose transition dt
+    matches a 50 Hz policy's control tick. None/empty = bit-exact
+    legacy behavior (stock config, stock SimServoParams)."""
     from rl_move.sim.walk_task import SimHexapodJointWalkEnv
 
     cfg = load_config()
+    params_cfg = None
+    if cfg_overrides:
+        cfg = _apply_cfg_overrides(cfg, cfg_overrides)
+        params_cfg = cfg
     env = SimHexapodJointWalkEnv(
-        params=SimServoParams.from_cfg(None), randomize=False,
+        params=SimServoParams.from_cfg(params_cfg), randomize=False,
         dr_scale=0.0, episode_seconds=episode_seconds, seed=seed, cfg=cfg)
     gen = env._goal_gen
     for m in ("hold", "lean", "track", "unload", "raise", "rise",
@@ -180,7 +222,7 @@ def run_clip(name: str, cmd_fn, clip_s: float, seed: int, *,
              controller: str = "tripod", cpg_params=None,
              yaw_trim: bool = False,
              turn_scales: tuple[float, float] | None = None,
-             cmd_cond: bool = False) -> dict:
+             cmd_cond: bool = False, cfg_overrides=None) -> dict:
     """Roll the scripted teacher through real physics for one command
     profile; return per-tick records + validation metrics.
 
@@ -206,7 +248,8 @@ def run_clip(name: str, cmd_fn, clip_s: float, seed: int, *,
         from hexapod_core.tripod_gait import TripodGait
         gait = TripodGait(vx=0.0, lift=0.025)
 
-    env = _make_env(seed, episode_seconds=clip_s + 1.0)
+    env = _make_env(seed, episode_seconds=clip_s + 1.0,
+                    cfg_overrides=cfg_overrides)
     env.reset()
     gait.sync_plant_stance(*WALK_PLANT)
     # Turn-in-place stance-geometry scaling (08-23 yaw-authority
@@ -444,6 +487,14 @@ def main():
                          "= bit-exact legacy 60-dim library). Pair "
                          "only with a live run that sets "
                          "goal.amp_style_cmd_cond=1.")
+    ap.add_argument("--cfg-set", action="append", default=[],
+                    metavar="K=V",
+                    help="dotted config override applied to the rollout "
+                         "env (repeatable), e.g. control.hz=50 "
+                         "safety.max_delta_q_deg=2.5 to build a library "
+                         "whose transition dt matches a 50 Hz policy "
+                         "(2026-09-10 deployment-rate order). Default "
+                         "none = bit-exact legacy 25 Hz library.")
     args = ap.parse_args()
 
     cpg_params = None
@@ -496,6 +547,10 @@ def main():
                 "(post-reset spawn stance) -- see script docstring "
                 "ASSUMPTION / OPERATOR_QUESTIONS.md q_20260822T0900Z"}
 
+    cfg_overrides = _parse_cfg_set(args.cfg_set)
+    if cfg_overrides:
+        manifest["cfg_overrides"] = dict(cfg_overrides)
+
     accepted, rejected = [], []
     for name, (cmd_fn, clip_s) in families.items():
         for seed in args.seeds:
@@ -506,7 +561,8 @@ def main():
                             turn_scales=(turn_scales
                                          if name.startswith("turn_")
                                          else None),
-                            cmd_cond=args.cmd_cond)
+                            cmd_cond=args.cmd_cond,
+                            cfg_overrides=cfg_overrides)
             ok, reason = validate(clip, args.reject_slip_per_m, args.min_ticks)
             entry = dict(name=name, seed=seed, n_ticks=clip["n_ticks"],
                         slip_per_m=round(clip["slip_per_m"], 3),
@@ -533,8 +589,9 @@ def main():
     clip_lens = [c["n_ticks"] for c in accepted]
     clip_starts = np.cumsum([0] + clip_lens[:-1])
     total_ticks = sum(clip_lens)
+    hz_eff = 1.0 / float(accepted[0]["dt"])
     print(f"\n{len(accepted)}/{len(manifest['clips'])} clips accepted, "
-          f"{total_ticks} ticks ({total_ticks / CTRL_HZ:.1f}s @ {CTRL_HZ}Hz)")
+          f"{total_ticks} ticks ({total_ticks / hz_eff:.1f}s @ {hz_eff:g}Hz)")
 
     def _cat(key):
         return np.concatenate([c[key] for c in accepted], axis=0)

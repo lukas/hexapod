@@ -32,7 +32,9 @@ def protocol_exists(settings: Settings, name: str) -> bool:
 
 
 def _is_whole_body(doc: dict) -> bool:
-    return any(isinstance(s, dict) and "traj" in s for s in doc.get("segments") or [])
+    # Same test run_hw.py uses to demand --force.
+    return any(isinstance(s, dict) and s.get("kind") in ("traj", "rel_traj")
+               for s in doc.get("segments") or [])
 
 
 def protocol_is_whole_body(settings: Settings, name: str) -> bool:

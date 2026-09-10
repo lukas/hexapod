@@ -1,0 +1,23 @@
+{
+  "robot-1": {
+    "path": "preflight_frames/cam0.jpg",
+    "bytes": 147000,
+    "sha256": "c7e6063e79c45bff621b49d4dc1bb5f8ce5c29e4694fdf25e5c5e93b595d6235",
+    "mean_luma": 83.6,
+    "bright_copy": "preflight_frames/robot-1_bright.png"
+  },
+  "robot-3": {
+    "path": "preflight_frames/cam1.jpg",
+    "bytes": 134928,
+    "sha256": "bdee823d38d89b895d543cc763fda0654f7f1f1afe59fb06a09a93e1f251e3f3",
+    "mean_luma": 43.0,
+    "bright_copy": "preflight_frames/robot-3_bright.png"
+  },
+  "robot-2": {
+    "path": "preflight_frames/cam2.jpg",
+    "bytes": 137269,
+    "sha256": "e20b8b7d9ea74b8d93109ecc0b47b0aca35a083829d4fea650c2da1177cba888",
+    "mean_luma": 47.6,
+    "bright_copy": "preflight_frames/robot-2_bright.png"
+  }
+}

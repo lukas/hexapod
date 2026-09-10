@@ -1,0 +1,64 @@
+{
+  "purpose": "place L3's loop width against the four legs the plan's reporting.compare_against lists, and test the plan's own hypothesis",
+  "plan_hypothesis": "L3's loop width falls into one of the two brackets summary.md describes (L1/L2 near -0.33/-0.44, L0/L5 near -0.83/-0.97) rather than opening a third",
+  "encoder_resolution_deg_per_count": 0.0879,
+  "per_leg": [
+    {
+      "leg": "L1",
+      "loop_deg": -0.33,
+      "loop_counts": -3.75,
+      "sd": 0.153,
+      "n": "18 cycles / 3 runs"
+    },
+    {
+      "leg": "L2",
+      "loop_deg": -0.4357,
+      "loop_counts": -4.96,
+      "sd": 0.077,
+      "n": "24 cycles"
+    },
+    {
+      "leg": "L3",
+      "loop_deg": -0.6737,
+      "loop_counts": -7.66,
+      "sd": 0.0656,
+      "n": "6 cycles / 1 run  <-- THIS RUN"
+    },
+    {
+      "leg": "L5",
+      "loop_deg": -0.832,
+      "loop_counts": -9.47,
+      "sd": 0.065,
+      "n": "25 cycles"
+    },
+    {
+      "leg": "L0",
+      "loop_deg": -0.967,
+      "loop_counts": -11.0,
+      "sd": 0.0,
+      "n": "6 cycles / 1 run"
+    }
+  ],
+  "adjacent_gaps_deg": {
+    "L1->L2": 0.1057,
+    "L2->L3": 0.238,
+    "L3->L5": 0.1583,
+    "L5->L0": 0.135
+  },
+  "l3_this_run": {
+    "six_cycle_mean_deg": -0.6737,
+    "six_cycle_sd_deg": 0.0656,
+    "settled_cycles_2_to_6_deg": -0.703,
+    "settled_counts": 8.0,
+    "cycle_1_deg": -0.527,
+    "cycle_1_counts": 6.0,
+    "sd_source": "the entire sd is one 2-count difference on cycle 1: the out-stroke settled value is -47.285 deg (count 538) in ALL six cycles, and the in-stroke is -46.758 (count 532) on cycle 1 then -46.582 (count 530) on cycles 2-6"
+  },
+  "verdict_on_the_hypothesis": {
+    "answer": "NOT SUPPORTED as stated, and not resolvable by this single run",
+    "why": "-0.674 (or -0.703 settled) sits BETWEEN the two brackets: 0.238 deg above L2's -0.436 and 0.158 deg below L5's -0.832. The L2->L3 gap is the largest gap anywhere in the five-leg series, and the L3->L5 gap is larger than the L5->L0 gap (0.135) that sits WITHIN the supposed high bracket.",
+    "but_the_decisive_limit": "L1 established that three replicate runs of a byte-identical protocol on one leg span 0.230 deg. L3's distance to L5 is only 0.158 deg -- SMALLER than that demonstrated between-run spread -- so this run CANNOT distinguish 'L3 is a third intermediate value' from 'L3 belongs to the L5/L0 high bracket and read low this run'. Its distance to L2 (0.238 deg) only just exceeds the spread, so even exclusion from the low bracket is marginal.",
+    "defensible_claim": "with five legs measured the per-leg loop widths form a graded ladder -- 3.8, 5.0, 7.7, 9.5 and 11.0 encoder counts -- rather than two clusters. The two-bracket reading does not survive L3, but a third BRACKET is not established either; what is established is that L3 is not near either bracket's centre.",
+    "next_measurement": "one replicate L3 run, which the saved plan itself pre-registered as the cheap follow-up. It is the single measurement that would resolve this, and it matters more here than it did for L0 because L3's gap to the nearest bracket is smaller than the family's own known between-run spread."
+  }
+}

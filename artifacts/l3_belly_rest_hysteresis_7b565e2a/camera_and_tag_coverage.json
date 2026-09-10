@@ -1,0 +1,64 @@
+{
+  "purpose": "camera and chassis-tag accounting for experiment 7b565e2a, from the runner's own frame index and tag watch. Every frame's sha256 is in run1/frame_index.jsonl; the loose JPEGs are gitignored and bundled.",
+  "run_window": {
+    "started_unix": 1789054215.145536,
+    "protocol_seconds": 156.0,
+    "supervisor_elapsed_s": 161.65,
+    "protocol_tick0_offset_s": 2.19
+  },
+  "cameras": {
+    "robot-1": {
+      "frames": 270,
+      "distinct_sha256": 270,
+      "all_frames_distinct": true,
+      "span_s": 175.16,
+      "max_inter_frame_gap_s": 0.738,
+      "median_inter_frame_gap_s": 0.681,
+      "capture_errors": 0,
+      "total_bytes": 37887968
+    },
+    "robot-2": {
+      "frames": 270,
+      "distinct_sha256": 270,
+      "all_frames_distinct": true,
+      "span_s": 175.16,
+      "max_inter_frame_gap_s": 0.732,
+      "median_inter_frame_gap_s": 0.681,
+      "capture_errors": 0,
+      "total_bytes": 48775077
+    },
+    "robot-3": {
+      "frames": 270,
+      "distinct_sha256": 270,
+      "all_frames_distinct": true,
+      "span_s": 175.16,
+      "max_inter_frame_gap_s": 0.737,
+      "median_inter_frame_gap_s": 0.68,
+      "capture_errors": 0,
+      "total_bytes": 58724032
+    }
+  },
+  "camera_staleness_abort_bound_s": 2.0,
+  "cameras_verdict": "all three cameras recorded continuously for the whole window from the :8766 camera server, zero capture errors, every frame sha256 distinct, worst inter-frame gap 0.738 s against the 2 s staleness abort bound",
+  "chassis_tag_watch": {
+    "plan_wording": "'the chassis tag moving relative to the floor tags in any camera WHEN TAGS ARE RESOLVABLE'; the saved plan also says the watch 'bounds gross motion only and the run does not depend on it - joint telemetry answers the pose-held question directly, as it did for L0'",
+    "enabled": false,
+    "why_disabled": "the chassis tag was NOT resolvable when the pre-run baseline was taken (0 resolved samples), so there was no baseline to compare against and the runner recorded the condition as UNMEASURED rather than inventing one. It WAS resolvable 4 minutes earlier during the zero-motion dry run (1 sample at (470, 599) mm, yaw 80.9 deg), so this is a marginal-resolvability boundary at this pose, not a lighting or camera failure -- all three cameras kept serving fresh frames throughout.",
+    "samples": 144,
+    "resolved_samples": 6,
+    "resolved_fraction": 0.042,
+    "shift_trip_mm": 120.0,
+    "yaw_trip_deg": 15.0,
+    "max_shift_mm": null,
+    "verdict": "UNMEASURED for this run. This is a real reduction in evidence against the L0 run, which had the watch enabled and clean at a 6.18 mm median offset, and it is reported rather than smoothed over. It does not weaken the run's own conclusion: the pose-held question is answered directly and more precisely by joint telemetry -- every measured non-L3 joint stayed within 0.439 deg of logical zero across all 1560 ticks against a 1.0 deg bound, and the pre- and post-run 18-servo samples are identical. IMU roll/pitch moved 0.10/0.07 deg against a 10 deg trip."
+  },
+  "passive_recorder": {
+    "declared_hz": 50.0,
+    "confirmed_from_marker_acks": true,
+    "queue_dropped": 0,
+    "capture_errors": 0,
+    "uncaptured_bytes": 0,
+    "markers_accepted": 3,
+    "note": "the three markers (pre_run, protocol_tick0, post_run) were each accepted by the on-robot 50 Hz passive recorder with writer_alive true, and it reported queue_dropped 0 / capture_errors 0 / uncaptured_bytes 0 at every one, so the plan's persist-to-disk-during-the-run requirement is confirmed rather than assumed"
+  }
+}

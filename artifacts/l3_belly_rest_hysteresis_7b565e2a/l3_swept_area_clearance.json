@@ -1,0 +1,88 @@
+{
+  "purpose": "satisfy the plan's require_l3_swept_area_clear preflight for experiment 7b565e2a, whose wording is 'confirm the actual L3 swept volume is free of cables, fixtures and obstacles; a cable is a blocker only if it lies in that swept area'",
+  "when_utc": "2026-09-10T15:28Z",
+  "which_leg_is_L3": {
+    "body_azimuth_deg": 210.0,
+    "how_established": "the camera tracker tracks L3_yaw DIRECTLY at this pose (status 'tracked', chassis_tag_id 0 paired with servo_lid_tag_id 5) and reports leg_zero_azimuth_body_deg 210.0; this matches mesh_mujoco/hexapod_mesh.xml's own L3_yaw body pos (-0.087, -0.05) -> atan2 = 209.9 deg. This is stronger than the L0 run had, where L0's coxa tag was not visible to any calibrated camera and the leg had to be identified by interpolating L3/L4's reported azimuths.",
+    "role": "rear-left leg of the rear pair (L2/L3), not a middle leg",
+    "coxa_heading_world_deg": 217.467,
+    "body_heading_world_deg": -77.876,
+    "camera_yaw_convention_note": "the tracker's provisional camera yaw reads 85.343 deg for L3 while the encoder reads 0.00 deg. That is a convention offset, not a pose disagreement: L4 reads 93.2 and L5 reads 99.9 in the same pass with their encoders also at ~0, so all three tracked legs carry the same ~85-100 deg offset. /api/pose-state itself states these provisional camera angles are 'presented beside, not fused with, encoders'. The encoders are the authority for the start-pose gate and they are used for it."
+  },
+  "swept_volume_computed_from_the_protocol": {
+    "method": "read directly from this run's own reviewed protocol (protocol_hash c3727df8dc7e), not carried over",
+    "l3_yaw_joint_j9": "constant [0] in every one of 1560 rows, so the leg does NOT sweep laterally at all",
+    "foot_path": "a single radial line segment along L3's fixed azimuth",
+    "radius_from_yaw_axis_mm": [
+      192.5,
+      252.5
+    ],
+    "radial_travel_mm": 60.0,
+    "foot_height_below_home_plane_mm": [
+      0.0,
+      15.0
+    ],
+    "verdict": "a ~60 mm long, ~15 mm deep sliver directly along the leg L3 is already resting on"
+  },
+  "why_a_floor_cable_cannot_be_in_this_volume": {
+    "first_floor_contact_foot_z_mm": -80.95,
+    "deepest_commanded_foot_z_mm": -15.0,
+    "clearance_above_the_floor_plane_mm": 65.95,
+    "statement": "the deepest commanded point of the whole trajectory is 65.95 mm above the plane the feet contact, so a cable LYING ON THE FLOOR is not in the swept volume by construction. Only an object standing more than ~66 mm tall directly beneath the resting L3 leg could enter it, and the frames below are checked for exactly that."
+  },
+  "visual_inspection": {
+    "frames": {
+      "robot-1": {
+        "path": "preflight_frames/cam0.jpg",
+        "bytes": 147000,
+        "sha256": "c7e6063e79c45bff621b49d4dc1bb5f8ce5c29e4694fdf25e5c5e93b595d6235",
+        "mean_luma": 83.6,
+        "bright_copy": "preflight_frames/robot-1_bright.png"
+      },
+      "robot-3": {
+        "path": "preflight_frames/cam1.jpg",
+        "bytes": 134928,
+        "sha256": "bdee823d38d89b895d543cc763fda0654f7f1f1afe59fb06a09a93e1f251e3f3",
+        "mean_luma": 43.0,
+        "bright_copy": "preflight_frames/robot-3_bright.png"
+      },
+      "robot-2": {
+        "path": "preflight_frames/cam2.jpg",
+        "bytes": 137269,
+        "sha256": "e20b8b7d9ea74b8d93109ecc0b47b0aca35a083829d4fea650c2da1177cba888",
+        "mean_luma": 47.6,
+        "bright_copy": "preflight_frames/robot-2_bright.png"
+      }
+    },
+    "zoomed_copies": [
+      "preflight_frames/robot-1_legs_zoom.png",
+      "preflight_frames/robot-2_legs_zoom.png"
+    ],
+    "brightened_copies": [
+      "preflight_frames/robot-1_bright.png",
+      "preflight_frames/robot-2_bright.png",
+      "preflight_frames/robot-3_bright.png"
+    ],
+    "captured_utc": "2026-09-10T15:26:11Z",
+    "illumination": "mean luma 83.6 (robot-1/cam0), 43.0 (robot-3/cam1), 47.6 (robot-2/cam2). BRIGHTER STILL than the L0 run, which recorded 49.8 / 23.0 / 24.4 and was itself the first materially-lit member of this family (L1/L2/L5 ran at 24.9 / 4.6 / 4.4). Cables are plainly resolvable in all three views.",
+    "tags_resolved_per_view": {
+      "robot-1/cam0": 14,
+      "robot-3/cam1": 18,
+      "robot-2/cam2": 12
+    },
+    "what_the_frames_show": "all six legs splayed straight out and belly-resting flat on the floor, feet down, chassis flat on the carpet, no leg standing, no tip or lean, no person or hands in frame. The floor immediately around every foot -- L3's included -- is bare carpet. Cabling is present in the arena and some of it is the robot's own tether, but every strand visible near the robot lies FLAT ON THE FLOOR; nothing stands proud of the floor anywhere inside leg reach, in any of the three views.",
+    "scope_note": "all six legs were checked rather than L3 alone: it is a strictly stronger claim. Unlike the L0 run this did not have to substitute for identifying the leg -- L3's coxa IS tracked here -- so the all-six check is redundancy rather than necessity."
+  },
+  "supporting_evidence_that_the_volume_is_free": {
+    "free_air_currents_on_this_identical_command_path": "the L0/L1/L2/L5 members ran this byte-identical commanded hip/knee path on this rig and peaked at 0.006-0.039 A against the 0.75 A runner trip; anything in the path would load the joint far above that",
+    "l3_joints_at_rest_now": {
+      "j9_deg": 0.0,
+      "j10_deg": 0.0,
+      "j11_deg": -0.09,
+      "j11_knee_temp_c": 29,
+      "currents_a": 0.0
+    },
+    "backstop_if_wrong": "the on-robot runner's real-time interlocks (0.75 A over 3 polls, 3.0 A ceiling, tracking error vs the slewed reference, 3 consecutive missed reads) limp the robot on an unexpected force, and this run enforces the /api/errors stop live at 1 Hz on the bus-free path"
+  },
+  "verdict": "clear -- proceed"
+}

@@ -1,0 +1,345 @@
+{
+ "csv": "sysid_l3_belly_rest_radial_shear_hysteresis_repeat6_v1_20260910_153015.csv",
+ "rows": 1560,
+ "hz": 10.0,
+ "declared_posthoc_checks": {
+  "measured_non_L3_joint_departure_gt_1p0_deg": {
+   "bound_deg": 1.0,
+   "worst": {
+    "joint": 16,
+    "abs_deg": 0.439,
+    "tick": 0
+   },
+   "per_joint_max_abs_deg": {
+    "1": 0.088,
+    "2": 0.176,
+    "3": 0.176,
+    "4": 0.088,
+    "5": 0.088,
+    "6": 0.264,
+    "7": 0.088,
+    "8": 0.176,
+    "9": 0.088,
+    "12": 0.088,
+    "13": 0.264,
+    "16": 0.439,
+    "17": 0.176
+   },
+   "missing_measured_cells": 0,
+   "verdict": "PASS"
+  },
+  "hysteresis_growing_monotonically_across_repeats": {
+   "per_cycle_loop_deg": [
+    0.527,
+    0.703,
+    0.703,
+    0.703,
+    0.703,
+    0.703
+   ],
+   "strictly_monotonic": false,
+   "verdict": "PASS (no growth)"
+  }
+ },
+ "settled_window_investigation": {
+  "question": "cycle 1 reports a different loop width from cycles 2-6, which are identical to each other; is the whole spread a real quantized measurement or an analysis artifact?",
+  "settled_windows": [
+   {
+    "ticks": [
+     170,
+     179
+    ],
+    "n": 10,
+    "unique_values": [
+     -47.285
+    ],
+    "mean": -47.285,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     250,
+     259
+    ],
+    "n": 10,
+    "unique_values": [
+     -46.758
+    ],
+    "mean": -46.758,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     330,
+     339
+    ],
+    "n": 10,
+    "unique_values": [
+     -47.285
+    ],
+    "mean": -47.285,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     410,
+     419
+    ],
+    "n": 10,
+    "unique_values": [
+     -46.582
+    ],
+    "mean": -46.582,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     490,
+     499
+    ],
+    "n": 10,
+    "unique_values": [
+     -47.285
+    ],
+    "mean": -47.285,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     570,
+     579
+    ],
+    "n": 10,
+    "unique_values": [
+     -46.582
+    ],
+    "mean": -46.582,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     950,
+     959
+    ],
+    "n": 10,
+    "unique_values": [
+     -47.285
+    ],
+    "mean": -47.285,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     1030,
+     1039
+    ],
+    "n": 10,
+    "unique_values": [
+     -46.582
+    ],
+    "mean": -46.582,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     1110,
+     1119
+    ],
+    "n": 10,
+    "unique_values": [
+     -47.285
+    ],
+    "mean": -47.285,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     1190,
+     1199
+    ],
+    "n": 10,
+    "unique_values": [
+     -46.582
+    ],
+    "mean": -46.582,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     1270,
+     1279
+    ],
+    "n": 10,
+    "unique_values": [
+     -47.285
+    ],
+    "mean": -47.285,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     1350,
+     1359
+    ],
+    "n": 10,
+    "unique_values": [
+     -46.582
+    ],
+    "mean": -46.582,
+    "sd": 0.0
+   }
+  ],
+  "encoder_resolution_deg_per_count": 0.0879,
+  "settled_values_in_counts": {
+   "note": "every settled window holds ONE value for all ten of its 10 Hz samples (sd 0.0), and each of those values sits on the encoder count grid, so the loop widths are exact count differences rather than averages of a moving joint.",
+   "windows": [
+    {
+     "ticks": [
+      170,
+      179
+     ],
+     "deg": -47.285,
+     "counts": -537.94,
+     "nearest_count": -538,
+     "residual_counts": 0.059
+    },
+    {
+     "ticks": [
+      250,
+      259
+     ],
+     "deg": -46.758,
+     "counts": -531.95,
+     "nearest_count": -532,
+     "residual_counts": 0.055
+    },
+    {
+     "ticks": [
+      330,
+      339
+     ],
+     "deg": -47.285,
+     "counts": -537.94,
+     "nearest_count": -538,
+     "residual_counts": 0.059
+    },
+    {
+     "ticks": [
+      410,
+      419
+     ],
+     "deg": -46.582,
+     "counts": -529.94,
+     "nearest_count": -530,
+     "residual_counts": 0.057
+    },
+    {
+     "ticks": [
+      490,
+      499
+     ],
+     "deg": -47.285,
+     "counts": -537.94,
+     "nearest_count": -538,
+     "residual_counts": 0.059
+    },
+    {
+     "ticks": [
+      570,
+      579
+     ],
+     "deg": -46.582,
+     "counts": -529.94,
+     "nearest_count": -530,
+     "residual_counts": 0.057
+    },
+    {
+     "ticks": [
+      950,
+      959
+     ],
+     "deg": -47.285,
+     "counts": -537.94,
+     "nearest_count": -538,
+     "residual_counts": 0.059
+    },
+    {
+     "ticks": [
+      1030,
+      1039
+     ],
+     "deg": -46.582,
+     "counts": -529.94,
+     "nearest_count": -530,
+     "residual_counts": 0.057
+    },
+    {
+     "ticks": [
+      1110,
+      1119
+     ],
+     "deg": -47.285,
+     "counts": -537.94,
+     "nearest_count": -538,
+     "residual_counts": 0.059
+    },
+    {
+     "ticks": [
+      1190,
+      1199
+     ],
+     "deg": -46.582,
+     "counts": -529.94,
+     "nearest_count": -530,
+     "residual_counts": 0.057
+    },
+    {
+     "ticks": [
+      1270,
+      1279
+     ],
+     "deg": -47.285,
+     "counts": -537.94,
+     "nearest_count": -538,
+     "residual_counts": 0.059
+    },
+    {
+     "ticks": [
+      1350,
+      1359
+     ],
+     "deg": -46.582,
+     "counts": -529.94,
+     "nearest_count": -530,
+     "residual_counts": 0.057
+    }
+   ]
+  }
+ },
+ "electrical_thermal": {
+  "peak_current_a_per_joint": {
+   "0": 0.006,
+   "1": 0.006,
+   "2": 0.006,
+   "3": 0.006,
+   "5": 0.006,
+   "6": 0.006,
+   "7": 0.006,
+   "8": 0.006,
+   "9": 0.006,
+   "10": 0.026,
+   "11": 0.019,
+   "12": 0.006,
+   "13": 0.013,
+   "14": 0.006,
+   "15": 0.006,
+   "16": 0.013,
+   "17": 0.006
+  },
+  "peak_current_a_any_joint": 0.026,
+  "per_servo_trip_a": 0.75,
+  "hard_ceiling_a": 3.0,
+  "logged_temp_c_max": 33.0,
+  "temp_trip_c": 55.0
+ }
+}

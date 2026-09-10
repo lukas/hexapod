@@ -1,6 +1,8 @@
 """The camera-server-backed frame source used instead of opening a device."""
 import json
 
+import importlib.util
+
 import pytest
 
 from hexapod_lab.vision_service_capture import VisionServiceCapture
@@ -13,6 +15,14 @@ STATUS = {
         {"index": 3, "requested_stable_id": "0xCCC", "device_name": "Arducam OV9281"},
     ]
 }
+
+
+# read() decodes JPEG with cv2. The lab service always has it; a bare test
+# environment may not, and a missing decoder is not a finding about this code.
+requires_cv2 = pytest.mark.skipif(
+    importlib.util.find_spec("cv2") is None,
+    reason="opencv is not installed in this environment",
+)
 
 
 def _capture(monkeypatch, *, headers=None, jpeg=b"", status=STATUS, **kwargs):
@@ -55,6 +65,7 @@ def test_resolves_an_unambiguous_device_name(monkeypatch):
     assert capture._resolve_slot() == 3
 
 
+@requires_cv2
 def test_read_reports_a_stale_frame_rather_than_returning_it(monkeypatch):
     capture, _calls = _capture(
         monkeypatch, stable_id="0xCCC",
@@ -65,6 +76,7 @@ def test_read_reports_a_stale_frame_rather_than_returning_it(monkeypatch):
     assert "stalled" in capture.last_error
 
 
+@requires_cv2
 def test_read_forgets_the_slot_after_a_failure(monkeypatch):
     # A server restart renumbers slots, so a cached slot would quietly return
     # a different camera's frames.
@@ -75,6 +87,7 @@ def test_read_forgets_the_slot_after_a_failure(monkeypatch):
     assert "unreachable" in capture.last_error
 
 
+@requires_cv2
 def test_read_decodes_a_frame_and_keeps_the_servers_capture_stamp(monkeypatch):
     import cv2
     import numpy as np

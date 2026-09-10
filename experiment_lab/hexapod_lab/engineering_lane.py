@@ -12,7 +12,7 @@ import subprocess
 from typing import Any, Callable, Dict, Iterable, Optional
 import uuid
 
-from .db import TERMINAL, Store, utcnow
+from .db import QUEUE_STOP_ASSESS_SECONDS, TERMINAL, Store, utcnow
 
 
 PROJECT_PROFILE_VERSION = "hexapod-sts3215-engineering-v3"
@@ -270,6 +270,24 @@ def _canonical(value: Any) -> str:
 
 def _digest(value: Any) -> str:
     return hashlib.sha256(_canonical(value).encode("utf-8")).hexdigest()
+
+
+def _assessment_elapsed(finished_at: Any) -> bool:
+    """True once a stopped handoff has sat out the 30 s assessment window.
+
+    An unusable timestamp reads as "not yet assessed": a retry that cannot be
+    dated is one this lane should not fire on its own.
+    """
+    if not finished_at:
+        return False
+    try:
+        when = datetime.fromisoformat(str(finished_at).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return False
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - when
+            >= timedelta(seconds=QUEUE_STOP_ASSESS_SECONDS))
 
 
 def validate_rl_request(value: Any) -> Dict[str, Any]:
@@ -1165,14 +1183,37 @@ class EngineeringJobStore:
                                  > datetime.fromisoformat(existing["finished_at"].replace("Z", "+00:00")))
                     except (ValueError, TypeError):
                         pass
-                if (existing["status"] == "blocked"
-                        and existing["attempts"] < existing["max_attempts"]
-                        and control is not None and control["action"] == "resume"
+                budget_left = (existing["status"] == "blocked"
+                               and existing["attempts"] < existing["max_attempts"])
+                release = False
+                if (budget_left and control is not None
+                        and control["action"] == "resume"
                         and control["sequence"] > floor and newer):
                     saved["queue_resume_receipt"] = {
                         **dict(control), "previous_finished_at": existing["finished_at"],
                         "attempts_used": existing["attempts"],
                     }
+                    release = True
+                elif budget_left and _assessment_elapsed(existing["finished_at"]):
+                    # No operator click required. EMERGENCY_HANDLING.md gives a
+                    # stopped step a 30 s assessment and another attempt; only
+                    # a spent budget waits for a human. Waiting for a resume
+                    # here is what left a healthy robot idle overnight behind a
+                    # single blocked handoff. The retry is not blind: the next
+                    # attempt re-reads the robot's live health and blocks again
+                    # if the fault is still there.
+                    saved["assessment_receipt"] = {
+                        "released_at": now,
+                        "previous_finished_at": existing["finished_at"],
+                        "attempts_used": existing["attempts"],
+                        "wait_seconds": QUEUE_STOP_ASSESS_SECONDS,
+                        "reason": (
+                            "30-second assessment window elapsed; retrying the "
+                            "complete failed step within the attempt budget"
+                        ),
+                    }
+                    release = True
+                if release:
                     con.execute(
                         "UPDATE codex_engineering_jobs SET status='retry',finished_at=NULL,"
                         "not_before=?,updated_at=?,result_json=? WHERE id=? AND status='blocked'",

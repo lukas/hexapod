@@ -13,6 +13,10 @@ import uuid
 TERMINAL = {"succeeded", "failed", "cancelled"}
 EXECUTION_MODES = {"builtin", "external_guarded"}
 WAITING_FOR_OPERATOR = "waiting_for_operator"
+# EMERGENCY_HANDLING.md: a stopped step waits out a 30 s assessment and then
+# takes another attempt on its own. Kept here rather than imported from the
+# orchestrator so the store has no dependency on it.
+QUEUE_STOP_ASSESS_SECONDS = 30.0
 LEGACY_PRE_RUN_PIN_BASIS = "legacy_backfill_by_recorded_time"
 CODEX_JOB_KINDS = {"analysis", "advance"}
 CODEX_JOB_TERMINAL = {"succeeded", "blocked", "dead"}
@@ -1877,12 +1881,25 @@ class Store:
                 "AND name='codex_engineering_jobs'"
             ).fetchone()
             blocked_filter = ""
+            assess_deadline = (
+                datetime.now(timezone.utc)
+                - timedelta(seconds=QUEUE_STOP_ASSESS_SECONDS)
+            ).isoformat()
             if engineering_jobs_exist is not None:
                 # A blocked handoff stays attached to its exact experiment and
                 # retains its attempt budget, but it must not monopolize the
-                # rest of the queue. A newer audited queue resume makes that
-                # same handoff selectable again so ensure_queue_handoff() can
-                # atomically return it to retry.
+                # rest of the queue.
+                #
+                # Two things make that same handoff selectable again so
+                # ensure_queue_handoff() can atomically return it to retry: a
+                # newer audited queue resume, or simply the elapsed assessment
+                # window. The second one is the point -- EMERGENCY_HANDLING.md
+                # says a stop is followed by a 30 s assessment and another
+                # attempt, not by parking. Requiring an operator click here
+                # meant one blocked handoff idled a healthy robot until
+                # somebody was watching, which is exactly what an overnight
+                # campaign cannot afford. The attempt budget still bounds it:
+                # attempts>=max_attempts holds for a human, as does 'dead'.
                 blocked_filter = """
                 AND NOT EXISTS (
                   SELECT 1 FROM codex_engineering_jobs AS engineering
@@ -1890,6 +1907,14 @@ class Store:
                   AND json_extract(engineering.source_context_json,'$.trigger_kind')=
                       'queue_handoff'
                   AND engineering.status IN ('blocked','dead')
+                  AND NOT (
+                    engineering.status='blocked'
+                    AND engineering.attempts<engineering.max_attempts
+                    AND (
+                      engineering.finished_at IS NOT NULL
+                      AND engineering.finished_at<=?
+                    )
+                  )
                   AND NOT (
                     engineering.status='blocked'
                     AND engineering.attempts<engineering.max_attempts
@@ -1922,6 +1947,8 @@ class Store:
             if experiment_id is not None:
                 exact_filter = "AND experiments.id=? "
                 arguments = (WAITING_FOR_OPERATOR, experiment_id)
+            if blocked_filter:
+                arguments = arguments + (assess_deadline,)
             row = con.execute(
                 "SELECT * FROM experiments WHERE status=? "
                 "AND execution_mode='external_guarded' "

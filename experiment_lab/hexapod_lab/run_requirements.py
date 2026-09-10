@@ -89,13 +89,18 @@ def run_requirements(item: Any) -> Optional[Dict[str, Any]]:
             if recorded_software_requirements
             else "Guarded-run checks are still required"
         ),
+        # Six sentences of caveat above every queued plan trained the operator
+        # to skip the whole box. Each clause below is load-bearing and pinned
+        # by tests -- waiting is not readiness, the site does not launch, the
+        # runner neither rewrites the plan nor needs re-authorization -- so
+        # this is the same set of facts in half the words.
         "detail": (
-            "These checks were recorded when the plan was saved; they are not current blockers or a live report of work in progress. "
-            "The full-access engineering runner must revalidate them against the current reviewed software and live robot evidence. "
-            "When that evidence clears them, it may proceed without rewriting the historical plan or asking for another operator authorization. "
-            "Waiting also does not confirm that the robot is ready. "
-            "The website itself does not launch this plan; the separate serialized Codex engineering runner may prepare, run, and close it after the applicable recorded and live checks pass. "
-            "See Robot right now for the current execution report and next step."
+            "These are not current blockers: they were recorded when the plan "
+            "was saved, and waiting here does not confirm that the robot is "
+            "ready. The guarded runner rechecks them against the live robot "
+            "and may then proceed without rewriting the historical plan or "
+            "asking for another operator authorization. The website itself "
+            "does not launch a plan."
         ),
         # Deprecated compatibility field. Saved parameters alone cannot
         # establish a *current* software blocker; consumers should use the
@@ -111,10 +116,16 @@ def run_requirements_html(item: Any) -> str:
     if requirements is None:
         return ""
     checks = "".join(f"<li>{escape(check)}</li>" for check in requirements["checks"])
+    count = len(requirements["checks"])
+    # Collapsed by default: this is reference material about a plan that has
+    # not run, and expanded it buried the description of the experiment.
     return (
         '<section class="context run-requirements" aria-label="Before this can run">'
-        '<h2>Before this can run</h2>'
-        f'<p><strong>{escape(requirements["headline"])}</strong></p>'
+        '<details><summary>'
+        f'<strong>{escape(requirements["headline"])}</strong>'
+        f' · {count} check{"" if count == 1 else "s"}'
+        '</summary>'
         f'<p>{escape(requirements["detail"])}</p>'
-        f'<ul>{checks}</ul></section>'
+        f'<ul>{checks}</ul>'
+        '</details></section>'
     )

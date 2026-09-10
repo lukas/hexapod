@@ -1,5 +1,6 @@
 """Exercise browser polling and visible failure/recovery behavior without a server."""
 
+from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 import re
@@ -179,6 +180,11 @@ def test_service_failure_keeps_known_imessage_blocker_visible():
     assert failed["nodes"]["alert_headline"]["text"] == "iMessage alerts cannot be sent"
 
 
+def _recent_iso(minutes_ago: float = 1.0) -> str:
+    return (datetime.now(timezone.utc)
+            - timedelta(minutes=minutes_ago)).isoformat()
+
+
 @pytest.mark.parametrize("state,prefix", [
     ("waiting", "Planned repair:"), ("attempting", "Repair:"),
     ("verifying", "Repair attempted:"), ("recovered", "Repair attempted:"),
@@ -191,7 +197,9 @@ def test_recovery_banner_explains_failure_action_and_attempt_count(state, prefix
         "headline": "Recovery update", "summary": "Robot camera capture stopped.",
         "detail": "Waiting for fresh observations.", "action": "Restart the Robot Lab service.",
         "attempts": 2, "last_attempt_at": "2026-09-06T08:00:00+00:00",
-        "verified_at": "2026-09-06T08:01:00+00:00" if state == "recovered" else None,
+        # A recovered banner is only shown while it is still news, so this
+        # fixture has to be recent for the render assertions below.
+        "verified_at": _recent_iso() if state == "recovered" else None,
     }
     view = run_page({"body": body})["snapshots"][0]
     assert view["nodes"]["recovery"]["hidden"] is False
@@ -199,6 +207,37 @@ def test_recovery_banner_explains_failure_action_and_attempt_count(state, prefix
     assert view["nodes"]["recovery_action"]["text"].startswith(prefix)
     assert "2 repair attempts" in view["nodes"]["recovery_meta"]["text"]
     assert ("Verified at" in view["nodes"]["recovery_meta"]["text"]) is (state == "recovered")
+
+
+def test_a_long_finished_recovery_stops_occupying_the_alert_slot():
+    """"Automatic recovery was verified" is news, not a standing state.
+
+    Left in place it reports a service repair that finished hours ago as if
+    it were current, and it trains the operator to ignore the one box that
+    carries real alerts.
+    """
+    body = status_body()
+    body["recovery"] = {
+        "status": "recovered", "issue_code": "camera_capture_failed",
+        "headline": "Automatic recovery was verified",
+        "summary": "Earlier failure: the robot cameras stopped.",
+        "detail": "Fresh observations confirmed recovery.",
+        "attempts": 1, "verified_at": _recent_iso(minutes_ago=180),
+    }
+    view = run_page({"body": body})["snapshots"][0]
+    assert view["nodes"]["recovery"]["hidden"] is True
+
+
+def test_a_just_verified_recovery_is_still_shown():
+    body = status_body()
+    body["recovery"] = {
+        "status": "recovered", "issue_code": "camera_capture_failed",
+        "headline": "Automatic recovery was verified",
+        "detail": "Fresh observations confirmed recovery.",
+        "attempts": 1, "verified_at": _recent_iso(minutes_ago=2),
+    }
+    view = run_page({"body": body})["snapshots"][0]
+    assert view["nodes"]["recovery"]["hidden"] is False
 
 
 def test_recovery_banner_disappears_when_monitor_reports_no_issue():

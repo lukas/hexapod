@@ -410,7 +410,17 @@ def robot_status_panel() -> str:
       return;
     }
     const state = ['waiting','attempting','verifying','recovered','needs_attention'].includes(recovery.status) ? recovery.status : 'unknown';
-    nodes.recovery.hidden = state === 'waiting' && recovery.issue_code === 'none' && !['disabled','hardware_active_or_unobserved'].includes(recovery.reason_code);
+    // A verified recovery is over. Leaving "Automatic recovery was verified"
+    // in the alert slot indefinitely reports a service repair that finished
+    // hours ago as if it were current, and trains the operator to ignore the
+    // one box that carries real alerts. Keep it visible only while it is
+    // still news.
+    const verifiedAt = Date.parse(recovery.verified_at || recovery.updated_at || '');
+    const staleRecovery = state === 'recovered'
+      && Number.isFinite(verifiedAt)
+      && (Date.now() - verifiedAt) > 30 * 60 * 1000;
+    nodes.recovery.hidden = staleRecovery
+      || (state === 'waiting' && recovery.issue_code === 'none' && !['disabled','hardware_active_or_unobserved'].includes(recovery.reason_code));
     nodes.recovery.dataset.state = state;
     text('recovery_headline', phrase(recovery.headline, 'Automatic recovery status is unavailable'));
     text('recovery_summary', phrase(recovery.summary, ''));

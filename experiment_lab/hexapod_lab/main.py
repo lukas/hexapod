@@ -6,6 +6,7 @@ from html import escape
 import json
 import mimetypes
 import os
+import re
 from pathlib import Path
 from typing import Any, Dict, Literal, Mapping, Optional
 from urllib.parse import urlsplit
@@ -2089,7 +2090,7 @@ def experiment_card(item):
         automation = (
             f"<p class='automation-inline'>{escape(agent_label())} · {labels}</p>"
         )
-    return f"<article><div><span class='status {item['status']}'>{status_label}</span><h2><a href='/experiments/{item['id']}'>{escape(item['name'])}</a></h2>{waiting}<p>{escape(item['description'])}</p>{automation}</div><small>{escape(local_stamp(item['created_at']))} · {item['duration_seconds']}s</small></article>"
+    return f"<article><div><span class='status {item['status']}'>{status_label}</span><h2><a href='/experiments/{item['id']}'>{escape(item['name'])}</a></h2>{waiting}<p>{escape(short_description(item['description']))}</p>{automation}</div><small>{escape(local_stamp(item['created_at']))} · {item['duration_seconds']}s</small></article>"
 
 
 def automation_section(item):
@@ -2170,6 +2171,32 @@ def pause_controls():
           }catch(error){result.textContent=error.message;button.disabled=false}
         })})();
         </script>"""
+
+
+def short_description(text, *, limit: int = 320) -> str:
+    """The point of the experiment, not its full protocol derivation.
+
+    The analyst writes 300-500 word descriptions carrying protocol hashes,
+    joint numbers and kinematics conventions. That is the right amount of
+    detail for the runner that has to reproduce the plan byte-exactly, and
+    the wrong amount for a queue you are scanning to see what the robot is
+    doing. Keep whole sentences up to the limit and leave the rest on the
+    experiment page, which shows the full text.
+    """
+    if not text:
+        return ""
+    flat = " ".join(str(text).replace("\\n", " ").split())
+    if len(flat) <= limit:
+        return flat
+    kept: list[str] = []
+    used = 0
+    for piece in re.split(r"(?<=[.!?])\s+", flat):
+        if kept and used + len(piece) + 1 > limit:
+            break
+        kept.append(piece)
+        used += len(piece) + 1
+    summary = " ".join(kept) if kept else flat[:limit].rsplit(" ", 1)[0]
+    return summary.rstrip() + " …"
 
 
 def local_stamp(value, *, relative: bool = True) -> str:

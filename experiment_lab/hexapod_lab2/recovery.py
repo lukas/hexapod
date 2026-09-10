@@ -46,6 +46,20 @@ def looks_like_jam(log_tail: str) -> bool:
     return bool(JAM_PATTERN.search(log_tail or ""))
 
 
+def trip_line(log_tail: str) -> str:
+    """The runner's own error sentence, not whatever line happened to be last
+    (the dataset path is printed after the error)."""
+    m = re.search(r"runner: ok=False error=([^\n]+)", log_tail or "")
+    if m:
+        return m.group(1).strip()[:200]
+    m = JAM_PATTERN.search(log_tail or "")
+    if m:
+        line = (log_tail or "")[max(0, m.start() - 40):m.end() + 120].splitlines()
+        return (line[0] if len(line) == 1 else next((l for l in line if m.group(0) in l), line[0])).strip()[:200]
+    lines = (log_tail or "").strip().splitlines()
+    return lines[-1][-160:] if lines else "joint trip"
+
+
 def _post(url: str, body: Dict[str, Any]) -> Dict[str, Any]:
     req = Request(url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"}, method="POST")
     with urlopen(req, timeout=15) as resp:

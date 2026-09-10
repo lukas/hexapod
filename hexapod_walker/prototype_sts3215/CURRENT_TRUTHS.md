@@ -1,5 +1,64 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## `rl_only` 50Hz walk-role acquisition PASS, 2nd of 3 seeds exported, and the physical-delivery bundle re-cut to point at a deployable artifact (2026-09-10 ~23:2x, walkcurr track)
+
+One plain sentence: `cw-walk50hz-rlonly-crutchoff-s2-warmadapt-acq1` (18M-step
+continuation of the s2 50Hz warm-adapt canary) reads at parity-or-better
+against its own matched 100Hz parent by the identical standard s0's own
+acq1 PASSED on (`ops.sh entry` 2026-09-10 ~22:4x), so it is exported as the
+SECOND `rl_only`-track 50Hz walk artifact, and `rl_docs/tracks/walkcurr/
+bundle_rlonly_v1` (the physical-handoff package, still control.hz=100 and
+therefore undeployable per `op_20260910_50hz`) is superseded by a new
+`bundle_rlonly_v2` naming the 50Hz s0 export as candidate.
+
+Panel-by-panel vs the matched 100Hz parent (`cw-walkscratch-crutchoff-s2-
+widen8-legdutyratio-swinggap-dose10-plusduty-acq1-cont10m`, same harness,
+this seed's own band): pooled `gait_valid` 23/24 vs parent's 22/24
+(walk/det 6/6, walk/sto 5/6 — one new sacrificed leg, stochastic-only,
+walk_startjitter/det 6/6, walk_startjitter/sto 6/6 vs parent's 4/6).
+`progress_ratio`/`slip_per_m` at parity or better on 3 of 4 sub-panels.
+SCORE/* multi-skill check vs the same parent: hold/track/raise_success/
+rise_flat/rise_crouch same-order-or-unchanged (already-broken pre-existing
+per `bundle_rlonly_v1`'s own accepted limitation); `rise_bridge_success` 0
+vs parent 0.5 and `raise_total_reward` down ~84% are single-flip/n=2-noise-
+scale deltas structurally identical to what s0's own acq1 accepted on
+`raise_success` (0.5->0); `unload_total_reward` -195.6 vs parent -71.5
+sits inside the seed family's already-observed noisy band (-71 to -250
+across canary/acq reads on both seeds). Training `ep_rew_mean` fell across
+quarters, the same already-root-caused `walk_leg_duty_ratio_charge`/
+`walk_leg_swing_gap_charge` 50Hz tick-rate accumulator artifact confirmed
+on s0/s1/s2 canaries, not a behavioral regression (08-21 ruling). Exported
+(`export_policy_np.py --training-hz 50 --inner-hz 50`, parity 2.37e-07) to
+`linux_control/policies/walkscratch_rlonly_widen8_crutchoff_s2_warmadapt_
+50hz_acq1.json`.
+
+**Physical-delivery package re-cut**: `rl_docs/tracks/walkcurr/
+bundle_rlonly_v2/{transfer_manifest.json,GO_NOGO.md}` now names s0's 50Hz
+acq1 export as the candidate (s2's export named as a same-quality alternate
+seed), with fresh reproducible demo captures on this exact checkpoint
+(`ops.sh drivevideo cw-walk50hz-rlonly-crutchoff-s0-warmadapt-acq1
+--script human`/`human_turn`, 26s each, controller/CPU full-mesh MuJoCo):
+both clean (0 falls, `gait_valid=true`, `sacrificed_legs=[]`), progress
+1.167/1.233, slip/m 5.75/5.94 — comparable to v1's own 100Hz numbers
+(1.20/1.24, 5.31/5.58). Confirmed via the drivevideo run's own resolved
+`motor_contract` that this checkpoint used the CORRECT deg/s-preserving
+`safety.max_delta_q_deg=7.2` at 50Hz (=360 deg/s, matching the 100Hz
+parent's `3.6`=360 deg/s) — not the 4x-slew config bug named below, which
+was isolated to a different (stand-role) arm. `bundle_rlonly_v1/GO_NOGO.md`
+stamped SUPERSEDED (retained for lineage only); any physical handoff of the
+`rl_only` walk role should use `bundle_rlonly_v2` (or its s2 sibling), not
+v1. Seed status: s0/s2 PASS+exported, s1's own `-acq1` still in flight
+(owned by a concurrent cycle as of this writing) — will complete the n=3
+seed triplet once it lands, not required to gate this bundle recut.
+
+Evidence: `ops.sh entry cw-walk50hz-rlonly-crutchoff-s2-warmadapt-acq1`;
+`logs/ckpt_eval/cw_walk50hz_rlonly_crutchoff_s2_warmadapt_acq1_{gate,
+session}/`; `logs/experiments/cw-walk50hz-rlonly-crutchoff-s2-warmadapt-
+acq1/wandb_summary.json` (SCORE/* keys); `logs/manual_drive/
+cw_walk50hz_rlonly_crutchoff_s0_warmadapt_acq1_drivevideo_20260910_
+{231906,231958}/summary.json`; `rl_docs/tracks/walkcurr/bundle_rlonly_v2/`;
+`rl_docs/SKILLS.md` new row; W&B `cm5wdnh5`.
+
 ## AMP style-credit for acquisition REFUTED on the from-scratch mesh/50Hz walk recipe: a matched-budget no-style control walks BETTER than a discriminator kept alive by a health retune (2026-09-10 ~23:1x, amp track)
 
 One plain sentence: on `m2plain`-style scratch mesh/50Hz walking, an

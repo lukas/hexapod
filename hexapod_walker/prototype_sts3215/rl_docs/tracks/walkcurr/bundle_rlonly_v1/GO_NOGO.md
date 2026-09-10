@@ -1,5 +1,12 @@
 # walkcurr-rlonly-widen8-crutchoff-s0-cont10m-v1 — GO/NO-GO (2026-09-09)
 
+**SUPERSEDED for physical handoff (2026-09-10):** this candidate trains at
+`control.hz=100`, which the operator's `op_20260910_50hz` order established
+trips the hexapod2 MCU-bridge timing fault — NOT deployable. Use
+`rl_docs/tracks/walkcurr/bundle_rlonly_v2/` (the 50Hz warm-start + acquisition
+descendant of this same checkpoint, matched-parent-verified, exported) for
+any physical trial instead. This v1 doc is retained for lineage/history only.
+
 ## Verdict: GO for sim-demo + export readiness. NOT a physical-acceptance verdict.
 
 One plain sentence: this is the `rl_only` walking champion (clean, demonstration-free

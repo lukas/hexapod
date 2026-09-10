@@ -1,5 +1,103 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## First empirical interactive-HTTP capture of an `any_means` candidate: found and fixed a real config-threading bug (explicit `walk_obs_body_vel` override silently clobbered), but a genuine, still-open "reverse" direction stall remains — DIG-IN flagged, not resolved (2026-09-10, zero GPU spend)
+
+One plain sentence: the "interactive sim-demo requirement is met for both
+goals because the mechanism is checkpoint-agnostic" reasoning (09-10
+root-cause entry below) was correct about the HTTP path itself but had
+never actually been run against an `any_means` champion — doing so this
+cycle found a real bug (fixed) and a real, unexplained direction-specific
+translation stall (not fixed, flagged for a deeper cycle).
+
+**What was run.** `web_session_drivecapture.py` (already fixed for the
+heartbeat bug, unchanged) against the `todaypolicy-mlpsf-tuck-v1` bundle's
+walk-role checkpoint, `ppo_goal_cw_walk_allheading_mlp_singleframe_acq1_
+stdanneal.zip` (the joystick track's strongest all-heading walker: PASSES
+the formal 60s `eval_joystick_gate` stress_mix DONE-gate on every axis,
+zero falls, `gait_valid_frac 1.0` — stronger evidence than the `rl_only`
+champion had going in), with its own full training `--cfg-set` stack
+(`ops.sh evalcmd`'s own printed list) and `--speed 0.08` (its trained
+speed).
+
+**Bug found and fixed (real, kept regardless of the stall below):**
+`SimWebSession._apply_vel_contract` derives `goal.walk_obs_body_vel` from
+a STEM-NAMING heuristic (`_sim_only_obs`/`_ckpt_regime`: "_dep"/"noslip"
+tokens -> mode 1, `fasttrack1`/`steer6`/etc. tokens -> mode 3, else mode
+2) every time a walk policy is selected — including at boot, AFTER
+`_load_runtime` already applied an explicit `--cfg-set goal.walk_obs_
+body_vel=N`, silently overwriting it. This champion trains at mode 2 but
+its stem carries none of the recognized tokens, so the heuristic guessed
+mode 1 unconditionally. Same bug class as the 09-10 joint_action_box/bias
+fix, different key, same fix shape: `_load_runtime` now records whether
+`goal.walk_obs_body_vel` was explicitly passed
+(`self._walk_obs_body_vel_explicit`), and `_apply_vel_contract` returns
+immediately without touching the key when that flag is set — explicit
+override wins, matching the box/bias precedent. Verified directly
+in-process (not just by re-running the tool): booting `SimWebSession`
+with this exact cfg stack now reads `env.cfg["goal"]["walk_obs_body_vel"]
+== 2.0` (was silently 1.0 before the fix). 4 new fast unit tests
+(`test_apply_vel_contract_*`, `rl_move/tests/test_sim_web_server.py`),
+bypass `SimWebSession.__init__`/mujoco entirely (pure attribute/dict
+checks) so they run in milliseconds; 45/45 relevant tests green
+(`test_sim_web_server.py` + `test_web_session_drivecapture.py` +
+`test_drive_video_scripts.py`). Snapshot `3cb4452b`
+(`exp/websession-walkobsbodyvel-explicit-override-fix`).
+
+**Genuine residual finding — NOT explained by the bug above, NOT fixed,
+do not overclaim.** Re-running the capture after the fix produced an
+IDENTICAL result: `stalled_phases: [{"label": "reverse", "measured_
+fraction_of_cmd": 0.19-0.21}]` in both the broken-heuristic run and the
+fixed-override run — the walk_obs_body_vel value was confirmed different
+between the two runs (1.0 vs 2.0) but the behavior didn't move, so this
+bug is real but NOT the (or not the whole) cause of the stall. Every
+other phase (forward/crab-right/diag-left/restart) clears the tool's
+25%-of-commanded-speed floor; `reverse` (commanded `vx=-0.08`) alone
+does not, in BOTH runs, with `vx_body` telemetry oscillating near-
+symmetrically around 0 (no sustained negative bias at all, not just an
+undershoot) while roll/pitch/height stay stable (no fall, no tip,
+height 117-125mm) — the robot looks like it holds a stance rather than
+walking backward. This matters because it is NOT an accepted, already-
+documented limitation: this exact checkpoint's own held-out
+`eval_joystick_gate`/`eval_cmd_suite` panels (which include the 180°
+heading) show clean, non-degenerate performance, and the composed
+`hybriddemo` bundle capture (direct env-stepping, `bundle_mlpsf_tuck_v1/
+GO_NOGO.md`) already drove this SAME checkpoint through this SAME
+"human" script (forward/crab-right/diag-left/**reverse**/stop/restart)
+and PASSED (0 terminations, course_err_1s med 2.42°) — so direct
+env-stepping reverses fine, only the interactive HTTP/`_PlayEnv` session
+path stalls on reverse specifically. This is the same *shape* of gap the
+`rl_only` champion showed before its heartbeat root cause was found
+(direct-stepping walks, `_PlayEnv`-session path doesn't) but the
+heartbeat bug is already fixed in this exact tool and reproduced
+identically with it fixed, and the walk_obs_body_vel bug found this
+cycle is ruled out by the identical-behavior re-test above — the actual
+cause is still unknown. Two owned-but-unexplored leads for the next
+cycle that picks this up: (1) `_PlayTraj`'s heading/command-blend state
+when going from a +135° diag-left command straight to a 180° reverse
+command in one script transition (a shorter within-session reorientation
+than any single `walk_cmd_resample_s` interval this champion trained
+under); (2) some other `_PlayEnv`-vs-direct-env reset/tick divergence
+specific to negative-vx commands, not yet instrumented directly (the
+`rl_only` investigation's own lesson: instrument in-process, don't stack
+another guess).
+
+**What this does and does not change.** Does not reverse the "HTTP path
+is headlessly drivable, display was never the blocker" finding — that
+stands for both goals. Does mean: the `any_means` interactive sim-demo
+claim should say "interactive HTTP capture run for the first time on an
+any_means champion: boots real (non-scripted) checkpoint, 0 falls, 0
+rejected commands, forward/crab-right/diag-left/restart translate
+correctly; reverse specifically stalls, cause not yet found" rather than
+extrapolating a full PASS from the `rl_only` result by "checkpoint-
+agnostic" reasoning alone. `STATUS.md`/`todaypolicy/STATUS.md`/
+`OPERATOR_QUESTIONS.md` updated to say this precisely, not more.
+
+Evidence: `rl_move/sim/web_session.py` (`_walk_obs_body_vel_explicit`,
+`_apply_vel_contract`), `rl_move/tests/test_sim_web_server.py` (4 new
+tests); `logs/manual_drive/anymeans_walkallheading_mlpsf_stdanneal_
+websession_capture_09-10_fullcfg{,_velfix}/` (pre-fix and post-fix
+captures, both `stalled_phases: [reverse]`); snapshot `3cb4452b`.
+
 ## ROOT CAUSE FOUND AND FIXED: the "locomotion stall" chased across the two entries below was never a champion/policy/env bug — it was the capture tool's own drive loop failing to resend the joystick heartbeat the real browser always sends, silently timing out the session into a safety-hold every ~0.6s of every ~4-5s phase (2026-09-10, zero GPU spend)
 
 One plain sentence: the champion was never broken — the previous two entries' "chassis rises, body velocity decays to ~0 within 1-1.5s" finding was `web_session_drivecapture.py` itself starving the interactive session's own dead-man's-switch (`SimWebSession._tick_locked`'s `_DRIVE_HEARTBEAT_STALE_S = 0.6` real wall-clock seconds, `web_session.py`) by only POSTing `/api/rl/drive/cmd` once per phase transition instead of resending it continuously the way the real browser UI does (`linux_control/webui/app.js`'s `drvHb = setInterval(drvSend, 200)`, a 5 Hz heartbeat for as long as a drive session is active) — so the session spent the vast majority of every ~4-5s scripted phase silently frozen in a safety "hold" (still reporting `ok: true`/`active: true`), and the prior entries' in-process instrumentation (which DID rule out `walk_obs_body_vel`, `height_ref`, the velocity ramp, and `walk_pure` as causes — those rulings still stand, they were just the wrong axis) never noticed because it single-stepped `_tick_locked()` in a tight loop without ever re-sending the drive command either, reproducing the identical tool bug from a different angle.

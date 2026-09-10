@@ -106,9 +106,18 @@ def install_browser_auth(
     def same_origin(request: Request) -> bool:
         if request.headers.get("sec-fetch-site", "").lower() == "cross-site":
             return False
-        base = urlsplit(public_base_url) if public_base_url else request.url
-        expected = f"{base.scheme}://{base.netloc}"
-        return request.headers.get("origin", "").rstrip("/") == expected
+        origin = request.headers.get("origin", "").rstrip("/")
+        if not origin:
+            return False
+        # The form may be submitted from the public hostname (through the
+        # proxy) or from the address the service is actually bound to, e.g.
+        # http://127.0.0.1:8767 on the lab Mac. Both are this site; only the
+        # request's own host and the configured public URL are accepted.
+        allowed = {f"{request.url.scheme}://{request.url.netloc}"}
+        if public_base_url:
+            base = urlsplit(public_base_url)
+            allowed.add(f"{base.scheme}://{base.netloc}")
+        return origin in allowed
 
     def private_response(response):
         response.headers["Cache-Control"] = "no-store"
@@ -202,7 +211,14 @@ def install_browser_auth(
         sessions[session_key(token)] = BrowserSession(principal, now + SESSION_SECONDS)
         response = RedirectResponse(destination, status_code=303)
         # Secure also covers TLS terminated by the configured CoreWeave proxy.
-        secure = request.url.scheme == "https" or urlsplit(public_base_url).scheme == "https"
+        # Secure also covers TLS terminated by the configured CoreWeave proxy,
+        # but a plain-http sign-in on the loopback address (the lab Mac's own
+        # browser) must not get a Secure cookie: Safari drops it and the user
+        # bounces straight back to the login page.
+        loopback_http = (request.url.scheme == "http"
+                         and request.url.hostname in {"127.0.0.1", "localhost", "::1"})
+        secure = (request.url.scheme == "https"
+                  or (urlsplit(public_base_url).scheme == "https" and not loopback_http))
         response.set_cookie(COOKIE_NAME, token, httponly=True, secure=secure, samesite="lax", path="/")
         return private_response(response)
 

@@ -1058,11 +1058,22 @@ class CodexOrchestrator:
         # operator-gated plan that has no terminal event to provide one.
         if target is None:
             return None
-        # A completed handoff can leave a plan waiting after making only
-        # non-motion engineering progress. Give that exact plan another
-        # serialized turn, but never duplicate a live handoff or automatically
-        # retry a structured blocker, an operator action, or any attempt that
-        # already started physical motion.
+        # Give a waiting plan another serialized turn unless something concrete
+        # says otherwise. Never duplicate a live handoff, never retry a
+        # structured blocker, and never override a run that asked for operator
+        # actions -- those are reported problems.
+        #
+        # Having started physical motion is deliberately NOT a reason to stop.
+        # It used to be: any successful motion attempt ended automatic
+        # advancement, so the queue idled behind a plan that had reported no
+        # problem at all, and an operator had to assert an inspection before
+        # anything else would run. A succeeded attempt reporting no blocker and
+        # no operator action is evidence that things are fine, not a reason to
+        # wait. The stops that answer to actual evidence all remain: unsealed
+        # evidence, an advance that failed without a receipt to prove whether a
+        # command was issued, an analysis whose safety disposition is "stop",
+        # and the robot-side trips for tip, brownout, hot motor and persistent
+        # missing servo IDs.
         handoffs = [
             item for item in self.engineering.list_jobs()
             if item.get("experiment_id") == target["id"]
@@ -1078,9 +1089,11 @@ class CodexOrchestrator:
             may_continue = (
                 latest.get("status") == "succeeded"
                 and isinstance(result, dict)
-                and result.get("outcome") == "changed"
-                and result.get("physical_motion_started") is False
-                and result.get("operator_actions") == []
+                # "no_change" is as clean an outcome as "changed" here; only
+                # "blocked" reports a problem. Treating no_change as a stop
+                # stalled the queue behind a handoff that had nothing to do.
+                and result.get("outcome") != "blocked"
+                and not result.get("operator_actions")
             )
             if not may_continue:
                 return None
@@ -2013,7 +2026,7 @@ class CodexOrchestrator:
             self._finish_job(job, "succeeded", result=receipt)
             self._report_progress(
                 "preparing",
-                f"Codex is preparing {target['name']}",
+                f"{self.settings.agent_label} is preparing {target['name']}",
                 (
                     "The full-access engineering runner owns the saved plan "
                     "and may inspect, recover, execute, and record it."
@@ -2049,8 +2062,10 @@ class CodexOrchestrator:
         self._report_progress(
             "preparing",
             (
-                f"Codex is checking {target['name']}"
-                if target else "Codex is checking whether the experiment queue is empty"
+                f"{self.settings.agent_label} is checking {target['name']}"
+                if target
+                else f"{self.settings.agent_label} is checking whether the "
+                     "experiment queue is empty"
             ),
             "It is verifying the saved plan, software, robot health, camera, and safety gates before any action.",
             "Wait for this bounded Codex run to complete or report a specific blocker.",
@@ -2149,7 +2164,7 @@ class CodexOrchestrator:
                     "detail": detail[:2000],
                     "next_action": next_action[:1000],
                     "experiment_id": target["id"] if target else None,
-                    "task_name": "Codex experiment queue",
+                    "task_name": f"{self.settings.agent_label} experiment queue",
                     "ttl_seconds": 3600,
                 },
                 "codex-orchestrator",

@@ -90,10 +90,21 @@ def make_video(wide_dir: Path, out: Path, *, fps: int = 4) -> Optional[Path]:
     return out
 
 
-def _scaled_jpeg(path: Path, width: int = 640) -> bytes:
+def crop_filter(crop: str) -> str:
+    """'x,y,w,h' fractions -> an ffmpeg crop filter; '' for the whole frame."""
     try:
-        proc = subprocess.run([FFMPEG, "-v", "error", "-i", str(path), "-vf", f"scale={width}:-1",
-                               "-f", "image2", "-vcodec", "mjpeg", "-q:v", "6", "pipe:1"],
+        x, y, w, h = [float(v) for v in crop.split(",")]
+        if not (0 < w <= 1 and 0 < h <= 1):
+            return ""
+        return f"crop=iw*{w:.3f}:ih*{h:.3f}:iw*{x:.3f}:ih*{y:.3f},"
+    except (ValueError, AttributeError):
+        return ""
+
+
+def _scaled_jpeg(path: Path, width: int = 768, crop: str = "") -> bytes:
+    try:
+        proc = subprocess.run([FFMPEG, "-v", "error", "-i", str(path), "-vf", f"{crop_filter(crop)}scale={width}:-1",
+                               "-f", "image2", "-vcodec", "mjpeg", "-q:v", "5", "pipe:1"],
                               check=True, capture_output=True, timeout=20)
         return proc.stdout
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError):
@@ -101,7 +112,7 @@ def _scaled_jpeg(path: Path, width: int = 640) -> bytes:
 
 
 def describe(frames: List[Path], context: str, *, model: str, api_key: str,
-             post: Optional[Callable] = None) -> tuple[str, float]:
+             post: Optional[Callable] = None, crop: str = "") -> tuple[str, float]:
     """One vision call. Returns (text, approx_cost_usd)."""
     if not frames:
         return "", 0.0
@@ -109,10 +120,11 @@ def describe(frames: List[Path], context: str, *, model: str, api_key: str,
     for i, f in enumerate(frames):
         content.append({"type": "text", "text": f"frame {i + 1} of {len(frames)}"})
         content.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
-                                                    "data": base64.b64encode(_scaled_jpeg(f)).decode()}})
+                                                    "data": base64.b64encode(_scaled_jpeg(f, crop=crop)).decode()}})
     content.append({"type": "text", "text": (
         "These are wide-camera frames from one run on a cheap 18-servo hexapod, in time order; the last four are "
-        "the final seconds. Context from the lab:\n" + context.strip()[:2000] +
+        "the final seconds, cropped to the robot. The robot's motions are small (a foot lift is 20 mm); compare leg "
+        "positions between frames carefully before saying nothing moved. Context from the lab:\n" + context.strip()[:2000] +
         "\n\nIn under 120 words: describe what the robot did over the run as a timeline, then anything that looks "
         "wrong (a leg folded under the body, the chassis tilted or propped, a foot slipping, a cable snag, a person "
         "in frame, the robot not where it started). Be concrete about which leg or side. If nothing moved, say so.")})
@@ -150,7 +162,8 @@ def see_run(settings: Settings, store: Store, run_id: str, context: str, *, log=
         store.update_run_summary(run_id, seen="(no ANTHROPIC_API_KEY for the eyes)", wide_frames=len(frames))
         return ""
     try:
-        text, cost = describe(sample_frames(frames), context, model=settings.eyes_model, api_key=api_key, post=post)
+        text, cost = describe(sample_frames(frames), context, model=settings.eyes_model, api_key=api_key, post=post,
+                              crop=settings.wide_crop)
     except Exception as exc:  # noqa: BLE001
         store.update_run_summary(run_id, seen=f"(eyes failed: {type(exc).__name__}: {exc})"[:300], wide_frames=len(frames))
         log(f"eyes failed: {exc}")

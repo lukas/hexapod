@@ -124,6 +124,10 @@ class BuilderThread:
             return None
         fixes = [p for p in pending if p.get("kind") == "needs_fix"]
         plan = (fixes or pending)[-1]  # oldest first (plans() is newest-first)
+        if plan.get("needs_robot") and self.store.running_run():
+            return None  # wait for the gap between runs; the engineer takes the robot whole
+        if plan.get("needs_robot"):
+            self.settings.robot_held.write_text(f"{plan['id']}: {plan['title']}\n")
         self.store.set_plan_status(plan["id"], "building", "builder running")
         self.current = plan["id"]
         # A sqlite3 connection is not shareable across threads; the build

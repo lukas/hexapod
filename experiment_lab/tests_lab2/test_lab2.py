@@ -436,12 +436,12 @@ def test_merge_gate_rejects_out_of_scope_oversize_and_self_edits(settings):
     ok = ["hexapod_walker/prototype_sts3215/linux_control/sysid_runner.py"]
     assert engineer.gate(settings, " 1 file changed, 8 insertions(+), 1 deletion(-)", ok) is None
     assert "outside" in engineer.gate(settings, " 1 file changed, 2 insertions(+)", ["README.md"])
-    assert "forbidden" in engineer.gate(settings, " 1 file changed, 2 insertions(+)",
-                                        ["hexapod_walker/prototype_sts3215/firmware/bridge.ino"])
+    assert engineer.gate(settings, " 1 file changed, 2 insertions(+)",
+                         ["hexapod_walker/prototype_sts3215/firmware/bridge.ino"]) is None  # firmware allowed
     assert "forbidden" in engineer.gate(settings, " 1 file changed, 2 insertions(+)",
                                         ["experiment_lab/hexapod_lab2/loop.py"]) or "outside" in engineer.gate(
         settings, " 1 file changed, 2 insertions(+)", ["experiment_lab/hexapod_lab2/loop.py"])
-    assert "changed lines" in engineer.gate(settings, " 3 files changed, 180 insertions(+), 40 deletions(-)", ok)
+    assert "changed lines" in engineer.gate(settings, " 3 files changed, 280 insertions(+), 40 deletions(-)", ok)
     assert engineer.gate(settings, "", []) == "no changes on the branch"
 
 
@@ -546,3 +546,44 @@ def test_seen_text_reaches_the_planner_digest(settings, store):
     plans = planner.validate_plans(settings, [{"title": "Loosen gate", "why": "w.", "kind": "needs_fix",
                                                "build_spec": "GLIDE_TOL_DEG 3 -> 8 in sysid_runner.py"}])
     assert plans[0]["kind"] == "needs_fix"
+
+
+def test_engineer_that_needs_the_robot_waits_for_a_gap_and_holds_it(settings, store, monkeypatch):
+    from hexapod_lab2 import builder
+    f = store.add_plan(title="flash firmware", why="w", kind="needs_fix", protocol=None, build_spec="y", needs_robot=True)
+    started = []
+    class FakeThread:
+        def __init__(self, target=None, args=(), name="", daemon=True): started.append(args[2]["id"])
+        def start(self): pass
+        def is_alive(self): return False
+    monkeypatch.setattr(builder.threading, "Thread", FakeThread)
+    slot = builder.BuilderThread(settings, store)
+    p = store.add_plan(title="p", why="w", kind="existing", protocol="steps_air_v1", build_spec=None)
+    rid = store.start_run(p)
+    settings.data_dir.mkdir(parents=True, exist_ok=True)
+    assert slot.maybe_start() is None and not settings.robot_held.exists()   # a run is in progress
+    store.finish_run(rid, status="ok", exit_code=0, run_dir=None, summary=None, log_tail="")
+    assert slot.maybe_start() == f and settings.robot_held.exists()
+    # While held, the loop runs nothing.
+    store.add_plan(title="q", why="w", kind="existing", protocol="steps_air_v1", build_spec=None)
+    ran = []
+    monkeypatch.setattr(loop, "run_once", lambda *a, **k: ran.append(1))
+    monkeypatch.setattr(planner, "plan", lambda *a, **k: {"ok": True, "added": 0, "cost_usd": 0.0})
+    loop.main_loop(settings, store, log=lambda m: None, sleep=lambda s: None, max_iterations=3)
+    assert not ran
+
+
+def test_engineer_prompt_grants_robot_access_only_when_needed(settings):
+    from hexapod_lab2 import engineer
+    plan = {"id": "x", "title": "t", "why": "w", "build_spec": "s", "needs_robot": True}
+    text = engineer._prompt(settings, plan, "lab2/fix-x", [])
+    assert "YOU HOLD THE ROBOT" in text and "ssh arduino@192.168.4.39" in text and "flash_feetech_bridge" in text
+    plan["needs_robot"] = False
+    text = engineer._prompt(settings, plan, "lab2/fix-x", [])
+    assert "NEVER move the robot" in text and "ssh arduino" not in text
+
+
+def test_eyes_crop_filter():
+    from hexapod_lab2 import eyes
+    assert eyes.crop_filter("0.02,0.0,0.6,0.75") == "crop=iw*0.600:ih*0.750:iw*0.020:ih*0.000,"
+    assert eyes.crop_filter("") == "" and eyes.crop_filter("1,2,3") == ""

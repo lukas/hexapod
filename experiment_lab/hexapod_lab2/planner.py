@@ -34,6 +34,7 @@ PLAN_SCHEMA = {
                     "protocol": {"type": "string", "description": "Protocol file name without .json when kind is existing."},
                     "build_spec": {"type": "string", "description": "needs_code: exactly what protocol file to create and how, under 120 words. needs_fix: the diagnosis (which file/constant/behaviour, with the evidence), the smallest change that unblocks a run, and which existing protocol proves it; under 150 words."},
                     "force": {"type": "boolean", "description": "True only for whole-body protocols that need the runner's --force."},
+                    "needs_robot": {"type": "boolean", "description": "needs_fix only: true if the engineer must move the robot, ssh in, flash firmware or deploy to diagnose or verify. The loop stops running while it holds the robot (up to 30 min)."},
                 },
                 "required": ["title", "why", "kind"],
             },
@@ -124,7 +125,7 @@ AVAILABLE PROTOCOLS (the runner executes these as-is; kind=existing):
 
 If the right next experiment needs a protocol that does not exist, return kind=needs_code with a build_spec: a builder agent with repository access will create the file. Prefer remapping an existing protocol to another leg (there is `sysid/generate_leg_variant.py --leg N`) over inventing new motion.
 
-If runs are failing for a reason that lives in CODE rather than in the protocol (a runner constant, a gate that rejects the robot's measured behaviour, a robot-side bug), return kind=needs_fix with a build_spec that states the diagnosis and the smallest change. An engineer agent gets a 30-minute box, a branch, and the failed run's camera stills; the loop merges it through a scope/size gate, deploys robot-side code between runs, and runs the protocol you name to verify. Do not work around a code blocker by writing protocols that dodge it; ask for the fix. If the fix is bigger than 30 minutes, ask for the piece that unblocks a run; the engineer lists the rest as followups.
+If runs are failing for a reason that lives in CODE rather than in the protocol (a runner constant, a gate that rejects the robot's measured behaviour, a robot-side bug), return kind=needs_fix with a build_spec that states the diagnosis and the smallest change. An engineer agent gets a 30-minute box, a branch, and the failed run's camera stills; the loop merges it through a scope/size gate, deploys robot-side code between runs, and runs the protocol you name to verify. Set needs_robot=true when the fix has to touch the robot itself (ssh, firmware, moving it to reproduce); the loop hands the robot over exclusively for that job. Prefer needs_robot=false when a code read and unit tests suffice. Do not work around a code blocker by writing protocols that dodge it; ask for the fix. If the fix is bigger than 30 minutes, ask for the piece that unblocks a run; the engineer lists the rest as followups.
 
 WHAT WE HAVE LEARNED (newest first):
 {learn_lines}
@@ -177,7 +178,8 @@ def validate_plans(settings: Settings, plans: Any) -> List[Dict[str, Any]]:
             if not spec:
                 continue
             out.append({"title": title, "why": why, "kind": kind, "protocol": None,
-                        "build_spec": spec, "force": force})
+                        "build_spec": spec, "force": force,
+                        "needs_robot": bool(raw.get("needs_robot")) and kind == "needs_fix"})
     return out
 
 
@@ -204,6 +206,6 @@ def plan(settings: Settings, store: Store, last_run: Optional[Dict[str, Any]],
                 continue
             building += 1
         store.add_plan(title=p["title"], why=p["why"], kind=p["kind"], protocol=p["protocol"],
-                       build_spec=p["build_spec"], force=p["force"])
+                       build_spec=p["build_spec"], force=p["force"], needs_robot=p.get("needs_robot", False))
         added += 1
     return {"ok": True, "added": added, "learned": learned, "cost_usd": res.cost_usd}

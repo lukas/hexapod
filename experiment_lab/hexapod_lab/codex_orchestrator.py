@@ -633,6 +633,44 @@ def _safe_environment() -> Dict[str, str]:
 _codex_no_tool_arguments = codex_no_tool_arguments
 
 
+# Host-MCU binary frames are A5 5A <cmd> <n> ... . 'S' (snapshot) and 'W'
+# (sync write) carry n position targets; with n > 0 they command motion. 'F'
+# and 'P' are reads, and 'S' with n == 0 is a plain snapshot. Anything else
+# on the wire is ASCII and never moves a joint. See mcu_feetech_bus.py.
+_MOTION_FRAME_PREFIXES = ("a55a53", "a55a57")
+
+
+def _count_motion_frames(transcript: Path) -> Optional[int]:
+    """Position-command frames in a captured serial transcript, or None.
+
+    None means the transcript is absent or unreadable, which is "unknown",
+    not "zero". Attempt 2 of job 95493bb0 spent 13 minutes and 20 tool calls
+    decoding this by hand to prove attempt 1 never moved the robot; the lane
+    has the file and can answer in milliseconds.
+    """
+    try:
+        if not transcript.is_file():
+            return None
+        count = 0
+        with transcript.open("rb") as fh:
+            for raw in fh:
+                if b'"serial_tx"' not in raw:
+                    continue
+                try:
+                    record = json.loads(raw)
+                except ValueError:
+                    continue
+                data = str(record.get("data_hex") or "").lower()
+                if not data.startswith(_MOTION_FRAME_PREFIXES):
+                    continue
+                # byte 3 is n; two hex chars per byte
+                if len(data) >= 8 and int(data[6:8], 16) > 0:
+                    count += 1
+        return count
+    except OSError:
+        return None
+
+
 def _terminate_deadline_wrapper(
     process: subprocess.Popen, *, grace_seconds: float = 10.0
 ) -> bool:
@@ -1578,9 +1616,23 @@ class CodexOrchestrator:
             if reason:
                 self._handle_revoked_engineering(job, reason)
                 return True
+            transcript = (
+                self.settings.data_dir / "codex-runs" / job["id"]
+                / f"attempt-{job['attempts']}" / "robot-communication.jsonl"
+            )
+            motion_frames = _count_motion_frames(transcript)
+            # Only a lane-counted motion frame pins the next attempt to
+            # completion-only. "Actions may have started" with a transcript
+            # that shows zero position frames is a clean restart, not a
+            # forensics assignment.
+            completion_only = (
+                bool(job.get("_engineering_actions_started"))
+                if motion_frames is None else motion_frames > 0
+            )
             self.engineering.retry(
                 job, self.owner, f"{type(exc).__name__}: {exc}",
-                completion_only=bool(job.get("_engineering_actions_started")),
+                completion_only=completion_only,
+                motion_frames_sent=motion_frames,
             )
         return True
 
@@ -2639,12 +2691,42 @@ class CodexOrchestrator:
                 )
                 stdin_writer.start()
                 parent_deadline = time.monotonic() + timeout + 15
+                # Mechanical bound on pre-run ceremony. Prose in the prompt
+                # did not hold: an attempt quoted the ten-second rule in its
+                # own summary while spending 13 minutes on forensics. If a
+                # hardware-lane attempt has sent no motion frame by the
+                # deadline it is stopped, and the retry is told so as a fact.
+                motion_watch = (
+                    role == "engineering"
+                    and engineering_lane == ENGINEERING_LANE_HARDWARE
+                    and communication_capture is not None
+                )
+                motion_deadline = (
+                    time.monotonic()
+                    + max(30, int(self.settings.codex_engineering_motion_deadline_seconds))
+                )
+                transcript_path = run_dir / "robot-communication.jsonl"
+                no_motion_error = ""
                 while True:
                     if role == "engineering":
                         revocation_error = self.engineering.execution_revocation_reason(job, self.owner) or ""
                         if revocation_error:
                             _terminate_deadline_wrapper(process, grace_seconds=5)
                             break
+                    if motion_watch and time.monotonic() >= motion_deadline:
+                        frames = _count_motion_frames(transcript_path)
+                        if frames == 0:
+                            elapsed = int(time.monotonic() - (parent_deadline - timeout - 15))
+                            no_motion_error = (
+                                f"no motion command reached the robot within "
+                                f"{self.settings.codex_engineering_motion_deadline_seconds} s "
+                                f"(stopped after {elapsed} s; 0 position frames in the "
+                                "serial transcript). A queued plan is execution: start "
+                                "the run, do not audit it."
+                            )
+                            _terminate_deadline_wrapper(process, grace_seconds=5)
+                            break
+                        motion_watch = False  # moved, or unknown: leave it alone
                     remaining = parent_deadline - time.monotonic()
                     if remaining <= 0:
                         raise subprocess.TimeoutExpired(wrapped_command, timeout + 15)
@@ -2676,6 +2758,8 @@ class CodexOrchestrator:
                         f"{self.provider.label} {role} input could not be sent: "
                         f"{type(stdin_failure[0]).__name__}"
                     ) from stdin_failure[0]
+                if no_motion_error:
+                    raise CodexRunError(no_motion_error)
             except subprocess.TimeoutExpired as exc:
                 raise CodexRunError(
                     f"Codex {role} deadline wrapper did not exit after {timeout} seconds"

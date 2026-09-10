@@ -1,0 +1,33 @@
+{
+ "question": "Does the L2 hip's settled-angle offset survive a physical disturbance and a commanded re-pose, or does it depend on how the joint happens to be seated?",
+ "why_it_is_answerable_here": "Between the 02:58Z sibling run and this one, a person rotated L2 hip by +20.48 deg and L2 yaw by -17.05 deg by hand on a limp robot (recorded in POST_RUN_STATE_CHANGE.md against sealed 413d5402). This run therefore re-approaches the identical protocol from a mechanically re-seated joint, which none of the four prior runs did.",
+ "disturbance": {
+  "L1_yaw_deg": -13.97,
+  "L2_yaw_deg": -17.05,
+  "L2_hip_deg": 20.48,
+  "restored_by": "/api/safe_zero (collision-aware) + a commanded hold at logical zero",
+  "start_pose_worst_joint_deg": 0.79
+ },
+ "this_run_mean_deg": -0.5021,
+ "this_run_sd_deg": 0.0682,
+ "prior_four_run_means_deg": [
+  -0.4361,
+  -0.4155,
+  -0.4097,
+  -0.4815
+ ],
+ "prior_four_pooled_mean_deg": -0.4357,
+ "shift_vs_prior_runs_deg": -0.0664,
+ "shift_in_encoder_counts": -0.76,
+ "L2_family_range_deg": [
+  -0.615,
+  -0.263
+ ],
+ "L5_family_range_deg": [
+  -0.967,
+  -0.703
+ ],
+ "answer": "It survives. The post-disturbance run reads -0.502 +/- 0.068 deg, which is the largest of the five run means but only about 0.06 deg (0.7 encoder counts) from the prior four-run mean of -0.436, comfortably inside the L2 family's own spread and nowhere near L5's -0.832 band. Rotating the hip 20 deg by hand and driving it back did not reset, clear or materially move the offset.",
+ "why_it_matters": "It means the per-leg constant a walk controller would carry is a stable property of the joint, not a seating artifact that needs re-measuring after every handling event or transport. That is what makes a one-off per-leg calibration worth doing.",
+ "not_settled": "n=1 disturbance. One re-seat is not a fatigue or repeated-handling study, and this run does not separate backlash from load-direction-dependent compliance either -- the strokes are still not torque-matched (in 0.0159 A vs out 0.0 A)."
+}

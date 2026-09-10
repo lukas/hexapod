@@ -1,0 +1,127 @@
+{
+ "kinematics_source": "linux_control/geometry_plant.py (coxa 12.5, femur 90.0, tibia 150.0 mm)",
+ "ticks_in_csv": 1560,
+ "protocol_ticks": 1560,
+ "stationary_joints": {
+  "0": {
+   "cmd_span": 0,
+   "meas_span": 0.0,
+   "meas_max_abs": 0.0
+  },
+  "1": {
+   "cmd_span": 0,
+   "meas_span": 0.0,
+   "meas_max_abs": 0.0
+  },
+  "2": {
+   "cmd_span": 0,
+   "meas_span": 0.0,
+   "meas_max_abs": 0.176
+  },
+  "3": {
+   "cmd_span": 0,
+   "meas_span": 0.0,
+   "meas_max_abs": 0.264
+  },
+  "4": {
+   "cmd_span": 0,
+   "meas_span": 0.0,
+   "meas_max_abs": 0.088
+  },
+  "5": {
+   "cmd_span": 0,
+   "meas_span": 0.0,
+   "meas_max_abs": 0.088
+  },
+  "6": {
+   "cmd_span": 0,
+   "meas_span": 0.0,
+   "meas_max_abs": 0.264
+  },
+  "9": {
+   "cmd_span": 0,
+   "meas_span": 0.0,
+   "meas_max_abs": 0.0
+  },
+  "10": {
+   "cmd_span": 0,
+   "meas_span": 0.0,
+   "meas_max_abs": 0.0
+  },
+  "11": {
+   "cmd_span": 0,
+   "meas_span": 0.0,
+   "meas_max_abs": 0.088
+  },
+  "12": {
+   "cmd_span": 0,
+   "meas_span": 0.0,
+   "meas_max_abs": 0.088
+  },
+  "13": {
+   "cmd_span": 0,
+   "meas_span": 0.0,
+   "meas_max_abs": 0.176
+  },
+  "14": {
+   "cmd_span": 0,
+   "meas_span": 0.0,
+   "meas_max_abs": 0.0
+  },
+  "15": {
+   "cmd_span": 0,
+   "meas_span": 0.0,
+   "meas_max_abs": 0.0
+  },
+  "16": {
+   "cmd_span": 0.0,
+   "meas_span": 0.0,
+   "meas_max_abs": 0.439
+  },
+  "17": {
+   "cmd_span": 0.0,
+   "meas_span": 0.0,
+   "meas_max_abs": 0.176
+  }
+ },
+ "tracking_deg": {
+  "7": {
+   "max": 4.382,
+   "over5deg_ticks": 0,
+   "ticks": 1560
+  },
+  "8": {
+   "max": 2.785,
+   "over5deg_ticks": 0,
+   "ticks": 1560
+  }
+ },
+ "peak_current_a": 0.052,
+ "peak_current_joint": 7,
+ "max_temp_c": null,
+ "commanded_foot_z_mm": {
+  "min": -15.0,
+  "max": -0.0
+ },
+ "commanded_foot_r_mm": {
+  "min": 192.5,
+  "max": 252.5
+ },
+ "measured_foot_z_mm": {
+  "min": -15.68,
+  "max": 0.37
+ },
+ "measured_foot_r_mm": {
+  "min": 193.2,
+  "max": 252.5
+ },
+ "l5_measured_contact_onset_foot_z_mm": -80.95,
+ "deepest_measured_margin_mm": 65.27,
+ "floor_clearance_caveat": "L2 has no ground-contact ramp of its own on this robot; the contact onset is INFERRED from L5's measured -80.95 mm by symmetry (identical link lengths, identical belly-rest chassis attitude), not measured.",
+ "protocol_stop_bounds": {
+  "current_stop_a": 0.75,
+  "current_trip_polls": 3,
+  "hard_current_a": 3,
+  "soft_torque": 700
+ }
+}

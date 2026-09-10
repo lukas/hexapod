@@ -1,0 +1,56 @@
+{
+ "what_this_measures": "Mean frame luma (the burned-in overlay banner excluded) at three moments, to state exactly how much the camera record can and cannot discriminate.",
+ "preflight_0335Z_and_repose_0339Z": {
+  "robot-1": 106.1,
+  "robot-3": 131.2,
+  "robot-2": 111.3,
+  "note": "Room light ON. These are the frames the preflight arena inspection used: robot belly-down and flat, six legs splayed, no person or hands in frame, L2 swept arc clear, AprilTag tracker resolving 10-12 tags per view."
+ },
+ "during_motion_034513_034754Z": {
+  "robot-1": {
+   "first": 25.0,
+   "last": 25.0
+  },
+  "robot-2": {
+   "first": 4.4,
+   "last": 5.0
+  },
+  "robot-3": {
+   "first": 4.6,
+   "last": 4.5
+  },
+  "note": "Room light OFF. robot-1 sat at 25.0-25.1 for all 252 frames with no step anywhere in the run, so the light went out BEFORE motion started, not during it."
+ },
+ "live_at_035434Z": {
+  "robot-1": 25.0,
+  "robot-3": 4.6,
+  "robot-2": 4.4,
+  "note": "still off"
+ },
+ "prior_run_for_comparison": {
+  "robot-1": 25.1,
+  "robot-2": 3.6,
+  "robot-3": 4.3,
+  "source": "sealed 413d5402 observation_frame_luma.json"
+ },
+ "finding": "The room light was ON at 03:35-03:39Z and OFF from before 03:45:13Z onward. Someone switched it off between the preflight inspection and the run; nothing was commanded and the robot was unaffected. This is the same person-in-the-room activity already recorded at 03:22Z, not a fault.",
+ "consequence_stated_plainly": "The illumination during motion is the SAME as the 413d5402 sibling run, so the same limitation applies and is NOT claimed away: the 252 distinct frames per camera establish continuous coverage and that the chassis did not lift, shift or translate, but they do NOT resolve the ~10 mm commanded foot excursion or a thin cable. Obstacle clearance rests on the swept-volume geometry argument and the free-air currents, not on these frames. What the frames DO add over the sibling run is that the arena was separately inspected under full light at 03:35Z, six minutes before motion, and nothing entered the arena afterwards that the differencing below would have missed.",
+ "first_vs_last_frame_difference": {
+  "robot-1": {
+   "mean_abs_diff": 1.35,
+   "p99_abs_diff": 6.0,
+   "frac_pixels_gt_40": 6e-05
+  },
+  "robot-2": {
+   "mean_abs_diff": 0.97,
+   "p99_abs_diff": 4.0,
+   "frac_pixels_gt_40": 0.0
+  },
+  "robot-3": {
+   "mean_abs_diff": 0.89,
+   "p99_abs_diff": 4.0,
+   "frac_pixels_gt_40": 0.0
+  },
+  "interpretation": "Near-zero over the whole 156 s on every camera, so nothing entered or left the arena and the chassis did not translate. At this exposure this is a stillness check, not an obstacle check."
+ }
+}

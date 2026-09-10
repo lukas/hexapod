@@ -1,0 +1,33 @@
+{
+ "cameras": {
+  "robot-1": {
+   "frames": 252,
+   "errors": 0,
+   "distinct_sha256": 252,
+   "all_distinct": true,
+   "span_s": 165.05,
+   "max_gap_s": 0.707,
+   "median_gap_s": 0.695
+  },
+  "robot-2": {
+   "frames": 252,
+   "errors": 0,
+   "distinct_sha256": 252,
+   "all_distinct": true,
+   "span_s": 165.05,
+   "max_gap_s": 0.712,
+   "median_gap_s": 0.695
+  },
+  "robot-3": {
+   "frames": 252,
+   "errors": 0,
+   "distinct_sha256": 252,
+   "all_distinct": true,
+   "span_s": 165.05,
+   "max_gap_s": 0.713,
+   "median_gap_s": 0.695
+  }
+ },
+ "motion_window_s": 156.0,
+ "note": "Continuous bus-free capture on all three observation cameras. Every frame carries its own sha256 in frame_index.jsonl; all-distinct rules out a frozen or replayed stream, which is the plan's frame_dedup_check."
+}

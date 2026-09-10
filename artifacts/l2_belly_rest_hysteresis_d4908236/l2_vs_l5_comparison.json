@@ -1,0 +1,33 @@
+{
+ "encoder_resolution_deg_per_count": 0.0879,
+ "L2": {
+  "pooled_mean_deg": -0.449,
+  "pooled_sd_deg": 0.0812,
+  "n_cycles": 30,
+  "n_runs": 5,
+  "counts": -5.11,
+  "range_deg": [
+   -0.615,
+   -0.263
+  ],
+  "terminal_run": "2026-09-10T03:45:13Z, protocol_hash a99ceef28136"
+ },
+ "L5": {
+  "pooled_mean_deg": -0.832,
+  "pooled_sd_deg": 0.065,
+  "n_cycles": 25,
+  "n_runs": 5,
+  "out_err_deg": -0.118,
+  "in_err_deg": 0.629,
+  "counts": -9.5,
+  "range_deg": [
+   -0.967,
+   -0.703
+  ],
+  "source": "sealed experiment b289e536, same reviewed protocol family, same rig"
+ },
+ "ratio_L2_over_L5": 0.54,
+ "ranges_overlap": false,
+ "gap_between_ranges_deg": -0.088,
+ "finding": "Adding this 5th L2 run (n now 30 cycles) does not change the sibling experiment's conclusion and tightens it: L2 pools to -0.449 deg against L5's -0.832, a ratio of about 0.54, and the two per-cycle distributions still do not overlap -- L2's single most extreme cycle (-0.615) is still short of L5's least extreme (-0.703). The loaded-vs-unloaded settled-angle offset is a per-joint mechanical property, so a single global backlash constant in the walk controller would mis-compensate both legs."
+}

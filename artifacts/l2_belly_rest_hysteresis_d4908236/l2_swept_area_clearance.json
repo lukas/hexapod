@@ -1,0 +1,43 @@
+{
+ "requirement": "analysis_dependencies: a fresh live frame on cameras 0, 1 and 2 with the L2 swept arc confirmed free of cables, tools and hardware; and moving_foot_floor_clearance verified against a measured L2 ground-contact-onset record before arming",
+ "how_it_was_established": "geometry first, then measured currents, then cameras",
+ "geometry": {
+  "source": "the reviewed protocol itself (protocol_hash a99ceef28136) through linux_control/geometry_plant.py foot_z_mm / foot_r_mm (coxa 12.5, femur 90.0, tibia 150.0 mm) -- the robot's own forward kinematics, imported rather than re-derived",
+  "commanded_foot_z_mm": {
+   "min": -15.0,
+   "max": -0.0
+  },
+  "commanded_foot_r_mm": {
+   "min": 192.5,
+   "max": 252.5
+  },
+  "measured_foot_z_mm": {
+   "min": -15.68,
+   "max": 0.37
+  },
+  "measured_foot_r_mm": {
+   "min": 193.2,
+   "max": 252.5
+  },
+  "argument": "The foot starts at its belly-rest footprint (r 252.5 mm, z 0) and moves radially INWARD and down by at most 15 mm. The swept volume is therefore strictly inside the volume the resting leg already occupies -- no new lateral space is entered, so nothing can be struck that the leg was not already touching."
+ },
+ "floor_clearance": {
+  "l5_measured_contact_onset_foot_z_mm": -80.95,
+  "source": "the robot's own l5_ground_contact_ramp_v1, read in sealed experiment b289e536",
+  "deepest_measured_margin_mm": 65.27,
+  "caveat": "L2 has no ground-contact ramp of its own on this robot; the contact onset is INFERRED from L5's measured -80.95 mm by symmetry (identical link lengths, identical belly-rest chassis attitude), not measured.",
+  "dependency_status": "The plan asks for an L2 ground-contact-onset record specifically. There still is not one on this robot. It is INFERRED from L5 by symmetry and reported as inferred, exactly as the sibling run did -- with 65 mm of margin the inference is not load-bearing, but it is not the measurement the plan named."
+ },
+ "measured_confirmation": {
+  "peak_per_servo_current_a": 0.052,
+  "peak_current_joint": 7,
+  "max_load_pct": 8.8,
+  "note": "Currents stay at free-air levels for all 1560 ticks. Any contact with the floor, a cable or a fixture inside the swept arc would raise L2 hip/knee current and load; neither moves."
+ },
+ "camera": {
+  "preflight_0335Z": "Room light ON. All three views inspected directly: robot belly-down and flat, six legs splayed, no person or hands, no object inside the L2 arc, cables routed clear. This is the strongest arena evidence in this run and it is well-exposed.",
+  "during_motion": "Room light OFF from before 03:45:13Z. 252 distinct frames per camera, 0 errors, max gap 0.713 s, spanning 165.05 s against 156 s of motion. At this exposure these give continuous coverage and chassis stillness, NOT obstacle discrimination.",
+  "limitation": "Recorded as a limitation, not as a pass -- identical to the sibling run."
+ },
+ "verdict": "clear -- established by the swept volume being contained inside the leg's own resting footprint, confirmed by free-air currents throughout, with a well-lit preflight arena inspection and a continuous but low-exposure motion record contributing coverage rather than obstacle discrimination"
+}

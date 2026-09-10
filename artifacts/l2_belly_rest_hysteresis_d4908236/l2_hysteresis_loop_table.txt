@@ -1,0 +1,32 @@
+L2 belly-rest radial shear hysteresis -- experiment d4908236
+terminal run 2026-09-10T03:45:13Z, protocol_hash a99ceef28136
+settled = last 1.0 s of each 3.1 s dwell at the shared commanded
+hip angle -47.133 deg; loop = out-stroke minus in-stroke
+encoder resolution 0.0879 deg/count
+
+rep  hip loop   knee loop  out err   in err    out A     in A     out load  in load
+---  ---------  ---------  --------  --------  --------  -------  --------  --------
+  1    -0.4390     0.4390   -0.0644    0.3746    0.0000   0.0130      3.60      4.00
+  2    -0.5534     0.4390   -0.0644    0.4890    0.0000   0.0172      3.52      4.72
+  3    -0.5270     0.4390   -0.0644    0.4626    0.0000   0.0184      2.96      4.68
+  4    -0.6150     0.2630   -0.0644    0.5506    0.0000   0.0199      2.88      5.04
+  5    -0.4390     0.4390   -0.0644    0.3746    0.0000   0.0142      3.44      4.00
+  6    -0.4390     0.4390   -0.0644    0.3746    0.0000   0.0130      3.92      4.00
+
+this run: mean -0.5021 deg, sd 0.0682, n 6  (-5.71 counts)
+          block A -0.5065  block B -0.4977   (a full return to logical zero between blocks does not clear it)
+
+all runs of the identical protocol hash
+run stamp          n   mean      sd       out err   in err
+-----------------  --  --------  -------  --------  --------
+20260905_221226   6   -0.4361   0.0722   -0.0644    0.3717
+20260905_222920   6   -0.4155   0.0825   -0.0351    0.3805
+20260906_005140   6   -0.4097   0.0830   -0.0497    0.3599
+20260910_025819   6   -0.4815   0.0401   -0.0483    0.4333
+20260910_034513   6   -0.5021   0.0682   -0.0644    0.4377  <- this run
+
+POOLED L2: -0.449 +/- 0.0812 deg, n=30 cycles / 5 runs = -5.11 counts
+           per-cycle range -0.615 .. -0.263 deg
+POOLED L5: -0.832 +/- 0.065 deg, n=25 / 5 runs = -9.50 counts (sealed b289e536)
+           per-cycle range -0.967 .. -0.703 deg
+ratio L2/L5 = 0.54; the two per-cycle ranges do not overlap.

@@ -1,0 +1,655 @@
+{
+ "owner": "repose-d4908236",
+ "robot": "http://192.168.4.39:8080",
+ "tol_deg": 1.0,
+ "before": [
+  {
+   "t": 1789011554.266984,
+   "armed": false,
+   "mode": "idle",
+   "n_ok": 18,
+   "deg": [
+    0.0,
+    0.0,
+    0.18,
+    -13.97,
+    -0.7,
+    -0.26,
+    -17.05,
+    20.48,
+    0.35,
+    0.0,
+    0.0,
+    -0.09,
+    -0.09,
+    0.18,
+    0.0,
+    0.0,
+    0.44,
+    0.35
+   ],
+   "current_a": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "load_pct": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "temp_c": [
+    32,
+    32,
+    33,
+    32,
+    31,
+    32,
+    33,
+    30,
+    32,
+    29,
+    31,
+    30,
+    30,
+    29,
+    30,
+    32,
+    32,
+    32
+   ]
+  },
+  {
+   "t": 1789011556.625115,
+   "armed": false,
+   "mode": "idle",
+   "n_ok": 18,
+   "deg": [
+    0.0,
+    0.0,
+    0.18,
+    -13.97,
+    -0.7,
+    -0.26,
+    -17.05,
+    20.48,
+    0.35,
+    0.0,
+    0.0,
+    -0.09,
+    -0.09,
+    0.18,
+    0.0,
+    0.0,
+    0.44,
+    0.35
+   ],
+   "current_a": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "load_pct": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "temp_c": [
+    32,
+    33,
+    33,
+    32,
+    31,
+    32,
+    33,
+    30,
+    32,
+    29,
+    31,
+    30,
+    30,
+    29,
+    30,
+    32,
+    32,
+    32
+   ]
+  },
+  {
+   "t": 1789011559.146486,
+   "armed": false,
+   "mode": "idle",
+   "n_ok": 18,
+   "deg": [
+    0.0,
+    0.0,
+    0.18,
+    -13.97,
+    -0.7,
+    -0.26,
+    -17.05,
+    20.48,
+    0.35,
+    0.0,
+    0.0,
+    -0.09,
+    -0.09,
+    0.18,
+    0.0,
+    0.0,
+    0.44,
+    0.35
+   ],
+   "current_a": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "load_pct": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "temp_c": [
+    32,
+    33,
+    33,
+    32,
+    31,
+    32,
+    33,
+    30,
+    32,
+    29,
+    31,
+    30,
+    29,
+    29,
+    30,
+    32,
+    32,
+    32
+   ]
+  }
+ ],
+ "lease": {
+  "ok": true,
+  "owner": "repose-d4908236"
+ },
+ "dry_run": {
+  "ok": true,
+  "stages": [
+   {
+    "label": "straighten hips/knees (direct clear path)",
+    "goal": [
+     0.0,
+     0.0,
+     6.892,
+     -13.975,
+     0.0,
+     6.892,
+     -17.051,
+     0.0,
+     6.892,
+     0.0,
+     0.0,
+     6.892,
+     -0.088,
+     0.0,
+     6.892,
+     0.0,
+     0.0,
+     6.892
+    ],
+    "seconds": 1.2,
+    "drag_ok": false
+   },
+   {
+    "label": "center all yaws",
+    "goal": [
+     0.0,
+     0.0,
+     6.892,
+     0.0,
+     0.0,
+     6.892,
+     0.0,
+     0.0,
+     6.892,
+     0.0,
+     0.0,
+     6.892,
+     0.0,
+     0.0,
+     6.892,
+     0.0,
+     0.0,
+     6.892
+    ],
+    "seconds": 2.0,
+    "drag_ok": false
+   },
+   {
+    "label": "extend legs straight (zero)",
+    "goal": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "seconds": 2.0,
+    "drag_ok": false
+   }
+  ],
+  "notes": [
+   "IK transition to lift pose: direct_clear"
+  ],
+  "ground_z_mm": -40.0,
+  "knee_lift_deg": 6.89,
+  "total_s": 5.2,
+  "present_deg": [
+   0.0,
+   0.0,
+   0.18,
+   -13.97,
+   -0.7,
+   -0.26,
+   -17.05,
+   20.48,
+   0.35,
+   0.0,
+   0.0,
+   -0.09,
+   -0.09,
+   0.18,
+   0.0,
+   0.0,
+   0.44,
+   0.35
+  ],
+  "tilt_deg": 2.3,
+  "dry_run": true
+ },
+ "run": {
+  "ok": true,
+  "started": true,
+  "plan": {
+   "stages": [
+    {
+     "label": "straighten hips/knees (direct clear path)",
+     "seconds": 1.2
+    },
+    {
+     "label": "center all yaws",
+     "seconds": 2.0
+    },
+    {
+     "label": "extend legs straight (zero)",
+     "seconds": 2.0
+    }
+   ],
+   "total_s": 5.2,
+   "notes": [
+    "IK transition to lift pose: direct_clear"
+   ]
+  },
+  "demo": {
+   "name": "safe_zero",
+   "status": "safe zero",
+   "running": true,
+   "speed_live": 1.0,
+   "params": {
+    "stages": 3,
+    "force": false
+   },
+   "progress": {
+    "msg": "safe zero: starting"
+   },
+   "telemetry": null,
+   "bus_hot": false
+  },
+  "robot": {
+   "activity": "zeroing",
+   "detail": "safe zero",
+   "armed": true,
+   "mode": "demo",
+   "dry_run": false,
+   "drive_status": "sysid complete; disarmed (limp)",
+   "scripted_walk": {
+    "control_hz": 100.0,
+    "servo_speed_counts_s": 2000,
+    "servo_acc_units": 80,
+    "deadline_overruns": 284
+   },
+   "demo": {
+    "name": "safe_zero",
+    "status": "safe zero",
+    "running": true,
+    "speed_live": 1.0,
+    "params": {
+     "stages": 3,
+     "force": false
+    },
+    "progress": {
+     "msg": "safe zero: starting"
+    },
+    "telemetry": null,
+    "bus_hot": true
+   },
+   "air_demos_need_zero": true,
+   "zero_tol_deg": 6.0,
+   "telemetry": {
+    "active": true,
+    "passive": true,
+    "adds_bus_reads": false,
+    "piggyback_snapshots": false,
+    "communication_capture": true,
+    "communication_scope": "host_mcu_serial",
+    "communication_rate_limited": false,
+    "observer_only": true,
+    "gait_gating": false,
+    "path": "/home/arduino/hexapod_sts/linux_control/logs/telemetry_20260910T025051.022471Z_auto.part0001.jsonl",
+    "paths": [
+     "/home/arduino/hexapod_sts/linux_control/logs/telemetry_20260910T025051.022471Z_auto.jsonl",
+     "/home/arduino/hexapod_sts/linux_control/logs/telemetry_20260910T025051.022471Z_auto.part0001.jsonl"
+    ],
+    "flushed_marker": "aad7865bd2ef48e5bdd63b197ee458e8",
+    "marker_ack": null,
+    "bytes": 19394228,
+    "max_hz": 50.0,
+    "queue": 0,
+    "queue_max": 4096,
+    "offered": 183024,
+    "written": 183024,
+    "rate_limited": 1690,
+    "queue_dropped": 0,
+    "communication_dropped": 0,
+    "uncaptured_bytes": 0,
+    "capture_errors": 0,
+    "write_error": null,
+    "writer_alive": true,
+    "contact": {
+     "observer_only": true,
+     "gait_gating": false,
+     "legs": [
+      {
+       "leg": 0,
+       "ready": true,
+       "probability": 0.0,
+       "filtered_probability": 0.0,
+       "planted": false,
+       "history": 4,
+       "features": {
+        "command_clearance_mm": 178.503,
+        "measured_clearance_mm": 178.0428,
+        "abs_vertical_speed_mm_s": 0.0,
+        "vertical_speed_mm_s": 0.0,
+        "tracking_error_deg": 0.1758
+       }
+      },
+      {
+       "leg": 1,
+       "ready": true,
+       "probability": 0.0,
+       "filtered_probability": 0.0,
+       "planted": false,
+       "history": 4,
+       "features": {
+        "command_clearance_mm": 178.503,
+        "measured_clearance_mm": 180.2977,
+        "abs_vertical_speed_mm_s": 0.0,
+        "vertical_speed_mm_s": 0.0,
+        "tracking_error_deg": 13.9746
+       }
+      },
+      {
+       "leg": 2,
+       "ready": true,
+       "probability": 0.0,
+       "filtered_probability": 0.0,
+       "planted": false,
+       "history": 4,
+       "features": {
+        "command_clearance_mm": 178.503,
+        "measured_clearance_mm": 146.0955,
+        "abs_vertical_speed_mm_s": 0.0,
+        "vertical_speed_mm_s": 0.0,
+        "tracking_error_deg": 20.4785
+       }
+      },
+      {
+       "leg": 3,
+       "ready": true,
+       "probability": 0.0,
+       "filtered_probability": 0.0,
+       "planted": false,
+       "history": 4,
+       "features": {
+        "command_clearance_mm": 178.503,
+        "measured_clearance_mm": 178.7331,
+        "abs_vertical_speed_mm_s": 0.0,
+        "vertical_speed_mm_s": 0.0,
+        "tracking_error_deg": 0.0879
+       }
+      },
+      {
+       "leg": 4,
+       "ready": true,
+       "probability": 0.0,
+       "filtered_probability": 0.0,
+       "planted": false,
+       "history": 4,
+       "features": {
+        "command_clearance_mm": 178.503,
+        "measured_clearance_mm": 178.2269,
+        "abs_vertical_speed_mm_s": 0.0,
+        "vertical_speed_mm_s": 0.0,
+        "tracking_error_deg": 0.1758
+       }
+      },
+      {
+       "leg": 5,
+       "ready": true,
+       "probability": 0.0,
+       "filtered_probability": 0.0,
+       "planted": false,
+       "history": 4,
+       "features": {
+        "command_clearance_mm": 178.503,
+        "measured_clearance_mm": 176.8923,
+        "abs_vertical_speed_mm_s": 0.0,
+        "vertical_speed_mm_s": 0.0,
+        "tracking_error_deg": 0.4395
+       }
+      }
+     ],
+     "planted": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+     ],
+     "ready_legs": 6
+    },
+    "model": {
+     "ready": true,
+     "path": "/home/arduino/hexapod_sts/rl_move/contact_predictor_model.json",
+     "error": null,
+     "history_samples": 5,
+     "confirm_samples": 3,
+     "purpose": "observer-only hardware logging; not authorized for gait gating",
+     "validation": {
+      "protocol": "leave-one-gait-out",
+      "all_samples_balanced_accuracy": 0.91755,
+      "transition_window_s": 0.15,
+      "transition_balanced_accuracy": 0.77237,
+      "physical_contact_labels": false
+     }
+    }
+   },
+   "bus_quarantined": false,
+   "bus_available": true,
+   "servo": {
+    "ok": true,
+    "ts": 1789011558.4996083,
+    "expected": 18,
+    "live": 18,
+    "missing": [],
+    "missing_names": [],
+    "max_temp_c": 33,
+    "hottest": "L0 hip",
+    "hot": [],
+    "tripped": [],
+    "tripped_names": [],
+    "warn_c": 55,
+    "shutoff_c": 65,
+    "temp_trip_reads": 3,
+    "imu_ok": true
+   }
+  }
+ },
+ "elapsed_s": 0.08,
+ "after": [
+  {
+   "t": 1789011561.069626,
+   "armed": true,
+   "mode": "demo",
+   "n_ok": 0,
+   "deg": [],
+   "current_a": [],
+   "load_pct": [],
+   "temp_c": []
+  },
+  {
+   "t": 1789011562.675648,
+   "armed": true,
+   "mode": "demo",
+   "n_ok": 0,
+   "deg": [],
+   "current_a": [],
+   "load_pct": [],
+   "temp_c": []
+  },
+  {
+   "t": 1789011564.389704,
+   "armed": true,
+   "mode": "demo",
+   "n_ok": 0,
+   "deg": [],
+   "current_a": [],
+   "load_pct": [],
+   "temp_c": []
+  }
+ ],
+ "lease_release": {
+  "ok": true,
+  "released": true,
+  "held": false
+ }
+}

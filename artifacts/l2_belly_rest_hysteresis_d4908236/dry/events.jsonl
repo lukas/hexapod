@@ -1,0 +1,4 @@
+{"t": 1789011872.636446, "kind": "start", "label": "d4908236_dry", "protocol": "l2_belly_rest_radial_shear_hysteresis_repeat6_v1", "baseline_error_ts": "2026-09-10T03:00:34.289Z"}
+{"t": 1789011872.686825, "kind": "lease_acquire", "ok": true, "lease": {"held": true, "owner": "guarded-runner-d4908236", "reason": "guarded run d4908236_dry: l2_belly_rest_radial_shear_hysteresis_repeat6_v1", "acquired_at": "2026-09-10T03:44:32.710Z", "expires_at": "2026-09-10T03:59:32.710Z", "ttl_s": 900.0, "expires_in_s": 900.0}}
+{"t": 1789011877.2196102, "kind": "refusal_baseline", "pre_existing": 9, "floor_iso": "2026-09-10T03:44:32.000Z"}
+{"t": 1789011879.50836, "kind": "lease_release", "resp": {"ok": true, "released": true, "held": false}}

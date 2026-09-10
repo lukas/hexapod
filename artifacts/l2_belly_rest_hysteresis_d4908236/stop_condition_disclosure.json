@@ -1,0 +1,103 @@
+{
+ "why_this_file_exists": "The saved plan lists 16 stop conditions. The runner deliberately does not poll /api/feedback or /api/errors during motion -- each is a full 18-servo bus scan costing ~5-6 s, and dense polling is what starved the L5 sibling's first attempt into a limp (b289e536 attempt 1). So some conditions are enforced in real time and some are only checked afterwards. Stating which is which, rather than implying all 16 were live, is the point of this file.",
+ "enforced_in_real_time_by_the_on_robot_runner": [
+  "per-servo current: 3 consecutive readings > 0.75 A, and a 3.0 A immediate ceiling  -- peak seen 0.052 A on L2 hip, 14x under the trip",
+  "servo temperature 55 C limp",
+  "tracking error against a slewed reference  -- max 4.382 deg on L2 hip, 2.785 on L2 knee, and ZERO of 1560 ticks exceeded the plan's 5 deg bound",
+  "3 consecutive missed position reads  -- the runner CSV has no blank position cell anywhere in 1560 ticks x 18 joints, and 0 deadline overruns",
+  "stale / nonadvancing state stream",
+  "limp on any trip"
+ ],
+ "enforced_in_real_time_supervisor_side_bus_free": [
+  "camera freshness: a >2 s stall on any of robot-1/2/3 aborts  -- 0 frame errors, max inter-frame gap 0.713 s",
+  "exclusive command lease: a foreign motion command is refused before it reaches the bus and aborts the run  -- 0 refusals occurred, so no other controller tried to command the robot inside the window",
+  "total motion time vs the 360 s experiment duration  -- 161.06 s used"
+ ],
+ "recorded_continuously_but_not_enforced_live": {
+  "chassis tilt": {
+   "how": "the passive 50 Hz recorder adds no bus reads, and its snapshots carry the IMU. This is an improvement on the sibling run, which could only report tilt pre/post.",
+   "imu_samples": 290,
+   "roll_deg": {
+    "min": -1.3,
+    "max": -0.49
+   },
+   "pitch_deg": {
+    "min": 1.8,
+    "max": 2.78
+   },
+   "bound": "+/-10 deg for more than 0.5 s",
+   "verdict": "never within 7 deg of the bound at any sampled moment across the whole window; the chassis stayed belly-rested",
+   "honest_caveat": "continuous COVERAGE, not live ENFORCEMENT -- had tilt exceeded the bound, nothing was watching the IMU in real time to stop the run. The visual half of the same condition (any visible chassis lift, shift or tip) is covered by the 252-frame-per-camera record and the first-vs-last differencing, also post-hoc."
+  },
+  "per-joint load and temperature for all 18 joints": {
+   "how": "the runner's own CSV carries goal, present and current per joint but only a single whole-robot temp_c/load_pct column; the passive recorder's feedback records carry all 18 per joint, and its snapshots carry the raw pos_counts the plan asks for.",
+   "per_joint_max_load_pct": [
+    0.0,
+    0.0,
+    2.8,
+    3.6,
+    0.0,
+    0.0,
+    3.6,
+    8.8,
+    7.2,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    2.8,
+    0.0,
+    0.0,
+    5.2,
+    2.8
+   ],
+   "per_joint_max_temp_c": [
+    33,
+    33,
+    34,
+    33,
+    32,
+    33,
+    33,
+    32,
+    38,
+    30,
+    32,
+    30,
+    30,
+    30,
+    30,
+    32,
+    32,
+    33
+   ]
+  }
+ },
+ "checked_only_after_the_fact": {
+  "any new /api/errors bus entry": {
+   "found": 1,
+   "row": "2026-09-10T03:46:47.590Z  bus_timing  W->OK ack_rejected 18.0ms (seq 60, attempt 1, reply ERR, elapsed 17.96 ms)",
+   "consequence_stated_plainly": "Under the plan's literal wording -- 'Any new /api/errors bus entry' is a stop -- this row would have halted the run at about tick 940, part way through block B. It did not, because nothing was watching /api/errors in real time. The run is still reported as succeeded: it is an 18 ms self-recovered MCU ack retry on the documented bus_timing path, it cost no tick (1560/1560, 0 overruns, no missed reads), none of the robot's own real-time interlocks reacted, and the six affected cycles sit inside the same tight band as the other twenty-four. But this is a real deviation from the saved stop set, not a technicality, and the sibling run recorded the same class of deviation.",
+   "same_class_as": "the single ascii_err row reported in sealed 413d5402"
+  },
+  "two consecutive samples >= 45 C on the same joint": {
+   "verdict": "not reached",
+   "detail": "L2 knee is the joint the plan singles out. Across 1321 feedback samples it read 32 C in 802 and 33 C in 517 -- and 38 C in exactly ONE isolated sample at 03:46:35.286Z, with 32/33 either side. The plan's own wording covers this: 'single isolated outliers are logged, not treated as a stop'. Nothing anywhere on the robot reached 45 C. Worth recording because the sibling run's pre/post bus samples reported a 0 C knee rise; the in-motion record shows the sustained rise is +1 C over the 32 C baseline, with one outlier at +6 C, against the plan's +8 C bound.",
+   "l2_knee_baseline_c": 32,
+   "l2_knee_sustained_peak_c": 33,
+   "l2_knee_isolated_outlier_c": 38,
+   "bound_c": 45,
+   "knee_rise_bound_c": 8
+  },
+  "motor count below 18/18 in any sample": {
+   "verdict": "not a servo loss; telemetry noise, per the canonical rule",
+   "detail": "52 of the passive recorder's 318 snapshots list at least one servo that did not answer that particular opportunistic scan. Read strictly, '18/18 in any sample' would call that a stop. Read by the canonical rule that a single missing reply is telemetry noise and three CONSECUTIVE fresh misses are required, it is not: the longest consecutive streak for any single servo id is 2 (id 8), every other id 1, the misses are scattered across 11 different ids, snapshot_ok was true for all 318, and the runner's own real-time control loop -- the stream that actually matters -- lost nothing at all (zero blank position cells in 1560 ticks x 18 joints, zero overruns, its 3-consecutive-miss interlock never armed)."
+  },
+  "any suspect_zero or over_range report": {
+   "verdict": "none"
+  }
+ },
+ "not_measured_at_all": {
+  "chassis tag versus floor tags": "The room light was switched off between the 03:35Z preflight inspection and the 03:45Z run, so the motion frames are at the same low exposure as the sibling run and the tracker cannot resolve tags in them. Substituted by direct telemetry, which is stronger for this particular question: all 16 non-L2 joints were commanded at absolute logical zero for all 1560 ticks (commanded span exactly 0) and measured within 0.439 deg, and the robot finished at the pose it started from. The saved question needs no calibrated displacement, so this is recorded as unmeasured rather than treated as a blocker."
+ }
+}

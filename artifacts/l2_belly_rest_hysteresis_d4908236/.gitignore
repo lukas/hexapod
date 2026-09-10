@@ -1,0 +1,8 @@
+# Bulk evidence lives in the Robot Lab as sealed artifacts for experiment
+# d4908236, not in git. What stays here is everything needed to verify it:
+# run/frame_index.jsonl carries the sha256 of every single frame, and
+# passive_recorder_summary.json carries the per-joint maxima, IMU range and
+# missing-servo accounting computed from the full slice.
+run/frames/
+dry/frames/
+passive_recorder_window.jsonl

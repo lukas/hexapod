@@ -1,0 +1,61 @@
+{
+ "purpose": "record the run-1 interlock stop, the evidence that it was a transient framework stop rather than a physical hazard, and the re-pose that restored the declared start pose before a retry",
+ "experiment_id": "7299f24343654f9893274d4328b277ad",
+ "attempt": 1,
+
+ "what_stopped_the_run": {
+  "trip_kind": "api_errors_row",
+  "when_utc": "2026-09-10T16:47:45.294Z",
+  "rule": "the plan's stop condition allows 'any new /api/errors row BEYOND a single self-recovered transient bus_timing retry'. The runner tolerated the first such row and halted on the second, exactly as written.",
+  "rows_during_the_window": [
+   {"ts": "2026-09-10T16:45:59.694Z", "seq": 2285, "kind": "bus_timing", "src": "mcu", "level": "error", "msg": "P->p ascii_err 15.8ms", "reason": "ascii_err", "n": 0, "mcu_frame_reject_path": "desync_guard", "torn_frame": true, "disposition": "TOLERATED -- self-recovery confirmed via csv_growth"},
+   {"ts": "2026-09-10T16:47:45.294Z", "seq": 2587, "kind": "bus_timing", "src": "mcu", "level": "error", "msg": "P->p ascii_err 15.1ms", "reason": "ascii_err", "n": 0, "mcu_frame_reject_path": "desync_guard", "torn_frame": true, "disposition": "HALT -- allowance of 1 already spent"}
+  ],
+  "both_rows_are_the_same_class": "bus_timing / src mcu / level error (not critical) / reason ascii_err with n=0 (unframed) / bare ERR reply attributed by mcu_feetech_bus.classify_bare_err_reply() to the documented desync_guard torn-frame reject path. This is the exact class the plan names as tolerable; only the COUNT exceeded the allowance.",
+  "progress_at_halt": "the executor latched tick0 at +5.0 s and ran from ~16:45:39Z to 16:47:45Z, about 126 s of the 156 s window -- roughly 4.5 of the 6 cycles. The run is incomplete and NO loop-width result is claimed from it."
+ },
+
+ "why_this_is_not_a_physical_hazard": {
+  "peak_current_a": {"prearm": 0.0, "post": 0.0, "per_servo_trip": 0.75, "hard_ceiling": 3.0, "verdict": "no current event of any size"},
+  "max_temperature_c": {"prearm": 32, "post": 32, "trip": 55, "verdict": "unchanged"},
+  "l4_knee_rise_c": {"baseline": 29, "post_peak": 29, "rise": 0, "trip": 8, "verdict": "no rise"},
+  "tilt_deg": {"prearm_roll_pitch": [-1.01, 2.34], "post_roll_pitch": [-0.93, 2.36], "trip": 10, "verdict": "unchanged -- no tip"},
+  "servo_health": {"prearm_live": 18, "post_live": 18, "verdict": "18/18 before and after; no servo loss"},
+  "cameras": {"frames": {"robot-1": 247, "robot-2": 247, "robot-3": 247}, "frame_errors": {"robot-1": 0, "robot-2": 0, "robot-3": 0}, "verdict": "no camera loss; no camera_stall stop"},
+  "chassis_tag_watch": {"max_shift_mm": 31.31, "shift_trip_mm": 120.0, "max_yaw_delta_deg": 4.62, "yaw_trip_deg": 15.0, "trips": 0, "verdict": "no trip"},
+  "non_l4_joints": {"max_abs_deg": 0.44, "trip": 1.0, "verdict": "the other 16 joints held logical zero throughout"},
+  "bus_after": {"bus_available": true, "bus_quarantined": false, "verdict": "bus healthy and not quarantined after the halt"},
+  "conclusion": "none of the canonical no-retry conditions occurred -- no tip, brownout, hot motor, jam, surprise force, sustained current or persistent servo loss. This is a transient MCU serial-framing (telemetry/framework) stop."
+ },
+
+ "why_two_rows_was_likely": {
+  "observation": "inter-arrival gaps between the robot's recent mcu bus_timing rows were 879, 332, 280, 4686 and 1932 s while idle, but 72 s and 106 s during this run.",
+  "mechanism": "idle traffic is only the low-rate status/feedback polls (S->s, F->f), whereas a sysid run adds the executor's own 10 Hz position poll (P->p) -- on the order of 1560 extra bus transactions across the 156 s window. Both rows here were P->p, i.e. on that poll path. At a roughly constant per-transaction torn-frame rate, two rows in a 156 s run is an ordinary outcome rather than a new fault.",
+  "family_precedent": "the L0 sibling spent its single allowance exactly once and completed; the L3 replicate spent none. The L1 run hit this SAME api_errors_row interlock at 05:14:30Z and was left at hip -50.54 / knee 34.45, then recovered by re-posing and retrying -- the same interlock, the same place in the same reviewed trajectory, on a different leg.",
+  "explicitly_not_done": "the reviewed one-row tolerance was NOT widened, and no safety interlock was weakened, to obtain a result. The retry runs the identical protocol under the identical guard."
+ },
+
+ "live_supervision_for_the_recovery": {
+  "camera": "three fresh observation-camera frames captured at 2026-09-10T16:50:31Z (recovery_frames/postabort_cam{0,1,2}.jpg, burned-in stamps 09:50:31). Read, not merely fetched: the robot is belly-resting with the chassis down and all six legs straight out, feet at floor level -- visually indistinguishable from the preflight frames. No tip, lift or shift.",
+  "telemetry": "18/18 live, bus available, not quarantined, max temperature 32 C.",
+  "abort_path": "the runner's own abort fired and was honoured: POST /api/rl/stop returned ok with the demo status 'aborted' and the robot disarmed to limp."
+ },
+
+ "repose": {
+  "why_needed": "the halt left L4 mid-stroke at hip -50.71 / knee 34.54 (limp), near the outer extreme of the trajectory. The plan declares belly_rest_logical_zero as the start pose and the runner's own 1.0 deg start-pose gate correctly refuses until it is restored.",
+  "method": "the robot's own collision-aware /api/safe_zero planner, via the family's documented repose_to_zero.py. A dry_run was planned and inspected first. The zero frame was NOT touched -- this is a re-pose, never /api/set_zero, and it does not widen the start-pose gate.",
+  "planned_stages": [
+   {"label": "straighten hips/knees (direct clear path)", "seconds": 2.82, "knee_lift_deg": 6.89, "drag_ok": false},
+   {"label": "extend legs straight (zero)", "seconds": 2.0, "drag_ok": false}
+  ],
+  "planner_notes": ["IK transition to lift pose: direct_clear"],
+  "total_s": 4.8,
+  "ground_z_mm": -40.0,
+  "tilt_at_plan_deg": 2.2,
+  "executed": true,
+  "outcome": "demo status 'done · at zero (safe)'. Verified afterwards: j12/j13/j14 = -0.09 / -0.09 / 0.00 deg, worst joint 16 at 0.440 deg against the 1.0 deg gate, 18/18 live, bus available and not quarantined. A confirming re-run of the script reported 'already at logical zero -- nothing to do' and commanded no motion.",
+  "script_bug_found_and_fixed": "/api/safe_zero returns as soon as the motion STARTS (\"started\": true, running: true), so the inherited script's post-sampling raced the 4.8 s motion and one mid-motion /api/status returned an empty motor list, making worst() raise max() on an empty iterable AFTER the motion had already been commanded and the lease released. The motion itself completed correctly. Fixed in three places: worst() tolerates an empty scan, the pre-check falls back across samples, and the post-check now waits out the planner's own total_s and requires three non-empty scans. The confirming re-run above exercises the fixed path."
+ },
+
+ "decision": "RETRY the complete bounded step, as the canonical retry distinctions and the operational contract allow after recovery from a transient telemetry/framework stop when camera and fresh telemetry show a normal state. This is retry 1 of the permitted 2. The plan's safety.retries: 0 governs the on-robot executor's own automatic retry after a CURRENT trip; no current trip occurred here."
+}

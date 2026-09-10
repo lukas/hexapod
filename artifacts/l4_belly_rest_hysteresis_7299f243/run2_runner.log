@@ -1,0 +1,85 @@
+== run2: l4_belly_rest_radial_shear_hysteresis_repeat6_v1 ticks=1560 hz=10.0 (156.0s)
+   command lease held by guarded-runner-7299f243
+   pre-arm 18/18 x3, maxtemp=32C, L4 knee baseline 29C, hip -0.09 knee 0.00
+   start pose verified: worst joint 16 at 0.44 deg of logical zero
+   chassis tag NOT resolvable -- the tag watch records the condition as unmeasured (plan allows this)
+   live frames on ['robot-1', 'robot-2', 'robot-3']
+   POST /api/sysid/run -> {"ok": true, "name": "l4_belly_rest_radial_shear_hysteresis_repeat6_v1", "duration_s": 156.0, "calibrate": {"running": false, "name": "sysid_run", "progress": {"msg": "sysid 'l4_belly_rest_radial_shear_hysteresis_repeat6_v1' (156s)"}, "result": {"ok": true, "mode": "calibration_report", "timestamp":
+   protocol tick0 latched at +4.0s (seg 1/1: L4_six_cycle_belly_rest_foot_clear_radial_shear)
+   worker done after 163.52s -- done · 1560/1560 ticks · limp
+{
+ "label": "run2",
+ "protocol_name": "l4_belly_rest_radial_shear_hysteresis_repeat6_v1",
+ "moving_leg": "L4",
+ "started_unix": 1789059396.2546508,
+ "result": {
+  "ok": true,
+  "elapsed_s": 163.52,
+  "t_proto0_offset_s": 4.02,
+  "result": {
+   "ok": true,
+   "mode": "calibration_report",
+   "timestamp": "2026-08-22T06:31:45",
+   "msg": "checkup complete with diagnostic issues; see phases",
+   "diagnostic_issue_count": 2,
+   "phases": [
+    {
+     "name": "safe_zero",
+     "ok": true,
+     "aborted": false,
+     "skipped": false,
+     "mode": "safe_zero",
+     "error": null,
+     "log": null,
+     "log_name": null,
+     "non_blocking": false,
+     "recoverable": false,
+     "guard_stop": false,
+     "warning": null,
+     "summary": "already at zero"
+    },
+    {
+     "name": "imu_rest",
+     "ok": true,
+     "aborted": false,
+     "skipped": false,
+     "mode": "imu",
+     "error": null,
+     "log": "/home/arduino/hexapod_sts/linux_control/logs/imu_calib.json",
+     "log_name": "imu_calib.json",
+     "non_blocking": false,
+     "recoverable": false,
+     "guard_stop": false,
+     "warning": null,
+     "summary": "Still & |g|\u22481 \u2014 biases saved; logs use calibrated IMU."
+    },
+    {
+     "name": "geometry_plant",
+     "ok": true,
+     "aborted": false,
+     "skipped": false,
+     "mode": "geometry_plant",
+     "error": null,
+     "log": "/home/arduino/hexapod_sts/logs/plant_pose.json",
+     "log_name": null,
+     "non_blocking": false,
+     "recoverable": false,
+     "guard_stop": false,
+     "warning": null,
+     "summary": "plant hip +16.1\u00b0 / knee +43.5\u00b0 (~18 mm above contact)"
+    },
+    {
+     "name": "geometry_sweep",
+     "ok": false,
+     "aborted": false,
+     "skipped": false,
+     "mode": "geometry_sweep",
+     "error": null,
+     "log": "/home/arduino/hexapod_sts/linux_control/logs/geometry_sweep_20260822_063028.json",
+     "log_name": "geometry_sweep_20260822_063028.json",
+     "non_blocking": true,
+     "recoverable": false,
+     "guard_stop": false,
+     "warning": null,
+     "summary": "dimension sweep manual_geometry_mismatch; 15 accepted contacts; femur fit 90.0 vs 88.0mm; tibia fit 150.0 vs 152.0mm; FK/contact height 125.4 vs m
+   lease released -> {"ok": true, "released": true, "held": false}

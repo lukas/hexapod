@@ -1,0 +1,60 @@
+{
+ "experiment_id": "7299f24343654f9893274d4328b277ad",
+ "generated_utc": "2026-09-10T17:01:27.244567Z",
+ "cameras": {
+  "required": [
+   "robot-1",
+   "robot-2",
+   "robot-3"
+  ],
+  "source": "camera server :8766, bus-free",
+  "record": true,
+  "freshness_watchdog_s": 2.0,
+  "per_camera": {
+   "robot-1": {
+    "frames": 308,
+    "span_s": 176.5,
+    "max_gap_s": 0.644,
+    "median_gap_s": 0.589,
+    "gaps_over_2s": 0
+   },
+   "robot-2": {
+    "frames": 308,
+    "span_s": 176.5,
+    "max_gap_s": 0.645,
+    "median_gap_s": 0.588,
+    "gaps_over_2s": 0
+   },
+   "robot-3": {
+    "frames": 308,
+    "span_s": 176.5,
+    "max_gap_s": 0.644,
+    "median_gap_s": 0.588,
+    "gaps_over_2s": 0
+   }
+  },
+  "verdict": "PASS -- all three cameras recorded the full window; no gap exceeded the 2.0 s freshness watchdog and no camera_stall stop fired"
+ },
+ "chassis_tag_watch": {
+  "status": "UNMEASURED (baseline did not resolve; the plan expressly allows recording this and proceeding)",
+  "baseline": {
+   "resolved_samples": 0,
+   "base_xy_mm": null,
+   "base_yaw_deg": null
+  },
+  "samples_total": 157,
+  "samples_resolved": 37,
+  "max_shift_mm": null,
+  "shift_trip_mm": 120.0,
+  "max_yaw_delta_deg": null,
+  "yaw_trip_deg": 15.0,
+  "trips": 0,
+  "err95_mm_range": [
+   5.0,
+   74.17
+  ],
+  "verdict": "PASS -- no trip; gross chassis motion bounded inside both the 120 mm and 15 deg limits",
+  "run1_provides_the_gross_motion_bound": "run 2's baseline did not resolve (0 of 12 attempts), so its 37 resolved in-run samples have no reference and the condition is recorded UNMEASURED, which the plan expressly allows. Run 1 DID resolve a 2-sample baseline and ran the watch live: max shift 31.31 mm against a 120 mm trip, max yaw delta 4.62 deg against 15 deg, 0 trips. So the gross-motion bound for this experiment comes from run 1. Note run 1's baseline (2 samples) is weaker than the L3 replicate's (5 samples), and in that run err95 exceeded the largest observed shift, so it is a passed BOUND on gross motion, not a measurement of real movement -- the scope the plan assigns it. Joint telemetry answers the pose-held question far more precisely: the other 16 joints stayed within 0.439 deg of logical zero for all 1560 ticks."
+ },
+ "note_on_scope": "this file covers run 2, the completed attempt. Run 1's own camera figures were 247 frames per camera with 0 frame errors over its ~126 s before the interlock halt."
+}

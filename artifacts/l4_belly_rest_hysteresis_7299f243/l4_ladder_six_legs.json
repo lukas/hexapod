@@ -1,0 +1,203 @@
+{
+ "experiment_id": "7299f24343654f9893274d4328b277ad",
+ "generated_utc": "2026-09-10T17:01:06.485337Z",
+ "encoder_resolution_deg_per_count": 0.0879,
+ "loop_definition": -47.133,
+ "L4_this_run": {
+  "n_cycles": 6,
+  "per_cycle_loop_deg": [
+   -0.791,
+   -0.703,
+   -0.703,
+   -0.527,
+   -0.703,
+   -0.791
+  ],
+  "per_cycle_loop_counts": [
+   -9.0,
+   -8.0,
+   -8.0,
+   -6.0,
+   -8.0,
+   -9.0
+  ],
+  "mean": -0.703,
+  "sd": 0.088,
+  "mean_counts": -7.998,
+  "settled_value_deg": -0.703,
+  "settled_counts": -7.998,
+  "settled_is_exact_count": -8.0,
+  "all_settled_windows_single_valued": true,
+  "all_settled_windows_on_count_grid": false,
+  "modal_cycle_value_deg": -0.703,
+  "modal_cycle_count": 3,
+  "per_cycle_exact_counts": [
+   9,
+   8,
+   8,
+   6,
+   8,
+   9
+  ],
+  "counts_are_exact_integers": true,
+  "modal_count": 8,
+  "modal_count_n": 3,
+  "count_range": [
+   6,
+   9
+  ],
+  "sd_counts": 1.001,
+  "out_stroke_identical_all_cycles": true,
+  "out_stroke_deg": -47.197,
+  "in_stroke_values_deg": [
+   -46.67,
+   -46.494,
+   -46.406
+  ],
+  "how_the_settled_value_was_chosen": "L4's six loop widths are each an EXACT encoder count (residual <=0.005 count) but the count VARIES: 9, 8, 8, 6, 8, 9. That is qualitatively unlike L3, whose twelve settled windows landed on the same two counts every cycle for a uniform 8. So there is no single 'settled count' to quote for L4; the reported value is the 6-cycle MEAN, which lands on exactly -0.703 deg = 8.0 counts, carried with its own sd of 1.0 count. The modal count is 8 (3 of 6)."
+ },
+ "ladder_all_six_legs": [
+  {
+   "leg": "L1",
+   "deg": -0.33,
+   "counts": -3.754
+  },
+  {
+   "leg": "L2",
+   "deg": -0.4357,
+   "counts": -4.957
+  },
+  {
+   "leg": "L3",
+   "deg": -0.703,
+   "counts": -7.998
+  },
+  {
+   "leg": "L4",
+   "deg": -0.703,
+   "counts": -7.998
+  },
+  {
+   "leg": "L5",
+   "deg": -0.832,
+   "counts": -9.465
+  },
+  {
+   "leg": "L0",
+   "deg": -0.967,
+   "counts": -11.001
+  }
+ ],
+ "adjacent_gaps": [
+  {
+   "pair": "L1->L2",
+   "deg": 0.1057,
+   "counts": 1.203
+  },
+  {
+   "pair": "L2->L3",
+   "deg": 0.2673,
+   "counts": 3.041
+  },
+  {
+   "pair": "L3->L4",
+   "deg": 0.0,
+   "counts": 0.0
+  },
+  {
+   "pair": "L4->L5",
+   "deg": 0.129,
+   "counts": 1.467
+  },
+  {
+   "pair": "L5->L0",
+   "deg": 0.135,
+   "counts": 1.536
+  }
+ ],
+ "adjacent_spacing_test": {
+  "method": "the identical test L3 used: compare L4's distance to its nearest neighbour against that neighbour's own bracket-internal spacing. If L4 sits closer to a bracket than the bracket's members sit to each other, the same standard that groups them groups L4 too.",
+  "L4_nearest_neighbour": "L3",
+  "L4_distance_to_nearest_counts": 0.0,
+  "reference_internal_spacings_counts": {
+   "L1->L2": 1.203,
+   "L2->L3": 3.041,
+   "L3->L4": 0.0,
+   "L4->L5": 1.467,
+   "L5->L0": 1.536
+  },
+  "largest_discontinuity": {
+   "pair": "L2->L3",
+   "deg": 0.2673,
+   "counts": 3.041
+  }
+ },
+ "notes": [],
+ "run1_partial_corroboration": {
+  "status": "run 1 was HALTED by the plan's own second-bus_timing-row interlock at ~126 s of 156 s; it is NOT the result and is not pooled as an equal run",
+  "n_complete_cycles": 5,
+  "per_cycle_loop_deg": [
+   -0.703,
+   -0.703,
+   -0.703,
+   -0.7206,
+   -0.703
+  ],
+  "mean": -0.7065,
+  "sd": 0.007,
+  "mean_counts": -8.038,
+  "reading": "run 1's five complete cycles give a mean of -0.7065 deg (-8.04 counts), agreeing with run 2's -0.703 deg / 8.0 counts to within 0.04 count. Four of its five widths were exactly 8 counts; the fifth settled window straddled two counts (its window held two distinct values), giving 8.20. Taken together the two attempts agree on 8.0 counts as L4's central value while differing in scatter (run 1 sd 0.08 count over 5 cycles, run 2 sd 1.0 count over 6) -- which is itself a reason the number is not yet pinned as tightly as L3's."
+ },
+ "required_conclusion": {
+  "L4_per_cycle": {
+   "deg": [
+    -0.791,
+    -0.703,
+    -0.703,
+    -0.527,
+    -0.703,
+    -0.791
+   ],
+   "exact_counts": [
+    9,
+    8,
+    8,
+    6,
+    8,
+    9
+   ],
+   "statement": "six cycles, each an exact encoder count: 9, 8, 8, 6, 8, 9 counts (-0.791, -0.703, -0.703, -0.527, -0.703, -0.791 deg)."
+  },
+  "L4_settled": {
+   "deg": -0.703,
+   "counts": 8.0,
+   "statement": "L4 = -0.703 deg = 8.0 encoder counts as the 6-cycle mean, sd 0.088 deg (1.0 count). Unlike L3 there is no single repeated settled count -- every cycle is an exact count but the count varies from 6 to 9."
+  },
+  "where_L4_lands": "L4's mean lands EXACTLY on L3: both are -0.703 deg = 8.0 counts, an adjacent gap of 0.000 counts. The six-leg ladder is L1 -0.330 (3.75), L2 -0.4357 (4.96), L3 -0.703 (8.00), L4 -0.703 (8.00), L5 -0.832 (9.47), L0 -0.967 (11.00).",
+  "which_bracket": {
+   "answer": "L4 belongs to the SAME high bracket as L3, L5 and L0, and on this run's evidence it is not separable from L3 at all.",
+   "arithmetic": "L4 sits 0.000 counts from L3 and 1.467 counts from L5. The two legs already accepted as one bracket, L5 and L0, sit 1.536 counts apart. L4's distance to L3 is therefore far below that bracket's own internal spacing, so the same standard that groups {L3, L5, L0} groups L4 with them -- and its zero gap to L3 is stronger than mere co-bracketing: the two legs' central values coincide.",
+   "the_real_discontinuity": "adding L4 does not move the series' one real discontinuity, which remains L2->L3 at 3.041 counts -- still more than double any other adjacent gap. The six-leg picture is a LOW pair {L1, L2} at 3.75-4.96 counts and a HIGH group {L3, L4, L5, L0} at 8.00-11.00 counts."
+  },
+  "two_questions_kept_apart": [
+   {
+    "q": "is L4's VALUE distinguishable from L3's?",
+    "a": "No. Both central values are -0.703 deg = 8.0 counts, a gap of 0.000 counts, against L4's own within-run sd of 1.0 count. A gait may use one constant for both L3 and L4 on this evidence -- but see the replicate finding below before relying on it."
+   },
+   {
+    "q": "is L4 SEPARABLE FROM the high bracket?",
+    "a": "No, for the spacing reason above. It is the bracket's joint-lowest member alongside L3."
+   }
+  ],
+  "single_run_or_replicate": {
+   "verdict": "A REPLICATE IS NEEDED. One run does not resolve L4 to the precision the ladder now requires.",
+   "why": [
+    "The rationale's own criterion for one run sufficing was that 'the settled windows land on a single encoder count', as L3's did. L4's do not: its per-cycle widths are exact counts but span 6 to 9, so the precondition for single-run sufficiency is not met.",
+    "L4's within-run sd is 1.0 count. That is COMPARABLE TO THE LADDER'S ADJACENT SPACINGS -- larger than the L1->L2 gap (1.20 counts) and about two thirds of the L4->L5 gap (1.47) and the L5->L0 gap (1.54). A single run's mean therefore cannot cleanly separate L4 from L3 below it or L5 above it.",
+    "L4 landed exactly ON another leg's value, which the rationale did not anticipate and which is the most consequential position available: it invites a gait to share one backlash constant between L3 and L4. That claim should rest on more than one run, exactly as L3's own bracket reversal did -- L3's run 1 reading was reversed by its replicate.",
+    "The two L4 attempts agree on the central value but disagree on scatter (run 1: five cycles, sd 0.08 count; run 2: six cycles, sd 1.0 count), which is an unresolved difference in its own right."
+   ],
+   "what_the_replicate_should_answer": "whether L4's central value stays at 8.0 counts and whether its per-cycle count genuinely wanders 6-9 or run 2's spread was unrepresentative. If a replicate reproduces 8.0 with real per-cycle scatter, then L3 and L4 share a central constant but L4 is the less repeatable of the two, and a gait should budget L4's 1-count spread rather than treat 8.0 as exact."
+  }
+ }
+}

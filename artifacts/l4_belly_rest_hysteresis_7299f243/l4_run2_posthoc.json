@@ -1,0 +1,402 @@
+{
+ "csv": "sysid_l4_belly_rest_radial_shear_hysteresis_repeat6_v1_20260910_165637.csv",
+ "rows": 1560,
+ "hz": 10.0,
+ "declared_posthoc_checks": {
+  "measured_non_L4_joint_departure_gt_1p0_deg": {
+   "bound_deg": 1.0,
+   "worst": {
+    "joint": 16,
+    "abs_deg": 0.439,
+    "tick": 0
+   },
+   "per_joint_max_abs_deg": {
+    "1": 0.088,
+    "2": 0.176,
+    "3": 0.176,
+    "4": 0.088,
+    "5": 0.088,
+    "6": 0.264,
+    "7": 0.088,
+    "8": 0.176,
+    "10": 0.176,
+    "11": 0.088,
+    "12": 0.088,
+    "16": 0.439,
+    "17": 0.176
+   },
+   "missing_measured_cells": 0,
+   "verdict": "PASS"
+  },
+  "hysteresis_growing_monotonically_across_repeats": {
+   "per_cycle_loop_deg": [
+    0.791,
+    0.703,
+    0.703,
+    0.527,
+    0.703,
+    0.791
+   ],
+   "strictly_monotonic": false,
+   "verdict": "PASS (no growth)"
+  }
+ },
+ "settled_window_investigation": {
+  "question": "L4 has no prior number, so this asks the question open rather than assuming L3's shape: do the settled windows each hold a single value on the encoder-count grid (making each loop width an exact count difference), or do they scatter (making it an average of a moving joint)?",
+  "settled_windows": [
+   {
+    "ticks": [
+     170,
+     179
+    ],
+    "n": 10,
+    "unique_values": [
+     -47.197
+    ],
+    "mean": -47.197,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     250,
+     259
+    ],
+    "n": 10,
+    "unique_values": [
+     -46.406
+    ],
+    "mean": -46.406,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     330,
+     339
+    ],
+    "n": 10,
+    "unique_values": [
+     -47.197
+    ],
+    "mean": -47.197,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     410,
+     419
+    ],
+    "n": 10,
+    "unique_values": [
+     -46.494
+    ],
+    "mean": -46.494,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     490,
+     499
+    ],
+    "n": 10,
+    "unique_values": [
+     -47.197
+    ],
+    "mean": -47.197,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     570,
+     579
+    ],
+    "n": 10,
+    "unique_values": [
+     -46.494
+    ],
+    "mean": -46.494,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     950,
+     959
+    ],
+    "n": 10,
+    "unique_values": [
+     -47.197
+    ],
+    "mean": -47.197,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     1030,
+     1039
+    ],
+    "n": 10,
+    "unique_values": [
+     -46.67
+    ],
+    "mean": -46.67,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     1110,
+     1119
+    ],
+    "n": 10,
+    "unique_values": [
+     -47.197
+    ],
+    "mean": -47.197,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     1190,
+     1199
+    ],
+    "n": 10,
+    "unique_values": [
+     -46.494
+    ],
+    "mean": -46.494,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     1270,
+     1279
+    ],
+    "n": 10,
+    "unique_values": [
+     -47.197
+    ],
+    "mean": -47.197,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     1350,
+     1359
+    ],
+    "n": 10,
+    "unique_values": [
+     -46.406
+    ],
+    "mean": -46.406,
+    "sd": 0.0
+   }
+  ],
+  "encoder_resolution_deg_per_count": 0.0879,
+  "settled_values_in_counts": {
+   "note": "12/12 settled windows hold ONE value across all of their 10 Hz samples (sd 0.0). On the quantity that is actually measured -- the LOOP WIDTH, i.e. the difference between a cycle's two settled windows -- 6/6 land on an exact encoder count within 0.05 count (worst residual 0.0046 count), so the loop widths are exact count differences rather than averages of a moving joint. The ABSOLUTE settled angles sit a near-constant 0.056-0.060 count off the nominal grid on both strokes; that is the zero-frame offset and it cancels in the difference, so it is not a resolution limit. (L3's sealed data carries the same constant offset.)",
+   "windows": [
+    {
+     "ticks": [
+      170,
+      179
+     ],
+     "deg": -47.197,
+     "counts": -536.94,
+     "nearest_count": -537,
+     "residual_counts": 0.06,
+     "residual_is_zero_frame_offset": true
+    },
+    {
+     "ticks": [
+      250,
+      259
+     ],
+     "deg": -46.406,
+     "counts": -527.94,
+     "nearest_count": -528,
+     "residual_counts": 0.059,
+     "residual_is_zero_frame_offset": true
+    },
+    {
+     "ticks": [
+      330,
+      339
+     ],
+     "deg": -47.197,
+     "counts": -536.94,
+     "nearest_count": -537,
+     "residual_counts": 0.06,
+     "residual_is_zero_frame_offset": true
+    },
+    {
+     "ticks": [
+      410,
+      419
+     ],
+     "deg": -46.494,
+     "counts": -528.94,
+     "nearest_count": -529,
+     "residual_counts": 0.058,
+     "residual_is_zero_frame_offset": true
+    },
+    {
+     "ticks": [
+      490,
+      499
+     ],
+     "deg": -47.197,
+     "counts": -536.94,
+     "nearest_count": -537,
+     "residual_counts": 0.06,
+     "residual_is_zero_frame_offset": true
+    },
+    {
+     "ticks": [
+      570,
+      579
+     ],
+     "deg": -46.494,
+     "counts": -528.94,
+     "nearest_count": -529,
+     "residual_counts": 0.058,
+     "residual_is_zero_frame_offset": true
+    },
+    {
+     "ticks": [
+      950,
+      959
+     ],
+     "deg": -47.197,
+     "counts": -536.94,
+     "nearest_count": -537,
+     "residual_counts": 0.06,
+     "residual_is_zero_frame_offset": true
+    },
+    {
+     "ticks": [
+      1030,
+      1039
+     ],
+     "deg": -46.67,
+     "counts": -530.94,
+     "nearest_count": -531,
+     "residual_counts": 0.056,
+     "residual_is_zero_frame_offset": true
+    },
+    {
+     "ticks": [
+      1110,
+      1119
+     ],
+     "deg": -47.197,
+     "counts": -536.94,
+     "nearest_count": -537,
+     "residual_counts": 0.06,
+     "residual_is_zero_frame_offset": true
+    },
+    {
+     "ticks": [
+      1190,
+      1199
+     ],
+     "deg": -46.494,
+     "counts": -528.94,
+     "nearest_count": -529,
+     "residual_counts": 0.058,
+     "residual_is_zero_frame_offset": true
+    },
+    {
+     "ticks": [
+      1270,
+      1279
+     ],
+     "deg": -47.197,
+     "counts": -536.94,
+     "nearest_count": -537,
+     "residual_counts": 0.06,
+     "residual_is_zero_frame_offset": true
+    },
+    {
+     "ticks": [
+      1350,
+      1359
+     ],
+     "deg": -46.406,
+     "counts": -527.94,
+     "nearest_count": -528,
+     "residual_counts": 0.059,
+     "residual_is_zero_frame_offset": true
+    }
+   ]
+  }
+ },
+ "loop_width_counts": [
+  {
+   "cycle": 1,
+   "deg": 0.791,
+   "counts": 8.99886,
+   "nearest_count": 9,
+   "residual_counts": 0.00114
+  },
+  {
+   "cycle": 2,
+   "deg": 0.703,
+   "counts": 7.99772,
+   "nearest_count": 8,
+   "residual_counts": 0.00228
+  },
+  {
+   "cycle": 3,
+   "deg": 0.703,
+   "counts": 7.99772,
+   "nearest_count": 8,
+   "residual_counts": 0.00228
+  },
+  {
+   "cycle": 4,
+   "deg": 0.527,
+   "counts": 5.99545,
+   "nearest_count": 6,
+   "residual_counts": 0.00455
+  },
+  {
+   "cycle": 5,
+   "deg": 0.703,
+   "counts": 7.99772,
+   "nearest_count": 8,
+   "residual_counts": 0.00228
+  },
+  {
+   "cycle": 6,
+   "deg": 0.791,
+   "counts": 8.99886,
+   "nearest_count": 9,
+   "residual_counts": 0.00114
+  }
+ ],
+ "electrical_thermal": {
+  "peak_current_a_per_joint": {
+   "0": 0.006,
+   "1": 0.006,
+   "2": 0.006,
+   "3": 0.006,
+   "4": 0.006,
+   "5": 0.006,
+   "6": 0.013,
+   "7": 0.006,
+   "8": 0.006,
+   "9": 0.006,
+   "10": 0.006,
+   "11": 0.006,
+   "12": 0.006,
+   "13": 0.149,
+   "14": 0.019,
+   "15": 0.006,
+   "16": 0.013,
+   "17": 0.006
+  },
+  "peak_current_a_any_joint": 0.149,
+  "per_servo_trip_a": 0.75,
+  "hard_ceiling_a": 3.0,
+  "logged_temp_c_max": 32.0,
+  "temp_trip_c": 55.0
+ }
+}

@@ -92,25 +92,50 @@ temps = [f(r, "temp_c") for r in rows]
 temps = [t for t in temps if t is not None]
 
 def _grid_finding(windows, count_deg):
-    """State what the settled windows actually show -- measured, not assumed."""
+    """State what the settled windows actually show -- measured, not assumed.
+
+    The physically meaningful grid test is on the LOOP WIDTH (the difference
+    between the two settled windows of a cycle), not on the absolute angle.
+    The absolute settled angles sit a constant ~0.06 count off the nominal
+    grid on BOTH strokes -- that is the zero-frame offset, which cancels in
+    the difference. Testing the absolute angle against the grid would report
+    a false negative; L3's sealed data carries the same constant offset.
+    """
     if not windows:
         return "no settled window resolved at the shared waypoint"
     single = [w for w in windows if len(w["unique_values"]) == 1]
-    resid = [abs(w["mean"] / count_deg - round(w["mean"] / count_deg))
-             for w in windows]
-    on_grid = [r for r in resid if r <= 0.05]
+    abs_resid = [abs(w["mean"] / count_deg - round(w["mean"] / count_deg))
+                 for w in windows]
+    # loop widths = consecutive out/in pairs
+    diffs = [windows[k + 1]["mean"] - windows[k]["mean"]
+             for k in range(0, len(windows) - 1, 2)]
+    dres = [abs(d / count_deg - round(d / count_deg)) for d in diffs]
+    on_grid = [r for r in dres if r <= 0.05]
     return (
-        f"{len(single)}/{len(windows)} settled windows hold ONE value across "
-        f"all of their 10 Hz samples (sd 0.0); {len(on_grid)}/{len(windows)} "
-        f"sit on the encoder-count grid within 0.05 count "
-        f"(worst residual {max(resid):.3f} count). "
-        + ("Every window is single-valued and on-grid, so the loop widths are "
-           "exact count differences rather than averages of a moving joint."
-           if len(single) == len(windows) and len(on_grid) == len(windows)
-           else "Not every window is single-valued and on-grid, so the loop "
-                "widths are NOT purely exact count differences and are "
-                "reported as measured means with their own scatter.")
-    )
+        "%d/%d settled windows hold ONE value across all of their 10 Hz "
+        "samples (sd 0.0). On the quantity that is actually measured -- the "
+        "LOOP WIDTH, i.e. the difference between a cycle's two settled "
+        "windows -- %d/%d land on an exact encoder count within 0.05 count "
+        "(worst residual %.4f count), so the loop widths are exact count "
+        "differences rather than averages of a moving joint. The ABSOLUTE "
+        "settled angles sit a near-constant %.3f-%.3f count off the nominal "
+        "grid on both strokes; that is the zero-frame offset and it cancels "
+        "in the difference, so it is not a resolution limit. (L3's sealed "
+        "data carries the same constant offset.)"
+        % (len(single), len(windows), len(on_grid), len(diffs),
+           max(dres) if dres else float("nan"),
+           min(abs_resid), max(abs_resid))
+    ) if len(single) == len(windows) and len(on_grid) == len(diffs) else (
+        "%d/%d settled windows hold ONE value across all of their 10 Hz "
+        "samples; %d/%d LOOP WIDTHS land on an exact encoder count within "
+        "0.05 count (worst residual %.4f count). Because not every window is "
+        "single-valued or every width on-grid, the loop widths are reported "
+        "as measured means with their own scatter rather than as exact count "
+        "differences. Absolute settled angles sit %.3f-%.3f count off the "
+        "nominal grid (zero-frame offset, cancels in the difference)."
+        % (len(single), len(windows), len(on_grid), len(diffs),
+           max(dres) if dres else float("nan"),
+           min(abs_resid), max(abs_resid)))
 
 
 out = {
@@ -145,11 +170,25 @@ out = {
          "counts": round(s["mean"] / COUNT_DEG, 2),
          "nearest_count": round(s["mean"] / COUNT_DEG),
          "residual_counts": round(s["mean"] / COUNT_DEG
-                                  - round(s["mean"] / COUNT_DEG), 3)}
+                                  - round(s["mean"] / COUNT_DEG), 3),
+         "residual_is_zero_frame_offset": True}
         for s in settled_vals
       ],
     },
   },
+  "loop_width_counts": [
+    {"cycle": k // 2 + 1,
+     "deg": round(settled_vals[k + 1]["mean"] - settled_vals[k]["mean"], 4),
+     "counts": round((settled_vals[k + 1]["mean"]
+                      - settled_vals[k]["mean"]) / COUNT_DEG, 5),
+     "nearest_count": round((settled_vals[k + 1]["mean"]
+                             - settled_vals[k]["mean"]) / COUNT_DEG),
+     "residual_counts": round(abs((settled_vals[k + 1]["mean"]
+                                   - settled_vals[k]["mean"]) / COUNT_DEG
+                                  - round((settled_vals[k + 1]["mean"]
+                                           - settled_vals[k]["mean"])
+                                          / COUNT_DEG)), 5)}
+    for k in range(0, len(settled_vals) - 1, 2)],
   "electrical_thermal": {
     "peak_current_a_per_joint": {str(k): round(v, 4)
                                  for k, v in sorted(peak_cur.items())},

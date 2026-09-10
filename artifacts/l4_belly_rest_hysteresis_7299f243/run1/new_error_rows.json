@@ -1,0 +1,72 @@
+[
+ {
+  "ts": "2026-09-10T16:45:59.694Z",
+  "mono": 66958.996095,
+  "seq": 2285,
+  "kind": "bus_timing",
+  "level": "error",
+  "src": "mcu",
+  "msg": "P->p ascii_err 15.8ms",
+  "data": {
+   "seq": 597,
+   "ok": false,
+   "reason": "ascii_err",
+   "cmd": "P",
+   "want": "p",
+   "n": 0,
+   "timeout_ms": 1000.0,
+   "lock_wait_ms": 0.02,
+   "reset_input_ms": 0.125,
+   "serial_write_ms": 0.16,
+   "serial_flush_ms": 0.017,
+   "write_flush_ms": 0.319,
+   "first_byte_wait_ms": 15.397,
+   "ascii_drains": 1,
+   "pre_a5_hex": "455252",
+   "pre_a5_ascii": "ERR",
+   "pre_a5_lines": [
+    "ERR"
+   ],
+   "mcu_reply_err_bare": true,
+   "mcu_frame_reject_path": "desync_guard",
+   "mcu_torn_frame_suspected": true,
+   "mcu_desync_behind_stream_pass": false,
+   "elapsed_ms": 15.793
+  }
+ },
+ {
+  "ts": "2026-09-10T16:47:45.294Z",
+  "mono": 67064.596376,
+  "seq": 2587,
+  "kind": "bus_timing",
+  "level": "error",
+  "src": "mcu",
+  "msg": "P->p ascii_err 15.1ms",
+  "data": {
+   "seq": 671,
+   "ok": false,
+   "reason": "ascii_err",
+   "cmd": "P",
+   "want": "p",
+   "n": 0,
+   "timeout_ms": 1000.0,
+   "lock_wait_ms": 0.017,
+   "reset_input_ms": 0.094,
+   "serial_write_ms": 1.092,
+   "serial_flush_ms": 0.36,
+   "write_flush_ms": 1.565,
+   "first_byte_wait_ms": 13.483,
+   "ascii_drains": 1,
+   "pre_a5_hex": "455252",
+   "pre_a5_ascii": "ERR",
+   "pre_a5_lines": [
+    "ERR"
+   ],
+   "mcu_reply_err_bare": true,
+   "mcu_frame_reject_path": "desync_guard",
+   "mcu_torn_frame_suspected": true,
+   "mcu_desync_behind_stream_pass": false,
+   "elapsed_ms": 15.123
+  }
+ }
+]

@@ -3,7 +3,7 @@
 artifact-list.json and artifact_manifest.json.
 
 Robot Lab artifact names must be flat and unique, so directory separators are
-encoded as "__" (run2/result.json -> run2__result.json).  Camera frames are far
+encoded as "__" (run1/result.json -> run1__result.json).  Camera frames are far
 too many to list individually, so each run's frames/ directory is bundled as
 <run>__frames.tar.gz; every frame's sha256 is already in the matching
 frame_index.jsonl, so the imagery stays verifiable file-by-file.
@@ -32,7 +32,7 @@ def stage(src, flat):
 
 
 # 1) bundle each run's frames
-for run in ("run2", "dryrun"):
+for run in ("run1", "run2", "dryrun"):
     fdir = os.path.join(D, run, "frames")
     if not os.path.isdir(fdir):
         continue
@@ -75,9 +75,9 @@ assert len(names) == len(set(names)), "duplicate flat artifact name"
 json.dump([os.path.join("_staged", n) for n in names],
           open(os.path.join(D, "artifact-list.json"), "w"), indent=1)
 json.dump({
-    "experiment_id": "022f2098d5644629869380d2a91334d0",
+    "experiment_id": "7299f24343654f9893274d4328b277ad",
     "note": ('Robot Lab artifact names must be flat, so directory separators are '
-             'encoded as "__" (run2/result.json -> run2__result.json). Camera '
+             'encoded as "__" (run1/result.json -> run1__result.json). Camera '
              'frames exceed the per-experiment artifact limit, so each run\'s '
              'frames directory is bundled as <run>__frames.tar.gz with internal '
              'paths robot-N/NNNNN.jpg; every frame sha256 is listed in the '

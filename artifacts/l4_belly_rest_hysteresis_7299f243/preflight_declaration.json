@@ -163,7 +163,8 @@
  },
  "corrections_against_source": [
   "022f2098's declaration described the executor's in-loop active-joint scope as 'L3 hip j10 and knee j11', which was correct for L3. For L4 the active joints are j13 and j14 -- the runner's own HIP_J, KNEE_J = 13, 14 and the protocol varies exactly columns 13 and 14, with j12 constant. Retargeted throughout this declaration. This family has already published one inherited-index error (7b565e2a carried L0's j1/j2 into an L3 declaration), so the indices were checked against BOTH the runner constant and the protocol's measured varying columns rather than transcribed.",
-  "the saved plan states that 'a relative-knee reconstruction gives a wrongly deep answer'. Measured on this trajectory the relative reconstruction is SHALLOWER at all 1560 ticks, never deeper. The plan's parenthetical is inverted for this family, but conservatively so: the mandated ABSOLUTE convention gives the deeper reading and the 15 mm gate is judged against it, passing at 65.95 mm. See l4_swept_area_clearance.json."
+  "the saved plan states that 'a relative-knee reconstruction gives a wrongly deep answer'. Measured on this trajectory the relative reconstruction is SHALLOWER at all 1560 ticks, never deeper. The plan's parenthetical is inverted for this family, but conservatively so: the mandated ABSOLUTE convention gives the deeper reading and the 15 mm gate is judged against it, passing at 65.95 mm. See l4_swept_area_clearance.json.",
+  "SELF-CORRECTION, made while the run was arming: the pre-arm line in this declaration first reported L4's j12/j13/j14 as 0.00 / -0.09 / 0.26 deg, which is the degrees[] window shifted one index low. The correct values are j12=-0.09, j13=0.26, j14=0.00, as recorded programmatically in prearm_supervision.json and confirmed by the runner's own pre-arm log. No gate is affected -- every value is far inside the 1.0 deg tolerance either way, and the enforced check is computed over all 18 joints, not from this text. Noted rather than quietly amended because it is the same transcription-by-hand error class this declaration criticises in 7b565e2a."
  ],
  "adaptive_admission_reassessment": {
   "saved_value": {
@@ -177,7 +178,7 @@
  },
  "live_supervision_at_declaration": {
   "three_advancing_healthy_samples": "prearm_supervision.json -- ts 1789058299.269 / 1789058300.862 / 1789058302.926, 18/18 live each, bus available, not quarantined, not armed",
-  "start_pose_within_1p0_deg": "worst joint 16 at 0.440 deg; L4's own j12/j13/j14 read 0.00 / -0.09 / 0.26 deg",
+  "start_pose_within_1p0_deg": "worst joint 16 at 0.440 deg; L4's own j12(yaw)/j13(hip)/j14(knee) read -0.09 / 0.26 / 0.00 deg. Corroborated by the runner's own pre-arm log line ('L4 knee baseline 29C, hip 0.26 knee 0.00').",
   "cameras": "all three observation cameras streaming fresh (age 0 s) with burned-in capture stamps; frames read, see l4_swept_area_clearance.json visual_inspection",
   "remote_abort_path": "abort_path_check.json -- /api/rl/stop, /api/standup/stop, /api/safe_zero all 200 with no lease held, and all three still 200 while the lease WAS held",
   "errors_refusal_floor": "2026-09-10T16:12:35.287Z (seq 2061, a pre-existing bus_timing/ascii_err row). Only rows strictly newer than this are attributed to this run.",

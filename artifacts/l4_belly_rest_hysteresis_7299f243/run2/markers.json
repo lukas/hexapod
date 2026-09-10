@@ -1,0 +1,485 @@
+[
+ {
+  "t": 1789059396.25384,
+  "label": "run2_pre_run",
+  "data": {
+   "protocol": "l4_belly_rest_radial_shear_hysteresis_repeat6_v1",
+   "hz": 10.0,
+   "l4_knee_baseline_c": 29
+  },
+  "ack": {
+   "ok": true,
+   "label": "run2_pre_run",
+   "marker_id": "8903e0e6952f4b23a40bdeaac9346ed3",
+   "accepted_sequence": 440594,
+   "active": true,
+   "passive": true,
+   "adds_bus_reads": false,
+   "piggyback_snapshots": false,
+   "communication_capture": true,
+   "communication_scope": "host_mcu_serial",
+   "communication_rate_limited": false,
+   "observer_only": true,
+   "gait_gating": false,
+   "path": "/home/arduino/hexapod_sts/linux_control/logs/telemetry_20260910T144858.549191Z_auto.part0003.jsonl",
+   "paths": [
+    "/home/arduino/hexapod_sts/linux_control/logs/telemetry_20260910T144858.549191Z_auto.jsonl",
+    "/home/arduino/hexapod_sts/linux_control/logs/telemetry_20260910T144858.549191Z_auto.part0001.jsonl",
+    "/home/arduino/hexapod_sts/linux_control/logs/telemetry_20260910T144858.549191Z_auto.part0002.jsonl",
+    "/home/arduino/hexapod_sts/linux_control/logs/telemetry_20260910T144858.549191Z_auto.part0003.jsonl"
+   ],
+   "flushed_marker": "a1db35d3db8a4ec3adf0951f1a6acd44",
+   "marker_ack": null,
+   "bytes": 34045952,
+   "max_hz": 50.0,
+   "queue": 0,
+   "queue_max": 4096,
+   "offered": 440594,
+   "written": 440594,
+   "rate_limited": 6304,
+   "queue_dropped": 0,
+   "communication_dropped": 0,
+   "uncaptured_bytes": 0,
+   "capture_errors": 0,
+   "write_error": null,
+   "writer_alive": true,
+   "contact": {
+    "observer_only": true,
+    "gait_gating": false,
+    "legs": [
+     {
+      "leg": 0,
+      "ready": true,
+      "probability": 0.0,
+      "filtered_probability": 0.0,
+      "planted": false,
+      "history": 4,
+      "features": {
+       "command_clearance_mm": 178.503,
+       "measured_clearance_mm": 178.1808,
+       "abs_vertical_speed_mm_s": 0.0,
+       "vertical_speed_mm_s": 0.0,
+       "tracking_error_deg": 0.1758
+      }
+     },
+     {
+      "leg": 1,
+      "ready": false,
+      "planted": false,
+      "reason": "missing command or encoder"
+     },
+     {
+      "leg": 2,
+      "ready": true,
+      "probability": 0.0,
+      "filtered_probability": 0.0,
+      "planted": false,
+      "history": 4,
+      "features": {
+       "command_clearance_mm": 178.503,
+       "measured_clearance_mm": 178.1808,
+       "abs_vertical_speed_mm_s": 0.0,
+       "vertical_speed_mm_s": 0.0,
+       "tracking_error_deg": 0.2637
+      }
+     },
+     {
+      "leg": 3,
+      "ready": true,
+      "probability": 0.0,
+      "filtered_probability": 0.0,
+      "planted": false,
+      "history": 4,
+      "features": {
+       "command_clearance_mm": 178.503,
+       "measured_clearance_mm": 179.0092,
+       "abs_vertical_speed_mm_s": 0.0,
+       "vertical_speed_mm_s": 0.0,
+       "tracking_error_deg": 0.1758
+      }
+     },
+     {
+      "leg": 4,
+      "ready": true,
+      "probability": 0.0,
+      "filtered_probability": 0.0,
+      "planted": false,
+      "history": 4,
+      "features": {
+       "command_clearance_mm": 163.5471,
+       "measured_clearance_mm": 178.641,
+       "abs_vertical_speed_mm_s": 0.0,
+       "vertical_speed_mm_s": 0.0,
+       "tracking_error_deg": 51.0645
+      }
+     },
+     {
+      "leg": 5,
+      "ready": true,
+      "probability": 0.0,
+      "filtered_probability": 0.0,
+      "planted": false,
+      "history": 4,
+      "features": {
+       "command_clearance_mm": 178.503,
+       "measured_clearance_mm": 177.3525,
+       "abs_vertical_speed_mm_s": 0.0,
+       "vertical_speed_mm_s": 0.0,
+       "tracking_error_deg": 0.4395
+      }
+     }
+    ],
+    "planted": [
+     false,
+     false,
+     false,
+     false,
+     false,
+     false
+    ],
+    "ready_legs": 5
+   },
+   "model": {
+    "ready": true,
+    "path": "/home/arduino/hexapod_sts/rl_move/contact_predictor_model.json",
+    "error": null,
+    "history_samples": 5,
+    "confirm_samples": 3,
+    "purpose": "observer-only hardware logging; not authorized for gait gating",
+    "validation": {
+     "protocol": "leave-one-gait-out",
+     "all_samples_balanced_accuracy": 0.91755,
+     "transition_window_s": 0.15,
+     "transition_balanced_accuracy": 0.77237,
+     "physical_contact_labels": false
+    }
+   }
+  }
+ },
+ {
+  "t": 1789059400.379771,
+  "label": "protocol_tick0",
+  "data": {
+   "progress": "seg 1/1: L4_six_cycle_belly_rest_foot_clear_radial_shear"
+  },
+  "ack": {
+   "ok": true,
+   "label": "protocol_tick0",
+   "marker_id": "37b31cc88d6a48a497dd02d5decc4d84",
+   "accepted_sequence": 441553,
+   "active": true,
+   "passive": true,
+   "adds_bus_reads": false,
+   "piggyback_snapshots": false,
+   "communication_capture": true,
+   "communication_scope": "host_mcu_serial",
+   "communication_rate_limited": false,
+   "observer_only": true,
+   "gait_gating": false,
+   "path": "/home/arduino/hexapod_sts/linux_control/logs/telemetry_20260910T144858.549191Z_auto.part0003.jsonl",
+   "paths": [
+    "/home/arduino/hexapod_sts/linux_control/logs/telemetry_20260910T144858.549191Z_auto.jsonl",
+    "/home/arduino/hexapod_sts/linux_control/logs/telemetry_20260910T144858.549191Z_auto.part0001.jsonl",
+    "/home/arduino/hexapod_sts/linux_control/logs/telemetry_20260910T144858.549191Z_auto.part0002.jsonl",
+    "/home/arduino/hexapod_sts/linux_control/logs/telemetry_20260910T144858.549191Z_auto.part0003.jsonl"
+   ],
+   "flushed_marker": "8903e0e6952f4b23a40bdeaac9346ed3",
+   "marker_ack": null,
+   "bytes": 34425937,
+   "max_hz": 50.0,
+   "queue": 0,
+   "queue_max": 4096,
+   "offered": 441553,
+   "written": 441553,
+   "rate_limited": 6328,
+   "queue_dropped": 0,
+   "communication_dropped": 0,
+   "uncaptured_bytes": 0,
+   "capture_errors": 0,
+   "write_error": null,
+   "writer_alive": true,
+   "contact": {
+    "observer_only": true,
+    "gait_gating": false,
+    "legs": [
+     {
+      "leg": 0,
+      "ready": true,
+      "probability": 0.0,
+      "filtered_probability": 0.0,
+      "planted": false,
+      "history": 5,
+      "features": {
+       "command_clearance_mm": 178.503,
+       "measured_clearance_mm": 178.1808,
+       "abs_vertical_speed_mm_s": 0.0,
+       "vertical_speed_mm_s": 0.0,
+       "tracking_error_deg": 0.1758
+      }
+     },
+     {
+      "leg": 1,
+      "ready": true,
+      "probability": 0.0,
+      "filtered_probability": 0.0,
+      "planted": false,
+      "history": 5,
+      "features": {
+       "command_clearance_mm": 178.503,
+       "measured_clearance_mm": 178.4109,
+       "abs_vertical_speed_mm_s": 0.0,
+       "vertical_speed_mm_s": 0.0,
+       "tracking_error_deg": 0.1758
+      }
+     },
+     {
+      "leg": 2,
+      "ready": true,
+      "probability": 0.0,
+      "filtered_probability": 0.0,
+      "planted": false,
+      "history": 5,
+      "features": {
+       "command_clearance_mm": 178.503,
+       "measured_clearance_mm": 178.1808,
+       "abs_vertical_speed_mm_s": 0.0,
+       "vertical_speed_mm_s": 0.0,
+       "tracking_error_deg": 0.2637
+      }
+     },
+     {
+      "leg": 3,
+      "ready": true,
+      "probability": 0.0,
+      "filtered_probability": 0.0,
+      "planted": false,
+      "history": 5,
+      "features": {
+       "command_clearance_mm": 178.503,
+       "measured_clearance_mm": 179.0092,
+       "abs_vertical_speed_mm_s": 0.0,
+       "vertical_speed_mm_s": 0.0,
+       "tracking_error_deg": 0.1758
+      }
+     },
+     {
+      "leg": 4,
+      "ready": true,
+      "probability": 0.0,
+      "filtered_probability": 0.0,
+      "planted": false,
+      "history": 5,
+      "features": {
+       "command_clearance_mm": 175.6837,
+       "measured_clearance_mm": 175.6469,
+       "abs_vertical_speed_mm_s": 1.0189,
+       "vertical_speed_mm_s": 1.0189,
+       "tracking_error_deg": 1.9336
+      }
+     },
+     {
+      "leg": 5,
+      "ready": true,
+      "probability": 0.0,
+      "filtered_probability": 0.0,
+      "planted": false,
+      "history": 5,
+      "features": {
+       "command_clearance_mm": 178.503,
+       "measured_clearance_mm": 177.3525,
+       "abs_vertical_speed_mm_s": 0.0,
+       "vertical_speed_mm_s": 0.0,
+       "tracking_error_deg": 0.4395
+      }
+     }
+    ],
+    "planted": [
+     false,
+     false,
+     false,
+     false,
+     false,
+     false
+    ],
+    "ready_legs": 6
+   },
+   "model": {
+    "ready": true,
+    "path": "/home/arduino/hexapod_sts/rl_move/contact_predictor_model.json",
+    "error": null,
+    "history_samples": 5,
+    "confirm_samples": 3,
+    "purpose": "observer-only hardware logging; not authorized for gait gating",
+    "validation": {
+     "protocol": "leave-one-gait-out",
+     "all_samples_balanced_accuracy": 0.91755,
+     "transition_window_s": 0.15,
+     "transition_balanced_accuracy": 0.77237,
+     "physical_contact_labels": false
+    }
+   }
+  }
+ },
+ {
+  "t": 1789059559.8172128,
+  "label": "run2_post_run",
+  "data": {},
+  "ack": {
+   "ok": true,
+   "label": "run2_post_run",
+   "marker_id": "e5a195bcc7a94495aa8c99e8d1105b80",
+   "accepted_sequence": 478810,
+   "active": true,
+   "passive": true,
+   "adds_bus_reads": false,
+   "piggyback_snapshots": false,
+   "communication_capture": true,
+   "communication_scope": "host_mcu_serial",
+   "communication_rate_limited": false,
+   "observer_only": true,
+   "gait_gating": false,
+   "path": "/home/arduino/hexapod_sts/linux_control/logs/telemetry_20260910T144858.549191Z_auto.part0003.jsonl",
+   "paths": [
+    "/home/arduino/hexapod_sts/linux_control/logs/telemetry_20260910T144858.549191Z_auto.jsonl",
+    "/home/arduino/hexapod_sts/linux_control/logs/telemetry_20260910T144858.549191Z_auto.part0001.jsonl",
+    "/home/arduino/hexapod_sts/linux_control/logs/telemetry_20260910T144858.549191Z_auto.part0002.jsonl",
+    "/home/arduino/hexapod_sts/linux_control/logs/telemetry_20260910T144858.549191Z_auto.part0003.jsonl"
+   ],
+   "flushed_marker": "00d608d3d5c4475ea7054e53059015c7",
+   "marker_ack": null,
+   "bytes": 49717248,
+   "max_hz": 50.0,
+   "queue": 0,
+   "queue_max": 4096,
+   "offered": 478810,
+   "written": 478810,
+   "rate_limited": 7873,
+   "queue_dropped": 0,
+   "communication_dropped": 0,
+   "uncaptured_bytes": 0,
+   "capture_errors": 0,
+   "write_error": null,
+   "writer_alive": true,
+   "contact": {
+    "observer_only": true,
+    "gait_gating": false,
+    "legs": [
+     {
+      "leg": 0,
+      "ready": true,
+      "probability": 0.0,
+      "filtered_probability": 0.0,
+      "planted": false,
+      "history": 3,
+      "features": {
+       "command_clearance_mm": 178.503,
+       "measured_clearance_mm": 178.1808,
+       "abs_vertical_speed_mm_s": 0.0,
+       "vertical_speed_mm_s": 0.0,
+       "tracking_error_deg": 0.1758
+      }
+     },
+     {
+      "leg": 1,
+      "ready": true,
+      "probability": 0.0,
+      "filtered_probability": 0.0,
+      "planted": false,
+      "history": 3,
+      "features": {
+       "command_clearance_mm": 178.503,
+       "measured_clearance_mm": 178.4109,
+       "abs_vertical_speed_mm_s": 0.0,
+       "vertical_speed_mm_s": 0.0,
+       "tracking_error_deg": 0.1758
+      }
+     },
+     {
+      "leg": 2,
+      "ready": true,
+      "probability": 0.0,
+      "filtered_probability": 0.0,
+      "planted": false,
+      "history": 3,
+      "features": {
+       "command_clearance_mm": 178.503,
+       "measured_clearance_mm": 178.1808,
+       "abs_vertical_speed_mm_s": 0.0,
+       "vertical_speed_mm_s": 0.0,
+       "tracking_error_deg": 0.2637
+      }
+     },
+     {
+      "leg": 3,
+      "ready": true,
+      "probability": 0.0,
+      "filtered_probability": 0.0,
+      "planted": false,
+      "history": 3,
+      "features": {
+       "command_clearance_mm": 178.503,
+       "measured_clearance_mm": 179.0092,
+       "abs_vertical_speed_mm_s": 0.0,
+       "vertical_speed_mm_s": 0.0,
+       "tracking_error_deg": 0.1758
+      }
+     },
+     {
+      "leg": 4,
+      "ready": true,
+      "probability": 0.0,
+      "filtered_probability": 0.0,
+      "planted": false,
+      "history": 3,
+      "features": {
+       "command_clearance_mm": 178.503,
+       "measured_clearance_mm": 178.1808,
+       "abs_vertical_speed_mm_s": 0.0,
+       "vertical_speed_mm_s": 0.0,
+       "tracking_error_deg": 0.1758
+      }
+     },
+     {
+      "leg": 5,
+      "ready": true,
+      "probability": 0.0,
+      "filtered_probability": 0.0,
+      "planted": false,
+      "history": 3,
+      "features": {
+       "command_clearance_mm": 178.503,
+       "measured_clearance_mm": 177.3525,
+       "abs_vertical_speed_mm_s": 0.0,
+       "vertical_speed_mm_s": 0.0,
+       "tracking_error_deg": 0.4395
+      }
+     }
+    ],
+    "planted": [
+     false,
+     false,
+     false,
+     false,
+     false,
+     false
+    ],
+    "ready_legs": 6
+   },
+   "model": {
+    "ready": true,
+    "path": "/home/arduino/hexapod_sts/rl_move/contact_predictor_model.json",
+    "error": null,
+    "history_samples": 5,
+    "confirm_samples": 3,
+    "purpose": "observer-only hardware logging; not authorized for gait gating",
+    "validation": {
+     "protocol": "leave-one-gait-out",
+     "all_samples_balanced_accuracy": 0.91755,
+     "transition_window_s": 0.15,
+     "transition_balanced_accuracy": 0.77237,
+     "physical_contact_labels": false
+    }
+   }
+  }
+ }
+]

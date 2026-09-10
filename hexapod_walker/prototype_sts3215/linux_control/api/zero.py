@@ -345,6 +345,30 @@ class ZeroApi:
                        else "stand_adjusted")
                 return {"ok": True, "acquired": [tag],
                         "standing": standing, **res}
+        # Legs folded UNDER a low chassis (median hip negative, median
+        # knee deep) is the pinned signature even when the body is level
+        # enough that pinned_tip's 12 deg tilt gate does not fire. Driving
+        # safe_zero's "straighten" stage from there jammed L0 hip / crossed
+        # tibias twice on 2026-09-10; the 20 % torque untrap fold first
+        # lets the pinned tibias slide out, then safe_zero is routine.
+        present, missing = self._present_pose18()
+        if not missing and self._folded_under_signature(present):
+            try:
+                from pinned_tip import run_untrap_tuck
+            except ImportError:
+                run_untrap_tuck = None
+            if run_untrap_tuck is not None:
+                _prog({"msg": "acquiring start: legs folded under — "
+                              "low-torque untrap fold first…"})
+                ru = run_untrap_tuck(d.bus,
+                                     abort_check=self._demo_abort.is_set,
+                                     on_progress=_prog)
+                if not ru.get("ok"):
+                    return {"ok": False, "acquired": acquired,
+                            "limp": True,
+                            "error": ("untrap fold failed: "
+                                      + str(ru.get("error") or "aborted"))}
+                acquired.append("untrap")
         # Everything else goes through a safe zero first (no-op when
         # already there; plans around ground / leg collisions; limps
         # on stall or unexpected force).
@@ -389,6 +413,18 @@ class ZeroApi:
                         "error": f"could not reach walk-ready start: {why}"}
             acquired.append("sim_walk_start")
         return {"ok": True, "acquired": acquired}
+
+    @staticmethod
+    def _folded_under_signature(present: list) -> bool:
+        """Median hip negative AND median knee deep: legs tucked under."""
+        try:
+            hips = sorted(float(present[3 * leg + 1]) for leg in range(6))
+            knees = sorted(float(present[3 * leg + 2]) for leg in range(6))
+        except (TypeError, ValueError):
+            return False
+        hip_med = (hips[2] + hips[3]) / 2.0
+        knee_med = (knees[2] + knees[3]) / 2.0
+        return hip_med < 0.0 and knee_med > 90.0
 
     def pinned_tip_state(self) -> dict:
         """READ-ONLY pinned-leg-tip verdict (see pinned_tip.py).

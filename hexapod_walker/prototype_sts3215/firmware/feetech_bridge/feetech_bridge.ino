@@ -147,6 +147,13 @@ static unsigned long imuRetryMs = 0;
 // roughly the 50 ms worst case observed on hardware.
 static const unsigned long STREAM_IMU_RUNTIME_FAIL_GRACE_MS = 80;
 static uint8_t streamImuReadFailStreak = 0;
+// Retry cadence after mpuReady drops. 1000 ms for a sensor that never
+// answered (absent/unwired); 100 ms once it has worked, so a runtime I2C
+// glitch cluster costs <~200 ms of attitude age instead of >1 s. The Linux
+// runner fails closed at 150 ms IMU age and limps a standing robot when a
+// stream-loss hold cannot be confirmed (seen 2026-09-10 on hexapod2:
+// gyro frozen, imu_age 150->273 ms, "hold unverified; limped").
+static unsigned long imuRetryBackoffMs = 1000;
 static unsigned long streamImuFirstFailMs = 0;
 static uint16_t fbLoad[MAX_N];        // magnitude, tenths of %
 static uint8_t fbVolt[MAX_N];         // deci-volts
@@ -1204,9 +1211,13 @@ static void streamImuPass() {
 static void streamImuPassInner() {
   if (!mpuReady) {
     unsigned long now = millis();
-    if (now - imuRetryMs < 1000) return;  // don't hammer a dead sensor
+    if (now - imuRetryMs < imuRetryBackoffMs) return;  // don't hammer a dead sensor
     imuRetryMs = now;
-    if (mpuEnsureReady() == 0) return;
+    if (mpuEnsureReady() == 0) {
+      imuRetryBackoffMs = 1000;   // still absent: back off
+      return;
+    }
+    imuRetryBackoffMs = 100;      // it answers again: stay quick
     streamImuReadFailStreak = 0;
     streamImuFirstFailMs = 0;
   }
@@ -1223,6 +1234,7 @@ static void streamImuPassInner() {
       // happened to issue three rapid reads in one control interval.
       mpuReady = false;
       imuRetryMs = now;
+      imuRetryBackoffMs = 100;    // was working a moment ago: retry fast
       streamImuReadFailStreak = 0;
       streamImuFirstFailMs = 0;
     }
@@ -1230,6 +1242,7 @@ static void streamImuPassInner() {
   }
   streamImuReadFailStreak = 0;
   streamImuFirstFailMs = 0;
+  imuRetryBackoffMs = 100;
   imuCache[0] = be16(raw + 0);
   imuCache[1] = be16(raw + 2);
   imuCache[2] = be16(raw + 4);

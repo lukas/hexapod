@@ -147,7 +147,13 @@ ASYNC_READY_GOOD_SAMPLES = 3
 ASYNC_READY_TIMEOUT_S = 1.0
 DRIVE_BUS_WRITE_MAX_HZ = 50.0
 DRIVE_STREAM_HOLD_CONFIRMATIONS = 3
-DRIVE_STREAM_HOLD_MAX_ATTEMPTS = 5
+# 40 attempts (~1 s at the ~25 ms sample cadence) instead of 5 (~110 ms):
+# hexapod2 2026-09-10 showed the MCU's IMU I2C read hanging for ~500 ms; the
+# hold then failed every attempt with imu_age_ms_stale (561..665 ms) and the
+# runner limped a standing robot. The freshness bar (150 ms) is unchanged;
+# only the time we keep holding the fallback pose while waiting for fresh
+# sensors is longer. A dead sensor still ends in the limp after ~1 s.
+DRIVE_STREAM_HOLD_MAX_ATTEMPTS = 40
 # A stopped stream should already be close to the last target accepted by the
 # bus.  Reuse the proven start-refresh drift envelope rather than calling any
 # merely finite post-loss pose a hold.

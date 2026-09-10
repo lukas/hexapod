@@ -243,3 +243,21 @@ def test_waiting_on_builder_still_plans_once(settings, store, monkeypatch):
     monkeypatch.setattr(planner, "plan", lambda *a, **k: calls.append(1) or {"ok": True, "added": 0, "cost_usd": 0.0})
     loop.main_loop(settings, store, log=lambda m: None, sleep=lambda s: None, max_iterations=5)
     assert len(calls) == 1
+
+
+def test_stand_protocols_are_flagged_rejected_and_skipped(settings, store, monkeypatch):
+    assert runner.protocol_needs_stand(settings, "steps_air_L5_v1")
+    assert not runner.protocol_needs_stand(settings, "champion_stand_ground_v1")  # "stand pose" is not a stand
+    text = planner.build_prompt(settings, store, None)
+    assert "steps_air_L5_v1 [NEEDS STAND: not runnable]" in text and "PHYSICAL SETUP" in text
+    plans = planner.validate_plans(settings, [
+        {"title": "air", "why": "w.", "kind": "existing", "protocol": "steps_air_L5_v1"},
+        {"title": "floor", "why": "w.", "kind": "existing", "protocol": "steps_air_v1"},
+    ])
+    assert [p["protocol"] for p in plans] == ["steps_air_v1"]
+    pid = store.add_plan(title="air", why="w", kind="existing", protocol="steps_air_L5_v1", build_spec=None)
+    ran = []
+    monkeypatch.setattr(loop, "run_once", lambda *a, **k: ran.append(1))
+    monkeypatch.setattr(planner, "plan", lambda *a, **k: {"ok": True, "added": 0, "cost_usd": 0.0})
+    loop.main_loop(settings, store, log=lambda m: None, sleep=lambda s: None, max_iterations=2)
+    assert not ran and store.plan(pid)["status"] == "skipped"

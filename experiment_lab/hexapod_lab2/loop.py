@@ -105,6 +105,10 @@ def main_loop(settings: Settings, store: Store, *, log=print, sleep=time.sleep,
             else:
                 c.empty_plans = 0
             continue
+        if runner.protocol_needs_stand(settings, plan["protocol"]):
+            store.set_plan_status(plan["id"], "skipped", "protocol needs a stand; robot is on the floor")
+            log(f"skip {plan['protocol']}: needs a stand")
+            continue
         run = run_once(settings, store, plan, log=log)
         c.planned_while_waiting = False
         if run["status"] == "unreachable":

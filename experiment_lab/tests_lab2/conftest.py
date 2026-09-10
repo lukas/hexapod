@@ -20,6 +20,9 @@ def settings(tmp_path):
     (protos / "champion_stand_ground_v1.json").write_text(json.dumps(
         {"name": "champion_stand_ground_v1", "description": "stand",
          "segments": [{"kind": "traj", "q_deg": [], "t_s": []}]}))
+    (protos / "steps_air_L5_v1.json").write_text(json.dumps(
+        {"name": "steps_air_L5_v1", "description": "Step ladders. Robot on stand, feet OFF the ground.",
+         "segments": [{"kind": "step"}]}))
     return Settings(data_dir=tmp_path / "data", checkout=checkout, idle_sleep_s=0)
 
 

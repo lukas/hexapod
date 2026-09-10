@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 
 from . import claude_cli
 from .config import Settings
-from .runner import list_protocols, protocol_exists
+from .runner import list_protocols, protocol_exists, protocol_needs_stand
 from .store import Store
 
 # Builds cost $1-2 and 5-10 minutes each and run one at a time; past this
@@ -87,7 +87,8 @@ def build_prompt(settings: Settings, store: Store, last_run: Optional[Dict[str, 
                   if settings.allow_force else
                   "Trajectory protocols (marked [traj]) cannot run in this loop right now; do not queue them.")
     proto_lines = "\n".join(
-        f"- {p['name']}{' [traj]' if p['whole_body'] else ''}: {_trim(p['description'], 160)}"
+        f"- {p['name']}{' [traj]' if p['whole_body'] else ''}"
+        f"{' [NEEDS STAND: not runnable]' if p['needs_stand'] else ''}: {_trim(p['description'], 160)}"
         for p in protocols)
     learnings = store.learnings(limit=8)
     learn_lines = "\n".join(f"- {_local(l['created_at'])}: {_trim(l['text'], 700)}" for l in learnings) or "- none yet"
@@ -106,6 +107,8 @@ def build_prompt(settings: Settings, store: Store, last_run: Optional[Dict[str, 
     return f"""You plan the next physical experiments for a cheap 18-servo hexapod. You have two minutes and no tools. Times below are the operator's local clock; use that clock, never UTC, when you mention a time.
 
 GOAL: {settings.goal}
+
+PHYSICAL SETUP: the robot sits on the floor on its own legs. There is no stand and nobody will suspend it or move it between runs. Protocols marked [NEEDS STAND] were written for a suspended robot and must not be queued; the loop rejects them. Anything "supported-chassis", "belly-rest" or "on the ground" is fine.
 
 STEP BACK FIRST. Before proposing anything, ask: what do we actually not know that blocks smooth walking, and what is the cheapest run that answers it? Do not propose runs that repeat what the learnings already say. Do not propose safety checks, preflight rituals, audits or verification steps: the robot has its own in-loop trips (current, temperature, load, tilt, servo loss) and the runner enforces them. If the queue already has good plans, return zero new plans.
 
@@ -148,6 +151,8 @@ def validate_plans(settings: Settings, plans: Any) -> List[Dict[str, Any]]:
         force = bool(raw.get("force"))
         if kind == "existing":
             if not protocol or not re.fullmatch(r"[A-Za-z0-9_.-]+", protocol):
+                continue
+            if protocol_exists(settings, protocol) and protocol_needs_stand(settings, protocol):
                 continue
             if not protocol_exists(settings, protocol):
                 # The model named a file that is not on disk: that is a build.

@@ -1,6 +1,6 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
-## A 13th mechanism class — weight-shared, mount-frame-relative per-leg actor — is BUILT, TESTED and LAUNCHED (mechanism-health canary, not yet a verdict) for the walkcurr front-pair off-axis-heading sacrifice; explicitly NOT a re-fund of the closed independent-tower `decleg` family (2026-09-10, this cycle)
+## A 13th mechanism class — weight-shared, mount-frame-relative per-leg actor — PASSES its mechanism-health canary (both seeds) and is now in a matched +18M acquisition continuation, for the walkcurr front-pair off-axis-heading sacrifice; explicitly NOT a re-fund of the closed independent-tower `decleg` family (2026-09-10, canary launched ~18:0x, verdicted PASS ~20:0x)
 
 One plain sentence: `decleg`'s independent per-leg towers (closed
 below, all 3 easy-pilot arms FAIL) cannot transfer a skill between
@@ -38,11 +38,29 @@ transfer to exercise yet) — matching `decleg-base`'s own two-stage
 discipline exactly; a PASS here licenses an acquisition continuation,
 and only a pass THERE licenses graduating to the multi-heading
 `widen8`/`crutchoff` recipe where the actual transfer hypothesis is
-testable. No verdict yet; this entry records the build+launch, not a
-result. Evidence: `rl_move/sim/decleg_policy.py`, `rl_move/sim/
-train_ppo_mjx.py`, `rl_move/tests/test_decleg_policy.py` (14/14);
-`rl_docs/tracks/walkcurr/DESIGN_NOTE_2026-09-10_offaxis_frontpair.md`
-Addendum 2; `rl_docs/tracks/walkcurr/STATUS.md` 2026-09-10 ~18:0x.
+testable.
+
+**Verdict (~20:0x, both seeds): MECHANISM-HEALTH PASS.** `train/loss`
+decreasing monotonically all 3 logged points both seeds (s0
+678.5->538.7->357.6, s1 674.5->518.1->339.5), zero NaN in either
+53-row history, `walk/sto` gait_valid 6/6 both seeds with visibly
+distinct six-leg swing/stance configurations across frame strips
+(genuine articulation, not a frozen tower); `walk/det` static-stand
+(learned early preference, not a wiring bug — sto engages the same
+legs cleanly, matching every prior easy0905 canary's own gate text).
+Per the gate's own pre-registered rule, promoted to matched +18M
+acquisition continuations `cw-walkscratch-easy0905-declegshare-
+headrel-{s0,s1}-acq1` (20M total, plain `--init-from` warm start, no
+`--decleg*` flags needed/allowed alongside `--init-from` — same
+guard, same precedent as `decleg-base-{s0,s1}-acq1`), both VERIFIED
+RUNNING. Only a PASS there licenses graduating to the multi-heading
+`widen8`/`crutchoff` recipe where the actual transfer hypothesis is
+testable — not yet reached. Evidence: `rl_move/sim/decleg_policy.py`,
+`rl_move/sim/train_ppo_mjx.py`, `rl_move/tests/test_decleg_policy.py`
+(14/14); `rl_docs/tracks/walkcurr/DESIGN_NOTE_2026-09-10_offaxis_
+frontpair.md` Addendum 2; `rl_docs/tracks/walkcurr/STATUS.md`
+2026-09-10 ~18:0x and ~20:0x; `ops.sh review cw-walkscratch-
+easy0905-declegshare-headrel-{s0,s1}`.
 
 ## Per-leg obs-masked RND is ALSO refuted for the walkcurr front-pair off-axis-heading sacrifice (12th mechanism class, 2/2 seeds) -- the design note's ENTIRE named RND candidate list (plain full-obs, heading-gated, per-leg obs-masked) is now exhausted, 0/3 variants; no named lever remains for this question (2026-09-10, closed this cycle)
 

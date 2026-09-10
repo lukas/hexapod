@@ -1,0 +1,608 @@
+{
+ "experiment_id": "881677a009404afda40c6c0d84e8b7d6",
+ "note": "Robot Lab artifact names must be flat, so directory separators are encoded as \"__\" (run1/result.json -> run1__result.json). Camera frames exceed the per-experiment artifact limit, so each run's frames directory is bundled as <run>__frames.tar.gz with internal paths robot-N/NNNNN.jpg; every frame sha256 is listed in the matching <run>__frame_index.jsonl.",
+ "artifact_count": 100,
+ "total_bytes": 140296984,
+ "artifacts": [
+  {
+   "artifact": "analyze_l0_hysteresis.py",
+   "original_path": "analyze_l0_hysteresis.py",
+   "bytes": 6671,
+   "sha256": "75e7c74bd5eb58dcc359ae3c1485255a02adc03e73deaed1be189c9d977c628a"
+  },
+  {
+   "artifact": "camera_and_tag_coverage.json",
+   "original_path": "camera_and_tag_coverage.json",
+   "bytes": 1691,
+   "sha256": "0ff9336a89a0bfac71d6a4f8be691267a76a235cd5c9802792d03e8d941dd7dc"
+  },
+  {
+   "artifact": "dryrun__chassis_tag_baseline.json",
+   "original_path": "dryrun/chassis_tag_baseline.json",
+   "bytes": 291,
+   "sha256": "d18566d9060ebd8147b0273474bf04d90234cbd1d9b119afacc86466dd104918"
+  },
+  {
+   "artifact": "dryrun__dry_stop.json",
+   "original_path": "dryrun/dry_stop.json",
+   "bytes": 1837,
+   "sha256": "364760c01157784777ab2d5452149fd1653baac5038ed87498a4d1aad0fdceca"
+  },
+  {
+   "artifact": "dryrun__events.jsonl",
+   "original_path": "dryrun/events.jsonl",
+   "bytes": 1149,
+   "sha256": "5522856a3812f0700de1d1380a5699f565b05ca68e0f9f3573d25cfab7e711d8"
+  },
+  {
+   "artifact": "dryrun__frame_index.jsonl",
+   "original_path": "dryrun/frame_index.jsonl",
+   "bytes": 17823,
+   "sha256": "15b179c3b81befeff7085026af99ed73eaa7b5069265c01bab8f30bf1174bfa7"
+  },
+  {
+   "artifact": "dryrun__markers.jsonl",
+   "original_path": "dryrun/markers.jsonl",
+   "bytes": 2117,
+   "sha256": "7b66bafc7e7e5f5a5d5c957c3acddc9d4ba333000efad66505102f9466f0dbbc"
+  },
+  {
+   "artifact": "dryrun__prearm_samples.json",
+   "original_path": "dryrun/prearm_samples.json",
+   "bytes": 1491,
+   "sha256": "bf3f206d87d02c0edad4d31f9523aa7b3f60098982775c6d055f9990f57c3cb6"
+  },
+  {
+   "artifact": "dryrun__prearm_samples.jsonl",
+   "original_path": "dryrun/prearm_samples.jsonl",
+   "bytes": 1066,
+   "sha256": "07f0300ede9477664637b3b3739589956aefc96ee2ec115b013b76901bd1b5fc"
+  },
+  {
+   "artifact": "dryrun__tag_watch.jsonl",
+   "original_path": "dryrun/tag_watch.jsonl",
+   "bytes": 132,
+   "sha256": "41b093410ffb9afec2086819e0eb77f76e9aa51f987471b8d4f23543dca6e933"
+  },
+  {
+   "artifact": "exclusive_command_path_demo.json",
+   "original_path": "exclusive_command_path_demo.json",
+   "bytes": 8475,
+   "sha256": "a00528b4ad787c15f5de3dff9dd6dda7a7f573acaf88f5bc1343abb62736f7a0"
+  },
+  {
+   "artifact": "exclusive_command_path_demo.py",
+   "original_path": "exclusive_command_path_demo.py",
+   "bytes": 5054,
+   "sha256": "fbc2491b882a83db2960753e35edb7d5941161546b0838fcbe5e9e4dbd9f3c8d"
+  },
+  {
+   "artifact": "fetch_sysid_csv.py",
+   "original_path": "fetch_sysid_csv.py",
+   "bytes": 1922,
+   "sha256": "a61e85d18e1af545d9e71fc9f9040e5ee24322e5ab60d6c5d2126dc2101835bc"
+  },
+  {
+   "artifact": "guarded_runner_l0_hysteresis.py",
+   "original_path": "guarded_runner_l0_hysteresis.py",
+   "bytes": 42907,
+   "sha256": "159d1f1d18a43cd2296d98e248e465575a5bf8284ab0488b34a29e42620737db"
+  },
+  {
+   "artifact": "l0_run4_loop_metrics.json",
+   "original_path": "l0_run4_loop_metrics.json",
+   "bytes": 7566,
+   "sha256": "e697345fb9d0534818c8e82ae6a0684cc950bf1f91ac07fce4679f1c685ae349"
+  },
+  {
+   "artifact": "l0_run4_posthoc.json",
+   "original_path": "l0_run4_posthoc.json",
+   "bytes": 3217,
+   "sha256": "b880fbf4192c0fc4c869dcb413ec1b0c9476a225bdd00e98504988a3db8efb1b"
+  },
+  {
+   "artifact": "l0_swept_area_clearance.json",
+   "original_path": "l0_swept_area_clearance.json",
+   "bytes": 4775,
+   "sha256": "392dd287cec398d95068b85d265aea71e8ddcd17e7a93c200bff7a35f58ee562"
+  },
+  {
+   "artifact": "package_artifacts.py",
+   "original_path": "package_artifacts.py",
+   "bytes": 3881,
+   "sha256": "d8aeeac2a60ff22d5cad81e174e7ae70829ef3983f7fcf70a9b2832524d05c24"
+  },
+  {
+   "artifact": "posthoc_checks_l0.py",
+   "original_path": "posthoc_checks_l0.py",
+   "bytes": 4923,
+   "sha256": "b917f3e13d42741a5dc2419a8e2f870251a73367b171b61f9aca2d66c9b082d9"
+  },
+  {
+   "artifact": "preflight_declaration.json",
+   "original_path": "preflight_declaration.json",
+   "bytes": 12915,
+   "sha256": "efa1151fd1e0beb5788443ce7950ed40af70ab5f3ff3f4020b46593cc89e4647"
+  },
+  {
+   "artifact": "preflight_frames__cam_idx0.jpg",
+   "original_path": "preflight_frames/cam_idx0.jpg",
+   "bytes": 106969,
+   "sha256": "705363c459a82a346cf742a56ac0381b4c5b88b0ba1077834422da8305697fcb"
+  },
+  {
+   "artifact": "preflight_frames__cam_idx1.jpg",
+   "original_path": "preflight_frames/cam_idx1.jpg",
+   "bytes": 92434,
+   "sha256": "56e87dae1173c429136ca2325e75666faeda76cabbec06a993d59a065dbc0daf"
+  },
+  {
+   "artifact": "preflight_frames__cam_idx2.jpg",
+   "original_path": "preflight_frames/cam_idx2.jpg",
+   "bytes": 94881,
+   "sha256": "0ac4218f3c08cb6dee18cef531ae780d3f60aa6313648eb08e9edf4204c69272"
+  },
+  {
+   "artifact": "preflight_frames__post_run3_cam0.jpg",
+   "original_path": "preflight_frames/post_run3_cam0.jpg",
+   "bytes": 138507,
+   "sha256": "ef5ef9f406169ecc149a2b34d5fdcc18dcd5775240311795ecf68608b42a0b92"
+  },
+  {
+   "artifact": "preflight_frames__post_run3_zoom.png",
+   "original_path": "preflight_frames/post_run3_zoom.png",
+   "bytes": 436173,
+   "sha256": "dcb09eeecaa23bbc3aa9cb9e2bc0c7a0a4501da831dabb85aff7ec54f44b26cb"
+  },
+  {
+   "artifact": "preflight_frames__post_trip_cam0.jpg",
+   "original_path": "preflight_frames/post_trip_cam0.jpg",
+   "bytes": 131859,
+   "sha256": "aa87e918f49dd12613202a87a44a32f577d4c2cdeea0dcbc3beae9ea7c0491d4"
+  },
+  {
+   "artifact": "preflight_frames__post_trip_cam0_bright.png",
+   "original_path": "preflight_frames/post_trip_cam0_bright.png",
+   "bytes": 526118,
+   "sha256": "c0a2a2ad5e2aa03bc263c16b69842a431c84030b538d18955be4a37c47499ede"
+  },
+  {
+   "artifact": "preflight_frames__robot-1_bright.png",
+   "original_path": "preflight_frames/robot-1_bright.png",
+   "bytes": 492761,
+   "sha256": "e089760d032c711cc934c58ef56463f94fc9ba21f51c1c05c85d1d9406762d64"
+  },
+  {
+   "artifact": "preflight_frames__robot-1_legs_zoom.png",
+   "original_path": "preflight_frames/robot-1_legs_zoom.png",
+   "bytes": 427902,
+   "sha256": "78dc22eab57a394fd3155c10bb82e2512ad7272b723c403a9ebf508c95cab3f8"
+  },
+  {
+   "artifact": "preflight_frames__robot-2_bright.png",
+   "original_path": "preflight_frames/robot-2_bright.png",
+   "bytes": 467556,
+   "sha256": "5c6d6823f5454d357419394feb78c57bd4929c7f9d907cd54c50127b4e4fb5ea"
+  },
+  {
+   "artifact": "preflight_frames__robot-3_bright.png",
+   "original_path": "preflight_frames/robot-3_bright.png",
+   "bytes": 478347,
+   "sha256": "5521aee98d848f0287b79ef05275db47cd87ddb9fa958bb9debe2cd5cdec6f46"
+  },
+  {
+   "artifact": "run1__chassis_tag_baseline.json",
+   "original_path": "run1/chassis_tag_baseline.json",
+   "bytes": 223,
+   "sha256": "ab9d8373c0d637cd8fd3caaebafefa5abb50b4b039f38290c8fa0fa605fc69b3"
+  },
+  {
+   "artifact": "run1__events.jsonl",
+   "original_path": "run1/events.jsonl",
+   "bytes": 213336,
+   "sha256": "bbc06d6c981e0e3e1625d01d2335198ff6e815c59a9c3f0b24bcc1cfe486df29"
+  },
+  {
+   "artifact": "run1__frame_index.json",
+   "original_path": "run1/frame_index.json",
+   "bytes": 24590,
+   "sha256": "88c56becc02b6378c6f4aa3798709e356f203dcfe59868c187ed6e0fed56e552"
+  },
+  {
+   "artifact": "run1__frame_index.jsonl",
+   "original_path": "run1/frame_index.jsonl",
+   "bytes": 23313,
+   "sha256": "255da3fb501638dcb62a76fc4576a3d564eecf1cf988058d1513b175485fde44"
+  },
+  {
+   "artifact": "run1__frames.tar.gz",
+   "original_path": "run1/frames/  (bundled, internal paths robot-N/NNNNN.jpg)",
+   "bytes": 9188216,
+   "sha256": "26bff5d2332cc8b82f3733043cc9137651fb83572dbffd9a890610cbdd8642c5"
+  },
+  {
+   "artifact": "run1__markers.json",
+   "original_path": "run1/markers.json",
+   "bytes": 6422,
+   "sha256": "0b84d697b7883bfa1512887907b091120565b1c0fbcaae57517bd8fedd020231"
+  },
+  {
+   "artifact": "run1__markers.jsonl",
+   "original_path": "run1/markers.jsonl",
+   "bytes": 5164,
+   "sha256": "7664a836c4450343079a05254256dcb63364983800f176693997527619c28fd9"
+  },
+  {
+   "artifact": "run1__new_error_rows.json",
+   "original_path": "run1/new_error_rows.json",
+   "bytes": 247,
+   "sha256": "72193e666ec7a7cf7f562ae291f580018743b284f48c7893ae10f3a890eb5517"
+  },
+  {
+   "artifact": "run1__post_samples.json",
+   "original_path": "run1/post_samples.json",
+   "bytes": 1491,
+   "sha256": "3f6c05e8f5cd1d5bb504a7f92eb179277f4944d7dc6a7b85de4c52b561eb1cb2"
+  },
+  {
+   "artifact": "run1__post_samples.jsonl",
+   "original_path": "run1/post_samples.jsonl",
+   "bytes": 1066,
+   "sha256": "bf602ff98c960de855660346463fd72ebb5b21074db14255b0283f09d358c76b"
+  },
+  {
+   "artifact": "run1__prearm_samples.json",
+   "original_path": "run1/prearm_samples.json",
+   "bytes": 1493,
+   "sha256": "c528d32398e5682af99bf834290bdc01a77a3f6e38e385aa27ea51fd25159a40"
+  },
+  {
+   "artifact": "run1__prearm_samples.jsonl",
+   "original_path": "run1/prearm_samples.jsonl",
+   "bytes": 1068,
+   "sha256": "f31e1bc3c045f73887500a2e29477cd4f999944bb9886c1d0760620f990863d5"
+  },
+  {
+   "artifact": "run1__result.json",
+   "original_path": "run1/result.json",
+   "bytes": 5791,
+   "sha256": "9aa1eba9f8e15ced7c4a9e6741026eb93659e32756ad46273efd54bd1457c18d"
+  },
+  {
+   "artifact": "run1__tag_watch.json",
+   "original_path": "run1/tag_watch.json",
+   "bytes": 810,
+   "sha256": "8dd90eab7b843e9d4c7787deb148bcb0f40941efc003cfd3d137d9b16488c3de"
+  },
+  {
+   "artifact": "run1__tag_watch.jsonl",
+   "original_path": "run1/tag_watch.jsonl",
+   "bytes": 685,
+   "sha256": "d87bc9e450cf19b897a71aa9388977863544704fd43acaa1d85873f82d90c624"
+  },
+  {
+   "artifact": "run1_runner.log",
+   "original_path": "run1_runner.log",
+   "bytes": 219929,
+   "sha256": "e9f840c9a50368872a8bafa86f75ec14426047b458467bae10c7df6b07aafe56"
+  },
+  {
+   "artifact": "run2__chassis_tag_baseline.json",
+   "original_path": "run2/chassis_tag_baseline.json",
+   "bytes": 222,
+   "sha256": "e5686a9b850c62f47fdb3f5f7db481122659661f91006e60137d46b3b568b378"
+  },
+  {
+   "artifact": "run2__events.jsonl",
+   "original_path": "run2/events.jsonl",
+   "bytes": 214625,
+   "sha256": "dcf697324f4a755c0d86a8d32ad40a10f40ea6b0a5173b7df1523ab796bf22c5"
+  },
+  {
+   "artifact": "run2__frame_index.json",
+   "original_path": "run2/frame_index.json",
+   "bytes": 22624,
+   "sha256": "4bbe7d978e772ba2b95e0d656a4fcded789eda70654fc464c0251aa293ce2b25"
+  },
+  {
+   "artifact": "run2__frame_index.jsonl",
+   "original_path": "run2/frame_index.jsonl",
+   "bytes": 21449,
+   "sha256": "9c094e74420832a75e7d1f76b169035e4f56ff55121d9272e6aef2140bc98d45"
+  },
+  {
+   "artifact": "run2__frames.tar.gz",
+   "original_path": "run2/frames/  (bundled, internal paths robot-N/NNNNN.jpg)",
+   "bytes": 8594300,
+   "sha256": "fc33c460ea0a20604d69f853c50d910b45f7b9613b30efa986b794db224ef0ad"
+  },
+  {
+   "artifact": "run2__markers.json",
+   "original_path": "run2/markers.json",
+   "bytes": 8205,
+   "sha256": "cc95320235a402abb005bca891cfadfbe25c76d33582b5f8425121a7337f5257"
+  },
+  {
+   "artifact": "run2__markers.jsonl",
+   "original_path": "run2/markers.jsonl",
+   "bytes": 6520,
+   "sha256": "3460192c4ab39cce6e7a21158660ce35f22f09eb44585b36bed7b1b19eb301ab"
+  },
+  {
+   "artifact": "run2__new_error_rows.json",
+   "original_path": "run2/new_error_rows.json",
+   "bytes": 275,
+   "sha256": "ba183b45218edc307633bba9615ab0b4254a640805174bec9acf84e9b67d5cc8"
+  },
+  {
+   "artifact": "run2__post_samples.json",
+   "original_path": "run2/post_samples.json",
+   "bytes": 1494,
+   "sha256": "597306bb53f531f51eeed3fa455c84edbe833f0cf3dc9111403324a49e92432a"
+  },
+  {
+   "artifact": "run2__post_samples.jsonl",
+   "original_path": "run2/post_samples.jsonl",
+   "bytes": 1069,
+   "sha256": "229aca2590e49d065ac635989d0866f3ff0567687705fd3c283e4a4bf1d00072"
+  },
+  {
+   "artifact": "run2__prearm_samples.json",
+   "original_path": "run2/prearm_samples.json",
+   "bytes": 1493,
+   "sha256": "a6e1110d72f36cd90513e34262ab4847669071b275557a2649dc711ad086371a"
+  },
+  {
+   "artifact": "run2__prearm_samples.jsonl",
+   "original_path": "run2/prearm_samples.jsonl",
+   "bytes": 1068,
+   "sha256": "561059d31b2d96d15e0bd497d8c71d15f02f369412f8aa57a2ebe513d2ab36f7"
+  },
+  {
+   "artifact": "run2__result.json",
+   "original_path": "run2/result.json",
+   "bytes": 5679,
+   "sha256": "84db0163ddeb604d7e59189d8e0ab9f520774c14bbbb7baedd31ae7615342341"
+  },
+  {
+   "artifact": "run2__tag_watch.json",
+   "original_path": "run2/tag_watch.json",
+   "bytes": 320,
+   "sha256": "87961690979ec901ff2dbbd39606f46dc560cc66b66e598fbdcc43c417c01deb"
+  },
+  {
+   "artifact": "run2__tag_watch.jsonl",
+   "original_path": "run2/tag_watch.jsonl",
+   "bytes": 264,
+   "sha256": "26ed3955f5b890e12601839eb36980516c7bf5068b80c61e6c762bc7d2197b62"
+  },
+  {
+   "artifact": "run2_runner.log",
+   "original_path": "run2_runner.log",
+   "bytes": 220363,
+   "sha256": "d7986a2bc29480574ca291a49bcab54a0ea0646951a8a43a6458774a376493b1"
+  },
+  {
+   "artifact": "run3__chassis_tag_baseline.json",
+   "original_path": "run3/chassis_tag_baseline.json",
+   "bytes": 302,
+   "sha256": "d5d6a3a8f97f0cc136cd41f5c236b0a09c5055e14c9ef72c04ecc430515b96f9"
+  },
+  {
+   "artifact": "run3__events.jsonl",
+   "original_path": "run3/events.jsonl",
+   "bytes": 214008,
+   "sha256": "1871fc6e2d51a7a6809417bc19a13a00b1083d439132385ed1fed42dabed2ab5"
+  },
+  {
+   "artifact": "run3__frame_index.json",
+   "original_path": "run3/frame_index.json",
+   "bytes": 25575,
+   "sha256": "2c634031363be48b59be220c4b2f4d2ee86b3a8e347b64d2b094792a4c44b790"
+  },
+  {
+   "artifact": "run3__frame_index.jsonl",
+   "original_path": "run3/frame_index.jsonl",
+   "bytes": 24247,
+   "sha256": "9edb3c1969e2b5a4d4bba6862463ef70caed370ab6135b4c2c353338af153a2b"
+  },
+  {
+   "artifact": "run3__frames.tar.gz",
+   "original_path": "run3/frames/  (bundled, internal paths robot-N/NNNNN.jpg)",
+   "bytes": 9895003,
+   "sha256": "08bb077aa40898219e2b6cccdfb4d974e3d80d28b573e9212a6a0b6fe27397d4"
+  },
+  {
+   "artifact": "run3__markers.json",
+   "original_path": "run3/markers.json",
+   "bytes": 10785,
+   "sha256": "a2e26ee4c319578176b66e4170c498b1988662325e73dc06b50514157e94f690"
+  },
+  {
+   "artifact": "run3__markers.jsonl",
+   "original_path": "run3/markers.jsonl",
+   "bytes": 8624,
+   "sha256": "a6d2f0ce61c5e1b9a12d2d89aa872234bcf94914313c1e1f49d9931300b3876b"
+  },
+  {
+   "artifact": "run3__new_error_rows.json",
+   "original_path": "run3/new_error_rows.json",
+   "bytes": 551,
+   "sha256": "755b61159d1aa95a3c02b95f47deaae1ff79021359f77a37ecd6a48fe325cfa3"
+  },
+  {
+   "artifact": "run3__post_samples.json",
+   "original_path": "run3/post_samples.json",
+   "bytes": 1495,
+   "sha256": "e8fc8bf15b22ae50b8267376d67cc4154ba7120acc06630a5de6c3c6aab07993"
+  },
+  {
+   "artifact": "run3__post_samples.jsonl",
+   "original_path": "run3/post_samples.jsonl",
+   "bytes": 1070,
+   "sha256": "7655cf638177bd6cc10f30174a8d8d6ec71e1b81992ba9f242556c00f9bc6c70"
+  },
+  {
+   "artifact": "run3__prearm_samples.json",
+   "original_path": "run3/prearm_samples.json",
+   "bytes": 1493,
+   "sha256": "e3f0d9bf5f5e4a759e761ac0db14eb3decab535fb7a09908c8dc9067dee734c6"
+  },
+  {
+   "artifact": "run3__prearm_samples.jsonl",
+   "original_path": "run3/prearm_samples.jsonl",
+   "bytes": 1068,
+   "sha256": "a9f2749489cbbaba9b483e1afb9dfe87e3afdf89c7e117ba8de68524c1647662"
+  },
+  {
+   "artifact": "run3__result.json",
+   "original_path": "run3/result.json",
+   "bytes": 6629,
+   "sha256": "f1a3c15d3313a0494ed9fe10575c9e36aefc76b26c88aae6a7fd756302a7d470"
+  },
+  {
+   "artifact": "run3__tag_watch.json",
+   "original_path": "run3/tag_watch.json",
+   "bytes": 652,
+   "sha256": "0013e121005f012380fb667083085ec11796bd30c854c01072a2c02be721c19b"
+  },
+  {
+   "artifact": "run3__tag_watch.jsonl",
+   "original_path": "run3/tag_watch.jsonl",
+   "bytes": 550,
+   "sha256": "a5e20971a4a9f218410d4e645583bafc808556fdf6c960644a5af352ca346930"
+  },
+  {
+   "artifact": "run3_runner.log",
+   "original_path": "run3_runner.log",
+   "bytes": 220106,
+   "sha256": "8a0b3e5dff2bfe74b4eeb69d1e06b3c769a84d367e3eb57ed22c540ee79b7292"
+  },
+  {
+   "artifact": "run4__chassis_tag_baseline.json",
+   "original_path": "run4/chassis_tag_baseline.json",
+   "bytes": 245,
+   "sha256": "07ae291bb6fafd99c34c96a5ed9dc3b1e94ac4c2fa9801175f4cd06eebe81705"
+  },
+  {
+   "artifact": "run4__events.jsonl",
+   "original_path": "run4/events.jsonl",
+   "bytes": 216287,
+   "sha256": "d08d6d87b874ae30a57fa2958cb03128c470ee4bda70989e10cd3f6f9cbae724"
+  },
+  {
+   "artifact": "run4__frame_index.json",
+   "original_path": "run4/frame_index.json",
+   "bytes": 263364,
+   "sha256": "46e05feca3d3f267c4f8f9ff287a281e0c263a869a1360f6cfaceccb120d58c6"
+  },
+  {
+   "artifact": "run4__frame_index.jsonl",
+   "original_path": "run4/frame_index.jsonl",
+   "bytes": 249745,
+   "sha256": "8fde95b61cce89c6dab280ef5b6d4e8ce261643dba9df2af226cd93313bb0753"
+  },
+  {
+   "artifact": "run4__frames.tar.gz",
+   "original_path": "run4/frames/  (bundled, internal paths robot-N/NNNNN.jpg)",
+   "bytes": 105670870,
+   "sha256": "b58a951e33d851549491c793bc8018dcd48c08905c915d864bac5c89f28a9e46"
+  },
+  {
+   "artifact": "run4__markers.json",
+   "original_path": "run4/markers.json",
+   "bytes": 12360,
+   "sha256": "fb1d3c56eef8d9a70adb38d7b35043483a3a15cbcd85ec9c87ccb0371396fe8a"
+  },
+  {
+   "artifact": "run4__markers.jsonl",
+   "original_path": "run4/markers.jsonl",
+   "bytes": 9833,
+   "sha256": "9dae10660433156b09a514b5ecdba210db7782ee630b6ded35e6f653a887453d"
+  },
+  {
+   "artifact": "run4__new_error_rows.json",
+   "original_path": "run4/new_error_rows.json",
+   "bytes": 779,
+   "sha256": "6fa35d70a77801543625323287255df0dea582ddbbf42cf5f1d262c77b5ea8b7"
+  },
+  {
+   "artifact": "run4__post_samples.json",
+   "original_path": "run4/post_samples.json",
+   "bytes": 1501,
+   "sha256": "21a1028fe15cc048848f319e048f08a4fc6a73848aa0c2213fcc7920122af347"
+  },
+  {
+   "artifact": "run4__post_samples.jsonl",
+   "original_path": "run4/post_samples.jsonl",
+   "bytes": 1076,
+   "sha256": "5d68f9a8a360158e180ccf7ece5c64419ba320d18abcf76d4d331e107b22b717"
+  },
+  {
+   "artifact": "run4__prearm_samples.json",
+   "original_path": "run4/prearm_samples.json",
+   "bytes": 1494,
+   "sha256": "e265eae56c772de967796744e3cfeb3ad6101dfa3b6b6eae62370a2f8bc43992"
+  },
+  {
+   "artifact": "run4__prearm_samples.jsonl",
+   "original_path": "run4/prearm_samples.jsonl",
+   "bytes": 1069,
+   "sha256": "53133375f7ab92091cec68e57016afd8795c4020d944b7add745ee28588994dc"
+  },
+  {
+   "artifact": "run4__result.json",
+   "original_path": "run4/result.json",
+   "bytes": 149180,
+   "sha256": "ee089cdabb510139ea7e672e85f4b05f23b6719322b5b4d7121993b0ebffaabb"
+  },
+  {
+   "artifact": "run4__tag_watch.json",
+   "original_path": "run4/tag_watch.json",
+   "bytes": 14881,
+   "sha256": "aa4f53553d67df3d642f7662dbd0435e82f6f3b99172ef8dc7f851a0a8f25d29"
+  },
+  {
+   "artifact": "run4__tag_watch.jsonl",
+   "original_path": "run4/tag_watch.jsonl",
+   "bytes": 12566,
+   "sha256": "699ba5cd94b08fff318028b889a6c8fbbb6dacf955055f6fbf7763533ec17b54"
+  },
+  {
+   "artifact": "run4_runner.log",
+   "original_path": "run4_runner.log",
+   "bytes": 3294,
+   "sha256": "a77f74789b82e31ccd07f97c1fa104d0d50781a3a42ac73493375c5532326b93"
+  },
+  {
+   "artifact": "sysid_l0_belly_rest_radial_shear_hysteresis_repeat6_v1_20260910_145225.csv",
+   "original_path": "sysid_l0_belly_rest_radial_shear_hysteresis_repeat6_v1_20260910_145225.csv",
+   "bytes": 622447,
+   "sha256": "ba63c6e8833a469dc587b452c7fd5ac1c52b9e84b0c85152324383e52d902da1"
+  },
+  {
+   "artifact": "sysid_l0_belly_rest_radial_shear_hysteresis_repeat6_v1_20260910_145225_summary.json",
+   "original_path": "sysid_l0_belly_rest_radial_shear_hysteresis_repeat6_v1_20260910_145225_summary.json",
+   "bytes": 328470,
+   "sha256": "9aa6ff6b0effec80563e81b846a0cb5f607be8754958e39c6f54e57c35587292"
+  },
+  {
+   "artifact": "tagwatch_baseline.json",
+   "original_path": "tagwatch_baseline.json",
+   "bytes": 3306,
+   "sha256": "2620c57fd203cbc5933b3a02f526dd82ed8fda0e79462574087b38f29eb5b51c"
+  },
+  {
+   "artifact": "tagwatch_probe.py",
+   "original_path": "tagwatch_probe.py",
+   "bytes": 1899,
+   "sha256": "bfd70326145347cfc1435a3b1cc95eb79300bd998bcfd59bff5a003dbf327988"
+  },
+  {
+   "artifact": "test_tolerance_l0.py",
+   "original_path": "test_tolerance_l0.py",
+   "bytes": 2936,
+   "sha256": "a661f3b72f845b713f0cee37acdc982b10acaa26cbddb9c65cbfaf2e1538864a"
+  }
+ ]
+}

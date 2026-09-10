@@ -1,0 +1,6 @@
+{"t": 1789051209.591533, "resolved": true, "x": 469.968, "y": 599.961, "yaw": 81.373, "err95_mm": 39.946, "cams": [0], "shift_mm": 22.05, "yaw_delta_deg": 1.35, "over_bound_streak": 0}
+{"t": 1789051210.7976341, "resolved": false}
+{"t": 1789051211.959908, "resolved": false}
+{"t": 1789051212.980792, "resolved": true, "x": 464.715, "y": 641.803, "yaw": 83.41, "err95_mm": 45.147, "cams": [0], "shift_mm": 49.7, "yaw_delta_deg": 0.69, "over_bound_streak": 0}
+{"t": 1789051214.169543, "resolved": false}
+{"t": 1789051215.36596, "resolved": true, "x": 459.731, "y": 607.745, "yaw": 79.766, "err95_mm": 59.251, "cams": [0], "shift_mm": 17.11, "yaw_delta_deg": 2.95, "over_bound_streak": 0}

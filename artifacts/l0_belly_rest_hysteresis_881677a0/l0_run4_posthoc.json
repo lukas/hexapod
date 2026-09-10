@@ -1,0 +1,218 @@
+{
+ "csv": "sysid_l0_belly_rest_radial_shear_hysteresis_repeat6_v1_20260910_145225.csv",
+ "rows": 1560,
+ "hz": 10.0,
+ "declared_posthoc_checks": {
+  "measured_non_L0_joint_departure_gt_1p0_deg": {
+   "bound_deg": 1.0,
+   "worst": {
+    "joint": 16,
+    "abs_deg": 0.439,
+    "tick": 0
+   },
+   "per_joint_max_abs_deg": {
+    "3": 0.176,
+    "4": 0.088,
+    "5": 0.088,
+    "6": 0.264,
+    "7": 0.088,
+    "8": 0.176,
+    "11": 0.088,
+    "12": 0.088,
+    "13": 0.264,
+    "16": 0.439,
+    "17": 0.176
+   },
+   "missing_measured_cells": 0,
+   "verdict": "PASS"
+  },
+  "hysteresis_growing_monotonically_across_repeats": {
+   "per_cycle_loop_deg": [
+    0.967,
+    0.967,
+    0.967,
+    0.967,
+    0.967,
+    0.967
+   ],
+   "strictly_monotonic": false,
+   "verdict": "PASS (no growth)"
+  }
+ },
+ "zero_variance_investigation": {
+  "question": "all six cycles report the same loop width; is that a real quantized measurement or an analysis artifact?",
+  "settled_windows": [
+   {
+    "ticks": [
+     170,
+     179
+    ],
+    "n": 10,
+    "unique_values": [
+     -47.373
+    ],
+    "mean": -47.373,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     250,
+     259
+    ],
+    "n": 10,
+    "unique_values": [
+     -46.406
+    ],
+    "mean": -46.406,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     330,
+     339
+    ],
+    "n": 10,
+    "unique_values": [
+     -47.373
+    ],
+    "mean": -47.373,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     410,
+     419
+    ],
+    "n": 10,
+    "unique_values": [
+     -46.406
+    ],
+    "mean": -46.406,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     490,
+     499
+    ],
+    "n": 10,
+    "unique_values": [
+     -47.373
+    ],
+    "mean": -47.373,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     570,
+     579
+    ],
+    "n": 10,
+    "unique_values": [
+     -46.406
+    ],
+    "mean": -46.406,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     950,
+     959
+    ],
+    "n": 10,
+    "unique_values": [
+     -47.373
+    ],
+    "mean": -47.373,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     1030,
+     1039
+    ],
+    "n": 10,
+    "unique_values": [
+     -46.406
+    ],
+    "mean": -46.406,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     1110,
+     1119
+    ],
+    "n": 10,
+    "unique_values": [
+     -47.373
+    ],
+    "mean": -47.373,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     1190,
+     1199
+    ],
+    "n": 10,
+    "unique_values": [
+     -46.406
+    ],
+    "mean": -46.406,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     1270,
+     1279
+    ],
+    "n": 10,
+    "unique_values": [
+     -47.373
+    ],
+    "mean": -47.373,
+    "sd": 0.0
+   },
+   {
+    "ticks": [
+     1350,
+     1359
+    ],
+    "n": 10,
+    "unique_values": [
+     -46.406
+    ],
+    "mean": -46.406,
+    "sd": 0.0
+   }
+  ],
+  "encoder_resolution_deg_per_count": 0.0879
+ },
+ "electrical_thermal": {
+  "peak_current_a_per_joint": {
+   "0": 0.006,
+   "1": 0.039,
+   "2": 0.013,
+   "3": 0.006,
+   "4": 0.006,
+   "5": 0.006,
+   "6": 0.013,
+   "8": 0.006,
+   "9": 0.006,
+   "10": 0.006,
+   "11": 0.006,
+   "12": 0.006,
+   "13": 0.013,
+   "14": 0.006,
+   "15": 0.006,
+   "16": 0.013,
+   "17": 0.006
+  },
+  "peak_current_a_any_joint": 0.039,
+  "per_servo_trip_a": 0.75,
+  "hard_ceiling_a": 3.0,
+  "logged_temp_c_max": 35.0,
+  "temp_trip_c": 55.0
+ }
+}

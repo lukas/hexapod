@@ -1,0 +1,29 @@
+[
+ {
+  "ts": "2026-09-10T14:49:49.575Z",
+  "mono": 59988.877029,
+  "seq": 99,
+  "kind": "bus_timing",
+  "level": "error",
+  "src": "mcu",
+  "msg": "W->OK ack_rejected 107.6ms",
+  "data": {
+   "seq": 9,
+   "ok": false,
+   "reason": "ack_rejected",
+   "cmd": "W",
+   "want": "OK",
+   "n": 18,
+   "attempt": 1,
+   "timeout_ms": 800.0,
+   "lock_wait_ms": 0.012,
+   "reset_input_ms": 2.195,
+   "serial_write_ms": 0.651,
+   "serial_flush_ms": 0.945,
+   "write_flush_ms": 3.818,
+   "ack_wait_ms": 103.728,
+   "reply": "ERR",
+   "elapsed_ms": 107.617
+  }
+ }
+]

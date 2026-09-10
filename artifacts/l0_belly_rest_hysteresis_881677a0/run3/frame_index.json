@@ -1,0 +1,626 @@
+[
+ {
+  "t": 1789051776.3578072,
+  "cam": "robot-1",
+  "seq": 1,
+  "bytes": 135548,
+  "sha256": "f86cc69aea4f276533f273358cff47dbdf72297dbd732375babdcf8b641f1a6c",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-1/00001.jpg"
+ },
+ {
+  "t": 1789051776.3602061,
+  "cam": "robot-3",
+  "seq": 1,
+  "bytes": 116901,
+  "sha256": "b317d494b12fbc2b7c8f06daf65044e9fd3559d2b08f586f168db5c553d321bc",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-3/00001.jpg"
+ },
+ {
+  "t": 1789051776.36232,
+  "cam": "robot-2",
+  "seq": 1,
+  "bytes": 130615,
+  "sha256": "d980cd0788c185ab855e48fc1fd97b5eb2e9992e413bc45411e5673353302b79",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-2/00001.jpg"
+ },
+ {
+  "t": 1789051777.037144,
+  "cam": "robot-1",
+  "seq": 2,
+  "bytes": 135060,
+  "sha256": "eeb146e2fbdfcc03fcc10aa9a5234c42269fcff9f84a25eb86e9e9bce3ad5dde",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-1/00002.jpg"
+ },
+ {
+  "t": 1789051777.03927,
+  "cam": "robot-3",
+  "seq": 2,
+  "bytes": 116356,
+  "sha256": "6eef7a9905a20d44bb092610af5a34a14a33c85f9092d14247bfe0dfbf2056a6",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-3/00002.jpg"
+ },
+ {
+  "t": 1789051777.041023,
+  "cam": "robot-2",
+  "seq": 2,
+  "bytes": 130393,
+  "sha256": "7bfbee4eb92b934fc50dcf22cd6fe9274ab9786d9b8d05f292521c4a2feb472a",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-2/00002.jpg"
+ },
+ {
+  "t": 1789051777.680951,
+  "cam": "robot-1",
+  "seq": 3,
+  "bytes": 136161,
+  "sha256": "dd1004c7f80bcbcfc747a2dd34a47690341d77346ec3eba6cf11871fb9cea8f3",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-1/00003.jpg"
+ },
+ {
+  "t": 1789051777.683639,
+  "cam": "robot-3",
+  "seq": 3,
+  "bytes": 115934,
+  "sha256": "6d833faa7d8a4d226aa9263499b020ae95126a4ce037cc8ab5bd2598f77918c5",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-3/00003.jpg"
+ },
+ {
+  "t": 1789051777.686045,
+  "cam": "robot-2",
+  "seq": 3,
+  "bytes": 130421,
+  "sha256": "6e21cd5b6536966a16eb089e8ac1b9b8328abc7e30fc8974a553a9bde5fa8984",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-2/00003.jpg"
+ },
+ {
+  "t": 1789051778.386349,
+  "cam": "robot-1",
+  "seq": 4,
+  "bytes": 134571,
+  "sha256": "539522170756b12114355b2812790de3678c84762744366eac938f93656f24ed",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-1/00004.jpg"
+ },
+ {
+  "t": 1789051778.388413,
+  "cam": "robot-3",
+  "seq": 4,
+  "bytes": 116240,
+  "sha256": "6a47804a49bdbd701b4fac056691ea8b5fc1ec88f1b6a3965574e19b68783ef4",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-3/00004.jpg"
+ },
+ {
+  "t": 1789051778.390431,
+  "cam": "robot-2",
+  "seq": 4,
+  "bytes": 131990,
+  "sha256": "a431534f82a8bcaa51ab3a0e5a73cf74133901cd8e78984ac1deb26f3a1b51d7",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-2/00004.jpg"
+ },
+ {
+  "t": 1789051778.9644349,
+  "cam": "robot-1",
+  "seq": 5,
+  "bytes": 135095,
+  "sha256": "3d300352b0e585594b73e288f85b28516bc5e9efdd2a459ec46f8228a7869f65",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-1/00005.jpg"
+ },
+ {
+  "t": 1789051778.9670348,
+  "cam": "robot-3",
+  "seq": 5,
+  "bytes": 115950,
+  "sha256": "34db6513e0bfefd5cad77ea6e0d9b08b9258835199afe812374602855cf2bb14",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-3/00005.jpg"
+ },
+ {
+  "t": 1789051778.969609,
+  "cam": "robot-2",
+  "seq": 5,
+  "bytes": 130466,
+  "sha256": "520bec89ad94fc26d331f2010ec2cd63f051cbc8523da7417302b581fff56897",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-2/00005.jpg"
+ },
+ {
+  "t": 1789051779.6434848,
+  "cam": "robot-1",
+  "seq": 6,
+  "bytes": 134371,
+  "sha256": "15d52ae4b4f9c25ed5f7d7e8ec6ea165b3fc735972345f72b0804db40baa4897",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-1/00006.jpg"
+ },
+ {
+  "t": 1789051779.6460931,
+  "cam": "robot-3",
+  "seq": 6,
+  "bytes": 116187,
+  "sha256": "ad77ec734ec6394088862152bfe2fe2cc896aa8c8533c4ba27df39086fd28b23",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-3/00006.jpg"
+ },
+ {
+  "t": 1789051779.648247,
+  "cam": "robot-2",
+  "seq": 6,
+  "bytes": 130245,
+  "sha256": "8deb44a467252ac1de6f53a2af8cb65cc2b68d335328c922e4bd93854552f05d",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-2/00006.jpg"
+ },
+ {
+  "t": 1789051780.186493,
+  "cam": "robot-1",
+  "seq": 7,
+  "bytes": 135189,
+  "sha256": "5407c95d998b968897d1b0e4465675aaa10fa74bda9d69d0cfb8326bdf7cfa82",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-1/00007.jpg"
+ },
+ {
+  "t": 1789051780.1889238,
+  "cam": "robot-3",
+  "seq": 7,
+  "bytes": 116224,
+  "sha256": "25a18ef17dae195fdadc1e42c3ce2db925d86f3c585449eed92c330593767a0a",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-3/00007.jpg"
+ },
+ {
+  "t": 1789051780.191026,
+  "cam": "robot-2",
+  "seq": 7,
+  "bytes": 130527,
+  "sha256": "d49415f7b844ad8cb71ed4d33eb87979cf5ba380107f1ea97f3d2f2e4dbb95f6",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-2/00007.jpg"
+ },
+ {
+  "t": 1789051780.711828,
+  "cam": "robot-1",
+  "seq": 8,
+  "bytes": 134499,
+  "sha256": "c11c12c9fad9344975b7d35a22c36a9999b375ba3540f2e2648877652fae0007",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-1/00008.jpg"
+ },
+ {
+  "t": 1789051780.714008,
+  "cam": "robot-3",
+  "seq": 8,
+  "bytes": 116131,
+  "sha256": "6d15380afee8abc246557d81ea4ed7ec9761f5902d1ab5942adbe105816b3def",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-3/00008.jpg"
+ },
+ {
+  "t": 1789051780.716167,
+  "cam": "robot-2",
+  "seq": 8,
+  "bytes": 130323,
+  "sha256": "b4ba8e3725105dd2548a71dc84706dcfa1f0c4e8859f864d537b257cd76b3f90",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-2/00008.jpg"
+ },
+ {
+  "t": 1789051781.4094322,
+  "cam": "robot-1",
+  "seq": 9,
+  "bytes": 135060,
+  "sha256": "fcf0450d791ec1e17f1e21799f2cb93ad4042353ca533577521666427caf6515",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-1/00009.jpg"
+ },
+ {
+  "t": 1789051781.4116569,
+  "cam": "robot-3",
+  "seq": 9,
+  "bytes": 116208,
+  "sha256": "d7d824762118c7e01fec7b173fe0a545a1fd5fa8cbe11115ca56bf9b64cc28a2",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-3/00009.jpg"
+ },
+ {
+  "t": 1789051781.414051,
+  "cam": "robot-2",
+  "seq": 9,
+  "bytes": 130181,
+  "sha256": "7d07c7dedee9bd9e46cd7de5bf5525aeca26f65ec552bfe16562b302c2de7509",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-2/00009.jpg"
+ },
+ {
+  "t": 1789051781.9465432,
+  "cam": "robot-1",
+  "seq": 10,
+  "bytes": 135027,
+  "sha256": "d1203155adf60006286d60329902bba00f8d08a69d9d70cb8d4f0af10ad65876",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-1/00010.jpg"
+ },
+ {
+  "t": 1789051781.949235,
+  "cam": "robot-3",
+  "seq": 10,
+  "bytes": 116363,
+  "sha256": "be781ea0809ce5cecd461ab928fdd74fd28f2f62fb836560bc44a6acdb04a4f7",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-3/00010.jpg"
+ },
+ {
+  "t": 1789051781.9515069,
+  "cam": "robot-2",
+  "seq": 10,
+  "bytes": 130358,
+  "sha256": "e193e1ebb11b292e029643c4ca48052871594bad04f362cf92a4c5f56657095d",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-2/00010.jpg"
+ },
+ {
+  "t": 1789051782.6133492,
+  "cam": "robot-1",
+  "seq": 11,
+  "bytes": 135410,
+  "sha256": "7525bffcf4c015a8ace4286084b0ec9488990488dc3c37b5fa2e8357bb46cf56",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-1/00011.jpg"
+ },
+ {
+  "t": 1789051782.615627,
+  "cam": "robot-3",
+  "seq": 11,
+  "bytes": 116126,
+  "sha256": "8110d76085d9f623596f85e0b7b16bb9a6378de633be26f20db57fc2dfd6eae9",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-3/00011.jpg"
+ },
+ {
+  "t": 1789051782.617457,
+  "cam": "robot-2",
+  "seq": 11,
+  "bytes": 130319,
+  "sha256": "878800847bd09f0d77e7009efb7dc2cb920b57df6e71207776fac2fca00f5081",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-2/00011.jpg"
+ },
+ {
+  "t": 1789051783.305422,
+  "cam": "robot-1",
+  "seq": 12,
+  "bytes": 135286,
+  "sha256": "fa7a234172312a6f4a615929d23409a965999859990bce9159f04c2810d733c5",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-1/00012.jpg"
+ },
+ {
+  "t": 1789051783.3078961,
+  "cam": "robot-3",
+  "seq": 12,
+  "bytes": 116151,
+  "sha256": "63486ce18b9913b2a1c2c265a25aaecb2c6a4263c75d03bb73eafd6233883352",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-3/00012.jpg"
+ },
+ {
+  "t": 1789051783.310225,
+  "cam": "robot-2",
+  "seq": 12,
+  "bytes": 130532,
+  "sha256": "da33db6cdeb0f3e7d342b4001c3f21130c22c4f7390873897bb476d106197bf2",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-2/00012.jpg"
+ },
+ {
+  "t": 1789051783.984659,
+  "cam": "robot-1",
+  "seq": 13,
+  "bytes": 135528,
+  "sha256": "599d24f6688155e0581020514631b635aabe4069398cccd5c54ee2091e202d57",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-1/00013.jpg"
+ },
+ {
+  "t": 1789051783.987211,
+  "cam": "robot-3",
+  "seq": 13,
+  "bytes": 116110,
+  "sha256": "baea217f35bb3a33b15dd9a556958e526c2a5daa869acd07174a2f153b8815f4",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-3/00013.jpg"
+ },
+ {
+  "t": 1789051783.989347,
+  "cam": "robot-2",
+  "seq": 13,
+  "bytes": 130441,
+  "sha256": "bef8588c8316f745a3493852236c0636ee4405ac9a1ca85f68728ceaa059ab5f",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-2/00013.jpg"
+ },
+ {
+  "t": 1789051784.6913621,
+  "cam": "robot-1",
+  "seq": 14,
+  "bytes": 134402,
+  "sha256": "494f3a52053e6a10cf7d860d548391375e08f459a4ab32c5e130f47031242b7e",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-1/00014.jpg"
+ },
+ {
+  "t": 1789051784.6937542,
+  "cam": "robot-3",
+  "seq": 14,
+  "bytes": 116038,
+  "sha256": "b7d46b9fdd91490f351b3cc92782943d9f2444c88ff5175767df99912176ff3b",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-3/00014.jpg"
+ },
+ {
+  "t": 1789051784.696386,
+  "cam": "robot-2",
+  "seq": 14,
+  "bytes": 130209,
+  "sha256": "4acc4cfd775c18546c559e78cee181c651ad78119790d949587256c71f3297d8",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-2/00014.jpg"
+ },
+ {
+  "t": 1789051785.388343,
+  "cam": "robot-1",
+  "seq": 15,
+  "bytes": 135444,
+  "sha256": "2b5aa8c33702895378319ae2e55608f5086db67d45a46408dfbe5258e39881ce",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-1/00015.jpg"
+ },
+ {
+  "t": 1789051785.390096,
+  "cam": "robot-3",
+  "seq": 15,
+  "bytes": 115981,
+  "sha256": "6b2cfd08f1191f4278c16220b9776fa552c718d6a9a555e12b2a98b630df682e",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-3/00015.jpg"
+ },
+ {
+  "t": 1789051785.392232,
+  "cam": "robot-2",
+  "seq": 15,
+  "bytes": 130167,
+  "sha256": "564c03d16bdcbfbb489e5570362cc4f9590f1857d0f7c12760cdef61e85145ad",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-2/00015.jpg"
+ },
+ {
+  "t": 1789051786.0237088,
+  "cam": "robot-1",
+  "seq": 16,
+  "bytes": 134755,
+  "sha256": "e43f21a9d50366c5e7c73f117967415296463d1ce1e6854cf165ca1908baa0e4",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-1/00016.jpg"
+ },
+ {
+  "t": 1789051786.026123,
+  "cam": "robot-3",
+  "seq": 16,
+  "bytes": 116301,
+  "sha256": "e17fdff121440ae06a48405e3160c44be60449df6618ddb9c5cb1125e4550971",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-3/00016.jpg"
+ },
+ {
+  "t": 1789051786.028695,
+  "cam": "robot-2",
+  "seq": 16,
+  "bytes": 130387,
+  "sha256": "b7b0d12553f9360fe753dec5ae3a8c8b52a14e76a38b5f916bcbb12364b70c7f",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-2/00016.jpg"
+ },
+ {
+  "t": 1789051786.7310772,
+  "cam": "robot-1",
+  "seq": 17,
+  "bytes": 135702,
+  "sha256": "fa9d50670d4560fe4b2793185ae206af8c9351ae4a46461bcce11df0b9724a92",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-1/00017.jpg"
+ },
+ {
+  "t": 1789051786.733336,
+  "cam": "robot-3",
+  "seq": 17,
+  "bytes": 116335,
+  "sha256": "0cf03a4794efd0ca6ca3aa788123990ef36f93a3db3edd56b4d32886194f2bf2",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-3/00017.jpg"
+ },
+ {
+  "t": 1789051786.7356002,
+  "cam": "robot-2",
+  "seq": 17,
+  "bytes": 132352,
+  "sha256": "1b74a22462963fa47cc30743900ea98e00c98f6186c654b58bbc0b5429f52380",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-2/00017.jpg"
+ },
+ {
+  "t": 1789051787.438146,
+  "cam": "robot-1",
+  "seq": 18,
+  "bytes": 135401,
+  "sha256": "4ace410a3f1c98973817af8f5636e9435312cc3c8e2d810442baf329891f82e4",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-1/00018.jpg"
+ },
+ {
+  "t": 1789051787.44056,
+  "cam": "robot-3",
+  "seq": 18,
+  "bytes": 115939,
+  "sha256": "23e69d0cfc60db01de1fdf545a683db681df80936daa267f1c2031c4f42cffcd",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-3/00018.jpg"
+ },
+ {
+  "t": 1789051787.44292,
+  "cam": "robot-2",
+  "seq": 18,
+  "bytes": 130389,
+  "sha256": "ff8de82a585ed9621ce2354cfee8f9752a95cb7c47a474193f900bbedc8dd8f5",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-2/00018.jpg"
+ },
+ {
+  "t": 1789051788.073001,
+  "cam": "robot-1",
+  "seq": 19,
+  "bytes": 134294,
+  "sha256": "b4da25aface25882fae21589d0c6deba3c1f13b0064ae131c95863f4301b2318",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-1/00019.jpg"
+ },
+ {
+  "t": 1789051788.075329,
+  "cam": "robot-3",
+  "seq": 19,
+  "bytes": 116217,
+  "sha256": "f0e6f634f305a47d2606794a3afeac88d97edb5d590aa24ea0217062737eb7eb",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-3/00019.jpg"
+ },
+ {
+  "t": 1789051788.07793,
+  "cam": "robot-2",
+  "seq": 19,
+  "bytes": 130511,
+  "sha256": "c112523b3cb86cecb4e58a9cbf90330e299c6db8e4f1657c8ee6d77e5bb24ab7",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-2/00019.jpg"
+ },
+ {
+  "t": 1789051788.778917,
+  "cam": "robot-1",
+  "seq": 20,
+  "bytes": 135836,
+  "sha256": "a3aae4ad1e398812865636d21e36417a64d6e44889802b25b2c27e933ed73b49",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-1/00020.jpg"
+ },
+ {
+  "t": 1789051788.780799,
+  "cam": "robot-3",
+  "seq": 20,
+  "bytes": 115554,
+  "sha256": "de04d4a21798a556089a41e2b784fc3f1e02083fb6b92cc24512804e8cf3f861",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-3/00020.jpg"
+ },
+ {
+  "t": 1789051788.7831922,
+  "cam": "robot-2",
+  "seq": 20,
+  "bytes": 130386,
+  "sha256": "618f6f79952ba8a053db186668783edc9a7b0b38e15f8a454efdac7e61649d89",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-2/00020.jpg"
+ },
+ {
+  "t": 1789051789.4346728,
+  "cam": "robot-1",
+  "seq": 21,
+  "bytes": 135406,
+  "sha256": "f6743c1657fd545a49c6c6e0504e62ff65cf4bed11b1580edac348a9b1e574e3",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-1/00021.jpg"
+ },
+ {
+  "t": 1789051789.436878,
+  "cam": "robot-3",
+  "seq": 21,
+  "bytes": 115977,
+  "sha256": "33b25425ce0ccd68a18b4ce448bbf1c78e003306c85cbdd9c160ca01d87c7e3b",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-3/00021.jpg"
+ },
+ {
+  "t": 1789051789.439599,
+  "cam": "robot-2",
+  "seq": 21,
+  "bytes": 130168,
+  "sha256": "dd8476b9523e42c71d8bc74045ed535eb3f3423d660d609f054e192e2e1b20c3",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-2/00021.jpg"
+ },
+ {
+  "t": 1789051790.05427,
+  "cam": "robot-1",
+  "seq": 22,
+  "bytes": 135475,
+  "sha256": "edc17b0643d988b6a149685971efa529a38832499308443a6e308302d3751ba6",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-1/00022.jpg"
+ },
+ {
+  "t": 1789051790.056965,
+  "cam": "robot-3",
+  "seq": 22,
+  "bytes": 116082,
+  "sha256": "2ebaa844a757a84a8cf206063b02a40a59c84da8f4eeb0e5dce953d4918b2b2a",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-3/00022.jpg"
+ },
+ {
+  "t": 1789051790.059445,
+  "cam": "robot-2",
+  "seq": 22,
+  "bytes": 130211,
+  "sha256": "8743afa4fbefd8fc262fc1ab22a7b090a32ea8f1d82dff1366b2ec2096445169",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-2/00022.jpg"
+ },
+ {
+  "t": 1789051790.595069,
+  "cam": "robot-1",
+  "seq": 23,
+  "bytes": 135942,
+  "sha256": "fea74849a13690ec32e13c9c77349bbe42f239bdfeaf7a20c69b2979ed734325",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-1/00023.jpg"
+ },
+ {
+  "t": 1789051790.597291,
+  "cam": "robot-3",
+  "seq": 23,
+  "bytes": 115872,
+  "sha256": "78d5aa0fdbc0f5f92f7f2bf2dc6407fb6a3d513901dc4c2c6dd3b3348e848525",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-3/00023.jpg"
+ },
+ {
+  "t": 1789051790.59937,
+  "cam": "robot-2",
+  "seq": 23,
+  "bytes": 130317,
+  "sha256": "97bfac086a7a1f8e5a8aa18c7abbcd95d4ba5e39df895e76a86604d9e4ce1f05",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-2/00023.jpg"
+ },
+ {
+  "t": 1789051791.295425,
+  "cam": "robot-1",
+  "seq": 24,
+  "bytes": 134995,
+  "sha256": "6f0e6c08a97973a8ff607e1ce55099fb24ccfe1a825c67b9d96ea7cd6c584e7e",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-1/00024.jpg"
+ },
+ {
+  "t": 1789051791.2979462,
+  "cam": "robot-3",
+  "seq": 24,
+  "bytes": 115897,
+  "sha256": "a01d9315cf1f5adfd969860b642815c2b87c6445e38a12efe76056236d9398d6",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-3/00024.jpg"
+ },
+ {
+  "t": 1789051791.3004422,
+  "cam": "robot-2",
+  "seq": 24,
+  "bytes": 132041,
+  "sha256": "f773e8707f134bb287a0febca2f490613a773bd7ed6bdf0fbdb0fd9e98f477e7",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-2/00024.jpg"
+ },
+ {
+  "t": 1789051792.00078,
+  "cam": "robot-1",
+  "seq": 25,
+  "bytes": 135117,
+  "sha256": "5468cb38fb2fab87e9ebbe58d8021a37aeccd2ab561e815c40d37c545394a999",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-1/00025.jpg"
+ },
+ {
+  "t": 1789051792.002947,
+  "cam": "robot-3",
+  "seq": 25,
+  "bytes": 116084,
+  "sha256": "c8cdcdec9eaa6e6bc872e5604902a403c246faa06e7ae6368920728364ce4004",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-3/00025.jpg"
+ },
+ {
+  "t": 1789051792.004692,
+  "cam": "robot-2",
+  "seq": 25,
+  "bytes": 130339,
+  "sha256": "84382bc7d06fe79a27598d6130eb7802ed0a6fd0d4b82aacc139771af9c6bc8b",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-2/00025.jpg"
+ },
+ {
+  "t": 1789051792.7076328,
+  "cam": "robot-1",
+  "seq": 26,
+  "bytes": 135580,
+  "sha256": "041806c8912aadf2024985006400723b587825fa160f94384858ee61ca0c8463",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-1/00026.jpg"
+ },
+ {
+  "t": 1789051792.7100139,
+  "cam": "robot-3",
+  "seq": 26,
+  "bytes": 116380,
+  "sha256": "a4dc204f72ef923a669ae5ccf2193a4841387d7338b2a6385d9771f25855c818",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-3/00026.jpg"
+ },
+ {
+  "t": 1789051792.712513,
+  "cam": "robot-2",
+  "seq": 26,
+  "bytes": 130371,
+  "sha256": "6f8f7bab0d7d51d216bb4b3a0faf1b5e39d380bb52b26f5db55d5641597e79b0",
+  "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l0_belly_rest_hysteresis_881677a0/run3/frames/robot-2/00026.jpg"
+ }
+]

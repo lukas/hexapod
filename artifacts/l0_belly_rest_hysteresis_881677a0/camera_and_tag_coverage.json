@@ -1,0 +1,59 @@
+{
+ "cameras": {
+  "robot-1": {
+   "frames": 267,
+   "errors": 0,
+   "span_s": 174.7,
+   "max_gap_s": 0.714,
+   "median_gap_s": 0.692,
+   "distinct_sha256": 267,
+   "all_frames_distinct": true
+  },
+  "robot-2": {
+   "frames": 267,
+   "errors": 0,
+   "span_s": 174.7,
+   "max_gap_s": 0.713,
+   "median_gap_s": 0.692,
+   "distinct_sha256": 267,
+   "all_frames_distinct": true
+  },
+  "robot-3": {
+   "frames": 267,
+   "errors": 0,
+   "span_s": 174.7,
+   "max_gap_s": 0.714,
+   "median_gap_s": 0.692,
+   "distinct_sha256": 267,
+   "all_frames_distinct": true
+  }
+ },
+ "chassis_tag_watch": {
+  "enabled": true,
+  "samples": 142,
+  "resolved": 45,
+  "resolved_fraction": 0.32,
+  "run_window_shift_mm": {
+   "max": 85.18,
+   "median": 6.18,
+   "sd": 14.68
+  },
+  "run_window_yaw_delta_deg": {
+   "max": 4.87,
+   "median": 0.98
+  },
+  "at_rest_reference_40s": {
+   "resolved": 17,
+   "max_radial_deviation_mm": 39.72,
+   "sd_radial_mm": 10.86
+  },
+  "trips": {
+   "shift_mm": 120.0,
+   "yaw_deg": 15.0,
+   "consecutive_resolved_samples": 3
+  },
+  "tripped": false,
+  "verdict": "chassis tag did not move beyond its own at-rest scatter: the run-window max radial offset is the same order as the 39.7 mm maximum measured with the robot untouched for 40 s, and the baseline itself was formed from only 2 resolved samples so it carries most of that spread. No sustained excursion, and the 120 mm / 15 deg bound was never approached on 3 consecutive resolved samples.",
+  "honest_limit": "this bounds GROSS chassis motion only; the tag's own error_95 is ~93 mm. Fine stillness rests on the joint telemetry, where the worst measured non-L0 joint stayed 0.439 deg from logical zero for all 1560 ticks."
+ }
+}

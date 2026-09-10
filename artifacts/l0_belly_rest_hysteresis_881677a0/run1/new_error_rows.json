@@ -1,0 +1,14 @@
+[
+ {
+  "ts": "2026-09-10T14:40:13.359Z",
+  "mono": 59412.661842,
+  "seq": 214,
+  "kind": "error",
+  "level": "error",
+  "src": "bench",
+  "msg": "limp: error: runtime state stream incomplete: joints [2]",
+  "data": {
+   "activity": "limp"
+  }
+ }
+]

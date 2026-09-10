@@ -1,0 +1,14 @@
+[
+ {
+  "ts": "2026-09-10T14:42:21.516Z",
+  "mono": 59540.818622,
+  "seq": 267,
+  "kind": "error",
+  "level": "error",
+  "src": "bench",
+  "msg": "limp: error: telemetry admission failed: telemetry sample 1 incomplete: 17/18 servos",
+  "data": {
+   "activity": "limp"
+  }
+ }
+]

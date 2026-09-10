@@ -93,6 +93,7 @@ def _telemetry_admission(
     healthy_motor_samples: int,
     max_state_age_ms: float,
     voltage_bounds_v: tuple[float, float],
+    max_consecutive_incomplete: int = MAX_MISSED_READS,
     clock: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
 ) -> tuple[bool, str, dict]:
@@ -103,53 +104,114 @@ def _telemetry_admission(
     data in that response.  Keeping the generated completion timestamps and
     requiring them to advance makes that freshness contract explicit and easy
     to fault-inject in offline tests.
+
+    A single dropped servo reply is telemetry noise, not a fault: it is
+    resampled, and admission is only refused once ``max_consecutive_incomplete``
+    reads in a row come back incomplete/stale.  That is the same
+    three-consecutive-reads rule ``MAX_MISSED_READS`` already applies in the
+    command loop and ``_read_pose_debounced`` already applies to the pre-glide
+    pose read -- this guard was the one pre-motion read that still failed a
+    whole run on one dropped byte.  The admission requirement itself is
+    unchanged and is NOT weakened: ``healthy_motor_samples`` full-bus samples
+    must still be observed CONSECUTIVELY, and an incomplete read resets that
+    run to zero rather than counting toward it.
+
+    A voltage outside ``voltage_bounds_v`` is an electrical fault, not
+    telemetry noise, and still refuses admission immediately.
     """
 
     min_voltage_v, max_voltage_v = voltage_bounds_v
     if (healthy_motor_samples < 1 or expected_live_motors < 1
-            or max_state_age_ms <= 0.0 or min_voltage_v > max_voltage_v):
+            or max_state_age_ms <= 0.0 or min_voltage_v > max_voltage_v
+            or max_consecutive_incomplete < 1):
         return False, "invalid telemetry admission requirements", {}
     expected_joints = set(range(expected_live_motors))
     completed_at: list[float] = []
     observed_voltages: list[float] = []
-    for sample_index in range(healthy_motor_samples):
+    consecutive_bad = 0
+    resampled = 0
+    # Bounded: every read either extends the consecutive-good run or the
+    # consecutive-bad run, and this caps an alternating good/bad pattern.
+    budget = healthy_motor_samples + 2 * max_consecutive_incomplete
+    last_bad = ""
+
+    def _bad(reason: str) -> bool:
+        """Record a retryable read. True when the run must be refused."""
+        nonlocal consecutive_bad, resampled, last_bad
+        consecutive_bad += 1
+        resampled += 1
+        last_bad = reason
+        completed_at.clear()
+        observed_voltages.clear()
+        return consecutive_bad >= max_consecutive_incomplete
+
+    for _ in range(budget):
+        if len(completed_at) >= healthy_motor_samples:
+            break
         started = clock()
         try:
             feedback = bus.read_all_feedback()
         except Exception as error:
-            return False, f"telemetry sample {sample_index + 1} failed: {error}", {}
+            if _bad(f"read failed: {error}"):
+                return False, (
+                    f"{last_bad} on {consecutive_bad} consecutive reads"), {}
+            sleep(0.05)
+            continue
         completed = clock()
         state_age_ms = max(0.0, completed - started) * 1000.0
         if not isinstance(feedback, dict) or set(feedback) != expected_joints:
             count = len(feedback) if isinstance(feedback, dict) else 0
-            return False, (
-                f"telemetry sample {sample_index + 1} incomplete: "
-                f"{count}/{expected_live_motors} servos"
-            ), {}
+            if _bad(f"incomplete: {count}/{expected_live_motors} servos"):
+                return False, (
+                    f"{last_bad} on {consecutive_bad} consecutive reads"), {}
+            sleep(0.05)
+            continue
         if state_age_ms > max_state_age_ms:
-            return False, (
-                f"telemetry sample {sample_index + 1} stale: "
-                f"{state_age_ms:.1f} ms > {max_state_age_ms:.1f} ms"
-            ), {}
+            if _bad(f"stale: {state_age_ms:.1f} ms > "
+                    f"{max_state_age_ms:.1f} ms"):
+                return False, (
+                    f"{last_bad} on {consecutive_bad} consecutive reads"), {}
+            sleep(0.05)
+            continue
         if completed_at and completed <= completed_at[-1]:
-            return False, "telemetry sample timestamps did not advance", {}
+            if _bad("sample timestamps did not advance"):
+                return False, (
+                    f"{last_bad} on {consecutive_bad} consecutive reads"), {}
+            sleep(0.05)
+            continue
         voltages = []
+        malformed = ""
         for joint, record in feedback.items():
             try:
                 voltage = float(record["volt"])
             except (KeyError, TypeError, ValueError):
-                return False, f"telemetry sample missing voltage for joint {joint}", {}
+                malformed = f"missing voltage for joint {joint}"
+                break
             if not min_voltage_v <= voltage <= max_voltage_v:
+                # An out-of-bounds rail is an electrical fault (brownout),
+                # not a dropped byte. Refuse immediately, as before.
                 return False, (
                     f"telemetry voltage out of bounds for joint {joint}: "
                     f"{voltage:.2f} V not in "
                     f"[{min_voltage_v:.2f}, {max_voltage_v:.2f}] V"
                 ), {}
             voltages.append(voltage)
+        if malformed:
+            if _bad(malformed):
+                return False, (
+                    f"{last_bad} on {consecutive_bad} consecutive reads"), {}
+            sleep(0.05)
+            continue
+        consecutive_bad = 0
         observed_voltages.extend(voltages)
         completed_at.append(completed)
-        if sample_index + 1 < healthy_motor_samples:
+        if len(completed_at) < healthy_motor_samples:
             sleep(0.05)
+    if len(completed_at) < healthy_motor_samples:
+        return False, (
+            f"only {len(completed_at)}/{healthy_motor_samples} consecutive "
+            f"healthy samples within {budget} reads"
+            + (f" (last: {last_bad})" if last_bad else "")), {}
     return True, "ok", {
         "samples": len(completed_at),
         "servos_per_sample": expected_live_motors,
@@ -157,6 +219,7 @@ def _telemetry_admission(
         "max_voltage_v": max(observed_voltages),
         "max_state_age_ms": max_state_age_ms,
         "sample_timestamps": completed_at,
+        "resampled_reads": resampled,
     }
 
 
@@ -295,6 +358,32 @@ def run_sysid_protocol(
             if attempt + 1 < attempts:
                 time.sleep(0.1)
         return merged, missing
+
+    def _read_runtime_pose_debounced(
+            attempts: int = MAX_MISSED_READS
+    ) -> tuple[dict[int, float], list[int], str | None]:
+        """Merge runtime-stream reads so one dropped ID never trips.
+
+        The command loop already requires MAX_MISSED_READS consecutive misses
+        before it limps a joint, and _read_pose_debounced already merges the
+        pre-glide pose read for the same reason. This is the establishment
+        read; before this it was single-shot, so one dropped reply refused a
+        whole run. A joint that is genuinely absent still misses every
+        attempt and still refuses the run.
+        """
+        merged: dict[int, float] = {}
+        missing = list(live_joints)
+        error: str | None = None
+        for attempt in range(attempts):
+            sampled, _, error = _read_runtime_pose()
+            if error is None:
+                merged.update(sampled)
+                missing = [j for j in live_joints if j not in merged]
+                if not missing:
+                    return merged, [], None
+            if attempt + 1 < attempts:
+                time.sleep(0.1)
+        return merged, missing, error
 
     pose0, miss0 = _read_pose_debounced()
     if miss0:
@@ -454,7 +543,8 @@ def run_sysid_protocol(
         # Establish the runtime stream before issuing the first streamed
         # target.  Admission alone does not prove that state will continue to
         # advance after torque enable.
-        runtime_pose, runtime_missing, runtime_error = _read_runtime_pose()
+        (runtime_pose, runtime_missing,
+         runtime_error) = _read_runtime_pose_debounced()
         if runtime_error:
             tripped_error = runtime_error
         elif runtime_missing:

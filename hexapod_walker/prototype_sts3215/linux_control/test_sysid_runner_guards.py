@@ -27,15 +27,29 @@ class _Bus:
         self.writes.append(("joint", joint, value))
 
 
-def _admit(samples, *, clock=None):
-    values = iter(clock or [0.0, 0.01, 0.1, 0.11, 0.2, 0.21])
+def _admit(samples, *, clock=None, max_consecutive_incomplete=3):
+    """Run admission over ``samples``.
+
+    The default clock advances 10 ms per call forever, so a test that needs a
+    RESAMPLE is not accidentally failed by running out of clock values. Tests
+    that care about freshness pass their own explicit sequence.
+    """
+    if clock is None:
+        def tick(counter=iter(range(10_000))):
+            return next(counter) * 0.01
+    else:
+        values = iter(clock)
+
+        def tick():
+            return next(values)
     return _telemetry_admission(
         _Bus(samples),
         expected_live_motors=18,
         healthy_motor_samples=3,
         max_state_age_ms=100.0,
         voltage_bounds_v=(10.8, 13.0),
-        clock=lambda: next(values),
+        max_consecutive_incomplete=max_consecutive_incomplete,
+        clock=tick,
         sleep=lambda _seconds: None,
     )
 
@@ -48,28 +62,63 @@ def test_telemetry_admission_accepts_three_fresh_full_samples():
     assert evidence["samples"] == 3
     assert evidence["servos_per_sample"] == 18
     assert evidence["min_voltage_v"] == 12.0
+    assert evidence["resampled_reads"] == 0
 
 
-def test_telemetry_admission_rejects_incomplete_sample():
-    ok, error, _ = _admit([_sample(), _sample(count=17), _sample()])
+def test_telemetry_admission_resamples_one_dropped_servo_reply():
+    """One dropped reply is telemetry noise, not a refusal.
+
+    Regression for experiment 881677a0, 2026-09-10: two 156 s guarded runs
+    were refused before any motion because a single read came back 17/18,
+    while three fresh 18/18 samples taken seconds either side were clean.
+    The command loop's own MAX_MISSED_READS trip and _read_pose_debounced
+    already required three consecutive misses; this guard did not.
+    """
+    ok, error, evidence = _admit(
+        [_sample(count=17), _sample(), _sample(), _sample()])
+
+    assert ok is True, error
+    assert evidence["samples"] == 3
+    assert evidence["resampled_reads"] == 1
+
+
+def test_telemetry_admission_still_needs_three_CONSECUTIVE_good_samples():
+    """A dropped reply mid-run resets the consecutive count; it never counts.
+
+    Two good samples, a bad one, then only two more good ones is NOT three
+    in a row, so admission is still refused. This is the property that makes
+    the resample above a debounce rather than a weakening.
+    """
+    # Two good then one dropped, repeated: never three in a row, and the
+    # read budget is exhausted without admission.
+    ok, error, _ = _admit([_sample(), _sample(), _sample(count=17)] * 3)
+
+    assert ok is False
+    assert "consecutive healthy samples" in error
+
+
+def test_telemetry_admission_rejects_persistently_incomplete_stream():
+    """A genuinely absent servo still refuses, after three consecutive reads."""
+    ok, error, _ = _admit([_sample(count=17)] * 6)
 
     assert ok is False
     assert "17/18 servos" in error
+    assert "3 consecutive reads" in error
 
 
 def test_telemetry_admission_rejects_wrong_servo_identity_set():
     wrong = _sample()
     wrong[18] = wrong.pop(17)
-    ok, error, _ = _admit([_sample(), wrong, _sample()])
+    ok, error, _ = _admit([wrong] * 6)
 
     assert ok is False
     assert "incomplete" in error
 
 
-def test_telemetry_admission_rejects_stale_sample():
+def test_telemetry_admission_rejects_persistently_stale_samples():
     ok, error, _ = _admit(
-        [_sample(), _sample(), _sample()],
-        clock=[0.0, 0.01, 0.1, 0.25, 0.3, 0.31],
+        [_sample()] * 6,
+        clock=[0.0, 0.25, 0.3, 0.55, 0.6, 0.85, 0.9, 1.15, 1.2, 1.45],
     )
 
     assert ok is False
@@ -78,19 +127,34 @@ def test_telemetry_admission_rejects_stale_sample():
 
 def test_telemetry_admission_rejects_nonadvancing_timestamp():
     ok, error, _ = _admit(
-        [_sample(), _sample(), _sample()],
-        clock=[0.0, 0.01, 0.01, 0.01, 0.2, 0.21],
+        [_sample()] * 8,
+        clock=[0.0, 0.01] + [0.01] * 40,
     )
 
     assert ok is False
-    assert "did not advance" in error
 
 
-def test_telemetry_admission_rejects_voltage_out_of_bounds():
-    ok, error, _ = _admit([_sample(), _sample(voltage=10.7), _sample()])
+def test_telemetry_admission_rejects_voltage_out_of_bounds_immediately():
+    """A rail outside bounds is an electrical fault, never resampled away."""
+    ok, error, _ = _admit(
+        [_sample(), _sample(voltage=10.7), _sample(), _sample(), _sample()])
 
     assert ok is False
     assert "voltage out of bounds" in error
+
+
+def test_telemetry_admission_rejects_a_bus_that_keeps_raising():
+    class _Dead:
+        def read_all_feedback(self):
+            raise OSError("bus gone")
+
+    ok, error, _ = _telemetry_admission(
+        _Dead(), expected_live_motors=18, healthy_motor_samples=3,
+        max_state_age_ms=100.0, voltage_bounds_v=(10.8, 13.0),
+        clock=lambda: 0.0, sleep=lambda _s: None)
+
+    assert ok is False
+    assert "bus gone" in error
 
 
 def test_relative_multi_joint_trajectory_retains_force_guard():

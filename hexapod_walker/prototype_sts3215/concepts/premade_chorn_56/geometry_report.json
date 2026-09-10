@@ -28,28 +28,38 @@
     "premade_bracket_reference_g": 23.0,
     "driven_spacer_g": 2.5,
     "passive_spacer_g": 2.2,
-    "femur_body_g": 38.0,
+    "femur_body_g": 38.5,
     "tibia_socket_g": 18.0,
-    "flat_coxa_link_with_integral_tower_g": 76.6,
-    "screw_on_lower_yaw_hub_g": 10.2,
-    "flat_hip_clamp_cap_g": 32.2,
-    "screw_on_hip_bearing_carrier_g": 11.3,
+    "flat_coxa_link_with_integral_tower_g": 60.7,
+    "screw_on_lower_yaw_hub_g": 24.2,
+    "flat_hip_clamp_cap_g": 32.3,
+    "screw_on_hip_bearing_carrier_g": 11.0,
     "driven_spacer_nominal_preload_overlap_mm3": 31.15,
     "passive_spacer_nominal_preload_overlap_mm3": 30.21
   },
   "clamp_cap_captive_nuts": {
     "converted_joints_per_robot": 12,
     "captive_m3_nuts_per_hip": 2,
-    "captive_m3_nuts_per_knee": 1,
-    "captive_m3_nuts_per_robot": 18,
+    "captive_m3_nuts_per_knee": 2,
+    "captive_m3_nuts_per_robot": 24,
     "screw": "M3x8 SHCS",
     "nut_pocket_across_flats_mm": 5.8,
     "nut_pocket_depth_mm": 2.7,
     "minimum_lateral_shell_each_side_mm": 1.6,
     "conservative_thread_beyond_nut_mm": 3.3,
-    "minimum_upper_bearing_to_clamp_head_edge_mm": 4.35,
+    "minimum_upper_bearing_to_clamp_head_edge_mm": 3.62,
     "servo_case_self_tapping_screws_changed": false,
-    "knee_vertical_retention_screw_changed": false
+    "knee_vertical_retention_screw_replaced": true,
+    "knee_cap_screw_centres_xz_mm": [
+      [
+        27.2,
+        17.15
+      ],
+      [
+        -17.0,
+        40.0
+      ]
+    ]
   },
   "femur_servo_fit": {
     "servo_receiver_overlap_mm3": 0.0,
@@ -62,34 +72,31 @@
     "servo_side_skin_mm": 0.5
   },
   "split_lower_yaw_hub": {
-    "interface_z_mm": 4.0,
-    "main_flat_print_face_z_mm": 4.0,
-    "carrier_collar_z_range_mm": [
-      4.0,
-      12.0
+    "interface_z_mm": 8.0,
+    "screw_centres_xy_mm": [
+      [
+        20.0,
+        -16.0
+      ],
+      [
+        20.0,
+        16.0
+      ],
+      [
+        68.0,
+        -16.0
+      ],
+      [
+        68.0,
+        16.0
+      ]
     ],
-    "carrier_collar_radii_mm": [
-      13.0,
-      16.6
-    ],
-    "coxa_socket_radii_mm": [
-      16.9,
-      19.0
-    ],
-    "radial_assembly_clearance_mm": 0.29999999999999716,
-    "interface_overlap_mm3": 0.0,
-    "attachment": "3x radial M3x6 low-profile SHCS into captive nuts",
-    "radial_screw_angles_deg": [
-      120.0,
-      180.0,
-      240.0
-    ],
-    "nut_pocket_across_flats_mm": 5.8,
-    "nut_pocket_depth_mm": 2.7,
-    "minimum_nut_back_shell_mm": 0.9,
-    "minimum_nut_vertical_shell_mm": 1.1,
-    "head_seat_shoulder_mm": 1.1,
-    "thread_beyond_nut_mm": 1.9,
+    "screw_length_mm": 6.0,
+    "head_seat_z_mm": 5.0,
+    "tip_z_mm": 11.0,
+    "pilot_end_z_mm": 11.5,
+    "engagement_mm": 3.0,
+    "attachment": "four underside self-tappers into coxa foot; transferred flat lower foot",
     "bearing_press_overlap_mm3": 49.72
   },
   "split_hip_bearing": {
@@ -97,10 +104,10 @@
     "carrier_flat_face_y_mm": 21.9,
     "cap_carrier_overlap_mm3": 0.0,
     "bearing_press_overlap_mm3": 0.146,
-    "attachment": "3x M3x8 countersunk screws into captive M3 nuts",
-    "nut_pocket_across_flats_mm": 5.8,
-    "nut_pocket_depth_mm": 2.7,
-    "minimum_nut_to_outer_shell_mm": 0.6,
+    "attachment": "4x M3 self-tapping screws from carrier into cap pilots",
+    "pilot_diameter_mm": 2.4,
+    "head_pocket_diameter_mm": 6.2,
+    "head_pocket_depth_mm": 2.8,
     "mount_radius_mm": 19.0
   },
   "tibia_screw_access": {

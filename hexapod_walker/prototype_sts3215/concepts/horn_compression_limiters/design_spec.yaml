@@ -17,7 +17,7 @@ hardware:
   limiter:
     enabled_from: "spacer_config.toml [spacer].enabled; the generated scene records the active value"
     material: "thin-wall stainless or brass tube; square, deburred ends"
-    outside_diameter_mm: 5.50
+    outside_diameter_mm: 4.50
     inside_diameter_mm: 3.20
     fixed_length_mm: 10.00
     quantity_per_yoke_joint: 8
@@ -25,10 +25,10 @@ hardware:
     fit: "light push/slip after hole cleanup; never a forced interference fit"
   printed_bore:
     rule: "spacer outside diameter + bore diametral allowance"
-    diametral_allowance_mm: 0.30
-    nominal_radial_allowance_mm: 0.15
-    default_diameter_mm: 5.80
-    coupon_diameters_mm: [5.60, 5.80, 6.00, 6.20, 6.40]
+    diametral_allowance_mm: 0.20
+    nominal_radial_allowance_mm: 0.10
+    default_diameter_mm: 4.70
+    coupon_diameters_mm: [4.65, 4.70, 4.75, 4.80, 4.85]
     orientation: "horizontal, matching the printable parts"
   free_printed_stack_mm: 10.10
   initial_plastic_compression_mm: 0.10
@@ -40,7 +40,7 @@ hardware:
 geometry_constraints:
   horn_bolt_circle_diameter_mm: 14.0
   four_bolt_pattern: "0/90/180/270 degree cross"
-  nominal_sleeve_to_horn_edge_gap_mm: 0.25
+  nominal_sleeve_to_horn_edge_gap_mm: 0.75
   center_spline_boss_location: "servo-facing side of the aluminum horn; not in the printed-link clamp stack"
   yaw_printed_neck_diameter_mm: 22.0
   yaw_chassis_opening_diameter_mm: 24.0
@@ -48,24 +48,24 @@ geometry_constraints:
 
 parts:
   metal_compression_limiter:
-    description: "User-owned fixed 10 mm Ø5.5 OD × nominal Ø3.2 ID M3 metal spacer carrying screw preload directly from the standard washer/SHCS head to the aluminum horn."
+    description: "User-owned fixed 10 mm Ø4.5 OD × nominal Ø3.2 ID M3 metal spacer carrying screw preload directly from the standard washer/SHCS head to the aluminum horn."
     material: "stainless steel or brass"
     print_or_buy: "already owned; do not shorten or stack; deburr and verify free M3 passage"
   compression_limiter_fit_coupon:
-    description: "Printer-specific coupon with five 10.1 mm-long horizontal bores from Ø5.60 through Ø6.40 in 0.20 mm steps; a notch marks the Ø5.60 end."
+    description: "Printer-specific coupon with five 10.1 mm-long horizontal bores from Ø4.65 through Ø4.85 in 0.05 mm steps; a notch marks the Ø4.65 end."
     material: "same filament, orientation, and slicer settings as the test joint"
     print_or_buy: "print before any complete joint part"
   femur_link_compression_limiter_test:
     source: "current make_femur_link_part production builder"
-    change: "four axial Ø5.80 clearance bores through both hip-yoke arms plus local Ø8 x 1.1 mm head-bearing bosses"
+    change: "four axial Ø4.70 clearance bores through both hip-yoke arms plus local Ø8 x 1.1 mm head-bearing bosses; femur knee-servo clamp cap uses two inside-loaded press-fit M3 hex nut traps"
     limiter_count: 8
   tibia_knee_yoke_compression_limiter_test:
     source: "current make_tibia_knee_yoke production builder"
-    change: "four axial Ø5.80 clearance bores through both knee-yoke arms plus local Ø8 x 1.1 mm head-bearing bosses"
+    change: "four axial Ø4.70 clearance bores through both knee-yoke arms plus local Ø8 x 1.1 mm head-bearing bosses"
     limiter_count: 8
   coxa_link_yaw_compression_limiter_test:
     source: "current make_coxa_link_part production builder"
-    change: "four Ø5.80 x 10.1 mm sleeve bores, Ø22 printed neck, deeper perimeter head seats, and Ø7.2 washer access shafts; center spline screw unchanged"
+    change: "four Ø4.70 x 10.1 mm sleeve bores, Ø22 printed neck, deeper perimeter head seats, and Ø7.2 washer access shafts; center spline screw unchanged"
     limiter_count: 4
 
 decision:
@@ -75,10 +75,21 @@ decision:
 
 checks:
   required:
-    - "the corrected horizontal coupon's Ø5.80 hole accepts the sleeve before a complete test part is printed"
+    - "the corrected horizontal coupon's Ø4.70 hole accepts the sleeve before a complete test part is printed"
     - "all generated variants remain closed volumes"
     - "BuildViz scene metadata, placement, and overlap checks pass"
     - "physical M3 screw passes freely through the selected tube"
     - "tube does not hold the printed pad off the aluminum horn"
     - "yaw screw tip does not bottom on the servo case"
     - "witness marks remain aligned after hand-rock and heat/load cycling"
+
+femur_clamp_cap_nuts:
+  quantity: 2
+  nut: "standard M3 hex nut, nominal AF 5.5 mm x thickness 2.4 mm"
+  pocket_across_flats_mm: 5.45
+  pocket_depth_mm: 2.50
+  retaining_shoulder_mm: 2.00
+  bolt_clearance_mm: 3.40
+  screw: "M3x8 machine screw through existing recessed cap"
+  installation: "Press nuts outward from inside servo cavity (+/-X) through short openings to closed hex stops before fitting servo"
+  fit_status: "nominal 0.05 mm AF interference; physical fit not yet verified"

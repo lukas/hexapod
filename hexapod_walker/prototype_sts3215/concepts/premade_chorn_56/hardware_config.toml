@@ -147,46 +147,34 @@ foot_x_range_mm = [9.30, 74.70]
 foot_z_range_mm = [4.00, 12.00]
 
 [hip_bearing_carrier]
-# The upper 6805 pedestal is now a separate flat-backed cartridge. Three
-# M3x8 countersunk screws enter from the underside of the flat hip-cap pad
-# into captive M3 nuts dropped into hex pockets in the cartridge mounting
-# face. The cap closes the pockets after the nuts are installed. The
-# asymmetric triangle stays clear of the two tower-to-carrier screws at
-# X=-14, Y=+/-6.
+# The upper 6805 pedestal is a separate flat-backed cartridge. Four ordinary
+# M3 self-tapping screws enter from the cartridge's exposed face through
+# counterbores and bite into short pilot holes in the flat hip-cap pad. The
+# square pattern is symmetric and keeps the two tower-to-carrier screws at
+# X=-14, Y=+/-6 clear of the bearing mount.
 mount_radius_mm = 19.0
 cap_pad_inner_face_y_mm = 17.0
-mount_screw_radius_mm = 15.5
+mount_screw_radius_mm = 14.0
 # The first screw moves off 0 degrees so its countersink stays clear of the
 # fixed inboard clamp-cap bolt. The other two retain the asymmetric pattern
 # that clears the coxa tower's two top-entry screws.
-mount_screw_angles_deg = [35.0, 97.5, 262.5]
+mount_screw_angles_deg = [45.0, 135.0, 225.0, 315.0]
 m3_clearance_diameter_mm = 3.40
-countersink_major_diameter_mm = 6.50
-countersink_depth_mm = 2.0
-nut_pocket_across_flats_mm = 5.80
-nut_pocket_depth_mm = 2.70
-screw_tip_clearance_depth_mm = 3.30
+pilot_diameter_mm = 2.40
+head_pocket_diameter_mm = 6.20
+head_pocket_depth_mm = 2.80
+screw_tip_clearance_depth_mm = 4.50
 flange_top_gap_below_bearing_mm = 0.40
 
 [coxa_yaw_hub_split]
-# The lower yaw carrier grows an annular male collar upward into a matching
-# coxa socket. Three radial M3 screws enter through edge-access tunnels at the
-# rear half of the socket and engage captive nuts in the carrier collar. This
-# deletes the two thin top-screw tongues while keeping the five vertical horn
-# driver corridors open.
-interface_z_mm = 4.0
-carrier_collar_inner_radius_mm = 13.00
-carrier_collar_outer_radius_mm = 16.60
-coxa_socket_inner_radius_mm = 16.90
-coxa_socket_outer_radius_mm = 19.00
-collar_top_z_mm = 12.00
-radial_clearance_mm = 0.30
-radial_screw_axis_z_mm = 8.00
-radial_screw_angles_deg = [120.0, 180.0, 240.0]
+# Entire lower coxa foot transfers to the carrier. Both parts print on z=8.
+interface_z_mm = 8.0
+screw_centres_xy_mm = [[20.0, -16.0], [20.0, 16.0], [68.0, -16.0], [68.0, 16.0], [-11.0, -21.0], [-11.0, 21.0]]
 m3_clearance_diameter_mm = 3.40
-head_access_diameter_mm = 6.20
-head_seat_radius_mm = 18.00
-head_access_outer_radius_mm = 26.00
-nut_pocket_across_flats_mm = 5.80
-nut_pocket_depth_mm = 2.70
-screw_length_mm = 6.0
+vertical_pilot_diameter_mm = 2.40
+vertical_head_diameter_mm = 5.70
+head_seat_z_mm = 5.0
+vertical_screw_length_mm = 6.0
+pilot_end_z_mm = 11.5
+# Pan head envelope: diameter <=5.4, height <=2.4; pointed tip <=1 mm.
+# Heads extend below the foot, away from the bearing. Assemble before mounting leg.

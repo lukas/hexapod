@@ -8,11 +8,12 @@ from typing import Any, Dict, Optional
 from . import planner, robot, runner
 from .builder import BuilderThread
 from .config import Settings
-from .store import Store
+from .store import Store, now_iso
 
 
 @dataclass
 class Counters:
+    started_at: str = ""
     unreachable: int = 0
     empty_plans: int = 0
     last_run_id: Optional[str] = None
@@ -20,7 +21,7 @@ class Counters:
 
 
 def stop_reason(settings: Settings, store: Store, c: Counters) -> Optional[str]:
-    failed = store.consecutive_failed_runs()
+    failed = store.consecutive_failed_runs(since=c.started_at)
     if failed >= settings.max_consecutive_failed_runs:
         return f"{failed} failed runs in a row"
     if c.unreachable >= settings.max_consecutive_unreachable:
@@ -65,7 +66,7 @@ def main_loop(settings: Settings, store: Store, *, log=print, sleep=time.sleep,
               max_iterations: Optional[int] = None) -> str:
     settings.runs_dir.mkdir(parents=True, exist_ok=True)
     builder = BuilderThread(settings, store)
-    c = Counters()
+    c = Counters(started_at=now_iso())
     released = store.release_stuck_builds()
     store.add_event("note", "loop started" + (f"; {released} interrupted build(s) requeued" if released else ""))
     iterations = 0

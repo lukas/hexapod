@@ -1,6 +1,6 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
-## `decleg` (decentralized per-leg actor) does NOT fix the walkcurr front-pair off-axis-heading sacrifice on its `-base` recipe — it entrenches the fingerprint further than the centralized-MLP architecture it was meant to improve on, at parity budget (2026-09-10, triage)
+## `decleg` (decentralized per-leg actor) is REFUTED as a fix for the walkcurr front-pair off-axis-heading sacrifice — all 3 easy-pilot arms (base, gSDE, half-gravity) FAIL; no untried structural idea remains named (2026-09-10, closed this cycle)
 
 The 09-09 ~22:3x entry below closed value-calibration as the 7th and
 last named reward/advantage/critic-side lever for the chronic
@@ -8,27 +8,40 @@ front-pair leg sacrifice and said the next attempt needed "a genuinely
 new structural idea (different action-space/exploration primitive, or
 routing around the sacrifice at a higher level)." `decleg_policy.py`
 (Schilling et al. IROS 2020, per-leg-tower actor, already built/tested
-08-29 6/6 unit-green) was that idea, tried fresh at the campaign's own
-easy-physics forward-only starting point (`decleg-base-{s0,s1}`, 2M
-canary -> +18M acq1 -> +20M acq2, 42M cumulative — the exact budget
-`base-{s0,s1}-c1` needed to clear this fingerprint cleanly, PASS 6/6
-det). Result: det-mode legs[1,4] stayed sacrificed unchanged across
-the whole +38M, and sto-mode — clean 6/6 gait_valid at acq1 — **regressed**
-to 0/6 by acq2 (same rear-pair-held-rigid shape on video). Both seeds
-agree. Verdicted FAIL on the gate's own pre-registered aligned-FAIL
-text ("unchanged/worsen despite reward still rising = architecture-
-specific result, not more budget"). This closes decleg-`base` as a fix
-for the sacrifice; it does not yet close the whole decleg direction —
-`decleg-{sde,halfgrav}-s0-acq1(r2)` (different single-lever variants:
-gSDE exploration, half gravity) were still training under another
-cycle at the time of this entry and may read differently. If those
-also entrench/worsen, decleg as a family is refuted for this repair
-and the "genuinely new structural idea" search continues elsewhere
-(a higher-level routing/composition approach, not another per-leg-
-actor variant). Evidence: `ops.sh entry cw-walkscratch-easy0905-decleg-
-base-{s0,s1}-acq2` (verdicts); `logs/ckpt_eval/cw_walkscratch_
-easy0905_decleg_base_{s0,s1}_{acq1,acq2}_gate/report.json` (sto-mode
-before/after); `rl_docs/tracks/walkcurr/STATUS.md` 2026-09-10 ~09:0x.
+08-29 6/6 unit-green) was that idea, tried on the campaign's own
+easy-physics forward-only starting point across the same 4-arm lever
+grid the centralized-MLP pilot used (base-s0/s1, gSDE, half-gravity).
+**All 3 arms now FAIL:**
+- **`decleg-base-{s0,s1}`** (2M canary -> +18M acq1 -> +20M acq2, 42M
+  cumulative — the exact budget centralized `base-{s0,s1}-c1` needed to
+  clear this fingerprint cleanly, PASS 6/6 det): legs[1,4] stayed
+  sacrificed unchanged across the whole +38M in det, and sto-mode —
+  clean 6/6 at acq1 — **regressed** to 0/6 by acq2. Both seeds agree.
+- **`decleg-sde-s0-acq1r2`** (2M canary -> +20M acq1, gSDE exploration
+  lever): a DIFFERENT, worse failure mode — the robot rears onto its
+  hind legs and tips over BACKWARD in **24/24 held-out episodes**
+  (every mode, det+sto, all TERM tilt_pitch), fwd progress ~0.006-0.0085
+  m/s (far under the 0.03 m/s bar). `walk_startjitter/sto` gait_valid
+  regressed from the 2M canary's own 5/6 to 2/6. Isolates gSDE x decleg
+  as its own instability, distinct from base's exploit.
+- **`decleg-halfgrav-s0-acq1`** (2M canary -> +20M acq1, half-gravity
+  lever): the SAME legs[1,4] LEGPARK-SKATE fingerprint as base, but
+  entrenching FASTER — sto flips from the canary's clean 6/6 straight
+  to 0/6 at only ~22M cumulative, one full continuation earlier than
+  base needed (~42M) to show the same regression.
+All 3 verdicted FAIL on the gate's own pre-registered aligned-FAIL text
+("unchanged/worsen despite reward still rising = architecture-specific
+result, not more budget"). **Decleg as a family is now refuted for this
+repair on every tested lever (plain, gSDE, half-gravity).** The
+"genuinely new structural idea" search must go elsewhere (a higher-
+level routing/composition approach, or a different action-space/
+exploration primitive entirely) — not another per-leg-actor variant or
+dose of this same mechanism. Evidence: `ops.sh entry cw-walkscratch-
+easy0905-decleg-{base-{s0,s1}-acq2,sde-s0-acq1r2,halfgrav-s0-acq1}`
+(verdicts); `logs/ckpt_eval/cw_walkscratch_easy0905_decleg_{base_
+{s0,s1}_acq2,sde_s0_acq1r2,halfgrav_s0_acq1}_gate/report.json` (sto-mode
+before/after each arm); `rl_docs/tracks/walkcurr/STATUS.md` 2026-09-10
+~09:0x and ~09:1x.
 
 ## ROOT CAUSE + FIX: the whole day's `web_session_drivecapture.py` "off-forward-axis directional softness" chain below was measured through a tool that let the sim run at ~0.26-0.28x real time while scheduling phases on WALL-CLOCK — for the `any_means` champion this makes "reverse" mostly a measurement artifact of the velocity-ramp transient, not a real residual; for the `rl_only` champion the reverse defect is CONFIRMED genuine by the same fix (2026-09-10, refill cycle; 15/15 GPU free, empty backlog, no GPU-launchable lever on any track — built the tool this file's own immediately-preceding entry named as the concrete next step: "needs finer-grained per-tick telemetry or a true net-displacement measure")
 

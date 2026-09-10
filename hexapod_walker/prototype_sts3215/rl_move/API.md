@@ -104,6 +104,37 @@ rl_move.scripts.summarize_scripted_gait_reliability --runs
 rl_move/hardware_traces --output
 rl_move/hardware_traces/gait_reliability.json`.
 
+## Joystick-driving hexapod2 with the RL walk (2026-09-10)
+
+State on `hexapod2.local` as left on 2026-09-10: walk slot AND hold role =
+`walk_allheading_mlp_singleframe_acq1_stdanneal.json` (obs 74, 100 Hz, the
+todaypolicy walk), uploaded under `~/.hexapod_policies` (survives deploys).
+Bridge firmware = current `firmware/feetech_bridge` (STREAM + bounded
+fallbacks, see `rl_docs/HARDWARE_100HZ_TIMING_2026-09-10.md`).
+
+1. Open `https://hexapod2.local:8443/rl` (accept the self-signed cert once;
+   gamepads only work in a secure context). HTTP `:8080/rl` works for keys.
+2. Robot belly-down, legs straight: press **RL Stand Up** (STEP stand, then
+   settle to the sim walk-ready pose, ~10 s). The "Drive - keys / pad" panel
+   flips from "Stand up first" to "Ready / Auto-start on input".
+3. Drive: hold **W/A/S/D or arrows** (also I/J/K/L), the on-screen pad, or the
+   **left stick** of an Xbox-layout controller. The first input starts the
+   drive session; releasing everything decays to the hold policy. Speed
+   selector: leave at 0.08 m/s (this policy has a fixed 0.08 band; other
+   values clamp back to it). Q/E and the right stick send yaw, which this
+   obs-74 policy has no input for (it will just hold), so expect no turn
+   authority; steer by crabbing. Expect a low shuffle at ~0.03 m/s.
+4. Stop: **End session (hold policy)**, then **RL Lower** (STEP sit-down),
+   then **X** on the Drive tab to limp. Leaving a session idle >120 s ends it;
+   sessions hard-cap at 300 s (just start again).
+
+Gotchas: the physical joystick drives the scripted Drive-tab gait unless an
+RL drive session is already active, so the first stick input from a cold
+start begins one. A timing trip holds pose (does not limp) and shows in the
+panel status; see the timing doc's checklist before blaming the policy. Do
+not re-run the 25 Hz `dep_tip1_25hz.json` after this one without RL Stand Up
+in between (post-walk stance is outside the walk-ready tolerance).
+
 ## Deployed policies (2026-08-10, hardware attempt #2)
 
 - stance = `ppo_goal_cw_stance_dr10` (`rl_policy_weights.json`, obs 68)

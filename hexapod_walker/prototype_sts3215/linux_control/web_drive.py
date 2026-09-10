@@ -390,6 +390,38 @@ class Handler(BaseHTTPRequestHandler):
             return None
         return probe(recover=recover)
 
+    def _reject_without_command_lease(self, path, body, body_obj,
+                                      journal_entry) -> bool:
+        """Refuse a motion command from a controller that is not the holder."""
+        try:
+            import command_lease
+        except Exception:
+            return False          # never let the gate break a control path
+        line = body.strip() if (path == "/cmd" and isinstance(body, str)) else ""
+        try:
+            token = command_lease.token_from_request(self.headers, body_obj)
+            who = ""
+            try:
+                from command_journal import identify_controller
+                who = identify_controller(self._peer(),
+                                          self.headers).get("controller", "")
+            except Exception:
+                pass
+            refusal = command_lease.check(
+                "POST", path, token=token, command_line=line, controller=who)
+        except Exception:
+            return False
+        if not refusal:
+            return False
+        if journal_entry:
+            try:
+                from command_journal import set_result
+                set_result(journal_entry["seq"], 409)
+            except Exception:
+                pass
+        self._json(409, refusal, map_quarantine=False, cache=NO_STORE)
+        return True
+
     def _reject_quarantined_bus(self) -> bool:
         state = self._bus_quarantine_state(recover=True)
         if not state or not state.get("bus_quarantined"):
@@ -458,6 +490,16 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 payload = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
             self._send(200, json.dumps(payload), "application/json")
+            return
+        if path == "/api/command-lease":
+            # Who, if anyone, currently owns exclusive motion commands.
+            try:
+                from command_lease import state as _lease_state
+                payload = _lease_state()
+            except Exception as exc:
+                payload = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+            self._send(200, json.dumps(payload), "application/json",
+                       cache=NO_STORE)
             return
         if path == "/api/commands":
             # Served before the bus gate on purpose: the command log is most
@@ -843,12 +885,21 @@ class Handler(BaseHTTPRequestHandler):
         # Journalled before the quarantine gate: a command that is about to be
         # rejected is still a command someone issued.
         # Heartbeats are counted rather than stored (see command_journal).
+        journal_entry = None
         try:
             from command_journal import record as _journal_record
-            _journal_record("POST", self.path, body=body_obj,
-                            peer=self._peer(), headers=self.headers)
+            journal_entry = _journal_record(
+                "POST", self.path, body=body_obj,
+                peer=self._peer(), headers=self.headers)
         except Exception:
             pass
+        # Exclusive command lease. A guarded experiment holds motion for its
+        # whole leased window, so a second controller (the :8898 hub, a
+        # browser) cannot command a stand or lower into the middle of it.
+        # The abort path is never gated -- see command_lease.py.
+        if self._reject_without_command_lease(path, body, body_obj,
+                                              journal_entry):
+            return
         if (path != "/cmd" and self._request_requires_bus()
                 and self._reject_quarantined_bus()):
             return
@@ -1400,6 +1451,30 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/standup/stop":
             self._json(200, BENCH.stop_demo() if BENCH
                        else {"ok": False, "error": "no bench"})
+        elif path in ("/api/command-lease/acquire",
+                      "/api/command-lease/release"):
+            # Bus-free: takes/returns exclusive motion ownership only.
+            import command_lease
+            try:
+                data = json.loads(body or "{}") if body else {}
+            except ValueError:
+                data = {}
+            if not isinstance(data, dict):
+                data = {}
+            token = command_lease.token_from_request(self.headers, data)
+            if path.endswith("/acquire"):
+                owner = str(data.get("owner")
+                            or (self.headers.get(command_lease.OWNER_HEADER)
+                                or "")).strip()
+                result = command_lease.acquire(
+                    owner,
+                    ttl_s=data.get("ttl_s", command_lease.DEFAULT_TTL_S),
+                    reason=str(data.get("reason") or ""),
+                    token=token)
+            else:
+                result = command_lease.release(token)
+            self._json(200 if result.get("ok") else 409, result,
+                       map_quarantine=False, cache=NO_STORE)
         elif path == "/api/sysid/run":
             # Deterministic sysid command stream (sysid_runner.py).
             # Body: {"protocol": {...}, "force": false}.

@@ -1,5 +1,44 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## OPERATOR ORDER + RULING (2026-09-10, Lukas via Claude, ops.sh cycle — id op_20260910_50hz): control.hz=50 is the DEPLOYMENT control rate; 100 Hz is NOT deployable on hexapod2; retrain the promising gaits at 50 Hz
+
+One plain sentence: on the new robot (hexapod2), one 18-servo feedback
+read over the Uno Q MCU bridge costs 9-13 ms (probe mean 8.6 ms,
+in-loop 12-15 ms) and a sync write ~4.4 ms, so a 100 Hz policy trips
+the runner timing fault within 3-52 ticks (rl_walk_20260910_194740,
+rl_drive_20260910_194958) while a 25 Hz legacy walk (dep_tip1,
+inner_hz 25) ran 150 ticks / 0 overruns at 37 ms/tick — therefore
+**50 Hz (20 ms budget) is the target rate for anything meant to run
+on the robot**, and the 08-24 100 Hz order is SUPERSEDED for
+deployment candidates (it stands for sim-research lineages that never
+target hardware, and the no-key launcher default injection stays 100).
+
+Mechanics registered this cycle (snapshot with this entry):
+- Launcher: explicit `--cfg-set control.hz=50` is first-class
+  (`DEPLOY_TRAIN_CONTROL_HZ=50`, ledger check `explicit-deploy-50`,
+  no `--allow-legacy-control-hz` needed); tests extended
+  (`rl_move/tests/test_launch_run_control_hz.py`, 12/12 green).
+- Recipe translation rule (operator): phase clock UNCHANGED in Hz
+  (`goal.walk_phase_hz` stays 1.333.../1.1 etc.), episode SECONDS
+  unchanged, step budgets retuned (~half sim-time cost per step at
+  50 Hz), and per-tick slew rescaled to keep deg/s constant:
+  `safety.max_delta_q_deg` 0.375@100Hz -> 0.75@50Hz (walk/standwalk
+  recipes; scale others by the same deg/s-preserving rule).
+- Warm-start across the 100->50 contract only where proven safe
+  (cheap 2M canary with matched-parent behavioral comparison IS the
+  proof mechanism); otherwise from scratch with the same recipe.
+- Every PASS exports `export_policy_np --training-hz 50 --inner-hz 50`
+  (v2 stamp) into `linux_control/policies/` with `50hz` in the name.
+  Deliverable: a 50 Hz todaypolicy bundle (stand/lower + walk + turn).
+- AMP-specific: the M5-green `phasehz11-s29` champion is a
+  PRIMITIVE-family 25 Hz policy (created 2026-08-23, before the mesh
+  flip and the 100 Hz injection) — families do not transfer, so its
+  50 Hz arm is from-scratch on mesh with a rebuilt 50 Hz motion
+  library `rl_move/sim/motion_library/teacher_v2_50hz.npz` (45/45
+  clips accepted, dt=0.02, mesh physics, slip/m 0.52-1.81;
+  `build_motion_library.py --cfg-set` plumbing added this cycle,
+  default OFF = bit-exact legacy).
+
 ## A 13th mechanism class — weight-shared, mount-frame-relative per-leg actor — PASSES its mechanism-health canary (both seeds) and is now in a matched +18M acquisition continuation, for the walkcurr front-pair off-axis-heading sacrifice; explicitly NOT a re-fund of the closed independent-tower `decleg` family (2026-09-10, canary launched ~18:0x, verdicted PASS ~20:0x)
 
 One plain sentence: `decleg`'s independent per-leg towers (closed
@@ -1804,6 +1843,10 @@ recipes. Out-of-scope operator runs get honest triage but no agent follow-ups.
 - Upgrade candidate: `cw-walkteach-scripted-allhead-acq12m{,-s1}`.
 
 ## Model And Control Contracts
+- DEPLOYMENT candidates train at mesh-family control.hz=50 (operator
+  order op_20260910_50hz above; 100 Hz trips the hexapod2 MCU-bridge
+  timing fault). Sim-research lineages not targeting hardware may
+  stay at 100 Hz; the launcher's no-key default injection is still 100.
 - New PPO/MJX launches use mesh-family 100 Hz unless a registered
   legacy exception says otherwise.
 - Checkpoints started before the 2026-08-24 mesh flip are

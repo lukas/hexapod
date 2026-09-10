@@ -1,0 +1,1839 @@
+{
+ "experiment_id": "51f54beb522d482a930aa750ed95368b",
+ "plan_id": "standup-hold-yield-repeatability-01",
+ "mode": "step",
+ "speed": 10.0,
+ "torque": 700,
+ "cycles_requested": 3,
+ "stand_hold_s": 15.0,
+ "hip_sample_points_s": [
+  0,
+  1,
+  2,
+  5,
+  10,
+  15
+ ],
+ "baseline_error_count": 100,
+ "baseline_error_last_ts": "2026-09-10T00:10:30.519Z",
+ "stop_bounds": {
+  "temp_stop_c": 45.0,
+  "hot_servo_limp_c": 55.0,
+  "current_stop_a": 4.0,
+  "implausible_current_a": 10.0,
+  "tilt_stop_deg": 15.0,
+  "middle_hip_stop_deg": 5.0,
+  "yield_excess_deg": 8.0
+ },
+ "telemetry_path": [
+  "/home/arduino/hexapod_sts/linux_control/logs/telemetry_20260910T000109.808885Z_auto.jsonl"
+ ],
+ "pre_feedback": {
+  "tag": "pre_run",
+  "t": 1789000538.090463,
+  "t_unix": 1789000543.129,
+  "rtt_s": 5.04,
+  "live": 18,
+  "roll_deg": -0.14,
+  "pitch_deg": 2.08,
+  "body_roll_deg": 0.21,
+  "body_pitch_deg": 2.08,
+  "gyro_dps": [
+   0.03,
+   -0.02,
+   -0.14
+  ],
+  "joints": {
+   "0": {
+    "deg": 0.0,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 32,
+    "volt": 11.3,
+    "current_raw_count_derived": 0
+   },
+   "1": {
+    "deg": -0.09,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 33,
+    "volt": 11.3,
+    "current_raw_count_derived": 0
+   },
+   "2": {
+    "deg": 0.26,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 37,
+    "volt": 11.3,
+    "current_raw_count_derived": 0
+   },
+   "3": {
+    "deg": 0.26,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 31,
+    "volt": 11.3,
+    "current_raw_count_derived": 0
+   },
+   "4": {
+    "deg": -0.09,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 31,
+    "volt": 11.3,
+    "current_raw_count_derived": 0
+   },
+   "5": {
+    "deg": 0.09,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 34,
+    "volt": 11.2,
+    "current_raw_count_derived": 0
+   },
+   "6": {
+    "deg": 0.18,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 32,
+    "volt": 11.3,
+    "current_raw_count_derived": 0
+   },
+   "7": {
+    "deg": 0.0,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 30,
+    "volt": 11.2,
+    "current_raw_count_derived": 0
+   },
+   "8": {
+    "deg": 0.18,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 36,
+    "volt": 11.3,
+    "current_raw_count_derived": 0
+   },
+   "9": {
+    "deg": -0.09,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 29,
+    "volt": 11.3,
+    "current_raw_count_derived": 0
+   },
+   "10": {
+    "deg": -0.09,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 32,
+    "volt": 11.3,
+    "current_raw_count_derived": 0
+   },
+   "11": {
+    "deg": -0.09,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 29,
+    "volt": 11.4,
+    "current_raw_count_derived": 0
+   },
+   "12": {
+    "deg": -0.09,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 29,
+    "volt": 11.3,
+    "current_raw_count_derived": 0
+   },
+   "13": {
+    "deg": 0.09,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 29,
+    "volt": 11.3,
+    "current_raw_count_derived": 0
+   },
+   "14": {
+    "deg": -0.09,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 33,
+    "volt": 11.3,
+    "current_raw_count_derived": 0
+   },
+   "15": {
+    "deg": 0.0,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 31,
+    "volt": 11.3,
+    "current_raw_count_derived": 0
+   },
+   "16": {
+    "deg": 0.18,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 32,
+    "volt": 11.3,
+    "current_raw_count_derived": 0
+   },
+   "17": {
+    "deg": 0.18,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 34,
+    "volt": 11.3,
+    "current_raw_count_derived": 0
+   }
+  }
+ },
+ "pre_pose": {
+  "t": 1789000548.596433,
+  "degrees": [
+   0.0,
+   -0.09,
+   0.26,
+   0.26,
+   -0.09,
+   0.09,
+   0.18,
+   0.0,
+   0.18,
+   -0.09,
+   -0.09,
+   -0.09,
+   -0.09,
+   0.09,
+   -0.09,
+   0.0,
+   0.18,
+   0.18
+  ],
+  "live": 18,
+  "armed": true,
+  "bus_quarantined": false,
+  "bus_available": true,
+  "imu_grade": "green"
+ },
+ "pre_contact": {
+  "t": 1789000553.653735,
+  "legs": [
+   {
+    "leg": 0,
+    "ready": true,
+    "probability": 0.0,
+    "filtered_probability": 0.0,
+    "planted": false,
+    "history": 4,
+    "features": {
+     "command_clearance_mm": 178.503,
+     "measured_clearance_mm": 177.9507,
+     "abs_vertical_speed_mm_s": 0.0,
+     "vertical_speed_mm_s": 0.0,
+     "tracking_error_deg": 0.2637
+    }
+   },
+   {
+    "leg": 1,
+    "ready": true,
+    "probability": 0.0,
+    "filtered_probability": 0.0,
+    "planted": false,
+    "history": 4,
+    "features": {
+     "command_clearance_mm": 178.503,
+     "measured_clearance_mm": 178.4109,
+     "abs_vertical_speed_mm_s": 0.0,
+     "vertical_speed_mm_s": 0.0,
+     "tracking_error_deg": 0.2637
+    }
+   },
+   {
+    "leg": 2,
+    "ready": false,
+    "planted": false,
+    "reason": "missing command or encoder"
+   },
+   {
+    "leg": 3,
+    "ready": true,
+    "probability": 0.0,
+    "filtered_probability": 0.0,
+    "planted": false,
+    "history": 4,
+    "features": {
+     "command_clearance_mm": 178.503,
+     "measured_clearance_mm": 178.8711,
+     "abs_vertical_speed_mm_s": 0.0,
+     "vertical_speed_mm_s": 0.0,
+     "tracking_error_deg": 0.0879
+    }
+   },
+   {
+    "leg": 4,
+    "ready": true,
+    "probability": 0.0,
+    "filtered_probability": 0.0,
+    "planted": false,
+    "history": 4,
+    "features": {
+     "command_clearance_mm": 178.503,
+     "measured_clearance_mm": 178.595,
+     "abs_vertical_speed_mm_s": 0.0,
+     "vertical_speed_mm_s": 0.0,
+     "tracking_error_deg": 0.0879
+    }
+   },
+   {
+    "leg": 5,
+    "ready": true,
+    "probability": 0.0,
+    "filtered_probability": 0.0,
+    "planted": false,
+    "history": 4,
+    "features": {
+     "command_clearance_mm": 178.503,
+     "measured_clearance_mm": 177.7667,
+     "abs_vertical_speed_mm_s": 0.0,
+     "vertical_speed_mm_s": 0.0,
+     "tracking_error_deg": 0.1758
+    }
+   }
+  ],
+  "planted": [
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "ready_legs": 5,
+  "writer_alive": true,
+  "capture_errors": 0,
+  "queue_dropped": 0
+ },
+ "cycles": [
+  {
+   "cycle": 1,
+   "hold_samples": [
+    {
+     "tag": "c1_hold_t5.1",
+     "t": 1789000594.792575,
+     "t_unix": 1789000599.978,
+     "rtt_s": 5.19,
+     "live": 18,
+     "roll_deg": -0.62,
+     "pitch_deg": 5.33,
+     "body_roll_deg": 0.81,
+     "body_pitch_deg": 5.31,
+     "gyro_dps": [
+      0.01,
+      -0.0,
+      0.13
+     ],
+     "joints": {
+      "0": {
+       "deg": 0.18,
+       "load_pct": 2.4,
+       "current_a": 0.006,
+       "temp_c": 32,
+       "volt": 11.2,
+       "current_raw_count_derived": 1
+      },
+      "1": {
+       "deg": 18.19,
+       "load_pct": 24.8,
+       "current_a": 0.182,
+       "temp_c": 33,
+       "volt": 11.1,
+       "current_raw_count_derived": 28
+      },
+      "2": {
+       "deg": 82.0,
+       "load_pct": 2.4,
+       "current_a": 0.0,
+       "temp_c": 37,
+       "volt": 11.2,
+       "current_raw_count_derived": 0
+      },
+      "3": {
+       "deg": 0.26,
+       "load_pct": 3.2,
+       "current_a": 0.006,
+       "temp_c": 31,
+       "volt": 11.3,
+       "current_raw_count_derived": 1
+      },
+      "4": {
+       "deg": 20.3,
+       "load_pct": 5.6,
+       "current_a": 0.006,
+       "temp_c": 31,
+       "volt": 11.2,
+       "current_raw_count_derived": 1
+      },
+      "5": {
+       "deg": 82.27,
+       "load_pct": 0.0,
+       "current_a": 0.0,
+       "temp_c": 34,
+       "volt": 11.1,
+       "current_raw_count_derived": 0
+      },
+      "6": {
+       "deg": 0.26,
+       "load_pct": 3.2,
+       "current_a": 0.006,
+       "temp_c": 32,
+       "volt": 11.2,
+       "current_raw_count_derived": 1
+      },
+      "7": {
+       "deg": 20.48,
+       "load_pct": 4.0,
+       "current_a": 0.013,
+       "temp_c": 30,
+       "volt": 11.1,
+       "current_raw_count_derived": 2
+      },
+      "8": {
+       "deg": 82.44,
+       "load_pct": 3.2,
+       "current_a": 0.0,
+       "temp_c": 36,
+       "volt": 11.2,
+       "current_raw_count_derived": 0
+      },
+      "9": {
+       "deg": -0.09,
+       "load_pct": 0.0,
+       "current_a": 0.0,
+       "temp_c": 29,
+       "volt": 11.2,
+       "current_raw_count_derived": 0
+      },
+      "10": {
+       "deg": 18.02,
+       "load_pct": 26.4,
+       "current_a": 0.208,
+       "temp_c": 32,
+       "volt": 11.1,
+       "current_raw_count_derived": 32
+      },
+      "11": {
+       "deg": 81.65,
+       "load_pct": 5.6,
+       "current_a": 0.019,
+       "temp_c": 29,
+       "volt": 11.3,
+       "current_raw_count_derived": 3
+      },
+      "12": {
+       "deg": 0.0,
+       "load_pct": 0.0,
+       "current_a": 0.0,
+       "temp_c": 29,
+       "volt": 11.2,
+       "current_raw_count_derived": 0
+      },
+      "13": {
+       "deg": 20.92,
+       "load_pct": 0.0,
+       "current_a": 0.0,
+       "temp_c": 29,
+       "volt": 11.3,
+       "current_raw_count_derived": 0
+      },
+      "14": {
+       "deg": 82.18,
+       "load_pct": 0.0,
+       "current_a": 0.0,
+       "temp_c": 33,
+       "volt": 11.2,
+       "current_raw_count_derived": 0
+      },
+      "15": {
+       "deg": 0.0,
+       "load_pct": 0.0,
+       "current_a": 0.0,
+       "temp_c": 31,
+       "volt": 11.2,
+       "current_raw_count_derived": 0
+      },
+      "16": {
+       "deg": 19.78,
+       "load_pct": 10.4,
+       "current_a": 0.026,
+       "temp_c": 32,
+       "volt": 11.2,
+       "current_raw_count_derived": 4
+      },
+      "17": {
+       "deg": 82.53,
+       "load_pct": 4.0,
+       "current_a": 0.006,
+       "temp_c": 34,
+       "volt": 11.2,
+       "current_raw_count_derived": 1
+      }
+     },
+     "hold_elapsed_s": 5.1
+    },
+    {
+     "tag": "c1_hold_exit",
+     "t": 1789000605.279831,
+     "t_unix": 1789000610.488,
+     "rtt_s": 5.25,
+     "live": 18,
+     "roll_deg": -0.63,
+     "pitch_deg": 5.5,
+     "body_roll_deg": 0.82,
+     "body_pitch_deg": 5.48,
+     "gyro_dps": [
+      0.03,
+      -0.04,
+      0.18
+     ],
+     "joints": {
+      "0": {
+       "deg": 0.18,
+       "load_pct": 2.4,
+       "current_a": 0.006,
+       "temp_c": 32,
+       "volt": 11.2,
+       "current_raw_count_derived": 1
+      },
+      "1": {
+       "deg": 18.19,
+       "load_pct": 24.8,
+       "current_a": 0.195,
+       "temp_c": 34,
+       "volt": 11.2,
+       "current_raw_count_derived": 30
+      },
+      "2": {
+       "deg": 82.0,
+       "load_pct": 2.4,
+       "current_a": 0.0,
+       "temp_c": 37,
+       "volt": 11.2,
+       "current_raw_count_derived": 0
+      },
+      "3": {
+       "deg": 0.26,
+       "load_pct": 3.2,
+       "current_a": 0.006,
+       "temp_c": 31,
+       "volt": 11.3,
+       "current_raw_count_derived": 1
+      },
+      "4": {
+       "deg": 20.3,
+       "load_pct": 5.6,
+       "current_a": 0.006,
+       "temp_c": 31,
+       "volt": 11.2,
+       "current_raw_count_derived": 1
+      },
+      "5": {
+       "deg": 82.27,
+       "load_pct": 0.0,
+       "current_a": 0.0,
+       "temp_c": 34,
+       "volt": 11.1,
+       "current_raw_count_derived": 0
+      },
+      "6": {
+       "deg": 0.26,
+       "load_pct": 3.2,
+       "current_a": 0.0,
+       "temp_c": 32,
+       "volt": 11.2,
+       "current_raw_count_derived": 0
+      },
+      "7": {
+       "deg": 20.48,
+       "load_pct": 4.0,
+       "current_a": 0.013,
+       "temp_c": 30,
+       "volt": 11.1,
+       "current_raw_count_derived": 2
+      },
+      "8": {
+       "deg": 82.44,
+       "load_pct": 3.2,
+       "current_a": 0.006,
+       "temp_c": 36,
+       "volt": 11.2,
+       "current_raw_count_derived": 1
+      },
+      "9": {
+       "deg": -0.09,
+       "load_pct": 0.0,
+       "current_a": 0.0,
+       "temp_c": 29,
+       "volt": 11.2,
+       "current_raw_count_derived": 0
+      },
+      "10": {
+       "deg": 18.02,
+       "load_pct": 26.4,
+       "current_a": 0.234,
+       "temp_c": 32,
+       "volt": 11.2,
+       "current_raw_count_derived": 36
+      },
+      "11": {
+       "deg": 81.65,
+       "load_pct": 5.6,
+       "current_a": 0.019,
+       "temp_c": 30,
+       "volt": 11.3,
+       "current_raw_count_derived": 3
+      },
+      "12": {
+       "deg": 0.0,
+       "load_pct": 0.0,
+       "current_a": 0.0,
+       "temp_c": 29,
+       "volt": 11.2,
+       "current_raw_count_derived": 0
+      },
+      "13": {
+       "deg": 20.92,
+       "load_pct": 0.0,
+       "current_a": 0.0,
+       "temp_c": 29,
+       "volt": 11.2,
+       "current_raw_count_derived": 0
+      },
+      "14": {
+       "deg": 82.18,
+       "load_pct": 0.0,
+       "current_a": 0.0,
+       "temp_c": 33,
+       "volt": 11.2,
+       "current_raw_count_derived": 0
+      },
+      "15": {
+       "deg": 0.0,
+       "load_pct": 0.0,
+       "current_a": 0.0,
+       "temp_c": 31,
+       "volt": 11.2,
+       "current_raw_count_derived": 0
+      },
+      "16": {
+       "deg": 19.78,
+       "load_pct": 10.4,
+       "current_a": 0.033,
+       "temp_c": 32,
+       "volt": 11.2,
+       "current_raw_count_derived": 5
+      },
+      "17": {
+       "deg": 82.53,
+       "load_pct": 4.0,
+       "current_a": 0.006,
+       "temp_c": 34,
+       "volt": 11.2,
+       "current_raw_count_derived": 1
+      }
+     },
+     "hold_elapsed_s": 20.84
+    }
+   ],
+   "frames": {
+    "hold_plus_1s": {
+     "nominal_t_rel_s": 1.0,
+     "actual_t_rel_s": 15.56,
+     "files": [
+      "c1_hold_plus_1s_robot-1.jpg",
+      "c1_hold_plus_1s_robot-2.jpg",
+      "c1_hold_plus_1s_robot-3.jpg"
+     ]
+    },
+    "hold_plus_3s": {
+     "nominal_t_rel_s": 3.0,
+     "actual_t_rel_s": 15.57,
+     "files": [
+      "c1_hold_plus_3s_robot-1.jpg",
+      "c1_hold_plus_3s_robot-2.jpg",
+      "c1_hold_plus_3s_robot-3.jpg"
+     ]
+    },
+    "hold_plus_10s": {
+     "nominal_t_rel_s": 10.0,
+     "actual_t_rel_s": 15.58,
+     "files": [
+      "c1_hold_plus_10s_robot-1.jpg",
+      "c1_hold_plus_10s_robot-2.jpg",
+      "c1_hold_plus_10s_robot-3.jpg"
+     ]
+    },
+    "post_sit": {
+     "files": [
+      "c1_post_sit_robot-1.jpg",
+      "c1_post_sit_robot-2.jpg",
+      "c1_post_sit_robot-3.jpg"
+     ]
+    }
+   },
+   "m_up_start": "8494b93b28414826896c1b9451eebec8",
+   "up_ack": {
+    "ok": true,
+    "mode": "step",
+    "speed": 10.0,
+    "direction": "up",
+    "keyframes": 18,
+    "calibrate": {
+     "running": true,
+     "name": "standup_step",
+     "progress": {
+      "msg": "stand-up \u00b7 step (x10.00)"
+     },
+     "result": null,
+     "latest_report": null,
+     "plant": {
+      "ok": true,
+      "hip_deg": 19.0,
+      "knee_deg": 28.0,
+      "joints_deg": null,
+      "has_joints": false,
+      "learned": false,
+      "contact_found": false,
+      "path": null,
+      "timestamp": null,
+      "source": "default",
+      "pose": [
+       0.0,
+       19.0,
+       28.0,
+       0.0,
+       19.0,
+       28.0,
+       0.0,
+       19.0,
+       28.0,
+       0.0,
+       19.0,
+       28.0,
+       0.0,
+       19.0,
+       28.0,
+       0.0,
+       19.0,
+       28.0
+      ]
+     },
+     "imu": {
+      "ok": true,
+      "learned": true,
+      "path": "/home/arduino/hexapod_sts/linux_control/logs/imu_calib.json",
+      "timestamp": "2026-08-22T06:28:33",
+      "source": "imu_calibrate",
+      "n_samples": 100,
+      "grade": "green",
+      "gyro_bias_dps": {
+       "x": 2.2335,
+       "y": 0.7194,
+       "z": 1.0594
+      },
+      "accel_bias_g": {
+       "x": -0.01349,
+       "y": 0.00209,
+       "z": 0.2921
+      },
+      "accel_rest_g": {
+       "x": -0.05962,
+       "y": 0.00924,
+       "z": 1.29101
+      },
+      "gyro_ptp_dps": 0.412,
+      "accel_mag_g": 1.2924,
+      "body_frame": {
+       "version": 1,
+       "pitch_axis": "pitch",
+       "pitch_axis_roll": 0.03564198653822026,
+       "pitch_axis_pitch": 0.9993646225455498,
+       "pitch_sign": 1.0,
+       "source": "quad_forward_axis_recovered",
+       "timestamp": "2026-08-22T06:30:55",
+       "n_samples": 10,
+       "expected_pitch_deg": -30.0,
+       "body_pitch_target_deg": -25.908,
+       "measured_roll_deg": 0.923,
+       "measured_pitch_deg": 25.892,
+       "measured_lean_deg": 25.908
+      },
+      "body_calibrated": true,
+      "msg": "learned \u00b7 green \u00b7 2026-08-22T06:28:33"
+     },
+     "demo": {
+      "name": "standup_step",
+      "status": "stand-up \u00b7 step (x10.00)",
+      "running": true,
+      "speed_live": 1.0,
+      "params": {
+       "mode": "step",
+       "speed": 10.0,
+       "direction": "up",
+       "torque": 700
+      },
+      "progress": {
+       "msg": "stand-up \u00b7 step (x10.00)"
+      },
+      "telemetry": null,
+      "bus_hot": false
+     },
+     "robot": {
+      "activity": "demo",
+      "detail": "stand-up \u00b7 step (x10.00)",
+      "armed": true,
+      "mode": "demo",
+      "dry_run": false,
+      "drive_status": "standing",
+      "scripted_walk": {
+       "control_hz": 100.0,
+       "servo_speed_counts_s": 2000,
+       "servo_acc_units": 80,
+       "deadline_overruns": 140
+      },
+      "demo": {
+       "name": "standup_step",
+       "status": "stand-up \u00b7 step (x10.00)",
+       "running": true,
+       "speed_live": 1.0,
+       "params": {
+        "mode": "step",
+        "speed": 10.0,
+        "direction": "up",
+        "torque": 700
+       },
+       "progress": {
+        "msg": "stand-up \u00b7 step (x10.00)"
+       },
+       "telemetry": null,
+       "bus_hot": false
+      },
+      "air_demos_need_zero": true,
+      "zero_tol_deg": 6.0,
+      "telemetry": {
+       "active": true,
+       "passive": true,
+       "adds_bus_reads": false,
+       "piggyback_snapshots": false,
+       "communication_capture": true,
+       "communication_scope": "host_mcu_serial",
+       "communication_rate_limited": false,
+       "observer_only": true,
+       "gait_gating": false,
+       "path": "/home/arduino/hexapod_sts/linux_control/logs/telemetry_20260910T000109.808885Z_auto.jsonl",
+       "paths": [
+        "/home/arduino/hexapod_sts/linux_control/logs/telemetry_20260910T000109.808885Z_auto.jsonl"
+       ],
+       "flushed_marker": "8494b93b28414826896c1b9451eebec8",
+       "marker_ack": null,
+       "bytes": 57006026,
+       "max_hz": 50.0,
+       "queue": 0,
+       "queue_max": 4096,
+       "offered": 111012,
+       "written": 111012,
+       "rate_limited": 255,
+       "queue_dropped": 0,
+       "communication_dropped": 0,
+       "uncaptured_bytes": 0,
+       "capture_errors": 0,
+       "write_error": null,
+       "writer_alive": true,
+       "contact": {
+        "observer_only": true,
+        "gait_gating": false,
+        "legs": [
+         {
+          "leg": 0,
+          "ready": true,
+          "probability": 0.0,
+          "filtered_probability": 0.0,
+          "planted": false,
+          "history": 3,
+          "features": {
+           "command_clearance_mm": 178.503,
+           "measured_clearance_mm": 177.9507,
+           "abs_vertical_speed_mm_s": 0.0,
+           "vertical_speed_mm_s": 0.0,
+           "tracking_error_deg": 0.2637
+          }
+         },
+         {
+          "leg": 1,
+          "ready": true,
+          "probability": 0.0,
+          "filtered_probability": 0.0,
+          "planted": false,
+          "history": 3,
+          "features": {
+           "command_clearance_mm": 178.503,
+           "measured_clearance_mm": 178.4109,
+           "abs_vertical_speed_mm_s": 0.0,
+           "vertical_speed_mm_s": 0.0,
+           "tracking_error_deg": 0.2637
+          }
+         },
+         {
+          "leg": 2,
+          "ready": false,
+          "probability": 0.0,
+          "filtered_probability": 0.0,
+          "planted": false,
+          "history": 2,
+          "features": {
+           "command_clearance_mm": 178.503,
+           "measured_clearance_mm": 178.0428,
+           "abs_vertical_speed_mm_s": 0.0,
+           "vertical_speed_mm_s": 0.0,
+           "tracking_error_deg": 0.1758
+          }
+         },
+         {
+          "leg": 3,
+          "ready": true,
+          "probability": 0.0,
+          "filtered_probability": 0.0,
+          "planted": false,
+          "history": 3,
+          "features": {
+           "command_clearance_mm": 178.503,
+           "measured_clearance_mm": 178.8711,
+           "abs_vertical_speed_mm_s": 0.0,
+           "vertical_speed_mm_s": 0.0,
+           "tracking_error_deg": 0.0879
+          }
+         },
+         {
+          "leg": 4,
+          "ready": true,
+          "probability": 0.0,
+          "filtered_probability": 0.0,
+          "planted": false,
+          "history": 3,
+          "features": {
+           "command_clearance_mm": 178.503,
+           "measured_clearance_mm": 178.595,
+           "abs_vertical_speed_mm_s": 0.0,
+           "vertical_speed_mm_s": 0.0,
+           "tracking_error_deg": 0.0879
+          }
+         },
+         {
+          "leg": 5,
+          "ready": true,
+          "probability": 0.0,
+          "filtered_probability": 0.0,
+          "planted": false,
+          "history": 3,
+          "features": {
+           "command_clearance_mm": 178.503,
+           "measured_clearance_mm": 177.7667,
+           "abs_vertical_speed_mm_s": 0.0,
+           "vertical_speed_mm_s": 0.0,
+           "tracking_error_deg": 0.1758
+          }
+         }
+        ],
+        "planted": [
+         false,
+         false,
+         false,
+         false,
+         false,
+         false
+        ],
+        "ready_legs": 5
+       },
+       "model": {
+        "ready": true,
+        "path": "/home/arduino/hexapod_sts/rl_move/contact_predictor_model.json",
+        "error": null,
+        "history_samples": 5,
+        "confirm_samples": 3,
+        "purpose": "observer-only hardware logging; not authorized for gait gating",
+        "validation": {
+         "protocol": "leave-one-gait-out",
+         "all_samples_balanced_accuracy": 0.91755,
+         "transition_window_s": 0.15,
+         "transition_balanced_accuracy": 0.77237,
+         "physical_contact_labels": false
+        }
+       }
+      },
+      "bus_quarantined": false,
+      "bus_available": true,
+      "servo": {
+       "ok": true,
+       "ts": 1789000576.6715825,
+       "expected": 18,
+       "live": 18,
+       "missing": [],
+       "missing_names": [],
+       "max_temp_c": 37,
+       "hottest": "L0 knee",
+       "hot": [],
+       "tripped": [],
+       "tripped_names": [],
+       "warn_c": 55,
+       "shutoff_c": 65,
+       "temp_trip_reads": 3,
+       "imu_ok": true
+      }
+     }
+    }
+   },
+   "up_result": {
+    "ok": true,
+    "mode": "step",
+    "direction": "up",
+    "timing": "align 0.00s (worst0 0.3deg) + stream 2.99s (sched 4.77s, 53 ticks, write 0.23s, sample 0.08s) + settle 3.12s (end err 2.9deg) = 6.11s",
+    "keyframes_done": 18,
+    "peak_a": 2.76,
+    "peak_joint": 14
+   },
+   "up_status_text": "done \u00b7 step stand-up peak 2.76 A",
+   "up_seconds": 15.53,
+   "discarded_current_samples": null,
+   "discarded_peak_a": null,
+   "peak_a": 2.76,
+   "m_hold_start": "94e3aec8134046f8ae00f1a1227dc9ff",
+   "hold_t0": 1789000589.689709,
+   "cmd_hip_deg": 20.87,
+   "cmd_hip_source": "standup_modes.json modes.step.keyframes[-1] hip = +20.87 deg (commanded stance, all six legs)",
+   "middle_pair_mean_at_entry_deg": 20.61,
+   "hold_exit": {
+    "tag": "c1_hold_exit",
+    "t": 1789000605.279831,
+    "t_unix": 1789000610.488,
+    "rtt_s": 5.25,
+    "live": 18,
+    "roll_deg": -0.63,
+    "pitch_deg": 5.5,
+    "body_roll_deg": 0.82,
+    "body_pitch_deg": 5.48,
+    "gyro_dps": [
+     0.03,
+     -0.04,
+     0.18
+    ],
+    "joints": {
+     "0": {
+      "deg": 0.18,
+      "load_pct": 2.4,
+      "current_a": 0.006,
+      "temp_c": 32,
+      "volt": 11.2,
+      "current_raw_count_derived": 1
+     },
+     "1": {
+      "deg": 18.19,
+      "load_pct": 24.8,
+      "current_a": 0.195,
+      "temp_c": 34,
+      "volt": 11.2,
+      "current_raw_count_derived": 30
+     },
+     "2": {
+      "deg": 82.0,
+      "load_pct": 2.4,
+      "current_a": 0.0,
+      "temp_c": 37,
+      "volt": 11.2,
+      "current_raw_count_derived": 0
+     },
+     "3": {
+      "deg": 0.26,
+      "load_pct": 3.2,
+      "current_a": 0.006,
+      "temp_c": 31,
+      "volt": 11.3,
+      "current_raw_count_derived": 1
+     },
+     "4": {
+      "deg": 20.3,
+      "load_pct": 5.6,
+      "current_a": 0.006,
+      "temp_c": 31,
+      "volt": 11.2,
+      "current_raw_count_derived": 1
+     },
+     "5": {
+      "deg": 82.27,
+      "load_pct": 0.0,
+      "current_a": 0.0,
+      "temp_c": 34,
+      "volt": 11.1,
+      "current_raw_count_derived": 0
+     },
+     "6": {
+      "deg": 0.26,
+      "load_pct": 3.2,
+      "current_a": 0.0,
+      "temp_c": 32,
+      "volt": 11.2,
+      "current_raw_count_derived": 0
+     },
+     "7": {
+      "deg": 20.48,
+      "load_pct": 4.0,
+      "current_a": 0.013,
+      "temp_c": 30,
+      "volt": 11.1,
+      "current_raw_count_derived": 2
+     },
+     "8": {
+      "deg": 82.44,
+      "load_pct": 3.2,
+      "current_a": 0.006,
+      "temp_c": 36,
+      "volt": 11.2,
+      "current_raw_count_derived": 1
+     },
+     "9": {
+      "deg": -0.09,
+      "load_pct": 0.0,
+      "current_a": 0.0,
+      "temp_c": 29,
+      "volt": 11.2,
+      "current_raw_count_derived": 0
+     },
+     "10": {
+      "deg": 18.02,
+      "load_pct": 26.4,
+      "current_a": 0.234,
+      "temp_c": 32,
+      "volt": 11.2,
+      "current_raw_count_derived": 36
+     },
+     "11": {
+      "deg": 81.65,
+      "load_pct": 5.6,
+      "current_a": 0.019,
+      "temp_c": 30,
+      "volt": 11.3,
+      "current_raw_count_derived": 3
+     },
+     "12": {
+      "deg": 0.0,
+      "load_pct": 0.0,
+      "current_a": 0.0,
+      "temp_c": 29,
+      "volt": 11.2,
+      "current_raw_count_derived": 0
+     },
+     "13": {
+      "deg": 20.92,
+      "load_pct": 0.0,
+      "current_a": 0.0,
+      "temp_c": 29,
+      "volt": 11.2,
+      "current_raw_count_derived": 0
+     },
+     "14": {
+      "deg": 82.18,
+      "load_pct": 0.0,
+      "current_a": 0.0,
+      "temp_c": 33,
+      "volt": 11.2,
+      "current_raw_count_derived": 0
+     },
+     "15": {
+      "deg": 0.0,
+      "load_pct": 0.0,
+      "current_a": 0.0,
+      "temp_c": 31,
+      "volt": 11.2,
+      "current_raw_count_derived": 0
+     },
+     "16": {
+      "deg": 19.78,
+      "load_pct": 10.4,
+      "current_a": 0.033,
+      "temp_c": 32,
+      "volt": 11.2,
+      "current_raw_count_derived": 5
+     },
+     "17": {
+      "deg": 82.53,
+      "load_pct": 4.0,
+      "current_a": 0.006,
+      "temp_c": 34,
+      "volt": 11.2,
+      "current_raw_count_derived": 1
+     }
+    },
+    "hold_elapsed_s": 20.84
+   },
+   "m_hold_end": "aa470c40862f470f9f997870c8b89370",
+   "hold_contact": {
+    "t": 1789000620.796475,
+    "legs": [
+     {
+      "leg": 0,
+      "ready": false,
+      "probability": 0.93835,
+      "filtered_probability": 0.93835,
+      "planted": false,
+      "history": 2,
+      "features": {
+       "command_clearance_mm": -2.1051,
+       "measured_clearance_mm": 1.8618,
+       "abs_vertical_speed_mm_s": 0.0,
+       "vertical_speed_mm_s": 0.0,
+       "tracking_error_deg": 2.6367
+      }
+     },
+     {
+      "leg": 1,
+      "ready": false,
+      "probability": 0.96982,
+      "filtered_probability": 0.96982,
+      "planted": false,
+      "history": 2,
+      "features": {
+       "command_clearance_mm": -2.1051,
+       "measured_clearance_mm": -1.3607,
+       "abs_vertical_speed_mm_s": 0.0,
+       "vertical_speed_mm_s": 0.0,
+       "tracking_error_deg": 0.5273
+      }
+     },
+     {
+      "leg": 2,
+      "ready": false,
+      "probability": 0.97179,
+      "filtered_probability": 0.97179,
+      "planted": false,
+      "history": 2,
+      "features": {
+       "command_clearance_mm": -2.1051,
+       "measured_clearance_mm": -1.6807,
+       "abs_vertical_speed_mm_s": 0.0,
+       "vertical_speed_mm_s": 0.0,
+       "tracking_error_deg": 0.3516
+      }
+     },
+     {
+      "leg": 3,
+      "ready": false,
+      "probability": 0.93355,
+      "filtered_probability": 0.93355,
+      "planted": false,
+      "history": 2,
+      "features": {
+       "command_clearance_mm": -2.1051,
+       "measured_clearance_mm": 2.2551,
+       "abs_vertical_speed_mm_s": 0.0,
+       "vertical_speed_mm_s": 0.0,
+       "tracking_error_deg": 2.8125
+      }
+     },
+     {
+      "leg": 4,
+      "ready": false,
+      "probability": 0.97477,
+      "filtered_probability": 0.97477,
+      "planted": false,
+      "history": 2,
+      "features": {
+       "command_clearance_mm": -2.1051,
+       "measured_clearance_mm": -2.2341,
+       "abs_vertical_speed_mm_s": 0.0,
+       "vertical_speed_mm_s": 0.0,
+       "tracking_error_deg": 0.0879
+      }
+     },
+     {
+      "leg": 5,
+      "ready": false,
+      "probability": 0.96443,
+      "filtered_probability": 0.96443,
+      "planted": false,
+      "history": 2,
+      "features": {
+       "command_clearance_mm": -2.1051,
+       "measured_clearance_mm": -0.6738,
+       "abs_vertical_speed_mm_s": 0.0,
+       "vertical_speed_mm_s": 0.0,
+       "tracking_error_deg": 1.0547
+      }
+     }
+    ],
+    "planted": [
+     false,
+     false,
+     false,
+     false,
+     false,
+     false
+    ],
+    "ready_legs": 0,
+    "writer_alive": true,
+    "capture_errors": 0,
+    "queue_dropped": 0
+   },
+   "hip_yield_deg": {
+    "0": 2.68,
+    "1": 0.57,
+    "2": 0.39,
+    "3": 2.85,
+    "4": -0.05,
+    "5": 1.09
+   },
+   "m_down_start": "1b95c16469b84c18acda93f6b5df397f",
+   "down_result": {
+    "ok": true,
+    "mode": "step",
+    "direction": "down",
+    "timing": "align 0.02s (worst0 2.0deg) + stream 3.10s (sched 4.55s, 55 ticks, write 0.24s, sample 0.08s) + settle 0.36s (end err 2.1deg) = 3.48s",
+    "keyframes_done": 17,
+    "peak_a": 2.89,
+    "peak_joint": 5
+   },
+   "down_status_text": "done \u00b7 step sit-down peak 2.89 A",
+   "down_seconds": 21.9,
+   "m_down_end": "5eff903333c140f9a81d7dc437ff4d52",
+   "post_feedback": {
+    "tag": "c1_post_sit",
+    "t": 1789000654.474161,
+    "t_unix": 1789000659.6,
+    "rtt_s": 5.13,
+    "live": 18,
+    "roll_deg": -0.19,
+    "pitch_deg": 2.07,
+    "body_roll_deg": 0.27,
+    "body_pitch_deg": 2.06,
+    "gyro_dps": [
+     0.03,
+     -0.04,
+     -0.11
+    ],
+    "joints": {
+     "0": {
+      "deg": 0.09,
+      "load_pct": 0.0,
+      "current_a": 0.0,
+      "temp_c": 32,
+      "volt": 11.3,
+      "current_raw_count_derived": 0
+     },
+     "1": {
+      "deg": -0.09,
+      "load_pct": 0.0,
+      "current_a": 0.0,
+      "temp_c": 34,
+      "volt": 11.3,
+      "current_raw_count_derived": 0
+     },
+     "2": {
+      "deg": 0.18,
+      "load_pct": 0.0,
+      "current_a": 0.0,
+      "temp_c": 37,
+      "volt": 11.3,
+      "current_raw_count_derived": 0
+     },
+     "3": {
+      "deg": 0.26,
+      "load_pct": 0.0,
+      "current_a": 0.0,
+      "temp_c": 31,
+      "volt": 11.3,
+      "current_raw_count_derived": 0
+     },
+     "4": {
+      "deg": -0.09,
+      "load_pct": 0.0,
+      "current_a": 0.0,
+      "temp_c": 31,
+      "volt": 11.3,
+      "current_raw_count_derived": 0
+     },
+     "5": {
+      "deg": 0.09,
+      "load_pct": 0.0,
+      "current_a": 0.0,
+      "temp_c": 34,
+      "volt": 11.2,
+      "current_raw_count_derived": 0
+     },
+     "6": {
+      "deg": 0.18,
+      "load_pct": 0.0,
+      "current_a": 0.0,
+      "temp_c": 32,
+      "volt": 11.3,
+      "current_raw_count_derived": 0
+     },
+     "7": {
+      "deg": 0.18,
+      "load_pct": 0.0,
+      "current_a": 0.0,
+      "temp_c": 30,
+      "volt": 11.2,
+      "current_raw_count_derived": 0
+     },
+     "8": {
+      "deg": 0.35,
+      "load_pct": 0.0,
+      "current_a": 0.0,
+      "temp_c": 36,
+      "volt": 11.3,
+      "current_raw_count_derived": 0
+     },
+     "9": {
+      "deg": -0.09,
+      "load_pct": 0.0,
+      "current_a": 0.0,
+      "temp_c": 29,
+      "volt": 11.2,
+      "current_raw_count_derived": 0
+     },
+     "10": {
+      "deg": -0.09,
+      "load_pct": 0.0,
+      "current_a": 0.0,
+      "temp_c": 33,
+      "volt": 11.3,
+      "current_raw_count_derived": 0
+     },
+     "11": {
+      "deg": 0.18,
+      "load_pct": 0.0,
+      "current_a": 0.0,
+      "temp_c": 30,
+      "volt": 11.4,
+      "current_raw_count_derived": 0
+     },
+     "12": {
+      "deg": -0.09,
+      "load_pct": 0.0,
+      "current_a": 0.0,
+      "temp_c": 29,
+      "volt": 11.3,
+      "current_raw_count_derived": 0
+     },
+     "13": {
+      "deg": 0.09,
+      "load_pct": 0.0,
+      "current_a": 0.0,
+      "temp_c": 29,
+      "volt": 11.3,
+      "current_raw_count_derived": 0
+     },
+     "14": {
+      "deg": 0.09,
+      "load_pct": 0.0,
+      "current_a": 0.0,
+      "temp_c": 34,
+      "volt": 11.3,
+      "current_raw_count_derived": 0
+     },
+     "15": {
+      "deg": 0.09,
+      "load_pct": 0.0,
+      "current_a": 0.0,
+      "temp_c": 31,
+      "volt": 11.3,
+      "current_raw_count_derived": 0
+     },
+     "16": {
+      "deg": 0.18,
+      "load_pct": 0.0,
+      "current_a": 0.0,
+      "temp_c": 32,
+      "volt": 11.3,
+      "current_raw_count_derived": 0
+     },
+     "17": {
+      "deg": 0.26,
+      "load_pct": 0.0,
+      "current_a": 0.0,
+      "temp_c": 34,
+      "volt": 11.3,
+      "current_raw_count_derived": 0
+     }
+    }
+   },
+   "post_pose": {
+    "t": 1789000664.730508,
+    "degrees": [
+     0.09,
+     -0.09,
+     0.18,
+     0.26,
+     -0.09,
+     0.09,
+     0.18,
+     0.18,
+     0.35,
+     -0.09,
+     -0.09,
+     0.18,
+     -0.09,
+     0.09,
+     0.09,
+     0.09,
+     0.18,
+     0.26
+    ],
+    "live": 18,
+    "armed": true,
+    "bus_quarantined": false,
+    "bus_available": true,
+    "imu_grade": "green"
+   }
+  },
+  {
+   "cycle": 2,
+   "hold_samples": [],
+   "frames": {},
+   "m_up_start": null,
+   "error": "<urlopen error [Errno 61] Connection refused>"
+  }
+ ],
+ "events": [
+  {
+   "kind": "marker",
+   "label": "experiment_start",
+   "marker_id": "c2647e331ff546faa5e38f5ac1e09cf2",
+   "t": 1789000569.1074471
+  },
+  {
+   "kind": "marker",
+   "label": "cycle1_up_start",
+   "marker_id": "8494b93b28414826896c1b9451eebec8",
+   "t": 1789000574.151447
+  },
+  {
+   "kind": "marker",
+   "label": "cycle1_hold_start",
+   "marker_id": "94e3aec8134046f8ae00f1a1227dc9ff",
+   "t": 1789000594.7925491
+  },
+  {
+   "kind": "marker",
+   "label": "cycle1_hold_end",
+   "marker_id": "aa470c40862f470f9f997870c8b89370",
+   "t": 1789000615.6746612
+  },
+  {
+   "kind": "marker",
+   "label": "cycle1_down_start",
+   "marker_id": "1b95c16469b84c18acda93f6b5df397f",
+   "t": 1789000625.925439
+  },
+  {
+   "kind": "marker",
+   "label": "cycle1_down_end",
+   "marker_id": "5eff903333c140f9a81d7dc437ff4d52",
+   "t": 1789000652.9689631
+  },
+  {
+   "kind": "limp",
+   "reason": "standup up POST failed: <urlopen error [Errno 61] Connection refused>",
+   "t": 1789000691.059712
+  },
+  {
+   "kind": "marker",
+   "label": "experiment_end",
+   "marker_id": "70554ec60d2447b29eb5fb7033ca8158",
+   "t": 1789000696.0966258
+  }
+ ],
+ "stopped_reason": "cycle2 up POST failed: <urlopen error [Errno 61] Connection refused>",
+ "stop_disposition": "hazard_limp",
+ "cycle1_yield_deg": {
+  "0": 2.68,
+  "1": 0.57,
+  "2": 0.39,
+  "3": 2.85,
+  "4": -0.05,
+  "5": 1.09
+ },
+ "pre_frames": [
+  "pre_run_robot-1.jpg",
+  "pre_run_robot-2.jpg",
+  "pre_run_robot-3.jpg"
+ ],
+ "log": [
+  "[17:35:38] baseline /api/errors count=100 last=2026-09-10T00:10:30.519Z",
+  "[17:35:43] pre: live=18/18 maxtemp=37C roll=-0.14 pitch=2.08",
+  "[17:36:09] === cycle 1/3: stand up (step) ===",
+  "[17:36:19]   up ack: ok=True ",
+  "[17:36:29]   up done in 15.53s: done \u00b7 step stand-up peak 2.76 A",
+  "[17:36:39]   hold t=  5.1s live=18/18 maxT=37C maxI=0.21A roll=-0.62 pitch=5.33 hips={'L0': 18.19, 'L1': 20.3, 'L2': 20.48, 'L3': 18.02, 'L4': 20.92, 'L5': 19.78}",
+  "[17:37:00]   cycle 1 hip yield at exit: {0: 2.68, 1: 0.57, 2: 0.39, 3: 2.85, 4: -0.05, 5: 1.09}",
+  "[17:37:00] === cycle 1: sit down ===",
+  "[17:37:27]   NOTE: job never reported running (fast path or refusal); progress=done \u00b7 step sit-down peak 2.89 A",
+  "[17:37:27]   down done in 21.9s: done \u00b7 step sit-down peak 2.89 A",
+  "[17:37:50]   cycle 1 clean: live=18/18",
+  "[17:37:50] === cycle 2/3: stand up (step) ===",
+  "[17:37:55]   mark(cycle2_up_start) failed: <urlopen error [Errno 61] Connection refused>",
+  "[17:38:00]   standup up POST failed: <urlopen error [Errno 61] Connection refused>",
+  "[17:38:00] LIMP (hazard): standup up POST failed: <urlopen error [Errno 61] Connection refused>",
+  "[17:38:11]   /cmd X -> limp",
+  "[17:38:36] WROTE cycles.json (2 cycles); stopped_reason=cycle2 up POST failed: <urlopen error [Errno 61] Connection refused>",
+  "[17:38:36] FATAL SystemExit: 0"
+ ],
+ "post_feedback": {
+  "tag": "post_run",
+  "t": 1789000696.0966349,
+  "t_unix": 1789000701.177,
+  "rtt_s": 5.08,
+  "live": 18,
+  "roll_deg": -0.15,
+  "pitch_deg": 2.07,
+  "body_roll_deg": 0.22,
+  "body_pitch_deg": 2.06,
+  "gyro_dps": [
+   -0.01,
+   -0.03,
+   -0.15
+  ],
+  "joints": {
+   "0": {
+    "deg": 0.09,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 32,
+    "volt": 11.3,
+    "current_raw_count_derived": 0
+   },
+   "1": {
+    "deg": -0.09,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 34,
+    "volt": 11.3,
+    "current_raw_count_derived": 0
+   },
+   "2": {
+    "deg": 0.18,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 37,
+    "volt": 11.3,
+    "current_raw_count_derived": 0
+   },
+   "3": {
+    "deg": 0.26,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 32,
+    "volt": 11.3,
+    "current_raw_count_derived": 0
+   },
+   "4": {
+    "deg": -0.09,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 31,
+    "volt": 11.3,
+    "current_raw_count_derived": 0
+   },
+   "5": {
+    "deg": 0.09,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 34,
+    "volt": 11.2,
+    "current_raw_count_derived": 0
+   },
+   "6": {
+    "deg": 0.18,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 32,
+    "volt": 11.2,
+    "current_raw_count_derived": 0
+   },
+   "7": {
+    "deg": 0.18,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 30,
+    "volt": 11.2,
+    "current_raw_count_derived": 0
+   },
+   "8": {
+    "deg": 0.35,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 36,
+    "volt": 11.3,
+    "current_raw_count_derived": 0
+   },
+   "9": {
+    "deg": -0.09,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 29,
+    "volt": 11.2,
+    "current_raw_count_derived": 0
+   },
+   "10": {
+    "deg": -0.09,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 33,
+    "volt": 11.3,
+    "current_raw_count_derived": 0
+   },
+   "11": {
+    "deg": 0.26,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 30,
+    "volt": 11.4,
+    "current_raw_count_derived": 0
+   },
+   "12": {
+    "deg": -0.09,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 29,
+    "volt": 11.3,
+    "current_raw_count_derived": 0
+   },
+   "13": {
+    "deg": 0.09,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 29,
+    "volt": 11.3,
+    "current_raw_count_derived": 0
+   },
+   "14": {
+    "deg": 0.09,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 34,
+    "volt": 11.3,
+    "current_raw_count_derived": 0
+   },
+   "15": {
+    "deg": 0.09,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 31,
+    "volt": 11.3,
+    "current_raw_count_derived": 0
+   },
+   "16": {
+    "deg": 0.18,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 32,
+    "volt": 11.3,
+    "current_raw_count_derived": 0
+   },
+   "17": {
+    "deg": 0.26,
+    "load_pct": 0.0,
+    "current_a": 0.0,
+    "temp_c": 34,
+    "volt": 11.3,
+    "current_raw_count_derived": 0
+   }
+  }
+ },
+ "post_pose": {
+  "t": 1789000706.422365,
+  "degrees": [
+   0.09,
+   -0.09,
+   0.18,
+   0.26,
+   -0.09,
+   0.09,
+   0.18,
+   0.18,
+   0.35,
+   -0.09,
+   -0.09,
+   0.26,
+   -0.09,
+   0.09,
+   0.09,
+   0.09,
+   0.18,
+   0.26
+  ],
+  "live": 18,
+  "armed": false,
+  "bus_quarantined": false,
+  "bus_available": true,
+  "imu_grade": "green"
+ },
+ "post_contact": {
+  "t": 1789000711.618321,
+  "legs": [
+   {
+    "leg": 0,
+    "ready": false,
+    "planted": false,
+    "reason": "missing command or encoder"
+   },
+   {
+    "leg": 1,
+    "ready": false,
+    "planted": false,
+    "reason": "missing command or encoder"
+   },
+   {
+    "leg": 2,
+    "ready": false,
+    "planted": false,
+    "reason": "missing command or encoder"
+   },
+   {
+    "leg": 3,
+    "ready": false,
+    "planted": false,
+    "reason": "missing command or encoder"
+   },
+   {
+    "leg": 4,
+    "ready": false,
+    "planted": false,
+    "reason": "missing command or encoder"
+   },
+   {
+    "leg": 5,
+    "ready": false,
+    "planted": false,
+    "reason": "missing command or encoder"
+   }
+  ],
+  "planted": [
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "ready_legs": 0,
+  "writer_alive": true,
+  "capture_errors": 0,
+  "queue_dropped": 0
+ },
+ "final_error_count": 100,
+ "final_error_last_ts": "2026-09-10T00:38:33.170Z",
+ "transient_bus_events": [],
+ "discarded_implausible_current_samples": [],
+ "fatal": "SystemExit: 0"
+}

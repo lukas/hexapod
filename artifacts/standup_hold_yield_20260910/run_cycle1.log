@@ -1,0 +1,18 @@
+[17:35:38] baseline /api/errors count=100 last=2026-09-10T00:10:30.519Z
+[17:35:43] pre: live=18/18 maxtemp=37C roll=-0.14 pitch=2.08
+[17:36:09] === cycle 1/3: stand up (step) ===
+[17:36:19]   up ack: ok=True 
+[17:36:29]   up done in 15.53s: done · step stand-up peak 2.76 A
+[17:36:39]   hold t=  5.1s live=18/18 maxT=37C maxI=0.21A roll=-0.62 pitch=5.33 hips={'L0': 18.19, 'L1': 20.3, 'L2': 20.48, 'L3': 18.02, 'L4': 20.92, 'L5': 19.78}
+[17:37:00]   cycle 1 hip yield at exit: {0: 2.68, 1: 0.57, 2: 0.39, 3: 2.85, 4: -0.05, 5: 1.09}
+[17:37:00] === cycle 1: sit down ===
+[17:37:27]   NOTE: job never reported running (fast path or refusal); progress=done · step sit-down peak 2.89 A
+[17:37:27]   down done in 21.9s: done · step sit-down peak 2.89 A
+[17:37:50]   cycle 1 clean: live=18/18
+[17:37:50] === cycle 2/3: stand up (step) ===
+[17:37:55]   mark(cycle2_up_start) failed: <urlopen error [Errno 61] Connection refused>
+[17:38:00]   standup up POST failed: <urlopen error [Errno 61] Connection refused>
+[17:38:00] LIMP (hazard): standup up POST failed: <urlopen error [Errno 61] Connection refused>
+[17:38:11]   /cmd X -> limp
+[17:38:36] WROTE cycles.json (2 cycles); stopped_reason=cycle2 up POST failed: <urlopen error [Errno 61] Connection refused>
+[17:38:36] FATAL SystemExit: 0

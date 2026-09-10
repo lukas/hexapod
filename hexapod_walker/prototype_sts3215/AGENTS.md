@@ -150,12 +150,14 @@ three consecutive incomplete scans with distinct fresh timestamps. Ordinary
 camera, recorder, or framework failures stop active motion neutrally and hold
 the current stable pose; they do not trigger a posture transition. When the
 camera and three fresh telemetry samples are normal, retry the complete failed
-step up to twice before ending it.
+step; every step gets 3 attempts.
 
 An actual tip, brownout, hot motor, jam, surprise force, or hard/sustained
-current event requires a stop and fresh inspection before retry. A conclusive
-camera view plus recovered electrical, thermal, pose, and motor telemetry may
-clear the event remotely; request hands-on correction only when the condition
-persists or the evidence remains inconclusive. The root instructions' supported
+current event stops the motion and then goes through the same 30-second
+assessment as everything else: wait 30 s, take three fresh samples plus a
+camera frame, and retry from a verified safe pose if the fault is gone. A hot
+motor extends the wait until it reads cool. Excessive tilt that the camera
+shows as level, or that a `sit` re-levels, is recoverable. Request hands-on
+correction only when the fault is still present after 3 attempts. The root instructions' supported
 single-joint grounded-current retry exception still applies. Ordinary deployment,
 telemetry recovery, and bounded repeats do not need another permission question.

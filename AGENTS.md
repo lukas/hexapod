@@ -392,14 +392,17 @@ Hard rules:
    is genuinely needed, report that concrete need; another routine permission
    question does not resolve a fault.
 
-7. **Grounded diagnostic retry rule.** For supported, single-joint grounded
-   calibration/sysid tests, isolated bad current samples do not end the run:
-   require three consecutive over-threshold readings. A confirmed trip limps,
-   waits for feedback/current to recover, then retries up to twice
-   automatically. A third failed attempt terminates the test limp. Never apply
-   this retry rule to a tip, brownout, hot motor, stand/plant motion, jam, or
-   surprise force. A single missing-ID sample is not a confirmed stop; use the
-   three-consecutive-read rule above.
+7. **The three rule, and stop-assess-retry.** No guard fires on one reading:
+   every threshold — current, temperature, load, stall, missing ID, tilt —
+   needs three consecutive confirming samples before it counts as a fault.
+   A confirmed fault stops motion immediately, and then the run performs the
+   30-second assessment in `EMERGENCY_HANDLING.md`: wait 30 s, take three
+   fresh samples plus a camera frame, and retry from a verified safe pose if
+   the fault is gone. Every step gets 3 attempts. Nothing waits on an
+   operator merely because it stopped once — only the operator's own E-stop,
+   and a fault still present after 3 attempts, do. An unattended campaign
+   ends itself after 3 attempts at a step or 3 consecutive stopped
+   experiments.
 
 Details: `.cursor/rules/hexapod-sts-hardware-safety.mdc`,
 `hexapod_walker/prototype_sts3215/EMERGENCY_HANDLING.md`, and

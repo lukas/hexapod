@@ -1,11 +1,14 @@
+from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
 import subprocess
+import time
 import pytest
 
 import hexapod_lab.codex_orchestrator as codex_module
-from hexapod_lab.codex_orchestrator import CodexOrchestrator
+from hexapod_lab.codex_orchestrator import (
+    QUEUE_STOP_ASSESS_S, QUEUE_STOP_MAX_ATTEMPTS, CodexOrchestrator)
 from hexapod_lab.config import Settings
 from hexapod_lab.db import Store
 from hexapod_lab.engineering_lane import (
@@ -1106,6 +1109,118 @@ def test_non_motion_engineering_progress_continues_same_job_with_receipt_and_bud
     assert "Commit and push focused fixes you authored" in prompt
     assert "Do not reset git, force-push" in prompt
     assert len(orchestrator.engineering.list_jobs()) == 1
+
+
+def _blocked_handoff(orchestrator, store):
+    """Drive one guarded plan through a handoff that reports a blocker."""
+    assert orchestrator.process_one("advance") is True
+    handoff = orchestrator.engineering.claim("engineer", lease_seconds=60)
+    orchestrator.engineering.finish(
+        handoff,
+        "engineer",
+        {
+            "outcome": "blocked",
+            "physical_motion_started": False,
+            "operator_actions": ["Inspect the hip."],
+            "rl_orchestrator_requests": [],
+        },
+    )
+
+
+def _age_handoffs(store, seconds):
+    """Backdate every handoff so the 30 s assessment window has elapsed."""
+    stamp = datetime.fromtimestamp(
+        time.time() - seconds, tz=timezone.utc
+    ).isoformat()
+    with store.connect() as con:
+        con.execute(
+            "UPDATE codex_engineering_jobs SET finished_at=?, updated_at=?",
+            (stamp, stamp),
+        )
+
+
+def _guarded_orchestrator(tmp_path):
+    workspace = tmp_path / "project"
+    workspace.mkdir()
+    store = Store(tmp_path / "lab.sqlite3")
+    store.create(
+        {
+            "name": "guarded motion",
+            "duration_seconds": 1,
+            "parameters": {},
+            "execution_mode": "external_guarded",
+        },
+        "test",
+    )
+    return store, CodexOrchestrator(
+        store,
+        configured(tmp_path, workspace),
+        invoker=lambda *_args, **_kwargs: {},
+    )
+
+
+def test_a_blocked_handoff_retries_after_the_assessment_window(tmp_path):
+    """One stop is a reading, not the end of the campaign.
+
+    A blocked handoff used to park the queue until an operator clicked. It
+    must now wait out the 30 s assessment and then take another attempt,
+    which re-reads the robot's live health.
+    """
+    store, orchestrator = _guarded_orchestrator(tmp_path)
+    _blocked_handoff(orchestrator, store)
+
+    assert orchestrator.ensure_queue_kick() is None, "must not retry instantly"
+
+    _age_handoffs(store, QUEUE_STOP_ASSESS_S + 1)
+    assert orchestrator.ensure_queue_kick() is not None
+
+
+def test_three_consecutive_blocked_handoffs_stop_the_campaign(tmp_path):
+    """Three stops in a row is real, and waits for a human."""
+    store, orchestrator = _guarded_orchestrator(tmp_path)
+    for attempt in range(QUEUE_STOP_MAX_ATTEMPTS):
+        _blocked_handoff(orchestrator, store)
+        _age_handoffs(store, QUEUE_STOP_ASSESS_S + 1)
+        kick = orchestrator.ensure_queue_kick()
+        if attempt < QUEUE_STOP_MAX_ATTEMPTS - 1:
+            assert kick is not None, f"attempt {attempt + 1} must be allowed"
+        else:
+            assert kick is None, "the third stop must hold for an operator"
+
+
+def test_the_attempt_budget_does_not_reset_on_a_new_queue_trigger(tmp_path):
+    """The retry loop must be able to end itself overnight.
+
+    The handoff job is reused across attempts, so a fresh queue trigger
+    cannot hand it a new budget. Without that, a plan the robot keeps
+    refusing would retry forever.
+    """
+    store, orchestrator = _guarded_orchestrator(tmp_path)
+    seen = set()
+    for _ in range(QUEUE_STOP_MAX_ATTEMPTS):
+        assert orchestrator.process_one("advance") is True
+        handoff = orchestrator.engineering.claim("engineer", lease_seconds=60)
+        assert handoff is not None
+        seen.add(handoff["id"])
+        orchestrator.engineering.finish(
+            handoff,
+            "engineer",
+            {
+                "outcome": "blocked",
+                "physical_motion_started": False,
+                "operator_actions": ["Inspect the hip."],
+                "rl_orchestrator_requests": [],
+            },
+        )
+        _age_handoffs(store, QUEUE_STOP_ASSESS_S + 1)
+        orchestrator.ensure_queue_kick()
+
+    assert len(seen) == 1, "attempts must reuse one handoff, not fork budgets"
+    job = orchestrator.engineering.list_jobs()[0]
+    assert job["status"] == "blocked"
+    assert job["attempts"] == job["max_attempts"] == QUEUE_STOP_MAX_ATTEMPTS
+    assert orchestrator.ensure_queue_kick() is None
+    assert orchestrator.process_one("advance") is False
 
 
 @pytest.mark.parametrize(

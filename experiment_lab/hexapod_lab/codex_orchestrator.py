@@ -698,6 +698,43 @@ def _stop_process_group(pgid: int, *, grace_seconds: float = 5.0) -> bool:
     return not _process_group_exists(pgid)
 
 
+# EMERGENCY_HANDLING.md: a stopped step is assessed after 30 s and retried,
+# up to three attempts, before the campaign waits on a human.
+QUEUE_STOP_ASSESS_S = 30.0
+QUEUE_STOP_MAX_ATTEMPTS = 3
+
+
+def _handoff_cleared(item: Dict[str, Any]) -> bool:
+    """True when this handoff finished without reporting a problem."""
+    result = item.get("result")
+    return bool(
+        item.get("status") == "succeeded"
+        and isinstance(result, dict)
+        and result.get("outcome") != "blocked"
+        and not result.get("operator_actions")
+    )
+
+
+def _finished_age_s(item: Dict[str, Any], now: float) -> float:
+    """Seconds since the handoff finished; 0.0 when the stamp is unusable.
+
+    Failing closed here (0.0 = "not yet assessed") makes an unparseable
+    timestamp delay a retry by one poll rather than fire it instantly.
+    """
+    for key in ("finished_at", "updated_at", "created_at"):
+        raw = item.get(key)
+        if not raw:
+            continue
+        try:
+            when = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+        except (TypeError, ValueError):
+            continue
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=timezone.utc)
+        return max(0.0, now - when.timestamp())
+    return 0.0
+
+
 class CodexOrchestrator:
     """Lease-backed worker with independent analysis and advance lanes."""
 
@@ -1034,6 +1071,7 @@ class CodexOrchestrator:
                 print(f"Codex reconcile error: {type(exc).__name__}: {exc}", flush=True)
 
     def ensure_queue_kick(self) -> Optional[Dict[str, Any]]:
+        now = time.time()
         if self.store.codex_queue_control().get("paused"):
             return None
         counts = self.store.queue_counts()
@@ -1096,8 +1134,30 @@ class CodexOrchestrator:
                 and not result.get("operator_actions")
             )
             if not may_continue:
-                return None
-            marker = f"{target['id']}:{latest['id']}"
+                # Stop, wait, assess -- do not park. A handoff that reported a
+                # blocker or an operator action used to end automatic
+                # advancement for good, so one stopped run left a healthy
+                # robot idle until somebody clicked. EMERGENCY_HANDLING.md now
+                # gives every stopped step 3 attempts with a 30 s assessment
+                # between them: the next kick re-runs the handoff, which
+                # re-reads the robot's live health and either clears the stop
+                # or reports it again. Three consecutive stops is real; one is
+                # a reading.
+                stops = 0
+                for item in reversed(handoffs):
+                    if not _handoff_cleared(item):
+                        stops += 1
+                    else:
+                        break
+                if stops >= QUEUE_STOP_MAX_ATTEMPTS:
+                    return None
+                if _finished_age_s(latest, now) < QUEUE_STOP_ASSESS_S:
+                    return None
+            # The handoff job is reused across attempts, so its id alone
+            # repeats and the advance dedupe key collides -- the second
+            # assessment then silently enqueued nothing. Attempt number makes
+            # each retry its own advance job.
+            marker = f"{target['id']}:{latest['id']}:{latest.get('attempts', 0)}"
         return self.store.enqueue_advance(
             f"queue-drain:{marker}",
             "queue_reconcile",

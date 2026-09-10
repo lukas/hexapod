@@ -9,6 +9,8 @@ It defaults to a simulated robot so the complete workflow can be tested without 
 - FIFO queue with `queued`, `running`, `succeeded`, `failed`, and `cancelled` states
 - Bearer-token API/MCP authentication and role-based `viewer`, `operator`, and `admin` access
 - Browser results UI using HTTP Basic with the same named tokens
+- Operator-only calibration studio at `/vision`, protected by the same Robot
+  Lab login and proxied to a fixed localhost vision service
 - One evidence directory per experiment containing the submitted spec, JSONL telemetry, logs, MP4 video when configured, and a Markdown summary
 - REST artifact streaming and MCP artifact discovery/reading
 - Registration of externally completed guarded runs plus streamed artifact upload
@@ -28,6 +30,12 @@ uv run hexapod-lab
 ```
 
 Open `http://127.0.0.1:8767/` and sign in with the `name` and `token` from a configured `role:name:token` entry. For example, `operator:robot-operator:a-long-random-secret` becomes username `robot-operator` and password `a-long-random-secret`.
+
+When `HEXAPOD_VISION_URL=http://127.0.0.1:8898` is configured, operators can
+open `/vision` on the same Robot Lab host. The proxy also covers the matching
+`/api/vision/*` and `/vision/*` assets, including the MJPEG stream. It never
+forwards the Robot Lab credential to the local vision process, and viewer-only
+accounts cannot access calibration or camera images.
 
 Queue a simulated experiment:
 
@@ -85,6 +93,7 @@ The adapter must enforce robot-specific constraints: allowed gaits, workspace bo
 | `HEXAPOD_MAX_ARTIFACT_BYTES` | `2147483648` | Maximum streamed artifact size |
 | `HEXAPOD_AUTO_WORKER` | `true` | Set false for API-only processes |
 | `HEXAPOD_BIND` / `HEXAPOD_PORT` | `127.0.0.1` / `8767` | Listener |
+| `HEXAPOD_VISION_URL` | empty | Fixed localhost vision service exposed to operators at `/vision` |
 
 Generate tokens with `openssl rand -hex 32`. Credentials are hashed in memory for comparison and never written to the database or evidence. Environment variables remain visible to privileged local processes, so use an OS secret store in production.
 
@@ -92,7 +101,7 @@ Generate tokens with `openssl rand -hex 32`. Credentials are hashed in memory fo
 
 [`deploy/camera-relay.yaml`](deploy/camera-relay.yaml) describes the existing camera service and reverse tunnel on port 8766. Hexapod Lab intentionally uses 8767 so it can run alongside that service. Remote exposure needs a separate authenticated tunnel or a deliberate additional route in the relay; keep TLS and application authentication enabled.
 
-The deployed stable lab URL is `https://robot-lab.cwd1f0-new-cluster.coreweave.app`. Caddy terminates TLS and forwards this hostname without adding another authentication layer; Hexapod Lab itself enforces Basic authentication for the website and bearer authentication for API/MCP clients. The local service and dual-port SSH tunnel run as macOS LaunchAgents, and the operator token is stored in Keychain under `Hexapod Lab API`. The background-safe runtime and evidence live under `~/Library/Application Support/Hexapod Lab/` because macOS restricts LaunchAgent access to `Documents`.
+The deployed stable lab URL is `https://robot-lab.cwd1f0-new-cluster.coreweave.app`. Caddy terminates TLS and forwards this hostname without adding another authentication layer; Hexapod Lab itself enforces Basic authentication for the website and bearer authentication for API/MCP clients. The same hostname exposes the operator-only calibration studio at `/vision`; Robot Lab proxies it locally, so the existing SSH tunnel still exposes only port 8767. The local service and dual-port SSH tunnel run as macOS LaunchAgents, and the operator token is stored in Keychain under `Hexapod Lab API`. The background-safe runtime and evidence live under `~/Library/Application Support/Hexapod Lab/` because macOS restricts LaunchAgent access to `Documents`.
 
 ## Blocker text alerts
 

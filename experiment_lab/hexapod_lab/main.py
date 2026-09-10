@@ -1111,6 +1111,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         filename: str,
         request: Request,
         principal: Principal = Depends(automation_operator),
+        defer_manifest: bool = Query(default=False),
     ):
         require_automation_assignment(principal, experiment_id)
         destination = artifact_destination(experiment_id, filename)
@@ -1174,7 +1175,12 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
                 except FileExistsError as exc:
                     raise HTTPException(409, "Artifact already exists") from exc
                 try:
-                    runner.write_manifest(destination.parent)
+                    # Batch publishers stage while the plan is still pending,
+                    # then register and seal once. Avoid hashing every earlier
+                    # video again for each of a hundred small uploads. Sealing
+                    # always rebuilds and verifies the complete manifest.
+                    if not defer_manifest:
+                        runner.write_manifest(destination.parent)
                 except Exception:
                     if linked:
                         destination.unlink(missing_ok=True)

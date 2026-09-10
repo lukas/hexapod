@@ -32,6 +32,7 @@ from .agent_providers import (
     get_provider,
 )
 from .config import DEFAULT_ROBOT_TELEMETRY_URL, Settings
+from .handoff import HandoffExitWatch, SealedHandoffComplete, verify_handoff_manifest
 from .communication_capture import RobotCommunicationCapture, STATUS_NAME
 from .codex_transcripts import (
     ROBOT_COMMUNICATION_MANIFEST,
@@ -1459,7 +1460,15 @@ class CodexOrchestrator:
         result: Optional[Dict[str, Any]] = None
         after: Optional[Dict[str, Any]] = None
         patch_receipt: Optional[Dict[str, Any]] = None
+        completed_handoff = None
         try:
+            if job.get("source_context", {}).get("trigger_kind") == "queue_handoff":
+                self._report_progress(
+                    "preparing", f"{self.settings.agent_label} has started the experiment worker",
+                    "The saved plan has been claimed by the serialized engineering worker.",
+                    "Inspect the live camera and fresh telemetry, then execute the bounded plan.",
+                    self.store.get(job["experiment_id"]),
+                )
             result = self._invoke(
                 "engineering",
                 job,
@@ -1468,6 +1477,8 @@ class CodexOrchestrator:
                 engineering_workdir=workspace,
                 engineering_lane=lane,
             )
+        except SealedHandoffComplete as exc:
+            completed_handoff = exc.receipt
         finally:
             execution_error = sys.exc_info()[1]
             try:
@@ -1491,9 +1502,37 @@ class CodexOrchestrator:
                 # merely because recording its workspace also failed.
                 print("Could not archive interrupted engineering workspace: "
                       f"{type(evidence_error).__name__}", flush=True)
-        normalized = validate_engineering_result(
-            result, job, project_context["sha256"]
-        )
+        if completed_handoff is not None:
+            # This is an explicit supervisor receipt, never fabricated model
+            # output. _invoke proved process-group cleanup before raising it.
+            self._raise_if_engineering_revoked(job)
+            current = self.store.get(job["experiment_id"])
+            if (current["status"] != "succeeded" or
+                    current.get("evidence_manifest_sha256") !=
+                    completed_handoff["evidence_manifest_sha256"]):
+                raise CodexRunError("Completed handoff changed during process cleanup")
+            verify_handoff_manifest(completed_handoff, self.settings.data_dir)
+            normalized = {
+                "schema_version": 1,
+                "receipt_type": "supervisor_completed_handoff",
+                "engineering_job_id": job["id"],
+                "experiment_id": job["experiment_id"],
+                "attempt": job["attempts"],
+                "outcome": "completed",
+                "summary": "The experiment succeeded and its evidence is sealed. "
+                    "The supervisor ended the agent's administrative tail after "
+                    "the exit grace and proved its process group stopped. "
+                    "Detailed interpretation continues in the analysis lane.",
+                "completion": completed_handoff,
+                "operator_actions": [],
+                "next_steps": ["Analyze the sealed evidence; advance the next saved plan."],
+                "rl_orchestrator_requests": [],
+            }
+            _atomic_json(attempt_dir / "supervisor-completion.json", normalized)
+        else:
+            normalized = validate_engineering_result(
+                result, job, project_context["sha256"]
+            )
         normalized["observed_workspace"] = {
             "before": before,
             "after": after,
@@ -2025,11 +2064,14 @@ class CodexOrchestrator:
             }
             self._finish_job(job, "succeeded", result=receipt)
             self._report_progress(
-                "preparing",
-                f"{self.settings.agent_label} is preparing {target['name']}",
+                "preparing" if handoff["status"] == "running" else "idle",
+                (f"{self.settings.agent_label} is preparing {target['name']}"
+                 if handoff["status"] == "running" else
+                 f"Queued {target['name']}; waiting for the hardware worker"),
                 (
-                    "The full-access engineering runner owns the saved plan "
-                    "and may inspect, recover, execute, and record it."
+                    "The saved plan has an engineering job. A queued job starts "
+                    "after the previous hardware agent exits and its process "
+                    "group has been reaped; queueing alone is not preparation."
                 ),
                 (
                     "Use the live camera and fresh telemetry as supervision; "
@@ -2342,6 +2384,13 @@ class CodexOrchestrator:
             *command,
         ]
         revocation_error = ""
+        completed_handoff = None
+        handoff_watch = None
+        if (role == "engineering" and engineering_lane == ENGINEERING_LANE_HARDWARE
+                and job.get("source_context", {}).get("trigger_kind") == "queue_handoff"):
+            handoff_watch = HandoffExitWatch(
+                job["experiment_id"], self.settings.codex_handoff_exit_grace_seconds
+            )
         cleanup_failed = False
         with events_path.open("wb") as stdout, stderr_path.open("wb") as stderr:
             if role == "engineering" and engineering_lane == ENGINEERING_LANE_HARDWARE:
@@ -2437,6 +2486,21 @@ class CodexOrchestrator:
                         if revocation_error:
                             _terminate_deadline_wrapper(process, grace_seconds=5)
                             break
+                    if handoff_watch is not None and process.poll() is None:
+                        progress = self.progress.latest() or {}
+                        blocked = bool(self.store.runner_safety_control().get("latched")) or (
+                            progress.get("experiment_id") == job["experiment_id"]
+                            and progress.get("state") == "blocked" and not progress.get("stale")
+                        )
+                        completed_handoff = handoff_watch.observe(
+                            self.store.get(job["experiment_id"]), time.monotonic(), blocked=blocked
+                        )
+                        if completed_handoff is not None:
+                            verify_handoff_manifest(completed_handoff, self.settings.data_dir)
+                            # Do not release the DB lease here. The existing
+                            # finally block must first prove the whole group gone.
+                            _terminate_deadline_wrapper(process, grace_seconds=5)
+                            break
                     remaining = parent_deadline - time.monotonic()
                     if remaining <= 0:
                         raise subprocess.TimeoutExpired(wrapped_command, timeout + 15)
@@ -2487,6 +2551,8 @@ class CodexOrchestrator:
                     )
                 process_state["returncode"] = process.poll()
                 process_state["assignment_revoked"] = bool(revocation_error)
+                if completed_handoff is not None:
+                    process_state["sealed_handoff_exit"] = completed_handoff
                 if communication_capture is not None and terminated:
                     self._finish_robot_communication(communication_capture)
                 marker_error: Optional[Exception] = None
@@ -2548,6 +2614,8 @@ class CodexOrchestrator:
             if role == "engineering":
                 raise EngineeringExecutionRevoked(revocation_error)
             raise CodexRunError(revocation_error)
+        if completed_handoff is not None:
+            raise SealedHandoffComplete(completed_handoff)
         if process.returncode == 124:
             raise CodexRunError(
                 f"{self.provider.label} {role} run exceeded {timeout} seconds"

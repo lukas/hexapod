@@ -568,7 +568,35 @@ def engineering_prompt(
   bounded physical motion starts, always register and seal its terminal result
   before finishing the handoff. Keep a plan waiting only for concrete unfinished
   engineering or an unresolved current safety condition, and report that
-  condition precisely."""
+  condition precisely.
+- Minimize time holding the hardware worker after the measurement. Prepare
+  result.json and an explicit artifact-list.json before motion; have the
+  deterministic harness flush raw telemetry, camera recordings/frame index,
+  stop events, protocol identity and the end-state evidence when it finishes.
+  After inspecting the ending pose/state and releasing the robot command
+  lease, publish the required evidence and a brief factual summary immediately.
+  Use one scripted call (HEXAPOD_LAB_TOKEN is already in the environment):
+    uv run python -m hexapod_lab.finalize_run --experiment-id <saved-id> \\
+      --result-file result.json --artifact-list artifact-list.json
+  The result file uses the existing CompletedResultIn schema, preserves the
+  saved plan's parameters and actual recorded_at, and states the actual outcome.
+  The artifact list is a JSON array of paths relative to the list's directory;
+  include all required raw evidence, excluding server-owned snapshots,
+  experiment.json, manifest.json and summary.md (summary is in the result).
+  The helper stages files concurrently, registers this exact ID, and seals once.
+  It resumes only byte-identical existing files and never commands the robot.
+- Aim to publish within two minutes after motion ends. Do not spend the
+  hardware slot on exploratory analysis, additional plots, polished prose,
+  repeated verification of an already confirmed seal, or Git commits of
+  generated run evidence. The independent analysis lane already owns detailed
+  interpretation and follow-up proposals. Record missing measurements honestly;
+  never omit required raw evidence to meet a timing target. Focused control
+  fixes still need their normal validation and commits before deployment.
+- After successful sealing, return your structured receipt and exit immediately.
+  Do not command the robot again. The supervisor allows 60 seconds for exit,
+  then stops and reaps the complete agent process group before releasing this
+  hardware slot. This cutoff applies only to successful sealed queue handoffs;
+  failed runs retain their actual stop/blocker handling."""
     model_job = dict(job)
     # This digest authenticates the stored source payload, but it is not the
     # project-context digest requested in the result schema. Showing both as

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from . import claude_cli
@@ -36,6 +37,17 @@ PLAN_SCHEMA = {
     },
     "required": ["learned", "plans"],
 }
+
+
+def _local(value: Any) -> str:
+    """UTC ISO -> the operator's clock, so the planner talks in local time."""
+    try:
+        when = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return str(value)[:16]
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    return when.astimezone().strftime("%b %-d %-I:%M %p")
 
 
 def _trim(text: Any, limit: int) -> str:
@@ -74,13 +86,13 @@ def build_prompt(settings: Settings, store: Store, last_run: Optional[Dict[str, 
         f"- {p['name']}{' [traj]' if p['whole_body'] else ''}: {_trim(p['description'], 160)}"
         for p in protocols)
     learnings = store.learnings(limit=8)
-    learn_lines = "\n".join(f"- {l['created_at'][:16]}: {_trim(l['text'], 700)}" for l in learnings) or "- none yet"
+    learn_lines = "\n".join(f"- {_local(l['created_at'])}: {_trim(l['text'], 700)}" for l in learnings) or "- none yet"
     queue = store.plans(["queued", "building"])
     queue_lines = "\n".join(f"- [{p['status']}] {p['title']} ({p['protocol'] or p['kind']})" for p in queue) or "- empty"
     recent = store.runs(limit=6)
     recent_lines = "\n".join(
-        f"- {r['started_at'][:16]} {r['protocol']}: {r['status']}" for r in recent) or "- none"
-    return f"""You plan the next physical experiments for a cheap 18-servo hexapod. You have two minutes and no tools.
+        f"- {_local(r['started_at'])} {r['protocol']}: {r['status']}" for r in recent) or "- none"
+    return f"""You plan the next physical experiments for a cheap 18-servo hexapod. You have two minutes and no tools. Times below are the operator's local clock; use that clock, never UTC, when you mention a time.
 
 GOAL: {settings.goal}
 

@@ -1491,7 +1491,11 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
 
     @app.get("/", response_class=HTMLResponse)
     def dashboard(request: Request, principal: Principal = Depends(viewer)):
-        cards = "".join(experiment_card(item) for item in store.list()) or "<p>No experiments yet.</p>"
+        found = store.latest_learnings_text()
+        cards = "".join(
+            experiment_card(item, learned=found.get(item["id"]))
+            for item in store.list()
+        ) or "<p>No experiments yet.</p>"
         sign_out = (
             "<form method='post' action='/logout'><button type='submit'>Sign out</button></form>"
             if getattr(request.state, "browser_principal", None) else ""
@@ -2090,7 +2094,7 @@ def _first_sentences(text, limit):
     return out.rstrip() + " …"
 
 
-def experiment_point(item):
+def experiment_point(item, learned_text=None):
     """Why this experiment exists, or what it found once it has run.
 
     The description is method: protocol hash, joint remapping, tick counts.
@@ -2101,19 +2105,21 @@ def experiment_point(item):
     numbers in what_we_learned -- and neither was rendered anywhere. A queue
     that shows only method reads as work with no stated reason and no result.
     """
-    learned = item.get("what_we_learned")
-    if isinstance(learned, dict):
-        body = str(learned.get("text") or "").strip()
-        if body and learned.get("status") != "pending":
-            # The finding is what matters; skip the runner-completed preamble
-            # when the analyst has flagged the measured result explicitly.
-            paragraphs = [b.strip() for b in body.split("\n\n") if b.strip()]
-            measured = next(
-                (b for b in paragraphs
-                 if re.match(r"(measured|key) (result|finding)", b, re.I)),
-                None,
-            )
-            return "Found", _first_sentences(measured or body, 300)
+    body = str(learned_text or "").strip()
+    if not body:
+        learned = item.get("what_we_learned")
+        if isinstance(learned, dict) and learned.get("status") != "pending":
+            body = str(learned.get("text") or "").strip()
+    if body:
+        # The finding is what matters; skip the runner-completed preamble
+        # when the analyst has flagged the measured result explicitly.
+        paragraphs = [b.strip() for b in body.split("\n\n") if b.strip()]
+        measured = next(
+            (b for b in paragraphs
+             if re.match(r"(measured|key) (result|finding)", b, re.I)),
+            None,
+        )
+        return "Found", _first_sentences(measured or body, 300)
     parameters = item.get("parameters")
     if isinstance(parameters, dict):
         automation = parameters.get("_automation")
@@ -2124,7 +2130,7 @@ def experiment_point(item):
     return "", ""
 
 
-def experiment_card(item):
+def experiment_card(item, learned=None):
     status_label = escape(display_status(item["status"]))
     requirements = run_requirements(item)
     # The card is for scanning. The headline and the check count say the plan
@@ -2152,7 +2158,7 @@ def experiment_card(item):
         automation = (
             f"<p class='automation-inline'>{escape(agent_label())} · {labels}</p>"
         )
-    label, point = experiment_point(item)
+    label, point = experiment_point(item, learned_text=learned)
     point_html = (
         f"<p class='experiment-point'><strong>{escape(label)}:</strong> "
         f"{escape(point)}</p>" if point else ""

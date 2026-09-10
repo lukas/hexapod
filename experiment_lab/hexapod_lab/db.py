@@ -3221,6 +3221,23 @@ class Store:
             ).fetchone()
         return self._learnings_row(row) if row else None
 
+    def latest_learnings_text(self, limit: int = 100) -> Dict[str, str]:
+        """Newest learnings text per experiment, for list views.
+
+        list() returns bare experiment rows, so a card had no way to show
+        what a finished run found. One grouped read beats a query per card.
+        """
+        with self.connect() as con:
+            rows = con.execute(
+                "SELECT experiment_id, text FROM experiment_learnings "
+                "WHERE sequence IN ("
+                "  SELECT MAX(sequence) FROM experiment_learnings "
+                "  GROUP BY experiment_id) "
+                "ORDER BY sequence DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return {row["experiment_id"]: row["text"] for row in rows}
+
     def record_learnings(
         self, experiment_id: str, text: str, sources: Any, created_by: str
     ) -> Dict[str, Any]:

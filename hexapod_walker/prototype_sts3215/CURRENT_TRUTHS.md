@@ -96,7 +96,7 @@ Evidence: `rl_move/sim/play_core.py` (`_PlayTraj` rewrite),
 `rl_move/tests/test_drive_video_scripts.py` (2 new tests),
 `logs/manual_drive/anymeans_walkallheading_mlpsf_stdanneal_
 websession_capture_09-10_velblendfix{,_rep2,_rep3}/` (3 post-fix
-captures); snapshot pending (`exp/playtraj-velocity-blend-fixedduration`).
+captures); snapshot `c6e5f86b`.
 
 ## First empirical interactive-HTTP capture of an `any_means` candidate: found and fixed a real config-threading bug (explicit `walk_obs_body_vel` override silently clobbered), but a genuine, still-open "reverse" direction stall remains — DIG-IN flagged, not resolved (2026-09-10, zero GPU spend)
 

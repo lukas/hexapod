@@ -185,8 +185,7 @@ def main_loop(settings: Settings, store: Store, *, log=print, sleep=time.sleep,
             # and keep the whole episode as an experiment of its own: which
             # escape freed which pose is exactly the data a better escape
             # would be designed from.
-            trip_lines = (run.get("log_tail") or "").strip().splitlines()
-            trip = trip_lines[-1][-160:] if trip_lines else "joint trip"
+            trip = recovery.trip_line(run.get("log_tail") or "")
             log("run tripped on a joint; running recovery ladder")
             sleep(recovery.SETTLE_S)
             run = record_recovery(settings, store, plan, trip, log=log, sleep=sleep)

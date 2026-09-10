@@ -113,17 +113,47 @@ def merge_branch(settings: Settings, branch: str) -> Dict[str, Any]:
         reason = gate(settings, stat, files)
         if reason:
             return {"merged": False, "reason": reason, "files": files, "stat": stat}
-        # Fast-forward main on the remote; if main moved under us the push is
-        # rejected and the branch stays for a human rather than us rebasing code
-        # we did not write.
+        # Fast-forward main on the remote. If main moved while the engineer
+        # worked (the operator pushes to main all day), rebase the branch onto
+        # main in a scratch worktree: the diff already passed the gate, so a
+        # clean rebase changes nothing about what it touches. A conflict means
+        # a human looks at it.
         pushed = _git(settings, "push", "-q", "origin", f"origin/{branch}:main")
         if pushed.returncode:
-            return {"merged": False, "reason": f"main moved; not fast-forward: {pushed.stderr.strip()[:200]}",
-                    "files": files, "stat": stat}
+            rebased = _rebase_branch(settings, branch)
+            if rebased:
+                return {"merged": False, "reason": f"main moved and rebase failed: {rebased}", "files": files, "stat": stat}
+            pushed = _git(settings, "push", "-q", "origin", f"origin/{branch}:main")
+            if pushed.returncode:
+                return {"merged": False, "reason": f"main moved; not fast-forward after rebase: {pushed.stderr.strip()[:200]}",
+                        "files": files, "stat": stat}
         _git(settings, "fetch", "-q", "origin", "main")
         _git(settings, "merge", "-q", "--ff-only", "origin/main")
         return {"merged": True, "files": files, "stat": stat,
                 "robot_side": any("/linux_control/" in f for f in files)}
+
+
+def _rebase_branch(settings: Settings, branch: str) -> Optional[str]:
+    """Rebase origin/<branch> onto origin/main and force-push the branch. Returns
+    an error string, or None on success. Caller holds GIT_LOCK."""
+    wt = settings.data_dir / "merge" / branch.replace("/", "_")
+    _git(settings, "worktree", "remove", "--force", str(wt))
+    wt.parent.mkdir(parents=True, exist_ok=True)
+    added = _git(settings, "worktree", "add", "-q", "--detach", str(wt), f"origin/{branch}")
+    if added.returncode:
+        return f"worktree: {added.stderr.strip()[:160]}"
+    try:
+        rb = subprocess.run(["git", "-C", str(wt), "rebase", "-q", "origin/main"], capture_output=True, text=True, timeout=120)
+        if rb.returncode:
+            subprocess.run(["git", "-C", str(wt), "rebase", "--abort"], capture_output=True, text=True, timeout=60)
+            return f"conflict: {(rb.stderr or rb.stdout).strip()[:160]}"
+        push = subprocess.run(["git", "-C", str(wt), "push", "-q", "--force-with-lease", "origin", f"HEAD:{branch}"],
+                              capture_output=True, text=True, timeout=120)
+        if push.returncode:
+            return f"push: {push.stderr.strip()[:160]}"
+        return None
+    finally:
+        _git(settings, "worktree", "remove", "--force", str(wt))
 
 
 def fix_plan(settings: Settings, store: Store, plan: Dict[str, Any]) -> Dict[str, Any]:

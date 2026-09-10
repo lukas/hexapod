@@ -587,3 +587,30 @@ def test_eyes_crop_filter():
     from hexapod_lab2 import eyes
     assert eyes.crop_filter("0.02,0.0,0.6,0.75") == "crop=iw*0.600:ih*0.750:iw*0.020:ih*0.000,"
     assert eyes.crop_filter("") == "" and eyes.crop_filter("1,2,3") == ""
+
+
+def test_trip_line_prefers_the_runner_error_over_the_last_line():
+    from hexapod_lab2 import recovery
+    tail = ("hardware summary: ok=False ticks 3/1200\nrunner: ok=False error=joint 14 overcurrent 2.34 A (limit 0.75) — possible jam; limped\n"
+            "vision: 31 frames, 0 errors\ndataset: /x/y/z_20260910_161000 (sysid_z.csv)")
+    assert recovery.trip_line(tail).startswith("joint 14 overcurrent 2.34 A")
+    assert recovery.trip_line("only this") == "only this"
+
+
+def test_merge_gate_rebases_when_main_moved(settings, monkeypatch):
+    from hexapod_lab2 import engineer
+    calls = []
+    def fake_git(s, *args, timeout=120):
+        calls.append(args[0] if args[0] != "push" else "push")
+        out = {"fetch": "", "diff": "hexapod_walker/prototype_sts3215/sysid/run_hw.py\n" if "--name-only" in args else " 1 file changed, 9 insertions(+)",
+               "merge": ""}.get(args[0], "")
+        rc = 1 if args[0] == "push" and calls.count("push") == 1 else 0
+        return type("P", (), {"returncode": rc, "stdout": out, "stderr": "rejected (fetch first)"})()
+    monkeypatch.setattr(engineer, "_git", fake_git)
+    monkeypatch.setattr(engineer, "_rebase_branch", lambda s, b: None)
+    rep = engineer.merge_branch(settings, "lab2/fix-x")
+    assert rep["merged"] and calls.count("push") == 2
+    monkeypatch.setattr(engineer, "_rebase_branch", lambda s, b: "conflict: run_hw.py")
+    calls.clear()
+    rep = engineer.merge_branch(settings, "lab2/fix-x")
+    assert not rep["merged"] and "rebase failed" in rep["reason"]

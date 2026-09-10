@@ -216,3 +216,30 @@ def test_restart_after_a_stop_gets_fresh_strikes(settings, store, monkeypatch):
     reason = loop.main_loop(settings, store, log=lambda m: None, sleep=lambda s: None, max_iterations=3)
     assert reason != "3 failed runs in a row"
     assert store.runs()[0]["status"] == "ok"
+
+
+def test_builds_are_capped_and_prompt_flags_an_idle_robot(settings, store, monkeypatch):
+    for i in range(3):
+        store.add_plan(title=f"b{i}", why="w", kind="needs_code", protocol=None, build_spec="spec")
+    text = planner.build_prompt(settings, store, None)
+    assert "3 builds are already pending" in text and "robot is idle" in text
+    from hexapod_lab2 import claude_cli
+    monkeypatch.setattr(claude_cli, "oneshot", lambda *a, **k: claude_cli.CliResult(True, {
+        "learned": "", "plans": [
+            {"title": "another build", "why": "w.", "kind": "needs_code", "build_spec": "x"},
+            {"title": "run this", "why": "w.", "kind": "existing", "protocol": "steps_air_v1"},
+        ]}, 0.1, "", ""))
+    report = planner.plan(settings, store, None)
+    assert report["added"] == 1
+    assert store.next_runnable()["protocol"] == "steps_air_v1"
+    assert len(store.building_plans()) == 3
+
+
+def test_waiting_on_builder_still_plans_once(settings, store, monkeypatch):
+    store.add_plan(title="b", why="w", kind="needs_code", protocol=None, build_spec="spec")
+    monkeypatch.setattr("hexapod_lab2.loop.BuilderThread.maybe_start", lambda self: None)
+    monkeypatch.setattr("hexapod_lab2.loop.BuilderThread.busy", lambda self: True)
+    calls = []
+    monkeypatch.setattr(planner, "plan", lambda *a, **k: calls.append(1) or {"ok": True, "added": 0, "cost_usd": 0.0})
+    loop.main_loop(settings, store, log=lambda m: None, sleep=lambda s: None, max_iterations=5)
+    assert len(calls) == 1

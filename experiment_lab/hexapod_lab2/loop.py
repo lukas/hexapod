@@ -16,6 +16,7 @@ class Counters:
     started_at: str = ""
     unreachable: int = 0
     empty_plans: int = 0
+    planned_while_waiting: bool = False
     last_run_id: Optional[str] = None
     notes: list = field(default_factory=list)
 
@@ -86,10 +87,14 @@ def main_loop(settings: Settings, store: Store, *, log=print, sleep=time.sleep,
             log(f"builder started for plan {started}")
         plan = store.next_runnable()
         if plan is None:
-            if builder.busy():
+            # A queue of nothing but builds must not leave the robot idle for
+            # the length of a build: ask the planner once for something that
+            # exists on disk, then wait.
+            if builder.busy() and c.planned_while_waiting:
                 log("waiting on builder")
                 sleep(settings.idle_sleep_s)
                 continue
+            c.planned_while_waiting = builder.busy()
             last = store.runs(limit=1)
             report = planner.plan(settings, store, last[0] if last else None,
                                   last_run_id=last[0]["id"] if last else None)
@@ -101,6 +106,7 @@ def main_loop(settings: Settings, store: Store, *, log=print, sleep=time.sleep,
                 c.empty_plans = 0
             continue
         run = run_once(settings, store, plan, log=log)
+        c.planned_while_waiting = False
         if run["status"] == "unreachable":
             c.unreachable += 1
             sleep(settings.idle_sleep_s)

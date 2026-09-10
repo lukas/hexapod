@@ -228,6 +228,58 @@ def test_adaptive_physical_admission_requires_exact_verified_runner_and_bounds(t
     )
 
 
+def _abort_declaration(*paths):
+    """A physical proposal that promises to keep its stop paths reachable."""
+    return {
+        "robot_motion": True,
+        "moving_leg": "L0",
+        "execution": {"abort_paths_never_gated": list(paths)},
+    }
+
+
+def test_declared_stop_paths_do_not_read_as_a_forbidden_operation():
+    """Promising to keep the limp path open is a safety promise, not motion.
+
+    Two adaptive proposals (L0 and L1 per-leg backlash coverage, 09-10
+    03:22Z and 03:33Z) were rejected as "forbidden motion/control
+    operation" purely for listing "/cmd X" -- the limp word -- under
+    abort_paths_never_gated, so coverage never reached the unmeasured legs.
+    """
+    rejection = CodexOrchestrator._forbidden_action_rejection(
+        _abort_declaration(
+            "/api/rl/stop", "/api/standup/stop", "/api/safe_zero",
+            "/api/bus/recover", "/cmd X",
+        )
+    )
+    assert rejection == "", rejection
+
+
+@pytest.mark.parametrize(
+    "smuggled",
+    [
+        "/cmd walk",
+        "/cmd X; /cmd walk",
+        "set zero",
+        "raw motor sweep",
+        "--force",
+    ],
+)
+def test_a_stop_path_key_still_rejects_anything_that_is_not_a_stop(smuggled):
+    """The key is scanned, so motion cannot hide behind a safety name."""
+    rejection = CodexOrchestrator._forbidden_action_rejection(
+        _abort_declaration("/api/rl/stop", smuggled)
+    )
+    assert "forbidden" in rejection, (smuggled, rejection)
+
+
+def test_the_limp_word_still_rejects_outside_a_stop_path_declaration():
+    """Only the declaration is exempt; an ordinary action key is not."""
+    rejection = CodexOrchestrator._forbidden_action_rejection(
+        {"robot_motion": True, "command": "/cmd X"}
+    )
+    assert "forbidden" in rejection, rejection
+
+
 def test_manifest_verification_rejects_files_added_after_sealing(tmp_path):
     run_dir = tmp_path / "evidence"
     run_dir.mkdir()

@@ -1,5 +1,64 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## n=8 settles the `any_means` "reverse" residual: it is a real, roughly-1-in-4 intermittent stall, not noise-near-a-threshold or "mostly fixed" — the borderline case is genuine, closing the STATUS.md-named "larger held-out repeat count" follow-up (2026-09-10, refill cycle; 15/15 GPU free, empty backlog, no GPU-launchable lever on any track — zero-GPU-spend, ran 4 more identical repeats to reach the n>=8 this file's own prior entry named as needed to settle it)
+
+One plain sentence: with twice as much data (8 identical repeats
+instead of 4), the post-fix `any_means` "reverse" phase now clearly
+fails about 1 time in 4 rather than looking like an occasional noisy
+straggler near the pass/fail line, so the honest verdict flips from
+"substantially improved, not fully closed" (optimistic framing) to
+"a real, small, intermittent stall the fix reduced in frequency and
+severity but did not eliminate."
+
+Ran 4 more repeats of the identical `web_session_drivecapture.py`
+invocation (same checkpoint, same full training `--cfg-set` stack,
+`--speed 0.08`) as rep5-rep8, then recomputed the reverse-phase
+`locomotion_fraction` for all 8 repeats uniformly from each run's own
+`telemetry.json` via the tool's existing helper (`web_session_
+drivecapture.locomotion_fraction` + `drive_video.human_drive_phases`
+for phase boundaries; no new tool). **Full n=8 set: 0.246 (F), 0.313
+(P), 0.333 (P), 0.267 (P), 0.231 (F), 0.274 (P), 0.293 (P), 0.360
+(P)** — mean 0.289, range 0.231-0.360, **6/8 clear the 0.25 stall
+floor, 2/8 fail it** (rep1 and rep5; rep5 at 0.231 is the single
+worst run of the whole post-fix set, slightly below even rep1). Every
+one of the 8 still clears the entire pre-fix range (0.19-0.21) with
+zero overlap — the fix is real and substantial (roughly halves the
+failure rate and lifts the mean well clear of the old floor) — but a
+~25% (2/8) fail rate on an unchanged, deterministic-checkpoint,
+fixed-script repeat is not sampling noise around a threshold; it is a
+small residual mechanism (most likely the previously-named "genuine
+short-window gait-reversal transient" candidate, still not root-caused
+at the mechanism level — no new instrumentation run was added this
+entry to chase that, since the STATUS-named question was specifically
+"how often does this fail," not "why," and that question is now
+answered).
+
+**Verdict: do not call the `any_means` interactive reverse phase a
+clean pass.** This is the honest, settled answer to the "Next: a
+larger held-out repeat count (n>=8-12)... to settle the residual
+borderline case" line in `STATUS.md`/`todaypolicy/STATUS.md` — settled
+as "real, ~25% intermittent, root cause not yet chased," not as
+"noise, safe to call done." Everything else about this champion's
+interactive demo stands: real checkpoint, 0 falls, 0 rejected commands,
+correct direction on every other phase, forward/crab/diag/stop/restart
+all clean every repeat. Does not reopen or change either walkcurr
+open question, and does not change the `rl_only` champion's own
+separate (already-genuine-PASS) interactive result. No code change
+this entry (pure additional measurement + synthesis); no GPU spend;
+no other track had a launchable lever this cycle (re-checked fresh:
+walkcurr's off-axis-sacrifice and slip-floor questions unchanged,
+joystick/amp/cpg DONE, assistfade/standwalk closed pending unbuilt
+structural redesigns, todaypolicy's open items are Codex-owned).
+
+Evidence: `logs/manual_drive/anymeans_walkallheading_mlpsf_stdanneal_
+websession_capture_09-10_velblendfix_rep{5,6,7,8}/` (`summary.json`,
+`telemetry.json`); inline recomputation via `rl_move.sim.web_session_
+drivecapture.locomotion_fraction` + `rl_move.sim.drive_video.human_
+drive_phases` across all 8 `_rep*` dirs (no new tool, existing
+helpers, script this entry ran once and discarded — the computation
+itself is trivial/reproducible from the artifacts already on disk).
+No snapshot needed (zero code change).
+
 ## 4th post-fix repeat of the `any_means` interactive "reverse" capture: locomotion_fraction 0.273, clearing the stall floor — 3/4 repeats now clear cleanly, 1/4 still marginal; still "substantially improved, not fully closed" (2026-09-10, later refill cycle; 15/15 GPU free, empty backlog, no GPU-launchable lever on any track — zero-GPU-spend follow-up on the immediately-preceding entry's own explicit "a few more repeats... would settle whether the residual is bug or inherent" next step)
 
 One plain sentence: one more repeat of the exact same fixed-command

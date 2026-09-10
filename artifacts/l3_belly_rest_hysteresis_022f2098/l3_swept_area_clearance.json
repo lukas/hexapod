@@ -1,0 +1,69 @@
+{
+ "purpose": "plan preflight require_l3_swept_area_clear + verify_commanded_l3_foot_clearance_before_submission, for experiment 022f2098 (byte-exact L3 replicate)",
+ "when_utc": "2026-09-10T16:03:02Z",
+ "which_leg_is_L3": {
+  "body_azimuth_deg": 209.9,
+  "how_established": "the camera tracker CANNOT resolve L3 this run (camera_joint_pose.status 'unavailable'; L3_yaw 'not_visible' -- the horizontal chassis tag is not visible in a calibrated camera, and no intrinsic calibration is configured for an active camera). L3's identity is therefore taken from the durable geometric fact rather than from a live tracker read: mesh_mujoco/hexapod_mesh.xml gives L3_yaw body pos (-0.087, -0.05) -> atan2 = 209.9 deg. Experiment 7b565e2a independently confirmed the tracker agreed with this mesh value (it reported leg_zero_azimuth_body_deg 210.0 while L3 was tracked). The joint indices j9/j10/j11 are fixed by the joint contract.",
+  "role": "rear-left leg of the rear pair (L2/L3)",
+  "tracker_status_this_run": "unavailable / not_visible -- recorded, not treated as a stop (the plan's tag watch is explicitly allowed to record UNMEASURED)"
+ },
+ "swept_volume_computed_from_the_protocol": {
+  "method": "recomputed from THIS run's reviewed protocol file using the project's OWN kinematics (linux_control/geometry_plant.py foot_z_mm/foot_r_mm), not carried over from run 1 and not a re-derivation. Note the project's knee angle is ABSOLUTE, not relative to the femur: z = -FEMUR*sin(hip) - TIBIA*sin(knee). A relative-knee reconstruction gives a wrong (much deeper) answer; the project's convention is the authority.",
+  "protocol_file": "hexapod_walker/prototype_sts3215/sysid/protocols/l3_belly_rest_radial_shear_hysteresis_repeat6_v1.json",
+  "canonical_protocol_hash": "c3727df8dc7e",
+  "expected_protocol_hash": "c3727df8dc7e",
+  "hash_matches": true,
+  "link_lengths_mm": {
+   "coxa": 12.5,
+   "femur": 90.0,
+   "tibia": 150.0
+  },
+  "ticks": 1560,
+  "l3_yaw_joint_j9": "constant [0] in every one of 1560 rows, so the leg does NOT sweep laterally at all",
+  "other_16_joints_all_exactly_zero": true,
+  "varying_columns": [
+   10,
+   11
+  ],
+  "hip_j10_range_deg": [
+   -51.142729,
+   0.0
+  ],
+  "knee_j11_range_deg": [
+   0.0,
+   34.557059
+  ],
+  "radius_from_yaw_axis_mm": [
+   192.499,
+   252.5
+  ],
+  "radial_travel_mm": 60.0,
+  "foot_z_mm": [
+   -15.0,
+   -0.0
+  ],
+  "verdict": "a 60.00 mm long, 15.00 mm deep sliver directly along the leg L3 is already resting on"
+ },
+ "why_a_floor_cable_cannot_be_in_this_volume": {
+  "first_floor_contact_foot_z_mm": -80.95,
+  "deepest_commanded_foot_z_mm": -15.0,
+  "clearance_above_the_floor_plane_mm": 65.95,
+  "plan_requires_mm": 15,
+  "passes": true,
+  "statement": "the deepest commanded point of the whole trajectory is 65.95 mm above the plane the feet contact, so a cable LYING ON THE FLOOR is not in the swept volume by construction. Only an object standing more than ~66 mm tall directly beneath the resting L3 leg could enter it. The frames below were checked for exactly that."
+ },
+ "visual_inspection": {
+  "frames": [
+   "preflight_frames/preflight_robot-1.jpg",
+   "preflight_frames/preflight_robot-2.jpg",
+   "preflight_frames/preflight_robot-3.jpg"
+  ],
+  "captured_utc": "2026-09-10T15:59:37Z",
+  "captured_stamp_in_frame": "08:59:36.9-37.0 local",
+  "source": "camera server :8766 /preview/{0,1,2}.jpg -- the same bus-free path the runner records from",
+  "looked_at": "all three frames were opened and read, not merely fetched. Camera 0 (robot-1) is the Arducam OV9281 MONO overhead view and shows the whole hexapod; cameras 1 and 2 (robot-3, robot-2) are the 12MP colour side views of the same robot (it reads grey in mono, red/blue in colour).",
+  "finding": "the hexapod is belly-resting with the chassis down and all six legs splayed flat on the floor, which is the protocol's start_pose. Cabling visible in the frames -- the robot's own tether leaving the chassis top, and red/black strands running across the floor -- lies FLAT ON THE FLOOR, i.e. at least 65.95 mm below the deepest commanded foot point. No object standing anywhere near 66 mm tall is present beneath or along the resting L3 leg; the floor around the rear-left leg carries only flat printed AprilTag markers. The background clutter (boxes, a tripod arm, other robots, a bin) is well outside the robot's own footprint and nowhere near the 60 mm radial sliver L3 moves within.",
+  "verdict": "CLEAR -- the actual L3 swept volume is free of cables, fixtures and obstacles"
+ },
+ "overall": "PASS"
+}

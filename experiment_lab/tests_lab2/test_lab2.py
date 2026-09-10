@@ -1,5 +1,6 @@
 """A dozen fast tests for the decisions; the runner and CLI are exercised live."""
 import dataclasses
+import json
 
 import pytest
 
@@ -315,7 +316,7 @@ def test_failed_recovery_pauses_texts_and_keeps_loop_alive(settings, store, monk
     monkeypatch.setattr(runner, "run_protocol", lambda s, p, rid, force=False: runner.RunResult(
         status="failed", exit_code=1, run_dir=None, summary=None,
         log_tail="runner: ok=False error=joint 14 overcurrent 1.10 A (limit 0.75)", motion_s=7.0))
-    monkeypatch.setattr(recovery, "recover", lambda s, **k: {"ok": False, "rungs": [{"rung": "zero", "status": "error: joint 14", "ok": False}], "final": "error: joint 14"})
+    monkeypatch.setattr(recovery, "recover", lambda s, **k: {"ok": False, "rungs": [{"rung": "zero", "status": "error: joint 14", "ok": False, "seconds": 9.0}], "final": "error: joint 14", "before": {}, "after": {}})
     monkeypatch.setattr(planner, "plan", lambda *a, **k: {"ok": True, "added": 0, "cost_usd": 0.0})
     sent = []
     monkeypatch.setattr(alerts, "send_messages_text", lambda r, m: sent.append((r, m)))
@@ -338,3 +339,30 @@ def test_texts_are_rate_limited_per_reason(store, monkeypatch):
     assert alerts.text(store, "needs_hand", "other reason", sender=fake, recipient="+15555550100")
     assert not alerts.text(store, "stop", "no recipient", sender=fake, recipient="")
     assert len(sent) == 2
+
+
+def test_recovery_is_recorded_as_a_run_with_artifacts(settings, store, monkeypatch):
+    from hexapod_lab2 import recovery
+    calls, post, get = _fake_robot(fail_first_zero=True)
+    stills = []
+    def fetch(url):
+        stills.append(url); return b"jpeg"
+    def fake_recover(s, **k):
+        return recovery.recover(s, log=lambda m: None, post=post, get=get, sleep=lambda x: None,
+                                run_dir=k.get("run_dir"), fetch=fetch)
+    plan = {"protocol": "l1_air_radial_shear_hysteresis_control_v1", "robot": "hexapod1"}
+    row = loop.record_recovery(settings, store, plan, "joint 14 overcurrent 1.10 A", log=lambda m: None,
+                               sleep=lambda x: None, recover=fake_recover)
+    assert row["status"] == "ok"
+    summary = json.loads(row["summary_json"])
+    assert summary["recovery"] and summary["after_protocol"] == plan["protocol"]
+    assert [r["rung"] for r in summary["rungs"]] == ["zero", "untrap", "zero"]
+    assert summary["before"]["knees_deg"][4] == 120.0 and summary["after"]["knees_deg"][4] == 0.0
+    files = store.run_files(row["id"])
+    assert "00_before_feedback.json" in files and "00_before.jpg" in files and "03_after_zero.jpg" in files
+    assert len(stills) == 4
+    plan_row = store.plan(row["plan_id"])
+    assert plan_row["title"].startswith("Recovery after") and plan_row["status_note"] == "freed by zero"
+    # A recovered jam is an experiment, not a strike.
+    rid = store.start_run(plan_row["id"]); store.finish_run(rid, status="failed", exit_code=1, run_dir=None, summary=None, log_tail="")
+    assert store.consecutive_failed_runs() == 1

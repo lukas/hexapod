@@ -27,6 +27,7 @@ from __future__ import annotations
 import json
 import re
 import time
+from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 from urllib.request import Request, urlopen
 
@@ -69,6 +70,51 @@ def wait_for_idle(robot_url: str, *, get=_get, sleep=time.sleep, timeout_s: floa
     return status or "timeout"
 
 
+def _fetch_bytes(url: str) -> bytes:
+    with urlopen(url, timeout=10) as resp:
+        return resp.read()
+
+
+def pose_digest(fb: Dict[str, Any]) -> Dict[str, Any]:
+    """The part of a feedback snapshot a reader (or the planner) needs."""
+    joints = fb.get("joints") or []
+    if len(joints) < 18:
+        return {"ok": False}
+    deg = [round(float(j.get("deg") or 0), 1) for j in joints]
+    return {
+        "ok": bool(fb.get("ok")),
+        "roll_deg": fb.get("roll_deg"), "pitch_deg": fb.get("pitch_deg"),
+        "knees_deg": [deg[i] for i in KNEE_JOINTS],
+        "hips_deg": [deg[i] for i in (1, 4, 7, 10, 13, 16)],
+        "yaws_deg": [deg[i] for i in (0, 3, 6, 9, 12, 15)],
+        "peak_current_a": max(float(j.get("cur_a") or 0) for j in joints),
+        "max_temp_c": max(float(j.get("temp_c") or 0) for j in joints),
+    }
+
+
+class Recorder:
+    """Writes what a recovery saw into a run folder: feedback JSON and a
+    camera still at each step. Every recovery is an unplanned experiment
+    and gets kept like one."""
+
+    def __init__(self, run_dir: Optional[Path], frame_url: str, *, get=_get, fetch=_fetch_bytes):
+        self.run_dir, self.frame_url, self.get, self.fetch = run_dir, frame_url, get, fetch
+
+    def snapshot(self, robot_url: str, tag: str) -> Dict[str, Any]:
+        try:
+            fb = self.get(f"{robot_url}/api/feedback")
+        except Exception as exc:  # noqa: BLE001
+            fb = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+        if self.run_dir is not None:
+            self.run_dir.mkdir(parents=True, exist_ok=True)
+            (self.run_dir / f"{tag}_feedback.json").write_text(json.dumps(fb, indent=1))
+            try:
+                (self.run_dir / f"{tag}.jpg").write_bytes(self.fetch(self.frame_url))
+            except Exception:  # noqa: BLE001 - a missing still is not a failed recovery
+                pass
+        return fb
+
+
 def at_rest(fb: Dict[str, Any], *, knee_tol_deg: float = 20.0, tilt_deg: float = 8.0) -> bool:
     joints = fb.get("joints") or []
     if len(joints) < 18 or not fb.get("ok"):
@@ -79,27 +125,32 @@ def at_rest(fb: Dict[str, Any], *, knee_tol_deg: float = 20.0, tilt_deg: float =
 
 
 def recover(settings: Settings, *, log: Callable[[str], None] = print, post=_post, get=_get,
-            sleep=time.sleep) -> Dict[str, Any]:
-    """Run the ladder. Returns {"ok": bool, "rungs": [...], "final": status}."""
+            sleep=time.sleep, run_dir: Optional[Path] = None, fetch=_fetch_bytes) -> Dict[str, Any]:
+    """Run the ladder and record it. Returns {"ok", "rungs", "final", "before", "after"}."""
     url = settings.robot_url.rstrip("/")
+    rec = Recorder(run_dir, settings.vision_frame_url, get=get, fetch=fetch)
     rungs = [("zero", "/api/zero", {"pose": "sit"}),
              ("untrap", "/api/untrap", {"force": True}),
              ("zero", "/api/zero", {"pose": "sit"})]
-    report: Dict[str, Any] = {"ok": False, "rungs": [], "final": ""}
+    report: Dict[str, Any] = {"ok": False, "rungs": [], "final": "",
+                              "before": pose_digest(rec.snapshot(url, "00_before")), "after": None}
     for i, (name, path, body) in enumerate(rungs):
         if i:
             sleep(SETTLE_S)
+        started = time.monotonic()
         try:
             accepted = post(f"{url}{path}", body)
             status = wait_for_idle(url, get=get, sleep=sleep) if accepted.get("ok") else str(accepted.get("error"))
-            fb = get(f"{url}/api/feedback")
         except Exception as exc:  # noqa: BLE001 - robot unreachable mid-recovery is a failed rung
-            status, fb = f"{type(exc).__name__}: {exc}", {}
+            status = f"{type(exc).__name__}: {exc}"
+        fb = rec.snapshot(url, f"{i + 1:02d}_after_{name}")
         ok = at_rest(fb) and not status.lower().startswith("error")
-        report["rungs"].append({"rung": name, "status": status[:200], "ok": ok})
+        report["rungs"].append({"rung": name, "request": body, "status": status[:200], "ok": ok,
+                                "seconds": round(time.monotonic() - started, 1), "pose": pose_digest(fb)})
         log(f"recovery {name}: {'ok' if ok else 'not yet'} — {status[:120]}")
         if ok:
-            report["ok"], report["final"] = True, status
+            report["ok"], report["final"], report["after"] = True, status, pose_digest(fb)
             return report
     report["final"] = report["rungs"][-1]["status"] if report["rungs"] else ""
+    report["after"] = report["rungs"][-1]["pose"] if report["rungs"] else None
     return report

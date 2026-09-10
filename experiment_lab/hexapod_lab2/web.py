@@ -70,7 +70,7 @@ article{background:#fff;border:1px solid #e7e5e4;border-radius:8px;padding:10px 
 article h2{font-size:1rem;margin:0 0 4px}
 .tag{display:inline-block;font-size:.75rem;padding:1px 7px;border-radius:10px;background:#e7e5e4;margin-right:6px;text-transform:uppercase}
 .tag.ok,.tag.done{background:#dcfce7}.tag.failed,.tag.timeout{background:#fee2e2}.tag.running{background:#dbeafe}
-.tag.queued{background:#fef9c3}.tag.robot{background:#cffafe}.tag.building{background:#ede9fe}.tag.unreachable{background:#fde68a}
+.tag.queued{background:#fef9c3}.tag.robot{background:#cffafe}.tag.recovery{background:#fde68a}.tag.building{background:#ede9fe}.tag.unreachable{background:#fde68a}
 .point b{color:#57534e;margin-right:6px}p{margin:4px 0}small{color:#78716c}
 h3{font-size:.95rem;margin:18px 0 4px;color:#57534e;text-transform:uppercase;letter-spacing:.04em}
 details summary{cursor:pointer;color:#57534e}pre{white-space:pre-wrap;font-size:12px;background:#fafaf9;padding:8px;border-radius:6px}
@@ -123,13 +123,19 @@ def render(store: Store, settings: Settings, robot: Optional[str] = None) -> str
                  else f"<p class=point><b>Why</b>{escape(first_sentences(r['why'], 240))}</p>")
         tail = escape((r.get("log_tail") or "")[-1200:])
         robot_tag = f"<span class='tag robot'>{escape(r['robot'])}</span>" if r.get("robot") != "hexapod1" else ""
+        try:
+            summary = json.loads(r.get("summary_json") or "{}")
+        except ValueError:
+            summary = {}
+        if summary.get("recovery"):
+            robot_tag += "<span class='tag recovery'>recovery</span>"
         files = store.run_files(r["id"])
         links = (" · " + " ".join(
             f"<a href='/v2/runs/{r['id']}/{escape(f)}'>{escape(f)}</a>" for f in files if not f.startswith("runner.log"))
             ) if files and not r.get("protocol") else ""
         detail = (f"<details><summary>runner log</summary><pre>{tail}</pre></details>" if tail else "")
         out.append(f"<article>{robot_tag}<span class='tag {r['status']}'>{r['status']}</span><h2>{escape(r['title'])}</h2>{point}"
-                   f"<small>{escape(r['protocol'] or 'hand-run')} · {escape(local_stamp(r['started_at']))}"
+                   f"<small>{escape(r['protocol'] or ('unplanned' if summary.get('recovery') else 'hand-run'))} · {escape(local_stamp(r['started_at']))}"
                    f"{' · exit ' + str(r['exit_code']) if r.get('exit_code') is not None else ''}{links}</small>"
                    f"{detail}</article>")
     events = store.events(12)

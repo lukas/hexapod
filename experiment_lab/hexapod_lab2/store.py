@@ -244,6 +244,7 @@ class Store:
         n = 0
         for row in self.con.execute(
             "SELECT status FROM runs WHERE status != 'running' AND started_at >= ?"
+            " AND COALESCE(json_extract(summary_json, '$.recovery'), 0) = 0"
             " ORDER BY started_at DESC, rowid DESC LIMIT 20", (since or "",)
         ):
             if row["status"] in ("ok",):

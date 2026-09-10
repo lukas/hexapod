@@ -34,12 +34,24 @@ parts:
     cots: false
     qty: 1
     description: "Hex top plate that closes the chassis; carries the trunk power Wagos + motor controller and the 4 magnet posts for the hex board (per-leg power Wago pairs live below, on the chassis_bottom corner flats)."
-  coxa_link:
-    label: "coxa link"
+  coxa_hip_bracket:
+    label: "coxa hip bracket"
     role: "frame"
     cots: false
     qty: 6
-    description: "ONE-PIECE printed coxa (Aug 2026 merge of the old coxa_yaw_hub + coxa_hip_bracket): the yaw turntable hub (bolts the driven \u00d820 disc horn on the \u00d814 / 4x M3 circle, rides the touching 6805 pair (25x37x7, Aug 2026 thick-section swap) on a \u00d825.15 press-fit boss) fused to the hip servo cradle. Aug 17 2026 sink pass: the cradle rides 5 mm lower -- its foot slab fuses through the full platform band and the hip-servo well floor sits 2 mm over the platform top (+26), so the 5 vertical head-access shafts are only ~5.3 mm deep above the M3x30 horn-screw heads (any driver fits) and the part is 5 mm shorter. Aug 17 2026 scrape fix: the running gaps between the rotating link and the stationary yaw_bearing_cap widened to 1.5 mm axial (platform underside over the cap rim) and 1.0 mm radial (dust-skirt bore over the Phi 44 ring) after the printed parts scraped. The horn-screw seats are 1.25 mm deeper (bench: printed seats + screw tolerance ate ~1 mm of horn bite; corner tips now just break the disc's far face, the centre seat goes 1 mm deeper into the spline tap). Aug 16 2026 flatten: the cradle's 4x M2.5 end-face bolt holes and the DS3225-era wire-exit corridor are deleted -- a clean 4-wall box. Aug 17 2026: the cradle grew the SAME rear retention tab as the femur knee cradle (user: 'copy that same part ... so I can screw into the servo from both sides') -- a vertical 5.5 mm plate on the back-face side taking 2x M2.5x6 self-tappers into the hip servo's rear molded hole pair nearer the inboard/wire end, heads flush in Phi 5.2 x 2 mm recesses (connector-end pair stays open for the bus harness; the swinging femur arm passes ~1.5 mm over the tab's outer face)."
+    description: "Two-piece concept Part B: hip servo bracket trimmed to the platform seam and reinforced for four underside self-tappers."
+  coxa_self_tapper:
+    label: "coxa self tapper"
+    role: "fastener"
+    cots: true
+    qty: 24
+    description: "Four M3 self-tapping screws entering upward from the support plate into the hip-bracket corner pads. COTS."
+  coxa_yaw_hub:
+    label: "coxa yaw hub"
+    role: "frame"
+    cots: false
+    qty: 6
+    description: "Two-piece concept Part A: yaw hub plus a full rectangular support plate under the hip bracket."
   disc_horn_hip:
     label: "disc horn hip"
     role: "horn"

@@ -347,6 +347,11 @@
  },
  "meshes": [
   {
+   "id": "stl:lower_coxa_screw",
+   "name": "lower_coxa_screw_3x6_DO_NOT_PRINT.stl",
+   "url": "stl/lower_coxa_screw_3x6_DO_NOT_PRINT.stl"
+  },
+  {
    "id": "stl:chorn_clamp_cnc",
    "name": "premade_chorn_56_DO_NOT_PRINT.stl",
    "url": "stl/premade_chorn_56_DO_NOT_PRINT.stl"
@@ -3298,7 +3303,7 @@
   {
    "id": "098-L0 deep lower yaw carrier",
    "meshId": "stl:coxa_yaw_hub_carrier_ovh",
-   "name": "L0 deep lower yaw hub carrier + 3 radial screws (NEW)",
+   "name": "L0 deep lower yaw hub carrier + 4 underside screws (NEW)",
    "partType": "coxa_yaw_hub_carrier_ovh",
    "role": "variant",
    "leg": 0,
@@ -3325,9 +3330,121 @@
    ]
   },
   {
+   "id": "L0-lower-coxa-screw-0",
+   "meshId": "stl:lower_coxa_screw",
+   "name": "L0 lower coxa 3x6 self-tapping screw 0",
+   "partType": "lower_coxa_screw",
+   "role": "hardware",
+   "leg": 0,
+   "cots": true,
+   "color": "#d6a84a",
+   "transform": [
+    0.8660254037844387,
+    0.49999999999999994,
+    0.0,
+    0.0,
+    -0.49999999999999994,
+    0.8660254037844387,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    111.92304845413265,
+    46.14359353944897,
+    20.25,
+    1.0
+   ]
+  },
+  {
+   "id": "L0-lower-coxa-screw-1",
+   "meshId": "stl:lower_coxa_screw",
+   "name": "L0 lower coxa 3x6 self-tapping screw 1",
+   "partType": "lower_coxa_screw",
+   "role": "hardware",
+   "leg": 0,
+   "cots": true,
+   "color": "#d6a84a",
+   "transform": [
+    0.8660254037844387,
+    0.49999999999999994,
+    0.0,
+    0.0,
+    -0.49999999999999994,
+    0.8660254037844387,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    95.92304845413265,
+    73.85640646055101,
+    20.25,
+    1.0
+   ]
+  },
+  {
+   "id": "L0-lower-coxa-screw-2",
+   "meshId": "stl:lower_coxa_screw",
+   "name": "L0 lower coxa 3x6 self-tapping screw 2",
+   "partType": "lower_coxa_screw",
+   "role": "hardware",
+   "leg": 0,
+   "cots": true,
+   "color": "#d6a84a",
+   "transform": [
+    0.8660254037844387,
+    0.49999999999999994,
+    0.0,
+    0.0,
+    -0.49999999999999994,
+    0.8660254037844387,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    153.4922678357857,
+    70.14359353944897,
+    20.25,
+    1.0
+   ]
+  },
+  {
+   "id": "L0-lower-coxa-screw-3",
+   "meshId": "stl:lower_coxa_screw",
+   "name": "L0 lower coxa 3x6 self-tapping screw 3",
+   "partType": "lower_coxa_screw",
+   "role": "hardware",
+   "leg": 0,
+   "cots": true,
+   "color": "#d6a84a",
+   "transform": [
+    0.8660254037844387,
+    0.49999999999999994,
+    0.0,
+    0.0,
+    -0.49999999999999994,
+    0.8660254037844387,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    137.4922678357857,
+    97.856406460551,
+    20.25,
+    1.0
+   ]
+  },
+  {
    "id": "099-L0 screw-on upper bearing carrier",
    "meshId": "stl:hip_bearing_carrier_ovh",
-   "name": "L0 upper bearing carrier + 3 nut traps (NEW)",
+   "name": "L0 upper bearing carrier + 4 self-tapper pockets (NEW)",
    "partType": "hip_bearing_carrier_ovh",
    "role": "variant",
    "leg": 0,
@@ -3472,7 +3589,7 @@
   {
    "id": "104-L1 deep lower yaw carrier",
    "meshId": "stl:coxa_yaw_hub_carrier_ovh",
-   "name": "L1 deep lower yaw hub carrier + 3 radial screws (NEW)",
+   "name": "L1 deep lower yaw hub carrier + 4 underside screws (NEW)",
    "partType": "coxa_yaw_hub_carrier_ovh",
    "role": "variant",
    "leg": 1,
@@ -3499,9 +3616,121 @@
    ]
   },
   {
+   "id": "L1-lower-coxa-screw-0",
+   "meshId": "stl:lower_coxa_screw",
+   "name": "L1 lower coxa 3x6 self-tapping screw 0",
+   "partType": "lower_coxa_screw",
+   "role": "hardware",
+   "leg": 1,
+   "cots": true,
+   "color": "#d6a84a",
+   "transform": [
+    6.123233995736766e-17,
+    1.0,
+    0.0,
+    0.0,
+    -1.0,
+    6.123233995736766e-17,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    16.000000000000007,
+    120.0,
+    20.25,
+    1.0
+   ]
+  },
+  {
+   "id": "L1-lower-coxa-screw-1",
+   "meshId": "stl:lower_coxa_screw",
+   "name": "L1 lower coxa 3x6 self-tapping screw 1",
+   "partType": "lower_coxa_screw",
+   "role": "hardware",
+   "leg": 1,
+   "cots": true,
+   "color": "#d6a84a",
+   "transform": [
+    6.123233995736766e-17,
+    1.0,
+    0.0,
+    0.0,
+    -1.0,
+    6.123233995736766e-17,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    -15.999999999999993,
+    120.0,
+    20.25,
+    1.0
+   ]
+  },
+  {
+   "id": "L1-lower-coxa-screw-2",
+   "meshId": "stl:lower_coxa_screw",
+   "name": "L1 lower coxa 3x6 self-tapping screw 2",
+   "partType": "lower_coxa_screw",
+   "role": "hardware",
+   "leg": 1,
+   "cots": true,
+   "color": "#d6a84a",
+   "transform": [
+    6.123233995736766e-17,
+    1.0,
+    0.0,
+    0.0,
+    -1.0,
+    6.123233995736766e-17,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    16.00000000000001,
+    168.0,
+    20.25,
+    1.0
+   ]
+  },
+  {
+   "id": "L1-lower-coxa-screw-3",
+   "meshId": "stl:lower_coxa_screw",
+   "name": "L1 lower coxa 3x6 self-tapping screw 3",
+   "partType": "lower_coxa_screw",
+   "role": "hardware",
+   "leg": 1,
+   "cots": true,
+   "color": "#d6a84a",
+   "transform": [
+    6.123233995736766e-17,
+    1.0,
+    0.0,
+    0.0,
+    -1.0,
+    6.123233995736766e-17,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    -15.999999999999991,
+    168.0,
+    20.25,
+    1.0
+   ]
+  },
+  {
    "id": "105-L1 screw-on upper bearing carrier",
    "meshId": "stl:hip_bearing_carrier_ovh",
-   "name": "L1 upper bearing carrier + 3 nut traps (NEW)",
+   "name": "L1 upper bearing carrier + 4 self-tapper pockets (NEW)",
    "partType": "hip_bearing_carrier_ovh",
    "role": "variant",
    "leg": 1,
@@ -3646,7 +3875,7 @@
   {
    "id": "110-L2 deep lower yaw carrier",
    "meshId": "stl:coxa_yaw_hub_carrier_ovh",
-   "name": "L2 deep lower yaw hub carrier + 3 radial screws (NEW)",
+   "name": "L2 deep lower yaw hub carrier + 4 underside screws (NEW)",
    "partType": "coxa_yaw_hub_carrier_ovh",
    "role": "variant",
    "leg": 2,
@@ -3673,9 +3902,121 @@
    ]
   },
   {
+   "id": "L2-lower-coxa-screw-0",
+   "meshId": "stl:lower_coxa_screw",
+   "name": "L2 lower coxa 3x6 self-tapping screw 0",
+   "partType": "lower_coxa_screw",
+   "role": "hardware",
+   "leg": 2,
+   "cots": true,
+   "color": "#d6a84a",
+   "transform": [
+    -0.8660254037844387,
+    0.49999999999999994,
+    0.0,
+    0.0,
+    -0.49999999999999994,
+    -0.8660254037844387,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    -95.92304845413265,
+    73.85640646055101,
+    20.25,
+    1.0
+   ]
+  },
+  {
+   "id": "L2-lower-coxa-screw-1",
+   "meshId": "stl:lower_coxa_screw",
+   "name": "L2 lower coxa 3x6 self-tapping screw 1",
+   "partType": "lower_coxa_screw",
+   "role": "hardware",
+   "leg": 2,
+   "cots": true,
+   "color": "#d6a84a",
+   "transform": [
+    -0.8660254037844387,
+    0.49999999999999994,
+    0.0,
+    0.0,
+    -0.49999999999999994,
+    -0.8660254037844387,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    -111.92304845413265,
+    46.14359353944897,
+    20.25,
+    1.0
+   ]
+  },
+  {
+   "id": "L2-lower-coxa-screw-2",
+   "meshId": "stl:lower_coxa_screw",
+   "name": "L2 lower coxa 3x6 self-tapping screw 2",
+   "partType": "lower_coxa_screw",
+   "role": "hardware",
+   "leg": 2,
+   "cots": true,
+   "color": "#d6a84a",
+   "transform": [
+    -0.8660254037844387,
+    0.49999999999999994,
+    0.0,
+    0.0,
+    -0.49999999999999994,
+    -0.8660254037844387,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    -137.4922678357857,
+    97.856406460551,
+    20.25,
+    1.0
+   ]
+  },
+  {
+   "id": "L2-lower-coxa-screw-3",
+   "meshId": "stl:lower_coxa_screw",
+   "name": "L2 lower coxa 3x6 self-tapping screw 3",
+   "partType": "lower_coxa_screw",
+   "role": "hardware",
+   "leg": 2,
+   "cots": true,
+   "color": "#d6a84a",
+   "transform": [
+    -0.8660254037844387,
+    0.49999999999999994,
+    0.0,
+    0.0,
+    -0.49999999999999994,
+    -0.8660254037844387,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    -153.4922678357857,
+    70.14359353944897,
+    20.25,
+    1.0
+   ]
+  },
+  {
    "id": "111-L2 screw-on upper bearing carrier",
    "meshId": "stl:hip_bearing_carrier_ovh",
-   "name": "L2 upper bearing carrier + 3 nut traps (NEW)",
+   "name": "L2 upper bearing carrier + 4 self-tapper pockets (NEW)",
    "partType": "hip_bearing_carrier_ovh",
    "role": "variant",
    "leg": 2,
@@ -3820,7 +4161,7 @@
   {
    "id": "116-L3 deep lower yaw carrier",
    "meshId": "stl:coxa_yaw_hub_carrier_ovh",
-   "name": "L3 deep lower yaw hub carrier + 3 radial screws (NEW)",
+   "name": "L3 deep lower yaw hub carrier + 4 underside screws (NEW)",
    "partType": "coxa_yaw_hub_carrier_ovh",
    "role": "variant",
    "leg": 3,
@@ -3847,9 +4188,121 @@
    ]
   },
   {
+   "id": "L3-lower-coxa-screw-0",
+   "meshId": "stl:lower_coxa_screw",
+   "name": "L3 lower coxa 3x6 self-tapping screw 0",
+   "partType": "lower_coxa_screw",
+   "role": "hardware",
+   "leg": 3,
+   "cots": true,
+   "color": "#d6a84a",
+   "transform": [
+    -0.8660254037844388,
+    -0.4999999999999998,
+    0.0,
+    0.0,
+    0.4999999999999998,
+    -0.8660254037844388,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    -111.92304845413265,
+    -46.14359353944896,
+    20.25,
+    1.0
+   ]
+  },
+  {
+   "id": "L3-lower-coxa-screw-1",
+   "meshId": "stl:lower_coxa_screw",
+   "name": "L3 lower coxa 3x6 self-tapping screw 1",
+   "partType": "lower_coxa_screw",
+   "role": "hardware",
+   "leg": 3,
+   "cots": true,
+   "color": "#d6a84a",
+   "transform": [
+    -0.8660254037844388,
+    -0.4999999999999998,
+    0.0,
+    0.0,
+    0.4999999999999998,
+    -0.8660254037844388,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    -95.92304845413265,
+    -73.856406460551,
+    20.25,
+    1.0
+   ]
+  },
+  {
+   "id": "L3-lower-coxa-screw-2",
+   "meshId": "stl:lower_coxa_screw",
+   "name": "L3 lower coxa 3x6 self-tapping screw 2",
+   "partType": "lower_coxa_screw",
+   "role": "hardware",
+   "leg": 3,
+   "cots": true,
+   "color": "#d6a84a",
+   "transform": [
+    -0.8660254037844388,
+    -0.4999999999999998,
+    0.0,
+    0.0,
+    0.4999999999999998,
+    -0.8660254037844388,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    -153.49226783578573,
+    -70.14359353944894,
+    20.25,
+    1.0
+   ]
+  },
+  {
+   "id": "L3-lower-coxa-screw-3",
+   "meshId": "stl:lower_coxa_screw",
+   "name": "L3 lower coxa 3x6 self-tapping screw 3",
+   "partType": "lower_coxa_screw",
+   "role": "hardware",
+   "leg": 3,
+   "cots": true,
+   "color": "#d6a84a",
+   "transform": [
+    -0.8660254037844388,
+    -0.4999999999999998,
+    0.0,
+    0.0,
+    0.4999999999999998,
+    -0.8660254037844388,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    -137.49226783578573,
+    -97.85640646055099,
+    20.25,
+    1.0
+   ]
+  },
+  {
    "id": "117-L3 screw-on upper bearing carrier",
    "meshId": "stl:hip_bearing_carrier_ovh",
-   "name": "L3 upper bearing carrier + 3 nut traps (NEW)",
+   "name": "L3 upper bearing carrier + 4 self-tapper pockets (NEW)",
    "partType": "hip_bearing_carrier_ovh",
    "role": "variant",
    "leg": 3,
@@ -3994,7 +4447,7 @@
   {
    "id": "122-L4 deep lower yaw carrier",
    "meshId": "stl:coxa_yaw_hub_carrier_ovh",
-   "name": "L4 deep lower yaw hub carrier + 3 radial screws (NEW)",
+   "name": "L4 deep lower yaw hub carrier + 4 underside screws (NEW)",
    "partType": "coxa_yaw_hub_carrier_ovh",
    "role": "variant",
    "leg": 4,
@@ -4021,9 +4474,121 @@
    ]
   },
   {
+   "id": "L4-lower-coxa-screw-0",
+   "meshId": "stl:lower_coxa_screw",
+   "name": "L4 lower coxa 3x6 self-tapping screw 0",
+   "partType": "lower_coxa_screw",
+   "role": "hardware",
+   "leg": 4,
+   "cots": true,
+   "color": "#d6a84a",
+   "transform": [
+    -1.8369701987210297e-16,
+    -1.0,
+    0.0,
+    0.0,
+    1.0,
+    -1.8369701987210297e-16,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    -16.00000000000002,
+    -120.0,
+    20.25,
+    1.0
+   ]
+  },
+  {
+   "id": "L4-lower-coxa-screw-1",
+   "meshId": "stl:lower_coxa_screw",
+   "name": "L4 lower coxa 3x6 self-tapping screw 1",
+   "partType": "lower_coxa_screw",
+   "role": "hardware",
+   "leg": 4,
+   "cots": true,
+   "color": "#d6a84a",
+   "transform": [
+    -1.8369701987210297e-16,
+    -1.0,
+    0.0,
+    0.0,
+    1.0,
+    -1.8369701987210297e-16,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    15.999999999999979,
+    -120.0,
+    20.25,
+    1.0
+   ]
+  },
+  {
+   "id": "L4-lower-coxa-screw-2",
+   "meshId": "stl:lower_coxa_screw",
+   "name": "L4 lower coxa 3x6 self-tapping screw 2",
+   "partType": "lower_coxa_screw",
+   "role": "hardware",
+   "leg": 4,
+   "cots": true,
+   "color": "#d6a84a",
+   "transform": [
+    -1.8369701987210297e-16,
+    -1.0,
+    0.0,
+    0.0,
+    1.0,
+    -1.8369701987210297e-16,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    -16.000000000000032,
+    -168.0,
+    20.25,
+    1.0
+   ]
+  },
+  {
+   "id": "L4-lower-coxa-screw-3",
+   "meshId": "stl:lower_coxa_screw",
+   "name": "L4 lower coxa 3x6 self-tapping screw 3",
+   "partType": "lower_coxa_screw",
+   "role": "hardware",
+   "leg": 4,
+   "cots": true,
+   "color": "#d6a84a",
+   "transform": [
+    -1.8369701987210297e-16,
+    -1.0,
+    0.0,
+    0.0,
+    1.0,
+    -1.8369701987210297e-16,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    15.99999999999997,
+    -168.0,
+    20.25,
+    1.0
+   ]
+  },
+  {
    "id": "123-L4 screw-on upper bearing carrier",
    "meshId": "stl:hip_bearing_carrier_ovh",
-   "name": "L4 upper bearing carrier + 3 nut traps (NEW)",
+   "name": "L4 upper bearing carrier + 4 self-tapper pockets (NEW)",
    "partType": "hip_bearing_carrier_ovh",
    "role": "variant",
    "leg": 4,
@@ -4168,7 +4733,7 @@
   {
    "id": "128-L5 deep lower yaw carrier",
    "meshId": "stl:coxa_yaw_hub_carrier_ovh",
-   "name": "L5 deep lower yaw hub carrier + 3 radial screws (NEW)",
+   "name": "L5 deep lower yaw hub carrier + 4 underside screws (NEW)",
    "partType": "coxa_yaw_hub_carrier_ovh",
    "role": "variant",
    "leg": 5,
@@ -4195,9 +4760,121 @@
    ]
   },
   {
+   "id": "L5-lower-coxa-screw-0",
+   "meshId": "stl:lower_coxa_screw",
+   "name": "L5 lower coxa 3x6 self-tapping screw 0",
+   "partType": "lower_coxa_screw",
+   "role": "hardware",
+   "leg": 5,
+   "cots": true,
+   "color": "#d6a84a",
+   "transform": [
+    0.8660254037844384,
+    -0.5000000000000004,
+    0.0,
+    0.0,
+    0.5000000000000004,
+    0.8660254037844384,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    95.92304845413258,
+    -73.85640646055107,
+    20.25,
+    1.0
+   ]
+  },
+  {
+   "id": "L5-lower-coxa-screw-1",
+   "meshId": "stl:lower_coxa_screw",
+   "name": "L5 lower coxa 3x6 self-tapping screw 1",
+   "partType": "lower_coxa_screw",
+   "role": "hardware",
+   "leg": 5,
+   "cots": true,
+   "color": "#d6a84a",
+   "transform": [
+    0.8660254037844384,
+    -0.5000000000000004,
+    0.0,
+    0.0,
+    0.5000000000000004,
+    0.8660254037844384,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    111.92304845413261,
+    -46.143593539449036,
+    20.25,
+    1.0
+   ]
+  },
+  {
+   "id": "L5-lower-coxa-screw-2",
+   "meshId": "stl:lower_coxa_screw",
+   "name": "L5 lower coxa 3x6 self-tapping screw 2",
+   "partType": "lower_coxa_screw",
+   "role": "hardware",
+   "leg": 5,
+   "cots": true,
+   "color": "#d6a84a",
+   "transform": [
+    0.8660254037844384,
+    -0.5000000000000004,
+    0.0,
+    0.0,
+    0.5000000000000004,
+    0.8660254037844384,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    137.49226783578564,
+    -97.85640646055109,
+    20.25,
+    1.0
+   ]
+  },
+  {
+   "id": "L5-lower-coxa-screw-3",
+   "meshId": "stl:lower_coxa_screw",
+   "name": "L5 lower coxa 3x6 self-tapping screw 3",
+   "partType": "lower_coxa_screw",
+   "role": "hardware",
+   "leg": 5,
+   "cots": true,
+   "color": "#d6a84a",
+   "transform": [
+    0.8660254037844384,
+    -0.5000000000000004,
+    0.0,
+    0.0,
+    0.5000000000000004,
+    0.8660254037844384,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    153.49226783578564,
+    -70.14359353944906,
+    20.25,
+    1.0
+   ]
+  },
+  {
    "id": "129-L5 screw-on upper bearing carrier",
    "meshId": "stl:hip_bearing_carrier_ovh",
-   "name": "L5 upper bearing carrier + 3 nut traps (NEW)",
+   "name": "L5 upper bearing carrier + 4 self-tapper pockets (NEW)",
    "partType": "hip_bearing_carrier_ovh",
    "role": "variant",
    "leg": 5,
@@ -4361,6 +5038,10 @@
     "011-L0 hip cap OVH + yaw pedestal (NEW)",
     "012-L0 third 6805",
     "098-L0 deep lower yaw carrier",
+    "L0-lower-coxa-screw-0",
+    "L0-lower-coxa-screw-1",
+    "L0-lower-coxa-screw-2",
+    "L0-lower-coxa-screw-3",
     "099-L0 screw-on upper bearing carrier"
    ],
    "limits": {
@@ -4448,6 +5129,10 @@
     "026-L1 hip cap OVH + yaw pedestal (NEW)",
     "027-L1 third 6805",
     "104-L1 deep lower yaw carrier",
+    "L1-lower-coxa-screw-0",
+    "L1-lower-coxa-screw-1",
+    "L1-lower-coxa-screw-2",
+    "L1-lower-coxa-screw-3",
     "105-L1 screw-on upper bearing carrier"
    ],
    "limits": {
@@ -4535,6 +5220,10 @@
     "041-L2 hip cap OVH + yaw pedestal (NEW)",
     "042-L2 third 6805",
     "110-L2 deep lower yaw carrier",
+    "L2-lower-coxa-screw-0",
+    "L2-lower-coxa-screw-1",
+    "L2-lower-coxa-screw-2",
+    "L2-lower-coxa-screw-3",
     "111-L2 screw-on upper bearing carrier"
    ],
    "limits": {
@@ -4622,6 +5311,10 @@
     "056-L3 hip cap OVH + yaw pedestal (NEW)",
     "057-L3 third 6805",
     "116-L3 deep lower yaw carrier",
+    "L3-lower-coxa-screw-0",
+    "L3-lower-coxa-screw-1",
+    "L3-lower-coxa-screw-2",
+    "L3-lower-coxa-screw-3",
     "117-L3 screw-on upper bearing carrier"
    ],
    "limits": {
@@ -4709,6 +5402,10 @@
     "071-L4 hip cap OVH + yaw pedestal (NEW)",
     "072-L4 third 6805",
     "122-L4 deep lower yaw carrier",
+    "L4-lower-coxa-screw-0",
+    "L4-lower-coxa-screw-1",
+    "L4-lower-coxa-screw-2",
+    "L4-lower-coxa-screw-3",
     "123-L4 screw-on upper bearing carrier"
    ],
    "limits": {
@@ -4796,6 +5493,10 @@
     "086-L5 hip cap OVH + yaw pedestal (NEW)",
     "087-L5 third 6805",
     "128-L5 deep lower yaw carrier",
+    "L5-lower-coxa-screw-0",
+    "L5-lower-coxa-screw-1",
+    "L5-lower-coxa-screw-2",
+    "L5-lower-coxa-screw-3",
     "129-L5 screw-on upper bearing carrier"
    ],
    "limits": {
@@ -4972,6 +5673,488 @@
      }
     }
    ]
+  }
+ ],
+ "fastenings": [
+  {
+   "id": "L0-lower-coxa-0",
+   "clampedInstanceId": "098-L0 deep lower yaw carrier",
+   "receiverInstanceId": "008-L0 coxa OVH outboard arm (NEW)",
+   "headSeat": [
+    20.0,
+    -16.0,
+    5.0
+   ],
+   "axis": [
+    0,
+    0,
+    1
+   ],
+   "lengthMm": 6.0,
+   "shaftDiameterMm": 3.0,
+   "minEngagementMm": 1.9,
+   "minWallMm": 0.5,
+   "tipLengthMm": 1.0
+  },
+  {
+   "id": "L0-lower-coxa-1",
+   "clampedInstanceId": "098-L0 deep lower yaw carrier",
+   "receiverInstanceId": "008-L0 coxa OVH outboard arm (NEW)",
+   "headSeat": [
+    20.0,
+    16.0,
+    5.0
+   ],
+   "axis": [
+    0,
+    0,
+    1
+   ],
+   "lengthMm": 6.0,
+   "shaftDiameterMm": 3.0,
+   "minEngagementMm": 1.9,
+   "minWallMm": 0.5,
+   "tipLengthMm": 1.0
+  },
+  {
+   "id": "L0-lower-coxa-2",
+   "clampedInstanceId": "098-L0 deep lower yaw carrier",
+   "receiverInstanceId": "008-L0 coxa OVH outboard arm (NEW)",
+   "headSeat": [
+    68.0,
+    -16.0,
+    5.0
+   ],
+   "axis": [
+    0,
+    0,
+    1
+   ],
+   "lengthMm": 6.0,
+   "shaftDiameterMm": 3.0,
+   "minEngagementMm": 1.9,
+   "minWallMm": 0.5,
+   "tipLengthMm": 1.0
+  },
+  {
+   "id": "L0-lower-coxa-3",
+   "clampedInstanceId": "098-L0 deep lower yaw carrier",
+   "receiverInstanceId": "008-L0 coxa OVH outboard arm (NEW)",
+   "headSeat": [
+    68.0,
+    16.0,
+    5.0
+   ],
+   "axis": [
+    0,
+    0,
+    1
+   ],
+   "lengthMm": 6.0,
+   "shaftDiameterMm": 3.0,
+   "minEngagementMm": 1.9,
+   "minWallMm": 0.5,
+   "tipLengthMm": 1.0
+  },
+  {
+   "id": "L1-lower-coxa-0",
+   "clampedInstanceId": "104-L1 deep lower yaw carrier",
+   "receiverInstanceId": "023-L1 coxa OVH outboard arm (NEW)",
+   "headSeat": [
+    20.0,
+    -16.0,
+    5.0
+   ],
+   "axis": [
+    0,
+    0,
+    1
+   ],
+   "lengthMm": 6.0,
+   "shaftDiameterMm": 3.0,
+   "minEngagementMm": 1.9,
+   "minWallMm": 0.5,
+   "tipLengthMm": 1.0
+  },
+  {
+   "id": "L1-lower-coxa-1",
+   "clampedInstanceId": "104-L1 deep lower yaw carrier",
+   "receiverInstanceId": "023-L1 coxa OVH outboard arm (NEW)",
+   "headSeat": [
+    20.0,
+    16.0,
+    5.0
+   ],
+   "axis": [
+    0,
+    0,
+    1
+   ],
+   "lengthMm": 6.0,
+   "shaftDiameterMm": 3.0,
+   "minEngagementMm": 1.9,
+   "minWallMm": 0.5,
+   "tipLengthMm": 1.0
+  },
+  {
+   "id": "L1-lower-coxa-2",
+   "clampedInstanceId": "104-L1 deep lower yaw carrier",
+   "receiverInstanceId": "023-L1 coxa OVH outboard arm (NEW)",
+   "headSeat": [
+    68.0,
+    -16.0,
+    5.0
+   ],
+   "axis": [
+    0,
+    0,
+    1
+   ],
+   "lengthMm": 6.0,
+   "shaftDiameterMm": 3.0,
+   "minEngagementMm": 1.9,
+   "minWallMm": 0.5,
+   "tipLengthMm": 1.0
+  },
+  {
+   "id": "L1-lower-coxa-3",
+   "clampedInstanceId": "104-L1 deep lower yaw carrier",
+   "receiverInstanceId": "023-L1 coxa OVH outboard arm (NEW)",
+   "headSeat": [
+    68.0,
+    16.0,
+    5.0
+   ],
+   "axis": [
+    0,
+    0,
+    1
+   ],
+   "lengthMm": 6.0,
+   "shaftDiameterMm": 3.0,
+   "minEngagementMm": 1.9,
+   "minWallMm": 0.5,
+   "tipLengthMm": 1.0
+  },
+  {
+   "id": "L2-lower-coxa-0",
+   "clampedInstanceId": "110-L2 deep lower yaw carrier",
+   "receiverInstanceId": "038-L2 coxa OVH outboard arm (NEW)",
+   "headSeat": [
+    20.0,
+    -16.0,
+    5.0
+   ],
+   "axis": [
+    0,
+    0,
+    1
+   ],
+   "lengthMm": 6.0,
+   "shaftDiameterMm": 3.0,
+   "minEngagementMm": 1.9,
+   "minWallMm": 0.5,
+   "tipLengthMm": 1.0
+  },
+  {
+   "id": "L2-lower-coxa-1",
+   "clampedInstanceId": "110-L2 deep lower yaw carrier",
+   "receiverInstanceId": "038-L2 coxa OVH outboard arm (NEW)",
+   "headSeat": [
+    20.0,
+    16.0,
+    5.0
+   ],
+   "axis": [
+    0,
+    0,
+    1
+   ],
+   "lengthMm": 6.0,
+   "shaftDiameterMm": 3.0,
+   "minEngagementMm": 1.9,
+   "minWallMm": 0.5,
+   "tipLengthMm": 1.0
+  },
+  {
+   "id": "L2-lower-coxa-2",
+   "clampedInstanceId": "110-L2 deep lower yaw carrier",
+   "receiverInstanceId": "038-L2 coxa OVH outboard arm (NEW)",
+   "headSeat": [
+    68.0,
+    -16.0,
+    5.0
+   ],
+   "axis": [
+    0,
+    0,
+    1
+   ],
+   "lengthMm": 6.0,
+   "shaftDiameterMm": 3.0,
+   "minEngagementMm": 1.9,
+   "minWallMm": 0.5,
+   "tipLengthMm": 1.0
+  },
+  {
+   "id": "L2-lower-coxa-3",
+   "clampedInstanceId": "110-L2 deep lower yaw carrier",
+   "receiverInstanceId": "038-L2 coxa OVH outboard arm (NEW)",
+   "headSeat": [
+    68.0,
+    16.0,
+    5.0
+   ],
+   "axis": [
+    0,
+    0,
+    1
+   ],
+   "lengthMm": 6.0,
+   "shaftDiameterMm": 3.0,
+   "minEngagementMm": 1.9,
+   "minWallMm": 0.5,
+   "tipLengthMm": 1.0
+  },
+  {
+   "id": "L3-lower-coxa-0",
+   "clampedInstanceId": "116-L3 deep lower yaw carrier",
+   "receiverInstanceId": "053-L3 coxa OVH outboard arm (NEW)",
+   "headSeat": [
+    20.0,
+    -16.0,
+    5.0
+   ],
+   "axis": [
+    0,
+    0,
+    1
+   ],
+   "lengthMm": 6.0,
+   "shaftDiameterMm": 3.0,
+   "minEngagementMm": 1.9,
+   "minWallMm": 0.5,
+   "tipLengthMm": 1.0
+  },
+  {
+   "id": "L3-lower-coxa-1",
+   "clampedInstanceId": "116-L3 deep lower yaw carrier",
+   "receiverInstanceId": "053-L3 coxa OVH outboard arm (NEW)",
+   "headSeat": [
+    20.0,
+    16.0,
+    5.0
+   ],
+   "axis": [
+    0,
+    0,
+    1
+   ],
+   "lengthMm": 6.0,
+   "shaftDiameterMm": 3.0,
+   "minEngagementMm": 1.9,
+   "minWallMm": 0.5,
+   "tipLengthMm": 1.0
+  },
+  {
+   "id": "L3-lower-coxa-2",
+   "clampedInstanceId": "116-L3 deep lower yaw carrier",
+   "receiverInstanceId": "053-L3 coxa OVH outboard arm (NEW)",
+   "headSeat": [
+    68.0,
+    -16.0,
+    5.0
+   ],
+   "axis": [
+    0,
+    0,
+    1
+   ],
+   "lengthMm": 6.0,
+   "shaftDiameterMm": 3.0,
+   "minEngagementMm": 1.9,
+   "minWallMm": 0.5,
+   "tipLengthMm": 1.0
+  },
+  {
+   "id": "L3-lower-coxa-3",
+   "clampedInstanceId": "116-L3 deep lower yaw carrier",
+   "receiverInstanceId": "053-L3 coxa OVH outboard arm (NEW)",
+   "headSeat": [
+    68.0,
+    16.0,
+    5.0
+   ],
+   "axis": [
+    0,
+    0,
+    1
+   ],
+   "lengthMm": 6.0,
+   "shaftDiameterMm": 3.0,
+   "minEngagementMm": 1.9,
+   "minWallMm": 0.5,
+   "tipLengthMm": 1.0
+  },
+  {
+   "id": "L4-lower-coxa-0",
+   "clampedInstanceId": "122-L4 deep lower yaw carrier",
+   "receiverInstanceId": "068-L4 coxa OVH outboard arm (NEW)",
+   "headSeat": [
+    20.0,
+    -16.0,
+    5.0
+   ],
+   "axis": [
+    0,
+    0,
+    1
+   ],
+   "lengthMm": 6.0,
+   "shaftDiameterMm": 3.0,
+   "minEngagementMm": 1.9,
+   "minWallMm": 0.5,
+   "tipLengthMm": 1.0
+  },
+  {
+   "id": "L4-lower-coxa-1",
+   "clampedInstanceId": "122-L4 deep lower yaw carrier",
+   "receiverInstanceId": "068-L4 coxa OVH outboard arm (NEW)",
+   "headSeat": [
+    20.0,
+    16.0,
+    5.0
+   ],
+   "axis": [
+    0,
+    0,
+    1
+   ],
+   "lengthMm": 6.0,
+   "shaftDiameterMm": 3.0,
+   "minEngagementMm": 1.9,
+   "minWallMm": 0.5,
+   "tipLengthMm": 1.0
+  },
+  {
+   "id": "L4-lower-coxa-2",
+   "clampedInstanceId": "122-L4 deep lower yaw carrier",
+   "receiverInstanceId": "068-L4 coxa OVH outboard arm (NEW)",
+   "headSeat": [
+    68.0,
+    -16.0,
+    5.0
+   ],
+   "axis": [
+    0,
+    0,
+    1
+   ],
+   "lengthMm": 6.0,
+   "shaftDiameterMm": 3.0,
+   "minEngagementMm": 1.9,
+   "minWallMm": 0.5,
+   "tipLengthMm": 1.0
+  },
+  {
+   "id": "L4-lower-coxa-3",
+   "clampedInstanceId": "122-L4 deep lower yaw carrier",
+   "receiverInstanceId": "068-L4 coxa OVH outboard arm (NEW)",
+   "headSeat": [
+    68.0,
+    16.0,
+    5.0
+   ],
+   "axis": [
+    0,
+    0,
+    1
+   ],
+   "lengthMm": 6.0,
+   "shaftDiameterMm": 3.0,
+   "minEngagementMm": 1.9,
+   "minWallMm": 0.5,
+   "tipLengthMm": 1.0
+  },
+  {
+   "id": "L5-lower-coxa-0",
+   "clampedInstanceId": "128-L5 deep lower yaw carrier",
+   "receiverInstanceId": "083-L5 coxa OVH outboard arm (NEW)",
+   "headSeat": [
+    20.0,
+    -16.0,
+    5.0
+   ],
+   "axis": [
+    0,
+    0,
+    1
+   ],
+   "lengthMm": 6.0,
+   "shaftDiameterMm": 3.0,
+   "minEngagementMm": 1.9,
+   "minWallMm": 0.5,
+   "tipLengthMm": 1.0
+  },
+  {
+   "id": "L5-lower-coxa-1",
+   "clampedInstanceId": "128-L5 deep lower yaw carrier",
+   "receiverInstanceId": "083-L5 coxa OVH outboard arm (NEW)",
+   "headSeat": [
+    20.0,
+    16.0,
+    5.0
+   ],
+   "axis": [
+    0,
+    0,
+    1
+   ],
+   "lengthMm": 6.0,
+   "shaftDiameterMm": 3.0,
+   "minEngagementMm": 1.9,
+   "minWallMm": 0.5,
+   "tipLengthMm": 1.0
+  },
+  {
+   "id": "L5-lower-coxa-2",
+   "clampedInstanceId": "128-L5 deep lower yaw carrier",
+   "receiverInstanceId": "083-L5 coxa OVH outboard arm (NEW)",
+   "headSeat": [
+    68.0,
+    -16.0,
+    5.0
+   ],
+   "axis": [
+    0,
+    0,
+    1
+   ],
+   "lengthMm": 6.0,
+   "shaftDiameterMm": 3.0,
+   "minEngagementMm": 1.9,
+   "minWallMm": 0.5,
+   "tipLengthMm": 1.0
+  },
+  {
+   "id": "L5-lower-coxa-3",
+   "clampedInstanceId": "128-L5 deep lower yaw carrier",
+   "receiverInstanceId": "083-L5 coxa OVH outboard arm (NEW)",
+   "headSeat": [
+    68.0,
+    16.0,
+    5.0
+   ],
+   "axis": [
+    0,
+    0,
+    1
+   ],
+   "lengthMm": 6.0,
+   "shaftDiameterMm": 3.0,
+   "minEngagementMm": 1.9,
+   "minWallMm": 0.5,
+   "tipLengthMm": 1.0
   }
  ]
 }

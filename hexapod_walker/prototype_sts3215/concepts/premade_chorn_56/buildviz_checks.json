@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-04T20:52:35.952Z",
+  "generatedAt": "2026-09-09T18:00:58.290Z",
   "build": {
     "id": "premade_chorn_56",
     "name": "STS3215 experimental premade 56 mm C-horns + rigid top/bottom bearings"
@@ -342,8 +342,8 @@
     ]
   },
   "summary": {
-    "total": 78,
-    "pass": 78,
+    "total": 103,
+    "pass": 103,
     "warn": 0,
     "fail": 0,
     "byKind": {
@@ -363,7 +363,12 @@
         "fail": 0
       },
       "disconnected_components": {
-        "pass": 21,
+        "pass": 22,
+        "warn": 0,
+        "fail": 0
+      },
+      "thread_engagement": {
+        "pass": 24,
         "warn": 0,
         "fail": 0
       }
@@ -380,7 +385,7 @@
       "id": "scene_meta-mesh-refs",
       "kind": "scene_meta",
       "status": "pass",
-      "label": "all 134 instances resolve to a mesh"
+      "label": "all 158 instances resolve to a mesh"
     },
     {
       "id": "scene_meta-unique-ids",
@@ -614,19 +619,19 @@
         "110-L2 deep lower yaw carrier"
       ],
       "point": [
-        -94.403,
-        46.734,
+        -94.087,
+        45.643,
         8.917
       ],
       "region": {
         "min": [
-          -95.609,
-          40.764,
+          -95.345,
+          40.594,
           7.583
         ],
         "max": [
-          -77.526,
-          59.869,
+          -77.73,
+          59.528,
           10.25
         ]
       }
@@ -641,19 +646,19 @@
         "116-L3 deep lower yaw carrier"
       ],
       "point": [
-        -94.403,
-        -50.316,
+        -94.087,
+        -49.43,
         8.917
       ],
       "region": {
         "min": [
-          -95.609,
-          -59.869,
+          -95.345,
+          -59.528,
           7.583
         ],
         "max": [
-          -77.526,
-          -40.764,
+          -77.73,
+          -40.594,
           10.25
         ]
       }
@@ -668,19 +673,19 @@
         "089-L5 yaw servo"
       ],
       "point": [
-        78.732,
-        -52.704,
+        78.988,
+        -53.217,
         8.917
       ],
       "region": {
         "min": [
-          77.526,
-          -59.869,
+          77.73,
+          -59.528,
           7.583
         ],
         "max": [
-          95.609,
-          -40.764,
+          95.345,
+          -40.594,
           10.25
         ]
       }
@@ -695,19 +700,19 @@
         "014-L0 yaw servo"
       ],
       "point": [
-        78.732,
-        49.122,
+        78.988,
+        49.43,
         8.917
       ],
       "region": {
         "min": [
-          77.526,
-          40.764,
+          77.73,
+          40.594,
           7.583
         ],
         "max": [
-          95.609,
-          59.869,
+          95.345,
+          59.528,
           10.25
         ]
       }
@@ -899,8 +904,8 @@
         "098-L0 deep lower yaw carrier"
       ],
       "point": [
-        78.732,
-        49.122,
+        78.988,
+        49.43,
         8.917
       ]
     },
@@ -1059,8 +1064,8 @@
         "110-L2 deep lower yaw carrier"
       ],
       "point": [
-        -94.403,
-        46.734,
+        -94.087,
+        45.643,
         8.917
       ]
     },
@@ -1139,8 +1144,8 @@
         "116-L3 deep lower yaw carrier"
       ],
       "point": [
-        -94.403,
-        -50.316,
+        -94.087,
+        -49.43,
         8.917
       ]
     },
@@ -1299,8 +1304,8 @@
         "128-L5 deep lower yaw carrier"
       ],
       "point": [
-        78.732,
-        -52.704,
+        78.988,
+        -53.217,
         8.917
       ]
     },
@@ -1358,6 +1363,38 @@
       "id": "disconnected_components-0",
       "kind": "disconnected_components",
       "status": "pass",
+      "label": "lower_coxa_screw_3x6_DO_NOT_PRINT.stl: single connected body",
+      "instances": [
+        "L0-lower-coxa-screw-0",
+        "L0-lower-coxa-screw-1",
+        "L0-lower-coxa-screw-2",
+        "L0-lower-coxa-screw-3",
+        "L1-lower-coxa-screw-0",
+        "L1-lower-coxa-screw-1",
+        "L1-lower-coxa-screw-2",
+        "L1-lower-coxa-screw-3",
+        "L2-lower-coxa-screw-0",
+        "L2-lower-coxa-screw-1",
+        "L2-lower-coxa-screw-2",
+        "L2-lower-coxa-screw-3",
+        "L3-lower-coxa-screw-0",
+        "L3-lower-coxa-screw-1",
+        "L3-lower-coxa-screw-2",
+        "L3-lower-coxa-screw-3",
+        "L4-lower-coxa-screw-0",
+        "L4-lower-coxa-screw-1",
+        "L4-lower-coxa-screw-2",
+        "L4-lower-coxa-screw-3",
+        "L5-lower-coxa-screw-0",
+        "L5-lower-coxa-screw-1",
+        "L5-lower-coxa-screw-2",
+        "L5-lower-coxa-screw-3"
+      ]
+    },
+    {
+      "id": "disconnected_components-1",
+      "kind": "disconnected_components",
+      "status": "pass",
       "label": "premade_chorn_56_DO_NOT_PRINT.stl: single connected body",
       "instances": [
         "015-L0 hip C-clamp (CNC 6061, NEW)",
@@ -1375,7 +1412,7 @@
       ]
     },
     {
-      "id": "disconnected_components-1",
+      "id": "disconnected_components-2",
       "kind": "disconnected_components",
       "status": "pass",
       "label": "driven_spacer_7mm.stl: single connected body",
@@ -1395,7 +1432,7 @@
       ]
     },
     {
-      "id": "disconnected_components-2",
+      "id": "disconnected_components-3",
       "kind": "disconnected_components",
       "status": "pass",
       "label": "passive_spacer_7mm.stl: single connected body",
@@ -1415,7 +1452,7 @@
       ]
     },
     {
-      "id": "disconnected_components-3",
+      "id": "disconnected_components-4",
       "kind": "disconnected_components",
       "status": "pass",
       "label": "femur_body_premade_chorn.stl: single connected body",
@@ -1429,7 +1466,7 @@
       ]
     },
     {
-      "id": "disconnected_components-4",
+      "id": "disconnected_components-5",
       "kind": "disconnected_components",
       "status": "pass",
       "label": "tibia_socket_premade_chorn.stl: single connected body",
@@ -1443,7 +1480,7 @@
       ]
     },
     {
-      "id": "disconnected_components-5",
+      "id": "disconnected_components-6",
       "kind": "disconnected_components",
       "status": "pass",
       "label": "tibia_tube_premade_chorn_DO_NOT_PRINT.stl: single connected body",
@@ -1457,7 +1494,7 @@
       ]
     },
     {
-      "id": "disconnected_components-6",
+      "id": "disconnected_components-7",
       "kind": "disconnected_components",
       "status": "pass",
       "label": "knee_clamp_cap_ovh.stl: single connected body",
@@ -1471,7 +1508,7 @@
       ]
     },
     {
-      "id": "disconnected_components-7",
+      "id": "disconnected_components-8",
       "kind": "disconnected_components",
       "status": "pass",
       "label": "coxa_link_ovh.stl: single connected body",
@@ -1485,7 +1522,7 @@
       ]
     },
     {
-      "id": "disconnected_components-8",
+      "id": "disconnected_components-9",
       "kind": "disconnected_components",
       "status": "pass",
       "label": "coxa_yaw_hub_carrier_ovh.stl: single connected body",
@@ -1499,7 +1536,7 @@
       ]
     },
     {
-      "id": "disconnected_components-9",
+      "id": "disconnected_components-10",
       "kind": "disconnected_components",
       "status": "pass",
       "label": "hip_clamp_cap_ovh.stl: single connected body",
@@ -1513,7 +1550,7 @@
       ]
     },
     {
-      "id": "disconnected_components-10",
+      "id": "disconnected_components-11",
       "kind": "disconnected_components",
       "status": "pass",
       "label": "hip_bearing_carrier_ovh.stl: single connected body",
@@ -1527,7 +1564,7 @@
       ]
     },
     {
-      "id": "disconnected_components-11",
+      "id": "disconnected_components-12",
       "kind": "disconnected_components",
       "status": "pass",
       "label": "chassis_top_rigid.stl: single connected body",
@@ -1536,7 +1573,7 @@
       ]
     },
     {
-      "id": "disconnected_components-12",
+      "id": "disconnected_components-13",
       "kind": "disconnected_components",
       "status": "pass",
       "label": "top_hatch_rigid.stl: single connected body",
@@ -1545,7 +1582,7 @@
       ]
     },
     {
-      "id": "disconnected_components-13",
+      "id": "disconnected_components-14",
       "kind": "disconnected_components",
       "status": "pass",
       "label": "centre_wago_block.stl: single connected body",
@@ -1554,7 +1591,7 @@
       ]
     },
     {
-      "id": "disconnected_components-14",
+      "id": "disconnected_components-15",
       "kind": "disconnected_components",
       "status": "pass",
       "label": "chassis_bottom_rigid.stl: single connected body",
@@ -1563,7 +1600,7 @@
       ]
     },
     {
-      "id": "disconnected_components-15",
+      "id": "disconnected_components-16",
       "kind": "disconnected_components",
       "status": "pass",
       "label": "foot_boot.stl: single connected body",
@@ -1577,7 +1614,7 @@
       ]
     },
     {
-      "id": "disconnected_components-16",
+      "id": "disconnected_components-17",
       "kind": "disconnected_components",
       "status": "pass",
       "label": "yaw_servo_retainer.stl: single connected body",
@@ -1591,7 +1628,7 @@
       ]
     },
     {
-      "id": "disconnected_components-17",
+      "id": "disconnected_components-18",
       "kind": "disconnected_components",
       "status": "pass",
       "label": "servo_body_DO_NOT_PRINT.stl: 3 bodies (expected 3)",
@@ -1617,7 +1654,7 @@
       ]
     },
     {
-      "id": "disconnected_components-18",
+      "id": "disconnected_components-19",
       "kind": "disconnected_components",
       "status": "pass",
       "label": "yaw_bearing_upper_DO_NOT_PRINT.stl: 2 bodies (expected 2)",
@@ -1631,7 +1668,7 @@
       ]
     },
     {
-      "id": "disconnected_components-19",
+      "id": "disconnected_components-20",
       "kind": "disconnected_components",
       "status": "pass",
       "label": "bearing_6805_DO_NOT_PRINT.stl: single connected body",
@@ -1645,7 +1682,7 @@
       ]
     },
     {
-      "id": "disconnected_components-20",
+      "id": "disconnected_components-21",
       "kind": "disconnected_components",
       "status": "pass",
       "label": "wago5_DO_NOT_PRINT.stl: single connected body",
@@ -1655,6 +1692,654 @@
         "006-221-415 GND west",
         "007-221-415 GND east"
       ]
+    },
+    {
+      "id": "fastening-L0-lower-coxa-0",
+      "kind": "thread_engagement",
+      "instances": [
+        "098-L0 deep lower yaw carrier",
+        "008-L0 coxa OVH outboard arm (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        111.92304845413265,
+        46.14359353944897,
+        20.25
+      ],
+      "line": {
+        "from": [
+          111.92304845413265,
+          46.14359353944897,
+          20.25
+        ],
+        "to": [
+          111.92304845413265,
+          46.14359353944897,
+          26.25
+        ]
+      },
+      "label": "L0-lower-coxa-0: 098-L0 deep lower yaw carrier → 008-L0 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L0-lower-coxa-1",
+      "kind": "thread_engagement",
+      "instances": [
+        "098-L0 deep lower yaw carrier",
+        "008-L0 coxa OVH outboard arm (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        95.92304845413265,
+        73.85640646055101,
+        20.25
+      ],
+      "line": {
+        "from": [
+          95.92304845413265,
+          73.85640646055101,
+          20.25
+        ],
+        "to": [
+          95.92304845413265,
+          73.85640646055101,
+          26.25
+        ]
+      },
+      "label": "L0-lower-coxa-1: 098-L0 deep lower yaw carrier → 008-L0 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L0-lower-coxa-2",
+      "kind": "thread_engagement",
+      "instances": [
+        "098-L0 deep lower yaw carrier",
+        "008-L0 coxa OVH outboard arm (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        153.4922678357857,
+        70.14359353944897,
+        20.25
+      ],
+      "line": {
+        "from": [
+          153.4922678357857,
+          70.14359353944897,
+          20.25
+        ],
+        "to": [
+          153.4922678357857,
+          70.14359353944897,
+          26.25
+        ]
+      },
+      "label": "L0-lower-coxa-2: 098-L0 deep lower yaw carrier → 008-L0 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L0-lower-coxa-3",
+      "kind": "thread_engagement",
+      "instances": [
+        "098-L0 deep lower yaw carrier",
+        "008-L0 coxa OVH outboard arm (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        137.4922678357857,
+        97.856406460551,
+        20.25
+      ],
+      "line": {
+        "from": [
+          137.4922678357857,
+          97.856406460551,
+          20.25
+        ],
+        "to": [
+          137.4922678357857,
+          97.856406460551,
+          26.25
+        ]
+      },
+      "label": "L0-lower-coxa-3: 098-L0 deep lower yaw carrier → 008-L0 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L1-lower-coxa-0",
+      "kind": "thread_engagement",
+      "instances": [
+        "104-L1 deep lower yaw carrier",
+        "023-L1 coxa OVH outboard arm (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        16.000000000000007,
+        120,
+        20.25
+      ],
+      "line": {
+        "from": [
+          16.000000000000007,
+          120,
+          20.25
+        ],
+        "to": [
+          16.000000000000007,
+          120,
+          26.25
+        ]
+      },
+      "label": "L1-lower-coxa-0: 104-L1 deep lower yaw carrier → 023-L1 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L1-lower-coxa-1",
+      "kind": "thread_engagement",
+      "instances": [
+        "104-L1 deep lower yaw carrier",
+        "023-L1 coxa OVH outboard arm (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -15.999999999999993,
+        120,
+        20.25
+      ],
+      "line": {
+        "from": [
+          -15.999999999999993,
+          120,
+          20.25
+        ],
+        "to": [
+          -15.999999999999993,
+          120,
+          26.25
+        ]
+      },
+      "label": "L1-lower-coxa-1: 104-L1 deep lower yaw carrier → 023-L1 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L1-lower-coxa-2",
+      "kind": "thread_engagement",
+      "instances": [
+        "104-L1 deep lower yaw carrier",
+        "023-L1 coxa OVH outboard arm (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        16.00000000000001,
+        168,
+        20.25
+      ],
+      "line": {
+        "from": [
+          16.00000000000001,
+          168,
+          20.25
+        ],
+        "to": [
+          16.00000000000001,
+          168,
+          26.25
+        ]
+      },
+      "label": "L1-lower-coxa-2: 104-L1 deep lower yaw carrier → 023-L1 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L1-lower-coxa-3",
+      "kind": "thread_engagement",
+      "instances": [
+        "104-L1 deep lower yaw carrier",
+        "023-L1 coxa OVH outboard arm (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -15.999999999999991,
+        168,
+        20.25
+      ],
+      "line": {
+        "from": [
+          -15.999999999999991,
+          168,
+          20.25
+        ],
+        "to": [
+          -15.999999999999991,
+          168,
+          26.25
+        ]
+      },
+      "label": "L1-lower-coxa-3: 104-L1 deep lower yaw carrier → 023-L1 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L2-lower-coxa-0",
+      "kind": "thread_engagement",
+      "instances": [
+        "110-L2 deep lower yaw carrier",
+        "038-L2 coxa OVH outboard arm (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -95.92304845413265,
+        73.85640646055101,
+        20.25
+      ],
+      "line": {
+        "from": [
+          -95.92304845413265,
+          73.85640646055101,
+          20.25
+        ],
+        "to": [
+          -95.92304845413265,
+          73.85640646055101,
+          26.25
+        ]
+      },
+      "label": "L2-lower-coxa-0: 110-L2 deep lower yaw carrier → 038-L2 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L2-lower-coxa-1",
+      "kind": "thread_engagement",
+      "instances": [
+        "110-L2 deep lower yaw carrier",
+        "038-L2 coxa OVH outboard arm (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -111.92304845413265,
+        46.14359353944897,
+        20.25
+      ],
+      "line": {
+        "from": [
+          -111.92304845413265,
+          46.14359353944897,
+          20.25
+        ],
+        "to": [
+          -111.92304845413265,
+          46.14359353944897,
+          26.25
+        ]
+      },
+      "label": "L2-lower-coxa-1: 110-L2 deep lower yaw carrier → 038-L2 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L2-lower-coxa-2",
+      "kind": "thread_engagement",
+      "instances": [
+        "110-L2 deep lower yaw carrier",
+        "038-L2 coxa OVH outboard arm (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -137.4922678357857,
+        97.856406460551,
+        20.25
+      ],
+      "line": {
+        "from": [
+          -137.4922678357857,
+          97.856406460551,
+          20.25
+        ],
+        "to": [
+          -137.4922678357857,
+          97.856406460551,
+          26.25
+        ]
+      },
+      "label": "L2-lower-coxa-2: 110-L2 deep lower yaw carrier → 038-L2 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L2-lower-coxa-3",
+      "kind": "thread_engagement",
+      "instances": [
+        "110-L2 deep lower yaw carrier",
+        "038-L2 coxa OVH outboard arm (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -153.4922678357857,
+        70.14359353944897,
+        20.25
+      ],
+      "line": {
+        "from": [
+          -153.4922678357857,
+          70.14359353944897,
+          20.25
+        ],
+        "to": [
+          -153.4922678357857,
+          70.14359353944897,
+          26.25
+        ]
+      },
+      "label": "L2-lower-coxa-3: 110-L2 deep lower yaw carrier → 038-L2 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L3-lower-coxa-0",
+      "kind": "thread_engagement",
+      "instances": [
+        "116-L3 deep lower yaw carrier",
+        "053-L3 coxa OVH outboard arm (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -111.92304845413265,
+        -46.14359353944896,
+        20.25
+      ],
+      "line": {
+        "from": [
+          -111.92304845413265,
+          -46.14359353944896,
+          20.25
+        ],
+        "to": [
+          -111.92304845413265,
+          -46.14359353944896,
+          26.25
+        ]
+      },
+      "label": "L3-lower-coxa-0: 116-L3 deep lower yaw carrier → 053-L3 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L3-lower-coxa-1",
+      "kind": "thread_engagement",
+      "instances": [
+        "116-L3 deep lower yaw carrier",
+        "053-L3 coxa OVH outboard arm (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -95.92304845413265,
+        -73.856406460551,
+        20.25
+      ],
+      "line": {
+        "from": [
+          -95.92304845413265,
+          -73.856406460551,
+          20.25
+        ],
+        "to": [
+          -95.92304845413265,
+          -73.856406460551,
+          26.25
+        ]
+      },
+      "label": "L3-lower-coxa-1: 116-L3 deep lower yaw carrier → 053-L3 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L3-lower-coxa-2",
+      "kind": "thread_engagement",
+      "instances": [
+        "116-L3 deep lower yaw carrier",
+        "053-L3 coxa OVH outboard arm (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -153.4922678357857,
+        -70.14359353944894,
+        20.25
+      ],
+      "line": {
+        "from": [
+          -153.4922678357857,
+          -70.14359353944894,
+          20.25
+        ],
+        "to": [
+          -153.4922678357857,
+          -70.14359353944894,
+          26.25
+        ]
+      },
+      "label": "L3-lower-coxa-2: 116-L3 deep lower yaw carrier → 053-L3 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L3-lower-coxa-3",
+      "kind": "thread_engagement",
+      "instances": [
+        "116-L3 deep lower yaw carrier",
+        "053-L3 coxa OVH outboard arm (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -137.49226783578573,
+        -97.85640646055099,
+        20.25
+      ],
+      "line": {
+        "from": [
+          -137.49226783578573,
+          -97.85640646055099,
+          20.25
+        ],
+        "to": [
+          -137.49226783578573,
+          -97.85640646055099,
+          26.25
+        ]
+      },
+      "label": "L3-lower-coxa-3: 116-L3 deep lower yaw carrier → 053-L3 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L4-lower-coxa-0",
+      "kind": "thread_engagement",
+      "instances": [
+        "122-L4 deep lower yaw carrier",
+        "068-L4 coxa OVH outboard arm (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -16.00000000000002,
+        -120,
+        20.25
+      ],
+      "line": {
+        "from": [
+          -16.00000000000002,
+          -120,
+          20.25
+        ],
+        "to": [
+          -16.00000000000002,
+          -120,
+          26.25
+        ]
+      },
+      "label": "L4-lower-coxa-0: 122-L4 deep lower yaw carrier → 068-L4 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L4-lower-coxa-1",
+      "kind": "thread_engagement",
+      "instances": [
+        "122-L4 deep lower yaw carrier",
+        "068-L4 coxa OVH outboard arm (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        15.999999999999979,
+        -120,
+        20.25
+      ],
+      "line": {
+        "from": [
+          15.999999999999979,
+          -120,
+          20.25
+        ],
+        "to": [
+          15.999999999999979,
+          -120,
+          26.25
+        ]
+      },
+      "label": "L4-lower-coxa-1: 122-L4 deep lower yaw carrier → 068-L4 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L4-lower-coxa-2",
+      "kind": "thread_engagement",
+      "instances": [
+        "122-L4 deep lower yaw carrier",
+        "068-L4 coxa OVH outboard arm (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -16.000000000000032,
+        -168,
+        20.25
+      ],
+      "line": {
+        "from": [
+          -16.000000000000032,
+          -168,
+          20.25
+        ],
+        "to": [
+          -16.000000000000032,
+          -168,
+          26.25
+        ]
+      },
+      "label": "L4-lower-coxa-2: 122-L4 deep lower yaw carrier → 068-L4 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L4-lower-coxa-3",
+      "kind": "thread_engagement",
+      "instances": [
+        "122-L4 deep lower yaw carrier",
+        "068-L4 coxa OVH outboard arm (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        15.99999999999997,
+        -168,
+        20.25
+      ],
+      "line": {
+        "from": [
+          15.99999999999997,
+          -168,
+          20.25
+        ],
+        "to": [
+          15.99999999999997,
+          -168,
+          26.25
+        ]
+      },
+      "label": "L4-lower-coxa-3: 122-L4 deep lower yaw carrier → 068-L4 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L5-lower-coxa-0",
+      "kind": "thread_engagement",
+      "instances": [
+        "128-L5 deep lower yaw carrier",
+        "083-L5 coxa OVH outboard arm (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        95.9230484541326,
+        -73.85640646055106,
+        20.25
+      ],
+      "line": {
+        "from": [
+          95.9230484541326,
+          -73.85640646055106,
+          20.25
+        ],
+        "to": [
+          95.9230484541326,
+          -73.85640646055106,
+          26.25
+        ]
+      },
+      "label": "L5-lower-coxa-0: 128-L5 deep lower yaw carrier → 083-L5 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L5-lower-coxa-1",
+      "kind": "thread_engagement",
+      "instances": [
+        "128-L5 deep lower yaw carrier",
+        "083-L5 coxa OVH outboard arm (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        111.92304845413261,
+        -46.143593539449036,
+        20.25
+      ],
+      "line": {
+        "from": [
+          111.92304845413261,
+          -46.143593539449036,
+          20.25
+        ],
+        "to": [
+          111.92304845413261,
+          -46.143593539449036,
+          26.25
+        ]
+      },
+      "label": "L5-lower-coxa-1: 128-L5 deep lower yaw carrier → 083-L5 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L5-lower-coxa-2",
+      "kind": "thread_engagement",
+      "instances": [
+        "128-L5 deep lower yaw carrier",
+        "083-L5 coxa OVH outboard arm (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        137.49226783578564,
+        -97.85640646055109,
+        20.25
+      ],
+      "line": {
+        "from": [
+          137.49226783578564,
+          -97.85640646055109,
+          20.25
+        ],
+        "to": [
+          137.49226783578564,
+          -97.85640646055109,
+          26.25
+        ]
+      },
+      "label": "L5-lower-coxa-2: 128-L5 deep lower yaw carrier → 083-L5 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L5-lower-coxa-3",
+      "kind": "thread_engagement",
+      "instances": [
+        "128-L5 deep lower yaw carrier",
+        "083-L5 coxa OVH outboard arm (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        153.49226783578564,
+        -70.14359353944906,
+        20.25
+      ],
+      "line": {
+        "from": [
+          153.49226783578564,
+          -70.14359353944906,
+          20.25
+        ],
+        "to": [
+          153.49226783578564,
+          -70.14359353944906,
+          26.25
+        ]
+      },
+      "label": "L5-lower-coxa-3: 128-L5 deep lower yaw carrier → 083-L5 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
     }
   ],
   "highlights": {
@@ -1667,13 +2352,13 @@
     "problemCount": 72,
     "toleranceMm": 0.2,
     "minPenetrationMm": 0.25,
-    "instanceCount": 134,
-    "meshCount": 21,
+    "instanceCount": 158,
+    "meshCount": 22,
     "missingMeshes": [],
     "fastenersExcluded": 0,
     "fastenersIncluded": false,
-    "broadPhasePairs": 340,
-    "narrowPhasePairs": 340,
+    "broadPhasePairs": 436,
+    "narrowPhasePairs": 436,
     "capped": false,
     "collisions": [
       {
@@ -1685,7 +2370,7 @@
         "b": {
           "instanceId": "122-L4 deep lower yaw carrier",
           "partType": "coxa_yaw_hub_carrier_ovh",
-          "name": "L4 deep lower yaw hub carrier + 3 radial screws (NEW)"
+          "name": "L4 deep lower yaw hub carrier + 4 underside screws (NEW)"
         },
         "penetrationMm": 2,
         "point": [
@@ -1723,7 +2408,7 @@
         "b": {
           "instanceId": "104-L1 deep lower yaw carrier",
           "partType": "coxa_yaw_hub_carrier_ovh",
-          "name": "L1 deep lower yaw hub carrier + 3 radial screws (NEW)"
+          "name": "L1 deep lower yaw hub carrier + 4 underside screws (NEW)"
         },
         "penetrationMm": 2,
         "point": [
@@ -1989,23 +2674,23 @@
         "b": {
           "instanceId": "110-L2 deep lower yaw carrier",
           "partType": "coxa_yaw_hub_carrier_ovh",
-          "name": "L2 deep lower yaw hub carrier + 3 radial screws (NEW)"
+          "name": "L2 deep lower yaw hub carrier + 4 underside screws (NEW)"
         },
         "penetrationMm": 1.333,
         "point": [
-          -94.403,
-          46.734,
+          -94.087,
+          45.643,
           8.917
         ],
         "region": {
           "min": [
-            -95.609,
-            40.764,
+            -95.345,
+            40.594,
             7.583
           ],
           "max": [
-            -77.526,
-            59.869,
+            -77.73,
+            59.528,
             10.25
           ]
         },
@@ -2027,23 +2712,23 @@
         "b": {
           "instanceId": "116-L3 deep lower yaw carrier",
           "partType": "coxa_yaw_hub_carrier_ovh",
-          "name": "L3 deep lower yaw hub carrier + 3 radial screws (NEW)"
+          "name": "L3 deep lower yaw hub carrier + 4 underside screws (NEW)"
         },
         "penetrationMm": 1.333,
         "point": [
-          -94.403,
-          -50.316,
+          -94.087,
+          -49.43,
           8.917
         ],
         "region": {
           "min": [
-            -95.609,
-            -59.869,
+            -95.345,
+            -59.528,
             7.583
           ],
           "max": [
-            -77.526,
-            -40.764,
+            -77.73,
+            -40.594,
             10.25
           ]
         },
@@ -2060,7 +2745,7 @@
         "a": {
           "instanceId": "128-L5 deep lower yaw carrier",
           "partType": "coxa_yaw_hub_carrier_ovh",
-          "name": "L5 deep lower yaw hub carrier + 3 radial screws (NEW)"
+          "name": "L5 deep lower yaw hub carrier + 4 underside screws (NEW)"
         },
         "b": {
           "instanceId": "089-L5 yaw servo",
@@ -2069,19 +2754,19 @@
         },
         "penetrationMm": 1.333,
         "point": [
-          78.732,
-          -52.704,
+          78.988,
+          -53.217,
           8.917
         ],
         "region": {
           "min": [
-            77.526,
-            -59.869,
+            77.73,
+            -59.528,
             7.583
           ],
           "max": [
-            95.609,
-            -40.764,
+            95.345,
+            -40.594,
             10.25
           ]
         },
@@ -2098,7 +2783,7 @@
         "a": {
           "instanceId": "098-L0 deep lower yaw carrier",
           "partType": "coxa_yaw_hub_carrier_ovh",
-          "name": "L0 deep lower yaw hub carrier + 3 radial screws (NEW)"
+          "name": "L0 deep lower yaw hub carrier + 4 underside screws (NEW)"
         },
         "b": {
           "instanceId": "014-L0 yaw servo",
@@ -2107,19 +2792,19 @@
         },
         "penetrationMm": 1.333,
         "point": [
-          78.732,
-          49.122,
+          78.988,
+          49.43,
           8.917
         ],
         "region": {
           "min": [
-            77.526,
-            40.764,
+            77.73,
+            40.594,
             7.583
           ],
           "max": [
-            95.609,
-            59.869,
+            95.345,
+            59.528,
             10.25
           ]
         },
@@ -2366,7 +3051,7 @@
         "instanceId": "015-L0 hip C-clamp (CNC 6061, NEW)",
         "partType": "chorn_clamp_cnc",
         "name": "L0 hip premade 56 mm C-horn (NEW)",
-        "componentId": 101,
+        "componentId": 105,
         "componentSize": 6,
         "nearestGapMm": null,
         "nearestInstanceId": null
@@ -2375,7 +3060,7 @@
         "instanceId": "016-L0 femur body OVH (NEW)",
         "partType": "femur_ovh_body",
         "name": "L0 femur six-hole receiver + clamp nut traps (NEW)",
-        "componentId": 101,
+        "componentId": 105,
         "componentSize": 6,
         "nearestGapMm": null,
         "nearestInstanceId": null
@@ -2384,7 +3069,7 @@
         "instanceId": "017-L0 knee servo",
         "partType": "servo_body",
         "name": "L0 knee servo",
-        "componentId": 101,
+        "componentId": 105,
         "componentSize": 6,
         "nearestGapMm": null,
         "nearestInstanceId": null
@@ -2393,7 +3078,7 @@
         "instanceId": "018-L0 knee cap OVH (NEW)",
         "partType": "knee_clamp_cap_ovh",
         "name": "L0 knee cap OVH (NEW)",
-        "componentId": 101,
+        "componentId": 105,
         "componentSize": 6,
         "nearestGapMm": null,
         "nearestInstanceId": null
@@ -2402,7 +3087,7 @@
         "instanceId": "019-L0 knee C-clamp (CNC 6061, NEW)",
         "partType": "chorn_clamp_cnc",
         "name": "L0 knee premade 56 mm C-horn (NEW)",
-        "componentId": 103,
+        "componentId": 107,
         "componentSize": 6,
         "nearestGapMm": null,
         "nearestInstanceId": null
@@ -2411,7 +3096,7 @@
         "instanceId": "020-L0 tibia socket OVH (NEW)",
         "partType": "tibia_ovh_socket",
         "name": "L0 tibia six-hole receiver/socket (NEW)",
-        "componentId": 103,
+        "componentId": 107,
         "componentSize": 6,
         "nearestGapMm": null,
         "nearestInstanceId": null
@@ -2420,7 +3105,7 @@
         "instanceId": "021-L0 tibia tube (shortened)",
         "partType": "tibia_tube_ovh",
         "name": "L0 tibia tube (shortened)",
-        "componentId": 103,
+        "componentId": 107,
         "componentSize": 6,
         "nearestGapMm": null,
         "nearestInstanceId": null
@@ -2429,7 +3114,7 @@
         "instanceId": "022-L0 foot boot",
         "partType": "foot_boot",
         "name": "L0 foot boot",
-        "componentId": 103,
+        "componentId": 107,
         "componentSize": 6,
         "nearestGapMm": null,
         "nearestInstanceId": null
@@ -2726,7 +3411,7 @@
         "instanceId": "090-L5 hip C-clamp (CNC 6061, NEW)",
         "partType": "chorn_clamp_cnc",
         "name": "L5 hip premade 56 mm C-horn (NEW)",
-        "componentId": 130,
+        "componentId": 154,
         "componentSize": 6,
         "nearestGapMm": null,
         "nearestInstanceId": null
@@ -2735,7 +3420,7 @@
         "instanceId": "091-L5 femur body OVH (NEW)",
         "partType": "femur_ovh_body",
         "name": "L5 femur six-hole receiver + clamp nut traps (NEW)",
-        "componentId": 130,
+        "componentId": 154,
         "componentSize": 6,
         "nearestGapMm": null,
         "nearestInstanceId": null
@@ -2744,7 +3429,7 @@
         "instanceId": "092-L5 knee servo",
         "partType": "servo_body",
         "name": "L5 knee servo",
-        "componentId": 130,
+        "componentId": 154,
         "componentSize": 6,
         "nearestGapMm": null,
         "nearestInstanceId": null
@@ -2753,7 +3438,7 @@
         "instanceId": "093-L5 knee cap OVH (NEW)",
         "partType": "knee_clamp_cap_ovh",
         "name": "L5 knee cap OVH (NEW)",
-        "componentId": 130,
+        "componentId": 154,
         "componentSize": 6,
         "nearestGapMm": null,
         "nearestInstanceId": null
@@ -2762,7 +3447,7 @@
         "instanceId": "094-L5 knee C-clamp (CNC 6061, NEW)",
         "partType": "chorn_clamp_cnc",
         "name": "L5 knee premade 56 mm C-horn (NEW)",
-        "componentId": 132,
+        "componentId": 156,
         "componentSize": 6,
         "nearestGapMm": null,
         "nearestInstanceId": null
@@ -2771,7 +3456,7 @@
         "instanceId": "095-L5 tibia socket OVH (NEW)",
         "partType": "tibia_ovh_socket",
         "name": "L5 tibia six-hole receiver/socket (NEW)",
-        "componentId": 132,
+        "componentId": 156,
         "componentSize": 6,
         "nearestGapMm": null,
         "nearestInstanceId": null
@@ -2780,7 +3465,7 @@
         "instanceId": "096-L5 tibia tube (shortened)",
         "partType": "tibia_tube_ovh",
         "name": "L5 tibia tube (shortened)",
-        "componentId": 132,
+        "componentId": 156,
         "componentSize": 6,
         "nearestGapMm": null,
         "nearestInstanceId": null
@@ -2789,7 +3474,7 @@
         "instanceId": "097-L5 foot boot",
         "partType": "foot_boot",
         "name": "L5 foot boot",
-        "componentId": 132,
+        "componentId": 156,
         "componentSize": 6,
         "nearestGapMm": null,
         "nearestInstanceId": null
@@ -2798,7 +3483,7 @@
         "instanceId": "100-L0 hip driven 7 mm spacer",
         "partType": "driven_spacer",
         "name": "L0 hip driven 7 mm spacer (NEW)",
-        "componentId": 101,
+        "componentId": 105,
         "componentSize": 6,
         "nearestGapMm": null,
         "nearestInstanceId": null
@@ -2807,7 +3492,7 @@
         "instanceId": "101-L0 hip passive 7 mm spacer",
         "partType": "passive_spacer",
         "name": "L0 hip passive 7 mm spacer (NEW)",
-        "componentId": 101,
+        "componentId": 105,
         "componentSize": 6,
         "nearestGapMm": null,
         "nearestInstanceId": null
@@ -2816,7 +3501,7 @@
         "instanceId": "102-L0 knee driven 7 mm spacer",
         "partType": "driven_spacer",
         "name": "L0 knee driven 7 mm spacer (NEW)",
-        "componentId": 103,
+        "componentId": 107,
         "componentSize": 6,
         "nearestGapMm": null,
         "nearestInstanceId": null
@@ -2825,7 +3510,7 @@
         "instanceId": "103-L0 knee passive 7 mm spacer",
         "partType": "passive_spacer",
         "name": "L0 knee passive 7 mm spacer (NEW)",
-        "componentId": 103,
+        "componentId": 107,
         "componentSize": 6,
         "nearestGapMm": null,
         "nearestInstanceId": null
@@ -2978,7 +3663,7 @@
         "instanceId": "130-L5 hip driven 7 mm spacer",
         "partType": "driven_spacer",
         "name": "L5 hip driven 7 mm spacer (NEW)",
-        "componentId": 130,
+        "componentId": 154,
         "componentSize": 6,
         "nearestGapMm": null,
         "nearestInstanceId": null
@@ -2987,7 +3672,7 @@
         "instanceId": "131-L5 hip passive 7 mm spacer",
         "partType": "passive_spacer",
         "name": "L5 hip passive 7 mm spacer (NEW)",
-        "componentId": 130,
+        "componentId": 154,
         "componentSize": 6,
         "nearestGapMm": null,
         "nearestInstanceId": null
@@ -2996,7 +3681,7 @@
         "instanceId": "132-L5 knee driven 7 mm spacer",
         "partType": "driven_spacer",
         "name": "L5 knee driven 7 mm spacer (NEW)",
-        "componentId": 132,
+        "componentId": 156,
         "componentSize": 6,
         "nearestGapMm": null,
         "nearestInstanceId": null
@@ -3005,7 +3690,7 @@
         "instanceId": "133-L5 knee passive 7 mm spacer",
         "partType": "passive_spacer",
         "name": "L5 knee passive 7 mm spacer (NEW)",
-        "componentId": 132,
+        "componentId": 156,
         "componentSize": 6,
         "nearestGapMm": null,
         "nearestInstanceId": null
@@ -3057,19 +3742,19 @@
         "penetrationMm": 1.333,
         "gapMm": null,
         "point": [
-          78.732,
-          49.122,
+          78.988,
+          49.43,
           8.917
         ],
         "region": {
           "min": [
-            77.526,
-            40.764,
+            77.73,
+            40.594,
             7.583
           ],
           "max": [
-            95.609,
-            59.869,
+            95.345,
+            59.528,
             10.25
           ]
         },
@@ -3369,19 +4054,19 @@
         "penetrationMm": 1.333,
         "gapMm": null,
         "point": [
-          -94.403,
-          46.734,
+          -94.087,
+          45.643,
           8.917
         ],
         "region": {
           "min": [
-            -95.609,
-            40.764,
+            -95.345,
+            40.594,
             7.583
           ],
           "max": [
-            -77.526,
-            59.869,
+            -77.73,
+            59.528,
             10.25
           ]
         },
@@ -3525,19 +4210,19 @@
         "penetrationMm": 1.333,
         "gapMm": null,
         "point": [
-          -94.403,
-          -50.316,
+          -94.087,
+          -49.43,
           8.917
         ],
         "region": {
           "min": [
-            -95.609,
-            -59.869,
+            -95.345,
+            -59.528,
             7.583
           ],
           "max": [
-            -77.526,
-            -40.764,
+            -77.73,
+            -40.594,
             10.25
           ]
         },
@@ -3837,19 +4522,19 @@
         "penetrationMm": 1.333,
         "gapMm": null,
         "point": [
-          78.732,
-          -52.704,
+          78.988,
+          -53.217,
           8.917
         ],
         "region": {
           "min": [
-            77.526,
-            -59.869,
+            77.73,
+            -59.528,
             7.583
           ],
           "max": [
-            95.609,
-            -40.764,
+            95.345,
+            -40.594,
             10.25
           ]
         },
@@ -3952,6 +4637,48 @@
     ],
     "printability": [
       {
+        "meshId": "stl:lower_coxa_screw",
+        "meshName": "lower_coxa_screw_3x6_DO_NOT_PRINT.stl",
+        "instanceIds": [
+          "L0-lower-coxa-screw-0",
+          "L0-lower-coxa-screw-1",
+          "L0-lower-coxa-screw-2",
+          "L0-lower-coxa-screw-3",
+          "L1-lower-coxa-screw-0",
+          "L1-lower-coxa-screw-1",
+          "L1-lower-coxa-screw-2",
+          "L1-lower-coxa-screw-3",
+          "L2-lower-coxa-screw-0",
+          "L2-lower-coxa-screw-1",
+          "L2-lower-coxa-screw-2",
+          "L2-lower-coxa-screw-3",
+          "L3-lower-coxa-screw-0",
+          "L3-lower-coxa-screw-1",
+          "L3-lower-coxa-screw-2",
+          "L3-lower-coxa-screw-3",
+          "L4-lower-coxa-screw-0",
+          "L4-lower-coxa-screw-1",
+          "L4-lower-coxa-screw-2",
+          "L4-lower-coxa-screw-3",
+          "L5-lower-coxa-screw-0",
+          "L5-lower-coxa-screw-1",
+          "L5-lower-coxa-screw-2",
+          "L5-lower-coxa-screw-3"
+        ],
+        "triangleCount": 864,
+        "openEdges": null,
+        "nonManifoldEdges": null,
+        "inconsistentWinding": false,
+        "degenerateTriangles": null,
+        "selfIntersections": null,
+        "selfIntersectionPoint": null,
+        "componentCount": 1,
+        "smallestComponent": null,
+        "volumeMm3": 92.594,
+        "minWallMm": null,
+        "thinPoint": null
+      },
+      {
         "meshId": "stl:chorn_clamp_cnc",
         "meshName": "premade_chorn_56_DO_NOT_PRINT.stl",
         "instanceIds": [
@@ -4052,7 +4779,7 @@
           "076-L4 femur body OVH (NEW)",
           "091-L5 femur body OVH (NEW)"
         ],
-        "triangleCount": 13940,
+        "triangleCount": 14588,
         "openEdges": null,
         "nonManifoldEdges": null,
         "inconsistentWinding": false,
@@ -4061,7 +4788,7 @@
         "selfIntersectionPoint": null,
         "componentCount": 1,
         "smallestComponent": null,
-        "volumeMm3": 29915.621,
+        "volumeMm3": 30277.947,
         "minWallMm": null,
         "thinPoint": null
       },
@@ -4124,7 +4851,7 @@
           "078-L4 knee cap OVH (NEW)",
           "093-L5 knee cap OVH (NEW)"
         ],
-        "triangleCount": 1186,
+        "triangleCount": 2328,
         "openEdges": null,
         "nonManifoldEdges": null,
         "inconsistentWinding": false,
@@ -4133,7 +4860,7 @@
         "selfIntersectionPoint": null,
         "componentCount": 1,
         "smallestComponent": null,
-        "volumeMm3": 19191.083,
+        "volumeMm3": 19415.136,
         "minWallMm": null,
         "thinPoint": null
       },
@@ -4148,7 +4875,7 @@
           "068-L4 coxa OVH outboard arm (NEW)",
           "083-L5 coxa OVH outboard arm (NEW)"
         ],
-        "triangleCount": 12048,
+        "triangleCount": 10400,
         "openEdges": null,
         "nonManifoldEdges": null,
         "inconsistentWinding": false,
@@ -4157,7 +4884,7 @@
         "selfIntersectionPoint": null,
         "componentCount": 1,
         "smallestComponent": null,
-        "volumeMm3": 60298.353,
+        "volumeMm3": 47767.369,
         "minWallMm": null,
         "thinPoint": null
       },
@@ -4172,7 +4899,7 @@
           "122-L4 deep lower yaw carrier",
           "128-L5 deep lower yaw carrier"
         ],
-        "triangleCount": 7690,
+        "triangleCount": 9290,
         "openEdges": null,
         "nonManifoldEdges": null,
         "inconsistentWinding": false,
@@ -4181,7 +4908,7 @@
         "selfIntersectionPoint": null,
         "componentCount": 1,
         "smallestComponent": null,
-        "volumeMm3": 8003.204,
+        "volumeMm3": 19018.999,
         "minWallMm": null,
         "thinPoint": null
       },
@@ -4196,7 +4923,7 @@
           "071-L4 hip cap OVH + yaw pedestal (NEW)",
           "086-L5 hip cap OVH + yaw pedestal (NEW)"
         ],
-        "triangleCount": 6680,
+        "triangleCount": 5838,
         "openEdges": null,
         "nonManifoldEdges": null,
         "inconsistentWinding": false,
@@ -4205,7 +4932,7 @@
         "selfIntersectionPoint": null,
         "componentCount": 1,
         "smallestComponent": null,
-        "volumeMm3": 25344.272,
+        "volumeMm3": 25424.825,
         "minWallMm": null,
         "thinPoint": null
       },
@@ -4220,7 +4947,7 @@
           "123-L4 screw-on upper bearing carrier",
           "129-L5 screw-on upper bearing carrier"
         ],
-        "triangleCount": 4262,
+        "triangleCount": 6998,
         "openEdges": null,
         "nonManifoldEdges": null,
         "inconsistentWinding": false,
@@ -4229,7 +4956,7 @@
         "selfIntersectionPoint": null,
         "componentCount": 1,
         "smallestComponent": null,
-        "volumeMm3": 8877.004,
+        "volumeMm3": 8694.456,
         "minWallMm": null,
         "thinPoint": null
       },
@@ -4329,7 +5056,7 @@
         "selfIntersectionPoint": null,
         "componentCount": 1,
         "smallestComponent": null,
-        "volumeMm3": 2825.467,
+        "volumeMm3": 582.448,
         "minWallMm": null,
         "thinPoint": null
       },
@@ -4481,6 +5208,656 @@
       }
     ],
     "fasteners": [],
+    "fasteningChecks": [
+      {
+        "id": "fastening-L0-lower-coxa-0",
+        "kind": "thread_engagement",
+        "instances": [
+          "098-L0 deep lower yaw carrier",
+          "008-L0 coxa OVH outboard arm (NEW)"
+        ],
+        "status": "pass",
+        "point": [
+          111.92304845413265,
+          46.14359353944897,
+          20.25
+        ],
+        "line": {
+          "from": [
+            111.92304845413265,
+            46.14359353944897,
+            20.25
+          ],
+          "to": [
+            111.92304845413265,
+            46.14359353944897,
+            26.25
+          ]
+        },
+        "label": "L0-lower-coxa-0: 098-L0 deep lower yaw carrier → 008-L0 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+      },
+      {
+        "id": "fastening-L0-lower-coxa-1",
+        "kind": "thread_engagement",
+        "instances": [
+          "098-L0 deep lower yaw carrier",
+          "008-L0 coxa OVH outboard arm (NEW)"
+        ],
+        "status": "pass",
+        "point": [
+          95.92304845413265,
+          73.85640646055101,
+          20.25
+        ],
+        "line": {
+          "from": [
+            95.92304845413265,
+            73.85640646055101,
+            20.25
+          ],
+          "to": [
+            95.92304845413265,
+            73.85640646055101,
+            26.25
+          ]
+        },
+        "label": "L0-lower-coxa-1: 098-L0 deep lower yaw carrier → 008-L0 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+      },
+      {
+        "id": "fastening-L0-lower-coxa-2",
+        "kind": "thread_engagement",
+        "instances": [
+          "098-L0 deep lower yaw carrier",
+          "008-L0 coxa OVH outboard arm (NEW)"
+        ],
+        "status": "pass",
+        "point": [
+          153.4922678357857,
+          70.14359353944897,
+          20.25
+        ],
+        "line": {
+          "from": [
+            153.4922678357857,
+            70.14359353944897,
+            20.25
+          ],
+          "to": [
+            153.4922678357857,
+            70.14359353944897,
+            26.25
+          ]
+        },
+        "label": "L0-lower-coxa-2: 098-L0 deep lower yaw carrier → 008-L0 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+      },
+      {
+        "id": "fastening-L0-lower-coxa-3",
+        "kind": "thread_engagement",
+        "instances": [
+          "098-L0 deep lower yaw carrier",
+          "008-L0 coxa OVH outboard arm (NEW)"
+        ],
+        "status": "pass",
+        "point": [
+          137.4922678357857,
+          97.856406460551,
+          20.25
+        ],
+        "line": {
+          "from": [
+            137.4922678357857,
+            97.856406460551,
+            20.25
+          ],
+          "to": [
+            137.4922678357857,
+            97.856406460551,
+            26.25
+          ]
+        },
+        "label": "L0-lower-coxa-3: 098-L0 deep lower yaw carrier → 008-L0 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+      },
+      {
+        "id": "fastening-L1-lower-coxa-0",
+        "kind": "thread_engagement",
+        "instances": [
+          "104-L1 deep lower yaw carrier",
+          "023-L1 coxa OVH outboard arm (NEW)"
+        ],
+        "status": "pass",
+        "point": [
+          16.000000000000007,
+          120,
+          20.25
+        ],
+        "line": {
+          "from": [
+            16.000000000000007,
+            120,
+            20.25
+          ],
+          "to": [
+            16.000000000000007,
+            120,
+            26.25
+          ]
+        },
+        "label": "L1-lower-coxa-0: 104-L1 deep lower yaw carrier → 023-L1 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+      },
+      {
+        "id": "fastening-L1-lower-coxa-1",
+        "kind": "thread_engagement",
+        "instances": [
+          "104-L1 deep lower yaw carrier",
+          "023-L1 coxa OVH outboard arm (NEW)"
+        ],
+        "status": "pass",
+        "point": [
+          -15.999999999999993,
+          120,
+          20.25
+        ],
+        "line": {
+          "from": [
+            -15.999999999999993,
+            120,
+            20.25
+          ],
+          "to": [
+            -15.999999999999993,
+            120,
+            26.25
+          ]
+        },
+        "label": "L1-lower-coxa-1: 104-L1 deep lower yaw carrier → 023-L1 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+      },
+      {
+        "id": "fastening-L1-lower-coxa-2",
+        "kind": "thread_engagement",
+        "instances": [
+          "104-L1 deep lower yaw carrier",
+          "023-L1 coxa OVH outboard arm (NEW)"
+        ],
+        "status": "pass",
+        "point": [
+          16.00000000000001,
+          168,
+          20.25
+        ],
+        "line": {
+          "from": [
+            16.00000000000001,
+            168,
+            20.25
+          ],
+          "to": [
+            16.00000000000001,
+            168,
+            26.25
+          ]
+        },
+        "label": "L1-lower-coxa-2: 104-L1 deep lower yaw carrier → 023-L1 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+      },
+      {
+        "id": "fastening-L1-lower-coxa-3",
+        "kind": "thread_engagement",
+        "instances": [
+          "104-L1 deep lower yaw carrier",
+          "023-L1 coxa OVH outboard arm (NEW)"
+        ],
+        "status": "pass",
+        "point": [
+          -15.999999999999991,
+          168,
+          20.25
+        ],
+        "line": {
+          "from": [
+            -15.999999999999991,
+            168,
+            20.25
+          ],
+          "to": [
+            -15.999999999999991,
+            168,
+            26.25
+          ]
+        },
+        "label": "L1-lower-coxa-3: 104-L1 deep lower yaw carrier → 023-L1 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+      },
+      {
+        "id": "fastening-L2-lower-coxa-0",
+        "kind": "thread_engagement",
+        "instances": [
+          "110-L2 deep lower yaw carrier",
+          "038-L2 coxa OVH outboard arm (NEW)"
+        ],
+        "status": "pass",
+        "point": [
+          -95.92304845413265,
+          73.85640646055101,
+          20.25
+        ],
+        "line": {
+          "from": [
+            -95.92304845413265,
+            73.85640646055101,
+            20.25
+          ],
+          "to": [
+            -95.92304845413265,
+            73.85640646055101,
+            26.25
+          ]
+        },
+        "label": "L2-lower-coxa-0: 110-L2 deep lower yaw carrier → 038-L2 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+      },
+      {
+        "id": "fastening-L2-lower-coxa-1",
+        "kind": "thread_engagement",
+        "instances": [
+          "110-L2 deep lower yaw carrier",
+          "038-L2 coxa OVH outboard arm (NEW)"
+        ],
+        "status": "pass",
+        "point": [
+          -111.92304845413265,
+          46.14359353944897,
+          20.25
+        ],
+        "line": {
+          "from": [
+            -111.92304845413265,
+            46.14359353944897,
+            20.25
+          ],
+          "to": [
+            -111.92304845413265,
+            46.14359353944897,
+            26.25
+          ]
+        },
+        "label": "L2-lower-coxa-1: 110-L2 deep lower yaw carrier → 038-L2 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+      },
+      {
+        "id": "fastening-L2-lower-coxa-2",
+        "kind": "thread_engagement",
+        "instances": [
+          "110-L2 deep lower yaw carrier",
+          "038-L2 coxa OVH outboard arm (NEW)"
+        ],
+        "status": "pass",
+        "point": [
+          -137.4922678357857,
+          97.856406460551,
+          20.25
+        ],
+        "line": {
+          "from": [
+            -137.4922678357857,
+            97.856406460551,
+            20.25
+          ],
+          "to": [
+            -137.4922678357857,
+            97.856406460551,
+            26.25
+          ]
+        },
+        "label": "L2-lower-coxa-2: 110-L2 deep lower yaw carrier → 038-L2 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+      },
+      {
+        "id": "fastening-L2-lower-coxa-3",
+        "kind": "thread_engagement",
+        "instances": [
+          "110-L2 deep lower yaw carrier",
+          "038-L2 coxa OVH outboard arm (NEW)"
+        ],
+        "status": "pass",
+        "point": [
+          -153.4922678357857,
+          70.14359353944897,
+          20.25
+        ],
+        "line": {
+          "from": [
+            -153.4922678357857,
+            70.14359353944897,
+            20.25
+          ],
+          "to": [
+            -153.4922678357857,
+            70.14359353944897,
+            26.25
+          ]
+        },
+        "label": "L2-lower-coxa-3: 110-L2 deep lower yaw carrier → 038-L2 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+      },
+      {
+        "id": "fastening-L3-lower-coxa-0",
+        "kind": "thread_engagement",
+        "instances": [
+          "116-L3 deep lower yaw carrier",
+          "053-L3 coxa OVH outboard arm (NEW)"
+        ],
+        "status": "pass",
+        "point": [
+          -111.92304845413265,
+          -46.14359353944896,
+          20.25
+        ],
+        "line": {
+          "from": [
+            -111.92304845413265,
+            -46.14359353944896,
+            20.25
+          ],
+          "to": [
+            -111.92304845413265,
+            -46.14359353944896,
+            26.25
+          ]
+        },
+        "label": "L3-lower-coxa-0: 116-L3 deep lower yaw carrier → 053-L3 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+      },
+      {
+        "id": "fastening-L3-lower-coxa-1",
+        "kind": "thread_engagement",
+        "instances": [
+          "116-L3 deep lower yaw carrier",
+          "053-L3 coxa OVH outboard arm (NEW)"
+        ],
+        "status": "pass",
+        "point": [
+          -95.92304845413265,
+          -73.856406460551,
+          20.25
+        ],
+        "line": {
+          "from": [
+            -95.92304845413265,
+            -73.856406460551,
+            20.25
+          ],
+          "to": [
+            -95.92304845413265,
+            -73.856406460551,
+            26.25
+          ]
+        },
+        "label": "L3-lower-coxa-1: 116-L3 deep lower yaw carrier → 053-L3 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+      },
+      {
+        "id": "fastening-L3-lower-coxa-2",
+        "kind": "thread_engagement",
+        "instances": [
+          "116-L3 deep lower yaw carrier",
+          "053-L3 coxa OVH outboard arm (NEW)"
+        ],
+        "status": "pass",
+        "point": [
+          -153.4922678357857,
+          -70.14359353944894,
+          20.25
+        ],
+        "line": {
+          "from": [
+            -153.4922678357857,
+            -70.14359353944894,
+            20.25
+          ],
+          "to": [
+            -153.4922678357857,
+            -70.14359353944894,
+            26.25
+          ]
+        },
+        "label": "L3-lower-coxa-2: 116-L3 deep lower yaw carrier → 053-L3 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+      },
+      {
+        "id": "fastening-L3-lower-coxa-3",
+        "kind": "thread_engagement",
+        "instances": [
+          "116-L3 deep lower yaw carrier",
+          "053-L3 coxa OVH outboard arm (NEW)"
+        ],
+        "status": "pass",
+        "point": [
+          -137.49226783578573,
+          -97.85640646055099,
+          20.25
+        ],
+        "line": {
+          "from": [
+            -137.49226783578573,
+            -97.85640646055099,
+            20.25
+          ],
+          "to": [
+            -137.49226783578573,
+            -97.85640646055099,
+            26.25
+          ]
+        },
+        "label": "L3-lower-coxa-3: 116-L3 deep lower yaw carrier → 053-L3 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+      },
+      {
+        "id": "fastening-L4-lower-coxa-0",
+        "kind": "thread_engagement",
+        "instances": [
+          "122-L4 deep lower yaw carrier",
+          "068-L4 coxa OVH outboard arm (NEW)"
+        ],
+        "status": "pass",
+        "point": [
+          -16.00000000000002,
+          -120,
+          20.25
+        ],
+        "line": {
+          "from": [
+            -16.00000000000002,
+            -120,
+            20.25
+          ],
+          "to": [
+            -16.00000000000002,
+            -120,
+            26.25
+          ]
+        },
+        "label": "L4-lower-coxa-0: 122-L4 deep lower yaw carrier → 068-L4 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+      },
+      {
+        "id": "fastening-L4-lower-coxa-1",
+        "kind": "thread_engagement",
+        "instances": [
+          "122-L4 deep lower yaw carrier",
+          "068-L4 coxa OVH outboard arm (NEW)"
+        ],
+        "status": "pass",
+        "point": [
+          15.999999999999979,
+          -120,
+          20.25
+        ],
+        "line": {
+          "from": [
+            15.999999999999979,
+            -120,
+            20.25
+          ],
+          "to": [
+            15.999999999999979,
+            -120,
+            26.25
+          ]
+        },
+        "label": "L4-lower-coxa-1: 122-L4 deep lower yaw carrier → 068-L4 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+      },
+      {
+        "id": "fastening-L4-lower-coxa-2",
+        "kind": "thread_engagement",
+        "instances": [
+          "122-L4 deep lower yaw carrier",
+          "068-L4 coxa OVH outboard arm (NEW)"
+        ],
+        "status": "pass",
+        "point": [
+          -16.000000000000032,
+          -168,
+          20.25
+        ],
+        "line": {
+          "from": [
+            -16.000000000000032,
+            -168,
+            20.25
+          ],
+          "to": [
+            -16.000000000000032,
+            -168,
+            26.25
+          ]
+        },
+        "label": "L4-lower-coxa-2: 122-L4 deep lower yaw carrier → 068-L4 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+      },
+      {
+        "id": "fastening-L4-lower-coxa-3",
+        "kind": "thread_engagement",
+        "instances": [
+          "122-L4 deep lower yaw carrier",
+          "068-L4 coxa OVH outboard arm (NEW)"
+        ],
+        "status": "pass",
+        "point": [
+          15.99999999999997,
+          -168,
+          20.25
+        ],
+        "line": {
+          "from": [
+            15.99999999999997,
+            -168,
+            20.25
+          ],
+          "to": [
+            15.99999999999997,
+            -168,
+            26.25
+          ]
+        },
+        "label": "L4-lower-coxa-3: 122-L4 deep lower yaw carrier → 068-L4 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+      },
+      {
+        "id": "fastening-L5-lower-coxa-0",
+        "kind": "thread_engagement",
+        "instances": [
+          "128-L5 deep lower yaw carrier",
+          "083-L5 coxa OVH outboard arm (NEW)"
+        ],
+        "status": "pass",
+        "point": [
+          95.9230484541326,
+          -73.85640646055106,
+          20.25
+        ],
+        "line": {
+          "from": [
+            95.9230484541326,
+            -73.85640646055106,
+            20.25
+          ],
+          "to": [
+            95.9230484541326,
+            -73.85640646055106,
+            26.25
+          ]
+        },
+        "label": "L5-lower-coxa-0: 128-L5 deep lower yaw carrier → 083-L5 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+      },
+      {
+        "id": "fastening-L5-lower-coxa-1",
+        "kind": "thread_engagement",
+        "instances": [
+          "128-L5 deep lower yaw carrier",
+          "083-L5 coxa OVH outboard arm (NEW)"
+        ],
+        "status": "pass",
+        "point": [
+          111.92304845413261,
+          -46.143593539449036,
+          20.25
+        ],
+        "line": {
+          "from": [
+            111.92304845413261,
+            -46.143593539449036,
+            20.25
+          ],
+          "to": [
+            111.92304845413261,
+            -46.143593539449036,
+            26.25
+          ]
+        },
+        "label": "L5-lower-coxa-1: 128-L5 deep lower yaw carrier → 083-L5 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+      },
+      {
+        "id": "fastening-L5-lower-coxa-2",
+        "kind": "thread_engagement",
+        "instances": [
+          "128-L5 deep lower yaw carrier",
+          "083-L5 coxa OVH outboard arm (NEW)"
+        ],
+        "status": "pass",
+        "point": [
+          137.49226783578564,
+          -97.85640646055109,
+          20.25
+        ],
+        "line": {
+          "from": [
+            137.49226783578564,
+            -97.85640646055109,
+            20.25
+          ],
+          "to": [
+            137.49226783578564,
+            -97.85640646055109,
+            26.25
+          ]
+        },
+        "label": "L5-lower-coxa-2: 128-L5 deep lower yaw carrier → 083-L5 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+      },
+      {
+        "id": "fastening-L5-lower-coxa-3",
+        "kind": "thread_engagement",
+        "instances": [
+          "128-L5 deep lower yaw carrier",
+          "083-L5 coxa OVH outboard arm (NEW)"
+        ],
+        "status": "pass",
+        "point": [
+          153.49226783578564,
+          -70.14359353944906,
+          20.25
+        ],
+        "line": {
+          "from": [
+            153.49226783578564,
+            -70.14359353944906,
+            20.25
+          ],
+          "to": [
+            153.49226783578564,
+            -70.14359353944906,
+            26.25
+          ]
+        },
+        "label": "L5-lower-coxa-3: 128-L5 deep lower yaw carrier → 083-L5 coxa OVH outboard arm (NEW); 2.00 mm continuous engagement / 1.9 mm required; 6 mm screw; sampled seat and clearance pass"
+      }
+    ],
     "access": [],
     "mating": [],
     "routing": [],
@@ -4489,21 +5866,21 @@
     "matingToleranceMm": 0.2,
     "components": {
       "count": 13,
-      "mainComponentSize": 62,
+      "mainComponentSize": 86,
       "floatingComponentCount": 12
     },
     "timings": {
-      "loadMs": 115,
-      "bvhMs": 2,
-      "broadMs": 1,
-      "narrowMs": 6092,
-      "connectivityMs": 19,
-      "printabilityMs": 348,
+      "loadMs": 35,
+      "bvhMs": 1,
+      "broadMs": 0,
+      "narrowMs": 2673,
+      "connectivityMs": 5,
+      "printabilityMs": 105,
       "threadMs": 0,
       "accessMs": 0,
       "matingMs": 0,
       "routingMs": 0,
-      "totalMs": 6832
+      "totalMs": 3019
     }
   }
 }

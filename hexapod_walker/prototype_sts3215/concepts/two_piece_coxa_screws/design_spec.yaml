@@ -1,0 +1,63 @@
+build:
+  id: prototype_sts3215/two-piece-coxa-screws
+  name: "STS3215 two-piece coxa — full support plate + four self-tappers"
+  status: "concept; printable split experiment"
+  units: mm
+
+parts:
+  coxa_hub_screw:
+    label: "Coxa Part A — yaw hub"
+    description: >-
+      Lower coxa half carrying the yaw horn interface, both 6805 inner-race
+      seats, dust lip, and a support plate matching the actual upper mating
+      face outline, including corner pads; only the round hub may extend beyond
+      that outline. The platform seam is z = 24 mm in coxa-local
+      coordinates.
+      Four 4.7 mm compression-sleeve bores and 7.2 mm washer/driver shafts
+      run through the finished hub, including the added support plate.
+    material: PLA_or_PETG
+    generated_by: concepts/two_piece_coxa_screws/make_two_piece_coxa_screws.py
+    output_stl: stl/coxa_hub_screw.stl
+  coxa_leg_screw:
+    label: "Coxa Part B — hip bracket"
+    description: >-
+      Upper coxa half carrying the hip servo cradle and 688 housing.  Its
+      hip servo cradle and 688 housing, trimmed to the platform seam and
+      reinforced with four corner pads for upward self-tapping screws.
+    material: PLA_or_PETG
+    generated_by: concepts/two_piece_coxa_screws/make_two_piece_coxa_screws.py
+    output_stl: stl/coxa_leg_screw.stl
+  m3_self_tapper:
+    label: "M3 self-tapper reference"
+    description: "Four M3 self-tapping screws entering upward from the underside of Part A."
+    length_mm: 10.0
+    material: steel
+    role: hardware
+  yaw_compression_spacer:
+    description: "Purchased 4.5 mm OD x 3.2 mm ID x 10 mm compression sleeve; four per yaw hub."
+    material: metal
+    role: hardware
+    printable: false
+
+interfaces:
+  yaw_drive_access:
+    description: "Five open driver paths through BOTH halves, cut after support-plate union; four perimeter paths include deep compression-sleeve seats."
+    count: 5
+    pcd_mm: 14.0
+    center_hole: true
+    perimeter_access_diameter_mm: 7.2
+    sleeve_bore_diameter_mm: 4.7
+    sleeve_length_mm: 10.0
+    free_seat_to_horn_mm: 10.1
+    perimeter_horn_screw: M3x12_with_7mm_OD_0.5mm_thick_washer
+  self_tapper_pattern:
+    description: "Four M3 pilot holes in corner pads, with screw heads below the full support plate."
+    pilot_diameter_mm: 2.5
+    head_diameter_mm: 5.7
+    screw_length_mm: 10.0
+    centres_mm: [[-27.0, -16.0], [27.0, -16.0], [-27.0, 16.0], [27.0, 16.0]]
+
+notes:
+  - "The full support plate carries the bracket load; screw preload clamps the seam."
+  - "Use a pilot coupon to tune the M3 self-tapping fit before assembly."
+  - "This concept does not replace the production one-piece coxa_link."

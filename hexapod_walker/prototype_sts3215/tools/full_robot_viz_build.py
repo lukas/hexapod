@@ -58,6 +58,9 @@ _HERE = Path(__file__).resolve().parent
 import hexapod_prototype as HP
 import _verify_prototype as V
 import fastener_registry as FR
+_SPLIT_COXA_DIR = _HERE.parent / "concepts" / "two_piece_coxa_screws"
+sys.path.insert(0, str(_SPLIT_COXA_DIR))
+import make_two_piece_coxa_screws as SPLIT_COXA
 from motor_setup import wire_harness_plan as WHP
 from motor_setup.feetech_bus import joint_to_servo_id
 
@@ -117,6 +120,8 @@ PALETTE = {
     # sandwich: yoke + dia-8 CF tube + bracket/fitting) instead of the merged
     # femur_link / tibia_link proxies.
     "coxa_link": "#9467bd",
+    "coxa_yaw_hub": "#4878b0", "coxa_hip_bracket": "#c44e52",
+    "coxa_self_tapper": "#505050",
     "yaw_bearing_cap": "#6b4fa0",
     "yaw_bearing_lower": "#d4af37", "yaw_bearing_upper": "#ffd966",
     "femur_link": "#2ca02c",
@@ -145,6 +150,8 @@ PALETTE = {
 }
 ROLE = {
     "coxa_link": "frame",
+    "coxa_yaw_hub": "frame", "coxa_hip_bracket": "frame",
+    "coxa_self_tapper": "fastener",
     "yaw_bearing_cap": "chassis",
     "yaw_bearing_lower": "bearing", "yaw_bearing_upper": "bearing",
     "femur_link": "frame",
@@ -181,6 +188,9 @@ ROLE = {
 # add its rationale here too — a missing key makes the build non-compat.
 DESCRIPTIONS = {
     "coxa_link": "ONE-PIECE printed coxa (Aug 2026 merge of the old coxa_yaw_hub + coxa_hip_bracket): the yaw turntable hub (bolts the driven Ø20 disc horn on the Ø14 / 4x M3 circle, rides the touching 6805 pair (25x37x7, Aug 2026 thick-section swap) on a Ø25.15 press-fit boss) fused to the hip servo cradle. Aug 17 2026 sink pass: the cradle rides 5 mm lower -- its foot slab fuses through the full platform band and the hip-servo well floor sits 2 mm over the platform top (+26), so the 5 vertical head-access shafts are only ~5.3 mm deep above the M3x30 horn-screw heads (any driver fits) and the part is 5 mm shorter. Aug 17 2026 scrape fix: the running gaps between the rotating link and the stationary yaw_bearing_cap widened to 1.5 mm axial (platform underside over the cap rim) and 1.0 mm radial (dust-skirt bore over the Phi 44 ring) after the printed parts scraped. The horn-screw seats are 1.25 mm deeper (bench: printed seats + screw tolerance ate ~1 mm of horn bite; corner tips now just break the disc's far face, the centre seat goes 1 mm deeper into the spline tap). Aug 16 2026 flatten: the cradle's 4x M2.5 end-face bolt holes and the DS3225-era wire-exit corridor are deleted -- a clean 4-wall box. Aug 17 2026: the cradle grew the SAME rear retention tab as the femur knee cradle (user: 'copy that same part ... so I can screw into the servo from both sides') -- a vertical 5.5 mm plate on the back-face side taking 2x M2.5x6 self-tappers into the hip servo's rear molded hole pair nearer the inboard/wire end, heads flush in Phi 5.2 x 2 mm recesses (connector-end pair stays open for the bus harness; the swinging femur arm passes ~1.5 mm over the tab's outer face).",
+    "coxa_yaw_hub": "Two-piece concept Part A: yaw hub plus a full rectangular support plate under the hip bracket.",
+    "coxa_hip_bracket": "Two-piece concept Part B: hip servo bracket trimmed to the platform seam and reinforced for four underside self-tappers.",
+    "coxa_self_tapper": "Four M3 self-tapping screws entering upward from the support plate into the hip-bracket corner pads. COTS.",
     "yaw_bearing_cap": "Printed cap that closes the top of each chassis yaw-bearing tower, capturing the upper yaw bearing.",
     "yaw_bearing_lower": "Lower ball bearing of the yaw-axis bearing pair in the chassis tower (COTS).",
     "yaw_bearing_upper": "Upper ball bearing of the yaw-axis bearing pair in the chassis tower (COTS).",
@@ -362,6 +372,7 @@ INTENDED_OVERLAP_PAIRS = frozenset(
         # Servo body fills its cradle / bracket.
         ("chassis_bottom", "yaw_servo"),
         ("coxa_link", "hip_servo"),
+        ("coxa_hip_bracket", "hip_servo"),
         ("femur_link", "knee_servo"),
         # Clamp cap PRESS-FIT onto its own servo body: the centre tongue
         # reaches CLAMP_TONGUE_INTERF = 0.5 mm PAST the seated body +Y face for
@@ -396,9 +407,14 @@ INTENDED_OVERLAP_PAIRS = frozenset(
         # race in the faceted scene meshes.
         ("coxa_link", "yaw_bearing_lower"),
         ("coxa_link", "yaw_bearing_upper"),
+        ("coxa_yaw_hub", "yaw_servo"),
+        ("coxa_yaw_hub", "disc_horn_yaw"),
+        ("coxa_yaw_hub", "yaw_bearing_lower"),
+        ("coxa_yaw_hub", "yaw_bearing_upper"),
         # Printed stacks sharing a flush/running interface (the one-piece
         # coxa_link's hub boss runs inside the stationary bearing cap).
         ("coxa_link", "yaw_bearing_cap"),
+        ("coxa_yaw_hub", "yaw_bearing_cap"),
         # LiPo packs velcro'd flush against chassis_bottom's flat belly.
         ("chassis_bottom", "lipo_battery"),
     ]
@@ -682,6 +698,19 @@ def _scene_mesh_key(name: str) -> str:
     return _SCENE_MESH_KEY.get(name, name)
 
 
+_SPLIT_COXA_CACHE: tuple[trimesh.Trimesh, trimesh.Trimesh, trimesh.Trimesh] | None = None
+
+
+def _split_coxa_meshes() -> tuple[trimesh.Trimesh, trimesh.Trimesh, trimesh.Trimesh]:
+    """Build the current two-piece coxa concept for the full-assembly scene."""
+    global _SPLIT_COXA_CACHE
+    if _SPLIT_COXA_CACHE is None:
+        hub, bracket = SPLIT_COXA.build_parts()
+        screw = SPLIT_COXA._make_screw_reference()
+        _SPLIT_COXA_CACHE = (hub, bracket, screw)
+    return _SPLIT_COXA_CACHE
+
+
 def _leg0_local_link_parts() -> list[tuple[str, trimesh.Trimesh, np.ndarray]]:
     """``(name, local_mesh, M0)`` for every leg-0 printed link part.
 
@@ -718,11 +747,18 @@ def _leg0_local_link_parts() -> list[tuple[str, trimesh.Trimesh, np.ndarray]]:
     foot_frame = HP._frame(tube_end, (1, 0, 0), (0, 0, 1))
     ttube = HP._tube_between(ta, tube_end, HP.LEG_TUBE_OD / 2.0)
 
+    split_hub, split_bracket, split_screw = _split_coxa_meshes()
+    split_screws = [
+        ("coxa_self_tapper", split_screw,
+         T_coxa @ _trans([x, y, HP.YAW_HUB_BOSS_TOP_Z]))
+        for x, y in SPLIT_COXA.SELF_TAP_CENTRES
+    ]
     return [
-        # Coxa: ONE printed part (Aug 2026 merge), plus the TOUCHING 6805
-        # bearing pair (visual, NOT printed) so the bearing-supported yaw
-        # joint shows.
-        ("coxa_link", HP.make_coxa_link_part(), T_coxa),
+        # Coxa: the current two-piece full-support-plate concept, plus the
+        # TOUCHING 6805 bearing pair (visual, NOT printed).
+        ("coxa_yaw_hub", split_hub, T_coxa),
+        ("coxa_hip_bracket", split_bracket, T_coxa),
+        *split_screws,
         ("yaw_bearing_cap", HP.make_yaw_bearing_cap(), T_coxa),
         ("yaw_bearing_lower", HP.make_yaw_bearing_lower(), T_coxa),
         ("yaw_bearing_upper", HP.make_yaw_bearing_upper(), T_coxa),
@@ -1013,6 +1049,8 @@ def _col_major(M: np.ndarray) -> list[float]:
 _MOTION_LINK_OF_PARTTYPE = {
     # --- yaw link (rotates the whole leg about vertical Z) ---
     "coxa_link": "yaw",
+    "coxa_yaw_hub": "yaw", "coxa_hip_bracket": "yaw",
+    "coxa_self_tapper": "yaw",
     "yaw_bearing_cap": "yaw", "yaw_bearing_lower": "yaw",
     "yaw_bearing_upper": "yaw", "disc_horn_yaw": "yaw",
     "hip_servo": "yaw", "hip_clamp_cap": "yaw", "screw_yaw": "yaw",

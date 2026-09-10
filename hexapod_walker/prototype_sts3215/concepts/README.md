@@ -14,6 +14,8 @@ evidence together so experimental assumptions do not leak into
 - [`premade_chorn_56/`](premade_chorn_56/) — off-the-shelf 56 mm C-horn study.
 - [`horn_compression_limiters/`](horn_compression_limiters/) — metal
   compression-limiter and spacer experiments.
+- [`two_piece_coxa_screws/`](two_piece_coxa_screws/) — printable coxa split
+  with four M3 screws, hex-nut pockets, and a positive annular register.
 - `dovetail_coxa/` and `qr_femur/` — printable link-joining experiments.
 
 ## Sensing and contact

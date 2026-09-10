@@ -42,6 +42,9 @@ def _variant_parts():
         tibia_yoke = hp.make_tibia_knee_yoke()
         coxa = hp.make_coxa_link_part()
 
+    if concept.SPACER_ENABLED:
+        femur_part = concept._add_femur_cap_nuts(femur_part)
+
     def make_femur():
         mesh = femur_part.copy()
         mesh.apply_transform(

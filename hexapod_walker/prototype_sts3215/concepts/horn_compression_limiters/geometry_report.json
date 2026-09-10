@@ -2,9 +2,9 @@
   "femur_link": {
     "sourceIsVolume": true,
     "variantIsVolume": true,
-    "removedVolumeMm3": 1539.8253958660353,
+    "removedVolumeMm3": 1027.7327604725506,
     "maxBoundsDeltaMm": 0.0,
-    "clearanceProbeODmm": 5.55,
+    "clearanceProbeODmm": 4.55,
     "maxOverlapWithClearanceProbeMm3": 0.0,
     "expectedMode": "spacer",
     "pass": true
@@ -12,9 +12,9 @@
   "tibia_knee_yoke": {
     "sourceIsVolume": true,
     "variantIsVolume": true,
-    "removedVolumeMm3": 1539.8253958660207,
+    "removedVolumeMm3": 791.4957930460623,
     "maxBoundsDeltaMm": 0.0,
-    "clearanceProbeODmm": 5.55,
+    "clearanceProbeODmm": 4.55,
     "maxOverlapWithClearanceProbeMm3": 0.0,
     "expectedMode": "spacer",
     "pass": true
@@ -22,9 +22,9 @@
   "coxa_link_yaw": {
     "sourceIsVolume": true,
     "variantIsVolume": true,
-    "removedVolumeMm3": 3239.1077513028285,
+    "removedVolumeMm3": 2873.213658340319,
     "maxBoundsDeltaMm": 0.0,
-    "clearanceProbeODmm": 5.55,
+    "clearanceProbeODmm": 4.55,
     "maxOverlapWithClearanceProbeMm3": 0.0,
     "expectedMode": "spacer",
     "pass": true

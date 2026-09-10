@@ -10,7 +10,7 @@ The variant widens only the four perimeter M3 horn-screw passages in:
 - `coxa_link`: the four long yaw horn-bolt columns.
 
 The redesign uses the user's existing standard M3 spacers, fixed at **10.00 mm
-long**, currently **Ø5.5 mm OD × Ø3.2 mm ID**. There is one sleeve around each
+long**, currently **Ø4.5 mm OD × Ø3.2 mm ID**. There is one sleeve around each
 perimeter horn screw; no sleeves are cut or stacked. The screw head/washer
 bears on one sleeve end and the aluminum disc horn bears on the other. Plastic
 still locates and surrounds the tube, but it no longer has to preserve screw
@@ -23,10 +23,10 @@ Edit only `spacer_config.toml`. The important current settings are:
 ```toml
 [spacer]
 enabled = true
-outside_diameter_mm = 5.50
+outside_diameter_mm = 4.50
 
 [printed_fit]
-bore_diametral_allowance_mm = 0.30
+bore_diametral_allowance_mm = 0.20
 ```
 
 Set `enabled = false` for the normal no-spacer version. In that mode the
@@ -34,37 +34,33 @@ generator uses the original production M3 passages and omits the enlarged
 bores, local spacer bosses, metal-spacer models, and fit coupon. The saved
 dimensions are ignored until the switch is turned back on.
 
-The generator sets the printed CAD bore to `spacer OD + diametral allowance`.
-Thus the current Ø5.50 mm spacer produces the physically verified Ø5.80 mm
-second-hole bore. The 0.30 mm value is total diameter allowance—nominally
-0.15 mm per side—not the actual looseness expected in the finished print.
-The sideways FDM hole prints smaller and rougher than its CAD diameter.
+The printed CAD bore is spacer OD plus diametral allowance. The user's
+printed coupon put Ø4.60 mm slightly too tight and Ø4.80 mm slightly too
+loose, so the new selected bore is their Ø4.70 mm midpoint: 0.20 mm total
+printer compensation, nominally 0.10 mm per side. The midpoint itself has
+not yet been physically verified.
 
-Changing `outside_diameter_mm` also shifts all five coupon holes while keeping
-the selected bore as the second hole. Leave the 0.30 mm allowance alone unless
-a new physical coupon test shows that a different value fits better.
-
-## Why the bore is larger than the Ø5.5 mm sleeve
-
-The first fit coupon was wrong: its holes printed vertically, while all three
-real test parts print their sleeve bores horizontally. Horizontal FDM holes
-lose substantially more clearance at the unsupported ceiling. The old
-Ø5.05/5.15/5.25 coupon therefore predicted a fit that the parts could not
-deliver.
-
-The corrected coupon reproduces the real 10.1 mm-long horizontal tunnel and,
-with the current configuration, spans Ø5.60–6.40 mm. The current experimental
-parts use the user-confirmed second coupon size: a Ø5.80 mm CAD bore.
-This is intentionally a clearance fit. The M3 screw passing through the
-nominal Ø3.2 mm sleeve ID centers the metal sleeve on the horn thread; the
-printed hole does not. Once tightened, the sleeve carries the clamp load.
+The refined horizontal coupon spans Ø4.65–4.85 mm in 0.05 mm increments.
+Its second hole is the selected Ø4.70 mm bore. It reproduces the real
+10.1 mm tunnel depth and horizontal print orientation. Choose a light
+push/slip fit after string cleanup; do not hammer or force the spacer in.
 
 The standard horn's raised center spline boss is on the servo-facing side, not
 between the printed link and horn. On the printed-link side, the four sleeves
-fit the standard Ø14 mm bolt pattern and remain 0.25 mm inside the nominal
+fit the standard Ø14 mm bolt pattern and remain 0.75 mm inside the nominal
 Ø20 mm disc edge. The yaw variant grows only its printed horn-facing neck from
 Ø20 to Ø22 mm to restore wall around the wider bores; it still has 1 mm radial
 clearance through the production Ø24 mm chassis opening.
+
+## Why the sleeve is slightly shorter, including the outer lip
+
+The 10.1 mm dimension includes the outer head-bearing lip. A 10.0 mm
+compression limiter should be slightly shorter than this free plastic stack:
+the washer first clamps the plastic, then seats against the sleeve. Making
+the sleeve protrude could leave the plastic loose even with a tight screw.
+This follows [SPIROL’s compression-limiter length guidance](https://www.spirol.com/product/compression-limiters/).
+The nominal 0.1 mm difference still needs a printed-part fit check: confirm
+the washer reaches the sleeve without damaging the plastic.
 
 ## How the fixed 10 mm length is accommodated
 
@@ -80,7 +76,7 @@ clearance through the production Ø24 mm chassis opening.
   The center spline screw is unchanged and does not receive a sleeve.
 
 The perimeter hardware becomes **M3×12 SHCS + a 7 mm OD × approximately
-0.5 mm standard M3 washer**. The washer must be wider than the Ø5.8 mm printed
+0.5 mm standard M3 washer**. The washer must be wider than the Ø4.7 mm printed
 bore so it overlaps the plastic as well as the sleeve. With a 10 mm sleeve this
 gives about 1.5 mm engagement in the 2 mm aluminum horn and keeps the screw tip
 about 0.5 mm short of the servo-side horn face. M3×10 cannot be reused: it
@@ -90,16 +86,26 @@ shafts are widened to Ø7.2 mm for the washer.
 The replacement fit coupon has five horizontal bores. A notch marks the small
 end; read them from that end toward the other end:
 
-- Ø5.60 mm;
-- Ø5.80 mm;
-- Ø6.00 mm;
-- Ø6.20 mm;
-- Ø6.40 mm.
+- Ø4.65 mm;
+- Ø4.70 mm (selected part bore);
+- Ø4.75 mm;
+- Ø4.80 mm;
+- Ø4.85 mm.
 
-Choose the smallest bore that accepts the actual tube with a light push or
-slip fit after normal string cleanup. Do not drill, hammer, or hard-press the
-sleeve into the coupon. Print a complete part only if its Ø5.80 coupon hole
-fits; if the first fit is Ø6.00 or larger, update the generated part bore first.
+The previous coupon's first and second holes were Ø4.60 and Ø4.80 mm;
+these are different from the refined coupon above. Use the refined coupon
+to confirm the midpoint before committing to a complete part.
+
+## Servo service opening
+
+The regenerated `femur_link_compression_limiter_test.stl` and
+`tibia_knee_yoke_compression_limiter_test.stl` inherit the current serviceable
+servo holder from `hexapod_prototype.py`. Its former rounded bridge over the
+Ø20 disc horn is removed: the Ø24 horn opening continues as a straight slot
+to the open clamp face. After the two clamp-cap bolts are removed, the servo,
+fitted horn, and clamp cap can lift out together. This applies to both the hip
+femur yoke and the knee yoke; the three surviving front-case capture sites are
+retained around the slot.
 
 ## One-joint validation
 
@@ -142,3 +148,19 @@ is published as `prototype_sts3215/horn-compression-limiters`. The target also
 runs `verify_workspace_variant.py`, which substitutes the three experimental
 parts into the production collision checker and gates a 76-pose coarse
 yaw/hip/knee workspace sweep.
+
+## Femur clamp-cap hex nuts
+
+The two M3 clamp-cap screws at the knee-servo end of the femur now use
+standard M3 hex nuts (nominal 5.5 mm across flats × 2.4 mm thick), replacing
+self-tapping into the printed cradle. Press the nuts outward from inside the empty servo cavity into the two
+short end-wall openings before fitting the servo. Push each nut to the closed hex end;
+its threaded hole then lines up with the clamp-cap screw.
+
+The pockets are 5.45 mm across flats and 2.50 mm deep. This is a nominal
+0.05 mm interference fit across flats; actual printed fit needs checking.
+A 2.0 mm solid shoulder between nut and cap carries the screw tension.
+Use M3×8 machine screws with the existing recessed cap (2 mm under-head
+plastic + 2 mm shoulder + 2.4 mm nut leaves approximately 1.6 mm projection).
+The cap screw passages are now Ø3.4 mm clearance. The other servo-case
+fasteners and the coxa's self-tappers are unchanged.

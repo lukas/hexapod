@@ -28,10 +28,18 @@ deliberate fast local iteration; the normal Make target never uses it.
 
 The remaining M3×8 clamp-cap screws no longer self-tap into PETG. Each hip
 cradle has two face-loaded 5.8 mm-AF × 2.7 mm captive-nut pockets, and each knee
-cradle has one. The overhead knee design had already removed its inboard side
-screw where the bought bracket replaces that wall; its separate vertical cap
-retention remains unchanged. That makes **18 captive M3 nuts and 18 M3×8 SHCS
+cradle now also has two. The surviving outboard screw is supplemented by an
+inboard-upper lug at cap-local X=-17, Z=40 mm, above the servo and clear of
+the bought bracket. It replaces the old underside insert boss, which the
+bracket clearance cut removed. That makes **24 captive M3 nuts and 24 M3×8 SHCS
 robot-wide**.
+
+Use the revised knee cap AND revised femur body as a matched pair. Both screws
+enter from the cap face into nuts loaded into the cradle before closing the cap.
+No underside M3×25 screw or heat-set insert is used for knee-cap retention.
+Final-mesh checks cover both nut enclosures, bearing floors, cap covers and
+head seats, plus servo fit and joint motion. Physical load testing is still
+required for this experimental clamp.
 
 Load each ordinary M3 nut from the open clamp face, then seat the cap to close
 the pocket. The hex flats are oriented across the 9 mm wall, leaving 1.6 mm of
@@ -60,18 +68,28 @@ carrier then closes the pockets. The assembly can be rotated for direct
 installation access. There is no separate support print, lower stand
 interface, or lower stand screw set.
 
-The marked lower and upper yaw-bearing protrusions are separate cartridges.
-The lower carrier is no longer a thin plate on two little screw tongues: an
-R13.0–R16.6 annular collar rises 8 mm into a continuous R16.9–R19.0 socket in
-the coxa. Three M3×6 low-profile screws enter radially through edge-access
-tunnels at 120°, 180°, and 240° and engage captive nuts in the carrier edge.
-The collar/socket has 0.30 mm radial assembly clearance and leaves all five
-vertical horn-driver paths open. The upper cartridge uses three M3×8
-countersunk screws
-from the cap underside into three more captive M3 nuts. Those nuts drop into
-5.8 mm-AF hex recesses in the carrier's flat mounting face and are captured
-when the cap is seated. Both cartridges preserve their original 6805 bearing
-seats and horn interfaces.
+The lower carrier now owns the entire original coxa foot below Z=8, not just
+the circular yaw hub. The corresponding material is removed from the upper
+coxa, preserving the assembled envelope. No radial screws, nut pockets, raised
+collar or extra underside bumps remain. Both parts print on the flat Z=8 mating
+face (invert the carrier).
+
+Four nominal 3×6 mm pan-head self-tapping screws enter upward at X=20/68,
+Y=±16. Heads seat at Z=5, tips end at Z=11, and blind Ø2.4 pilots end at
+Z=11.5. This gives 3 mm receiver reach, conservatively 2 mm useful engagement
+allowing a 1 mm pointed tip, and 0.5 mm tip-end clearance. Use heads no larger
+than Ø5.4 × 2.4 mm; they protrude below the foot but are away from the bearing.
+Fasten the two pieces before mounting the leg to the chassis. Pilot fit and
+pull-out strength still need a printed coupon/physical test for the chosen screw
+and plastic. These dimensions are not a supplier-specific hardware qualification.
+
+The scene includes all 24 screw reference meshes and explicit `fastenings`
+declarations naming carrier and receiver. BuildViz checks continuous receiver
+material, shaft clearance and head support; the CAD generator separately checks
+all screw envelopes against every other part. The upper cartridge is unchanged
+and retains its four self-tapping pilot holes in the flat hip-cap pad.
+Both cartridges preserve their original 6805 bearing seats and horn
+interfaces.
 
 The old perforated lower rail remains deleted. The negative-Y side uses one
 lower and one upper contour arm. On positive Y, the former two stepped arms
@@ -202,18 +220,15 @@ Files ending in `DO_NOT_PRINT` are viewer references.
   servo-tab block, and two negative-Y contour arms. The tab block has two Ø6.8
   driver holes; the remaining upper arm retains its Ø6.5 case-screw access.
 - The old full-width lower rail, nine-hole grid, and two small vertical screw
-  pads are gone. The lower carrier now keys 8 mm into the coxa and is retained
-  by three radial edge screws.
-- Both yaw-bearing protrusions are split into closed, single-body screw-on
-  cartridges. The lower carrier has a 0.30 mm-clearance collar/socket joint;
-  its three captive nuts are closed by the coxa after the collar is inserted.
-- The upper-bearing connection uses five ordinary captive M3 nuts per leg:
-  three between the hip cap and carrier, plus two between the carrier and coxa
-  tower. No heat-set inserts are used at this connection.
-- The removable servo clamp caps use 18 additional ordinary captive M3 nuts:
-  two per hip and one per knee. Every M3×8 screw passes fully through its nut;
-  the servo-case self-tappers and the knee's separate vertical screw are
-  unchanged.
+  pads are gone. The lower carrier includes the lower foot and is retained
+  by four underside 3×6 mm self-tapping screws into the remaining coxa foot.
+- Both yaw-bearing protrusions are split into closed, single-body cartridges.
+  The lower carrier has a flat Z=8 mating face and the upper
+  cartridge has a flat four-screw mounting face. No heat-set inserts are used
+  at either bearing-cartridge connection.
+- The removable servo clamp caps use 24 ordinary captive M3 nuts:
+  two per hip and two per knee. Every M3×8 screw passes through its nut;
+  the obsolete knee underside insert screw is replaced by the upper lug.
 - Both the coxa/hip and femur/knee motor holders have a full-width Ø24 service
   slot and pass the horn-on servo extraction sweep.
 - The tibia socket exposes all six bracket fasteners: four central captive

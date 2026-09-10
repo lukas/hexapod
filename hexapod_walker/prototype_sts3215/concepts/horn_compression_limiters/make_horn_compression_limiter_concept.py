@@ -111,11 +111,11 @@ assert YOKE_HEAD_BOSS_H > 0.0
 
 # The washer must overlap the plastic outside the selected sleeve bore
 # sleeve bore so the first 0.1 mm of clamp travel still preloads the print.
-# A standard 7 mm OD M3 washer provides 0.5 mm radial overlap; widen the yaw
+# A standard 7 mm OD M3 washer overlaps the bore; widen the yaw
 # access shafts so it can reach the deep perimeter seats.
 YAW_ACCESS_OD = M3_WASHER_OD + 0.20
 
-# The selected 5.80 mm horizontal bore comes within 0.1 mm of the edge of the
+# The former 5.80 mm horizontal bore came within 0.1 mm of the edge of the
 # production Phi20 yaw drive nub at the horn-facing end. Grow just that 4 mm-tall
 # experimental neck to Phi22: it still has 1 mm radial clearance in the
 # production Phi24 chassis opening and restores 1.0 mm of outer bore wall.
@@ -316,6 +316,68 @@ def _geometry_report(
     return result
 
 
+# Standard M3 hex nuts, inserted before the servo from the inside cavity (+/-X).
+# Slight interference across flats retains the nuts; the +Y shoulder carries
+# bolt tension. Never rely on press-fit friction to resist screw pull-out.
+FEMUR_NUT_AF = 5.45
+FEMUR_NUT_DEPTH = 2.50
+FEMUR_NUT_SHOULDER = 2.00
+
+
+def _femur_cap_nut_cuts() -> list[trimesh.Trimesh]:
+    cuts = []
+    y1 = hp.WELL_D / 2 - FEMUR_NUT_SHOULDER
+    y0 = y1 - FEMUR_NUT_DEPTH
+    for bx, bz in hp.servo_clamp_bolt_centres():
+        x = hp.FEMUR_LENGTH + bx
+        # Six-sided pocket: flats face +/-Z, nut/bolt axis is Y.
+        pocket = trimesh.creation.cylinder(
+            radius=FEMUR_NUT_AF / math.sqrt(3), height=FEMUR_NUT_DEPTH,
+            sections=6)
+        pocket.apply_transform(trimesh.transformations.rotation_matrix(
+            math.pi / 2, [1, 0, 0]))
+        pocket.apply_translation([x, (y0 + y1) / 2, bz])
+        cuts.append(pocket)
+        # Short insertion from the servo cavity outward into each end wall.
+        # Rotate the hex so its parallel flats guide the nut along X; the
+        # closed outer hex tip is the seating stop. Keep the full +Y shoulder.
+        cavity_half_x = (hp.SERVO_BODY_W / 2 + hp.WELL_BODY_CL
+                         - hp.WELL_INSIDE_X_TIGHTEN / 2)
+        inner_x = hp.FEMUR_LENGTH + math.copysign(cavity_half_x - .5, bx)
+        entry = trimesh.creation.box(extents=(
+            abs(x - inner_x), FEMUR_NUT_DEPTH, FEMUR_NUT_AF))
+        entry.apply_translation([(x + inner_x) / 2, (y0 + y1) / 2, bz])
+        cuts.append(entry)
+        cuts.append(_cyl_y(hp.CLAMP_BOLT_CLEAR_OD / 2,
+            hp.WELL_D / 2 - hp.CLAMP_BOLT_PILOT_DEPTH,
+            hp.WELL_D / 2 + 1, x, bz))
+    return cuts
+
+
+def _add_femur_cap_nuts(source: trimesh.Trimesh) -> trimesh.Trimesh:
+    result = _difference(source, _femur_cap_nut_cuts())
+    assert result.is_volume and len(result.split()) == len(source.split())
+    # Verify both the bolt route and retaining shoulder in the final mesh.
+    for bx, bz in hp.servo_clamp_bolt_centres():
+        x = hp.FEMUR_LENGTH + bx
+        # The former long rear-entry slot must be solid again.
+        restored = trimesh.creation.box(extents=(.5, .5, .5))
+        restored.apply_translation([x, hp.WELL_D / 2 - FEMUR_NUT_SHOULDER
+                                    - FEMUR_NUT_DEPTH / 2, bz - 6])
+        overlap = trimesh.boolean.intersection([result, restored], engine="manifold")
+        assert overlap.volume > restored.volume * .99, "old rear slot remains"
+        shoulder = _cyl_y(2.6, hp.WELL_D / 2 - 1.8,
+                           hp.WELL_D / 2 - .2, x, bz)
+        shoulder = _difference(shoulder, [_cyl_y(1.8,
+            hp.WELL_D / 2 - 2, hp.WELL_D / 2, x, bz)])
+        overlap = trimesh.boolean.intersection([result, shoulder], engine="manifold")
+        assert overlap.volume > shoulder.volume * .99, "nut shoulder missing"
+    for cut in _femur_cap_nut_cuts():
+        overlap = trimesh.boolean.intersection([result, cut], engine="manifold")
+        assert overlap.is_empty or abs(overlap.volume) < 1e-5, "blocked nut/bolt path"
+    return result
+
+
 def _fit_coupon() -> trimesh.Trimesh:
     """Five horizontal bores matching the parts' orientation and 10.1 mm depth."""
     body = trimesh.creation.box(extents=(81.0, 10.1, 14.0))
@@ -413,7 +475,7 @@ def build_scene() -> dict:
     if SPACER_ENABLED:
         femur_bossed = _add_yoke_head_bosses(femur_source)
         tibia_bossed = _add_yoke_head_bosses(tibia_source)
-        femur = _difference(femur_bossed, _yoke_limiter_cuts())
+        femur = _add_femur_cap_nuts(_difference(femur_bossed, _yoke_limiter_cuts()))
         tibia = _difference(tibia_bossed, _yoke_limiter_cuts())
         coxa_prepared = _add_yaw_limiter_nub(coxa_source)
         coxa = _difference(

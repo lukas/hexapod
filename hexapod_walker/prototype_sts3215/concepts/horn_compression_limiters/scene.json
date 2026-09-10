@@ -55,7 +55,7 @@
     {
       "id": "femur-test",
       "meshId": "stl:scene_femur_link_compression_limiter_test",
-      "name": "femur_link: hip yoke with \u00d85.80 horizontal spacer bores",
+      "name": "femur_link: hip yoke with \u00d84.70 horizontal spacer bores",
       "partType": "femur_link_compression_limiter_test",
       "role": "concept",
       "focusGroup": "hip_yoke",
@@ -85,7 +85,7 @@
     {
       "id": "tibia-test",
       "meshId": "stl:scene_tibia_knee_yoke_compression_limiter_test",
-      "name": "tibia_knee_yoke: knee yoke with \u00d85.80 horizontal spacer bores",
+      "name": "tibia_knee_yoke: knee yoke with \u00d84.70 horizontal spacer bores",
       "partType": "tibia_knee_yoke_compression_limiter_test",
       "role": "concept",
       "focusGroup": "knee_yoke",
@@ -115,7 +115,7 @@
     {
       "id": "coxa-test",
       "meshId": "stl:scene_coxa_link_yaw_compression_limiter_test",
-      "name": "coxa_link: yaw horn stack with \u00d85.80 horizontal spacer bores",
+      "name": "coxa_link: yaw horn stack with \u00d84.70 horizontal spacer bores",
       "partType": "coxa_link_yaw_compression_limiter_test",
       "role": "concept",
       "focusGroup": "yaw_stack",
@@ -145,7 +145,7 @@
     {
       "id": "fit-coupon",
       "meshId": "stl:spacer_fit_coupon_horizontal",
-      "name": "horizontal fit coupon: \u00d85.60 to \u00d86.40; selected \u00d85.80",
+      "name": "horizontal fit coupon: \u00d84.65 to \u00d84.85; selected \u00d84.70",
       "partType": "compression_limiter_fit_coupon",
       "role": "concept",
       "focusGroup": "fit_coupon",
@@ -790,17 +790,17 @@
       "configFile": "spacer_config.toml",
       "spacerEnabled": true,
       "activeMode": "spacer",
-      "spacerODmm": 5.5,
+      "spacerODmm": 4.5,
       "spacerIDmm": 3.2,
-      "boreDiametralAllowanceMm": 0.3,
-      "nominalBoreRadialAllowanceMm": 0.15,
-      "designBoreODmm": 5.8,
+      "boreDiametralAllowanceMm": 0.2,
+      "nominalBoreRadialAllowanceMm": 0.1,
+      "designBoreODmm": 4.7,
       "fitCouponBoreODsMm": [
-        5.6,
-        5.8,
-        6.0,
-        6.2,
-        6.4
+        4.65,
+        4.7,
+        4.75,
+        4.8,
+        4.85
       ],
       "spacerLengthMm": 10.0,
       "seatPreloadMm": 0.1,
@@ -811,10 +811,10 @@
     },
     "tightGeometry": {
       "hornBoltPCDmm": 14.0,
-      "nominalSleeveToHornEdgeGapMm": 0.25,
+      "nominalSleeveToHornEdgeGapMm": 0.75,
       "conservativeCenterScrewHeadODmm": 6.0,
-      "centerScrewHeadToSleeveGapMm": 1.25,
-      "note": "The horn's raised 9 mm spline boss faces the servo, not the printed link. A conservative 6 mm center-screw head still clears each 5.5 mm spacer by 1.25 mm."
+      "centerScrewHeadToSleeveGapMm": 1.75,
+      "note": "The horn's raised 9 mm spline boss faces the servo, not the printed link. A conservative 6 mm center-screw head still clears each 4.5 mm spacer by 1.75 mm."
     },
     "decision": "Use one configured 10 mm spacer per perimeter screw. Yokes gain local head pads; yaw moves only its four perimeter head seats down. Test one knee interface first.",
     "printableCandidates": [
@@ -826,9 +826,9 @@
       "femur_link": {
         "sourceIsVolume": true,
         "variantIsVolume": true,
-        "removedVolumeMm3": 1539.8253958660353,
+        "removedVolumeMm3": 1027.7327604725506,
         "maxBoundsDeltaMm": 0.0,
-        "clearanceProbeODmm": 5.55,
+        "clearanceProbeODmm": 4.55,
         "maxOverlapWithClearanceProbeMm3": 0.0,
         "expectedMode": "spacer",
         "pass": true
@@ -836,9 +836,9 @@
       "tibia_knee_yoke": {
         "sourceIsVolume": true,
         "variantIsVolume": true,
-        "removedVolumeMm3": 1539.8253958660207,
+        "removedVolumeMm3": 791.4957930460623,
         "maxBoundsDeltaMm": 0.0,
-        "clearanceProbeODmm": 5.55,
+        "clearanceProbeODmm": 4.55,
         "maxOverlapWithClearanceProbeMm3": 0.0,
         "expectedMode": "spacer",
         "pass": true
@@ -846,9 +846,9 @@
       "coxa_link_yaw": {
         "sourceIsVolume": true,
         "variantIsVolume": true,
-        "removedVolumeMm3": 3239.1077513028285,
+        "removedVolumeMm3": 2873.213658340319,
         "maxBoundsDeltaMm": 0.0,
-        "clearanceProbeODmm": 5.55,
+        "clearanceProbeODmm": 4.55,
         "maxOverlapWithClearanceProbeMm3": 0.0,
         "expectedMode": "spacer",
         "pass": true

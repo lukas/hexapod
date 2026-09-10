@@ -414,3 +414,47 @@ def test_fast_finish_triage_waits_for_core_gate_and_preserves_owners(
     assert len(calls) == expected_cycles
     if calls:
         assert calls[0][0][0] == {run}
+
+
+def test_board_fingerprint_stable_and_tracks_ledger_changes(tmp_path, monkeypatch):
+    """The IDLE-refill gate (09-10 meta) holds while the board is
+    byte-identical and re-arms on any ledger/backlog change."""
+    ledger = tmp_path / "experiments.json"
+    backlog = tmp_path / "backlog.json"
+    ledger.write_text('[{"run": "a", "status": "FINISHED"}]')
+    backlog.write_text("[]")
+    monkeypatch.setattr(watch, "LEDGER", ledger)
+    monkeypatch.setattr(watch, "BACKLOG", backlog)
+    fp1 = watch.board_fingerprint()
+    assert fp1 == watch.board_fingerprint()  # stable while unchanged
+    ledger.write_text('[{"run": "a", "status": "FINISHED", "verdict": "x"}]')
+    assert watch.board_fingerprint() != fp1  # verdict re-arms refills
+    fp2 = watch.board_fingerprint()
+    backlog.write_text('[{"run": "queued"}]')
+    assert watch.board_fingerprint() != fp2  # backlog add re-arms too
+
+
+def test_reap_cycles_arms_idle_gate_only_for_idle_refills(tmp_path, monkeypatch):
+    """Exercise the real reap_cycles branch: a partial-refill cycle whose
+    log tail prints the mandated IDLE line arms IDLE_REFILL_REAPED; a
+    worked refill or a triage cycle does not."""
+    monkeypatch.setattr(watch, "registry_update", lambda *a, **k: None)
+
+    def _cycle(label, tail):
+        out = tmp_path / f"{label}.log"
+        out.write_text(tail)
+        return {"label": label, "runs": set(), "t0": 0.0, "stamp": "s",
+                "model": watch.AGENT_MODEL_DEEP,  # no dig-in re-spawn path
+                "proc": SimpleNamespace(poll=lambda: 0),
+                "out": out, "render": None}
+
+    for label, tail, expect in [
+        ("partial-refill", "IDLE: nothing runnable — board closed", True),
+        ("kick", "...IDLE: nothing runnable — no lever", True),
+        ("partial-refill", "launched 2 arms, CYCLE_WORKED", False),
+        ("cw-some-run", "IDLE: nothing runnable", False),
+    ]:
+        watch.IDLE_REFILL_REAPED.clear()
+        still, n_ok, n_failed = watch.reap_cycles([_cycle(label, tail)], set())
+        assert (still, n_ok, n_failed) == ([], 1, 0)
+        assert bool(watch.IDLE_REFILL_REAPED) is expect, (label, tail)

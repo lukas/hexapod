@@ -107,6 +107,23 @@ def test_login_rejects_external_and_nonpage_redirects(client, destination):
     assert response.headers["location"] == "/"
 
 
+def test_login_accepts_the_bound_address_when_a_public_url_is_configured(client):
+    # Signing in at http://127.0.0.1:8767 on the lab Mac must work even though
+    # the public hostname is configured: the Origin matches the request host.
+    local = "http://127.0.0.1:8767"
+    payload = {"username": "alice", "password": "secret", "next": "/"}
+    response = client.post(f"{local}/login", headers={"Origin": local}, data=payload)
+    assert response.status_code == 303
+    assert response.headers["location"] == "/"
+    cookie = response.headers["set-cookie"].lower()
+    # Plain http on loopback: the cookie must not be Secure or Safari drops it.
+    assert "httponly" in cookie and "samesite=lax" in cookie and "secure" not in cookie
+    # A third-party origin is still refused at the local address.
+    assert client.post(f"{local}/login", headers={"Origin": "https://evil.example"},
+                       data=payload).status_code == 403
+    assert client.post(f"{local}/login", data=payload).status_code == 403
+
+
 def test_login_preserves_local_destination_and_blocks_cross_origin_submission(client):
     payload = {"username": "alice", "password": "secret", "next": "/tag-scan"}
     assert client.post("/login", data=payload).status_code == 403

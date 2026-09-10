@@ -38,6 +38,10 @@ class Settings:
     robot_vision_url: str = "http://127.0.0.1:8898/api/vision/state"
     observation_camera_name: str = ""
     observation_camera_devices: tuple = ()
+    # Read observation frames from the camera server rather than opening the
+    # devices in this process. Empty keeps the direct-capture path.
+    observation_vision_service_url: str = ""
+    observation_vision_service_width: int = 1280
     robot_telemetry_url: str = DEFAULT_ROBOT_TELEMETRY_URL
     codex_automation: bool = False
     codex_bin: Path = Path("/Applications/ChatGPT.app/Contents/Resources/codex")
@@ -151,6 +155,12 @@ class Settings:
             robot_vision_url=os.getenv("HEXAPOD_ROBOT_VISION_URL", "http://127.0.0.1:8898/api/vision/state"),
             observation_camera_name=os.getenv("HEXAPOD_OBSERVATION_CAMERA_NAME", "").strip(),
             observation_camera_devices=_camera_devices(),
+            observation_vision_service_url=os.getenv(
+                "HEXAPOD_OBSERVATION_VISION_SERVICE_URL", ""
+            ).strip(),
+            observation_vision_service_width=int(
+                os.getenv("HEXAPOD_OBSERVATION_VISION_SERVICE_WIDTH", "1280")
+            ),
             robot_telemetry_url=os.getenv(
                 "HEXAPOD_ROBOT_TELEMETRY_URL",
                 DEFAULT_ROBOT_TELEMETRY_URL,

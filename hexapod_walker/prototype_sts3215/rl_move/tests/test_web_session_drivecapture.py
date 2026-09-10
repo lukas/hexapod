@@ -5,7 +5,9 @@ RESEARCH_RULES "Tests".
 from rl_move.sim.web_session_drivecapture import (
     drive_cmd_rejected,
     fell_during_session,
+    locomotion_fraction,
     policy_identity_ok,
+    stalled_phases,
 )
 from rl_move.sim.drive_video import human_drive_phases, _script
 
@@ -64,6 +66,61 @@ def test_drive_cmd_rejected_catches_the_silent_too_low_regression():
     assert drive_cmd_rejected("drive session active") is False
     assert drive_cmd_rejected("") is False
     assert drive_cmd_rejected(None) is False
+
+
+def test_locomotion_fraction_flags_a_stalled_session():
+    # exact bug pattern caught 2026-09-10: commanded 0.06 m/s forward,
+    # measured body speed decays to ~0 after an initial ramp-driven blip.
+    rows = [{"vx_body": 0.0, "vy_body": 0.0}] * 6
+    assert locomotion_fraction(rows, 0.06, 0.0) == 0.0
+
+
+def test_locomotion_fraction_passes_real_tracking():
+    rows = [{"vx_body": 0.05, "vy_body": 0.0}] * 6
+    frac = locomotion_fraction(rows, 0.06, 0.0)
+    assert 0.7 < frac < 1.0
+
+
+def test_locomotion_fraction_ignores_near_zero_commands():
+    # stop/final-stop phases command ~0 -- never flag those as a stall
+    assert locomotion_fraction([{"vx_body": 0.0, "vy_body": 0.0}], 0.0, 0.0) == 1.0
+
+
+def test_locomotion_fraction_empty_rows_is_not_a_stall():
+    assert locomotion_fraction([], 0.06, 0.0) == 1.0
+
+
+def test_stalled_phases_catches_the_09_10_regression_pattern():
+    # forward commanded 0-5s at 0.06 m/s; body speed ramps up then
+    # collapses to ~0 well before the phase ends (the real telemetry
+    # shape from the full-cfg PASS run this test is named for).
+    phases = [(0.0, 0.06, 0.0, 0.0, "forward"), (5.0, 0.0, 0.0, 0.0, "stop")]
+    telemetry = (
+        [{"t": t, "vx_body": 0.04, "vy_body": 0.0} for t in (0.2, 0.6, 1.0)]
+        + [{"t": t, "vx_body": 0.0, "vy_body": 0.0}
+          for t in (2.0, 3.0, 4.0, 4.8)])
+    bad = stalled_phases(telemetry, phases, t_end=8.0)
+    assert len(bad) == 1
+    assert bad[0]["label"] == "forward"
+    assert bad[0]["measured_fraction_of_cmd"] < 0.25
+
+
+def test_stalled_phases_clean_when_tracking_holds():
+    phases = [(0.0, 0.06, 0.0, 0.0, "forward"), (5.0, 0.0, 0.0, 0.0, "stop")]
+    telemetry = [{"t": t, "vx_body": 0.06, "vy_body": 0.0}
+                for t in (0.2, 2.0, 3.0, 4.0, 4.8)]
+    assert stalled_phases(telemetry, phases, t_end=8.0) == []
+
+
+def test_stalled_phases_skips_the_velocity_ramp_settle_window():
+    # rows inside the first 1.5s (the live-drive VEL_RATE ramp window)
+    # showing low speed must NOT by themselves trigger a stall verdict.
+    phases = [(0.0, 0.06, 0.0, 0.0, "forward")]
+    telemetry = ([{"t": t, "vx_body": 0.01, "vy_body": 0.0}
+                 for t in (0.2, 0.6, 1.0)]
+                + [{"t": t, "vx_body": 0.06, "vy_body": 0.0}
+                  for t in (2.0, 3.0, 4.0)])
+    assert stalled_phases(telemetry, phases, t_end=5.0) == []
 
 
 def test_human_drive_phases_matches_the_inline_script_bit_exactly():

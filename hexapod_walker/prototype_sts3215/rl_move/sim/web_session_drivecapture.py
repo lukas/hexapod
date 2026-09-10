@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import socket
 import subprocess
 import sys
@@ -117,6 +118,60 @@ def policy_identity_ok(info: dict, expect_name: str) -> tuple[bool, str]:
 
 def fell_during_session(status: str) -> bool:
     return "DOWN" in str(status or "")
+
+
+_STALL_CMD_MPS = 0.02   # ignore near-zero commands (stop/final-stop phases)
+_STALL_FRAC = 0.25      # measured/commanded speed floor to call it "moving"
+
+
+def locomotion_fraction(rows: list[dict], cmd_vx: float, cmd_vy: float
+                        ) -> float:
+    """Mean measured body speed / commanded speed over ``rows``.
+
+    Pure helper on telemetry rows (each with ``vx_body``/``vy_body``).
+    Returns 1.0 (treated as fine) when nothing material was commanded
+    or there is no data -- this is a stall detector, not a tracking-
+    accuracy metric. Added 2026-09-10 after the first full-cfg PASS
+    run (boot/final identity real, zero falls, zero rejected commands)
+    turned out to be a FALSE POSITIVE: the champion's chassis rose
+    from the 110mm trained plant height to a ~135mm plateau and body
+    velocity decayed to ~0 by ~1.5s into a sustained "forward" command
+    even though ``goal.height_ref`` stayed 0 and ``walk_obs_body_vel``
+    correctly resolved to 1.0 the whole time (both prior candidate
+    explanations in ``CURRENT_TRUTHS.md`` ruled out by direct in-
+    process instrumentation, not just re-guessed) -- none of the three
+    earlier boolean checks (identity/fell/rejected) can see a session
+    that stays "active" while quietly failing to locomote."""
+    cmd_mag = math.hypot(cmd_vx, cmd_vy)
+    if cmd_mag < _STALL_CMD_MPS or not rows:
+        return 1.0
+    speeds = [math.hypot(r.get("vx_body") or 0.0, r.get("vy_body") or 0.0)
+             for r in rows]
+    return (sum(speeds) / len(speeds)) / cmd_mag
+
+
+def stalled_phases(telemetry: list[dict], phases: list[tuple],
+                   t_end: float, settle_s: float = 1.5,
+                   frac_floor: float = _STALL_FRAC) -> list[dict]:
+    """Which commanded-motion phases the session failed to actually walk
+    during, skipping the velocity-ramp settle window (the live drive
+    session ramps commanded velocity in over ~1s -- see ``_PlayTraj.
+    VEL_RATE`` -- so judging from t=0 of a phase would flag the ramp
+    itself, not a stall)."""
+    out = []
+    for i, (t0, vx, vy, _wz, label) in enumerate(phases):
+        cmd_mag = math.hypot(vx, vy)
+        if cmd_mag < _STALL_CMD_MPS:
+            continue
+        t1 = phases[i + 1][0] if i + 1 < len(phases) else t_end
+        window = [r for r in telemetry if t0 + settle_s <= r["t"] < t1]
+        frac = locomotion_fraction(window, vx, vy)
+        if frac < frac_floor:
+            out.append({"label": label, "t0": t0, "t1": t1,
+                       "cmd_mps": round(cmd_mag, 4),
+                       "measured_fraction_of_cmd": round(frac, 3),
+                       "n_ticks": len(window)})
+    return out
 
 
 def drive_cmd_rejected(status: str) -> bool:
@@ -278,6 +333,12 @@ def main() -> int:
         result["drive_cmd_first_rejected_t"] = first_rejected_t
         result["n_frames"] = len(frame_paths)
         result["sim_seconds_driven"] = round(elapsed, 2)
+        stalled = stalled_phases(telemetry, phases, t_end)
+        result["stalled_phases"] = stalled
+        if stalled:
+            print(f"[websession_capture] LOCOMOTION STALL: "
+                 f"{len(stalled)} phase(s) commanded motion the session "
+                 f"never delivered -- {[s['label'] for s in stalled]}")
     finally:
         proc.terminate()
         try:
@@ -303,6 +364,7 @@ def main() -> int:
              and result.get("final_policy_check", {}).get("ok")
              and not result.get("fell")
              and not result.get("drive_cmd_rejected_ticks")
+             and not result.get("stalled_phases")
              and result.get("n_frames", 0) > 0)
     result["PASS"] = bool(passed)
     (out / "summary.json").write_text(json.dumps(result, indent=2))
@@ -329,6 +391,11 @@ command sequence `ops.sh drivevideo --script human` uses
 {result.get('drive_cmd_first_rejected_t')}
 - Frames captured: {result.get('n_frames')} (see `frames/`,
   `contact_sheet.png`)
+- Locomotion stalls (commanded motion the session reported "active"
+  for but never actually delivered -- measured body speed stayed
+  below {int(_STALL_FRAC * 100)}% of the commanded speed for the
+  whole phase, after the ~1.5s velocity-ramp settle window):
+  {result.get('stalled_phases') or "none"}
 - Full per-poll telemetry: `telemetry.json`
 - Server stdout/stderr: `server_log.txt`
 

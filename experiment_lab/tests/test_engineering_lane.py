@@ -1188,6 +1188,92 @@ def test_three_consecutive_blocked_handoffs_stop_the_campaign(tmp_path):
             assert kick is None, "the third stop must hold for an operator"
 
 
+def _sealed_experiment(store, name="sealed run"):
+    item = store.create({"name": name, "duration_seconds": 1}, "test")
+    store.finish(item["id"], "succeeded")
+    store.seal_evidence(item["id"], "a" * 64)
+    return item
+
+
+def _drain_terminal_jobs(store):
+    """Clear the analysis/advance pair a terminal experiment creates."""
+    for job in store.list_codex_jobs(500):
+        if job["status"] in {"queued", "running", "retry", "awaiting_evidence"}:
+            with store.connect() as con:
+                con.execute(
+                    "UPDATE codex_jobs SET status='succeeded' WHERE id=?",
+                    (job["id"],),
+                )
+
+
+def test_an_empty_queue_with_a_ready_robot_asks_for_a_new_proposal(tmp_path):
+    """Ten experiments then eight idle hours: an empty queue must self-refill."""
+    workspace = tmp_path / "project"
+    workspace.mkdir()
+    store = Store(tmp_path / "lab.sqlite3")
+    source = _sealed_experiment(store)
+    orchestrator = CodexOrchestrator(
+        store,
+        configured(tmp_path, workspace),
+        invoker=lambda *_args, **_kwargs: {},
+    )
+    _drain_terminal_jobs(store)
+    orchestrator._robot_guarded_ready = lambda: (True, "")
+
+    job = orchestrator.ensure_queue_refill()
+    assert job is not None
+    assert job["kind"] == "analysis"
+    assert job["trigger_kind"] == "queue_refill"
+    assert job["experiment_id"] == source["id"]
+
+    # One sealed result buys one proposal pass, not an unbounded number.
+    _drain_terminal_jobs(store)
+    assert orchestrator.ensure_queue_refill() is None
+
+
+def test_a_refill_is_not_requested_while_the_robot_is_not_ready(tmp_path):
+    """A dark room or a faulted robot must not buy analysis passes."""
+    workspace = tmp_path / "project"
+    workspace.mkdir()
+    store = Store(tmp_path / "lab.sqlite3")
+    _sealed_experiment(store)
+    orchestrator = CodexOrchestrator(
+        store,
+        configured(tmp_path, workspace),
+        invoker=lambda *_args, **_kwargs: {},
+    )
+    _drain_terminal_jobs(store)
+    orchestrator._robot_guarded_ready = lambda: (False, "18/18 servos missing")
+
+    assert orchestrator.ensure_queue_refill() is None
+
+
+def test_a_refill_is_not_requested_while_work_is_queued(tmp_path):
+    """The floor only applies to a genuinely empty queue."""
+    workspace = tmp_path / "project"
+    workspace.mkdir()
+    store = Store(tmp_path / "lab.sqlite3")
+    _sealed_experiment(store)
+    store.create(
+        {
+            "name": "still waiting",
+            "duration_seconds": 1,
+            "parameters": {},
+            "execution_mode": "external_guarded",
+        },
+        "test",
+    )
+    orchestrator = CodexOrchestrator(
+        store,
+        configured(tmp_path, workspace),
+        invoker=lambda *_args, **_kwargs: {},
+    )
+    _drain_terminal_jobs(store)
+    orchestrator._robot_guarded_ready = lambda: (True, "")
+
+    assert orchestrator.ensure_queue_refill() is None
+
+
 def test_three_exhausted_plans_in_a_row_pause_the_queue(tmp_path):
     """A dark room must not cost three agent attempts per queued plan."""
     workspace = tmp_path / "project"

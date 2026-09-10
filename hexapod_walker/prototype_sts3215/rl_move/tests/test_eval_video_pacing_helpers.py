@@ -69,7 +69,8 @@ def _gate_fixture(monkeypatch, tmp_path, hz=100, dr=0):
     }]))
     monkeypatch.setattr(pod_eval, "LEDGER", ledger)
     monkeypatch.setattr(pod_eval, "PROTO", tmp_path)
-    monkeypatch.setattr(pod_eval, "find_checkpoint", lambda *args: "policy.zip")
+    monkeypatch.setattr(pod_eval, "find_checkpoint",
+                        lambda *args, **kwargs: "policy.zip")
     monkeypatch.setattr(pod_eval, "session_side", lambda *args: None)
     monkeypatch.setattr(pod_eval, "core_synced", lambda *args: None)
     monkeypatch.setattr(pod_eval, "core_pass_synced", lambda *args: False)

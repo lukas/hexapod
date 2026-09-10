@@ -63,18 +63,16 @@ COMM_SUCCESS = 0
 COMM_FAIL = 1
 
 # The bridge answers a binary frame it could not accept with a bare
-# ASCII "ERR" (feetech_bridge.ino replyErr()). Two paths reach it, and
-# both mean the frame was torn on the way in — the documented host-UART
-# RX ring is smaller than one 'W'/'S' frame, so bytes are lost when a
-# frame lands mid-acquisition-pass:
-#   * binState 4 rejects a bad checksum / bad n and replies immediately;
-#   * loop()'s desync guard resets a dangling binState and replies
-#     HOST_BIN_DESYNC_MS after the last host byte — delayed a further
-#     FB_PERIOD_MS when it lands behind a streaming feedback pass.
-# Both are a protocol-level reject from a live, responding MCU. Line
-# noise does not produce a byte-exact 3-byte token on a deterministic
-# timer, so tagging the wait band lets a reader tell a torn frame from a
-# marginal cable without re-deriving the firmware timing by hand.
+# ASCII "ERR" (feetech_bridge.ino replyErr()). Two paths reach it:
+#   * binState 4 rejects a bad checksum / bad n and replies immediately
+#     — a CORRUPTED byte;
+#   * loop()'s desync guard resets a binState left dangling by a MISSING
+#     byte, HOST_BIN_DESYNC_MS after the last host byte, delayed up to a
+#     further FB_PERIOD_MS when it lands behind a streaming pass.
+# Both are a protocol-level reject from a live, responding MCU, so the
+# wait band says which, and drops-vs-corruption is what distinguishes a
+# host-byte servicing race from a marginal cable. See
+# MCU_BARE_ERR_ROWS.md for the 2026-09-10 rows this was derived from.
 MCU_DESYNC_GUARD_MS = 10.0    # feetech_bridge.ino HOST_BIN_DESYNC_MS
 MCU_FB_PERIOD_MS = 100.0      # feetech_bridge.ino FB_PERIOD_MS
 MCU_ERR_BAND_TOL_MS = 15.0

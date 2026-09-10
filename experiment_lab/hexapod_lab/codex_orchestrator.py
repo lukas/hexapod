@@ -201,6 +201,7 @@ ANALYSIS_SCHEMA: Dict[str, Any] = {
                     "parameters",
                     "execution_mode",
                     "rationale",
+                    "executor",
                 ],
                 "properties": {
                     "recommendation_key": {"type": "string", "minLength": 1},
@@ -224,6 +225,21 @@ ANALYSIS_SCHEMA: Dict[str, Any] = {
                         "enum": ["builtin", "external_guarded"],
                     },
                     "rationale": {"type": "string", "minLength": 1, "maxLength": 4000},
+                    # A plan is either runnable now or it is not. Naming which
+                    # is what lets the lab send a build to a build job and a
+                    # run to the robot, instead of handing every plan to the
+                    # execution job and killing it five minutes later.
+                    "executor": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "required": ["kind"],
+                        "properties": {
+                            "kind": {"type": "string", "enum": ["existing", "needs_build"]},
+                            "protocol": {"type": "string", "maxLength": 200},
+                            "runner": {"type": "string", "maxLength": 200},
+                            "build": {"type": "string", "maxLength": 1500},
+                        },
+                    },
                     "dependencies": {
                         "type": "array",
                         "maxItems": 20,
@@ -3199,6 +3215,8 @@ STEP BACK FIRST. Before recommending anything, answer these in `findings`: Has t
 
 You have TWO MINUTES of planning. Do not audit protocols, re-derive kinematics, or write checklists. The runner has ONE fixed preflight (a single 10-second health read) and its own in-loop trips for current, temperature, load, tilt and servo loss; there is nothing for a plan to add, and any `dependencies` or `stop_conditions` you write are read as notes, never as work for someone to verify. The operator's rule: pre-run safety checking is 10 seconds, never more, and agents adding checks has cost more than any fault would have.
 
+Every recommendation MUST carry `executor`. If the plan can run with a protocol file that already exists under `sysid/protocols/` (or a per-leg remap of one via generate_leg_variant.py, which you name as the source protocol plus the leg in `parameters`), set `executor.kind` to "existing" and name the protocol. Otherwise set `executor.kind` to "needs_build" and say in `executor.build`, in two or three sentences, exactly what code must exist -- a build job will write it before the plan ever reaches the robot, so the robot is never idle waiting on a build. Do not disguise a build as a run.
+
 Recommend each next physical experiment that answers a concrete open question on the path to smooth joystick walking, up to the room stated above. Return no recommendations only when every useful physical test you can name is already queued. Never create offline replay, review, qualification, evidence-packaging, or code-audit experiments. To run an existing protocol family on another leg, name the source protocol and the target leg -- `sysid/generate_leg_variant.py --leg N` does the remap; do not describe the derivation. Keep `description` to what the experiment is and why, in two or three sentences; the runner reads `parameters`, not prose. In the response schema, each recommendation's `parameters` field is a JSON-encoded string; encode one JSON object there, with no prose outside that object. Use external_guarded for physical follow-ups. Never recommend unbounded motion or learned stand/rise/lower motion.
 """
 
@@ -3444,6 +3462,9 @@ Return the required JSON receipt. For an assigned experiment, action must be `bl
         # to them but no longer has to write them out; the mandatory set is
         # appended below regardless.
         safe_parameters = dict(parameters)
+        safe_parameters["executor"] = self._resolve_executor(
+            recommendation.get("executor"), parameters
+        )
         if simulation_only:
             safe_parameters["robot_motion"] = False
         if dependencies:
@@ -3518,6 +3539,59 @@ Return the required JSON receipt. For an assigned experiment, action must be `bl
             parameters, duration_seconds
         )
         return hard_rejection or admission_reason
+
+    def _resolve_executor(
+        self, declared: Any, parameters: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Decide mechanically whether a plan can run today.
+
+        The planner declares an executor; the lab checks it. "existing" must
+        name a protocol or runner that is actually on disk in the engineering
+        checkout, otherwise it is a build, whatever the planner believed. No
+        declaration at all is a build too: the three plans queued at 10:23 on
+        09-10 each needed code that did not exist, were handed to the
+        execution job anyway, and were each killed at the five-minute
+        no-motion deadline having moved nothing.
+        """
+        if not isinstance(declared, dict):
+            # Legacy plan with no declaration: the schema now requires one,
+            # so this is only reachable for specs written before it did.
+            # Those ran on existing executors; keep them runnable.
+            return {"kind": "existing"}
+        declared = dict(declared)
+        kind = declared.get("kind")
+        protocol = declared.get("protocol") or parameters.get("protocol")
+        runner = declared.get("runner") or parameters.get("runner")
+        resolved: Dict[str, Any] = {"kind": "needs_build"}
+        if isinstance(protocol, str) and protocol:
+            resolved["protocol"] = protocol
+        if isinstance(runner, str) and runner:
+            resolved["runner"] = runner
+        if declared.get("build"):
+            resolved["build"] = str(declared["build"])[:1500]
+        if kind != "existing":
+            return resolved
+        root = self.settings.codex_engineering_workdir
+        found = []
+        if root is not None:
+            base = Path(root) / "hexapod_walker" / "prototype_sts3215"
+            if resolved.get("protocol"):
+                name = str(resolved["protocol"])
+                if not name.endswith(".json"):
+                    name += ".json"
+                found.append((base / "sysid" / "protocols" / name).is_file())
+            if resolved.get("runner"):
+                found.append((base / str(resolved["runner"])).is_file())
+        if found and all(found):
+            resolved["kind"] = "existing"
+        else:
+            resolved["kind"] = "needs_build"
+            resolved.setdefault(
+                "build",
+                "The declared protocol/runner is not present in the engineering "
+                "checkout; create it.",
+            )
+        return resolved
 
     @staticmethod
     def _forbidden_action_rejection(parameters: Dict[str, Any]) -> str:

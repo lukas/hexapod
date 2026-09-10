@@ -242,6 +242,16 @@ ENGINEERING_SCHEMA: Dict[str, Any] = {
             "type": "array", "maxItems": 30, "items": {"type": "string"}
         },
         "physical_motion_started": {"type": "boolean"},
+        # A build job reports what it made runnable; the lab flips the
+        # held plan into the run queue from this, and nothing else.
+        "built_executor": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "protocol": {"type": "string", "maxLength": 200},
+                "runner": {"type": "string", "maxLength": 200},
+            },
+        },
         "robot_contacted": {"type": "boolean"},
         "network_used": {"type": "boolean"},
     },
@@ -488,7 +498,24 @@ def engineering_prompt(
             "analysis and unrelated code work run in another checkout and must not "
             "delay this bounded physical job."
         )
-    if lane == ENGINEERING_LANE_OFFLINE:
+    is_build = (job.get("source_context") or {}).get("trigger_kind") == "build_executor"
+    if is_build:
+        executor = (job.get("source_context") or {}).get("executor") or {}
+        lane_operations = f"""- THIS IS A BUILD JOB, not a run. One queued plan needs
+  code before the robot can execute it. Your whole job is to make it
+  runnable: {executor.get('build') or 'create the protocol and/or runner the plan names'}
+  Prefer extending an existing generator (sysid/generate_leg_variant.py,
+  sysid/protocols.py) over a new one-off. Write tests, run them, commit and
+  push to main -- not a side branch; the run job deploys from main.
+- Budget: this job has thirty minutes total. Do not audit history, do not
+  reproduce old results, do not touch the robot or deploy to it.
+- Finish with `outcome` "changed" and put what you built in
+  `built_executor`: {{"protocol": "<name under sysid/protocols/>", "runner":
+  "<path under prototype_sts3215/>"}} (either or both). The lab flips the plan
+  to runnable from that receipt; without it the plan stays held. If the plan
+  cannot be made runnable, say exactly why in `summary` and return "blocked"."""
+        queue_completion = ""
+    elif lane == ENGINEERING_LANE_OFFLINE:
         lane_operations = """- Follow the injected AGENTS documents and use uv for
   Python. Work only in this configured offline checkout. Network access, the
   registered RL campaign, and BuildViz are in scope; do not wait for the robot
@@ -843,6 +870,7 @@ class EngineeringJobStore:
             con.execute("BEGIN IMMEDIATE")
             self._retire_terminal_queue_handoffs(con, now)
             changed += self._retire_redundant_analysis_jobs(con, now)
+            changed += self._enqueue_missing_build_jobs(con, now, max_attempts)
             rows = con.execute(
                 "SELECT job.id AS analysis_id,job.result_json,job.finished_at,"
                 "experiment.id AS experiment_id,experiment.name,"
@@ -1053,6 +1081,36 @@ class EngineeringJobStore:
             )
             retired += 1
         return retired
+
+    def _enqueue_missing_build_jobs(self, con, now: str, max_attempts: int) -> int:
+        """Give every held needs-build plan a build job, durably.
+
+        apply_analysis_followups() creates one at acceptance; this covers a
+        plan accepted before the lane's table existed, or a plan flipped to
+        needs_build by hand. Without it a held plan would wait forever.
+        """
+        rows = con.execute(
+            "SELECT id,name,description,duration_seconds,parameters_json,"
+            "execution_mode FROM experiments WHERE status=? "
+            "AND json_extract(parameters_json,'$.executor.kind')='needs_build' "
+            "AND NOT EXISTS (SELECT 1 FROM codex_engineering_jobs AS engineering "
+            "WHERE engineering.experiment_id=experiments.id "
+            "AND json_extract(engineering.source_context_json,'$.trigger_kind')"
+            "='build_executor')",
+            ("waiting_for_operator",),
+        ).fetchall()
+        for row in rows:
+            parameters = json.loads(row["parameters_json"])
+            spec = {
+                "name": row["name"], "description": row["description"],
+                "duration_seconds": row["duration_seconds"],
+                "execution_mode": row["execution_mode"],
+            }
+            analysis_id = (parameters.get("_automation") or {}).get("analysis_job_id")
+            Store._enqueue_build_job(
+                con, row["id"], spec, parameters, analysis_id, now, max_attempts
+            )
+        return len(rows)
 
     @staticmethod
     def _retire_terminal_queue_handoffs(con, now: str) -> int:
@@ -1589,6 +1647,10 @@ class EngineeringJobStore:
                 status = "blocked"
                 error = str(result.get("summary") or "Engineering reported an unresolved blocker")[:6000]
             source = json.loads(current["source_context_json"])
+            built_experiment: Optional[str] = None
+            if (source.get("trigger_kind") == "build_executor" and not blocked
+                    and isinstance(result.get("built_executor"), dict)):
+                built_experiment = current["experiment_id"]
             if source.get("trigger_kind") == "queue_handoff":
                 if blocked:
                     control = con.execute("SELECT MAX(sequence) AS sequence FROM codex_queue_controls").fetchone()
@@ -1675,6 +1737,10 @@ class EngineeringJobStore:
                 "SELECT * FROM codex_engineering_jobs WHERE id=?", (job["id"],)
             ).fetchone()
             con.execute("COMMIT")
+        if built_experiment is not None:
+            built = dict(result["built_executor"])
+            built["job_id"] = job["id"]
+            self.store.mark_executor_built(built_experiment, built)
         return self._row(row)
 
     def retry(self, job: Dict[str, Any], owner: str, error: str, *,

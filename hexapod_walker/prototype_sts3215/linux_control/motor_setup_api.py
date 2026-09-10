@@ -91,7 +91,10 @@ class MotorSetup:
                 raise ValueError('This joint has a saved assignment. Confirm replacement first.')
             before = self._scan(bus)
             new_ids = [i for i in before if str(i) not in reg['servos']]
-            if new_ids != [sid]:
+            reassign = data.get('reassign') is True
+            if reassign and (data.get('isolated') is not True or before != [sid]):
+                raise ValueError('Connect only the motor being reassigned and confirm it is isolated. Motors sharing an ID cannot be distinguished by a scan.')
+            if not reassign and new_ids != [sid]:
                 raise ValueError('Scan again with one new motor added; assigned motors can stay connected.')
             if target != sid and target in before:
                 raise ValueError('The motor already assigned to this joint is still connected. Choose an empty joint.')
@@ -107,10 +110,20 @@ class MotorSetup:
             value, comm, err = bus.pkt.read1ByteTxRx(target, 5)
             if comm != 0 or err != 0 or value != target or not bus.ping(target):
                 raise ValueError('ID verification failed. Rescan before retrying; the ID may have changed.')
-            if self._scan(bus) != sorted((set(before) - {sid}) | {target}):
-                raise ValueError('Unexpected bus inventory after assignment. Rescan before retrying.')
+            expected = sorted((set(before) - {sid}) | {target})
+            observed = None
+            for attempt in range(3):
+                observed = self._scan(bus)
+                if observed == expected:
+                    break
+                if attempt < 2:
+                    time.sleep(0.1)
+            else:
+                raise ValueError(f'Motor verified at ID {target}, but assignment was not saved because the bus inventory changed. Expected IDs {expected}; received {observed}. Scan again and use Finish assignment on ID {target}.')
             now = datetime.now(timezone.utc).isoformat()
             name = f'L{joint // 3} {AXES[joint % 3]}'
+            if reassign and data.get('clear_source') is True and sid != target:
+                reg['servos'].pop(str(sid), None)
             reg['servos'][str(target)] = dict(id=target, joint=joint, leg=joint // 3,
                 axis=AXES[joint % 3], name=name, from_id=sid, named_at=now, web_verified_at=now)
             reg['updated'] = now

@@ -38,6 +38,35 @@ trainer callback):
 
 ``rnd_coef <= 0`` is bit-exact off: the caller must not construct the
 wrapper at all (mirrors ``AMPStyleVecWrapper``'s own contract).
+
+HEADING-SCOPED VARIANT (walkcurr, 2026-09-10, DESIGN_NOTE_2026-09-10_
+offaxis_frontpair.md): the plain full-obs canary above (``rnd-coef``
+alone, no gate) was tried against the widen8/crutchoff champion's
+chronic front-pair off-axis-heading leg sacrifice and came back a
+clean FAIL (both seeds, DET off-axis gait_valid 0/15, byte-identical
+sacrificed-leg fingerprint to the untouched parent) — the design
+note's own pre-registered fallback for a clean-negative full-obs read,
+not just an inconclusive one, is "a leg/heading-scoped variant
+(masking RND's obs input to just the sacrificed legs' channels, or
+gating it on heading)". This module implements the HEADING-gated half
+of that fallback (simpler and safer than per-leg obs-masking: no need
+to hand-enumerate which raw obs columns belong to which leg, reuses
+the exact ``cos_heading`` convention ``heading_selfdistill.py``/
+``heading_adv_norm.py`` already established and bank-tested for this
+exact obs layout). ``heading_gate_cos_max=None`` (default) is
+BIT-EXACT identical to the pre-09-10 wrapper: the gate multiply is
+skipped entirely, not just multiplied by 1.0. When set, the intrinsic
+bonus is still computed and the predictor still trains on EVERY tick
+(novelty prediction and its running-std scale stay population-wide,
+so the plain and gated variants can be compared on the same footing)
+but the REWARD the trainer actually sees is zeroed on on-axis ticks
+(``cos_heading > cos_max``) — this directly targets the design note's
+own named risk for the plain variant ("could just as easily reward
+novelty from the already-working forward gait's natural variation and
+do nothing for the front pair specifically, or destabilize the
+already-good on-axis behavior chasing novelty elsewhere"): an on-axis
+tick can never earn this bonus, so it cannot buy exploration currency
+by perturbing behavior PPO already has working.
 """
 from __future__ import annotations
 
@@ -45,6 +74,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 from stable_baselines3.common.vec_env import VecEnvWrapper
+
+from .heading_selfdistill import heading_cos
 
 
 class _RunningMeanStd:
@@ -131,13 +162,27 @@ class RNDVecWrapper(VecEnvWrapper):
     def __init__(self, venv, *, rnd_coef: float, obs_dim: int | None = None,
                  hidden: int = 128, out_dim: int = 64, lr: float = 1e-4,
                  buffer_size: int = 200_000, seed: int = 0,
-                 clip_obs: float = 5.0):
+                 clip_obs: float = 5.0,
+                 heading_gate_idx: int | None = None,
+                 heading_gate_cos_max: float | None = None):
         super().__init__(venv)
         if rnd_coef <= 0.0:
             raise ValueError("RNDVecWrapper needs rnd_coef > 0; for RND "
                              "off, do not wrap at all")
         self.rnd_coef = float(rnd_coef)
         self.clip_obs = float(clip_obs)
+        # Heading gate (2026-09-10, off by default): None/None is the
+        # ORIGINAL bit-exact path below (no mask multiply at all).
+        self.heading_gate_idx = (
+            None if heading_gate_idx is None else int(heading_gate_idx))
+        self.heading_gate_cos_max = (
+            None if heading_gate_cos_max is None
+            else float(heading_gate_cos_max))
+        if (self.heading_gate_idx is None) != (self.heading_gate_cos_max
+                                                is None):
+            raise ValueError(
+                "RNDVecWrapper: heading_gate_idx and heading_gate_cos_max "
+                "must both be set or both be None")
         obs_dim = int(obs_dim if obs_dim is not None
                       else np.prod(venv.observation_space.shape))
         g = torch.Generator().manual_seed(int(seed))
@@ -154,6 +199,8 @@ class RNDVecWrapper(VecEnvWrapper):
         self.updates = 0
         self._stat_intrinsic_sum = 0.0
         self._stat_intrinsic_n = 0
+        self._stat_gate_off_axis_sum = 0.0
+        self._stat_gate_n = 0
         del g
 
     # ------------------------------------------------------------- env
@@ -176,13 +223,21 @@ class RNDVecWrapper(VecEnvWrapper):
             intrinsic = ((pred_out - target_out) ** 2).mean(dim=-1).numpy()
         self.ret_rms.update(intrinsic)
         scaled = intrinsic / (float(self.ret_rms.std) + 1e-8)
-        blended = np.asarray(rews, dtype=np.float32) + self.rnd_coef * scaled
+        bonus = self.rnd_coef * scaled
+        if self.heading_gate_idx is not None:
+            idx = self.heading_gate_idx
+            cos_h = heading_cos(flat[:, idx:idx + 2])
+            off_axis = (cos_h <= self.heading_gate_cos_max).astype(
+                np.float32)
+            bonus = bonus * off_axis
+            self._stat_gate_off_axis_sum += float(off_axis.sum())
+            self._stat_gate_n += len(off_axis)
+        blended = np.asarray(rews, dtype=np.float32) + bonus
         self.ring.push(flat)
         self._stat_intrinsic_sum += float(intrinsic.sum())
         self._stat_intrinsic_n += len(intrinsic)
         for i in range(len(infos)):
-            infos[i]["reward_rnd_intrinsic"] = float(
-                self.rnd_coef * scaled[i])
+            infos[i]["reward_rnd_intrinsic"] = float(bonus[i])
         return obs, blended, dones, infos
 
     # -------------------------------------------------------- predictor
@@ -216,6 +271,11 @@ class RNDVecWrapper(VecEnvWrapper):
                "n": self._stat_intrinsic_n}
         self._stat_intrinsic_sum = 0.0
         self._stat_intrinsic_n = 0
+        if self.heading_gate_idx is not None:
+            gn = max(self._stat_gate_n, 1)
+            out["gate_off_axis_frac"] = self._stat_gate_off_axis_sum / gn
+            self._stat_gate_off_axis_sum = 0.0
+            self._stat_gate_n = 0
         return out
 
     # --------------------------------------------------------- persist

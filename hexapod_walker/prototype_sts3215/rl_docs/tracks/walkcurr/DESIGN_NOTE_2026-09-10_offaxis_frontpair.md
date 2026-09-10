@@ -227,3 +227,116 @@ Evidence: `rl_move/sim/rnd_vec.py` (`obs_mask_idx`/`_select`),
 unmodified), `rl_move/tests/test_rnd_vec.py` (17/17 including the 9
 new obs-mask tests); `CURRENT_TRUTHS.md` 2026-09-10 (heading-gate
 closure, this addendum's own trigger).
+
+## Addendum 2, 2026-09-10 (refill cycle, after RND's entire named list closed
+0/3 AND `decleg` independently closed 0/3): a 13th mechanism class —
+weight-SHARED, mount-frame-relative per-leg actor — built and launched
+as a cheap ignition pilot
+
+**This is NOT a re-fund of the closed `decleg` family.** Read the
+`decleg` closure (`CURRENT_TRUTHS.md` 2026-09-10, "no untried
+structural idea remains named") precisely: it refutes SIX INDEPENDENT
+per-leg towers (Schilling et al.'s own design — no cross-leg weight
+sharing exists anywhere in `_DecLegExtractor.leg_nets`, by
+construction). Independent towers cannot transfer a skill from one
+leg to another even in principle: leg3's tower and leg0's tower are
+different objects with different weights no matter how much either
+one learns. That is a real, first-order structural difference from
+what follows here, not a dose/seed/exploration variant of the same
+mechanism — the closure's own "not another per-leg-actor variant"
+line is read as "don't re-fund independent-tower decleg again",
+not as "no per-leg-structured architecture may ever be tried again."
+
+**The new idea, one sentence:** tie ALL SIX leg towers to ONE shared
+set of weights, and feed each tower the commanded heading rotated
+into THAT LEG'S OWN mount-angle frame (instead of only the raw
+world-frame heading already in the shared obs tail) — so the same
+physical ask ("swing N degrees off your own straight-ahead") looks
+identical to the shared tower regardless of which leg is asked,
+which is the precondition for the tower to actually reuse a skill
+learned at leg3's easy heading when leg0 is later asked for its
+mount-angle-equivalent hard heading.
+
+**Why this specific pair of levers, not either alone.** Weight-tying
+alone still feeds the tower the RAW absolute heading (a shared-dim,
+not per-leg) — the same raw number means "your easy direction" to one
+leg and "your hardest direction" to another, so a tied tower has no
+way to recognize the two situations as equivalent even with identical
+weights. The mount-relative feature alone (independent towers, each
+fed its own rotated heading) changes nothing structurally: each tower
+is still its own separate function, so there is still nothing for a
+skill to transfer THROUGH. Only the combination gives the tied tower
+an input where "leg0 asked for 180 degrees" and "leg3 asked for 0
+degrees" are the SAME vector (mount angles 30 and -150 both put a
+180-vs-0 pair at the identical -150 degrees relative-to-own-mount
+angle — verified exactly, not just claimed:
+`test_heading_rel_cos_sin_leg0_180_matches_leg3_at_forward`,
+`test_shared_heading_rel_leg0_at_180_matches_leg3_at_forward` in
+`rl_move/tests/test_decleg_policy.py` prove the rotated feature and
+the tied-tower output are BIT-IDENTICAL between those two situations).
+
+**Built** (`rl_move/sim/decleg_policy.py`, both new constructor kwargs
+default OFF = bit-exact original independent-tower behavior, verified
+by the existing 6/6 tests plus 2 new ones unchanged):
+- `LEG_MOUNT_ANGLES_DEG` / `leg_mount_unit_vectors()` — the mesh's own
+  per-leg mount angles (30/90/150/-150/-90/-30 deg), the exact fact
+  the original design note (top of this file) named as the geometric
+  root cause.
+- `heading_rel_cos_sin(cos_cmd, sin_cmd, mount_cos, mount_sin)` — pure
+  2D frame rotation, framework-agnostic (works on floats/numpy/torch).
+- `_DecLegExtractor(..., share_leg_weights=False, heading_rel_idx=None)`
+  — `share_leg_weights=True` builds ONE tower and references it N_LEGS
+  times in the `ModuleList` (`nn.Module.named_parameters()` dedups by
+  tensor identity, so the optimizer sees each weight once and every
+  leg's gradient accumulates into it — standard weight-tying, same
+  mechanism an RNN cell reused across timesteps relies on).
+  `heading_rel_idx=(vx_ref_idx, vy_ref_idx)` appends `[cos_rel,
+  sin_rel]` to every leg's local input.
+- `train_ppo_mjx.py`: `--decleg-share-legs` / `--decleg-heading-rel`
+  (both require `--decleg`, fail closed otherwise); the heading index
+  is resolved post-venv via `heading_selfdistill.heading_vref_index`
+  (reused, not re-derived — same obs-layout contract decleg and
+  heading_selfdistill already share).
+- Tests: 8 new (`test_decleg_policy.py`, 14/14 file green): rotation-
+  math correctness, the leg0-180/leg3-forward equivalence (both at the
+  pure-function AND the tied-tower level), default-off bit-exact input
+  width, weight-identity + gradient-accumulation-through-tying, and a
+  combined-kwargs PPO save/load roundtrip.
+
+**What this pilot does NOT yet test.** Exactly like `decleg`'s own
+first arm, this launches on the cheap `easy0905` forward-ONLY
+ignition recipe (`goal.walk_heading_max_rad=0.0`) — deliberately, to
+front-load "does a tied tower even ignite a coordinated six-leg gait
+at all" as its own cheap question before spending budget on the
+harder multi-heading recipe. Under a FIXED forward heading, the
+rotated feature is a constant per leg (no transfer to exercise) — this
+canary is pure `share_leg_weights` ignition-health, not the
+heading-transfer hypothesis itself. **Next stage if this passes:**
+respec onto the champion's actual multi-heading `widen8`/`crutchoff`
+recipe (the only place the transfer hypothesis can be tested), never
+this cheap recipe alone.
+
+**Launched** (`backlog add`, from-scratch, byte-identical to
+`cw-walkscratch-easy0905-decleg-base-{s0,s1}` except one added lever
+`--decleg-share-legs --decleg-heading-rel`; 2M steps, phase=discovery,
+track=walkcurr):
+`cw-walkscratch-easy0905-declegshare-headrel-{s0,s1}`.
+
+**Gate (pre-registered).** MECHANISM-HEALTH PASS (matches the
+original decleg-base canary's own text): finite/decreasing PPO loss,
+no NaN, real six-leg articulation under stochastic sampling by 2M
+steps (a settled/static deterministic mean this early is NOT a
+failure, matching every prior canary's own gate). FAIL (mechanism):
+loss diverges/NaN, or one or more leg towers show zero gradient/frozen
+output (a wiring defect distinct from "hasn't learned yet"). If PASS:
+next step is the acquisition continuation (matching decleg-base's own
++18M/+20M budget) to check the tied tower reaches walking competence
+at all, THEN — only if that clears — graduation to the multi-heading
+recipe to test the actual transfer hypothesis (not this cycle).
+
+Evidence: `rl_move/sim/decleg_policy.py` (`heading_rel_cos_sin`,
+`leg_mount_unit_vectors`, `_DecLegExtractor` kwargs),
+`rl_move/sim/train_ppo_mjx.py` (`--decleg-share-legs`,
+`--decleg-heading-rel`), `rl_move/tests/test_decleg_policy.py`
+(14/14); `ops.sh entry cw-walkscratch-easy0905-decleg-base-s0` (the
+byte-identical parent spec this respecs in spirit).

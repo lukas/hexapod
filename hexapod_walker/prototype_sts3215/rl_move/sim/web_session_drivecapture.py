@@ -150,6 +150,37 @@ def locomotion_fraction(rows: list[dict], cmd_vx: float, cmd_vy: float
     return (sum(speeds) / len(speeds)) / cmd_mag
 
 
+def directional_locomotion_fraction(rows: list[dict], cmd_vx: float,
+                                    cmd_vy: float) -> float:
+    """Mean measured body velocity PROJECTED ONTO the commanded direction,
+    divided by commanded speed -- signed, unlike ``locomotion_fraction``.
+
+    Added 2026-09-10 (idle-refill follow-up to the "reverse" residual
+    CURRENT_TRUTHS labeled SETTLED-as-real-but-not-root-caused): the
+    speed-magnitude metric above cannot distinguish "walking backward" from
+    "jittering/oscillating in place at a decent speed" -- ``hypot(vx, vy)``
+    is always >= 0 regardless of which way the body is actually moving.
+    Re-reading the 8-repeat "reverse" telemetry with THIS metric instead
+    shows every repeat (the 6 the magnitude metric called PASS and the 2 it
+    called FAIL alike) nets only ~0.14-0.26 of the commanded speed in the
+    actually-commanded direction -- a narrow, uniformly-weak band with no
+    clean pass/fail split, unlike the magnitude read's 0.23-0.36 spread that
+    straddled the 0.25 floor. This does not replace ``locomotion_fraction``
+    (a deliberately generous stall/non-stall gate, kept bit-exact here) --
+    it is a sharper diagnostic for whichever cycle root-causes the
+    mechanism next: the honest open question is "why is net backward
+    tracking uniformly weak" (a real, session-wide "reverse" gait quality
+    gap), not "why does an otherwise-solid reverse gait intermittently
+    freeze for one rep in four"."""
+    cmd_mag = math.hypot(cmd_vx, cmd_vy)
+    if cmd_mag < _STALL_CMD_MPS or not rows:
+        return 1.0
+    ux, uy = cmd_vx / cmd_mag, cmd_vy / cmd_mag
+    proj = [(r.get("vx_body") or 0.0) * ux + (r.get("vy_body") or 0.0) * uy
+           for r in rows]
+    return (sum(proj) / len(proj)) / cmd_mag
+
+
 def stalled_phases(telemetry: list[dict], phases: list[tuple],
                    t_end: float, settle_s: float = 1.5,
                    frac_floor: float = _STALL_FRAC) -> list[dict]:

@@ -1,5 +1,104 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## The `any_means` "reverse" residual is NOT a reverse-specific intermittent stall — the magnitude-based stall metric was hiding a broader, uniformly-weak net-directional-tracking pattern across ALL commanded directions, worst for reverse/pure-lateral, better for forward-leaning commands (2026-09-10, refill cycle; 15/15 GPU free, empty backlog, no GPU-launchable lever on any track — zero-GPU-spend diagnostic follow-up on this file's own prior n=8 entry's named next step "root-cause the residual itself")
+
+One plain sentence: the tool that called 6/8 repeats "PASS" and 2/8
+"FAIL" measures raw body SPEED (`hypot(vx,vy)`, always >= 0) rather than
+velocity signed/projected onto the actually-commanded direction, so it
+cannot tell "walking backward" apart from "oscillating in place at a
+decent speed" — recomputed with a real directional metric, ALL 8
+repeats net only ~14-26% of commanded speed in the commanded direction
+(no clean pass/fail split), and the SAME weak-tracking pattern shows up
+in the forward/crab-right/diag-left/restart phases too (never flagged
+as stalled), just less severely — so this is a general, forward-biased
+directional-tracking softness, not a reverse-specific bug or a genuine
+intermittent freeze.
+
+**Tool extended** (`rl_move/sim/web_session_drivecapture.py`, no shared
+default touched): added `directional_locomotion_fraction(rows, cmd_vx,
+cmd_vy)` alongside the existing `locomotion_fraction` (kept bit-exact,
+untouched) — projects each tick's `(vx_body, vy_body)` onto the unit
+commanded-direction vector and averages, so it can read negative
+(net motion opposite the command) or nearly the full magnitude value
+(perfectly on-axis motion), unlike the existing stall gate which is
+mathematically incapable of ever being direction-aware. 6 new tests
+(`test_web_session_drivecapture.py`): exact match to the magnitude
+metric for pure on-axis motion, correctly reads ~0 for pure lateral
+jitter under a reverse command, correctly reads negative for steady
+wrong-way drift, plus the near-zero-command/empty-rows edge cases.
+20/20 green in the file.
+
+**Recomputed** the exact settle-window the shipped `stalled_phases`
+already uses (`t0+1.5s` to next phase start) on all 8 post-fix
+`_rep{1..8}` captures the immediately-preceding entry tabulated, for
+EVERY phase, not just reverse (`cmd (vx,vy)`: forward `(0.08,0)`,
+crab-right `(0,-0.08)`, diag-left `(0.0566,0.0566)`, reverse
+`(-0.08,0)`, restart `(0.08,0)`):
+
+| phase | frac_mag (old, magnitude) | frac_dir (new, signed) mean [min,max] |
+|---|---|---|
+| forward | never flagged | 0.250 [0.193, 0.323] |
+| crab-right | never flagged | 0.204 [0.106, 0.288] |
+| diag-left | never flagged | 0.297 [0.232, 0.361] |
+| **reverse** | **0.289 [0.231, 0.360], 6/8 "pass"** | **0.187 [0.137, 0.258], 1/8 "pass"** |
+| restart | never flagged | 0.257 [0.176, 0.360] |
+
+Two things follow. First, reverse's directional mean (0.187) is not a
+dramatic outlier from crab-right's (0.204) — both are the two phases
+without a forward velocity component, both meaningfully lower than the
+three phases WITH a forward component (0.25-0.30). This is a real,
+reproducible pattern (consistent across all 8 independent repeats, not
+noise) suggesting the champion's net-directional tracking is generally
+weaker off the forward axis, with reverse/pure-lateral the softest —
+not a "reverse gait randomly freezes 1 time in 4" story. Second, this
+reframes (does not retract) the immediately-preceding entry's headline
+number: 6/8 vs 2/8 by the magnitude metric was measuring "is the body
+moving at a decent speed" (true for 6/8, marginal for 2/8), not
+"is it moving backward" (uniformly weak in all 8). Compared against
+the documented PRE-fix baseline (`..._fullcfg{,_velfix}` captures,
+`frac_dir` = 0.000 and 0.057 respectively — essentially zero net
+backward progress), the velocity-blend fix's real, substantial
+contribution stands: it took reverse from ~0 net directional progress
+to a consistent, real (if weak) ~0.14-0.26 — genuine improvement, not
+a mirage.
+
+**What this does and does not change.** Does NOT reopen or change any
+closed `walkcurr` mechanism (different track, different champion, and
+those questions are about held-out gait_valid/slip, not this
+interactive-session metric). Does NOT retract the velocity-blend fix's
+real, quantified improvement. DOES correct the framing from "reverse
+has an intermittent stall bug, ~25% of the time" to "the champion's
+directional tracking off the forward axis is generally soft, and the
+prior magnitude-only read could not see that" — a real-not-noise
+finding either way but a different, broader, mechanism-relevant shape.
+**Practical impact: none this cycle** — no falls, no rejected
+commands, session stays active and roughly on-heading throughout
+(per the earlier boot/end identity + zero-fall/zero-reject checks,
+unchanged); this is a tracking-quality residual on an already-shipped
+`todaypolicy` bundle, not a new safety or reliability finding.
+
+**Honest open item, unchanged in kind, sharpened in scope:** root-cause
+WHY off-forward-axis directional tracking is weaker (a real gait/skill
+question — is the champion's residual-anneal-gate walk recipe simply
+undertrained on non-forward commands relative to forward? — or a
+telemetry-sampling artifact — the ~0.26s poll interval is coarse
+relative to a stride period, so per-tick vx/vy samples could alias with
+gait phase and understate the true windowed mean regardless of
+direction). Settling that needs either finer-grained (per-control-tick)
+telemetry or a true net-position-displacement measure over the window,
+neither built this entry (would risk the same "same-cycle rushed build"
+anti-pattern this fork has explicitly declined repeatedly) — named here
+as the concrete next diagnostic step rather than guessed at.
+
+Evidence: `rl_move/sim/web_session_drivecapture.py`
+(`directional_locomotion_fraction`), `rl_move/tests/
+test_web_session_drivecapture.py` (20/20 green), recomputation script
+(inline, this entry) over `logs/manual_drive/anymeans_walkallheading_
+mlpsf_stdanneal_websession_capture_09-10_{fullcfg,fullcfg_velfix,
+velblendfix,velblendfix_rep{2..8}}/telemetry.json` (all already on
+disk, no new sim run). Snapshot: see commit list below (this entry's
+own tag).
+
 ## n=8 settles the `any_means` "reverse" residual: it is a real, roughly-1-in-4 intermittent stall, not noise-near-a-threshold or "mostly fixed" — the borderline case is genuine, closing the STATUS.md-named "larger held-out repeat count" follow-up (2026-09-10, refill cycle; 15/15 GPU free, empty backlog, no GPU-launchable lever on any track — zero-GPU-spend, ran 4 more identical repeats to reach the n>=8 this file's own prior entry named as needed to settle it)
 
 One plain sentence: with twice as much data (8 identical repeats

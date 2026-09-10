@@ -1,0 +1,30 @@
+{
+  "purpose": "satisfy the plan's require_l1_swept_area_clear preflight, whose own wording is 'confirm the actual L1 swept volume is free of cables, fixtures and obstacles; a cable is a blocker only if it lies in that swept area'",
+  "when_utc": "2026-09-10T04:24-04:28Z",
+  "swept_volume_computed_from_the_protocol": {
+    "method": "geometry_plant forward kinematics (COXA 12.5, FEMUR 90.0, TIBIA 150.0 mm) applied to all 1560 commanded rows of protocol hash b1395c85d447",
+    "l1_yaw_joint_j3": "constant 0.0 in every one of the 1560 rows, so the leg does NOT sweep laterally at all",
+    "foot_path": "a single radial line segment along L1's fixed azimuth",
+    "radius_from_yaw_axis_mm": [192.5, 252.5],
+    "radius_from_body_centre_mm": [247.5, 307.5],
+    "radial_travel_mm": 60.0,
+    "radial_travel_during_the_six_measured_cycles_mm": 16.84,
+    "foot_height_below_home_plane_mm": [0.0, 15.0],
+    "verdict": "the swept volume is a ~60 mm long, ~15 mm deep sliver directly along the leg L1 is already resting on -- it is the space its own foot occupies now, plus 60 mm inboard of it"
+  },
+  "visual_inspection": {
+    "frames": ["preflight_frames/cam0.jpg", "preflight_frames/cam1.jpg", "preflight_frames/cam2.jpg"],
+    "captured_utc": "2026-09-10T04:24:20Z",
+    "freshness": "all three advancing, burned-in capture timestamps within 70 ms of each other (21:24:20.694 / .737 / .763 local)",
+    "illumination": "room light OFF -- the same condition the L2 sibling run at 03:45Z recorded and did not claim away. Mean luma is 25.1 (cam0), 4.7 (cam1), 4.4 (cam2)",
+    "what_was_done_about_it": "the raw frames were contrast-stretched (1st-99.9th percentile, gamma 0.55) and the robot region magnified 2x; the brightened copies are saved as *_bright.png and *_robot_zoom.png",
+    "what_the_brightened_frames_show": "cam0 (robot-1, overhead) and cam1 (robot-3, oblique) both resolve the robot belly-down and flat, all six legs splayed straight out with feet on the floor, no leg standing, no tip or lean, no person or hands in frame, and uniform clear floor out well past leg reach in every direction including L1's azimuth",
+    "honest_limit": "at this illumination the frames do NOT resolve a thin cable lying on the floor, and the AprilTag tracker reports 'tags (last pass): none' on all three views. Clearance therefore rests on the swept-volume geometry above plus the free-air current signature, exactly as it did for L2 and L5 -- not on these frames alone."
+  },
+  "supporting_evidence_that_the_volume_is_free": {
+    "free_air_currents_on_the_identical_command_path": "L5 peaked at 0.033 A and L2 at 0.052 A against a 0.75 A runner trip; anything actually in the path would load the joint far above that",
+    "floor_contact_margin": "L5's measured belly-rest contact ramp puts first floor contact at foot_z -80.95 mm; this protocol's deepest commanded foot_z is -15.00 mm, 65.95 mm clear",
+    "backstop_if_wrong": "the on-robot runner's own real-time interlocks -- 0.75 A over 3 polls, 3.0 A ceiling, tracking error vs a slewed reference -- limp the robot on an unexpected force, and this run additionally enforces the /api/errors stop live"
+  },
+  "verdict": "clear -- proceed"
+}

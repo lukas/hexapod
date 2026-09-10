@@ -1,0 +1,28 @@
+{
+ "protocol": "l1_belly_rest_radial_shear_hysteresis_repeat6_v1",
+ "hz": 10.0,
+ "shared_commanded_hip_deg": -47.133,
+ "settle_window_s": 1.0,
+ "moving_leg": "L1",
+ "hip_joint": 4,
+ "knee_joint": 5,
+ "encoder_resolution_deg_per_count": 0.0879,
+ "repeats": 6,
+ "hip_loop_deg_mean": -0.2947,
+ "hip_loop_deg_sd": 0.1227,
+ "hip_loop_deg_min": -0.4484,
+ "hip_loop_deg_max": -0.176,
+ "hip_loop_counts_mean": -3.35,
+ "out_err_deg_mean": 0.3292,
+ "in_err_deg_mean": 0.6239,
+ "block_a_mean": -0.2668,
+ "block_b_mean": -0.3227
+}
+
+per repeat:
+  1  loop -0.448 deg  knee +0.088  out_err +0.190 in_err +0.639  cur out 0.0036000000000000003 in 0.0123  load out 3.6799999999999997 in 6.12
+  2  loop -0.176 deg  knee +0.176  out_err +0.375 in_err +0.551  cur out 0.0036000000000000003 in 0.010199999999999999  load out 3.3600000000000003 in 4.959999999999999
+  3  loop -0.176 deg  knee +0.176  out_err +0.375 in_err +0.551  cur out 0.003 in 0.0116  load out 3.6799999999999997 in 5.279999999999999
+  4  loop -0.440 deg  knee +0.263  out_err +0.287 in_err +0.727  cur out 0.0036000000000000003 in 0.014799999999999999  load out 3.5200000000000005 in 7.2
+  5  loop -0.352 deg  knee +0.176  out_err +0.375 in_err +0.727  cur out 0.006 in 0.0154  load out 4.0 in 7.2
+  6  loop -0.176 deg  knee +0.176  out_err +0.375 in_err +0.551  cur out 0.006 in 0.0081  load out 3.5200000000000005 in 3.9200000000000004

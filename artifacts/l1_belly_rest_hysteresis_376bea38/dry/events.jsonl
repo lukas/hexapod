@@ -1,0 +1,5 @@
+{"t": 1789014465.260193, "kind": "start", "label": "l1_dry", "protocol": "l1_belly_rest_radial_shear_hysteresis_repeat6_v1", "baseline_error_ts": "2026-09-10T03:46:47.590Z"}
+{"t": 1789014465.2812002, "kind": "lease_acquire", "ok": true, "lease": {"held": true, "owner": "guarded-runner-376bea38", "reason": "guarded run l1_dry: l1_belly_rest_radial_shear_hysteresis_repeat6_v1", "acquired_at": "2026-09-10T04:27:45.288Z", "expires_at": "2026-09-10T04:42:45.288Z", "ttl_s": 900.0, "expires_in_s": 900.0}}
+{"t": 1789014469.7470112, "kind": "refusal_baseline", "pre_existing": 9, "floor_iso": "2026-09-10T04:27:44.000Z"}
+{"t": 1789014469.880569, "kind": "error_watch_baseline", "arm_baseline_ts": "2026-09-10T03:46:47.590Z", "preflight_baseline_ts": "2026-09-10T03:46:47.590Z"}
+{"t": 1789014472.155783, "kind": "lease_release", "resp": {"ok": true, "released": true, "held": false}}

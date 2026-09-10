@@ -1,0 +1,56 @@
+{
+ "encoder_resolution_deg_per_count": 0.0879,
+ "L1": {
+  "pooled_mean_deg": -0.2947,
+  "pooled_sd_deg": 0.1227,
+  "n_cycles": 6,
+  "n_runs": 1,
+  "counts": -3.35,
+  "range_deg": [
+   -0.4484,
+   -0.176
+  ],
+  "out_err_deg": 0.3292,
+  "in_err_deg": 0.6239,
+  "terminal_run": "2026-09-10T04:37:14Z-04:39:50Z, protocol_hash b1395c85d447"
+ },
+ "L2": {
+  "pooled_mean_deg": -0.449,
+  "pooled_sd_deg": 0.0812,
+  "n_cycles": 30,
+  "n_runs": 5,
+  "counts": -5.11,
+  "range_deg": [
+   -0.615,
+   -0.263
+  ],
+  "source": "sealed experiment d4908236 (pooled over 5 runs of hash a99ceef28136)"
+ },
+ "L5": {
+  "pooled_mean_deg": -0.832,
+  "pooled_sd_deg": 0.065,
+  "n_cycles": 25,
+  "n_runs": 5,
+  "counts": -9.5,
+  "range_deg": [
+   -0.967,
+   -0.703
+  ],
+  "out_err_deg": -0.118,
+  "in_err_deg": 0.629,
+  "source": "sealed experiment b289e536"
+ },
+ "ratio_L1_over_L5": 0.354,
+ "ratio_L1_over_L2": 0.656,
+ "spread_L5_over_L1": 2.82,
+ "ranges_overlap_L1_L5": false,
+ "ranges_overlap_L1_L2": true,
+ "gap_L1_to_L5_deg": -0.2546,
+ "finding": "L1 measures -0.295 deg (n=6, one run) against L2 -0.449 (n=30) and L5 -0.832 (n=25) on the same reviewed protocol family and rig. L1 is the smallest of the three legs measured so far, widening the observed per-leg spread to about 2.8x between L1 and L5. L1 and L5 per-cycle ranges do NOT overlap. L1 and L2 per-cycle ranges DO overlap ([-0.448,-0.176] vs [-0.615,-0.263]), so L1-vs-L2 separation rests on the means, not on disjoint distributions, and L1 is a single run against L2's five. This strengthens the case that a single global backlash constant mis-compensates the legs, and supports a per-leg table, but L1 needs replicate runs before its value is as firm as L2's or L5's.",
+ "caveats": [
+  "L1 loop widths are only 2-5 encoder counts (resolution 0.0879 deg/count); the per-cycle values are coarsely quantized and L1 sits closest to that floor of the three legs.",
+  "L1 sd 0.123 deg is larger than L2 (0.081) and L5 (0.065), consistent with the smaller signal against a fixed quantization step.",
+  "Repeat 1 was the largest loop in both L1 attempts (-0.448 here, -0.668 in the aborted attempt 1), suggesting a first-cycle settling effect; excluding it would lower the L1 mean further.",
+  "The mid-run return to logical zero did not clear the offset (block A -0.267, block B -0.323), matching the L2 and L5 behaviour."
+ ]
+}

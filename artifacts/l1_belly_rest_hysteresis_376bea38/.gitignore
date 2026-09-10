@@ -1,0 +1,11 @@
+# Bulk evidence lives in the Robot Lab as sealed artifacts for experiment
+# 376bea38, not in git. What stays here is everything needed to verify it:
+# run/frame_index.jsonl carries the sha256 of every one of the 756 terminal-run
+# frames (all 756 were re-verified against it from the sealed run__frames.tar.gz
+# bundle), run_attempt1/frame_index.jsonl does the same for the aborted attempt,
+# and artifact_manifest.json maps every sealed flat artifact name back to its
+# original path with size and sha256.
+run/frames/
+run_attempt1/frames/
+dry/frames/
+*.tar.gz

@@ -1,0 +1,387 @@
+{
+ "protocol": "l1_belly_rest_radial_shear_hysteresis_repeat6_v1",
+ "hz": 10.0,
+ "shared_commanded_hip_deg": -47.133,
+ "settle_window_s": 1.0,
+ "moving_leg": "L1",
+ "hip_joint": 4,
+ "knee_joint": 5,
+ "encoder_resolution_deg_per_count": 0.0879,
+ "repeats": 3,
+ "hip_loop_deg_mean": -0.4573,
+ "hip_loop_deg_sd": 0.1489,
+ "hip_loop_deg_min": -0.6678,
+ "hip_loop_deg_max": -0.352,
+ "hip_loop_counts_mean": -5.2,
+ "out_err_deg_mean": 0.2693,
+ "in_err_deg_mean": 0.7266,
+ "block_a_mean": -0.4573,
+ "block_b_mean": null,
+ "pairs": [
+  {
+   "repeat": 1,
+   "out_t_s": 14.9,
+   "in_t_s": 22.9,
+   "hip_loop_deg": -0.6678,
+   "knee_loop_deg": 0.176,
+   "out_err_deg": 0.0588,
+   "in_err_deg": 0.7266,
+   "out_cur_a": 0.0,
+   "in_cur_a": 0.014199999999999999,
+   "out_load_pct": 3.3600000000000003,
+   "in_load_pct": 7.2
+  },
+  {
+   "repeat": 2,
+   "out_t_s": 30.9,
+   "in_t_s": 38.9,
+   "hip_loop_deg": -0.352,
+   "knee_loop_deg": 0.176,
+   "out_err_deg": 0.3746,
+   "in_err_deg": 0.7266,
+   "out_cur_a": 0.0036000000000000003,
+   "in_cur_a": 0.011699999999999999,
+   "out_load_pct": 3.44,
+   "in_load_pct": 6.720000000000001
+  },
+  {
+   "repeat": 3,
+   "out_t_s": 46.9,
+   "in_t_s": 54.9,
+   "hip_loop_deg": -0.352,
+   "knee_loop_deg": 0.176,
+   "out_err_deg": 0.3746,
+   "in_err_deg": 0.7266,
+   "out_cur_a": 0.003,
+   "in_cur_a": 0.0154,
+   "out_load_pct": 3.04,
+   "in_load_pct": 7.2
+  }
+ ],
+ "dwells": [
+  {
+   "ticks": [
+    149,
+    179
+   ],
+   "t_s": 14.9,
+   "stroke": "out",
+   "cmd_hip_deg": -47.132623,
+   "cmd_knee_deg": 32.667128,
+   "hip": {
+    "n": 10,
+    "deg": -47.0738,
+    "sd": 0.04311101947298441,
+    "cur_a": 0.0,
+    "load_pct": 3.3600000000000003,
+    "temp_c": 32.0
+   },
+   "knee": {
+    "n": 10,
+    "deg": 32.783,
+    "sd": 0.0,
+    "cur_a": 0.0,
+    "load_pct": 3.3600000000000003,
+    "temp_c": 32.0
+   },
+   "hip_err_deg": 0.0588
+  },
+  {
+   "ticks": [
+    229,
+    259
+   ],
+   "t_s": 22.9,
+   "stroke": "in",
+   "cmd_hip_deg": -47.132623,
+   "cmd_knee_deg": 32.667128,
+   "hip": {
+    "n": 10,
+    "deg": -46.406,
+    "sd": 0.0,
+    "cur_a": 0.014199999999999999,
+    "load_pct": 7.2,
+    "temp_c": 32.0
+   },
+   "knee": {
+    "n": 10,
+    "deg": 32.607,
+    "sd": 0.0,
+    "cur_a": 0.0,
+    "load_pct": 7.2,
+    "temp_c": 32.0
+   },
+   "hip_err_deg": 0.7266
+  },
+  {
+   "ticks": [
+    309,
+    339
+   ],
+   "t_s": 30.9,
+   "stroke": "out",
+   "cmd_hip_deg": -47.132623,
+   "cmd_knee_deg": 32.667128,
+   "hip": {
+    "n": 10,
+    "deg": -46.758,
+    "sd": 0.0,
+    "cur_a": 0.0036000000000000003,
+    "load_pct": 3.44,
+    "temp_c": 32.0
+   },
+   "knee": {
+    "n": 10,
+    "deg": 32.783,
+    "sd": 0.0,
+    "cur_a": 0.0,
+    "load_pct": 3.44,
+    "temp_c": 32.0
+   },
+   "hip_err_deg": 0.3746
+  },
+  {
+   "ticks": [
+    389,
+    419
+   ],
+   "t_s": 38.9,
+   "stroke": "in",
+   "cmd_hip_deg": -47.132623,
+   "cmd_knee_deg": 32.667128,
+   "hip": {
+    "n": 10,
+    "deg": -46.406,
+    "sd": 0.0,
+    "cur_a": 0.011699999999999999,
+    "load_pct": 6.720000000000001,
+    "temp_c": 32.0
+   },
+   "knee": {
+    "n": 10,
+    "deg": 32.607,
+    "sd": 0.0,
+    "cur_a": 0.0,
+    "load_pct": 6.720000000000001,
+    "temp_c": 32.0
+   },
+   "hip_err_deg": 0.7266
+  },
+  {
+   "ticks": [
+    469,
+    499
+   ],
+   "t_s": 46.9,
+   "stroke": "out",
+   "cmd_hip_deg": -47.132623,
+   "cmd_knee_deg": 32.667128,
+   "hip": {
+    "n": 10,
+    "deg": -46.758,
+    "sd": 0.0,
+    "cur_a": 0.003,
+    "load_pct": 3.04,
+    "temp_c": 33.0
+   },
+   "knee": {
+    "n": 10,
+    "deg": 32.783,
+    "sd": 0.0,
+    "cur_a": 0.0,
+    "load_pct": 3.04,
+    "temp_c": 33.0
+   },
+   "hip_err_deg": 0.3746
+  },
+  {
+   "ticks": [
+    549,
+    579
+   ],
+   "t_s": 54.9,
+   "stroke": "in",
+   "cmd_hip_deg": -47.132623,
+   "cmd_knee_deg": 32.667128,
+   "hip": {
+    "n": 10,
+    "deg": -46.406,
+    "sd": 0.0,
+    "cur_a": 0.0154,
+    "load_pct": 7.2,
+    "temp_c": 32.0
+   },
+   "knee": {
+    "n": 10,
+    "deg": 32.607,
+    "sd": 0.0,
+    "cur_a": 0.0,
+    "load_pct": 7.2,
+    "temp_c": 32.0
+   },
+   "hip_err_deg": 0.7266
+  },
+  {
+   "ticks": [
+    929,
+    959
+   ],
+   "t_s": 92.9,
+   "stroke": "out",
+   "cmd_hip_deg": -47.132623,
+   "cmd_knee_deg": 32.667128,
+   "hip": {
+    "n": 0,
+    "deg": null,
+    "sd": 0.0,
+    "cur_a": null,
+    "load_pct": null,
+    "temp_c": null
+   },
+   "knee": {
+    "n": 0,
+    "deg": null,
+    "sd": 0.0,
+    "cur_a": null,
+    "load_pct": null,
+    "temp_c": null
+   },
+   "hip_err_deg": null
+  },
+  {
+   "ticks": [
+    1009,
+    1039
+   ],
+   "t_s": 100.9,
+   "stroke": "in",
+   "cmd_hip_deg": -47.132623,
+   "cmd_knee_deg": 32.667128,
+   "hip": {
+    "n": 0,
+    "deg": null,
+    "sd": 0.0,
+    "cur_a": null,
+    "load_pct": null,
+    "temp_c": null
+   },
+   "knee": {
+    "n": 0,
+    "deg": null,
+    "sd": 0.0,
+    "cur_a": null,
+    "load_pct": null,
+    "temp_c": null
+   },
+   "hip_err_deg": null
+  },
+  {
+   "ticks": [
+    1089,
+    1119
+   ],
+   "t_s": 108.9,
+   "stroke": "out",
+   "cmd_hip_deg": -47.132623,
+   "cmd_knee_deg": 32.667128,
+   "hip": {
+    "n": 0,
+    "deg": null,
+    "sd": 0.0,
+    "cur_a": null,
+    "load_pct": null,
+    "temp_c": null
+   },
+   "knee": {
+    "n": 0,
+    "deg": null,
+    "sd": 0.0,
+    "cur_a": null,
+    "load_pct": null,
+    "temp_c": null
+   },
+   "hip_err_deg": null
+  },
+  {
+   "ticks": [
+    1169,
+    1199
+   ],
+   "t_s": 116.9,
+   "stroke": "in",
+   "cmd_hip_deg": -47.132623,
+   "cmd_knee_deg": 32.667128,
+   "hip": {
+    "n": 0,
+    "deg": null,
+    "sd": 0.0,
+    "cur_a": null,
+    "load_pct": null,
+    "temp_c": null
+   },
+   "knee": {
+    "n": 0,
+    "deg": null,
+    "sd": 0.0,
+    "cur_a": null,
+    "load_pct": null,
+    "temp_c": null
+   },
+   "hip_err_deg": null
+  },
+  {
+   "ticks": [
+    1249,
+    1279
+   ],
+   "t_s": 124.9,
+   "stroke": "out",
+   "cmd_hip_deg": -47.132623,
+   "cmd_knee_deg": 32.667128,
+   "hip": {
+    "n": 0,
+    "deg": null,
+    "sd": 0.0,
+    "cur_a": null,
+    "load_pct": null,
+    "temp_c": null
+   },
+   "knee": {
+    "n": 0,
+    "deg": null,
+    "sd": 0.0,
+    "cur_a": null,
+    "load_pct": null,
+    "temp_c": null
+   },
+   "hip_err_deg": null
+  },
+  {
+   "ticks": [
+    1329,
+    1359
+   ],
+   "t_s": 132.9,
+   "stroke": "in",
+   "cmd_hip_deg": -47.132623,
+   "cmd_knee_deg": 32.667128,
+   "hip": {
+    "n": 0,
+    "deg": null,
+    "sd": 0.0,
+    "cur_a": null,
+    "load_pct": null,
+    "temp_c": null
+   },
+   "knee": {
+    "n": 0,
+    "deg": null,
+    "sd": 0.0,
+    "cur_a": null,
+    "load_pct": null,
+    "temp_c": null
+   },
+   "hip_err_deg": null
+  }
+ ]
+}

@@ -8,6 +8,11 @@ from __future__ import annotations
 from .common import *  # noqa: F401,F403
 from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT
 
+# ``_demo_name`` prefixes of jobs that own the shared progress/result slot:
+# while they run they report running=true, and their result is theirs until
+# the next job replaces it (never the latest calibration report).
+OWNED_JOB_PREFIXES = ("calibrate", "rl_", "standup_", "measure_", "sysid")
+
 
 class CalibrateApi:
     # -- step calibrate (cmd vs encoder) -------------------------------------
@@ -158,18 +163,18 @@ class CalibrateApi:
             result = dict(self._cal_result) if self._cal_result else None
             progress = dict(self._cal_progress)
             demo_name = self._demo_name
-        # rl_policy_* and rl_probe_* jobs share the same worker slot and
-        # progress/result plumbing — report them as running too, or their
-        # pollers see running=false mid-job and give up.
+        # rl_policy_*, rl_probe_* and sysid_run jobs share the same worker
+        # slot and progress/result plumbing — report them as running too, or
+        # their pollers see running=false mid-job and give up, and own their
+        # result, or a stale calibration report replaces it once they finish
+        # (a tripped sysid run then reads back as an ok=True checkup).
+        owned = (demo_name or "").startswith(OWNED_JOB_PREFIXES)
         running = bool(self._demo_thread and self._demo_thread.is_alive()
-                       and (demo_name or "").startswith(
-                           ("calibrate", "rl_", "standup_", "measure_")))
+                       and owned)
         latest_report = None if running else self._latest_calibration_report()
         if result is None and not running:
             result = latest_report
-        elif (not running and latest_report is not None
-              and not (demo_name or "").startswith(
-                  ("calibrate", "rl_", "standup_", "measure_"))):
+        elif not running and latest_report is not None and not owned:
             result = latest_report
         plant = self.plant_state()
         imu = self.imu_state()

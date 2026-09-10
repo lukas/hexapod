@@ -576,7 +576,20 @@ def main(argv: list[str] | None = None) -> int:
     csv_name = (Path(result["csv"]).name if result.get("csv")
                 else _newest_sysid_csv(client, t_start))
     if not csv_name:
-        print("no trace CSV found on the robot")
+        # No CSV means the runner never reached its logging loop, so whatever
+        # ``result`` says (historically a substituted ok=true calibration
+        # report) is not this run's outcome. Say so, and leave the dataset
+        # dir with the same summary artifacts a finished run gets.
+        result = {**result, "ok": False,
+                  "error": str(result.get("error")
+                               or "no trace CSV found on the robot: the "
+                                  "runner returned before it opened one")}
+        print(f"runner: ok=False error={result['error']}")
+        (out_dir / "runner_summary.json").write_text(
+            json.dumps(result, indent=2, sort_keys=True) + "\n"
+        )
+        (out_dir / "protocol.json").write_text(json.dumps(doc, indent=1,
+                                                          sort_keys=True))
         return 1
     got = _pull(client, csv_name, out_dir)
     sum_name = csv_name.replace(".csv", "_summary.json")

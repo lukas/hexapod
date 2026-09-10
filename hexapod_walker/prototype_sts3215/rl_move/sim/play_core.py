@@ -416,22 +416,49 @@ def scan_policies(pdir: Path, all_models: bool = False,
 class _PlayTraj(_InteractiveTraj):
     """Interactive stance goals + a live velocity command.
 
-    Velocity ramps at ~0.06 m/s^2 toward the keyed target — training
-    commands eased in over ~1 s, so instant steps are avoided the same
-    way the tilt/height refs are ramped.
+    The published velocity command blends to the keyed/driven target over
+    a FIXED duration (``BLEND_S``, default 1.0 s), matching
+    ``WalkTrajectory``'s own mid-episode command-resample blend
+    (``goal.walk_cmd_blend_s_min/max``, default 1.0 s, ``walk_task.py``)
+    that the champions actually trained under: a straight-line
+    interpolation from wherever the published command sits when a NEW
+    target arrives to that target, always finishing in the same amount
+    of time regardless of how far the command has to travel.
+
+    A previous implementation instead ramped each axis at a FIXED RATE
+    (``VEL_RATE``/``YAW_RATE`` m/s^2, independently per axis) — for a
+    single-axis step at the historical 0.06 m/s reference speed this
+    happened to take about the same ~1 s as the real blend, but for a
+    larger or multi-axis command flip it did not: e.g. diag-left's
+    (d, d) -> reverse's (-speed, 0) has a >0.13 m/s single-axis delta,
+    which the old rate-limited ramp took >2.2 s to complete (vs. training's
+    flat 1 s) — and because the two independent per-axis ramps reach/cross
+    zero at DIFFERENT times for most command pairs but happen to coincide
+    exactly for this one geometry (both axes start this transition having
+    moved exactly `d` from their prior value), it produced a genuine
+    near-zero-velocity "full stop" instant mid-command that the
+    synchronized training-time blend never creates. Root-caused 2026-09-10
+    from the any_means interactive "reverse" stall
+    (CURRENT_TRUTHS.md/STATUS.md same date) using the already-captured
+    drivecapture telemetry (no new sim run needed): body speed during that
+    phase collapses to near-zero for its whole duration, not just an
+    under-tracked direction.
     """
 
-    VEL_RATE = 0.06
-    YAW_RATE = 0.30
+    BLEND_S = 1.0        # matches goal.walk_cmd_blend_s_min/max default
 
     def __init__(self, dt: float = 0.04):
         super().__init__(dt)
         self.vx = 0.0           # user targets (keyboard writes here)
         self.vy = 0.0
         self.wz = 0.0
-        self._pvx = 0.0         # published (ramped) command
+        self._pvx = 0.0         # published (blended) command
         self._pvy = 0.0
         self._pwz = 0.0
+        self._cmd_target = (0.0, 0.0, 0.0)  # last (vx, vy, wz) seen by at()
+        self._blend_from = (0.0, 0.0, 0.0)  # published value when the
+                                             # current target was (re)set
+        self._blend_elapsed = 0.0
         # Skill-family label read by walk_task's mode one-hot obs
         # (obs.mode_onehot; the transdagger GRU contract). The player's
         # state machine writes it every tick: rise/lower during autos,
@@ -443,14 +470,30 @@ class _PlayTraj(_InteractiveTraj):
     def reset_published(self) -> None:
         super().reset_published()
         self._pvx = self._pvy = self._pwz = 0.0
+        self._cmd_target = (0.0, 0.0, 0.0)
+        self._blend_from = (0.0, 0.0, 0.0)
+        self._blend_elapsed = 0.0
 
     def at(self, step: int) -> WalkGoal:
         n = max(step - self._last_step, 0)
         dt = n * self._dt
         base = super().at(step)             # ramps tilt/height refs
-        self._pvx = self._toward(self._pvx, self.vx, self.VEL_RATE * dt)
-        self._pvy = self._toward(self._pvy, self.vy, self.VEL_RATE * dt)
-        self._pwz = self._toward(self._pwz, self.wz, self.YAW_RATE * dt)
+        target = (self.vx, self.vy, self.wz)
+        if target != self._cmd_target:
+            # A new target arrived since the last tick (keyboard/joystick
+            # write, or a scripted phase change): start a fresh fixed-
+            # duration blend from wherever the command currently is.
+            self._blend_from = (self._pvx, self._pvy, self._pwz)
+            self._blend_elapsed = 0.0
+            self._cmd_target = target
+        self._blend_elapsed += dt
+        frac = (1.0 if self.BLEND_S <= 0.0
+                else min(1.0, self._blend_elapsed / self.BLEND_S))
+        fx, fy, fw = self._blend_from
+        tx, ty, tw = target
+        self._pvx = fx + frac * (tx - fx)
+        self._pvy = fy + frac * (ty - fy)
+        self._pwz = fw + frac * (tw - fw)
         return WalkGoal(roll_ref=base.roll_ref, pitch_ref=base.pitch_ref,
                         height_ref=base.height_ref,
                         unload_leg=base.unload_leg,

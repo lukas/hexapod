@@ -70,6 +70,59 @@ def test_sim_web_config_cfg_overrides_default_empty_tuple():
     assert cfg.cfg_overrides == ()
 
 
+def _bare_session_for_vel_contract(explicit: bool, goal_cfg: dict):
+    """Construct a SimWebSession without running __init__ (no MuJoCo/PPO
+    boot needed) -- only `_apply_vel_contract`'s own two inputs matter:
+    `self._walk_obs_body_vel_explicit` and `self.env.cfg`."""
+    session = SimWebSession.__new__(SimWebSession)
+    session._walk_obs_body_vel_explicit = explicit
+
+    class _StubEnv:
+        pass
+
+    session.env = _StubEnv()
+    session.env.cfg = {"goal": dict(goal_cfg)}
+    return session
+
+
+def test_apply_vel_contract_uses_stem_heuristic_when_not_explicit():
+    # No "_dep"/"noslip"/regime token in the stem and no explicit override
+    # recorded -> unchanged pre-2026-09-10 behavior, mode 1.0 (sim-only obs).
+    session = _bare_session_for_vel_contract(
+        explicit=False, goal_cfg={"walk_obs_body_vel": 2.0})
+    session._apply_vel_contract("ppo_goal_cw_walk_allheading_mlp_"
+                                "singleframe_acq1_stdanneal")
+    assert session.env.cfg["goal"]["walk_obs_body_vel"] == 1.0
+
+
+def test_apply_vel_contract_regime_token_still_wins_when_not_explicit():
+    session = _bare_session_for_vel_contract(
+        explicit=False, goal_cfg={"walk_obs_body_vel": 1.0})
+    session._apply_vel_contract("cw-fasttrack1-something")
+    assert session.env.cfg["goal"]["walk_obs_body_vel"] == 3.0
+
+
+def test_apply_vel_contract_explicit_override_wins_over_heuristic():
+    # BUGFIX regression (2026-09-10, web_session_drivecapture.py found this
+    # on the any_means walk_allheading_mlp_singleframe_acq1_stdanneal
+    # champion): an explicit `--cfg-set goal.walk_obs_body_vel=2` must
+    # survive `_apply_vel_contract`, even though this stem carries no
+    # "_dep"/"noslip" token (the heuristic alone would silently clobber it
+    # back to 1.0, mismatching the champion's own training contract).
+    session = _bare_session_for_vel_contract(
+        explicit=True, goal_cfg={"walk_obs_body_vel": 2.0})
+    session._apply_vel_contract("ppo_goal_cw_walk_allheading_mlp_"
+                                "singleframe_acq1_stdanneal")
+    assert session.env.cfg["goal"]["walk_obs_body_vel"] == 2.0
+
+
+def test_apply_vel_contract_explicit_override_wins_even_for_regime_stem():
+    session = _bare_session_for_vel_contract(
+        explicit=True, goal_cfg={"walk_obs_body_vel": 2.0})
+    session._apply_vel_contract("cw-fasttrack1-something")
+    assert session.env.cfg["goal"]["walk_obs_body_vel"] == 2.0
+
+
 def test_generated_tls_certificate_covers_localhost(tmp_path):
     cert = tmp_path / "cert.pem"
     key = tmp_path / "key.pem"

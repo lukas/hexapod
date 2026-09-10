@@ -1,5 +1,98 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## Follow-up: the interactive live-drive "residual translation gap" is narrower than either candidate the 01:3x entry left open, and the capture tool's own PASS check was a false positive -- fixed (2026-09-10, zero GPU spend)
+
+One plain sentence: the two guesses the previous entry left untested are
+now BOTH ruled out with direct evidence (not re-guessed), the real
+picture is worse than "translation is a bit off" (the champion rises to
+a ~125-137mm stance and body velocity collapses to ~0 within ~1-1.5s of
+a full, correctly-ramped 0.06 m/s command, sometimes ending in a fall a
+few seconds later), and the capture tool now fails this case instead of
+reporting PASS.
+
+**Ruled out by direct in-process instrumentation** (booted a real
+`SimWebSession` off-HTTP with the champion's own cfg overrides,
+single-stepped it, and printed the actual internal state each tick --
+not another guess layered on the fix):
+- (b) `walk_obs_body_vel` heuristic: confirmed **1.0** (privileged sim
+  body velocity) throughout, matching this champion's own training
+  default (never overridden in its cfg-set) via `play_core._sim_only_
+  obs()`'s stem match (`"_dep"`/`"noslip"` absent from this stem). Not
+  the cause.
+- (a) height-ref-return-to-walk-height branch (`rl_drive_cmd`'s "walk
+  champions trained at height_ref 0" ramp): `goal.height_ref` measured
+  **0.0 on every tick** for the whole session -- the branch never
+  engages because the chassis never left `_engage_walk`'s `z>0.09m`
+  gate to begin with. Not the cause.
+- The commanded velocity itself reaches the full 0.06 m/s target by
+  t~0.6s (`_PlayTraj`'s `VEL_RATE=0.06` ramp, confirmed via `traj.
+  _pvx`) and STAYS there — the policy is receiving the fully-correct,
+  un-ramped-anymore command the whole time it fails to walk.
+- `goal.walk_pure=1` (in this champion's cfg-set but not yet threaded
+  through the web session): confirmed irrelevant by code reading —
+  `_PlayEnv._sample_goal()` unconditionally returns the live `_PlayTraj`
+  object, so the standard goal-generator's mode-mix (`walk_pure`'s only
+  effect) is never consulted in this path either way.
+- DR/park-start/struct-compliance cfg deltas: all confirmed off-by-
+  default on both sides (`randomize=False` in both `_PlayEnv` and
+  `drive_video.py`'s default `--dr-scale 0`; `walk_park_start_frac`/
+  `struct_comp.enabled` both default to the champion's own values).
+
+**Not yet found:** with velocity command, height-ref, joint action-box/
+bias, control.hz, and obs-velocity-mode ALL verified matching training,
+the champion still fails to sustain forward motion through `_PlayEnv`'s
+live-drive path while `drive_video.py`'s direct `SimHexapodJointWalkEnv`
+stepping (same checkpoint, same nominal cfg) walks it cleanly
+(`~0.13-0.19 m/s` measured, STATUS.md 09-09). The remaining candidate is
+a genuine dynamics/observation-construction difference between `_PlayEnv`
+(the stance+walk+recover multi-role subclass `web_session.py` uses) and
+plain `SimHexapodJointWalkEnv` — e.g. reset-time pose/phase construction,
+or another per-tick hook `_PlayEnv` runs that the plain env doesn't. Next
+step for whoever picks this up: diff `_PlayEnv.__init__`/`reset()` against
+`SimHexapodJointWalkEnv.reset()` directly (both now have a working
+in-process instrumentation harness, see `/tmp/diag_websession.py`-style
+script in this entry's evidence — not yet promoted to a checked-in tool
+since it duplicates `web_session_drivecapture.py`'s HTTP path pending a
+decision on which one to extend), or run the SAME checkpoint through
+BOTH paths side by side with matching frame-by-frame joint-angle logging.
+
+**Fixed the tool's blind spot.** `web_session_drivecapture.py`'s PASS
+check only looked at identity/falls/rejected-commands/frame-count — it
+could not see "reports active, no fall, no reject, but isn't actually
+walking." Added `locomotion_fraction()`/`stalled_phases()`: per
+commanded-motion phase (skipping the ~1.5s velocity-ramp settle
+window), mean measured body speed must reach >=25% of the commanded
+speed or the phase is flagged and the run FAILS. Re-ran on the same
+champion+cfg stack as the 01:3x entry's "full-cfg PASS": this time it
+correctly reports **FAIL** (`forward`/`crab-right`/`diag-left` all
+stalled at 0.3-14% of commanded speed; one repeat run additionally fell
+at t~11s — run-to-run variance exists here, but no repeat has actually
+walked). 6 new tests (`test_web_session_drivecapture.py`, 47/47 green
+across the file's full suite). **Correction to the 01:3x entry: its own
+"full-cfg PASS" claim does not hold** — re-labeled here as a false
+positive from an under-specified check, not a second regression; the
+"honestly-labeled residual gap, do not overclaim" framing was already
+correct instinct, this entry just fixes the tool that let the gap hide
+behind a green checkmark.
+
+**What this does and does not change.** Does not reopen or reverse the
+01:3x entry's real, still-valid finding: the browser-facing HTTP API
+IS headlessly drivable from a cloud pod (display was never the
+blocker), and the joint-action-box/bias config-threading bug it found
+and fixed was real and is fixed. Does mean: no interactive session
+(headless-HTTP or a hypothetical display click-through) can currently
+be presented as sim-demo evidence of this champion actually WALKING
+under joystick control — only `drive_video.py`'s direct env-stepping
+capture (already on record) demonstrates that. `STATUS.md`/
+`OPERATOR_QUESTIONS.md` q_20260909T144xZ updated to not overclaim.
+
+Evidence: `rl_move/sim/web_session_drivecapture.py` (`locomotion_
+fraction`, `stalled_phases`), `rl_move/tests/test_web_session_
+drivecapture.py`; live re-runs `logs` not retained beyond `/tmp` for
+this instrumentation pass (throwaway diagnostics, not artifacts) --
+the FAIL verdict is reproducible any time via the command in this
+file's own `README.md` output.
+
 ## The "interactive-viewer click-through needs a display, irreducible-to-cloud" reading was WRONG about the browser-facing API; built a headless HTTP capture tool, found and fixed a real config-mismatch regression, and closed the last labeled gap for BOTH parent-goal sim demos (2026-09-10 ~01:3x, zero GPU spend)
 
 One plain sentence: the thing that actually needed a display was the

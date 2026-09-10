@@ -57,8 +57,14 @@ class Inbox:
         for rowid, text, handle in rows:
             self.last_rowid = max(self.last_rowid, int(rowid))
             hid = str(handle or "")
+            body = str(text or "").strip()
+            # When the recipient is the operator's own number, everything the
+            # Mac sends (this loop's texts, the old monitor's alerts) comes
+            # back as an inbound copy. Never treat our own voice as a command.
+            if body.startswith(("Robot Lab", "Hexapod", "alert")) or "cwd1f0-new-cluster" in body:
+                continue
             if hid.lower() == self.recipient.lower() or (digits and re.sub(r"\D", "", hid).endswith(digits[-10:])):
-                out.append(str(text))
+                out.append(body)
         return out
 
 

@@ -1,5 +1,164 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## ROOT CAUSE + FIX: the whole day's `web_session_drivecapture.py` "off-forward-axis directional softness" chain below was measured through a tool that let the sim run at ~0.26-0.28x real time while scheduling phases on WALL-CLOCK — for the `any_means` champion this makes "reverse" mostly a measurement artifact of the velocity-ramp transient, not a real residual; for the `rl_only` champion the reverse defect is CONFIRMED genuine by the same fix (2026-09-10, refill cycle; 15/15 GPU free, empty backlog, no GPU-launchable lever on any track — built the tool this file's own immediately-preceding entry named as the concrete next step: "needs finer-grained per-tick telemetry or a true net-displacement measure")
+
+One plain sentence: the capture tool scheduled each scripted command
+phase (e.g. "reverse") to end after a fixed number of WALL-CLOCK
+seconds, but the actual MuJoCo server it drives over HTTP was quietly
+stepping physics at only ~26-87% of real-time speed (worse for the
+expensive full-mesh collision model, better for the cheap primitive
+`mesh_mjx` twin) — so most phases ended after only 20-35% of their
+intended SIMULATED duration, often barely clearing the champion's own
+1-simulated-second velocity-blend ramp before the next command
+arrived; every "post-settle" measurement in this file's last dozen
+entries was contaminated by that ramp transient to an unknown, varying
+degree, not just for "reverse."
+
+**Root cause, found by adding a second independent time source.**
+`SimWebSession._live()` already returns the server's own simulated
+clock (`self.sim_t`, exposed as `t_s`) and world-frame chassis position
+(`chassis_xyz_m`) on every poll — this capture tool just never recorded
+them. Added `yaw_deg` (`_yaw_deg()`, new helper, `web_session.py`) next
+to the existing `chassis_xyz_m`, and threaded `pos_x`/`pos_y`/`yaw_deg`/
+`sim_t_s` into every telemetry row (`web_session_drivecapture.py`, pure
+additions, existing consumers keyed on `vx_body`/`vy_body` untouched).
+A single capture of the `any_means` walk-role champion
+(`ppo_goal_cw_walk_allheading_mlp_singleframe_acq1_stdanneal.zip`,
+`env.model_source=mesh`) with these fields added showed the smoking
+gun directly: at wall-clock `elapsed=27.19s` (the point the OLD loop
+would have ended the whole ~27s script), the server's own `sim_t_s`
+had only reached **7.7s** — a **0.283x real-time factor**. Per-phase
+sim-time boundaries confirmed every phase was cut to ~1.0-1.5
+simulated seconds instead of its intended ~4-5: `forward` 0.0->1.5s,
+`crab-right` 1.5->2.8s, `diag-left` 2.8->3.9s, **`reverse` 3.9->4.9s
+(only 1.0 simulated second total)**, `restart` 5.6->6.8s.
+
+**Fix (code, tested, snapshotted before use): phase transitions and
+the session-end condition now gate on the server's own `sim_t_s`, not
+wall-clock `elapsed`** (`web_session_drivecapture.py` `main()`), so
+every phase always gets its full intended simulated duration regardless
+of how fast or slow this pod's background stepping thread runs. A
+generous wall-clock safety timeout (20x the sim-time target + 30s)
+guards against hanging forever on a genuinely stalled/dead server
+(`result["timed_out"]`). `stalled_phases()` and the new
+`net_displacement_fraction()` window on a new `_row_t()` helper (prefers
+`sim_t_s`, falls back to wall-clock `t` for telemetry captured before
+this fix) instead of raw wall-clock `t`. **New metric,
+`net_displacement_fraction`**: computes the TRUE net body displacement
+over a window from world-frame position deltas (rotated into the body
+frame by `yaw_deg` at the window's start), independent of how densely
+velocity was sampled — this is the "true net-displacement measure" this
+file's immediately-preceding entry named as the one remaining way to
+tell a genuine skill gap apart from a sampling artifact. `sim_seconds_
+driven` now reports the true simulated total (was silently reporting
+wall-clock elapsed under a misleading name); `wall_seconds_elapsed`
+added alongside it, honestly named. 10 new tests
+(`test_web_session_drivecapture.py`, 30/30 green in the file; 81/81
+across the touched web_session/server test files): `net_displacement_
+fraction`'s on-axis/yaw-rotation/pure-jitter/missing-data/near-zero-
+command/too-few-rows cases, `_row_t`'s sim-time-preference and
+wall-clock-fallback, and a `stalled_phases` case proving the fix
+(constructed so wall-clock time and sim-time time would classify the
+same rows into DIFFERENT phases, and only the sim-time read is
+correct).
+
+**Re-ran the exact fixed capture twice (`any_means` champion, deterministic
+policy, same `--cfg-set` stack every earlier `_fullcfg`/`_velblendfix`/
+`_rep*` capture used) — now correctly driving the FULL ~27 simulated
+seconds each time (`sim_seconds_driven: 27.0` both reps; wall-clock took
+105s/111s, matching the same ~0.26x real-time factor measured above) —
+and recomputed all three metrics (`locomotion_fraction`/`directional_
+locomotion_fraction`/`net_displacement_fraction`) per phase:**
+
+| phase | dir (velocity-based) | disp (true displacement) | old dir (buggy tool, prior entries) |
+|---|---|---|---|
+| forward | 0.365 / 0.374 | 0.376 / 0.379 | 0.250 |
+| crab-right | 0.172 / 0.171 | 0.156 / 0.148 | 0.204 |
+| diag-left | 0.280 / 0.282 | 0.299 / 0.296 | 0.297 |
+| **reverse** | **0.258 / 0.267** | **0.273 / 0.278** | **0.187** |
+| restart | 0.381 / 0.370 | 0.379 / 0.362 | 0.257 |
+
+(each cell: rep1 / rep2, both fresh `_simtimefix{,_rep2}` captures.)
+
+**Two things follow, and they cut in opposite directions for the two
+champions.** First, for THIS `any_means` champion: with proper
+sim-time windowing, `dir` and `disp` now closely AGREE (within ~0.01-0.02
+on 4/5 moving phases) instead of the ~3-4x mismatch the buggy tool
+produced earlier today (see the entry immediately below, which read
+disp/dir ratios of ~0.25-0.35 as a possible open question) — the
+agreement itself is the evidence the fix is correct, since a real
+signal measured two independent ways should converge, and now does.
+Second, and more importantly: **`reverse` is no longer the standout-
+softest phase.** It rises from the old tool's 0.187 to a properly-measured
+~0.26-0.28, now solidly mid-pack — clearly better than `crab-right`
+(~0.15-0.17, now the genuinely WEAKEST tracked direction) and only
+moderately below `forward`/`restart` (~0.37-0.38). **The whole "reverse
+residual, ~25% intermittent, forward-axis-favoring" narrative in this
+file's prior ~6 entries (today, all using the unfixed tool) is
+SUPERSEDED for the `any_means` champion**: most of what looked like a
+reverse-specific pathology was the velocity-ramp transient, revealed by
+a tool that was silently only measuring ~30% of each phase's intended
+simulated duration. The real, smaller residual that survives fixing the
+tool is a general (not reverse-specific) softness on commands with NO
+forward-velocity component (crab-right worst, reverse second), which is
+the same qualitative shape as (and now more precisely quantified next
+to) the independently-established `walkcurr` off-axis-heading front-leg-
+pair finding below — a different champion and mechanism, reached
+through the fully separate, always-sim-time-correct `eval_checkpoint.py
+--pinned-heading-panel` harness, so that finding's own closure (6/6
+mechanism classes) is UNCHANGED by any of this.
+
+**For the `rl_only` champion, the opposite: the same fix CONFIRMS
+(does not weaken) a genuine reverse-specific defect.** Re-ran one fixed
+capture on `ppo_goal_cw_walkscratch_crutchoff_s0_widen8_legdutyratio_
+swinggap_dose10_plusduty_acq1_cont10m.zip` (`env.model_source=mesh_mjx`,
+the cheap primitive-collision twin — this pod's real-time factor here
+was ~0.87x, much closer to 1:1 than the full-mesh `any_means` case
+above, so the fix mattered less for this specific champion, and largely
+validates rather than overturns its own prior reading). Result:
+`forward`/`crab-right`/`diag-left`/`restart` all track at
+`dir`/`disp` >= 0.87 (some > 1, i.e. slightly overshooting the
+commanded speed on this short script — not concerning, not this
+entry's focus), but **`reverse` reads `mag=0.981` (superficially "moving
+fine") against `dir=0.153` and `disp=0.057`** — both direction-aware
+metrics agree closely with EACH OTHER (unlike the `any_means` case
+above, where they used to disagree sharply and now agree after the
+fix) and both say the same thing: real motion is present, almost none
+of it is net-backward. This matches and STRENGTHENS (via an
+independent, artifact-immune metric) the already-recorded `rl_only`
+finding two entries below ("nets only ~0.15 of commanded speed... much
+of it is not backward") — and is consistent with, not a new instance
+of, the already fully-closed `walkcurr` 180-degree-heading front-pair
+leg-sacrifice mechanism (6/6 mechanism classes closed, `rl_docs/tracks/
+walkcurr/STATUS.md`); this interactive reading is additional evidence
+for that already-settled structural gap, not a new question, and does
+not reopen or license a new mechanism-class launch.
+
+**Practical impact:** none on delivery status for either champion (0
+falls, 0 rejected commands, both sessions genuinely walk on every other
+phase, matching every prior entry's non-directional findings). This
+entry supersedes the SPECIFIC per-phase numbers and the "reverse is the
+standout-soft phase" framing in this file's own immediately-preceding
+3 entries (today, `any_means` only) and in `STATUS.md`/`rl_docs/tracks/
+todaypolicy/STATUS.md`'s matching text — those files are updated to
+point here rather than repeat the superseded numbers. Does not touch
+training, reward, or either champion's checkpoint. No GPU spend (CPU
+eval-harness pod only, per guardrails); every other track re-confirmed
+unchanged/still lever-less this cycle (walkcurr's two mechanism
+closures stand, joystick/amp/cpg DONE, assistfade/standwalk closed
+pending unbuilt redesigns).
+
+Evidence: `rl_move/sim/web_session.py` (`_yaw_deg`, `yaw_deg` in
+`_live()`), `rl_move/sim/web_session_drivecapture.py` (`sim_t_s`/
+`pos_x`/`pos_y`/`yaw_deg` telemetry fields, sim-time-paced `main()`
+loop, `_row_t`, `net_displacement_fraction`, `wall_seconds_elapsed`),
+`rl_move/tests/test_web_session_drivecapture.py` (10 new tests, 30/30
+green); fresh captures `logs/manual_drive/anymeans_walkallheading_
+mlpsf_stdanneal_websession_capture_09-10_simtimefix{,_rep2}/`,
+`logs/manual_drive/rlonly_champion_websession_capture_09-10_
+simtimefix/` (all `telemetry.json`/`summary.json`); snapshot: see
+commit list below (this entry's own tag).
+
 ## The `any_means` "reverse" residual is NOT a reverse-specific intermittent stall — the magnitude-based stall metric was hiding a broader, uniformly-weak net-directional-tracking pattern across ALL commanded directions, worst for reverse/pure-lateral, better for forward-leaning commands (2026-09-10, refill cycle; 15/15 GPU free, empty backlog, no GPU-launchable lever on any track — zero-GPU-spend diagnostic follow-up on this file's own prior n=8 entry's named next step "root-cause the residual itself")
 
 One plain sentence: the tool that called 6/8 repeats "PASS" and 2/8

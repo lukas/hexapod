@@ -17,6 +17,7 @@ from feetech_bus import (AXIS_LIMITS_DEG, N_JOINTS, deg_to_count,
                          joint_to_servo_id)
 from safe_zero import (BELLY_GROUND_Z_MM, GROUND_TOL_MM,
                        IMPLAUSIBLE_CURRENT_A, LIFT_CLEAR_MM,
+                       LOADED_TORQUE_LIMIT,
                        SLIDE_DEV_TOL_MM, TEMP_MAX_C, foot_r_mm, foot_z_mm,
                        ik_hip_knee, ik_leg_angles, knee_for_foot_z,
                        plan_ik_pose_transition, plan_safe_zero,
@@ -303,6 +304,8 @@ class _FakePkt:
         return 0, 0
 
     def write2ByteTxRx(self, sid, addr, val):
+        if addr == 48:  # ADDR_TORQUE_LIMIT
+            self._bus.torque_limits.append(int(val))
         return 0, 0
 
 
@@ -319,6 +322,7 @@ class FakeBus:
         self.stall_a = stall_a
         self.trims = [0.0] * N_JOINTS
         self.torque_off: set[int] = set()
+        self.torque_limits: list[int] = []
         self._pending: dict[int, int] = {}
         self.pkt = _FakePkt(self)
         self.scs = types.SimpleNamespace(COMM_SUCCESS=0)
@@ -370,6 +374,43 @@ def test_executor_reaches_zero():
     assert res["ok"], res
     assert max(abs(v) for v in bus.pos) < 4.0
     assert not bus.torque_off, "healthy run must not limp"
+
+
+def _untrap_fold_pose() -> list[float]:
+    """What the pinned-tip untrap leaves behind: hips ~-49.5, knees deep."""
+    q: list[float] = []
+    for knee in (121.0, 140.0, 133.0, 140.0, 128.0, 135.0):
+        q.extend([0.0, -49.5, knee])
+    return q
+
+
+def test_deep_fold_straighten_gets_full_torque():
+    """Unfolding from the untrap fold lifts the body — it needs the
+    servos' full torque, not safe_zero's reduced air-stage limit."""
+    plan = plan_safe_zero(_untrap_fold_pose())
+    assert plan["ok"], plan
+    by_label = {s["label"]: s for s in plan["stages"]}
+    straighten = by_label["straighten hips/knees (feet to lift height)"]
+    assert straighten["torque_limit"] == LOADED_TORQUE_LIMIT, straighten
+    # Air/geometry stages keep the caller's limit (no override key).
+    for st in plan["stages"]:
+        if st is not straighten:
+            assert "torque_limit" not in st, st
+
+
+@pytest.mark.slow  # >5 s: sim rollout; default loop is -m "not slow"
+def test_executor_raises_torque_only_for_the_loaded_stage():
+    start = _untrap_fold_pose()
+    plan = plan_safe_zero(start)
+    assert plan["ok"] and plan["stages"]
+    bus = FakeBus(start)
+    res = run_safe_zero(bus, plan["stages"], torque_limit=700)
+    assert res["ok"], res
+    # 700 up front, LOADED_TORQUE_LIMIT for the straighten stage, back to
+    # 700 for the air extend, then the finally-clause restore to 1000.
+    seen = [v for i, v in enumerate(bus.torque_limits)
+            if i == 0 or v != bus.torque_limits[i - 1]]
+    assert seen == [700, LOADED_TORQUE_LIMIT, 700, 1000], seen
 
 
 def test_executor_limps_on_stall():

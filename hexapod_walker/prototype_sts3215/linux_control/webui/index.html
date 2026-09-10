@@ -136,27 +136,31 @@
   </div>
   <div id="view-setup" class="view">
     <div class="pad">
-      <h2>Set up motors one by one</h2>
-      <p>Keep the robot supported and disarmed. This tab configures the physical robot, including when accessed through the central hub. Add <b>one new STS3215 motor at a time</b> to the powered servo bus. Leave assigned motors connected. Assignment does not move a motor; click an assigned motor below for a small identification wiggle.</p>
-      <div class="row">
-        <div class="pad"><h2>1 · Detect</h2>
-          <p>Unplug the previous motor before connecting the next. Scans check IDs 1–30 at the current bus baud rate.</p>
-          <button id="setup-scan">Scan connected motor</button>
-          <p id="setup-detected" role="status">No scan yet.</p>
-        </div>
-        <div class="pad"><h2>2 · Assign</h2>
-          <label class="field">Leg and joint<select id="setup-joint"></select></label>
+      <h2>Motor assignments</h2>
+      <p>Assignments are saved on this robot. Identify moves one motor ±3°; Reassign changes its joint and ID. Keep the robot supported and disarmed.</p>
+      <div class="setup-counts">
+        <p id="setup-progress">Loading assignments…</p>
+        <p id="setup-detected" role="status">Scan to see connected motors and find an extra motor to assign.</p>
+      </div>
+      <button id="setup-scan">Scan motors</button>
+      <p id="setup-result" role="status" aria-live="polite"></p>
+      <div class="setup-table-wrap"><table class="setup-table">
+        <thead><tr><th scope="col">Leg</th><th scope="col">Joint</th><th scope="col">Motor ID</th><th scope="col">Assignment</th><th scope="col">Last scan</th><th scope="col">Actions</th></tr></thead>
+        <tbody id="setup-slots"></tbody>
+      </table></div>
+      <div id="setup-editor" hidden>
+        <div class="pad"><h2>Reassign motor</h2>
+          <div id="setup-reassign-options" hidden>
+            <p>Power off and connect only the motor you want to reassign, then restore power and scan. Two motors sharing an ID look like one and would both be changed.</p>
+            <label><input type="checkbox" id="setup-isolated"> Only this one motor is physically connected</label>
+            <p><label><input type="checkbox" id="setup-clear-source"> Clear its old joint assignment (leave unchecked if another motor still uses that ID)</label></p>
+          </div>
+          <label class="field">Destination joint<select id="setup-joint"></select></label>
           <p><label><input type="checkbox" id="setup-replace"> Replace this robot’s assignment for this joint</label></p>
-          <button id="setup-assign" disabled>Assign ID and verify</button>
-        </div>
-        <div class="pad"><h2>3 · Label and repeat</h2>
-          <p id="setup-result" role="status" aria-live="polite">After assignment, label the motor with its leg, joint and ID. Leave it connected, add the next motor, then scan again.</p>
-          <p>Factory ID 1 is reserved. Robot joints use IDs 2–19. Mechanical zero and motion testing remain in the Calibrate and Motors tabs.</p>
+          <button id="setup-assign" disabled>Reassign and verify</button>
+          <button id="setup-cancel">Cancel</button>
         </div>
       </div>
-      <h2 id="setup-progress">Setup progress</h2>
-      <p>Assignments are saved on this robot and stay with it across code updates.</p>
-      <div id="setup-slots" class="btns"></div>
     </div>
   </div>
   <div id="view-drive" class="view active">

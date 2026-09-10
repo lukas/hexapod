@@ -29,8 +29,7 @@
   #statusbox { width:100%; display:flex; align-items:center; justify-content:flex-end;
                gap:8px; min-width:0; max-width:100%; }
   #statuslines { flex:1 1 auto; min-width:0; display:grid;
-                 grid-template-columns:minmax(110px, max-content)
-                   minmax(180px, 1fr) minmax(260px, 420px);
+                 grid-template-columns:max-content max-content minmax(0, 1fr);
                  align-items:center; justify-content:end;
                  gap:6px; text-align:right; }
   .statusline { display:flex; align-items:center; justify-content:flex-end;
@@ -135,8 +134,8 @@
                       background:#241416; }
   .target-msg { visibility:hidden; display:inline-flex; min-height:22px;
                 min-width:0; width:100%; align-items:center;
-                overflow:hidden; text-overflow:ellipsis;
-                white-space:nowrap; padding:2px 8px; border-radius:999px;
+                overflow-wrap:anywhere;
+                white-space:normal; padding:4px 8px; border-radius:8px;
                 border:1px solid #333b52; background:#11151e;
                 color:#9aa3b2; font-size:11px; font-weight:800; }
   .target-msg.show { visibility:visible; }
@@ -175,7 +174,7 @@
   #robotdestination { min-width:0; display:flex; flex-direction:column; gap:6px; }
   #robotdestination select, #robotdestination input { width:100%; min-width:0; box-sizing:border-box; }
   #robotdestination [hidden] { display:none !important; }
-  #robotconnect, #simconnect { grid-column:7; }
+  #robotconnect, #simconnect { grid-column:7; width:auto; min-width:100px; justify-self:end; }
   .hub-target input { width:100%; max-width:none; min-height:26px;
                       background:#11151e;
                       color:#e7e9ee; border:1px solid #30384a;
@@ -191,7 +190,7 @@
               justify-content:center; min-width:0; width:100%;
               font-size:11px; font-weight:850; padding:2px 8px; border-radius:999px;
               border:1px solid #333b52; background:#222838; color:#c5cce0;
-              overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+              overflow-wrap:anywhere; white-space:normal; text-align:center; }
   #robotact.act-demo { color:#7eb6ff; border-color:#2b6cff; }
   #robotact.act-calibrating { color:#c9a0ff; border-color:#6b4aa0; }
   #robotact.act-zeroing { color:#e6b35a; border-color:#8a6a2a; }
@@ -266,8 +265,9 @@
   #sent { flex:0 0 auto; width:auto; min-width:0;
           font-family: ui-monospace, monospace; font-size:12px;
           color:#5fd08a; }
-  #sent:not(:empty) { overflow:hidden; text-overflow:ellipsis;
-                      white-space:nowrap; padding:3px 8px; border-radius:8px;
+  #sent:not(:empty) { overflow:visible; overflow-wrap:anywhere;
+                      white-space:normal; justify-content:flex-start; text-align:left;
+                      padding:6px 8px; border-radius:8px;
                       background:#101719; border:1px solid #23372b; }
   #sent.bad { color:#ffb4b4; background:#2a1416; border-color:#a33; }
   #gp.joy-status {
@@ -581,8 +581,7 @@
     #robotdestination, #hubsyncpose { grid-column:3; grid-row:2; }
     #robotconnect, #simconnect { grid-column:4; grid-row:2; }
     #statusbox { justify-content:center; }
-    #statuslines { grid-template-columns:minmax(110px, max-content)
-                   minmax(180px, 1fr) minmax(220px, 1fr);
+    #statuslines { grid-template-columns:max-content max-content minmax(0, 1fr);
                    justify-content:center; text-align:center; }
     .robot-console-detail { flex-basis:100%; }
     .robot-console { left:10px; right:10px; bottom:8px; }
@@ -623,9 +622,50 @@
 /* Commissioning state is shared across robot and hub pages. */
 [hidden] { display:none !important; }
 .view.setup-locked { display:none !important; }
+.setup-table-wrap { overflow-x:auto; margin:16px 0 24px; }
+.setup-counts { display:flex; flex-wrap:wrap; align-items:baseline; gap:8px 24px; margin:16px 0; }
+.setup-counts p { margin:0; }
+.setup-counts #setup-progress { flex-shrink:0; }
+.setup-table { width:100%; border-collapse:collapse; text-align:left; }
+.setup-table th, .setup-table td { padding:12px; border-bottom:1px solid #303747; }
+.setup-table th { color:#9aa6bc; }
+.setup-table td:last-child { white-space:nowrap; }
+.setup-table button { padding:8px 14px; margin-right:8px; font-size:14px; }
+.setup-table tr.setup-missing { background:#421f24; color:#ffb4b4; }
+.setup-table tr.setup-missing td { border-bottom-color:#863b43; }
 .setup-notice { margin:12px 0; padding:16px; border:1px solid #9b7535;
   background:#302515; border-radius:12px; display:flex; gap:12px;
   align-items:center; flex-wrap:wrap; }
 .setup-notice span { flex:1 1 280px; }
 .tab.needs-setup::after { content:' · ' attr(data-setup-label); font-size:10px; color:#e8bd73; }
 .tab.needs-setup { opacity:.75; }
+
+/* Keep connection controls together; messages get their own wrapping line. */
+#hubtarget { padding:10px 12px; gap:10px; }
+#hubtarget .target-row { display:flex; flex-wrap:wrap; justify-content:flex-start;
+  align-items:center; gap:8px; min-height:34px; }
+#hubtarget .target-row + .target-row { border-top:1px solid #273044; padding-top:10px; }
+#hubtarget .target-name { flex:0 0 66px; text-align:left; }
+#hubtarget .target-badge { flex:0 0 auto; width:auto; min-width:64px;
+  box-sizing:border-box; padding:4px 10px; }
+#hubtarget #robotdestination { order:2; flex:0 1 180px; }
+#hubtarget #robotpicker { min-height:32px; border:1px solid #39435a;
+  border-radius:7px; background:#11151e; color:#e7e9ee; padding:4px 9px; font-size:12px; }
+#hubtarget #robotconnect, #hubtarget #simconnect, #hubtarget #hubsyncpose {
+  order:3; flex:0 0 auto; width:auto; min-width:90px; min-height:32px; padding:6px 12px; }
+#hubtarget #robotact { order:4; flex:0 1 auto; width:auto; min-height:24px;
+  max-width:100%; border:0; background:transparent; text-align:left;
+  justify-content:flex-start; font-weight:600; }
+#hubtarget .target-msg { display:none; order:5; flex:1 0 100%; width:auto;
+  box-sizing:border-box; border-radius:6px; padding:8px 10px; }
+#hubtarget .target-msg.show { display:block; }
+#statusbox { justify-content:flex-start; align-items:flex-start; }
+#statuslines { display:flex; flex:0 1 auto; flex-wrap:wrap; justify-content:flex-start;
+  align-items:center; text-align:left; gap:8px; }
+#statuslines #sent { flex:1 1 240px; }
+#statuscopy { align-self:center; }
+@media (max-width:480px) {
+  #hubtarget #robotdestination { flex-basis:160px; }
+  #hubtarget .target-name { flex-basis:60px; }
+  #statusbox { flex-wrap:wrap; }
+}

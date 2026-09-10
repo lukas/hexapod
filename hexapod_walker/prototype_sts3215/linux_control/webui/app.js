@@ -1852,7 +1852,10 @@ $('dbgtestall').onclick = dbgTestAll;
 $('dbgteststop').onclick = ()=>{ dbgTestAbort = true; cmd('C'); showSent('C'); dbgStatus('Stopping…'); };
 
 // --- Incremental motor setup and identification -----------------------------
-var setupSource = null, setupBusy = false;
+var setupSource = null, setupBusy = false, setupExpectedSource = null;
+var setupReassign = false;
+var setupLastScan = null, setupScanRobot = null;
+var setupLoadFailed = false;
 async function setupRequest(path, data){
   const response = await fetch(path, data === undefined ? {cache:'no-store'} :
     {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
@@ -1866,13 +1869,34 @@ async function setupRequest(path, data){
   return result;
 }
 function setupButtons(){
+  if(setupScanRobot !== robotTargetUrl){setupLastScan = null; setupSource = null;}
   $('setup-scan').disabled = setupBusy || motorSetupSupported === false;
-  $('setup-assign').disabled = setupBusy || motorSetupSupported === false || setupSource === null;
+  $('setup-assign').disabled = setupBusy || motorSetupSupported === false || setupSource === null || (setupReassign && !$('setup-isolated').checked);
+  const extra = setupLastScan && setupLastScan.new_ids.length === 1;
+  document.querySelectorAll('#setup-slots button').forEach(button=>{
+    if(button.dataset.action === 'assign'){
+      const alreadyAtId = setupLastScan && setupLastScan.ids.includes(Number(button.dataset.motorId));
+      button.textContent = alreadyAtId ? 'Finish assignment' : 'Assign';
+      button.title = alreadyAtId
+        ? 'Verify this motor at its current ID and save the joint assignment. Its ID will not change.'
+        : 'Assign the detected extra motor to this joint';
+    }
+    button.disabled = setupBusy || motorSetupSupported === false ||
+      (button.dataset.action === 'assign' && (!extra || setupReassign));
+  });
+  document.querySelectorAll('#setup-slots [data-scan-id]').forEach(cell=>{
+    cell.textContent = !setupLastScan ? 'Not checked' : setupLastScan.ids.includes(Number(cell.dataset.scanId)) ? 'Responded' : 'Not seen';
+    cell.parentElement.classList.toggle('setup-missing', cell.dataset.assigned === 'true' && !!setupLastScan && !setupLastScan.ids.includes(Number(cell.dataset.scanId)));
+  });
   $('setup-joint').disabled = setupBusy || motorSetupSupported === false;
 }
-async function setupLoad(){
+async function setupLoad(snapshot){
+  const requestedRobot = robotTargetUrl;
   try {
-    const data = await setupRequest('/api/setup');
+    const data = snapshot || await setupRequest('/api/setup');
+    if(requestedRobot !== robotTargetUrl) return false;
+    if(setupLoadFailed) $('setup-result').textContent = '';
+    setupLoadFailed = false;
     motorSetupSupported = data.supported !== false;
     motorSetupCount = motorSetupSupported ? data.assigned : null;
     motorSetupError = ''; updateSetupGate(); setupButtons();
@@ -1888,9 +1912,43 @@ async function setupLoad(){
     for(const slot of data.slots){
       const state = slot.saved ? 'Assigned' : 'Unassigned';
       select.add(new Option(slot.name+' · ID '+slot.id+' · '+state, slot.joint));
+      const row = document.createElement('tr');
+      for(const value of ['L'+slot.leg, slot.axis, slot.id, state]){
+        const cell = document.createElement('td'); cell.textContent = value; row.append(cell);
+      }
+      const actions = document.createElement('td');
+      const visibility = document.createElement('td');
+      visibility.dataset.scanId = slot.id;
+      visibility.dataset.assigned = String(!!slot.saved);
+      row.append(visibility);
+      const edit = document.createElement('button');
+      edit.textContent = slot.saved ? 'Reassign' : 'Assign';
+      edit.dataset.action = slot.saved ? 'reassign' : 'assign';
+      edit.dataset.motorId = slot.id;
+      edit.onclick = ()=>{
+        if(setupBusy) return;
+        if(!slot.saved){
+          if(setupReassign || !setupLastScan || setupScanRobot !== robotTargetUrl || setupLastScan.new_ids.length !== 1) return;
+          setupSource = setupLastScan.new_ids[0];
+          select.value = slot.joint;
+          $('setup-replace').checked = false;
+          $('setup-assign').onclick();
+          return;
+        }
+        setSetupOperation(slot.saved);
+        setupExpectedSource = slot.saved ? slot.id : null;
+        select.value = slot.joint;
+        $('setup-replace').checked = false;
+        $('setup-result').textContent = slot.saved
+          ? 'Reassigning '+slot.name+' (ID '+slot.id+'). Isolate this motor, scan, then choose its destination joint.'
+          : 'Assign a new motor to '+slot.name+'. Scan it first.';
+        $('setup-editor').scrollIntoView({behavior:'smooth', block:'start'});
+      };
+      actions.append(edit);
+      if(slot.saved){
       const button = document.createElement('button');
-      button.textContent = slot.name+' · '+slot.id+' · '+state;
-      button.title = slot.saved ? 'Click to wiggle this motor ±3°' : 'Select this joint';
+      button.textContent = 'Identify';
+      button.title = 'Move '+slot.name+' ±3°';
       button.onclick = async ()=> {
         if(setupBusy) return;
         select.value = slot.joint; $('setup-replace').checked = false;
@@ -1903,51 +1961,94 @@ async function setupLoad(){
         } catch(e){ $('setup-result').textContent = e.message; }
         finally { setupBusy = false; setupButtons(); }
       };
-      $('setup-slots').append(button);
+      actions.append(button);
+      }
+      row.append(actions);
+      $('setup-slots').append(row);
     }
     if(previous) select.value = previous;
     $('setup-progress').textContent = data.slots.filter(s=>s.saved).length+' / 18 motors assigned';
-  } catch(e){ motorSetupCount = null; motorSetupError = e.message; updateSetupGate(); $('setup-result').textContent = e.message; }
+    setupButtons();
+    return true;
+  } catch(e){
+    if(requestedRobot !== robotTargetUrl) return false;
+    setupLoadFailed = true;
+    motorSetupCount = null; motorSetupError = e.message; updateSetupGate();
+    $('setup-progress').textContent = 'Assignments unavailable — retrying…';
+    $('setup-result').textContent = 'Could not load assignments from the robot. '+e.message;
+    return false;
+  }
 }
 $('setup-joint').onchange = ()=> { $('setup-replace').checked = false; };
+function setSetupOperation(reassign){
+  setupReassign = reassign;
+  setupSource = null;
+  setupExpectedSource = null;
+  $('setup-editor').hidden = !reassign;
+  $('setup-isolated').checked = false;
+  $('setup-clear-source').checked = false;
+  $('setup-reassign-options').hidden = !setupReassign;
+  $('setup-detected').textContent = 'Scan before assigning a motor.';
+  setupButtons();
+};
+$('setup-isolated').onchange = setupButtons;
+$('setup-cancel').onclick = ()=>{setSetupOperation(false); $('setup-detected').textContent = setupLastScan ? setupScanSummary(setupLastScan) : 'Scan to find motors.';};
 function setupScanSummary(data){
-  const ids = data.ids, fresh = data.new_ids;
-  let message = ids.length
-    ? ids.length+' motor IDs responded: '+ids.join(', ')+'. '
-    : 'No motors responded in the scanned range (IDs 1–30). ';
-  if(fresh.length === 1) message += '1 new motor: ID '+fresh[0]+'. Choose its joint and assign it.';
-  else if(fresh.length > 1) message += fresh.length+' unassigned IDs: '+fresh.join(', ')+'. Add one new motor at a time.';
-  else if(ids.length) message += 'No new motor found; all responding IDs are already assigned. If you added a motor, it may share an existing ID or may not be responding. Scan it alone to check its ID.';
-  else message += 'Check motor power and the data cable from the controller to the first motor. The scan cannot identify the exact cause; a disconnected chain, ID conflict, or an ID outside this range can also prevent detection.';
-  if(data.missing_ids && data.missing_ids.length)
-    message += ' Saved IDs not responding: '+data.missing_ids.join(', ')+'. Saved assignments do not prove a motor is connected.';
-  return message;
+  const fresh = data.new_ids;
+  const count = data.ids.length;
+  const seen = count+' motor'+(count === 1 ? '' : 's')+' seen.';
+  if(fresh.length === 1) return seen+' Motor ID '+fresh[0]+' is ready to assign.';
+  if(fresh.length > 1) return seen+' Multiple unassigned motors: '+fresh.join(', ')+'. Connect one at a time.';
+  return count ? seen+' No extra motor to assign.' : seen;
 }
 $('setup-scan').onclick = async ()=>{
-  setupBusy = true; setupSource = null; setupButtons();
+  setupBusy = true; setupSource = null; setupLastScan = null; setupButtons();
+  const requestedRobot = robotTargetUrl;
   $('setup-detected').textContent = 'Scanning…';
   try {
+    if(!await setupLoad()){
+      $('setup-detected').textContent = 'Scan paused until assignments can be loaded. Try Scan motors again.';
+      return;
+    }
     const data = await setupRequest('/api/setup/scan', {});
+    if(requestedRobot !== robotTargetUrl) return;
+    setupLastScan = data; setupScanRobot = requestedRobot;
     setupSource = data.single ? data.new_ids[0] : null;
     $('setup-detected').textContent = setupScanSummary(data);
+    if(setupReassign){
+      setupSource = data.ids.length === 1 ? data.ids[0] : null;
+      if(setupExpectedSource !== null && setupSource !== setupExpectedSource){
+        setupSource = null;
+        $('setup-detected').textContent = 'Expected only ID '+setupExpectedSource+'. Responding IDs: '+(data.ids.join(', ') || 'none')+'. Isolate the motor selected in the table and scan again.';
+        return;
+      }
+      $('setup-detected').textContent = setupSource !== null
+        ? 'Motor responds as ID '+setupSource+'. Choose the destination joint below. Its ID will become the ID shown for that joint.'
+        : 'Reassignment requires exactly one connected motor. Responding IDs: '+(data.ids.join(', ') || 'none')+'.';
+    }
   } catch(e){ $('setup-detected').textContent = 'Scan failed — motor presence is unknown. '+e.message; }
   finally {setupBusy = false; setupButtons();}
 };
 $('setup-assign').onclick = async ()=>{
+  if(setupBusy || setupSource === null || setupScanRobot !== robotTargetUrl) return;
   setupBusy = true; setupButtons();
-  $('setup-result').textContent = 'Assigning and checking the ID…';
+  $('setup-result').textContent = setupSource === Number($('setup-joint').value)+2
+    ? 'Verifying the existing ID and saving its assignment…' : 'Assigning and checking the ID…';
   try {
     const joint = Number($('setup-joint').value);
     const data = await setupRequest('/api/setup/assign', {source_id:setupSource, joint,
-      replace:$('setup-replace').checked});
+      replace:$('setup-replace').checked, reassign:setupReassign,
+      isolated:$('setup-isolated').checked, clear_source:$('setup-clear-source').checked});
     $('setup-result').textContent = data.message;
     $('setup-replace').checked = false;
+    setupLastScan = null;
+    setSetupOperation(false);
     await setupLoad();
     $('setup-joint').value = Math.min(joint+1,17);
   } catch(e){ $('setup-result').textContent = e.message; }
   finally {
-    setupSource = null; setupBusy = false; setupButtons();
-    $('setup-detected').textContent = 'Scan again before the next assignment.';
+    setupSource = null; setupLastScan = null; setupBusy = false; setupButtons();
+    $('setup-detected').textContent = 'Scan again to update the table. If the motor already has its destination ID, use Finish assignment on that row.';
   }
 };
 
@@ -5435,7 +5536,7 @@ function updateSetupGate(){
   const detail = motorSetupError ? 'Unable to read this robot’s assignments. Retry in Motor setup.' :
     motorSetupCount === null ? 'Checking this robot’s motor assignments…' :
     motorSetupCount+' of 18 motors assigned on this robot.';
-  notice.hidden = !blocked;
+  notice.hidden = !blocked || ['setup','motors'].includes(activeView);
   const label = motorSetupError ? 'Setup check unavailable' : motorSetupCount === null ? 'Checking setup' : 'Motor setup required';
   $('setup-notice-title').textContent = label;
   $('setup-notice-detail').textContent = detail+' Robot control pages are unavailable until setup is complete.';
@@ -5473,6 +5574,7 @@ async function refreshSetupReadiness(){
     motorSetupSupported = data.supported !== false;
     motorSetupCount = motorSetupSupported ? data.assigned : null;
     motorSetupError = '';
+    if(activeView === 'setup' && !setupBusy) await setupLoad(data);
   } catch(e){
     if(requestedRobot !== robotTargetUrl) return;
     motorSetupSupported = null; motorSetupCount = null; motorSetupError = e.message;

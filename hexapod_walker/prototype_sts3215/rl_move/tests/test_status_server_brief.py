@@ -196,3 +196,31 @@ def test_render_first_snapshot_still_has_research_brief(monkeypatch) -> None:
     assert "Research tracks" in body
     assert "Snapshot still collecting" in body
     assert "href='/now'" in body
+
+
+def test_reopened_track_ignores_historical_retirement() -> None:
+    assert status_server._track_badge(
+        "walkcurr", "## RETIRED old phase", [], {},
+        "RETIRED real physics. PRIMARY GPU CAMPAIGN since September 5.",
+        "open") == ("IDLE / OPEN", "open")
+
+
+def test_live_activity_overrides_stale_retirement() -> None:
+    runs = [{"run": "current", "status": "RUNNING"}]
+    assert status_server._track_badge(
+        "walkcurr", "", runs, {}, "RETIRED") == ("ACTIVE NOW", "active")
+    runs[0]["status"] = "FINISHED"
+    assert status_server._track_badge(
+        "walkcurr", "", runs, {"current": "triage"}, "RETIRED"
+    ) == ("ANALYZING", "active")
+
+
+def test_queued_track_is_not_reported_idle_or_running(monkeypatch) -> None:
+    monkeypatch.setattr(status_server._tracks, "load", lambda: {})
+    brief = status_server.research_brief({
+        "status_docs": {"walkcurr": {"text": "Old run launched yesterday."}},
+        "ledger": [],
+        "backlog": {"queued": [{"run": "next", "track": "walkcurr"}]},
+    }, {})
+    assert brief["topics"][0]["badge"] == "QUEUED"
+    assert "Queued: next" in brief["topics"][0]["where"]

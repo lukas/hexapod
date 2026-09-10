@@ -8,8 +8,9 @@ from html import escape
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
+from pydantic import BaseModel, Field
 
 from .config import Settings, load_settings
 from .store import Store
@@ -136,12 +137,49 @@ def render(store: Store, settings: Settings, robot: Optional[str] = None) -> str
     return "".join(out)
 
 
-def build_router(viewer_dependency: Callable, settings: Optional[Settings] = None) -> APIRouter:
+class ImportIn(BaseModel):
+    """A hand-run experiment sent from another device. Files follow as PUTs."""
+    title: str = Field(min_length=1, max_length=200)
+    why: str = Field(min_length=1, max_length=2000)
+    found: str = Field(default="", max_length=4000)
+    robot: str = Field(default="hexapod2", pattern=r"^[a-z0-9_-]{1,32}$")
+    status: str = Field(default="ok", pattern=r"^(ok|failed)$")
+
+
+def build_router(viewer_dependency: Callable, operator_dependency: Optional[Callable] = None,
+                 settings: Optional[Settings] = None) -> APIRouter:
     settings = settings or load_settings()
+    operator_dependency = operator_dependency or viewer_dependency
     router = APIRouter(prefix="/v2")
 
     def store() -> Store:
         return Store(settings.db_path)
+
+    @router.post("/api/import", status_code=201)
+    def import_experiment(spec: ImportIn, _=Depends(operator_dependency)):
+        s = store()
+        rid = s.import_run(robot=spec.robot, title=spec.title, why=spec.why, found=spec.found,
+                           source_dir=None, runs_dir=settings.runs_dir, status=spec.status)
+        return {"run_id": rid, "files_url": f"/v2/api/runs/{rid}/files/", "page": f"/v2/?robot={spec.robot}"}
+
+    @router.put("/api/runs/{run_id}/files/{filename}", status_code=201)
+    async def upload_file(run_id: str, filename: str, request: Request, _=Depends(operator_dependency)):
+        s = store()
+        run = s.run(run_id)
+        if not run or not json.loads(run.get("summary_json") or "{}").get("imported"):
+            raise HTTPException(404, "not an imported run")
+        # Body streams to disk in chunks; a phone video should not sit in RAM.
+        root = Path(run["run_dir"])
+        name = Path(filename).name
+        if not name or name.startswith(".") or name == "runner.log":
+            raise HTTPException(400, "bad filename")
+        root.mkdir(parents=True, exist_ok=True)
+        size = 0
+        with (root / name).open("wb") as out:
+            async for chunk in request.stream():
+                out.write(chunk)
+                size += len(chunk)
+        return {"run_id": run_id, "file": name, "bytes": size, "url": f"/v2/runs/{run_id}/{name}"}
 
     @router.get("", response_class=HTMLResponse, include_in_schema=False)
     @router.get("/", response_class=HTMLResponse)

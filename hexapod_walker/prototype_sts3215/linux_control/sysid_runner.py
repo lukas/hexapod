@@ -76,7 +76,14 @@ DEFAULT_START_TOL_DEG = 12.0   # traj continuity gate (mid-protocol)
 GLIDE_RATE_DEG_S = 12.0        # slow start-pose glide (air)
 GLIDE_TIMEOUT_S = 45.0
 GLIDE_SETTLE_S = 1.0
-GLIDE_TOL_DEG = 3.0            # post-glide worst-joint verification
+# Post-glide worst-joint verification. Was 3.0: on 2026-09-10 the lab
+# measured 3.4-3.8 deg of gravity droop on weight-bearing hips/knees at the
+# loaded stand pose, so every whole-body protocol with a loaded home pose
+# died here before tick one ("joint 1 off by 3.4 deg after glide") -- the
+# gate was rejecting the robot's own compliance. 8 deg clears the measured
+# droop with margin and still catches the failures it exists for: a jam or
+# a wrong logical zero shows up as 20-30+ deg (MAX_TRACK_ERR_DEG is 30).
+GLIDE_TOL_DEG = 8.0
 DEFAULT_MIN_VOLTAGE_V = 10.8
 DEFAULT_MAX_VOLTAGE_V = 13.0
 DEFAULT_MAX_STATE_AGE_MS = 1500.0

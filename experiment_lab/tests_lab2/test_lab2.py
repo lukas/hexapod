@@ -163,3 +163,24 @@ def test_import_hand_run_experiment(settings, store, tmp_path):
     assert store.runs(robot="hexapod2")[0]["id"] == rid and store.runs(robot="hexapod1") == []
     assert store.next_runnable() is None  # imported plans never enter the robot-1 queue
     assert store.robots() == ["hexapod2"]
+
+
+def test_http_import_then_upload_file(settings, store):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from hexapod_lab2.web import build_router
+    app = FastAPI()
+    app.include_router(build_router(lambda: None, lambda: None, settings=settings))
+    c = TestClient(app)
+    r = c.post("/v2/api/import", json={"title": "Hex2 stand", "why": "Level?", "found": "Level for 30 s.",
+                                       "robot": "hexapod2"})
+    assert r.status_code == 201, r.text
+    rid = r.json()["run_id"]
+    up = c.put(f"/v2/api/runs/{rid}/files/clip.mp4", content=b"\x00" * 5000)
+    assert up.status_code == 201 and up.json()["bytes"] == 5000
+    assert c.put(f"/v2/api/runs/{rid}/files/../evil", content=b"x").status_code in (400, 404, 201)
+    assert Store(settings.db_path).run_files(rid) == ["clip.mp4"]
+    assert c.get(f"/v2/runs/{rid}/clip.mp4").status_code == 200
+    page = c.get("/v2/?robot=hexapod2").text
+    assert "Hex2 stand" in page and "clip.mp4" in page
+    assert c.put("/v2/api/runs/nope/files/a.txt", content=b"x").status_code == 404

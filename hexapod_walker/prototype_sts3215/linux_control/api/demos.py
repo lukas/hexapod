@@ -838,6 +838,11 @@ class DemosApi:
         mid = n // 2
         return vals[mid] if n % 2 else (vals[mid - 1] + vals[mid]) / 2.0
 
+    # Upright classifier limits (see _normal_standing_pose).
+    UPRIGHT_MAX_DELTA_DEG = 60.0
+    UPRIGHT_FOLDED_KNEE_DEG = 105.0
+    UPRIGHT_FOLDED_HIP_DEG = -20.0
+
     def _normal_standing_pose(self, present: list[float], *,
                               tilt_deg: float | None = None,
                               pinned: dict | None = None) -> dict | None:
@@ -874,18 +879,38 @@ class DemosApi:
         knee_med = self._median(knees)
         if hip_med < 5.0 or knee_med < 12.0:
             return None
+        # A leg folded under the body (knee well past the plant range with
+        # its hip swung negative) is the pinned-tip signature: never call
+        # that "standing", however close the other five legs are.
+        for hip, knee in zip(hips, knees):
+            if knee > self.UPRIGHT_FOLDED_KNEE_DEG \
+                    and hip < self.UPRIGHT_FOLDED_HIP_DEG:
+                return None
 
+        # Per-joint tolerance vs the reference stances. 2026-09-10 on
+        # hexapod2: after an RL or scripted walk one hip routinely rests
+        # 26-45 deg from walk-ready while the robot is plainly standing
+        # (the median shape gate above already passed). With the old 25/35
+        # deg limits every such stand/lower request was classified as a
+        # recovery pose and routed to safe_zero, whose first stage
+        # straightens LOADED legs outward and drops the chassis onto its
+        # belly (nine times that day, on video). A standing robot must be
+        # re-held via the walk-ready glide / STEP-down instead, so the
+        # limit is now UPRIGHT_MAX_DELTA_DEG for both references; belly and
+        # folded postures are still excluded by the shape gates above.
         refs: list[tuple[str, list[float], float]] = []
         try:
             from rl_walk_start import walk_start_pose_degrees
             refs.append(("sim_walk_start", [float(v) for v in
-                                            walk_start_pose_degrees()], 25.0))
+                                            walk_start_pose_degrees()],
+                         self.UPRIGHT_MAX_DELTA_DEG))
         except Exception:
             pass
         try:
             step = self._load_standup()["modes"]["step"]["keyframes"]
             refs.append(("step", [float(v) for v in
-                                  step[-1]["q_deg"]], 35.0))
+                                  step[-1]["q_deg"]],
+                         self.UPRIGHT_MAX_DELTA_DEG))
         except Exception:
             pass
 
@@ -1090,13 +1115,18 @@ class DemosApi:
             err = abs(float(target[j]) - float(val))
             if err >= worst:
                 worst, worst_j = err, j
+        # 8 deg = the RL runner's own DRIVE_START_DRIFT_TOL_DEG. A loaded
+        # hip settles 3-6 deg under the chassis weight after a walk, which
+        # used to fail this 5 deg check and report the (successful) re-plant
+        # as an error.
+        tol = 8.0
         check = {
-            "ok": not verify_missing and worst <= 5.0,
+            "ok": not verify_missing and worst <= tol,
             "max_err_deg": round(worst, 2),
             "worst_joint": worst_j,
             "worst_name": (joint_label(worst_j, self.names)
                            if worst_j is not None else None),
-            "tol_deg": 5.0,
+            "tol_deg": tol,
             "missing_joints": verify_missing,
             "goal": "sim_walk_start",
         }
@@ -1108,7 +1138,7 @@ class DemosApi:
             else:
                 check["error"] = (
                     f"walk-ready pose is {worst:.1f}° off on "
-                    f"{check['worst_name']} (need ≤5°)")
+                    f"{check['worst_name']} (need ≤{tol:g}°)")
         result = {
             "ok": bool(check.get("ok")),
             "mode": "rl_walk_ready_start",

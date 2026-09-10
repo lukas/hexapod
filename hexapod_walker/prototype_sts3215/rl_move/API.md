@@ -104,6 +104,20 @@ rl_move.scripts.summarize_scripted_gait_reliability --runs
 rl_move/hardware_traces --output
 rl_move/hardware_traces/gait_reliability.json`.
 
+## Stand / lower routing after a walk (2026-09-10 fix)
+
+`POST /api/rl/stand`, `/api/zero {"pose":"stand"}` and `/api/standup`
+classify the present pose before moving. Until 2026-09-10 a standing robot
+whose stance was >25 deg from walk-ready on ANY joint (normal after an RL
+or scripted walk) was classified as a recovery pose and sent through
+`safe_zero`, whose first stage straightens the LOADED legs outward and
+drops the chassis onto its belly (video in the Robot Lab hexapod2 runs).
+Now: upright-but-off (median hip/knee in the standing range, tilt < 20 deg,
+no leg folded under, per-joint delta <= 60 deg) re-plants to walk-ready or
+STEP-lowers; a folded-under pose (median hip < 0, median knee > 90) runs the
+20 % torque untrap fold BEFORE safe_zero. `safe_zero` is still the tool for
+genuinely low/tangled poses. Tests: `linux_control/test_upright_routing.py`.
+
 ## Joystick-driving hexapod2 with the RL walk (2026-09-10)
 
 State on `hexapod2.local` as left on 2026-09-10: walk slot AND hold role =

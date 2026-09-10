@@ -144,3 +144,18 @@ a look before it is used for anything.
 
 The 50 Hz retrain order filed earlier today (RL_LOG 2026-09-10) predates
 this result; 50 Hz remains a useful margin option, not a requirement.
+
+## Addendum (23:00 UTC): IMU I2C lead was the other stall source
+
+Later drives limped with "feedback stale during stream; hold unverified;
+limped": the snapshot IMU age climbed past the runner's 150 ms guard while
+positions stayed fresh. Bridge counters showed 225 IMU I2C read failures in
+546k passes and a max IMU pass of 500 ms (Zephyr Wire has no timeout, so a
+hung transaction blocks the whole MCU, which also stalls the servo stream).
+After the operator reseated the MPU-6050 lead: 0 failures in 135k passes,
+max pass 0.45 ms, no stale samples over four RL sessions. Firmware now
+retries a runtime IMU dropout after 100 ms (was 1000 ms) and the runner
+allows ~1 s (40 attempts) to confirm a hold after a stream loss before it
+limps. A pinned/leaning robot after such a limp is recovered safely with
+`POST /api/untrap {"force":true}` then `POST /api/safe_zero {}` (20% torque
+fold first; do not call stand or safe_zero directly from a pinned pose).

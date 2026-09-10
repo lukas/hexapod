@@ -33,6 +33,9 @@ class Settings:
     # this one at 1 Hz for every run and that is what the eyes look at.
     wide_frame_url: str = "http://127.0.0.1:8766/snapshot/0.jpg"
     eyes_model: str = "claude-sonnet-5"
+    # The robot sits small in the wide frame; the eyes look at this crop
+    # (x, y, w, h as fractions of the frame) scaled up, not the whole frame.
+    wide_crop: str = "0.02,0.0,0.6,0.75"
     claude_bin: str = "claude"
     planner_model: str = "claude-opus-5"
     builder_model: str = "claude-opus-5"
@@ -50,8 +53,8 @@ class Settings:
     # under any fix_forbidden prefix; total changed lines must stay under
     # max_fix_lines. Anything else is left on its branch for a human.
     fix_scope: str = "hexapod_walker/prototype_sts3215/"
-    fix_forbidden: tuple = ("hexapod_walker/prototype_sts3215/firmware/", "experiment_lab/")
-    max_fix_lines: int = 200
+    fix_forbidden: tuple = ("experiment_lab/",)
+    max_fix_lines: int = 300
     robot_ssh: str = "arduino@192.168.4.39"
     deploy_timeout_s: float = 240.0
     daily_spend_cap_usd: float = 40.0
@@ -84,6 +87,12 @@ class Settings:
     @property
     def pause_file(self) -> Path:
         return self.data_dir / "PAUSE"
+
+    @property
+    def robot_held(self) -> Path:
+        """Present while an engineer job owns the robot. The loop runs nothing
+        until it is gone; the engineer may ssh, flash, deploy and move it."""
+        return self.data_dir / "ROBOT_HELD"
 
     @property
     def deploy_flag(self) -> Path:
@@ -138,6 +147,7 @@ def load_settings() -> Settings:
         vision_frame_url=os.getenv("HEXAPOD_LAB2_VISION_FRAME_URL", Settings.vision_frame_url),
         wide_frame_url=os.getenv("HEXAPOD_LAB2_WIDE_FRAME_URL", Settings.wide_frame_url),
         eyes_model=os.getenv("HEXAPOD_LAB2_EYES_MODEL", Settings.eyes_model),
+        wide_crop=os.getenv("HEXAPOD_LAB2_WIDE_CROP", Settings.wide_crop),
         engineer_max_usd=_f("HEXAPOD_LAB2_ENGINEER_MAX_USD", Settings.engineer_max_usd),
         engineer_budget_s=_f("HEXAPOD_LAB2_ENGINEER_BUDGET_S", Settings.engineer_budget_s),
         max_fix_lines=_i("HEXAPOD_LAB2_MAX_FIX_LINES", Settings.max_fix_lines),

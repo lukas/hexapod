@@ -33,7 +33,8 @@ FIX_SCHEMA = {
         "fixed": {"type": "boolean"},
         "summary": {"type": "string", "description": "Under 100 words: the diagnosis you confirmed, what you changed, how you checked it."},
         "verify_protocol": {"type": "string", "description": "Existing protocol (no .json) the loop should run next to prove the fix."},
-        "touched_robot_side": {"type": "boolean", "description": "True if anything under linux_control/ changed (the loop will deploy it)."},
+        "touched_robot_side": {"type": "boolean", "description": "True if anything under linux_control/ changed."},
+        "deployed": {"type": "boolean", "description": "True if you already deployed/flashed the robot yourself."},
         "followups": {"type": "array", "maxItems": 3, "items": {"type": "object", "properties": {
             "title": {"type": "string"}, "why": {"type": "string"}, "fix_spec": {"type": "string"}},
             "required": ["title", "why", "fix_spec"]}},
@@ -44,6 +45,18 @@ FIX_SCHEMA = {
 
 def branch_name(plan_id: str) -> str:
     return f"lab2/fix-{plan_id}"
+
+
+def _robot_rules(settings: Settings, plan: Dict[str, Any]) -> str:
+    if plan.get("needs_robot"):
+        return f"""YOU HOLD THE ROBOT for this job; the loop runs nothing until you finish. You may:
+- read it and move it over HTTP at {settings.robot_url} (GET /api/feedback, /api/rl/state, /api/status; POST /api/zero {{"pose":"sit"}}, /api/standup, /api/untrap; the sysid runner with --go),
+- ssh in: `ssh {settings.robot_ssh}` (tree at /home/arduino/hexapod_sts, service hexapod-web, journal via `journalctl -u hexapod-web -n 200`),
+- deploy: `HEXAPOD_SSH={settings.robot_ssh} HEXAPOD_HOST={settings.robot_url} ./deploy_ssh.sh` from linux_control/,
+- flash bridge firmware: `firmware/flash_feetech_bridge.sh {settings.robot_ssh}` (then restart hexapod-web),
+- look: wide camera `{settings.wide_frame_url}`, tag camera `{settings.vision_frame_url}` (curl them to files and read them).
+It is a cheap robot with its own in-loop trips (current, temperature, tilt, tracking, servo loss); those are the safety system, do not add pre-run rituals. Leave it belly-down, limp and healthy (18/18 servos, tilt under 8 deg) when you finish: POST /api/zero {{"pose":"sit"}} is the way. Report deployed=true if you pushed code or firmware to the robot yourself."""
+    return f"""NEVER move the robot: no `--go`, no POST to the robot, no deploy, no ssh. The loop owns the robot; it will deploy linux_control changes between runs and run your `verify_protocol` next. Dry runs (`python -m sysid.run_hw --protocol ...` without --go) and unit tests are fine."""
 
 
 def _prompt(settings: Settings, plan: Dict[str, Any], branch: str, stills: List[Path]) -> str:
@@ -59,9 +72,9 @@ Wide-camera stills from the run that failed (look at them; they are files you ca
 
 Rules:
 - Smallest change that unblocks a run. If the real fix is bigger than this box, make the piece that unblocks and list the rest under `followups` (each a self-contained fix_spec); the loop queues them.
-- Only edit under `{settings.fix_scope}`. Never `firmware/`, never `experiment_lab/` (the lab itself), never this prompt's rules. The merge gate rejects anything else and the whole branch is left unmerged.
+- Only edit under `{settings.fix_scope}` (firmware included). Never `experiment_lab/` (the lab itself), never this prompt's rules. The merge gate rejects anything else and the whole branch is left unmerged.
 - Stay under {settings.max_fix_lines} changed lines total.
-- NEVER move the robot: no `--go`, no POST to the robot, no deploy. The loop owns the robot; it will deploy linux_control changes between runs and run your `verify_protocol` next. Dry runs (`python -m sysid.run_hw --protocol ...` without --go) and unit tests are fine.
+- {_robot_rules(settings, plan)}
 - Run the unit tests for the module you touched (`../../.venv/bin/python -m pytest <test file> -q` from hexapod_walker/prototype_sts3215/linux_control or sysid). Do not add new safety checks, pre-run gates or audits; loosen or fix, do not add ceremony.
 - Commit with a message that states the diagnosis, then: `git push origin HEAD:{branch}`.
 - Report fixed=true only if you pushed and the tests you ran pass. Name an existing protocol that will exercise the fix as `verify_protocol`."""
@@ -134,6 +147,8 @@ def fix_plan(settings: Settings, store: Store, plan: Dict[str, Any]) -> Dict[str
     if res.cost_usd:
         store.add_spend("engineer", res.cost_usd, plan["title"])
     _cleanup_worktree(settings, wt)
+    if plan.get("needs_robot"):
+        _release_robot(settings, store, plan)
     if not res.ok:
         store.set_plan_status(pid, "failed", f"engineer: {res.error}"[:300])
         store.add_event("engineer", f"{plan['title']}: engineer failed: {res.error}"[:400])
@@ -153,7 +168,7 @@ def fix_plan(settings: Settings, store: Store, plan: Dict[str, Any]) -> Dict[str
         alerts.text(store, f"fix-{pid}", f"engineer's fix for '{plan['title']}' was not merged ({merged.get('reason')}). "
                                          f"Branch {branch} is on GitHub for you to look at.")
         return {"ok": False, "error": note, "cost_usd": res.cost_usd, **merged}
-    if merged.get("robot_side") or out.get("touched_robot_side"):
+    if (merged.get("robot_side") or out.get("touched_robot_side")) and not out.get("deployed"):
         settings.deploy_flag.write_text(f"{branch}: {summary}\n")
     verify = str(out.get("verify_protocol") or "").strip().removesuffix(".json")
     from .runner import protocol_exists
@@ -170,6 +185,30 @@ def fix_plan(settings: Settings, store: Store, plan: Dict[str, Any]) -> Dict[str
     store.set_plan_status(pid, "done", f"merged {merged.get('stat', '')}; verify {verify or 'none'}; {queued} followups")
     store.add_event("engineer", f"{plan['title']}: merged ({merged.get('stat', '')}). {summary}"[:400])
     return {"ok": True, "cost_usd": res.cost_usd, "verify": verify, "followups": queued, **merged}
+
+
+def _release_robot(settings: Settings, store: Store, plan: Dict[str, Any]) -> None:
+    """The engineer is done with the robot: make sure it is healthy and at rest
+    before the loop takes it back; run the recovery ladder if it is not."""
+    from . import recovery, robot
+    settings.robot_held.unlink(missing_ok=True)
+    try:
+        fb = robot.health(settings.robot_url, 20.0)
+        if recovery.at_rest(fb):
+            store.add_event("engineer", f"{plan['title']}: robot released healthy and at rest")
+            return
+        note = "robot released but not at rest"
+    except Exception as exc:  # noqa: BLE001
+        note = f"robot released unhealthy: {exc}"
+    store.add_event("engineer", f"{plan['title']}: {note}; running recovery")
+    rep = recovery.recover(settings, log=lambda m: None)
+    store.add_event("recovery", ("recovered after engineer: " if rep["ok"] else "FAILED after engineer: ")
+                    + "; ".join(f"{r['rung']}={r['status'][:60]}" for r in rep["rungs"]))
+    if not rep["ok"]:
+        from . import alerts
+        settings.pause_file.write_text("paused: robot not healthy after engineer job\n")
+        alerts.text(store, "needs_hand", f"after the engineer job '{plan['title'][:60]}' the robot is not at rest and "
+                                         f"recovery failed. Paused; check it, then reply resume.")
 
 
 def _stills_for(store: Store, plan: Dict[str, Any]) -> List[Path]:

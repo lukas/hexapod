@@ -84,20 +84,23 @@ class Store:
             if "robot" not in cols:
                 self.con.execute(
                     f"ALTER TABLE {table} ADD COLUMN robot TEXT NOT NULL DEFAULT 'hexapod1'")
+        cols = {r["name"] for r in self.con.execute("PRAGMA table_info(plans)")}
+        if "needs_robot" not in cols:
+            self.con.execute("ALTER TABLE plans ADD COLUMN needs_robot INTEGER NOT NULL DEFAULT 0")
         self.con.commit()
 
     # -- plans -------------------------------------------------------------
     def add_plan(self, *, title: str, why: str, kind: str, protocol: Optional[str],
                  build_spec: Optional[str], force: bool = False,
                  source: str = "planner", robot: str = "hexapod1",
-                 status: Optional[str] = None) -> str:
+                 status: Optional[str] = None, needs_robot: bool = False) -> str:
         pid = new_id()
         now = now_iso()
         self.con.execute(
             "INSERT INTO plans (id, created_at, title, why, protocol, kind, build_spec,"
-            " force, status, source, updated_at, robot) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            " force, status, source, updated_at, robot, needs_robot) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (pid, now, title, why, protocol, kind, build_spec, int(force),
-             status or ("queued" if kind == "existing" else "building"), source, now, robot),
+             status or ("queued" if kind == "existing" else "building"), source, now, robot, int(needs_robot)),
         )
         self.con.commit()
         return pid

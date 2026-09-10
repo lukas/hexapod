@@ -143,6 +143,10 @@ def main_loop(settings: Settings, store: Store, *, log=print, sleep=time.sleep,
         started = builder.maybe_start()
         if started:
             log(f"code job started for plan {started}")
+        if settings.robot_held.exists():
+            log(f"engineer holds the robot ({settings.robot_held.read_text().strip()[:60]})")
+            sleep(settings.idle_sleep_s)
+            continue
         plan = store.next_runnable()
         if plan is None:
             # A queue of nothing but builds must not leave the robot idle for

@@ -28,6 +28,9 @@ def main(argv=None) -> int:
     imp.add_argument("--why", required=True)
     imp.add_argument("--found", default="", help="one paragraph: what it showed. Joins the learnings the planner reads.")
     imp.add_argument("--status", default="ok", choices=["ok", "failed"])
+    sub.add_parser("recover", help="run the robot's own recovery ladder now (safe-zero, untrap, safe-zero)")
+    at = sub.add_parser("alert-test", help="send one test text to the configured recipient")
+    at.add_argument("--message", default="test from Robot Lab v2")
     sub.add_parser("status")
     sub.add_parser("pause"); sub.add_parser("resume")
     args = ap.parse_args(argv)
@@ -65,6 +68,16 @@ def main(argv=None) -> int:
         print(json.dumps({"run_id": rid, "files": store.run_files(rid),
                           "url": f"/v2/?robot={args.robot}"}, indent=1))
         return 0
+    if args.cmd == "recover":
+        from . import recovery
+        rep = recovery.recover(settings, log=lambda m: print(m, flush=True))
+        store.add_event("recovery", ("recovered (operator): " if rep["ok"] else "FAILED (operator): ")
+                        + "; ".join(f"{r['rung']}={r['status'][:60]}" for r in rep["rungs"]))
+        print(json.dumps(rep, indent=1)); return 0 if rep["ok"] else 1
+    if args.cmd == "alert-test":
+        from . import alerts
+        sent = alerts.text(store, f"test-{store.events(1)[0]['id'] if store.events(1) else 'first'}", args.message)
+        print("sent" if sent else "not sent: " + store.events(1)[0]["text"]); return 0 if sent else 1
     if args.cmd == "status":
         print(json.dumps({"paused": settings.pause_file.exists(), "last_stop": store.last_stop(),
                           "spend_24h_usd": round(store.spend_last_24h(), 2),

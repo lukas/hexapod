@@ -14,4 +14,6 @@ if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
   ANTHROPIC_API_KEY="$(/usr/bin/security find-generic-password -a operator -s 'Hexapod Claude API' -w 2>/dev/null || true)"
 fi
 export ANTHROPIC_API_KEY
+# Who to text when the loop stops or the robot needs a hand (Messages.app).
+export HEXAPOD_LAB2_ALERT_RECIPIENT="${HEXAPOD_LAB2_ALERT_RECIPIENT:-$(/usr/bin/security find-generic-password -a recipient -s 'Hexapod Blocker Alerts' -w 2>/dev/null || true)}"
 exec "$V/bin/hexapod-lab2" loop

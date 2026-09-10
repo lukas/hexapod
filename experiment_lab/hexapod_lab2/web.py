@@ -91,7 +91,11 @@ def render(store: Store, settings: Settings, robot: Optional[str] = None) -> str
            + (f"<a href='/v2/'>all robots</a>" if robot else "")
            + f"<a href='/'>old lab</a><a href='/v2/api/state'>json</a></div>"]
     if paused:
-        out.append("<div class=pause>Paused: PAUSE file present. Remove it to continue.</div>")
+        try:
+            why = settings.pause_file.read_text().strip()
+        except OSError:
+            why = ""
+        out.append(f"<div class=pause>Paused{': ' + escape(why) if why else ''}. Run <code>hexapod-lab2 resume</code> to continue.</div>")
     if loop_stopped:
         out.append(f"<div class=stop>Loop stopped {escape(local_stamp(stop['created_at']))}: {escape(stop['text'])}. Restart the service to continue.</div>")
     running = [p for p in store.plans(["running"]) if not robot or p["robot"] == robot]

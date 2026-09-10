@@ -261,3 +261,80 @@ def test_stand_protocols_are_flagged_rejected_and_skipped(settings, store, monke
     monkeypatch.setattr(planner, "plan", lambda *a, **k: {"ok": True, "added": 0, "cost_usd": 0.0})
     loop.main_loop(settings, store, log=lambda m: None, sleep=lambda s: None, max_iterations=2)
     assert not ran and store.plan(pid)["status"] == "skipped"
+
+
+def test_jam_pattern_matches_the_trips_we_saw():
+    from hexapod_lab2 import recovery
+    for line in ["joint 14 overcurrent 2.34 A (limit 0.75, 3 consecutive polls)",
+                 "joint 8 tracking error 30 deg > 30", "start pose did not verify: joint 16 off by 3.0 deg",
+                 "joint 0 (ID 2) missed 3 consecutive reads", "bus write failed: Write timeout"]:
+        assert recovery.looks_like_jam(line), line
+    assert not recovery.looks_like_jam("vision admission failed before motion")
+
+
+def _fake_robot(fail_first_zero):
+    """Robot whose safe-zero fails once (still folded) if asked, then succeeds."""
+    calls = []
+    state = {"knee": 120.0}
+    def post(url, body):
+        calls.append((url.rsplit("/", 1)[-1], body))
+        if url.endswith("/api/zero") and not (fail_first_zero and calls.count(("zero", body)) == 1):
+            state["knee"] = 0.0
+        return {"ok": True}
+    def get(url):
+        if url.endswith("/api/rl/state"):
+            return {"pose": {"demo": {"running": False, "status": "done · at zero (safe)" if state["knee"] == 0 else "error: joint 14 overcurrent"}}}
+        joints = [{"deg": 0.0} for _ in range(18)]; joints[14]["deg"] = state["knee"]
+        return {"ok": True, "roll_deg": 0.3, "pitch_deg": 2.9, "joints": joints}
+    return calls, post, get
+
+
+def test_recovery_ladder_stops_at_first_success(settings):
+    from hexapod_lab2 import recovery
+    calls, post, get = _fake_robot(fail_first_zero=False)
+    slept = []
+    rep = recovery.recover(settings, log=lambda m: None, post=post, get=get, sleep=slept.append)
+    assert rep["ok"] and [c[0] for c in calls] == ["zero"] and slept == []
+
+
+def test_recovery_ladder_forces_untrap_only_on_rung_two_with_settle(settings):
+    from hexapod_lab2 import recovery
+    calls, post, get = _fake_robot(fail_first_zero=True)
+    slept = []
+    rep = recovery.recover(settings, log=lambda m: None, post=post, get=get, sleep=slept.append)
+    assert rep["ok"]
+    assert calls == [("zero", {"pose": "sit"}), ("untrap", {"force": True}), ("zero", {"pose": "sit"})]
+    assert slept == [recovery.SETTLE_S, recovery.SETTLE_S]
+
+
+def test_failed_recovery_pauses_texts_and_keeps_loop_alive(settings, store, monkeypatch):
+    from hexapod_lab2 import alerts, recovery
+    store.add_plan(title="p", why="w", kind="existing", protocol="steps_air_v1", build_spec=None)
+    monkeypatch.setattr(robot, "health", lambda url, budget: GOOD_FB)
+    monkeypatch.setattr(runner, "sync_checkout", lambda s: "synced")
+    monkeypatch.setattr(runner, "run_protocol", lambda s, p, rid, force=False: runner.RunResult(
+        status="failed", exit_code=1, run_dir=None, summary=None,
+        log_tail="runner: ok=False error=joint 14 overcurrent 1.10 A (limit 0.75)", motion_s=7.0))
+    monkeypatch.setattr(recovery, "recover", lambda s, **k: {"ok": False, "rungs": [{"rung": "zero", "status": "error: joint 14", "ok": False}], "final": "error: joint 14"})
+    monkeypatch.setattr(planner, "plan", lambda *a, **k: {"ok": True, "added": 0, "cost_usd": 0.0})
+    sent = []
+    monkeypatch.setattr(alerts, "send_messages_text", lambda r, m: sent.append((r, m)))
+    monkeypatch.setenv("HEXAPOD_LAB2_ALERT_RECIPIENT", "+15555550100")
+    settings.data_dir.mkdir(parents=True, exist_ok=True)
+    reason = loop.main_loop(settings, store, log=lambda m: None, sleep=lambda s: None, max_iterations=3)
+    assert reason == "iteration limit"            # paused, not stopped
+    assert settings.pause_file.exists() and "needs a hand" in settings.pause_file.read_text()
+    assert len(sent) == 1 and "needs a hand" in sent[0][1] and alerts.DASHBOARD in sent[0][1]
+    kinds = [e["kind"] for e in store.events(10)]
+    assert "needs_hand" in kinds and "recovery" in kinds and "text" in kinds
+
+
+def test_texts_are_rate_limited_per_reason(store, monkeypatch):
+    from hexapod_lab2 import alerts
+    sent = []
+    fake = lambda r, m: sent.append(m)
+    assert alerts.text(store, "stop", "first", sender=fake, recipient="+15555550100")
+    assert not alerts.text(store, "stop", "second", sender=fake, recipient="+15555550100")
+    assert alerts.text(store, "needs_hand", "other reason", sender=fake, recipient="+15555550100")
+    assert not alerts.text(store, "stop", "no recipient", sender=fake, recipient="")
+    assert len(sent) == 2

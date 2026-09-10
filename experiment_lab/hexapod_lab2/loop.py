@@ -5,7 +5,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
-from . import planner, robot, runner
+from . import alerts, planner, recovery, robot, runner
 from .builder import BuilderThread
 from .config import Settings
 from .store import Store, now_iso
@@ -81,6 +81,7 @@ def main_loop(settings: Settings, store: Store, *, log=print, sleep=time.sleep,
         if reason:
             store.add_event("stop", reason)
             log(f"STOP: {reason}")
+            alerts.text(store, "stop", f"loop stopped: {reason}. Restart with launchctl kickstart once fixed.")
             return reason
         started = builder.maybe_start()
         if started:
@@ -116,6 +117,22 @@ def main_loop(settings: Settings, store: Store, *, log=print, sleep=time.sleep,
             sleep(settings.idle_sleep_s)
             continue
         c.unreachable = 0
+        if run["status"] == "failed" and recovery.looks_like_jam(run.get("log_tail") or ""):
+            # A tripped joint usually means a leg ended up somewhere the next
+            # glide cannot start from. Let the robot free itself before the
+            # next run instead of spending three strikes finding that out.
+            log("run tripped on a joint; running recovery ladder")
+            sleep(recovery.SETTLE_S)
+            rep = recovery.recover(settings, log=log, sleep=sleep)
+            store.add_event("recovery", ("recovered: " if rep["ok"] else "FAILED: ")
+                            + "; ".join(f"{r['rung']}={r['status'][:60]}" for r in rep["rungs"]))
+            if not rep["ok"]:
+                settings.pause_file.write_text("paused: recovery failed, robot needs a hand\n")
+                store.add_event("needs_hand", f"recovery failed after {plan['protocol']}: {rep['final'][:200]}")
+                trip = (run.get("log_tail") or "").strip().splitlines()
+                alerts.text(store, "needs_hand",
+                            f"robot needs a hand. {plan['protocol']} tripped ({trip[-1][-120:] if trip else 'see log'}) "
+                            f"and safe-zero/untrap could not free it. Loop paused; free the leg, then run hexapod-lab2 resume.")
         # Every run gets its paragraph and the queue gets refreshed while the
         # result is fresh. One call, about a dollar, two minutes max.
         report = planner.plan(settings, store, run, last_run_id=run["id"])

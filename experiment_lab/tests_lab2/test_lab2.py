@@ -184,3 +184,14 @@ def test_http_import_then_upload_file(settings, store):
     page = c.get("/v2/?robot=hexapod2").text
     assert "Hex2 stand" in page and "clip.mp4" in page
     assert c.put("/v2/api/runs/nope/files/a.txt", content=b"x").status_code == 404
+
+
+def test_restart_releases_builds_the_dead_thread_left_behind(settings, store, monkeypatch):
+    pid = store.add_plan(title="b", why="w", kind="needs_code", protocol=None, build_spec="spec")
+    store.set_plan_status(pid, "building", "builder running")
+    started = []
+    monkeypatch.setattr("hexapod_lab2.loop.BuilderThread.maybe_start", lambda self: started.append(1) or None)
+    monkeypatch.setattr(planner, "plan", lambda *a, **k: {"ok": True, "added": 0, "cost_usd": 0.0})
+    loop.main_loop(settings, store, log=lambda m: None, sleep=lambda s: None, max_iterations=1)
+    assert store.plan(pid)["status_note"] == "builder interrupted by restart"
+    assert "1 interrupted build(s) requeued" in store.events(1)[0]["text"]

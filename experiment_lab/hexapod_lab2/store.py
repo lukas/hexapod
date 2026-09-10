@@ -139,6 +139,15 @@ class Store:
         row = self.con.execute("SELECT * FROM plans WHERE id=?", (plan_id,)).fetchone()
         return dict(row) if row else None
 
+    def release_stuck_builds(self) -> int:
+        """A restart kills the builder thread with the loop; its plan must not
+        stay marked as running forever."""
+        cur = self.con.execute(
+            "UPDATE plans SET status_note='builder interrupted by restart', updated_at=?"
+            " WHERE status='building' AND status_note='builder running'", (now_iso(),))
+        self.con.commit()
+        return cur.rowcount
+
     def building_plans(self) -> List[Dict[str, Any]]:
         return self.plans(["building"])
 

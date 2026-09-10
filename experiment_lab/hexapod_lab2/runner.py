@@ -73,13 +73,21 @@ def command(settings: Settings, protocol: str, *, force: bool = False) -> list[s
 
 
 def sync_checkout(settings: Settings) -> str:
-    """Fast-forward the runner checkout to origin/main; never rewrite history."""
+    """Fast-forward the runner checkout to origin/main; never rewrite history.
+
+    Fetch then merge the remote-tracking ref rather than `git pull`: the
+    builder fetches in the same repository, and a concurrent fetch leaves
+    FETCH_HEAD with several lines, which makes `pull` fail with "Cannot
+    fast-forward to multiple branches".
+    """
     try:
-        subprocess.run(["git", "-C", str(settings.checkout), "pull", "--ff-only", "-q"],
+        subprocess.run(["git", "-C", str(settings.checkout), "fetch", "-q", "origin", "main"],
                        check=True, capture_output=True, text=True, timeout=120)
+        subprocess.run(["git", "-C", str(settings.checkout), "merge", "-q", "--ff-only", "origin/main"],
+                       check=True, capture_output=True, text=True, timeout=60)
         return "synced"
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
-        return f"pull failed: {getattr(exc, 'stderr', '') or exc}".strip()[:300]
+        return f"sync failed: {getattr(exc, 'stderr', '') or exc}".strip()[:300]
 
 
 def run_protocol(settings: Settings, protocol: str, run_id: str, *, force: bool = False,

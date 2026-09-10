@@ -66,7 +66,8 @@ def main_loop(settings: Settings, store: Store, *, log=print, sleep=time.sleep,
     settings.runs_dir.mkdir(parents=True, exist_ok=True)
     builder = BuilderThread(settings, store)
     c = Counters()
-    store.add_event("note", "loop started")
+    released = store.release_stuck_builds()
+    store.add_event("note", "loop started" + (f"; {released} interrupted build(s) requeued" if released else ""))
     iterations = 0
     while max_iterations is None or iterations < max_iterations:
         iterations += 1

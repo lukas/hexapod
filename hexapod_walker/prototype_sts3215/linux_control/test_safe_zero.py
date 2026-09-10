@@ -15,8 +15,9 @@ import types
 
 from feetech_bus import (AXIS_LIMITS_DEG, N_JOINTS, deg_to_count,
                          joint_to_servo_id)
-from safe_zero import (BELLY_GROUND_Z_MM, GROUND_TOL_MM, LIFT_CLEAR_MM,
-                       SLIDE_DEV_TOL_MM, foot_r_mm, foot_z_mm,
+from safe_zero import (BELLY_GROUND_Z_MM, GROUND_TOL_MM,
+                       IMPLAUSIBLE_CURRENT_A, LIFT_CLEAR_MM,
+                       SLIDE_DEV_TOL_MM, TEMP_MAX_C, foot_r_mm, foot_z_mm,
                        ik_hip_knee, ik_leg_angles, knee_for_foot_z,
                        plan_ik_pose_transition, plan_safe_zero,
                        run_safe_zero, seg_dist_2d)
@@ -381,6 +382,99 @@ def test_executor_limps_on_stall():
     assert "L0 knee" in res["error"]
     assert bus.torque_off == {joint_to_servo_id(j)
                               for j in range(N_JOINTS)}, "must limp ALL"
+
+
+class _GuardBus(FakeBus):
+    """Injects a per-joint fault on a chosen list of sweeps.
+
+    ``pattern`` is one entry per sweep: True = fault present. Sweeps past
+    the end of the pattern are healthy. Lets a test assert that two
+    consecutive bad reads pass and three limp.
+    """
+
+    def __init__(self, start_deg, *, joint, pattern, field, value):
+        super().__init__(start_deg)
+        self.joint = joint
+        self.pattern = list(pattern)
+        self.field = field
+        self.value = value
+        self.sweeps = 0
+
+    def read_all_feedback(self):
+        out = super().read_all_feedback()
+        i = self.sweeps
+        self.sweeps += 1
+        if i < len(self.pattern) and self.pattern[i]:
+            fb = out[self.joint]
+            fb[self.field] = self.value
+            if self.field in ("current_a", "load_pct"):
+                # stall/load guards only fire on a joint that is stuck
+                fb["speed_deg_s"] = 0.0
+                fb["deg"] = fb["deg"] + 30.0
+        return out
+
+
+def _guard_run(**kw):
+    start = _pose(hip=10.0, knee=25.0)
+    plan = plan_safe_zero(start)
+    assert plan["ok"] and plan["stages"]
+    bus = _GuardBus(start, **kw)
+    return run_safe_zero(bus, plan["stages"])
+
+
+def test_two_bad_current_reads_do_not_trip():
+    """A corrupted byte, and even two split by a good read, must not limp."""
+    res = _guard_run(joint=2, pattern=[True, True, False, True],
+                     field="current_a", value=106.5)
+    assert res["ok"], res
+    assert res["peak_a"] < IMPLAUSIBLE_CURRENT_A, "wild read poisoned peak_a"
+
+
+def test_three_consecutive_wild_current_reads_trip():
+    res = _guard_run(joint=2, pattern=[True] * 3,
+                     field="current_a", value=106.5)
+    assert not res["ok"] and res.get("limp"), res
+    assert "L0 knee" in res["error"] and "implausible" in res["error"]
+
+
+def test_two_hard_cap_reads_do_not_trip():
+    """Real overcurrent under the implausible ceiling also confirms x3."""
+    res = _guard_run(joint=2, pattern=[True, True, False],
+                     field="current_a", value=7.0)
+    assert res["ok"], res
+
+
+def test_three_hard_cap_reads_trip():
+    res = _guard_run(joint=2, pattern=[True] * 3,
+                     field="current_a", value=7.0)
+    assert not res["ok"] and res.get("limp"), res
+    assert "hard cap" in res["error"], res
+
+
+def test_two_hot_reads_do_not_trip():
+    res = _guard_run(joint=4, pattern=[True, True, False],
+                     field="temp_c", value=TEMP_MAX_C + 60)
+    assert res["ok"], res
+
+
+def test_three_hot_reads_trip():
+    res = _guard_run(joint=4, pattern=[True] * 3,
+                     field="temp_c", value=TEMP_MAX_C + 60)
+    assert not res["ok"] and res.get("limp"), res
+    assert "°C" in res["error"], res
+
+
+def test_two_overload_reads_do_not_trip():
+    res = _guard_run(joint=4, pattern=[True, True, False],
+                     field="load_pct", value=95.0)
+    assert res["ok"], res
+
+
+def test_three_overload_reads_trip():
+    res = _guard_run(joint=4, pattern=[True] * 3,
+                     field="load_pct", value=95.0)
+    assert not res["ok"] and res.get("limp"), res
+    assert "load" in res["error"] or "stall" in res["error"], res
 
 
 if __name__ == "__main__":

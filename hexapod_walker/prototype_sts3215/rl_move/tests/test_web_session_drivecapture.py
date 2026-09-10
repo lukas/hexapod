@@ -3,6 +3,7 @@ helpers. No server, no MuJoCo, no network -- <1s total. See
 RESEARCH_RULES "Tests".
 """
 from rl_move.sim.web_session_drivecapture import (
+    directional_locomotion_fraction,
     drive_cmd_rejected,
     fell_during_session,
     locomotion_fraction,
@@ -88,6 +89,40 @@ def test_locomotion_fraction_ignores_near_zero_commands():
 
 def test_locomotion_fraction_empty_rows_is_not_a_stall():
     assert locomotion_fraction([], 0.06, 0.0) == 1.0
+
+
+def test_directional_locomotion_fraction_matches_magnitude_when_aligned():
+    # pure on-axis motion: signed projection == magnitude metric exactly.
+    rows = [{"vx_body": -0.05, "vy_body": 0.0}] * 6
+    frac_mag = locomotion_fraction(rows, -0.08, 0.0)
+    frac_dir = directional_locomotion_fraction(rows, -0.08, 0.0)
+    assert frac_dir == frac_mag
+
+
+def test_directional_locomotion_fraction_flags_pure_lateral_jitter():
+    # commanded reverse (-0.08, 0) but the body only oscillates sideways --
+    # a real "moving but not the right way" case the magnitude metric
+    # (2026-09-10 finding) cannot tell apart from genuine backward progress.
+    rows = [{"vx_body": 0.0, "vy_body": 0.05}, {"vx_body": 0.0, "vy_body": -0.05}]
+    assert locomotion_fraction(rows, -0.08, 0.0) > 0.5
+    assert directional_locomotion_fraction(rows, -0.08, 0.0) == 0.0
+
+
+def test_directional_locomotion_fraction_is_negative_for_wrong_way_motion():
+    # steady drift OPPOSITE the commanded direction: magnitude reads "moving
+    # fine", directional correctly reads negative (net motion the wrong way).
+    rows = [{"vx_body": 0.05, "vy_body": 0.0}] * 4
+    assert locomotion_fraction(rows, -0.08, 0.0) > 0.5
+    assert directional_locomotion_fraction(rows, -0.08, 0.0) < 0.0
+
+
+def test_directional_locomotion_fraction_ignores_near_zero_commands():
+    assert directional_locomotion_fraction(
+        [{"vx_body": 0.0, "vy_body": 0.0}], 0.0, 0.0) == 1.0
+
+
+def test_directional_locomotion_fraction_empty_rows_is_not_a_stall():
+    assert directional_locomotion_fraction([], 0.06, 0.0) == 1.0
 
 
 def test_stalled_phases_catches_the_09_10_regression_pattern():

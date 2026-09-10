@@ -1,5 +1,41 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## Stand/lower-role 50Hz retrain FAIL root-caused to a config bug, not a dynamics regression: `safety.max_delta_q_deg` deg/s-preservation math must use the ACTUAL parent contract, never an assumed legacy value (2026-09-10 ~22:4x, standwalk track)
+
+One plain sentence: `cw-stand50hz-stance-tuckclock-scratch6m` (stand/
+lower role of the op_20260910_50hz bundle) froze/over-current-pinned
+0/12 on its flat-pinned probe not because 50Hz breaks the rise
+dynamics, but because its launch notes assumed the 100Hz champion's
+slew rate was "1.5 deg/tick (=150 deg/s)" when the champion actually
+trained under `rl_move/config.yaml`'s code-default 0.375 deg/tick
+(=37.5 deg/s) — the run then set `safety.max_delta_q_deg=3.0` at 50Hz
+(=150 deg/s), i.e. 4x the champion's real physical slew ceiling, the
+exact "quietly 4x the physical slew" gotcha the config's own comment
+warns against (`safety.max_delta_q_deg: 0.375` block, config.yaml
+~line 86). Confirmed root cause: the 100Hz champion
+(`tuckclock_scratch8m`)'s own training command never sets the key
+(grepped extra_args) so it used the code default; its own
+`report.json` motor_contract reads `max_delta_q_deg=0.375,
+slew_limit_deg_s=37.5, control.hz=100` — not 1.5/150 as assumed. Fix:
+`safety.max_delta_q_deg=0.75` is the correct 50Hz-preserving value
+(0.75*50=37.5 deg/s). Corrected relaunch `cw-stand50hz-stance-
+tuckclock-scratch6m-dqfix` (identical from-scratch recipe otherwise)
+is VERIFIED RUNNING (train-5). **Binding for any future control-rate
+retrain**: never assume a parent checkpoint's `safety.max_delta_q_deg`
+from memory/comments — always read the SOURCE run's own resolved
+`motor_contract` (report.json, or `servo_model.py:motor_contract`) and
+scale from that literal number. The other 3 arms of this same
+09-10 50Hz wave (walk-role `allheading-mlp-singleframe-scratch-acq20m`,
+walk-teach `teach-scripted-allhead-scratch-acq10m-cont15m`, turn-role
+`turn50hz-standwalk-cap29-stdwalklohi-warmadapt-canary2m`) were
+checked and all three correctly used `0.75` — this bug was isolated to
+the one stand/lower arm, not systemic across the wave. Evidence:
+`ops.sh entry cw-stand50hz-stance-tuckclock-scratch6m` (FAIL-MISALIGNED
+verdict); `rl_move/config.yaml` safety block; `logs/ckpt_eval/
+cw_standwalk_stance_mesh2_stancemix_tuckclock_scratch8m_gate/
+report.json` vs `logs/ckpt_eval/cw_stand50hz_stance_tuckclock_
+scratch6m_flatprobe/report.json` motor_contract fields.
+
 ## Second 50Hz walk-role candidate GATE PASS, one UNDERTRAINED continuation (2026-09-10 ~21:4x, standwalk track) — walk leg of op_20260910_50hz now has two independent exported candidates
 
 One plain sentence: `cw-walk50hz-teach-scripted-allhead-scratch-acq10m-cont15m`

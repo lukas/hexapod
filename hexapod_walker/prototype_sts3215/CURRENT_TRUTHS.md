@@ -1,5 +1,81 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## Plain full-obs RND state-novelty exploration is REFUTED as a fix for the walkcurr front-pair off-axis-heading sacrifice (10th mechanism class, 2/2 seeds); a heading-gated RND variant is built, tested and launched same cycle as the design note's own next-named candidate (2026-09-10, closed this cycle)
+
+`DESIGN_NOTE_2026-09-10_offaxis_frontpair.md` (see the `decleg` closure
+immediately below, its own "no untried structural idea remains named"
+trigger) named RND state-novelty exploration (Burda et al. 2018,
+already built/wired in this codebase, `rl_move/sim/rnd_vec.py`
+`--rnd-coef`) as the next candidate: a bonus for visiting observations
+the policy's own predictor can't yet predict, independent of task
+return — the one exploration primitive not yet tried on this problem,
+distinct from every already-closed exposure/entropy/self-distillation/
+advantage-normalization/architecture lever because those all broaden
+or reweight the SAME on-policy Gaussian noise rather than reward being
+somewhere new.
+
+**Plain full-obs canary (`--rnd-coef=0.02`, gentlest dose the 08-23
+from-scratch RND closure tried, warm-started from the widen8/crutchoff
+champion, 2 seeds): CLOSED 2/2, `CANARY FAIL - MECHANISM (efficacy)`.**
+Mechanism health PASS both seeds (reward/`ep_rew_mean` in-band with
+every sibling canary in this family at the identical depth,
+`rnd/intrinsic_mean` decayed monotonically over the run proving the
+predictor is genuinely learning not inert, zero new falls). Efficacy
+read (`eval_checkpoint.py --pinned-heading-panel --baseline <frozen
+champion>`, n=3 det+sto/heading, both seeds' own frozen parent): DET
+off-axis (±90°/±135°/180°) `gait_valid` s0 0/15 (parent 1/15), s1 0/15
+(parent 0/15) — **pooled 0/30**, at/below the campaign's own closed
+0-2/15 floor, sacrificed-leg set matching the parent leg-for-leg at
+every one of the 5 broken headings in both seeds. On-axis (0°/±45°)
+unregressed, 8/9 both seeds both arms — the plain variant did not
+damage the working gait, it simply never paid out where it was needed.
+**This is the 10th independent mechanism class closed on this specific
+gap** (spanning termination pricing, reward pricing, exposure,
+exploration-noise-widening, self-distillation, PPO-advantage
+normalization, critic calibration [inconclusive], kinematic
+reachability [ruled out], decentralized-actor architecture, and now
+full-observation state-novelty), 0 passes.
+
+**Per the design note's own pre-registered text, this is a CLEAN
+(not inconclusive) FAIL, which directly licenses its named fallback —
+built and launched the SAME cycle, not left as an unfunded "next
+idea":** `rnd_vec.py` gained `heading_gate_idx`/`heading_gate_cos_max`
+(new `train_ppo_mjx.py --rnd-heading-gate-cos-max`, default `None` =
+bit-exact original unscoped path — no mask multiply at all when unset)
+— zeros the intrinsic bonus on ticks where the commanded heading is
+on-axis (`cos_heading > 0.5`, which happens to exactly separate the 3
+good headings [0°/±45°, cos>=0.707] from the 5 chronically-broken ones
+[90°/135°/180°, cos<=0]), reusing `heading_selfdistill.py`'s own
+`heading_cos`/obs-index math and validation rather than re-deriving
+it. This directly targets the design note's own named risk for the
+plain variant: "could just as easily reward novelty from the
+already-working forward gait's natural variation... or destabilize
+the already-good on-axis behavior chasing novelty elsewhere" — an
+on-axis tick can now never earn this bonus. 12 new tests
+(`rl_move/tests/test_rnd_vec.py`): bit-exact-off equivalence
+(explicit `None`/`None` vs the pre-09-10 constructor signature produce
+byte-identical rewards), gate correctly zeroes on-axis/keeps off-axis
+bonus, both-or-neither param validation, `gate_off_axis_frac` stat
+only reported when the gate is armed. Full touched-file suite green
+(41/41: `test_rnd_vec.py` + `test_heading_selfdistill.py` +
+`test_heading_adv_norm.py`). Snapshot `698c7654` pushed before
+launch. **Launched**: `cw-walkscratch-crutchoff-{s0,s1}-widen8-
+plusduty-rndheadgate-canary2m` (respec of each seed's own `-clean`
+plain-RND canary, ONLY `--rnd-heading-gate-cos-max=0.5` added),
+VERIFIED RUNNING `hexapod-mjx-train-{0,1}`. Not yet verdicted — the
+efficacy read needs the same on-pod `--pinned-heading-panel` pass the
+plain variant used; see `rl_docs/tracks/walkcurr/STATUS.md` 2026-09-10
+~11:3x for the full pre-registered gate text.
+
+**Practical impact: none on current delivery.** Champion checkpoint
+untouched, `bundle_rlonly_v1`'s already-captured sim demo is
+unaffected either way. Evidence: `ops.sh entry cw-walkscratch-
+crutchoff-{s0,s1}-widen8-plusduty-rndexplore-canary2m-clean` /
+`...-rndheadgate-canary2m`; `logs/ckpt_eval/cw_walkscratch_crutchoff_
+{s0,s1}_widen8_plusduty_rndexplore_canary2m_clean_headpanel/{report.
+json,baseline/report.json}`; `rl_move/sim/rnd_vec.py`,
+`rl_move/sim/train_ppo_mjx.py`, `rl_move/tests/test_rnd_vec.py`.
+
 ## `decleg` (decentralized per-leg actor) is REFUTED as a fix for the walkcurr front-pair off-axis-heading sacrifice — all 3 easy-pilot arms (base, gSDE, half-gravity) FAIL; no untried structural idea remains named (2026-09-10, closed this cycle)
 
 The 09-09 ~22:3x entry below closed value-calibration as the 7th and

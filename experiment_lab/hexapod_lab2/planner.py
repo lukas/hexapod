@@ -63,11 +63,15 @@ def _run_digest(run: Optional[Dict[str, Any]]) -> str:
 
 def build_prompt(settings: Settings, store: Store, last_run: Optional[Dict[str, Any]]) -> str:
     protocols = list_protocols(settings)
-    force_note = ("Protocols marked WHOLE-BODY are trajectory replays; the loop passes the runner's --force for them automatically."
+    # Nearly every reviewed protocol (all the belly-rest and radial-shear
+    # single-leg replays included) is a trajectory replay, so the tag says
+    # that and nothing more; "whole body" would steer the planner away from
+    # the cheapest runs.
+    force_note = ("Protocols marked [traj] are trajectory replays; the loop passes the runner's --force for them automatically. Read the description for the physical setup (belly-rest ones need no stand)."
                   if settings.allow_force else
-                  "Whole-body protocols (marked WHOLE-BODY) cannot run in this loop right now; do not queue them.")
+                  "Trajectory protocols (marked [traj]) cannot run in this loop right now; do not queue them.")
     proto_lines = "\n".join(
-        f"- {p['name']}{' [WHOLE-BODY]' if p['whole_body'] else ''}: {_trim(p['description'], 160)}"
+        f"- {p['name']}{' [traj]' if p['whole_body'] else ''}: {_trim(p['description'], 160)}"
         for p in protocols)
     learnings = store.learnings(limit=8)
     learn_lines = "\n".join(f"- {l['created_at'][:16]}: {_trim(l['text'], 700)}" for l in learnings) or "- none yet"

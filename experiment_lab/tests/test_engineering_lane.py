@@ -660,12 +660,14 @@ def test_queue_handoff_is_claimed_before_older_analysis_and_prompt_normalizes_le
     assert "register and seal a terminal failed result" in normalized_prompt
     assert handoff["source_context_sha256"] not in prompt
     assert '"project_context_sha256": "' + ("a" * 64) + '"' in prompt
-    assert "reuse completed export, simulation, and source validation" in normalized_prompt
-    assert "Recheck only what a changed policy" in normalized_prompt
+    # Pre-run verification is gone; the budget is stated in its place.
+    assert "PRE-RUN BUDGET: TEN SECONDS" in normalized_prompt
+    assert "moving within five minutes" in normalized_prompt
+    assert "generate_leg_variant.py SOURCE --leg N" in normalized_prompt
+    assert "three advancing samples" in normalized_prompt  # named as forbidden
     assert "distinguish an IMU-derived fall signal" in normalized_prompt
     assert "do not invent a hands-on mechanical blocker" in normalized_prompt
-    assert "clean dedicated worktree" in normalized_prompt
-    assert "validated integration branch" in normalized_prompt
+    assert "Do not commit, push or deploy as a pre-run ritual" in normalized_prompt
     assert "installed-file verification" in normalized_prompt
 
 

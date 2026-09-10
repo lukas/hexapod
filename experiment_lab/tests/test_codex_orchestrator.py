@@ -136,10 +136,14 @@ def test_analysis_prompt_keeps_floor_clear_leg_tests_off_a_chassis_stand(tmp_pat
         {"artifacts": []},
     )
 
-    assert "l2_belly_rest_radial_shear_hysteresis_repeat6_v1" in prompt
-    assert "l5_belly_rest_radial_shear_hysteresis_repeat6_v1" in prompt
-    assert "require no chassis stand" in prompt
-    assert "do not turn them back into supported-air plans" in prompt
+    # The prompt no longer hand-names protocols or tells the planner how to
+    # derive a per-leg variant; that is the generator's job. It states the
+    # budget instead.
+    assert "generate_leg_variant.py --leg N" in prompt
+    assert "TWO MINUTES of planning" in prompt
+    assert "10-second health read" in prompt
+    assert "STEP BACK FIRST" in prompt
+    assert "Doing the same thing more precisely is not progress" in prompt
     assert "not automatically proof of a physical fall" in prompt
     assert "robot tags stayed stationary relative to floor tags" in prompt
 

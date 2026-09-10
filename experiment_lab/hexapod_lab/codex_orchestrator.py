@@ -185,6 +185,12 @@ ANALYSIS_SCHEMA: Dict[str, Any] = {
             "items": {
                 "type": "object",
                 "additionalProperties": False,
+                # dependencies and stop_conditions used to be required. Every
+                # recommendation therefore shipped a hand-written checklist,
+                # and the engineering agent then spent 40 minutes and ~$50
+                # verifying it by hand before a 156 s measurement. The runner
+                # has one fixed 10-second preflight and its own in-loop trips;
+                # there is nothing for a plan to add.
                 "required": [
                     "recommendation_key",
                     "name",
@@ -193,13 +199,11 @@ ANALYSIS_SCHEMA: Dict[str, Any] = {
                     "parameters",
                     "execution_mode",
                     "rationale",
-                    "dependencies",
-                    "stop_conditions",
                 ],
                 "properties": {
                     "recommendation_key": {"type": "string", "minLength": 1},
                     "name": {"type": "string", "minLength": 1, "maxLength": 120},
-                    "description": {"type": "string", "maxLength": 4000},
+                    "description": {"type": "string", "maxLength": 600},
                     "duration_seconds": {"type": "number", "exclusiveMinimum": 0},
                     # OpenAI strict structured-output schemas cannot express an
                     # open-ended JSON object.  Carry the object as bounded JSON
@@ -207,7 +211,7 @@ ANALYSIS_SCHEMA: Dict[str, Any] = {
                     "parameters": {
                         "type": "string",
                         "minLength": 2,
-                        "maxLength": 12000,
+                        "maxLength": 3000,
                         "description": (
                             "A JSON-encoded object containing the exact experiment "
                             "parameters. It must decode to an object."
@@ -3066,7 +3070,11 @@ Evidence bundle:
 {json.dumps(evidence_bundle, indent=2, sort_keys=True)}
 
 Return the required JSON object. `what_we_learned` should be concise plain language. Set safety_disposition to stop for an observed physical hazard and needs_inspection when evidence cannot clear a plausible hazard. {queue_note}
-Recommend each next physical experiment that answers a concrete open question on the path to smooth joystick walking, up to the room stated above. Return no recommendations only when every useful physical test you can name is already queued. Never create offline replay, review, qualification, evidence-packaging, or code-audit experiments: the assigned engineering worker owns those checks and fixes inside its existing job. Explicitly requested RL training and simulation remain independent work; do not turn software housekeeping into an experiment campaign. Missing AprilTag metric coverage should make calibrated displacement unmeasured, not block a functional video-and-telemetry test whose question does not require that metric. For bounded independent-leg hysteresis tests from the normal belly-resting pose, prefer the reviewed `l2_belly_rest_radial_shear_hysteresis_repeat6_v1` and `l5_belly_rest_radial_shear_hysteresis_repeat6_v1` protocols. They intentionally require no chassis stand and keep the commanded foot clear of the floor; do not turn them back into supported-air plans or require every stationary foot to be airborne. Check that the moving leg's actual swept area is clear, and treat a cable as a blocker only when it is actually in that swept area. Each recommendation needs a stable recommendation_key, hypothesis/rationale, exact duration/parameters, dependencies, and stop conditions. In the response schema, each recommendation's `parameters` field is a JSON-encoded string; encode one JSON object there, with no prose outside that object. Use external_guarded for the next physical follow-up. Reuse completed validation when its relevant policy, runtime, and observations are unchanged. Fresh live camera plus three advancing healthy 18/18 samples and a remote abort path counts as supervision for a later guarded run. Never make mere human presence, repeated operator authorization, or standing at the abort path a prerequisite; reserve hands-on requirements for a concrete physical condition that camera, telemetry, service recovery, and documented remote controls cannot diagnose or resolve. Never recommend weakening safety, bypassing a prerequisite, unbounded motion, an automatic retry while a physical hazard remains, or learned stand/rise/lower motion.
+STEP BACK FIRST. Before recommending anything, answer these in `findings`: Has this line of measurement stopped paying -- is the last result inside its own noise floor, or a repeat of something already known to encoder precision? What is the single most direct test of smooth joystick walking that could run next, and why is it not the recommendation? If the campaign has spent more than three runs refining one quantity, the next experiment must use that quantity, not remeasure it. Doing the same thing more precisely is not progress.
+
+You have TWO MINUTES of planning. Do not audit protocols, re-derive kinematics, or write checklists. The runner has ONE fixed preflight (a single 10-second health read) and its own in-loop trips for current, temperature, load, tilt and servo loss; there is nothing for a plan to add, and any `dependencies` or `stop_conditions` you write are read as notes, never as work for someone to verify. The operator's rule: pre-run safety checking is 10 seconds, never more, and agents adding checks has cost more than any fault would have.
+
+Recommend each next physical experiment that answers a concrete open question on the path to smooth joystick walking, up to the room stated above. Return no recommendations only when every useful physical test you can name is already queued. Never create offline replay, review, qualification, evidence-packaging, or code-audit experiments. To run an existing protocol family on another leg, name the source protocol and the target leg -- `sysid/generate_leg_variant.py --leg N` does the remap; do not describe the derivation. Keep `description` to what the experiment is and why, in two or three sentences; the runner reads `parameters`, not prose. In the response schema, each recommendation's `parameters` field is a JSON-encoded string; encode one JSON object there, with no prose outside that object. Use external_guarded for physical follow-ups. Never recommend unbounded motion or learned stand/rise/lower motion.
 """
 
     @staticmethod
@@ -3278,7 +3286,7 @@ Return the required JSON receipt. For an assigned experiment, action must be `bl
                 ) from exc
         dependencies = recommendation.get("dependencies") or []
         stop_conditions = recommendation.get("stop_conditions") or []
-        if not name or len(name) > 120 or len(description) > 4000 or not rationale:
+        if not name or len(name) > 120 or len(description) > 600 or not rationale:
             raise CodexRunError("Recommended experiment text is incomplete or too long")
         if (
             not isinstance(duration, (int, float))
@@ -3307,14 +3315,15 @@ Return the required JSON receipt. For an assigned experiment, action must be `bl
             parameters.get("runner")
             != "rl_move/scripts/run_motionless_health_gate.py"
         )
-        if not offline and not stop_conditions:
-            raise CodexRunError("A physical follow-up must name stop conditions")
+        # The runner's in-loop trips are the stop conditions. A plan may add
+        # to them but no longer has to write them out; the mandatory set is
+        # appended below regardless.
         safe_parameters = dict(parameters)
         if simulation_only:
             safe_parameters["robot_motion"] = False
         if dependencies:
             safe_parameters["analysis_dependencies"] = dependencies
-        if stop_conditions and not simulation_only:
+        if not simulation_only:
             mandatory = [
                 "tip",
                 "brownout",

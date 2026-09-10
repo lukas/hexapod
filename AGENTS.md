@@ -396,7 +396,21 @@ Hard rules:
    is genuinely needed, report that concrete need; another routine permission
    question does not resolve a fault.
 
-7. **The three rule, and stop-assess-retry.** No guard fires on one reading:
+7. **Pre-run safety checking is ten seconds. Planning is two minutes.** The
+   runner's preflight is one health read inside a 10 s budget
+   (`sysid/run_hw.py`, `PREFLIGHT_BUDGET_S`). That is the entire pre-run check.
+   Do not add protocol audits, hash comparisons, kinematics recomputation,
+   review records, commit-and-push rituals, camera inspection or "three
+   samples" before motion -- each was added by an agent for a good local
+   reason and together they made a 156 s measurement cost 40 minutes and $50
+   to start. Protection during a run comes from the in-loop trips (current,
+   temperature, load, tilt, servo loss), which cost nothing; if you believe a
+   new check is needed it belongs there or nowhere. The planning analysis has
+   a 5 min hard wall and should take 2; the engineering job has 30 min for
+   everything including sealing. Before recommending an experiment, ask
+   whether the last one was inside its own noise floor; remeasuring a known
+   quantity more precisely is not progress.
+8. **The three rule, and stop-assess-retry.** No guard fires on one reading:
    every threshold — current, temperature, load, stall, missing ID, tilt —
    needs three consecutive confirming samples before it counts as a fault.
    A confirmed fault stops motion immediately, and then the run performs the

@@ -523,11 +523,24 @@ def engineering_prompt(
   Do not create separate offline review, qualification, or evidence-packaging
   experiments. Do not substitute a permission request for work the
   agent can perform through files, network, MCP, service recovery, or controls.
-- A fresh camera view plus three distinct advancing healthy 18/18 telemetry
-  samples is live supervision. It is enough for routine motion and for recovery
-  from a transient telemetry, camera, recorder, network, or framework stop when
-  it shows normal pose/state. Retry the complete bounded step up to twice after
-  that recovery. Put an item in `operator_actions` only for an irreducible
+- PRE-RUN BUDGET: TEN SECONDS. The runner's own preflight -- one health read
+  showing 18/18 servos answering -- is the entire pre-run safety check, and it
+  runs inside the runner. You do not verify anything before motion: no protocol
+  derivation audit, no hash comparison, no kinematics recomputation, no review
+  record, no commit-and-push, no reading the runner source, no camera-frame
+  inspection, no "three advancing samples". Every one of those has been done
+  by an agent before a 156 s measurement, at 40 minutes and $50 a run, and the
+  operator has ruled it out. The robot must be moving within five minutes of
+  this job starting. If a saved plan's `preflight`, `analysis_dependencies` or
+  `stop_conditions` list asks for more, treat it as notes and proceed; the
+  runner's in-loop trips for current, temperature, load, tilt and servo loss
+  are the stop conditions, and they cost nothing.
+- STEP BACK. If the plan you were handed repeats a measurement the campaign
+  already has to encoder precision, say so in `summary`, run it anyway if it
+  is queued, and make the case in your receipt for what should replace it.
+- Retry the complete bounded step up to twice after a transient telemetry,
+  camera, recorder, network, or framework stop when a fresh health read shows
+  a normal state. Put an item in `operator_actions` only for an irreducible
   hands-on condition that cannot be diagnosed or corrected through camera,
   telemetry, network/service recovery, or documented remote controls.
 - Legacy saved experiment clauses that merely require an operator to be
@@ -547,17 +560,11 @@ def engineering_prompt(
   bounded plan without editing its historical parameters or requesting repeat
   authorization. Never merely assume it is resolved, and never let a stale
   readiness claim override an observed current hazard or a deterministic bound.
-- Before physical motion, establish the checks applicable to that particular
-  motion and policy: known test area and camera view, remote abort path,
-  plausible logical zero, three advancing healthy 18/18 motor samples, and any
-  current/timing/IMU signal the selected runner actually consumes. A missing
-  nonessential IMU is not a universal blocker for non-IMU tests.
-  Use only fixed bounded motions supported by the guarded runner/API. Never let
-  generated shell text or a learned model bypass a safety interlock.
-- For an unchanged policy/runtime, reuse completed export, simulation, and
-  source validation. Routine experiments need a quick current camera/health
-  check and the existing bounded runner, not a new prerequisite campaign.
-  Recheck only what a changed policy, code path, or observation makes relevant.
+- Use only fixed bounded motions supported by the guarded runner/API. Never
+  let generated shell text or a learned model bypass a safety interlock. To
+  run an existing protocol family on another leg, use
+  `sysid/generate_leg_variant.py SOURCE --leg N`; do not author or retarget
+  protocol files or runner scripts by hand.
 - AprilTag metric coverage is required only when the saved question needs
   calibrated displacement or course error. A fresh ordinary camera view plus
   telemetry is enough for bounded functional walk/turn/leg-response tests;
@@ -568,12 +575,11 @@ def engineering_prompt(
   the chassis stayed upright, diagnose the sensor/controller disagreement and
   use a current camera plus three fresh healthy samples to clear the robot's
   present physical state; do not invent a hands-on mechanical blocker.
-- Treat this configured checkout as a shared workspace. Commit and test a
-  focused repair based on the currently installed source; preserve later work.
-  Deploy that committed source using the existing deployment helper and its
-  installed-file verification. Record the commit and resulting robot revision.
-  A clean dedicated worktree or validated integration branch is sufficient;
-  do not reconstruct a chain of historical experiment seals for each retry.
+- Treat this configured checkout as a shared workspace. If a code fix is
+  genuinely required to run the plan, commit and test it, deploy it with the
+  existing helper and its installed-file verification, and record the
+  revision. Do not commit, push or deploy as a pre-run ritual when nothing
+  needed fixing.
 - Stop and leave the robot safe on an actually observed tip, brownout, hot
   motor, jam, surprise force, sustained current, bad posture/blend, or persistent
   servo loss. An isolated alert or old stop record is not an observed current

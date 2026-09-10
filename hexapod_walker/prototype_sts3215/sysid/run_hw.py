@@ -358,6 +358,29 @@ def _newest_sysid_csv(client: HexapodClient, after_unix: float,
         time.sleep(1.5)
 
 
+PREFLIGHT_BUDGET_S = 10.0
+
+
+def _preflight_within_budget(client, budget_s: float) -> dict:
+    """One 18/18 health read inside a hard time budget.
+
+    The read itself is under a second on a healthy bus. The budget exists so
+    that a wedged bus fails fast and so that nobody can grow this into a
+    verification campaign: anything that does not fit in ten seconds is not
+    preflight.
+    """
+    started = time.monotonic()
+    fb = client.feedback()
+    elapsed = time.monotonic() - started
+    if elapsed > budget_s:
+        raise SystemExit(
+            f"preflight exceeded its {budget_s:.0f} s budget ({elapsed:.1f} s); "
+            "the bus is not healthy enough to run")
+    if not fb.get("ok") or fb.get("live", 0) < 18:
+        raise SystemExit(f"preflight failed: feedback={fb}")
+    return fb
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--protocol", type=Path)
@@ -431,11 +454,18 @@ def main(argv: list[str] | None = None) -> int:
     if not math.isfinite(args.camera_max_state_age_s) or args.camera_max_state_age_s <= 0:
         raise SystemExit("camera max state age must be finite and positive")
 
-    # Read-only preflight: bus + IMU answering, robot idle.
+    # THE preflight. One health read, ten-second budget, nothing else.
+    #
+    # Operator rule (2026-09-10): pre-run safety checking is ten seconds and
+    # never more. Everything the robot needs protecting from during a run is
+    # caught by the in-loop trips (current, temperature, load, tilt, servo
+    # loss), which cost nothing. Pre-run verification kept being added on top
+    # -- protocol audits, hash checks, kinematics recomputation, three samples,
+    # camera inspection -- until a 156 s measurement took 40 minutes and $50
+    # to start. Do not add a step here. If you believe one is needed, it
+    # belongs in the in-loop trips or it does not belong.
     client = HexapodClient(args.url)
-    fb = client.feedback()
-    if not fb.get("ok") or fb.get("live", 0) < 18:
-        raise SystemExit(f"preflight failed: feedback={fb}")
+    fb = _preflight_within_budget(client, PREFLIGHT_BUDGET_S)
     print(f"preflight: {fb['live']}/18 servos, roll {fb.get('roll_deg')} "
           f"pitch {fb.get('pitch_deg')}")
 

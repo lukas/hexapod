@@ -1070,9 +1070,52 @@ class CodexOrchestrator:
             except Exception as exc:
                 print(f"Codex reconcile error: {type(exc).__name__}: {exc}", flush=True)
 
+    def _campaign_budget_reason(self) -> Optional[str]:
+        """Reason to stop scheduling, or None to keep going.
+
+        EMERGENCY_HANDLING.md lets a stopped step retry itself, which is what
+        keeps an overnight campaign moving. The same property is what makes a
+        broken robot or a dark room expensive: with N plans queued and nothing
+        able to run, the lane would spend three agent attempts per plan
+        discovering that. Three exhausted plans in a row is enough evidence
+        that the problem is not the plan.
+        """
+        handoffs = [
+            item for item in self.engineering.list_jobs()
+            if isinstance(item.get("source_context"), dict)
+            and item["source_context"].get("trigger_kind") == "queue_handoff"
+        ]
+
+        def spent(item: Dict[str, Any]) -> bool:
+            if item.get("status") == "dead":
+                return True
+            return bool(
+                item.get("status") == "blocked"
+                and int(item.get("attempts") or 0)
+                >= int(item.get("max_attempts") or 0)
+            )
+
+        recent = handoffs[-QUEUE_STOP_MAX_ATTEMPTS:]
+        if len(recent) < QUEUE_STOP_MAX_ATTEMPTS or not all(
+            spent(item) for item in recent
+        ):
+            return None
+        last = recent[-1].get("error") or "no reason recorded"
+        return (
+            f"{QUEUE_STOP_MAX_ATTEMPTS} consecutive experiments exhausted "
+            f"their attempt budget without completing. Campaign budget spent; "
+            f"the queue is holding for an operator. Last reason: {last}"[:6000]
+        )
+
     def ensure_queue_kick(self) -> Optional[Dict[str, Any]]:
         now = time.time()
         if self.store.codex_queue_control().get("paused"):
+            return None
+        budget_reason = self._campaign_budget_reason()
+        if budget_reason is not None:
+            self.store.pause_codex_queue_for_operator(
+                budget_reason, created_by="campaign-budget"
+            )
             return None
         counts = self.store.queue_counts()
         if not any(counts.values()):

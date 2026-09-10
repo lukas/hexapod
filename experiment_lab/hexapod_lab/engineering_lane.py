@@ -1608,7 +1608,22 @@ class EngineeringJobStore:
                         "attempts_used": attempts,
                         "attempts_remaining": max(0, maximum - attempts),
                         "physical_motion_started": motion_started,
-                        "completion_only": terminal or motion_started or bool(
+                        # Having moved the robot is not by itself a reason to
+                        # forbid the next attempt from moving it again. It used
+                        # to be: any motion-started attempt was pinned to
+                        # "registration/sealing only", so a guard trip mid-stand
+                        # -- motion started, outcome blocked, experiment not
+                        # terminal -- came back as an attempt that was told not
+                        # to re-run the step. It re-reported the same blocker
+                        # and the plan died three attempts later having moved
+                        # nothing. EMERGENCY_HANDLING.md says to retry the
+                        # complete failed step from a verified safe pose, so a
+                        # stopped run keeps the right to re-run. A run that
+                        # moved and did NOT stop has a result to finish, and a
+                        # terminal experiment is done moving either way.
+                        "completion_only": terminal or (
+                            motion_started and not blocked
+                        ) or bool(
                             previous and (previous.get("continuation") or {}).get("completion_only")),
                         "reason": error,
                     }

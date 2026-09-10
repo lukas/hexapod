@@ -641,11 +641,14 @@ Operational contract:
   substitute for running the requested replay or MuJoCo experiment.
 {lane_operations}
 {queue_completion}
-- Read this job's prior `result` and `continuation` before continuing. These
-  are earlier attempts on the same exact experiment, not a new physical-run
-  budget. Preserve recorded physical attempts and their safety outcomes. When
-  `completion_only` is true, finish result registration/evidence sealing only;
-  do not start or repeat motion. An already terminal experiment needs no replay.
+- Prior attempts: the lane has ALREADY determined whether they moved the
+  robot, by counting position frames in their serial transcripts. The answer
+  is `continuation.prior_motion_frames`. Do not re-derive it -- no transcript
+  decoding, no memory reading, no "prove joints never moved". If
+  `completion_only` is true, motion happened: finish result registration and
+  evidence sealing only and do not repeat it. If `prior_motion_frames` is 0,
+  nothing happened: start the run now. An already terminal experiment needs
+  no replay.
   Report `outcome=blocked` and preserve `operator_actions` for an unresolved
   current physical hazard or a concrete hands-on condition. Engineering
   continuations never authorize retrying such a hazard.
@@ -1346,13 +1349,19 @@ class EngineeringJobStore:
             # retry() explicitly records known pre-invocation failures as False.
             known_attempt = max(int((saved.get("retry_receipt") or {}).get("attempt") or 0),
                                 int((saved.get("continuation") or {}).get("attempts_used") or 0))
+            prior_frames = (saved.get("retry_receipt") or {}).get("motion_frames_sent")
             if (row["status"] == "retry" and row["attempts"] > known_attempt
                     and source.get("trigger_kind") == "queue_handoff"
-                    and (source.get("experiment", {}).get("parameters") or {}).get("robot_motion") is not False):
+                    and (source.get("experiment", {}).get("parameters") or {}).get("robot_motion") is not False
+                    and prior_frames != 0):
+                # Unknown whether the expired attempt moved the robot. Only
+                # this case earns a completion-only continuation; a counted
+                # zero is a clean restart and is stamped by retry() above.
                 saved["continuation"] = {
                     **(saved.get("continuation") or {}),
                     "completion_only": True, "attempts_used": row["attempts"],
-                    "reason": "Previous engineering attempt has no terminal receipt; recover its outcome without repeating physical execution",
+                    "prior_motion_frames": prior_frames,
+                    "reason": "Previous engineering attempt has no terminal receipt and its motion is unknown; recover its outcome without repeating physical execution",
                 }
                 con.execute("UPDATE codex_engineering_jobs SET result_json=? WHERE id=?",
                             (_canonical(saved), row["id"]))
@@ -1669,7 +1678,8 @@ class EngineeringJobStore:
         return self._row(row)
 
     def retry(self, job: Dict[str, Any], owner: str, error: str, *,
-              completion_only: bool = False) -> Dict[str, Any]:
+              completion_only: bool = False,
+              motion_frames_sent: Optional[int] = None) -> Dict[str, Any]:
         now_dt = datetime.now(timezone.utc)
         now = now_dt.isoformat()
         terminal = int(job["attempts"]) >= int(job["max_attempts"])
@@ -1691,12 +1701,29 @@ class EngineeringJobStore:
             saved["retry_receipt"] = {
                 "attempt": int(job["attempts"]), "reason": error[:6000],
                 "completion_only": bool(completion_only), "created_at": now,
+                "motion_frames_sent": motion_frames_sent,
             }
             if completion_only:
                 saved["continuation"] = {
                     **(saved.get("continuation") or {}),
                     "completion_only": True, "reason": error[:6000],
                     "attempts_used": int(job["attempts"]),
+                    "prior_motion_frames": motion_frames_sent,
+                }
+            elif motion_frames_sent == 0:
+                # The lane counted the serial transcript: nothing moved. Say
+                # so plainly so the next attempt starts the run instead of
+                # re-deriving this fact from 12,000 serial records.
+                saved["continuation"] = {
+                    **(saved.get("continuation") or {}),
+                    "completion_only": False,
+                    "prior_motion_frames": 0,
+                    "attempts_used": int(job["attempts"]),
+                    "reason": (
+                        f"Attempt {int(job['attempts'])} was stopped before any "
+                        "motion: the lane counted 0 position frames in its serial "
+                        "transcript. There is nothing to recover. Start the run."
+                    ),
                 }
             changed = con.execute(
                 "UPDATE codex_engineering_jobs SET status=?,not_before=?,updated_at=?,"

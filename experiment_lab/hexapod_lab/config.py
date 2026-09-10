@@ -68,6 +68,11 @@ class Settings:
     # Preflight is ten seconds and motion is minutes; thirty minutes covers
     # the whole job including sealing. 7200 let ceremony expand to fill it.
     codex_engineering_timeout_seconds: int = 1800
+    # A queued plan is execution, not a project. If the hardware lane has sent
+    # the robot no motion frame by this point the attempt is killed; the
+    # operator's budget is ten seconds of preflight, and every extra minute
+    # here has been an agent auditing something instead of running.
+    codex_engineering_motion_deadline_seconds: int = 300
     codex_engineering_context_max_bytes: int = 256 * 1024
     codex_engineering_max_patch_bytes: int = 16 * 1024 * 1024
     codex_engineering_max_attempts: int = 3
@@ -228,6 +233,9 @@ class Settings:
             ),
             codex_engineering_timeout_seconds=int(os.getenv(
                 "HEXAPOD_CODEX_ENGINEERING_TIMEOUT_SECONDS", "1800"
+            )),
+            codex_engineering_motion_deadline_seconds=int(os.getenv(
+                "HEXAPOD_CODEX_ENGINEERING_MOTION_DEADLINE_SECONDS", "300"
             )),
             codex_engineering_context_max_bytes=int(os.getenv(
                 "HEXAPOD_CODEX_ENGINEERING_CONTEXT_MAX_BYTES", str(256 * 1024)

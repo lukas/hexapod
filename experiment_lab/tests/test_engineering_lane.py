@@ -1107,7 +1107,8 @@ def test_non_motion_engineering_progress_continues_same_job_with_receipt_and_bud
     prompt = engineering_prompt(second, {"sha256": "a" * 64}, {})
     assert receipt["summary"] in prompt
     assert '"attempts": 2' in prompt
-    assert "not a new physical-run" in prompt
+    assert "prior_motion_frames" in prompt
+    assert "Do not re-derive it" in prompt
     assert "Commit and push focused fixes you authored" in prompt
     assert "Do not reset git, force-push" in prompt
     assert len(orchestrator.engineering.list_jobs()) == 1
@@ -1302,6 +1303,74 @@ def test_a_stocked_queue_is_not_asked_to_pad(tmp_path):
     assert "room for 0 more" in prompt
     assert "The queue is stocked" in prompt
     assert "MUST return at least one experiment" not in prompt
+
+
+def _serial_transcript(tmp_path, frames):
+    """Write a robot-communication.jsonl with the given TX data_hex frames."""
+    path = tmp_path / "robot-communication.jsonl"
+    lines = ['{"record_type":"marker","label":"robotlab_run_begin"}']
+    for hexframe in frames:
+        lines.append(json.dumps({"record_type": "serial_tx", "data_hex": hexframe}))
+        lines.append(json.dumps({"record_type": "serial_rx", "data_hex": "ok"}))
+    lines.append("this line is not json")
+    path.write_text("\n".join(lines) + "\n")
+    return path
+
+
+def test_the_lane_counts_motion_frames_instead_of_an_agent(tmp_path):
+    """Attempt 2 of 95493bb0 spent 13 minutes proving this by hand."""
+    from hexapod_lab.codex_orchestrator import _count_motion_frames
+
+    reads_only = _serial_transcript(tmp_path, [
+        "a55a460046",   # 'F' feedback read
+        "a55a501202",   # 'P' positions read
+        "a55a530053",   # 'S' with n=0: plain snapshot, no targets
+    ])
+    assert _count_motion_frames(reads_only) == 0
+
+    moved = _serial_transcript(tmp_path / "m", [
+        "a55a460046",
+        "a55a5301" + "0a" * 6 + "ff",   # 'S' with n=1: one position target
+        "a55a5712" + "00" * 8,          # 'W' sync write, n=18
+    ]) if (tmp_path / "m").mkdir() is None else None
+    assert _count_motion_frames(moved) == 2
+
+    assert _count_motion_frames(tmp_path / "does-not-exist.jsonl") is None
+
+
+def test_a_stopped_attempt_with_zero_motion_frames_restarts_cleanly(tmp_path):
+    """A counted zero is a clean restart, not a forensics assignment."""
+    store, orchestrator = _guarded_orchestrator(tmp_path)
+    assert orchestrator.process_one("advance") is True
+    job = orchestrator.engineering.claim("engineer", lease_seconds=60)
+    orchestrator.engineering.retry(
+        job, "engineer", "CodexRunError: no motion command reached the robot",
+        completion_only=False, motion_frames_sent=0,
+    )
+    _age_handoffs(store, 1)
+    with store.connect() as con:
+        con.execute("UPDATE codex_engineering_jobs SET not_before='2000-01-01'")
+    again = orchestrator.engineering.claim("engineer", lease_seconds=60)
+    continuation = again["continuation"]
+    assert continuation["completion_only"] is False
+    assert continuation["prior_motion_frames"] == 0
+    assert "Start the run" in continuation["reason"]
+
+
+def test_a_stopped_attempt_whose_motion_is_unknown_stays_completion_only(tmp_path):
+    """No transcript means unknown, and unknown still earns the cautious path."""
+    store, orchestrator = _guarded_orchestrator(tmp_path)
+    assert orchestrator.process_one("advance") is True
+    job = orchestrator.engineering.claim("engineer", lease_seconds=60)
+    orchestrator.engineering.retry(
+        job, "engineer", "CodexRunError: exited with status 143",
+        completion_only=True, motion_frames_sent=None,
+    )
+    with store.connect() as con:
+        con.execute("UPDATE codex_engineering_jobs SET not_before='2000-01-01'")
+    again = orchestrator.engineering.claim("engineer", lease_seconds=60)
+    assert again["continuation"]["completion_only"] is True
+    assert again["continuation"]["prior_motion_frames"] is None
 
 
 def test_an_empty_queue_with_a_ready_robot_asks_for_a_new_proposal(tmp_path):

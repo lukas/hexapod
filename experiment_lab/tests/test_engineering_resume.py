@@ -66,7 +66,10 @@ def test_blocked_handoff_needs_new_audited_resume_and_keeps_budget(tmp_path, phy
     assert resumed["result"]["queue_resume_receipt"]["previous_finished_at"] == blocked["finished_at"]
     second = engineering.claim("owner", 60)
     assert second["attempts"] == 2
-    assert second["continuation"]["completion_only"] is physical_motion_started
+    # A blocked receipt leaves nothing to register, so the next attempt may
+    # re-run the complete failed step -- having moved the robot before is not
+    # by itself a reason to forbid moving it again.
+    assert second["continuation"]["completion_only"] is False
     engineering.finish(second, "owner", _receipt(outcome="blocked"))
     assert engineering.ensure_queue_handoff(advance, plan)["status"] == "blocked"
     assert len(engineering.list_jobs()) == 1

@@ -1188,6 +1188,50 @@ def test_three_consecutive_blocked_handoffs_stop_the_campaign(tmp_path):
             assert kick is None, "the third stop must hold for an operator"
 
 
+def test_three_exhausted_plans_in_a_row_pause_the_queue(tmp_path):
+    """A dark room must not cost three agent attempts per queued plan."""
+    workspace = tmp_path / "project"
+    workspace.mkdir()
+    store = Store(tmp_path / "lab.sqlite3")
+    for index in range(QUEUE_STOP_MAX_ATTEMPTS):
+        store.create(
+            {
+                "name": f"guarded motion {index}",
+                "duration_seconds": 1,
+                "parameters": {},
+                "execution_mode": "external_guarded",
+            },
+            "test",
+        )
+    orchestrator = CodexOrchestrator(
+        store,
+        configured(tmp_path, workspace),
+        invoker=lambda *_args, **_kwargs: {},
+    )
+
+    for _ in range(QUEUE_STOP_MAX_ATTEMPTS):
+        for _attempt in range(QUEUE_STOP_MAX_ATTEMPTS):
+            assert orchestrator.process_one("advance") is True
+            handoff = orchestrator.engineering.claim("engineer", lease_seconds=60)
+            assert handoff is not None
+            orchestrator.engineering.finish(
+                handoff,
+                "engineer",
+                {
+                    "outcome": "blocked",
+                    "physical_motion_started": False,
+                    "operator_actions": ["The robot is unplugged."],
+                    "rl_orchestrator_requests": [],
+                },
+            )
+            _age_handoffs(store, QUEUE_STOP_ASSESS_S + 1)
+            orchestrator.ensure_queue_kick()
+
+    assert store.codex_queue_control()["paused"] is True
+    assert "Campaign budget spent" in store.codex_queue_control()["reason"]
+    assert orchestrator.ensure_queue_kick() is None
+
+
 def test_the_attempt_budget_does_not_reset_on_a_new_queue_trigger(tmp_path):
     """The retry loop must be able to end itself overnight.
 
@@ -1230,6 +1274,8 @@ def test_the_attempt_budget_does_not_reset_on_a_new_queue_trigger(tmp_path):
         ("no_change", False, []),
         ("changed", True, []),
         ("changed", False, ["Remove a physical obstruction."]),
+        # A guard trip mid-stand: the robot moved and then stopped.
+        ("blocked", True, ["Inspect the hip."]),
     ],
 )
 def test_queue_reconcile_never_creates_a_new_job_to_reset_motion_or_blocker_budget(
@@ -1270,7 +1316,12 @@ def test_queue_reconcile_never_creates_a_new_job_to_reset_motion_or_blocker_budg
     assert finished["status"] == ("blocked" if outcome == "blocked" or operator_actions else "retry")
     assert finished["result"]["operator_actions"] == operator_actions
     if physical_motion_started:
-        assert finished["result"]["continuation"]["completion_only"] is True
+        stopped = outcome == "blocked" or bool(operator_actions)
+        # A run that moved and finished cleanly has a result to register, so
+        # the next attempt must not move the robot again. A run that moved and
+        # then stopped has no result -- it keeps the right to re-run the
+        # complete failed step from a verified safe pose.
+        assert finished["result"]["continuation"]["completion_only"] is not stopped
 
 
 @pytest.mark.parametrize("handoff_state", ["queued", "retry"])

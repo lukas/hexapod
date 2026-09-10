@@ -1,5 +1,49 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## A 13th mechanism class — weight-shared, mount-frame-relative per-leg actor — is BUILT, TESTED and LAUNCHED (mechanism-health canary, not yet a verdict) for the walkcurr front-pair off-axis-heading sacrifice; explicitly NOT a re-fund of the closed independent-tower `decleg` family (2026-09-10, this cycle)
+
+One plain sentence: `decleg`'s independent per-leg towers (closed
+below, all 3 easy-pilot arms FAIL) cannot transfer a skill between
+legs even in principle — different objects, different weights, no
+matter how much either learns; this new variant ties all six towers
+to ONE shared set of weights and feeds each tower the commanded
+heading rotated into ITS OWN mount-angle frame, so leg0 asked for 180
+degrees and leg3 asked for 0 degrees become the bit-identical input
+vector — the actual precondition for a skill learned at one leg's easy
+heading to reach another leg's hard one, which the closed independent-
+tower design structurally cannot provide regardless of training budget.
+
+`rl_move/sim/decleg_policy.py` gained `LEG_MOUNT_ANGLES_DEG`/
+`leg_mount_unit_vectors()` (the mesh's own per-leg mount angles,
+30/90/150/-150/-90/-30 deg — the original design note's named
+geometric root cause), `heading_rel_cos_sin()` (pure 2D frame
+rotation), and `_DecLegExtractor(share_leg_weights=, heading_rel_idx=)`
+(both default OFF = bit-exact original `decleg`, verified by the 6
+pre-existing tests unchanged). `train_ppo_mjx.py` gained
+`--decleg-share-legs`/`--decleg-heading-rel` (require `--decleg`, fail
+closed otherwise). **The transfer claim is proved directly, not just
+argued**: `test_shared_heading_rel_leg0_at_180_matches_leg3_at_forward`
+shows the tied tower produces a BIT-IDENTICAL output for leg0-at-180
+and leg3-at-forward once the rotated feature is applied — something
+provably impossible under independent towers. 8 new tests, 14/14 file
+green, 105/105 touched-file suite green. Snapshot `38213a96`.
+
+Launched `cw-walkscratch-easy0905-declegshare-headrel-{s0,s1}`
+(from-scratch, byte-identical to the already-CANARY-PASSED
+`cw-walkscratch-easy0905-decleg-base-{s0,s1}` forward-only ignition
+pilot except the one added lever), both VERIFIED RUNNING. **This is
+ONLY the cheap ignition/mechanism-health stage** (forward-only recipe
+means the rotated feature is a per-leg constant, no cross-heading
+transfer to exercise yet) — matching `decleg-base`'s own two-stage
+discipline exactly; a PASS here licenses an acquisition continuation,
+and only a pass THERE licenses graduating to the multi-heading
+`widen8`/`crutchoff` recipe where the actual transfer hypothesis is
+testable. No verdict yet; this entry records the build+launch, not a
+result. Evidence: `rl_move/sim/decleg_policy.py`, `rl_move/sim/
+train_ppo_mjx.py`, `rl_move/tests/test_decleg_policy.py` (14/14);
+`rl_docs/tracks/walkcurr/DESIGN_NOTE_2026-09-10_offaxis_frontpair.md`
+Addendum 2; `rl_docs/tracks/walkcurr/STATUS.md` 2026-09-10 ~18:0x.
+
 ## Per-leg obs-masked RND is ALSO refuted for the walkcurr front-pair off-axis-heading sacrifice (12th mechanism class, 2/2 seeds) -- the design note's ENTIRE named RND candidate list (plain full-obs, heading-gated, per-leg obs-masked) is now exhausted, 0/3 variants; no named lever remains for this question (2026-09-10, closed this cycle)
 
 One plain sentence: masking RND's intrinsic bonus to only the

@@ -168,3 +168,43 @@ per-leg timelines), `per_leg_table.json` (the yield-vs-current table
 above), `telemetry_cycle1.jsonl`, `telemetry_cycles23.jsonl` (recorder
 windows), `run_hold_cycles.py`, `analyze_holds.py`, `run_cycle1.log`,
 `run2.log`, and the observation frames.
+
+---
+
+## Addendum (post-seal): the stand-up→hold transition, verified
+
+The sealed summary's claim that "the shortfall is already present when
+the stand-up finishes; nothing yields afterwards" was originally
+verified only over the hold window as the runner defined it. `hold_t0`
+is when the demo poll *returned*, not when the stand-up actually
+finished — the poll costs ~5 s, and in cycles 2–3 the ambiguity probe
+added ~8 s more. So the window could in principle have opened after the
+parent's ~1 s yield moment.
+
+Re-derived from the same recorder windows starting 30 s before
+`hold_t0`, which covers the whole stand-up ramp
+(`transition_trace.txt`). **The claim holds, and the transition is now
+explicit:**
+
+- **Cycle 1.** Push-up runs t−10.1 → t−6.7 s. Hips first reach stance
+  at t−6.66 (L0 16.88, L3 17.05). A converging settle oscillation
+  follows for ~2.5 s — L0 dips to 13.89, L3 to 14.06, L5 to 15.03 —
+  and by **t−4.16 s** all six have settled to 18.19 / 20.30 / 20.48 /
+  18.02 / 20.92 / 19.78. Those are exactly the hold-exit values, held
+  unchanged for the next ~19.5 s.
+- **Cycle 2.** Ramp t−21.5 → t−19.6, brief overshoot to 22.7–25.8 at
+  t−19.1, settled by **t−18.0 s**; only two 0.08–0.17 deg creeps after
+  that, then static.
+- **Cycle 3.** Ramp t−21.6 → t−19.6, settled by **t−18.2 s**, static
+  thereafter.
+
+So the shortfall is established *during the stand-up's own convergence
+under load*, as a tracking error at the end of the ramp, and there is
+no delayed give-way in any cycle. The settle oscillation in cycle 1 is
+itself further evidence for compliance rather than slip: the joint
+overshoots and converges back, which a slipping horn would not do.
+
+This addendum is repo-side only; the Robot Lab evidence was already
+sealed at manifest `d3ef06f6` and the underlying
+`telemetry_cycle1.jsonl.gz` / `telemetry_cycles23.jsonl.gz` there let
+anyone re-derive this trace independently.

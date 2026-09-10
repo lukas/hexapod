@@ -1,0 +1,66 @@
+{
+  "purpose": "satisfy the plan's require_l0_swept_area_clear preflight for experiment 881677a0, whose wording is 'confirm the actual L0 swept volume is free of cables, fixtures and obstacles; a cable is a blocker only if it lies in that swept area'",
+  "when_utc": "2026-09-10T14:22Z",
+  "which_leg_is_L0": {
+    "body_azimuth_deg": 30.0,
+    "how_established": "the camera tracker reports leg_zero_azimuth_body_deg 210 for L3 and 270 for L4, i.e. 60 deg spacing, which puts L0 at 30 deg; this matches mesh_mujoco/hexapod_mesh.xml's own L0_yaw body pos (0.087, 0.05) -> atan2 = 29.9 deg",
+    "role": "front-right leg of the front pair (L0/L5), not a middle leg",
+    "world_azimuth_deg_at_this_pose": -46.9
+  },
+  "swept_volume_computed_from_the_protocol": {
+    "method": "read directly from this run's own reviewed protocol (protocol_hash 8709926b4c01), not carried over",
+    "l0_yaw_joint_j0": "constant [0] in every one of 1560 rows, so the leg does NOT sweep laterally at all",
+    "foot_path": "a single radial line segment along L0's fixed azimuth",
+    "radius_from_yaw_axis_mm": [
+      192.5,
+      252.5
+    ],
+    "radial_travel_mm": 60.0,
+    "foot_height_below_home_plane_mm": [
+      0.0,
+      15.0
+    ],
+    "verdict": "a ~60 mm long, ~15 mm deep sliver directly along the leg L0 is already resting on"
+  },
+  "why_a_floor_cable_cannot_be_in_this_volume": {
+    "first_floor_contact_foot_z_mm": -80.95,
+    "deepest_commanded_foot_z_mm": -15.0,
+    "clearance_above_the_floor_plane_mm": 65.95,
+    "statement": "the deepest commanded point of the whole trajectory is 65.95 mm above the plane the feet contact, so a cable LYING ON THE FLOOR is not in the swept volume by construction. Only an object standing more than ~66 mm tall directly beneath the resting L0 leg could enter it, and the frames below are checked for exactly that."
+  },
+  "visual_inspection": {
+    "frames": {
+      "robot-1": {
+        "path": "preflight_frames/cam_idx0.jpg",
+        "bytes": 106969,
+        "sha256": "705363c459a82a346cf742a56ac0381b4c5b88b0ba1077834422da8305697fcb"
+      },
+      "robot-3": {
+        "path": "preflight_frames/cam_idx1.jpg",
+        "bytes": 92434,
+        "sha256": "56e87dae1173c429136ca2325e75666faeda76cabbec06a993d59a065dbc0daf"
+      },
+      "robot-2": {
+        "path": "preflight_frames/cam_idx2.jpg",
+        "bytes": 94881,
+        "sha256": "0ac4218f3c08cb6dee18cef531ae780d3f60aa6313648eb08e9edf4204c69272"
+      }
+    },
+    "brightened_copies": [
+      "preflight_frames/robot-1_bright.png",
+      "preflight_frames/robot-2_bright.png",
+      "preflight_frames/robot-3_bright.png",
+      "preflight_frames/robot-1_legs_zoom.png"
+    ],
+    "captured_utc": "2026-09-10T14:17:32Z",
+    "illumination": "mean luma 49.8 (robot-1/cam0), 23.0 (robot-3/cam1), 24.4 (robot-2/cam2). This is a MATERIALLY BRIGHTER arena than every prior member of this family: the L1 run recorded 24.9 / 4.6 / 4.4 and the L2/L5 runs matched it. Arena lighting has been restored since 2026-09-10T05:06Z.",
+    "what_the_frames_show": "all six legs splayed straight out and belly-resting flat on the floor, feet down, chassis flat, no leg standing, no tip or lean, no person or hands in frame. The floor immediately around every foot -- L0's included -- is bare carpet. Cabling is present in the arena and some of it is the robot's own tether, but every strand visible near the robot lies FLAT ON THE FLOOR; nothing stands proud of the floor anywhere inside leg reach, in any of the three views.",
+    "scope_note": "all six legs were checked rather than L0 alone: it is a strictly stronger claim and does not depend on identifying L0 in the image, which these views cannot do directly (L0's coxa tag 1 is not visible to any calibrated camera at this pose).",
+    "improvement_over_the_L1_run": "the L1 record's honest limit was that at its illumination the frames could not resolve a thin cable and the tag tracker reported 'tags: none' on all three views. At this illumination cables ARE resolvable and the tracker resolves 10-14 tags per view, so this inspection is direct evidence rather than geometry alone."
+  },
+  "supporting_evidence_that_the_volume_is_free": {
+    "free_air_currents_on_this_identical_command_path": "the L1/L2/L5 members ran this byte-identical commanded hip/knee path on this rig and peaked at 0.006-0.039 A against the 0.75 A runner trip; anything in the path would load the joint far above that",
+    "backstop_if_wrong": "the on-robot runner's real-time interlocks (0.75 A over 3 polls, 3.0 A ceiling, tracking error vs the slewed reference, 3 consecutive missed reads) limp the robot on an unexpected force, and this run enforces the /api/errors stop live at 1 Hz on the bus-free path"
+  },
+  "verdict": "clear -- proceed"
+}

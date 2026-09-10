@@ -1,0 +1,7 @@
+# Raw camera frames are bundled per run as runN__frames.tar.gz and every
+# frame's sha256 is recorded in the matching frame_index.jsonl, so the loose
+# JPEGs are reproducible evidence, not primary evidence. Keeping tens of
+# thousands of them in git would dwarf the repository.
+*/frames/
+dryrun/frames/
+_staged/

@@ -1,0 +1,7 @@
+{"t": 1789051108.6323452, "kind": "start", "label": "dry", "protocol": "l0_belly_rest_radial_shear_hysteresis_repeat6_v1", "baseline_error_ts": "2026-09-10T14:38:02.058Z"}
+{"t": 1789051108.705791, "kind": "lease_acquire", "ok": true, "lease": {"held": true, "owner": "guarded-runner-881677a0", "reason": "guarded run dry: l0_belly_rest_radial_shear_hysteresis_repeat6_v1", "acquired_at": "2026-09-10T14:38:28.707Z", "expires_at": "2026-09-10T14:53:28.707Z", "ttl_s": 900.0, "expires_in_s": 900.0}}
+{"t": 1789051113.057633, "kind": "refusal_baseline", "pre_existing": 10, "floor_iso": "2026-09-10T14:38:28.000Z"}
+{"t": 1789051113.373051, "kind": "csv_watch_baseline", "pre_existing_csvs": []}
+{"t": 1789051122.576431, "kind": "chassis_tag_baseline", "resolved_samples": 3, "base_xy_mm": [459.359, 656.808], "base_yaw_deg": 84.17966666666666, "shift_trip_mm": 120.0, "yaw_trip_deg": 15.0}
+{"t": 1789051122.885134, "kind": "error_watch_baseline", "arm_baseline_ts": "2026-09-10T14:38:02.058Z", "preflight_baseline_ts": "2026-09-10T14:38:02.058Z"}
+{"t": 1789051125.158562, "kind": "lease_release", "resp": {"ok": true, "released": true, "held": false}}

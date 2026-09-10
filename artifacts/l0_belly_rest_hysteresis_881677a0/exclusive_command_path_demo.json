@@ -1,0 +1,185 @@
+{
+ "owner": "guarded-runner-881677a0",
+ "when_utc": "2026-09-10T14:38:02Z",
+ "robot_url": "http://192.168.4.39:8080",
+ "hub_url": "http://127.0.0.1:8898",
+ "steps": [
+  {
+   "step": "pre-lease abort /api/rl/stop",
+   "code": 200,
+   "ms": 830,
+   "expect": [
+    200
+   ],
+   "as_expected": true,
+   "body": "{\"ok\": true, \"demo\": {\"name\": null, \"status\": \"idle\", \"running\": false, \"speed_live\": 1.0, \"params\": {}, \"progress\": null, \"telemetry\": null, \"bus_hot\": false}, \"robot\": {\"activity\": \"limp\", \"detail\": \"\", \"armed\": false, \"mode\": \"idle\", \"dry_run\": false, \"drive_status\": \"bus:/dev/ttyHS1 disarmed\", \"scripted_walk\": {\"control_hz\": 100.0, \"servo_speed_counts_s\": 2000, \"servo_acc_units\": 80, \"deadline"
+  },
+  {
+   "step": "pre-lease abort /api/standup/stop",
+   "code": 200,
+   "ms": 247,
+   "expect": [
+    200
+   ],
+   "as_expected": true,
+   "body": "{\"ok\": true, \"demo\": {\"name\": null, \"status\": \"idle\", \"running\": false, \"speed_live\": 1.0, \"params\": {}, \"progress\": null, \"telemetry\": null, \"bus_hot\": false}, \"robot\": {\"activity\": \"limp\", \"detail\": \"\", \"armed\": false, \"mode\": \"idle\", \"dry_run\": false, \"drive_status\": \"bus:/dev/ttyHS1 disarmed\", \"scripted_walk\": {\"control_hz\": 100.0, \"servo_speed_counts_s\": 2000, \"servo_acc_units\": 80, \"deadline"
+  },
+  {
+   "step": "acquire lease",
+   "code": 200,
+   "ms": 22,
+   "expect": [
+    200
+   ],
+   "as_expected": true,
+   "body": "{\"ok\": true, \"token\": \"de8c83215f3b7caf2db1c6af86f3ed28\", \"lease\": {\"held\": true, \"owner\": \"guarded-runner-881677a0\", \"reason\": \"exclusivity demonstration for 881677a0\", \"acquired_at\": \"2026-09-10T14:38:01.878Z\", \"expires_at\": \"2026-09-10T14:40:01.878Z\", \"ttl_s\": 120.0, \"expires_in_s\": 120.0}}"
+  },
+  {
+   "step": "direct /api/rl/stand",
+   "code": 409,
+   "ms": 41,
+   "expect": [
+    409
+   ],
+   "as_expected": true,
+   "body": "{\"ok\": false, \"code\": \"command_lease_held\", \"error\": \"guarded-runner-881677a0 holds the exclusive command lease; motion commands from another controller are refused. The abort path (/api/rl/stop, /api/safe_zero, /cmd X) stays open.\", \"lease\": {\"held\": true, \"owner\": \"guarded-runner-881677a0\", \"reason\": \"exclusivity demonstration for 881677a0\", \"acquired_at\": \"2026-09-10T14:38:01.878Z\", \"expires_at"
+  },
+  {
+   "step": "direct /api/rl/lower",
+   "code": 409,
+   "ms": 53,
+   "expect": [
+    409
+   ],
+   "as_expected": true,
+   "body": "{\"ok\": false, \"code\": \"command_lease_held\", \"error\": \"guarded-runner-881677a0 holds the exclusive command lease; motion commands from another controller are refused. The abort path (/api/rl/stop, /api/safe_zero, /cmd X) stays open.\", \"lease\": {\"held\": true, \"owner\": \"guarded-runner-881677a0\", \"reason\": \"exclusivity demonstration for 881677a0\", \"acquired_at\": \"2026-09-10T14:38:01.878Z\", \"expires_at"
+  },
+  {
+   "step": "direct /api/rl/walk",
+   "code": 409,
+   "ms": 28,
+   "expect": [
+    409
+   ],
+   "as_expected": true,
+   "body": "{\"ok\": false, \"code\": \"command_lease_held\", \"error\": \"guarded-runner-881677a0 holds the exclusive command lease; motion commands from another controller are refused. The abort path (/api/rl/stop, /api/safe_zero, /cmd X) stays open.\", \"lease\": {\"held\": true, \"owner\": \"guarded-runner-881677a0\", \"reason\": \"exclusivity demonstration for 881677a0\", \"acquired_at\": \"2026-09-10T14:38:01.878Z\", \"expires_at"
+  },
+  {
+   "step": "direct /api/standup",
+   "code": 409,
+   "ms": 33,
+   "expect": [
+    409
+   ],
+   "as_expected": true,
+   "body": "{\"ok\": false, \"code\": \"command_lease_held\", \"error\": \"guarded-runner-881677a0 holds the exclusive command lease; motion commands from another controller are refused. The abort path (/api/rl/stop, /api/safe_zero, /cmd X) stays open.\", \"lease\": {\"held\": true, \"owner\": \"guarded-runner-881677a0\", \"reason\": \"exclusivity demonstration for 881677a0\", \"acquired_at\": \"2026-09-10T14:38:01.878Z\", \"expires_at"
+  },
+  {
+   "step": "direct /api/sysid/run",
+   "code": 409,
+   "ms": 24,
+   "expect": [
+    409
+   ],
+   "as_expected": true,
+   "body": "{\"ok\": false, \"code\": \"command_lease_held\", \"error\": \"guarded-runner-881677a0 holds the exclusive command lease; motion commands from another controller are refused. The abort path (/api/rl/stop, /api/safe_zero, /cmd X) stays open.\", \"lease\": {\"held\": true, \"owner\": \"guarded-runner-881677a0\", \"reason\": \"exclusivity demonstration for 881677a0\", \"acquired_at\": \"2026-09-10T14:38:01.878Z\", \"expires_at"
+  },
+  {
+   "step": "hub/api/rl/stand",
+   "code": 409,
+   "ms": 34,
+   "expect": [
+    409
+   ],
+   "as_expected": true,
+   "body": "{\"ok\": false, \"code\": \"command_lease_held\", \"error\": \"guarded-runner-881677a0 holds the exclusive command lease; motion commands from another controller are refused. The abort path (/api/rl/stop, /api/safe_zero, /cmd X) stays open.\", \"lease\": {\"held\": true, \"owner\": \"guarded-runner-881677a0\", \"reason\": \"exclusivity demonstration for 881677a0\", \"acquired_at\": \"2026-09-10T14:38:01.878Z\", \"expires_at"
+  },
+  {
+   "step": "hub/api/rl/lower",
+   "code": 409,
+   "ms": 65,
+   "expect": [
+    409
+   ],
+   "as_expected": true,
+   "body": "{\"ok\": false, \"code\": \"command_lease_held\", \"error\": \"guarded-runner-881677a0 holds the exclusive command lease; motion commands from another controller are refused. The abort path (/api/rl/stop, /api/safe_zero, /cmd X) stays open.\", \"lease\": {\"held\": true, \"owner\": \"guarded-runner-881677a0\", \"reason\": \"exclusivity demonstration for 881677a0\", \"acquired_at\": \"2026-09-10T14:38:01.878Z\", \"expires_at"
+  },
+  {
+   "step": "hub/api/rl/walk",
+   "code": 409,
+   "ms": 23,
+   "expect": [
+    409
+   ],
+   "as_expected": true,
+   "body": "{\"ok\": false, \"code\": \"command_lease_held\", \"error\": \"guarded-runner-881677a0 holds the exclusive command lease; motion commands from another controller are refused. The abort path (/api/rl/stop, /api/safe_zero, /cmd X) stays open.\", \"lease\": {\"held\": true, \"owner\": \"guarded-runner-881677a0\", \"reason\": \"exclusivity demonstration for 881677a0\", \"acquired_at\": \"2026-09-10T14:38:01.878Z\", \"expires_at"
+  },
+  {
+   "step": "leased abort /api/rl/stop",
+   "code": 200,
+   "ms": 401,
+   "expect": [
+    200
+   ],
+   "as_expected": true,
+   "body": "{\"ok\": true, \"demo\": {\"name\": null, \"status\": \"idle\", \"running\": false, \"speed_live\": 1.0, \"params\": {}, \"progress\": null, \"telemetry\": null, \"bus_hot\": false}, \"robot\": {\"activity\": \"limp\", \"detail\": \"\", \"armed\": false, \"mode\": \"idle\", \"dry_run\": false, \"drive_status\": \"bus:/dev/ttyHS1 disarmed\", \"scripted_walk\": {\"control_hz\": 100.0, \"servo_speed_counts_s\": 2000, \"servo_acc_units\": 80, \"deadline"
+  },
+  {
+   "step": "leased abort /api/standup/stop",
+   "code": 200,
+   "ms": 30,
+   "expect": [
+    200
+   ],
+   "as_expected": true,
+   "body": "{\"ok\": true, \"demo\": {\"name\": null, \"status\": \"idle\", \"running\": false, \"speed_live\": 1.0, \"params\": {}, \"progress\": null, \"telemetry\": null, \"bus_hot\": false}, \"robot\": {\"activity\": \"limp\", \"detail\": \"\", \"armed\": false, \"mode\": \"idle\", \"dry_run\": false, \"drive_status\": \"bus:/dev/ttyHS1 disarmed\", \"scripted_walk\": {\"control_hz\": 100.0, \"servo_speed_counts_s\": 2000, \"servo_acc_units\": 80, \"deadline"
+  },
+  {
+   "step": "leased abort /api/safe_zero",
+   "code": 200,
+   "ms": 53,
+   "expect": [
+    200
+   ],
+   "as_expected": true,
+   "body": "{\"ok\": true, \"stages\": [], \"already_at_zero\": true, \"ground_z_mm\": -40.0, \"present_deg\": [0.0, 0.0, 0.18, -0.18, -0.09, 0.09, -0.26, -0.09, 0.18, 0.0, 0.0, -0.09, -0.09, 0.26, 0.0, 0.0, 0.44, 0.18], \"tilt_deg\": 2.3, \"dry_run\": true}"
+  },
+  {
+   "step": "release lease",
+   "code": 200,
+   "ms": 58,
+   "expect": [
+    200
+   ],
+   "as_expected": true,
+   "body": "{\"ok\": true, \"released\": true, \"held\": false}"
+  }
+ ],
+ "pose_after": {
+  "live": 18,
+  "deg": [
+   0.0,
+   0.0,
+   0.18,
+   -0.18,
+   -0.09,
+   0.09,
+   -0.26,
+   -0.09,
+   0.18,
+   0.0,
+   0.0,
+   -0.09,
+   -0.09,
+   0.26,
+   0.0,
+   0.0,
+   0.44,
+   0.18
+  ],
+  "worst_joint": 16,
+  "worst_deg": 0.44
+ },
+ "unexpected_steps": [],
+ "verdict": "lease is exclusive and abort paths stay open"
+}

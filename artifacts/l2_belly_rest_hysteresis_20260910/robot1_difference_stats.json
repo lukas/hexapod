@@ -1,0 +1,20 @@
+{
+ "method": "Gaussian-smoothed |outer-extreme minus inner-extreme| stacked difference on the overhead camera (robot-1)",
+ "outer_frames": 12,
+ "inner_frames": 17,
+ "robot_region_xyxy": [
+  360,
+  250,
+  800,
+  560
+ ],
+ "robot_region_max_diff_luma": 3.53,
+ "outside_robot_max_diff_luma": 7.79,
+ "largest_in_robot_blob_bbox_xyxy": [
+  560,
+  423,
+  569,
+  431
+ ],
+ "verdict": "Differencing at this illumination (robot-1 mean luma 25.1, robot-2 3.6, robot-3 4.3 -- a room light is out) does NOT resolve the ~10 mm L2 foot excursion: the strongest change in the whole frame is a bright fixed AprilTag outside the robot, i.e. sensor noise and tag flicker dominate. The frames establish continuous coverage, the arena, and that the chassis did not translate; the evidence that ONLY L2 moved is the joint telemetry (all 16 other joints commanded at absolute logical zero and measured within 0.439 deg, max span 0.087 deg over all 1560 ticks)."
+}

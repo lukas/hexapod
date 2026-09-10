@@ -1,0 +1,28 @@
+{
+ "requirement": "preflight.require_l2_swept_area_clear -- confirm the actual L2 swept volume is free of cables, fixtures and obstacles; a cable is a blocker only if it lies in that swept area",
+ "how_it_was_established": "geometry first, then measured currents, then cameras",
+ "geometry": {
+  "source": "the reviewed protocol itself (protocol_hash a99ceef28136) through geometry_plant.foot_z_mm / foot_r_mm (coxa 12.5, femur 90.0, tibia 150.0 mm)",
+  "commanded_foot_z_mm": {"min": -15.0, "max": 0.0},
+  "commanded_foot_r_mm": {"min": 192.5, "max": 252.5},
+  "measured_foot_z_mm": {"min": -15.66, "max": 0.37},
+  "measured_foot_r_mm": {"min": 193.12, "max": 252.5},
+  "argument": "The foot starts at its belly-rest footprint (r=252.5 mm, z=0) and moves radially INWARD and downward by at most 15 mm. The swept volume is therefore strictly inside the volume the resting leg already occupies -- no new lateral space is entered, so nothing can be struck that the leg was not already touching."
+ },
+ "floor_clearance": {
+  "l5_measured_contact_onset_foot_z_mm": -80.95,
+  "source": "the robot's own l5_ground_contact_ramp_v1, read in sealed experiment b289e536",
+  "deepest_measured_margin_mm": 65.29,
+  "caveat": "There is no l2_ground_contact_ramp on this robot, so the L2 contact onset is INFERRED from L5 by symmetry (identical link lengths and identical belly-rest chassis attitude), not measured. Recorded as inferred."
+ },
+ "measured_confirmation": {
+  "peak_per_servo_current_a": 0.045,
+  "max_load_pct": 8.8,
+  "note": "Currents stay at free-air levels for all 1560 ticks. Any contact with the floor, a cable or a fixture inside the swept arc would raise L2 hip/knee current and load; neither moves."
+ },
+ "camera": {
+  "frames": "251 distinct frames per camera on robot-1/2/3, continuous, max inter-frame gap 0.71 s",
+  "limitation": "A room light is out (robot-1 mean luma 25.1, robot-2 3.6, robot-3 4.3). The frames establish the arena, continuous coverage and that the chassis did not translate, but they do NOT resolve the ~10 mm foot excursion or small cables. Recorded as a limitation, not as a pass."
+ },
+ "verdict": "clear -- established by the swept volume being contained inside the leg's own resting footprint and confirmed by free-air currents throughout, with the camera contributing coverage rather than obstacle discrimination"
+}

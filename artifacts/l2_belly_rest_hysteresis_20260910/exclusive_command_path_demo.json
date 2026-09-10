@@ -1,0 +1,385 @@
+{
+ "steps": [
+  {
+   "pose": {
+    "activity": "idle",
+    "armed": false,
+    "status": "bus:/dev/ttyHS1 disarmed",
+    "live": 18,
+    "deg": [
+     0.09,
+     -0.09,
+     0.26,
+     0.09,
+     -0.09,
+     0.09,
+     0.0,
+     0.0,
+     0.26,
+     -0.09,
+     -0.18,
+     -0.09,
+     0.0,
+     0.09,
+     0.0,
+     0.0,
+     0.44,
+     0.26
+    ]
+   },
+   "step": "pose_before",
+   "t": 1789008726.247818
+  },
+  {
+   "last_ts": "2026-09-10T02:05:18.392Z",
+   "step": "errors_before",
+   "t": 1789008726.340481
+  },
+  {
+   "code": 200,
+   "body": {
+    "ok": true,
+    "held": false,
+    "recent_refusals": []
+   },
+   "step": "lease_before",
+   "t": 1789008726.367848
+  },
+  {
+   "code": 200,
+   "owner": "guarded-runner-413d5402",
+   "ok": true,
+   "step": "acquire",
+   "t": 1789008726.4031842
+  },
+  {
+   "code": 409,
+   "error_code": "command_lease_held",
+   "error": "guarded-runner-413d5402 holds the exclusive command lease; motion commands from another controller are refused. The abort path (/api/rl/stop, /api/safe_zero, /c",
+   "step": "hub/api/rl/stand",
+   "t": 1789008726.430021
+  },
+  {
+   "code": 409,
+   "error_code": "command_lease_held",
+   "error": "guarded-runner-413d5402 holds the exclusive command lease; motion commands from another controller are refused. The abort path (/api/rl/stop, /api/safe_zero, /c",
+   "step": "hub/api/rl/lower",
+   "t": 1789008726.454128
+  },
+  {
+   "code": 409,
+   "error_code": "command_lease_held",
+   "error": "guarded-runner-413d5402 holds the exclusive command lease; motion commands from another controller are refused. The abort path (/api/rl/stop, /api/safe_zero, /c",
+   "step": "hub/api/rl/walk",
+   "t": 1789008726.541522
+  },
+  {
+   "code": 409,
+   "error_code": "command_lease_held",
+   "error": "guarded-runner-413d5402 holds the exclusive command lease; motion commands from another controller are refused. The abort path (/api/rl/stop, /api/safe_zero, /c",
+   "step": "direct/api/rl/stand",
+   "t": 1789008726.563327
+  },
+  {
+   "code": 409,
+   "error_code": "command_lease_held",
+   "error": "guarded-runner-413d5402 holds the exclusive command lease; motion commands from another controller are refused. The abort path (/api/rl/stop, /api/safe_zero, /c",
+   "step": "direct/api/standup",
+   "t": 1789008726.5862012
+  },
+  {
+   "code": 409,
+   "error_code": "command_lease_held",
+   "error": "guarded-runner-413d5402 holds the exclusive command lease; motion commands from another controller are refused. The abort path (/api/rl/stop, /api/safe_zero, /c",
+   "step": "direct/api/sysid/run",
+   "t": 1789008726.627999
+  },
+  {
+   "code": 409,
+   "error_code": "command_lease_held",
+   "error": "guarded-runner-413d5402 holds the exclusive command lease; motion commands from another controller are refused. The abort path (/api/rl/stop, /api/safe_zero, /c",
+   "step": "direct/api/pose",
+   "t": 1789008726.650584
+  },
+  {
+   "code": 409,
+   "body": "{\"ok\": false, \"code\": \"command_lease_held\", \"error\": \"guarded-runner-413d5402 holds the exclusive command lease; motion commands from another controller are refused. The abort path (/api/rl/stop, /api",
+   "step": "direct/cmd J 0 5 0",
+   "t": 1789008726.787539
+  },
+  {
+   "code": 400,
+   "error": "body needs {'protocol': {...}}",
+   "lease_blocked": false,
+   "step": "holder/api/sysid/run",
+   "t": 1789008726.806717
+  },
+  {
+   "code": 200,
+   "ok": true,
+   "lease_blocked": false,
+   "step": "abort/api/rl/stop",
+   "t": 1789008726.992909
+  },
+  {
+   "code": 200,
+   "body": "limp",
+   "step": "abort/cmd X",
+   "t": 1789008727.045423
+  },
+  {
+   "code": 200,
+   "body": {
+    "ok": true,
+    "held": true,
+    "owner": "guarded-runner-413d5402",
+    "reason": "exclusivity demonstration (no motion)",
+    "acquired_at": "2026-09-10T02:52:06.422Z",
+    "expires_at": "2026-09-10T02:54:06.422Z",
+    "ttl_s": 120.0,
+    "expires_in_s": 119.3,
+    "recent_refusals": [
+     {
+      "ts": "2026-09-10T02:52:06.447Z",
+      "method": "POST",
+      "path": "/api/rl/stand",
+      "controller": "script",
+      "lease_owner": "guarded-runner-413d5402",
+      "had_token": false
+     },
+     {
+      "ts": "2026-09-10T02:52:06.472Z",
+      "method": "POST",
+      "path": "/api/rl/lower",
+      "controller": "script",
+      "lease_owner": "guarded-runner-413d5402",
+      "had_token": false
+     },
+     {
+      "ts": "2026-09-10T02:52:06.547Z",
+      "method": "POST",
+      "path": "/api/rl/walk",
+      "controller": "script",
+      "lease_owner": "guarded-runner-413d5402",
+      "had_token": false
+     },
+     {
+      "ts": "2026-09-10T02:52:06.581Z",
+      "method": "POST",
+      "path": "/api/rl/stand",
+      "controller": "script",
+      "lease_owner": "guarded-runner-413d5402",
+      "had_token": false
+     },
+     {
+      "ts": "2026-09-10T02:52:06.602Z",
+      "method": "POST",
+      "path": "/api/standup",
+      "controller": "script",
+      "lease_owner": "guarded-runner-413d5402",
+      "had_token": false
+     },
+     {
+      "ts": "2026-09-10T02:52:06.625Z",
+      "method": "POST",
+      "path": "/api/sysid/run",
+      "controller": "script",
+      "lease_owner": "guarded-runner-413d5402",
+      "had_token": false
+     },
+     {
+      "ts": "2026-09-10T02:52:06.669Z",
+      "method": "POST",
+      "path": "/api/pose",
+      "controller": "script",
+      "lease_owner": "guarded-runner-413d5402",
+      "had_token": false
+     },
+     {
+      "ts": "2026-09-10T02:52:06.688Z",
+      "method": "POST",
+      "path": "/cmd",
+      "controller": "script",
+      "lease_owner": "guarded-runner-413d5402",
+      "had_token": false
+     },
+     {
+      "ts": "2026-09-10T02:52:06.806Z",
+      "method": "POST",
+      "path": "/cmd",
+      "controller": "script",
+      "lease_owner": "guarded-runner-413d5402",
+      "had_token": false
+     }
+    ]
+   },
+   "step": "lease_during",
+   "t": 1789008727.077315
+  },
+  {
+   "code": 200,
+   "body": {
+    "ok": true,
+    "released": true,
+    "held": false
+   },
+   "step": "release",
+   "t": 1789008727.106091
+  },
+  {
+   "code": 200,
+   "held": false,
+   "step": "lease_after",
+   "t": 1789008727.1485639
+  },
+  {
+   "pose": {
+    "activity": "idle",
+    "armed": false,
+    "status": "disarmed (limp)",
+    "live": 18,
+    "deg": [
+     0.09,
+     -0.09,
+     0.26,
+     0.09,
+     -0.09,
+     0.09,
+     0.0,
+     0.0,
+     0.26,
+     -0.09,
+     -0.18,
+     -0.09,
+     0.0,
+     0.09,
+     0.0,
+     0.0,
+     0.44,
+     0.26
+    ]
+   },
+   "step": "pose_after",
+   "t": 1789008728.347763
+  },
+  {
+   "last_ts": "2026-09-10T02:52:06.825Z",
+   "step": "errors_after",
+   "t": 1789008728.527238
+  }
+ ],
+ "journal_tail": [
+  {
+   "ts": "2026-09-10T02:50:51.327Z",
+   "path": "/api/tft/ready",
+   "controller": "script",
+   "peer": "192.168.4.123",
+   "code": null
+  },
+  {
+   "ts": "2026-09-10T02:52:06.420Z",
+   "path": "/api/command-lease/acquire",
+   "controller": "script",
+   "peer": "192.168.4.123",
+   "code": null
+  },
+  {
+   "ts": "2026-09-10T02:52:06.446Z",
+   "path": "/api/rl/stand",
+   "controller": "script",
+   "peer": "192.168.4.123",
+   "code": 409
+  },
+  {
+   "ts": "2026-09-10T02:52:06.471Z",
+   "path": "/api/rl/lower",
+   "controller": "script",
+   "peer": "192.168.4.123",
+   "code": 409
+  },
+  {
+   "ts": "2026-09-10T02:52:06.546Z",
+   "path": "/api/rl/walk",
+   "controller": "script",
+   "peer": "192.168.4.123",
+   "code": 409
+  },
+  {
+   "ts": "2026-09-10T02:52:06.580Z",
+   "path": "/api/rl/stand",
+   "controller": "script",
+   "peer": "192.168.4.123",
+   "code": 409
+  },
+  {
+   "ts": "2026-09-10T02:52:06.601Z",
+   "path": "/api/standup",
+   "controller": "script",
+   "peer": "192.168.4.123",
+   "code": 409
+  },
+  {
+   "ts": "2026-09-10T02:52:06.623Z",
+   "path": "/api/sysid/run",
+   "controller": "script",
+   "peer": "192.168.4.123",
+   "code": 409
+  },
+  {
+   "ts": "2026-09-10T02:52:06.668Z",
+   "path": "/api/pose",
+   "controller": "script",
+   "peer": "192.168.4.123",
+   "code": 409
+  },
+  {
+   "ts": "2026-09-10T02:52:06.686Z",
+   "path": "/cmd",
+   "controller": "script",
+   "peer": "192.168.4.123",
+   "code": 409
+  },
+  {
+   "ts": "2026-09-10T02:52:06.805Z",
+   "path": "/cmd",
+   "controller": "script",
+   "peer": "192.168.4.123",
+   "code": 409
+  },
+  {
+   "ts": "2026-09-10T02:52:06.823Z",
+   "path": "/api/sysid/run",
+   "controller": "script",
+   "peer": "192.168.4.123",
+   "code": null
+  },
+  {
+   "ts": "2026-09-10T02:52:06.843Z",
+   "path": "/api/rl/stop",
+   "controller": "script",
+   "peer": "192.168.4.123",
+   "code": null
+  },
+  {
+   "ts": "2026-09-10T02:52:07.055Z",
+   "path": "/cmd",
+   "controller": "script",
+   "peer": "192.168.4.123",
+   "code": null
+  },
+  {
+   "ts": "2026-09-10T02:52:07.117Z",
+   "path": "/api/command-lease/release",
+   "controller": "script",
+   "peer": "192.168.4.123",
+   "code": null
+  }
+ ],
+ "verdict": {
+  "joints_moved_gt_0p5deg": [],
+  "no_motion": true,
+  "no_new_error_row": false,
+  "activity_before": "idle",
+  "activity_after": "idle"
+ }
+}

@@ -1,0 +1,33 @@
+[
+ {
+  "ts": "2026-09-10T03:00:34.289Z",
+  "mono": 17433.591914,
+  "seq": 353,
+  "kind": "bus_timing",
+  "level": "error",
+  "src": "mcu",
+  "msg": "P->p ascii_err 15.1ms",
+  "data": {
+   "seq": 36,
+   "ok": false,
+   "reason": "ascii_err",
+   "cmd": "P",
+   "want": "p",
+   "n": 0,
+   "timeout_ms": 1000.0,
+   "lock_wait_ms": 0.014,
+   "reset_input_ms": 0.089,
+   "serial_write_ms": 0.346,
+   "serial_flush_ms": 0.138,
+   "write_flush_ms": 0.588,
+   "first_byte_wait_ms": 14.48,
+   "ascii_drains": 1,
+   "pre_a5_hex": "455252",
+   "pre_a5_ascii": "ERR",
+   "pre_a5_lines": [
+    "ERR"
+   ],
+   "elapsed_ms": 15.137
+  }
+ }
+]

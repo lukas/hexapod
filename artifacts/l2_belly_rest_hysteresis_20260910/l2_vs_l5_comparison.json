@@ -1,0 +1,35 @@
+{
+ "encoder_resolution_deg_per_count": 0.0879,
+ "L2": {
+  "pooled_mean_deg": -0.4357,
+  "pooled_sd_deg": 0.077,
+  "n_cycles": 24,
+  "n_runs": 4,
+  "out_err_deg": -0.0494,
+  "in_err_deg": 0.3863,
+  "knee_loop_deg": 0.4376,
+  "counts": -4.96,
+  "range_deg": [
+   -0.527,
+   -0.263
+  ],
+  "terminal_run": "2026-09-10T02:58:19Z, protocol_hash a99ceef28136"
+ },
+ "L5": {
+  "pooled_mean_deg": -0.832,
+  "pooled_sd_deg": 0.065,
+  "n_cycles": 25,
+  "n_runs": 5,
+  "out_err_deg": -0.118,
+  "in_err_deg": 0.629,
+  "counts": -9.5,
+  "range_deg": [
+   -0.967,
+   -0.703
+  ],
+  "source": "sealed experiment b289e536, same reviewed protocol family, same rig, 02:17:59Z today + 4 prior runs"
+ },
+ "ratio_L2_over_L5": 0.524,
+ "ranges_overlap": false,
+ "finding": "The loaded-vs-unloaded angle offset is real and tightly repeatable on both legs, but it is NOT a shared constant: L2's loop is about half L5's and the two per-cycle distributions do not overlap at all. A single global backlash/hysteresis constant would mis-compensate both legs; the offset has to be measured per leg."
+}

@@ -17,6 +17,11 @@ WAITING_FOR_OPERATOR = "waiting_for_operator"
 # takes another attempt on its own. Kept here rather than imported from the
 # orchestrator so the store has no dependency on it.
 QUEUE_STOP_ASSESS_SECONDS = 30.0
+BUILD_EXECUTOR_MISSION = (
+    "Make one queued Robot Lab plan runnable: write the protocol and/or runner "
+    "it needs, with tests, commit and push to main, and report exactly what "
+    "you built. Do not touch the robot. The run itself is a separate job."
+)
 LEGACY_PRE_RUN_PIN_BASIS = "legacy_backfill_by_recorded_time"
 CODEX_JOB_KINDS = {"analysis", "advance"}
 CODEX_JOB_TERMINAL = {"succeeded", "blocked", "dead"}
@@ -1916,6 +1921,113 @@ class Store:
             ).fetchone()
         return row is not None
 
+    @staticmethod
+    def _enqueue_build_job(con, experiment_id, spec, parameters, analysis_job_id,
+                           now, max_attempts) -> None:
+        """Queue the offline job that makes a needs-build plan runnable.
+
+        The job's source declares simulation_only/robot_motion=False so the
+        lane classifier puts it on the OFFLINE checkout: it writes code, it
+        never touches the robot. The plan stays out of the run queue until
+        this job finishes and names what it built.
+        """
+        if con.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' "
+            "AND name='codex_engineering_jobs'"
+        ).fetchone() is None:
+            # The lane creates its table when it starts. reconcile() picks
+            # up any held plan that was accepted before that.
+            return
+        executor = dict(parameters.get("executor") or {})
+        # source_analysis_job_id is UNIQUE and a foreign key into codex_jobs,
+        # and the analysis already owns its own engineering row. Anchor each
+        # build on its own durable receipt row instead -- the same device
+        # ensure_queue_handoff() uses with the advance job id.
+        anchor_id = uuid.uuid4().hex
+        con.execute(
+            "INSERT OR IGNORE INTO codex_jobs("
+            "id,dedupe_key,kind,trigger_kind,experiment_id,status,max_attempts,"
+            "not_before,created_at,updated_at,finished_at) "
+            "VALUES(?,?,'advance','build_executor',?,'succeeded',1,?,?,?,?)",
+            (anchor_id, f"build:{experiment_id}:anchor", experiment_id,
+             now, now, now, now),
+        )
+        anchor = con.execute(
+            "SELECT id FROM codex_jobs WHERE dedupe_key=?",
+            (f"build:{experiment_id}:anchor",),
+        ).fetchone()
+        anchor_id = anchor["id"] if anchor else anchor_id
+        source_context = {
+            "trigger_kind": "build_executor",
+            "experiment": {
+                "id": experiment_id,
+                "name": spec["name"],
+                "description": spec.get("description", ""),
+                "parameters": {
+                    **parameters,
+                    "simulation_only": True,
+                    "robot_motion": False,
+                },
+                "execution_mode": spec.get("execution_mode", "external_guarded"),
+            },
+            "analysis_job_id": analysis_job_id,
+            "executor": executor,
+        }
+        canonical = json.dumps(source_context, sort_keys=True, separators=(",", ":"))
+        con.execute(
+            "INSERT OR IGNORE INTO codex_engineering_jobs("
+            "id,dedupe_key,source_analysis_job_id,experiment_id,mission,"
+            "source_context_json,source_context_sha256,status,max_attempts,"
+            "not_before,created_at,updated_at) VALUES(?,?,?,?,?,?,?,'queued',?,?,?,?)",
+            (
+                uuid.uuid4().hex,
+                f"build:{experiment_id}:executor:v1",
+                anchor_id,
+                experiment_id,
+                BUILD_EXECUTOR_MISSION,
+                canonical,
+                hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+                max(1, int(max_attempts)),
+                now, now, now,
+            ),
+        )
+        con.execute(
+            "INSERT INTO events(experiment_id,timestamp,kind,message) VALUES(?,?,?,?)",
+            (experiment_id, now, "build_queued",
+             "Plan needs code before it can run; a build job was queued and the "
+             "plan is held out of the run queue until it finishes"),
+        )
+
+    def mark_executor_built(self, experiment_id: str, built: Dict[str, Any]) -> bool:
+        """Flip a needs-build plan to runnable once its build job names what it built."""
+        with self.connect() as con:
+            con.execute("BEGIN IMMEDIATE")
+            row = con.execute(
+                "SELECT parameters_json FROM experiments WHERE id=?", (experiment_id,)
+            ).fetchone()
+            if row is None:
+                con.execute("ROLLBACK")
+                return False
+            parameters = json.loads(row["parameters_json"])
+            executor = dict(parameters.get("executor") or {})
+            executor["kind"] = "existing"
+            for key in ("protocol", "runner"):
+                if isinstance(built.get(key), str) and built[key]:
+                    executor[key] = built[key]
+            executor["built_by"] = built.get("job_id")
+            parameters["executor"] = executor
+            con.execute(
+                "UPDATE experiments SET parameters_json=? WHERE id=?",
+                (json.dumps(parameters, sort_keys=True), experiment_id),
+            )
+            con.execute(
+                "INSERT INTO events(experiment_id,timestamp,kind,message) VALUES(?,?,?,?)",
+                (experiment_id, utcnow(), "executor_built",
+                 "Build job finished; the plan is now runnable and back in the run queue"),
+            )
+            con.execute("COMMIT")
+        return True
+
     def next_external_experiment(
         self, *, experiment_id: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
@@ -1994,10 +2106,17 @@ class Store:
                 arguments = (WAITING_FOR_OPERATOR, experiment_id)
             if blocked_filter:
                 arguments = arguments + (assess_deadline,)
+            # A plan that still needs code is not runnable. Hold it out of
+            # the run queue; mark_executor_built() releases it.
+            needs_build_filter = (
+                "AND COALESCE(json_extract(parameters_json,'$.executor.kind'),'existing')"
+                "<>'needs_build' "
+            )
             row = con.execute(
                 "SELECT * FROM experiments WHERE status=? "
                 "AND execution_mode='external_guarded' "
                 + exact_filter
+                + needs_build_filter
                 + blocked_filter
                 + "ORDER BY CASE WHEN "
                 "json_type(parameters_json,'$.simulation_only')='true' AND "
@@ -2475,6 +2594,13 @@ class Store:
                     )
                     disposition = "accepted"
                     accepted_count += 1
+                    executor = parameters.get("executor")
+                    if (isinstance(executor, dict)
+                            and executor.get("kind") == "needs_build"):
+                        self._enqueue_build_job(
+                            con, child_id, spec, parameters, analysis_job_id,
+                            now, max_attempts,
+                        )
                 con.execute(
                     "INSERT INTO codex_followup_proposals("
                     "analysis_job_id,source_experiment_id,root_experiment_id,"

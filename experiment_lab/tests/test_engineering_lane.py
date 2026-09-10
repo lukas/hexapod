@@ -1387,6 +1387,101 @@ def test_a_stopped_attempt_whose_motion_is_unknown_stays_completion_only(tmp_pat
     assert again["continuation"]["prior_motion_frames"] is None
 
 
+def _analysis_with_recommendation(store, executor):
+    """Seal one experiment and run its analysis with one recommendation."""
+    source = _sealed_experiment(store, "source run")
+    spec = {
+        "name": "L3 feed-forward compensation A/B",
+        "description": "Inject the measured backlash constant and see if it cancels the loop.",
+        "duration_seconds": 180,
+        "parameters": {"robot_motion": True, "moving_leg": "L3", "executor": executor},
+        "execution_mode": "external_guarded",
+    }
+    proposal = {
+        "recommendation_key": "l3_ff_ab_v1",
+        "rationale": "Hypothesis: the constant is actionable.",
+        "spec": spec,
+    }
+    from hexapod_lab.engineering_lane import EngineeringJobStore
+    EngineeringJobStore(store)  # the lane owns its table; the orchestrator does this at startup
+    analysis = store.claim_codex_job("analysis", "analyst", lease_seconds=60)
+    receipt = store.apply_analysis_followups(
+        analysis["id"], source["id"], [proposal],
+        max_depth=5, max_per_root=10,
+    )
+    return source, receipt
+
+
+def test_a_needs_build_plan_gets_a_build_job_and_is_held_from_the_robot(tmp_path):
+    """Three plans that needed code were each handed to the run job and
+    killed at the five-minute no-motion deadline having moved nothing."""
+    store = Store(tmp_path / "lab.sqlite3")
+    _, receipt = _analysis_with_recommendation(store, {
+        "kind": "needs_build",
+        "build": "Write a feed-forward compensation runner.",
+    })
+    assert receipt["accepted"], receipt
+    child_id = receipt["accepted"][0]["child_experiment_id"]
+
+    # Not runnable: the run queue must not see it.
+    assert store.next_external_experiment() is None
+
+    # A build job exists for it, and it is classified OFFLINE.
+    from hexapod_lab.engineering_lane import (
+        ENGINEERING_LANE_OFFLINE, EngineeringJobStore, engineering_job_lane)
+    engineering = EngineeringJobStore(store)
+    builds = [j for j in engineering.list_jobs()
+              if j["source_context"].get("trigger_kind") == "build_executor"]
+    assert len(builds) == 1
+    assert builds[0]["experiment_id"] == child_id
+    assert engineering_job_lane(builds[0]["source_context"]) == ENGINEERING_LANE_OFFLINE
+    assert "BUILD JOB" in __import__("hexapod_lab.engineering_lane", fromlist=["x"]).engineering_prompt(
+        dict(builds[0], lane=ENGINEERING_LANE_OFFLINE), {"sha256": "a" * 64}, {})
+
+
+def test_a_finished_build_flips_the_plan_into_the_run_queue(tmp_path):
+    store = Store(tmp_path / "lab.sqlite3")
+    _, receipt = _analysis_with_recommendation(store, {
+        "kind": "needs_build", "build": "Write the runner."})
+    child_id = receipt["accepted"][0]["child_experiment_id"]
+    from hexapod_lab.engineering_lane import ENGINEERING_LANE_OFFLINE, EngineeringJobStore
+    engineering = EngineeringJobStore(store)
+    job = engineering.claim("builder", lease_seconds=60, lane=ENGINEERING_LANE_OFFLINE)
+    assert job is not None and job["experiment_id"] == child_id
+    engineering.finish(job, "builder", {
+        "outcome": "changed",
+        "physical_motion_started": False,
+        "operator_actions": [],
+        "rl_orchestrator_requests": [],
+        "built_executor": {"runner": "rl_move/scripts/run_ff_ab.py"},
+    })
+    plan = store.get(child_id)
+    assert plan["parameters"]["executor"]["kind"] == "existing"
+    assert plan["parameters"]["executor"]["runner"] == "rl_move/scripts/run_ff_ab.py"
+    assert store.next_external_experiment()["id"] == child_id
+
+
+def test_a_plan_declared_existing_but_missing_on_disk_is_a_build(tmp_path):
+    """The planner declares; the lab checks the checkout."""
+    workspace = tmp_path / "project"
+    (workspace / "hexapod_walker" / "prototype_sts3215" / "sysid" / "protocols").mkdir(parents=True)
+    (workspace / "hexapod_walker" / "prototype_sts3215" / "sysid" / "protocols"
+     / "l2_real_v1.json").write_text("{}")
+    store = Store(tmp_path / "lab.sqlite3")
+    import dataclasses
+    settings = dataclasses.replace(
+        configured(tmp_path, workspace), codex_engineering_workdir=workspace)
+    orchestrator = CodexOrchestrator(store, settings, invoker=lambda *_a, **_k: {})
+
+    real = orchestrator._resolve_executor({"kind": "existing", "protocol": "l2_real_v1"}, {})
+    assert real["kind"] == "existing"
+    missing = orchestrator._resolve_executor({"kind": "existing", "protocol": "l9_imaginary_v1"}, {})
+    assert missing["kind"] == "needs_build"
+    # Legacy specs predate the required field and ran on existing executors.
+    undeclared = orchestrator._resolve_executor(None, {})
+    assert undeclared["kind"] == "existing"
+
+
 def test_an_empty_queue_with_a_ready_robot_asks_for_a_new_proposal(tmp_path):
     """Ten experiments then eight idle hours: an empty queue must self-refill."""
     workspace = tmp_path / "project"

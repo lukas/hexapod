@@ -65,6 +65,8 @@ class Settings:
     codex_engineering_workdir: Optional[Path] = None
     codex_offline_engineering_workdir: Optional[Path] = None
     codex_engineering_timeout_seconds: int = 7200
+    # A sealed successful queue handoff no longer needs an action-capable agent.
+    codex_handoff_exit_grace_seconds: float = 60.0
     codex_engineering_context_max_bytes: int = 256 * 1024
     codex_engineering_max_patch_bytes: int = 16 * 1024 * 1024
     codex_engineering_max_attempts: int = 3
@@ -225,6 +227,9 @@ class Settings:
             ),
             codex_engineering_timeout_seconds=int(os.getenv(
                 "HEXAPOD_CODEX_ENGINEERING_TIMEOUT_SECONDS", "7200"
+            )),
+            codex_handoff_exit_grace_seconds=float(os.getenv(
+                "HEXAPOD_CODEX_HANDOFF_EXIT_GRACE_SECONDS", "60"
             )),
             codex_engineering_context_max_bytes=int(os.getenv(
                 "HEXAPOD_CODEX_ENGINEERING_CONTEXT_MAX_BYTES", str(256 * 1024)

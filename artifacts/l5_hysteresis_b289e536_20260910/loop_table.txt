@@ -1,0 +1,22 @@
+L5 HIP (j16) COMMANDED-vs-MEASURED HYSTERESIS LOOP
+Loop width = settled measured hip angle at the SAME commanded -47.133 deg,
+out-stroke minus in-stroke. Settled = mean of the last 1.0 s of each 3 s dwell.
+
+THIS RUN  2026-09-10T02:17:59Z  hip loop -0.826+-0.070 deg (n=5)  knee +0.439  out-err -0.118  in-err +0.629  pk 0.0330 A
+this job  2026-09-10T02:09:36Z  hip loop -0.756+-0.070 deg (n=5)  knee +0.299  out-err -0.037  in-err +0.607  pk 0.0260 A
+prior     2026-09-06T00:54:45Z  hip loop -0.849+-0.038 deg (n=5)  knee +0.386  out-err +0.031  in-err +0.601  pk 0.0330 A
+prior     2026-09-05T22:25:49Z  hip loop -0.851+-0.032 deg (n=5)  knee +0.457  out-err -0.003  in-err +0.612  pk 0.0390 A
+prior     2026-09-05T22:15:55Z  hip loop -0.879+-0.000 deg (n=5)  knee +0.421  out-err +0.025  in-err +0.640  pk 0.0330 A
+
+POOLED over 5 runs / 3 days, n=25 cycles: mean -0.832 deg, sd 0.065, range -0.967..-0.703
+Encoder resolution 360/4096 = 0.0879 deg/count -> loop = 9.5 counts (not quantisation noise)
+
+THIS RUN, per block (the protocol returns fully to logical zero between A and B):
+  block A (3 repeats): loop widths ['-0.967', '-0.791']  mean -0.879
+  block B (3 repeats): loop widths ['-0.791', '-0.791', '-0.703']  mean -0.762
+
+Direction-dependent settled hip error, THIS RUN:
+  out-stroke: err -0.118 deg, peak cur 0.0130 A, peak load 7.2 %
+   in-stroke: err +0.629 deg, peak cur 0.0330 A, peak load 10.4 %
+
+Tracking: max |cmd-meas| any tick 6.10 deg; max SETTLED dwell error 0.815 deg (plan bound 5.0). Peak current 0.0330 A, max load 13.2 %, max temp 37 C.

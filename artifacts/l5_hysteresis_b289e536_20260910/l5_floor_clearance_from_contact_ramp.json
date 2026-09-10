@@ -1,0 +1,430 @@
+{
+ "source": "sysid_l5_ground_contact_ramp_v1_20260902_225432.csv",
+ "purpose": "measures the L5 belly-rest foot height above the floor, so the hysteresis protocol's foot_z=-15.00 mm can be stated as real clearance rather than assumed",
+ "contact_onset_meas_foot_z_mm": -80.95,
+ "hard_stop_meas_foot_z_mm": -105.74,
+ "hysteresis_protocol_deepest_commanded_foot_z_mm": -15.0,
+ "clearance_margin_to_contact_onset_mm": 65.95,
+ "rows": [
+  {
+   "t_s": 0.0015,
+   "cmd_foot_z_mm": -19.47,
+   "meas_foot_z_mm": -19.47,
+   "cur16_a": 0.0,
+   "load_pct": 0.0
+  },
+  {
+   "t_s": 0.2019,
+   "cmd_foot_z_mm": -14.23,
+   "meas_foot_z_mm": -19.47,
+   "cur16_a": 0.0,
+   "load_pct": 0.0
+  },
+  {
+   "t_s": 0.4019,
+   "cmd_foot_z_mm": -4.65,
+   "meas_foot_z_mm": -16.72,
+   "cur16_a": 0.006,
+   "load_pct": 2.4
+  },
+  {
+   "t_s": 0.6019,
+   "cmd_foot_z_mm": -0.0,
+   "meas_foot_z_mm": -13.29,
+   "cur16_a": 0.013,
+   "load_pct": 5.6
+  },
+  {
+   "t_s": 0.8018,
+   "cmd_foot_z_mm": -0.0,
+   "meas_foot_z_mm": -9.25,
+   "cur16_a": 0.013,
+   "load_pct": 6.4
+  },
+  {
+   "t_s": 1.0018,
+   "cmd_foot_z_mm": -0.0,
+   "meas_foot_z_mm": -5.66,
+   "cur16_a": 0.019,
+   "load_pct": 6.4
+  },
+  {
+   "t_s": 1.2018,
+   "cmd_foot_z_mm": -0.0,
+   "meas_foot_z_mm": -1.75,
+   "cur16_a": 0.013,
+   "load_pct": 5.6
+  },
+  {
+   "t_s": 1.4018,
+   "cmd_foot_z_mm": -0.0,
+   "meas_foot_z_mm": -1.52,
+   "cur16_a": 0.006,
+   "load_pct": 5.6
+  },
+  {
+   "t_s": 1.4276,
+   "cmd_foot_z_mm": -0.0,
+   "meas_foot_z_mm": -1.52,
+   "cur16_a": 0.006,
+   "load_pct": 5.6
+  },
+  {
+   "t_s": 1.6248,
+   "cmd_foot_z_mm": -0.45,
+   "meas_foot_z_mm": -1.52,
+   "cur16_a": 0.013,
+   "load_pct": 5.6
+  },
+  {
+   "t_s": 1.8248,
+   "cmd_foot_z_mm": -1.81,
+   "meas_foot_z_mm": -1.52,
+   "cur16_a": 0.013,
+   "load_pct": 4.8
+  },
+  {
+   "t_s": 2.0248,
+   "cmd_foot_z_mm": -4.05,
+   "meas_foot_z_mm": -1.52,
+   "cur16_a": 0.0,
+   "load_pct": 0.0
+  },
+  {
+   "t_s": 2.2248,
+   "cmd_foot_z_mm": -7.12,
+   "meas_foot_z_mm": -3.5,
+   "cur16_a": 0.0,
+   "load_pct": 0.0
+  },
+  {
+   "t_s": 2.4248,
+   "cmd_foot_z_mm": -11.0,
+   "meas_foot_z_mm": -6.26,
+   "cur16_a": 0.0,
+   "load_pct": 0.0
+  },
+  {
+   "t_s": 2.6248,
+   "cmd_foot_z_mm": -15.6,
+   "meas_foot_z_mm": -10.81,
+   "cur16_a": 0.006,
+   "load_pct": 6.8
+  },
+  {
+   "t_s": 2.8248,
+   "cmd_foot_z_mm": -20.85,
+   "meas_foot_z_mm": -13.47,
+   "cur16_a": 0.006,
+   "load_pct": 5.2
+  },
+  {
+   "t_s": 3.0248,
+   "cmd_foot_z_mm": -26.67,
+   "meas_foot_z_mm": -19.44,
+   "cur16_a": 0.0,
+   "load_pct": 0.0
+  },
+  {
+   "t_s": 3.2248,
+   "cmd_foot_z_mm": -32.96,
+   "meas_foot_z_mm": -23.89,
+   "cur16_a": 0.0,
+   "load_pct": 4.4
+  },
+  {
+   "t_s": 3.4248,
+   "cmd_foot_z_mm": -39.59,
+   "meas_foot_z_mm": -29.05,
+   "cur16_a": 0.006,
+   "load_pct": 4.0
+  },
+  {
+   "t_s": 3.6248,
+   "cmd_foot_z_mm": -46.47,
+   "meas_foot_z_mm": -35.34,
+   "cur16_a": 0.006,
+   "load_pct": 0.0
+  },
+  {
+   "t_s": 3.8248,
+   "cmd_foot_z_mm": -53.47,
+   "meas_foot_z_mm": -40.38,
+   "cur16_a": 0.0,
+   "load_pct": 0.0
+  },
+  {
+   "t_s": 4.0248,
+   "cmd_foot_z_mm": -60.47,
+   "meas_foot_z_mm": -45.77,
+   "cur16_a": 0.006,
+   "load_pct": 5.2
+  },
+  {
+   "t_s": 4.2248,
+   "cmd_foot_z_mm": -67.35,
+   "meas_foot_z_mm": -51.62,
+   "cur16_a": 0.006,
+   "load_pct": 4.4
+  },
+  {
+   "t_s": 4.4248,
+   "cmd_foot_z_mm": -74.0,
+   "meas_foot_z_mm": -56.73,
+   "cur16_a": 0.006,
+   "load_pct": 5.2
+  },
+  {
+   "t_s": 4.6248,
+   "cmd_foot_z_mm": -80.32,
+   "meas_foot_z_mm": -62.16,
+   "cur16_a": 0.006,
+   "load_pct": 4.0
+  },
+  {
+   "t_s": 4.8248,
+   "cmd_foot_z_mm": -86.21,
+   "meas_foot_z_mm": -67.78,
+   "cur16_a": 0.0,
+   "load_pct": 4.0
+  },
+  {
+   "t_s": 5.0248,
+   "cmd_foot_z_mm": -91.6,
+   "meas_foot_z_mm": -72.87,
+   "cur16_a": 0.006,
+   "load_pct": 4.8
+  },
+  {
+   "t_s": 5.2248,
+   "cmd_foot_z_mm": -96.39,
+   "meas_foot_z_mm": -77.58,
+   "cur16_a": 0.006,
+   "load_pct": 5.2
+  },
+  {
+   "t_s": 5.4248,
+   "cmd_foot_z_mm": -100.54,
+   "meas_foot_z_mm": -80.95,
+   "cur16_a": 0.019,
+   "load_pct": 9.6
+  },
+  {
+   "t_s": 5.6248,
+   "cmd_foot_z_mm": -104.0,
+   "meas_foot_z_mm": -84.46,
+   "cur16_a": 0.045,
+   "load_pct": 13.2
+  },
+  {
+   "t_s": 5.8248,
+   "cmd_foot_z_mm": -106.72,
+   "meas_foot_z_mm": -87.94,
+   "cur16_a": 0.065,
+   "load_pct": 15.2
+  },
+  {
+   "t_s": 6.0248,
+   "cmd_foot_z_mm": -108.69,
+   "meas_foot_z_mm": -92.2,
+   "cur16_a": 0.065,
+   "load_pct": 15.2
+  },
+  {
+   "t_s": 6.2248,
+   "cmd_foot_z_mm": -109.87,
+   "meas_foot_z_mm": -95.9,
+   "cur16_a": 0.071,
+   "load_pct": 16.0
+  },
+  {
+   "t_s": 6.4248,
+   "cmd_foot_z_mm": -110.27,
+   "meas_foot_z_mm": -99.22,
+   "cur16_a": 0.084,
+   "load_pct": 17.6
+  },
+  {
+   "t_s": 6.6248,
+   "cmd_foot_z_mm": -110.27,
+   "meas_foot_z_mm": -102.83,
+   "cur16_a": 0.065,
+   "load_pct": 15.2
+  },
+  {
+   "t_s": 6.8248,
+   "cmd_foot_z_mm": -110.27,
+   "meas_foot_z_mm": -105.74,
+   "cur16_a": 0.052,
+   "load_pct": 14.4
+  },
+  {
+   "t_s": 7.0248,
+   "cmd_foot_z_mm": -110.27,
+   "meas_foot_z_mm": -105.74,
+   "cur16_a": 0.071,
+   "load_pct": 14.4
+  },
+  {
+   "t_s": 7.2248,
+   "cmd_foot_z_mm": -110.27,
+   "meas_foot_z_mm": -105.74,
+   "cur16_a": 0.052,
+   "load_pct": 14.4
+  },
+  {
+   "t_s": 7.4248,
+   "cmd_foot_z_mm": -110.27,
+   "meas_foot_z_mm": -105.74,
+   "cur16_a": 0.058,
+   "load_pct": 14.4
+  },
+  {
+   "t_s": 7.6248,
+   "cmd_foot_z_mm": -110.27,
+   "meas_foot_z_mm": -105.74,
+   "cur16_a": 0.065,
+   "load_pct": 14.4
+  },
+  {
+   "t_s": 7.8248,
+   "cmd_foot_z_mm": -109.65,
+   "meas_foot_z_mm": -105.74,
+   "cur16_a": 0.058,
+   "load_pct": 14.4
+  },
+  {
+   "t_s": 8.0245,
+   "cmd_foot_z_mm": -107.8,
+   "meas_foot_z_mm": -105.74,
+   "cur16_a": 0.045,
+   "load_pct": 12.8
+  },
+  {
+   "t_s": 8.2248,
+   "cmd_foot_z_mm": -104.75,
+   "meas_foot_z_mm": -105.74,
+   "cur16_a": 0.026,
+   "load_pct": 9.6
+  },
+  {
+   "t_s": 8.4248,
+   "cmd_foot_z_mm": -100.54,
+   "meas_foot_z_mm": -104.15,
+   "cur16_a": 0.006,
+   "load_pct": 4.0
+  },
+  {
+   "t_s": 8.6248,
+   "cmd_foot_z_mm": -95.25,
+   "meas_foot_z_mm": -101.03,
+   "cur16_a": 0.0,
+   "load_pct": 0.0
+  },
+  {
+   "t_s": 8.8248,
+   "cmd_foot_z_mm": -88.98,
+   "meas_foot_z_mm": -96.22,
+   "cur16_a": 0.0,
+   "load_pct": 2.0
+  },
+  {
+   "t_s": 9.0248,
+   "cmd_foot_z_mm": -81.84,
+   "meas_foot_z_mm": -91.42,
+   "cur16_a": 0.0,
+   "load_pct": 3.6
+  },
+  {
+   "t_s": 9.2248,
+   "cmd_foot_z_mm": -74.0,
+   "meas_foot_z_mm": -86.37,
+   "cur16_a": 0.0,
+   "load_pct": 0.0
+  },
+  {
+   "t_s": 9.4248,
+   "cmd_foot_z_mm": -65.64,
+   "meas_foot_z_mm": -81.96,
+   "cur16_a": 0.006,
+   "load_pct": 0.0
+  },
+  {
+   "t_s": 9.6248,
+   "cmd_foot_z_mm": -56.97,
+   "meas_foot_z_mm": -76.7,
+   "cur16_a": 0.019,
+   "load_pct": 8.8
+  },
+  {
+   "t_s": 9.8248,
+   "cmd_foot_z_mm": -48.21,
+   "meas_foot_z_mm": -71.25,
+   "cur16_a": 0.013,
+   "load_pct": 9.6
+  },
+  {
+   "t_s": 10.0248,
+   "cmd_foot_z_mm": -39.59,
+   "meas_foot_z_mm": -65.62,
+   "cur16_a": 0.019,
+   "load_pct": 8.8
+  },
+  {
+   "t_s": 10.2248,
+   "cmd_foot_z_mm": -31.35,
+   "meas_foot_z_mm": -59.6,
+   "cur16_a": 0.013,
+   "load_pct": 8.8
+  },
+  {
+   "t_s": 10.4248,
+   "cmd_foot_z_mm": -23.7,
+   "meas_foot_z_mm": -53.9,
+   "cur16_a": 0.019,
+   "load_pct": 8.8
+  },
+  {
+   "t_s": 10.6248,
+   "cmd_foot_z_mm": -16.85,
+   "meas_foot_z_mm": -48.02,
+   "cur16_a": 0.013,
+   "load_pct": 7.6
+  },
+  {
+   "t_s": 10.8248,
+   "cmd_foot_z_mm": -11.0,
+   "meas_foot_z_mm": -42.62,
+   "cur16_a": 0.013,
+   "load_pct": 8.8
+  },
+  {
+   "t_s": 11.0248,
+   "cmd_foot_z_mm": -6.28,
+   "meas_foot_z_mm": -36.47,
+   "cur16_a": 0.019,
+   "load_pct": 8.8
+  },
+  {
+   "t_s": 11.2248,
+   "cmd_foot_z_mm": -2.82,
+   "meas_foot_z_mm": -31.21,
+   "cur16_a": 0.013,
+   "load_pct": 7.2
+  },
+  {
+   "t_s": 11.4248,
+   "cmd_foot_z_mm": -0.71,
+   "meas_foot_z_mm": -26.9,
+   "cur16_a": 0.019,
+   "load_pct": 7.2
+  },
+  {
+   "t_s": 11.6248,
+   "cmd_foot_z_mm": -0.0,
+   "meas_foot_z_mm": -22.43,
+   "cur16_a": 0.006,
+   "load_pct": 6.8
+  }
+ ]
+}

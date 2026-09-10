@@ -420,6 +420,9 @@ def test_inbox_reads_only_recipient_messages_after_start(tmp_path):
     con.execute("INSERT INTO message VALUES (2, 'raise cap 100', 1, 0, ?)", (now_apple_ns + int(5e9),))
     con.execute("INSERT INTO message VALUES (3, 'status', 2, 0, ?)", (now_apple_ns + int(5e9),))
     con.execute("INSERT INTO message VALUES (4, 'Robot Lab: cap is now', 1, 1, ?)", (now_apple_ns + int(6e9),))
+    # Sending to your own number: our texts come back as inbound copies.
+    con.execute("INSERT INTO message VALUES (5, 'Robot Lab: stopped: cap. reply: resume', 1, 0, ?)", (now_apple_ns + int(7e9),))
+    con.execute("INSERT INTO message VALUES (6, 'Hexapod alert: recovery:68', 1, 0, ?)", (now_apple_ns + int(7e9),))
     con.commit(); con.close()
     inbox = commands.Inbox(recipient="+1 (555) 555-0100", db_path=db, started_unix=commands.time.time() - 1)
     assert inbox.poll() == ["raise cap 100"]

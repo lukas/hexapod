@@ -108,11 +108,17 @@ HARD_CAP_A = 3.5
 # Above this a reading is not a measurement. The bus cannot deliver it and the
 # servo would not survive it: the 09-09 stand-up died 1.76 s in on a reported
 # 106.5 A, thirty times the hard cap, from the same corrupted-byte failure the
-# temperature check below is already debounced against. Real overcurrent lives
-# between HARD_CAP_A and here (the 08-06 incident held about 7 A) and must
-# still trip on the first read, so only implausible values are debounced.
+# 08-11 "150 °C" phantom came from. Real overcurrent lives between HARD_CAP_A
+# and here (the 08-06 incident held about 7 A).
 IMPLAUSIBLE_CURRENT_A = 12.0
-IMPLAUSIBLE_CURRENT_READS = 3
+# Operator rule (09-09): EVERY executor guard confirms on three consecutive
+# sweeps before it limps. One corrupted byte on the shared bus must never end
+# a run. The exposure that buys is bounded: sweeps are 0.3 s apart in bulk
+# mode (0.6 s otherwise), so a real fault runs at most ~0.6 s / ~1.2 s longer
+# than it used to before the limp — well inside a servo's thermal and stall
+# tolerance, and cheap next to a session lost to a phantom.
+GUARD_CONFIRM_READS = 3
+IMPLAUSIBLE_CURRENT_READS = GUARD_CONFIRM_READS
 LOAD_MAX_PCT = 70.0
 DRAG_LOAD_MAX_PCT = 85.0
 SLOW_DPS = 8.0              # below this the joint counts as "not moving"
@@ -913,6 +919,19 @@ def run_safe_zero(bus, stages: list[dict], *,
 
     peak_a, peak_j = 0.0, None
 
+    def _confirm(counter: dict[int, int], hits: set[int]) -> int | None:
+        """Count consecutive sweeps per joint; first joint at N, else None.
+
+        A joint that clears drops back to zero, so only an uninterrupted
+        run of GUARD_CONFIRM_READS sweeps trips a guard.
+        """
+        for j in [k for k in counter if k not in hits]:
+            del counter[j]
+        for j in hits:
+            counter[j] = counter.get(j, 0) + 1
+        return next((j for j in sorted(hits)
+                     if counter[j] >= GUARD_CONFIRM_READS), None)
+
     def _trip(reason: str, stage_label: str) -> dict:
         try:
             _limp_all(bus, live)
@@ -948,9 +967,10 @@ def run_safe_zero(bus, stages: list[dict], *,
             min_settle = max(0.4, secs * 0.5)
             fb_interval = 0.3 if bulk else 0.6
             last_fb = 0.0
-            stall_prev: set[int] = set()
-            load_prev: set[int] = set()
-            temp_prev: set[int] = set()
+            stall_count: dict[int, int] = {}
+            load_count: dict[int, int] = {}
+            temp_count: dict[int, int] = {}
+            hard_count: dict[int, int] = {}
             wild_count: dict[int, int] = {}
             miss_count: dict[int, int] = {}
             sweep_misses = 0
@@ -999,71 +1019,79 @@ def run_safe_zero(bus, stages: list[dict], *,
                         return abs(float(fb.get("speed_deg_s") or 0.0)
                                    ) < SLOW_DPS
 
+                    now_wild: set[int] = set()
+                    now_hard: set[int] = set()
                     now_temp: set[int] = set()
+                    amps: dict[int, float] = {}
+                    hot_c: dict[int, int] = {}
                     for j, fb in fb_map.items():
                         a = abs(float(fb.get("current_a") or 0.0))
+                        amps[j] = a
                         if a > IMPLAUSIBLE_CURRENT_A:
-                            # Corrupt read, not an event. Require it to repeat
-                            # before trusting it, and keep it out of peak_a so
-                            # one bad byte cannot poison the run's report.
-                            wild_count[j] = wild_count.get(j, 0) + 1
-                            if wild_count[j] >= IMPLAUSIBLE_CURRENT_READS:
-                                return _trip(
-                                    f"{joint_name(j)} read {a:.1f} A on "
-                                    f"{wild_count[j]} consecutive sweeps "
-                                    f"(implausible above "
-                                    f"{IMPLAUSIBLE_CURRENT_A:.0f} A — suspect "
-                                    f"the bus, not the joint)", label)
+                            # Corrupt read, not an event. Keep it out of
+                            # peak_a too, so one bad byte cannot poison the
+                            # run's report.
+                            now_wild.add(j)
                             continue
-                        wild_count[j] = 0
                         if a > peak_a:
                             peak_a, peak_j = a, j
                         if a > HARD_CAP_A:
-                            return _trip(
-                                f"{joint_name(j)} at {a:.2f} A "
-                                f"(hard cap {HARD_CAP_A:.1f} A)", label)
+                            now_hard.add(j)
                         t_c = fb.get("temp_c")
                         if t_c is not None and int(t_c) >= TEMP_MAX_C:
-                            # Debounced like the stall check below: one
-                            # hot read is not trusted. Corrupted bytes on
-                            # the shared bus fake 70-150 C spikes (08-11:
-                            # "L4 hip at 150 °C" that read a steady 33 C
-                            # seconds later killed a session; servo_watch
-                            # documents the same 08-09 phantoms). Real
-                            # heat survives two reads ~0.3-0.6 s apart.
-                            if j in temp_prev:
-                                return _trip(
-                                    f"{joint_name(j)} at {int(t_c)} °C",
-                                    label)
+                            # Corrupted bytes on the shared bus fake
+                            # 70-150 C spikes (08-11: "L4 hip at 150 °C"
+                            # that read a steady 33 C seconds later killed
+                            # a session; servo_watch documents the same
+                            # 08-09 phantoms). Real heat survives.
                             now_temp.add(j)
-                    temp_prev = now_temp
+                            hot_c[j] = int(t_c)
+
+                    bad = _confirm(wild_count, now_wild)
+                    if bad is not None:
+                        return _trip(
+                            f"{joint_name(bad)} read {amps[bad]:.1f} A on "
+                            f"{GUARD_CONFIRM_READS} consecutive sweeps "
+                            f"(implausible above "
+                            f"{IMPLAUSIBLE_CURRENT_A:.0f} A — suspect the "
+                            f"bus, not the joint)", label)
+                    bad = _confirm(hard_count, now_hard)
+                    if bad is not None:
+                        return _trip(
+                            f"{joint_name(bad)} at {amps[bad]:.2f} A on "
+                            f"{GUARD_CONFIRM_READS} consecutive sweeps "
+                            f"(hard cap {HARD_CAP_A:.1f} A)", label)
+                    bad = _confirm(temp_count, now_temp)
+                    if bad is not None:
+                        return _trip(
+                            f"{joint_name(bad)} at {hot_c[bad]} °C on "
+                            f"{GUARD_CONFIRM_READS} consecutive sweeps",
+                            label)
 
                     now_stall = {
                         j for j, fb in fb_map.items()
                         if abs(float(fb.get("current_a") or 0.0)) > cur_lim
                         and _slow(fb) and errs[j] > 4.0}
-                    hit = now_stall & stall_prev
-                    if hit:
-                        j = sorted(hit)[0]
+                    bad = _confirm(stall_count, now_stall)
+                    if bad is not None:
                         return _trip(
-                            f"stall-fight: {joint_name(j)} over "
+                            f"stall-fight: {joint_name(bad)} over "
                             f"{cur_lim:.1f} A while not moving "
-                            f"({errs[j]:.0f}° from target){FORCE_HINT}",
-                            label)
-                    stall_prev = now_stall
+                            f"({errs[bad]:.0f}° from target) on "
+                            f"{GUARD_CONFIRM_READS} consecutive sweeps"
+                            f"{FORCE_HINT}", label)
 
                     now_load = {
                         j for j, fb in fb_map.items()
                         if float(fb.get("load_pct") or 0.0) > load_lim
                         and _slow(fb) and errs[j] > 4.0}
-                    hit = now_load & load_prev
-                    if hit:
-                        j = sorted(hit)[0]
+                    bad = _confirm(load_count, now_load)
+                    if bad is not None:
                         return _trip(
-                            f"unexpected force: {joint_name(j)} load "
-                            f"{float(fb_map[j]['load_pct']):.0f}% while "
-                            f"not moving{FORCE_HINT}", label)
-                    load_prev = now_load
+                            f"unexpected force: {joint_name(bad)} load "
+                            f"{float(fb_map[bad]['load_pct']):.0f}% while "
+                            f"not moving on {GUARD_CONFIRM_READS} "
+                            f"consecutive sweeps{FORCE_HINT}", label)
 
                     el = last_fb - t0
                     for j, e in errs.items():

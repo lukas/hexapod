@@ -13,8 +13,10 @@ Safety (same posture as motor_dynamics.py — air battery rules):
 - The runner POSITIONS THE LEGS ITSELF: before the first segment it
   glides slowly (``GLIDE_RATE_DEG_S``) to the protocol's start pose
   (``home_deg`` / a leading traj's first row) — no hand-posing. The
-  glide streams eased targets with every trip active, and the run
-  aborts if the pose does not verify within ``GLIDE_TOL_DEG`` after.
+  glide streams eased targets with every trip active — but on the
+  wider ``GLIDE_CURRENT_A`` budget, since unfolding the whole body off
+  the floor is not the quasi-static motion the protocol measures — and
+  the run aborts if the pose does not verify within ``GLIDE_TOL_DEG``.
 - ``step``/``sine`` segments move ONE joint; all others just hold the
   pose captured at segment start (successful reads only — never
   invent 0°).
@@ -74,6 +76,18 @@ MAX_MISSED_READS = 3           # consecutive bulk-read misses of a joint
 FEEDBACK_HZ = 10.0             # full-feedback (current/temp) throttle
 DEFAULT_START_TOL_DEG = 12.0   # traj continuity gate (mid-protocol)
 GLIDE_RATE_DEG_S = 12.0        # slow start-pose glide (air)
+# Soft-current floor for the glide only. A protocol's ``max_current_a`` is
+# the budget for the motion it MEASURES (single-leg quasi-static work: the
+# per-leg ladders carry 0.75 A). The glide is a different move: unfolding
+# the whole body from wherever the last run left it down to the start pose,
+# with feet on the floor carrying body weight. On 2026-09-10 the L4 ladder
+# died 2.2 s into a 10 s glide from a folded ground pose — joint 14 read
+# 0.73 -> 1.38 A extending the loaded knee, over the protocol's 0.75 A, and
+# limped at tick -88 with 0/430 protocol ticks run. That is honest lifting
+# work, not a jam. 2.0 A is the house "loaded current budget" the ground
+# protocols use; ``hard_current_a`` (3.0) still trips on the first reading,
+# as do the temp and MAX_TRACK_ERR_DEG guards.
+GLIDE_CURRENT_A = 2.0
 GLIDE_TIMEOUT_S = 45.0
 GLIDE_SETTLE_S = 1.0
 # Post-glide worst-joint verification. Was 3.0: on 2026-09-10 the lab
@@ -398,8 +412,14 @@ def run_sysid_protocol(
                    if j in last_fb else ""
                    for j in range(N_JOINTS)])
 
-        def _trip_feedback(active: list[int]) -> tuple:
-            """Throttled current/temp trips; returns the fb CSV cells."""
+        def _trip_feedback(active: list[int], soft_a: float | None = None
+                           ) -> tuple:
+            """Throttled current/temp trips; returns the fb CSV cells.
+
+            ``soft_a`` overrides the protocol's soft current budget for
+            callers whose motion is not the measured one (the glide).
+            """
+            soft_cur = max_cur if soft_a is None else soft_a
             nonlocal last_fb, last_fb_t, tripped_error
             t_now = time.monotonic()
             fresh = False
@@ -426,7 +446,7 @@ def run_sysid_protocol(
                 if seg_stats:
                     seg_stats[-1]["peak_current_a"] = max(
                         seg_stats[-1]["peak_current_a"], cur_a)
-                if fresh and cur_a > max_cur:
+                if fresh and cur_a > soft_cur:
                     overcurrent_polls[j] = overcurrent_polls.get(j, 0) + 1
                 elif fresh:
                     overcurrent_polls[j] = 0
@@ -437,7 +457,7 @@ def run_sysid_protocol(
                                      f"limped")
                 elif overcurrent_polls.get(j, 0) >= current_trip_polls:
                     tripped_error = (f"joint {j} overcurrent {cur_a:.2f} A "
-                                     f"(limit {max_cur:.2f}, "
+                                     f"(limit {soft_cur:.2f}, "
                                      f"{overcurrent_polls[j]} consecutive "
                                      f"polls) — possible "
                                      f"jam or wrong logical zero; limped")
@@ -512,7 +532,9 @@ def run_sysid_protocol(
                         tripped_error = runtime_error
                         break
                     last_pose.update(pose)
-                    fb_row = _trip_feedback(list(range(N_JOINTS)))
+                    fb_row = _trip_feedback(
+                        list(range(N_JOINTS)),
+                        soft_a=max(max_cur, GLIDE_CURRENT_A))
                     if tripped_error:
                         break
                     for j in range(N_JOINTS):
@@ -528,6 +550,10 @@ def run_sysid_protocol(
                         break
                     _log_row(-n_glide + k, -1, "glide", -1, t_send,
                              t_recv, 0, cmd_abs, fb_row)
+                # Polls counted against the wider glide budget must not
+                # carry into segment 0's tighter one.
+                for j in list(overcurrent_polls):
+                    overcurrent_polls[j] = 0
                 # Verify the pose actually arrived before any segment runs.
                 if tripped_error is None and not aborted:
                     pose, miss = _read_pose_debounced()

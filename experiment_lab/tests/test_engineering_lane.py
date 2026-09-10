@@ -1338,6 +1338,20 @@ def test_the_lane_counts_motion_frames_instead_of_an_agent(tmp_path):
     assert _count_motion_frames(tmp_path / "does-not-exist.jsonl") is None
 
 
+@pytest.mark.parametrize("state,expected", [
+    ({"pose": {"armed": True, "mode": "idle", "demo": {"running": False}}}, True),
+    ({"pose": {"armed": False, "demo": {"name": "sysid_run", "running": True}}}, True),
+    ({"pose": {"armed": False, "mode": "idle", "demo": {"running": False}}}, False),
+    ({"armed": True}, True),
+    ({}, False),
+    ("not a dict", False),
+])
+def test_the_watchdog_reads_motion_from_the_robots_live_state(state, expected):
+    """The serial transcript only lands on disk at finish; the robot is live."""
+    from hexapod_lab.codex_orchestrator import _state_reports_motion
+    assert _state_reports_motion(state) is expected
+
+
 def test_a_stopped_attempt_with_zero_motion_frames_restarts_cleanly(tmp_path):
     """A counted zero is a clean restart, not a forensics assignment."""
     store, orchestrator = _guarded_orchestrator(tmp_path)

@@ -71,6 +71,23 @@ class Settings:
         return self.data_dir / "PAUSE"
 
     @property
+    def cap_file(self) -> Path:
+        """Operator override of the daily cap, set with `hexapod-lab2 cap N` or a
+        'raise cap' text. Read every time so it applies without a restart."""
+        return self.data_dir / "CAP_USD"
+
+    def current_cap(self) -> float:
+        try:
+            return float(self.cap_file.read_text().strip())
+        except (OSError, ValueError):
+            return self.daily_spend_cap_usd
+
+    def set_cap(self, usd: float) -> float:
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        self.cap_file.write_text(f"{float(usd):.2f}\n")
+        return float(usd)
+
+    @property
     def prototype_dir(self) -> Path:
         return self.checkout / "hexapod_walker" / "prototype_sts3215"
 

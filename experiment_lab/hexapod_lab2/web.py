@@ -86,7 +86,7 @@ def render(store: Store, settings: Settings, robot: Optional[str] = None) -> str
     out = [f"<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'>"
            f"<title>Robot Lab v2</title><style>{CSS}</style><main>"
            f"<div class=bar><h1>Robot Lab v2</h1><span>{escape(local_stamp(datetime.now(timezone.utc).isoformat(), relative=False))}</span>"
-           f"<span>${spent:.2f} last 24 h of ${settings.daily_spend_cap_usd:.0f}</span>"
+           f"<span>${spent:.2f} last 24 h of ${settings.current_cap():.0f}</span>"
            + "".join(f"<a href='/v2/?robot={escape(r)}'>{'<b>' if r == robot else ''}{escape(r)}{'</b>' if r == robot else ''}</a>" for r in store.robots())
            + (f"<a href='/v2/'>all robots</a>" if robot else "")
            + f"<a href='/'>old lab</a><a href='/v2/api/state'>json</a></div>"]
@@ -96,8 +96,8 @@ def render(store: Store, settings: Settings, robot: Optional[str] = None) -> str
         except OSError:
             why = ""
         out.append(f"<div class=pause>Paused{': ' + escape(why) if why else ''}. Run <code>hexapod-lab2 resume</code> to continue.</div>")
-    if loop_stopped:
-        out.append(f"<div class=stop>Loop stopped {escape(local_stamp(stop['created_at']))}: {escape(stop['text'])}. Restart the service to continue.</div>")
+    if loop_stopped and not paused:
+        out.append(f"<div class=stop>Loop stopped {escape(local_stamp(stop['created_at']))}: {escape(stop['text'])}.</div>")
     running = [p for p in store.plans(["running"]) if not robot or p["robot"] == robot]
     queue = [p for p in store.plans(["queued", "building"]) if not robot or p["robot"] == robot]
     out.append("<h3>Now</h3>")

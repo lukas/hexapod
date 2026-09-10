@@ -31,6 +31,8 @@ def main(argv=None) -> int:
     sub.add_parser("recover", help="run the robot's own recovery ladder now (safe-zero, untrap, safe-zero)")
     at = sub.add_parser("alert-test", help="send one test text to the configured recipient")
     at.add_argument("--message", default="test from Robot Lab v2")
+    cap = sub.add_parser("cap", help="set the rolling 24 h spend cap in dollars (applies immediately)")
+    cap.add_argument("usd", type=float)
     sub.add_parser("status")
     sub.add_parser("pause"); sub.add_parser("resume")
     args = ap.parse_args(argv)
@@ -76,8 +78,10 @@ def main(argv=None) -> int:
         from . import alerts
         sent = alerts.text(store, f"test-{store.events(1)[0]['id'] if store.events(1) else 'first'}", args.message)
         print("sent" if sent else "not sent: " + store.events(1)[0]["text"]); return 0 if sent else 1
+    if args.cmd == "cap":
+        print(f"cap ${settings.set_cap(args.usd):.0f}"); return 0
     if args.cmd == "status":
-        print(json.dumps({"paused": settings.pause_file.exists(), "last_stop": store.last_stop(),
+        print(json.dumps({"paused": settings.pause_file.exists(), "cap_usd": settings.current_cap(), "last_stop": store.last_stop(),
                           "spend_24h_usd": round(store.spend_last_24h(), 2),
                           "queue": [(p["status"], p["title"], p["protocol"]) for p in store.plans(["queued", "building", "running"])],
                           "runs": [(r["started_at"], r["protocol"], r["status"]) for r in store.runs(limit=5)]}, indent=1))
@@ -85,7 +89,7 @@ def main(argv=None) -> int:
     if args.cmd == "pause":
         settings.pause_file.write_text("paused by operator\n"); print("paused"); return 0
     if args.cmd == "resume":
-        settings.pause_file.unlink(missing_ok=True); print("resumed"); return 0
+        settings.pause_file.unlink(missing_ok=True); print("resumed (the loop notices within 30 s)"); return 0
     return 2
 
 

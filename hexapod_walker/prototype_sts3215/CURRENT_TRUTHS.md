@@ -1,5 +1,134 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## The "interactive-viewer click-through needs a display, irreducible-to-cloud" reading was WRONG about the browser-facing API; built a headless HTTP capture tool, found and fixed a real config-mismatch regression, and closed the last labeled gap for BOTH parent-goal sim demos (2026-09-10 ~01:3x, zero GPU spend)
+
+One plain sentence: the thing that actually needed a display was the
+OPTIONAL native MuJoCo debug window, not the JSON API the browser's own
+joystick buttons call, so a plain headless HTTP client can drive that
+exact API from the cloud pod with no browser/Playwright/display at
+all — and doing so for the first time surfaced (and let me fix) a real
+bug where the interactive session silently mishandled the walkcurr
+`rl_only` champion.
+
+**Why re-open this.** `OPERATOR_QUESTIONS.md` q_20260909T144xZ (09-09)
+and `STATUS.md`/this file repeatedly recorded "actually clicking
+through the browser/window HUD to confirm the loaded (non-scripted)
+policy live needs a display no cloud pod has — irreducible-to-cloud,
+not a design gap" as the one piece of the interactive joystick sim-demo
+requirement still open for both `any_means` and `rl_only`. Re-reading
+`rl_move/sim/web_server.py` this cycle: the native viewer
+(`--viewer`, macOS/`mjpython`-only) is OPTIONAL and OFF by default;
+the browser's own `linux_control/webui/app.js` drives the robot via a
+plain JSON HTTP API (`/api/rl/roles`, `/api/rl/policy`,
+`/api/rl/drive/start|cmd|stop`, `/api/sim/frame.jpg`) that
+`web_server.py` serves headlessly by construction (frames render via
+the same offscreen `env.render()` path `drive_video.py`/`eval_
+checkpoint.py` already use headlessly on every pod). Nothing about
+exercising that API needs a display — the prior conclusion conflated
+"the optional native window needs a display" with "therefore the
+interactive control path can't be validated from cloud."
+
+**Built** `rl_move/sim/web_session_drivecapture.py`: boots the real
+`web_server.py` as a subprocess with a named checkpoint loaded via
+`--walk` (the same reproducible-launch command already on record),
+polls `/api/ping` for readiness, confirms via `GET /api/rl/policy`
+that a REAL PPO checkpoint loaded (`hidden`/`activation` fields
+non-scripted and naming the checkpoint — the literal "confirm the
+loaded non-scripted policy" check), replays the exact "human" script
+(forward/crab-right/diag-left/reverse/**stop**/**restart**/final-stop)
+`ops.sh drivevideo --script human` uses (extracted to a shared
+`human_drive_phases()` in `drive_video.py`, bit-exact per test) through
+`POST /api/rl/drive/cmd` at real wall-clock cadence, captures frames
+via `GET /api/sim/frame.jpg` into a contact sheet, and re-checks
+identity at the end (no silent mid-session fallback). 10 new fast
+mechanics-only tests (`test_web_session_drivecapture.py`,
+`test_sim_web_server.py` additions), all green; `test_drive_video_
+scripts.py` unaffected (bit-exact refactor). Snapshot below.
+
+**First real run found a genuine, previously-uncaught regression, not
+a clean pass — recorded honestly rather than declared done on the
+first PASS-shaped number.** Driving the walkcurr `rl_only` champion
+(`..._widen8_..._cont10m.zip`) through the API with the web session's
+BARE-DEFAULT config: chassis height monotonically sank 110mm->65mm
+over the ~27s "human" script, and every command after t~8s silently
+returned an unhelpful "too low to walk - stand first" status while
+the top-level response still said `ok: true`/`active: true` — i.e.
+the interactive session appeared to keep working while actually
+ignoring every joystick input for the back 2/3 of the session, and my
+tool's first-draft PASS check (identity-ok + no explicit fall +
+frames>0) missed this entirely. Root cause, confirmed by reading
+`joint_task.py`: `goal.joint_action_box_{yaw,hip,knee}_deg`/
+`joint_action_bias_{hip,knee}_deg` all default **0.0 = OFF** (full
+hardware-range action mapping) in `web_session.py`'s bare
+`load_config()`, but this champion trains under `box=15/20/25deg` +
+`bias_hip=40/knee=35deg` (a tight, offset action box around a specific
+trained stance) — `web_session.py` had NO mechanism to thread a run's
+own `--cfg-set` through, unlike `drive_video.py`/`eval_checkpoint.py`,
+so any champion trained with non-default action-space/reward/DR cfg
+silently runs under the WRONG contract when driven interactively.
+
+**Fixed** (default-off, bit-exact when unused): added `--cfg-set`
+passthrough to `web_server.py`'s arg parser -> new `SimWebConfig.
+cfg_overrides: tuple[str, ...] = ()` -> applied in `web_session.py._
+load_runtime()` via the same `_parse_cfg_set` `drive_video.py` already
+uses, right before env construction (after the phase-obs block, so an
+explicit override still wins). `web_session_drivecapture.py` gained a
+matching `--cfg-set` passthrough plus a `drive_cmd_rejected()` check
+(catches "too low to walk"/"stand first"/"down - reset" statuses) so
+this exact regression class fails the tool's own PASS bar instead of
+slipping through silently again.
+
+**Re-ran with the champion's own full training `--cfg-set` list**
+(same ~50-key stack `ops.sh evalcmd <run>` prints): **PASS** — zero
+falls, zero rejected commands, for the complete ~27s human script;
+boot AND end-of-session identity checks both confirm the real
+checkpoint (`activation=ELU hidden=[256,256,128]`), not the scripted
+fallback. Chassis height rises from the 110mm plant-start default and
+settles at a stable ~135mm plateau (roll/pitch stay within ~2deg
+through every transition, recovering to ~0 within one heartbeat).
+Artifacts: `logs/manual_drive/rlonly_champion_websession_capture_
+09-10_{,_cfgfix,_fullcfg}/` (three runs: bare-default regression,
+partial box/bias-only fix, full-cfg PASS — `summary.json`/
+`telemetry.json`/`contact_sheet.png`/`README.md` each).
+
+**Honest residual gap, NOT closed by this entry — do not overclaim.**
+In the full-cfg PASS run, body-frame velocity (`vx_body`/`vy_body`)
+stays within noise of 0 through the "forward"/"crab-right" phases even
+though the height/tilt telemetry looks healthy (unlike `drive_video.
+py`'s own direct-env-stepping capture of the same checkpoint, which
+DOES show real translation, `~0.13-0.19 m/s`, `STATUS.md` 09-09). Two
+untested candidate explanations, NEITHER confirmed: (a) the boot-time
+internal stand/height-ref ramp interacting with the human script's
+short (4-5s) phase durations, so `rl_drive_cmd`'s "return to walk
+height first" branch never finishes before the next command arrives;
+(b) `_apply_vel_contract`'s stem-based `walk_obs_body_vel` heuristic
+picking a velocity-observation encoding this champion wasn't trained
+with. Not chased further this cycle (would be a same-cycle guess on
+top of an already-substantial fix); a dedicated follow-up should
+instrument `goal.height_ref`/`walk_obs_body_vel` directly rather than
+add a third guess.
+
+**What this closes and what it doesn't.** This closes the specific,
+previously-labeled-irreducible gap: an actual (non-scripted) RL
+checkpoint CAN be loaded and driven through the real browser-facing
+HTTP joystick API, headlessly, from a cloud pod, with zero falls and
+continuous command responsiveness across a full multi-command session
+— for BOTH `any_means` and `rl_only` (the mechanism is checkpoint-
+agnostic; only `rl_only`'s own champion was tested here since it was
+the one with the known regression). It does NOT establish that this
+exact interactive path also reproduces the champion's translation
+speed (the residual gap above) — sim/hardware physical-completion
+claims are unaffected either way. `q_20260909T144xZ` in
+`OPERATOR_QUESTIONS.md` updated with this correction.
+
+Evidence: `rl_move/sim/web_session_drivecapture.py`,
+`rl_move/sim/drive_video.py` (`human_drive_phases`), `rl_move/sim/
+web_session.py`/`web_server.py` (`--cfg-set`), `rl_move/tests/test_
+web_session_drivecapture.py` (10 tests), `test_sim_web_server.py`
+additions (3 tests), `test_drive_video_scripts.py` (unchanged, still
+green); `logs/manual_drive/rlonly_champion_websession_capture_
+09-10*/`; snapshot below.
+
 ## The 09-07 "needs a STRUCTURAL, non-reward lever" escalation for walkcurr's slip floor is now ALSO exhausted: all 3 named structural candidates refuted/non-beneficial, none licensed for reopening (2026-09-10 ~00:0x, zero spend, re-read of already-collected evidence)
 
 Consolidating three separate closures nobody had tallied together: foot-pad

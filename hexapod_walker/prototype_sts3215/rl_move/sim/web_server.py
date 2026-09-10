@@ -491,6 +491,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
                     help="disable phase-clock walk observations")
     ap.add_argument("--phase-hz", type=float, default=0.1666667)
     ap.add_argument("--all-models", action="store_true")
+    ap.add_argument("--cfg-set", action="append", default=[],
+                    help="goal.*/reward.*/dr.* etc. override(s), same "
+                         "key=value syntax as eval_checkpoint.py/"
+                         "drive_video.py --cfg-set; thread a run's own "
+                         "cfg (e.g. its joint_action_box/bias values) "
+                         "through the interactive web session so it "
+                         "matches training instead of bare defaults")
     ap.add_argument("--no-vision", action="store_true",
                     help="disable the local /vision camera worker and page")
     ap.add_argument("--vision-camera", type=int, default=0)
@@ -583,6 +590,7 @@ def main(session_factory: Callable[..., Any] | None = None) -> None:
             phase_obs=args.phase_obs,
             phase_hz=args.phase_hz,
             all_models=args.all_models,
+            cfg_overrides=tuple(args.cfg_set),
         )
         session_factory = SimWebSession
         sim_session = session_factory(cfg)

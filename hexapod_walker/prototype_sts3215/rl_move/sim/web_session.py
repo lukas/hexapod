@@ -153,6 +153,24 @@ class SimWebConfig:
     phase_obs: bool = False
     phase_hz: float = 0.1666667
     all_models: bool = False
+    # ``goal.*``/``reward.*``/``dr.*`` etc. overrides, same ``key=value``
+    # strings ``eval_checkpoint.py``/``drive_video.py`` accept via
+    # ``--cfg-set`` (parsed with the same ``_parse_cfg_set``). Default ()
+    # = bit-exact with pre-2026-09-10 behavior (bare ``load_config()``).
+    # Added 2026-09-10: a live interactive session driven through the
+    # actual browser-facing HTTP API (``web_session_drivecapture.py``)
+    # surfaced that the walkcurr widen8/crutchoff rl_only champion trains
+    # under a materially different joint action-box/bias contract
+    # (``goal.joint_action_box_{yaw,hip,knee}_deg``/``joint_action_bias_
+    # {hip,knee}_deg``, all default 0.0=OFF here) than the bare-default
+    # env this class always built -- driving that champion through the
+    # web UI silently maps its actions through the FULL hardware range
+    # instead of the tight trained box, and the chassis height sinks
+    # ~110mm->~65mm over ~10s of driving with every subsequent joystick
+    # command silently a no-op ("too low to walk"). This field lets a
+    # caller thread the run's own cfg-set through, same as every other
+    # eval/video tool already does.
+    cfg_overrides: tuple[str, ...] = ()
 
 
 class SimWebSession:
@@ -269,6 +287,12 @@ class SimWebSession:
             cfg["goal"]["walk_phase_hz"] = self.cfg.phase_hz
             _ROLE_OBS[74] = "walk"
             self.walk_widths = (72, 74, 78, 1152)
+        if self.cfg.cfg_overrides:
+            from .train_ppo_sim import _parse_cfg_set
+            for key, parsed in _parse_cfg_set(
+                    list(self.cfg.cfg_overrides)).items():
+                sect, name = key.split(".", 1)
+                cfg.setdefault(sect, {})[name] = parsed
         render_mode = "rgb_array" if self.cfg.web_frames else None
         self.env = _PlayEnv(params=SimServoParams.from_cfg(cfg),
                             randomize=False, episode_seconds=3600.0,

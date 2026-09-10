@@ -30,6 +30,29 @@ import numpy as np
 _PROTO = Path(__file__).resolve().parents[2]
 
 
+def human_drive_phases(speed: float) -> list[tuple[float, float, float, float, str]]:
+    """Phase schedule for the ``"human"`` drive script: forward, crab-right,
+    diagonal-left, reverse, **stop**, **restart**, final-stop.
+
+    Extracted (2026-09-10) so ``web_session_drivecapture.py`` can replay the
+    IDENTICAL command sequence through the actual browser-facing HTTP
+    joystick API (``/api/rl/drive/cmd``), not just this module's direct
+    env-stepping shortcut -- one source of truth, no drift between the two
+    "human drive" evidence captures. Bit-exact with the previous inline
+    version (see ``test_drive_video_scripts.py``).
+    """
+    d = speed / math.sqrt(2.0)
+    return [
+        (0.0, speed, 0.0, 0.0, "forward"),
+        (5.0, 0.0, -speed, 0.0, "crab-right"),
+        (9.0, d, d, 0.0, "diag-left"),
+        (13.0, -speed, 0.0, 0.0, "reverse"),
+        (17.0, 0.0, 0.0, 0.0, "stop"),
+        (19.5, speed, 0.0, 0.0, "restart"),
+        (24.0, 0.0, 0.0, 0.0, "final-stop"),
+    ]
+
+
 def _script(name: str, *, seconds: float, dt: float, speed: float,
             blend_s: float, wz_max: float = 0.3
             ) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str]]:
@@ -48,16 +71,7 @@ def _script(name: str, *, seconds: float, dt: float, speed: float,
             (16.0, speed, 0.0, 0.0, "forward"),
         ]
     elif name == "human":
-        d = speed / math.sqrt(2.0)
-        phases = [
-            (0.0, speed, 0.0, 0.0, "forward"),
-            (5.0, 0.0, -speed, 0.0, "crab-right"),
-            (9.0, d, d, 0.0, "diag-left"),
-            (13.0, -speed, 0.0, 0.0, "reverse"),
-            (17.0, 0.0, 0.0, 0.0, "stop"),
-            (19.5, speed, 0.0, 0.0, "restart"),
-            (24.0, 0.0, 0.0, 0.0, "final-stop"),
-        ]
+        phases = human_drive_phases(speed)
     elif name == "human_turn":
         d = speed / math.sqrt(2.0)
         phases = [

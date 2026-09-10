@@ -68,6 +68,7 @@ class StandupApi:
         """
         try:
             from inplace_demos import (
+                IMPLAUSIBLE_FAULT_READS,
                 CurrentPeakTracker, PoseStreamer, _enable_torque,
                 _live_robot_ids, _set_torque_limit, _write_pose,
                 ease_to_pose,
@@ -258,6 +259,14 @@ class StandupApi:
                 n = len(kf_path)
 
                 def guard_msg() -> str:
+                    if tracker.telemetry_fault_joint is not None:
+                        return (
+                            "stopped: joint "
+                            f"{tracker.telemetry_fault_joint} returned "
+                            f"{IMPLAUSIBLE_FAULT_READS} impossible "
+                            "current readings in a row (peak "
+                            f"{tracker.discarded_peak_a:.1f} A) — bus "
+                            "telemetry fault, not an over-current")
                     return (f"stopped: {tracker.peak_a:.2f} A peak on "
                             f"joint {tracker.peak_joint} (> "
                             f"{abort_current_a:.1f} A) — stall-fight, "
@@ -268,16 +277,37 @@ class StandupApi:
                 # a joint over the limit while NOT MOVING, two sweeps
                 # in a row — not on an instantaneous reading. A moving
                 # joint briefly over 3 A is honest acceleration work.
-                # Hard cap 4.0 A trips regardless.
+                #
+                # Hard cap (09-09, after experiment 922434955b's cycle 2
+                # self-aborted 1.76 s in on a 106.50 A reading — 0x4000,
+                # one flipped bit, against a true run peak of 2.88 A):
+                # the cap needs TWO consecutive sweeps too, and reads
+                # the sweep's own plausible peak rather than the
+                # running-max peak_a. Two independent bugs made one
+                # corrupt sample fatal: peak_a is monotonic, so a single
+                # spike latched the trip on forever, and a low-bit flip
+                # lands at 3.3 A / 6.7 A — under any plausibility
+                # ceiling but over this cap. The tracker already keeps
+                # physically impossible values (>= 10 A, vs the STS3215's
+                # 2.70 A stall) out of peak_a and escalates a joint that
+                # returns three in a row as a telemetry fault, which
+                # still stops the run — with a distinct message.
                 HARD_CAP_A = 4.0
                 stall_prev: set = set()
+                cap_prev = False
 
                 def stall_trip() -> bool:
-                    nonlocal stall_prev
-                    if tracker.peak_a > HARD_CAP_A:
+                    nonlocal stall_prev, cap_prev
+                    if tracker.telemetry_fault_joint is not None:
                         return True
+                    sweep_peak, _sweep_joint = tracker.sweep_peak_a()
+                    over_cap = sweep_peak > HARD_CAP_A
+                    if over_cap and cap_prev:
+                        return True
+                    cap_prev = over_cap
                     now = {fb["joint"] for fb in tracker.last_fb
-                           if abs(fb["current_a"]) > abort_current_a
+                           if fb["joint"] not in tracker.implausible_joints
+                           and abs(fb["current_a"]) > abort_current_a
                            and abs(fb["speed_deg_s"]) < 8.0}
                     hit = bool(now & stall_prev)
                     stall_prev = now
@@ -539,7 +569,14 @@ class StandupApi:
                     _emit_servo_fb(f"{mode} {verb} settle",
                                    tracker, target=qs[-1])
                     settle_s = time.monotonic() - st0
-                    tripped = tracker.peak_a > HARD_CAP_A
+                    # Same correction as stall_trip(): judge the settle
+                    # on the settle sweep's own plausible peak, not the
+                    # whole phase's running max, and stop on a
+                    # persistent telemetry fault rather than one
+                    # corrupt sample.
+                    settle_peak, _settle_joint = tracker.sweep_peak_a()
+                    tripped = (settle_peak > HARD_CAP_A
+                               or tracker.telemetry_fault_joint is not None)
                 timing = (f"align {align_s:.2f}s (worst0 "
                           f"{worst0:.1f}deg) + stream "
                           f"{stream_s:.2f}s (sched {ts[-1]:.2f}s, "
@@ -561,6 +598,16 @@ class StandupApi:
                 result["keyframes_done"] = min(seg, n)
                 result["peak_a"] = round(tracker.peak_a, 2)
                 result["peak_joint"] = tracker.peak_joint
+                if tracker.discarded:
+                    # Surface corruption instead of silently dropping it:
+                    # a run that discarded samples is worth looking at
+                    # even when it completed.
+                    result["discarded_current_samples"] = tracker.discarded
+                    result["discarded_peak_a"] = round(
+                        tracker.discarded_peak_a, 2)
+                if tracker.telemetry_fault_joint is not None:
+                    result["telemetry_fault_joint"] = (
+                        tracker.telemetry_fault_joint)
                 if gen != self._demo_gen:
                     return
                 with self._lock:

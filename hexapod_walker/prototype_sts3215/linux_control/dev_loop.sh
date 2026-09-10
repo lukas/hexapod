@@ -312,6 +312,7 @@ hex_unit_check() {
     hex_py linux_control/test_geometry_sweep_fit.py &&
     hex_py linux_control/test_quad_pitch_trim.py &&
     hex_py linux_control/test_safe_zero.py &&
+    hex_py linux_control/test_standup_current_guard.py &&
     hex_py linux_control/test_pinned_tip.py &&
     uv run pytest -q hexapod-tracker/tests
   )

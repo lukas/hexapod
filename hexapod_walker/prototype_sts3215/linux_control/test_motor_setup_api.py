@@ -25,6 +25,46 @@ class SetupTests(unittest.TestCase):
         self.assertEqual(self.api.assign(self.data)['id'],2)
         self.assertTrue(self.api.status()['slots'][0]['verified'])
         self.assertEqual(self.bus.writes,[('torque',1,False),('id',1,2)])
+
+    def test_assignment_retries_transient_inventory_miss(self):
+        scans = iter([[1], [], [2]])
+        self.bus.scan = lambda ids: next(scans)
+        self.assertEqual(self.api.assign(self.data)['id'], 2)
+        self.assertTrue(self.api.status()['slots'][0]['saved'])
+
+    def test_assignment_persistent_inventory_mismatch_explains_recovery(self):
+        scans = iter([[1], [], [], []])
+        self.bus.scan = lambda ids: next(scans)
+        with self.assertRaisesRegex(ValueError, 'Finish assignment on ID 2'):
+            self.api.assign(self.data)
+        self.assertFalse(self.api.registry.exists())
+        self.assertEqual(self.bus.ids, [2])
+
+    def test_reassign_existing_id_preserves_other_motor_assignment(self):
+        self.api.assign(self.data)
+        result = self.api.assign(dict(source_id=2, joint=1, reassign=True, isolated=True))
+        self.assertEqual(result['id'], 3)
+        self.assertEqual(self.api.status()['assigned'], 2)
+
+    def test_reassign_move_clears_source_only_after_verification(self):
+        self.api.assign(self.data)
+        self.bus.failed = True
+        request = dict(source_id=2, joint=1, reassign=True, isolated=True, clear_source=True)
+        with self.assertRaises(ValueError): self.api.assign(request)
+        self.assertTrue(self.api.status()['slots'][0]['saved'])
+        self.bus.failed = False
+        self.api.assign(request)
+        self.assertFalse(self.api.status()['slots'][0]['saved'])
+        self.assertTrue(self.api.status()['slots'][1]['saved'])
+
+    def test_reassign_requires_physical_isolation_and_single_id(self):
+        self.api.assign(self.data)
+        self.bus.writes = []
+        request = dict(source_id=2, joint=1, reassign=True)
+        with self.assertRaises(ValueError): self.api.assign(request)
+        self.bus.ids = [2, 4]
+        with self.assertRaises(ValueError): self.api.assign(request | {'isolated': True})
+        self.assertEqual(self.bus.writes, [])
     def test_multiple_or_swapped_motors_no_writes(self):
         for ids in ([1,2],[3],[]):
             self.bus.ids=ids

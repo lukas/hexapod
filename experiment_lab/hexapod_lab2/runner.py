@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import time
@@ -31,6 +32,24 @@ def protocol_exists(settings: Settings, name: str) -> bool:
     return protocol_path(settings, name).is_file()
 
 
+# The robot sits on the floor. Nobody is going to lift it onto a stand or
+# hang it, so a protocol written for a suspended robot is not runnable here:
+# run on the ground it "succeeds" and leaves the chassis propped on folded
+# legs, and the next three runs trip on the jammed joint.
+_NEEDS_STAND = re.compile(r"suspended|feet off the ground|robot on (a |the )?stand\b", re.I)
+
+
+def _needs_stand(doc: dict) -> bool:
+    return bool(_NEEDS_STAND.search(" ".join(str(doc.get("description") or "").split())))
+
+
+def protocol_needs_stand(settings: Settings, name: str) -> bool:
+    try:
+        return _needs_stand(json.loads(protocol_path(settings, name).read_text()))
+    except (OSError, ValueError):
+        return False
+
+
 def _is_whole_body(doc: dict) -> bool:
     # Same test run_hw.py uses to demand --force.
     return any(isinstance(s, dict) and s.get("kind") in ("traj", "rel_traj")
@@ -55,6 +74,7 @@ def list_protocols(settings: Settings) -> list[dict]:
             "name": p.stem,
             "description": " ".join(str(doc.get("description") or "").split())[:240],
             "whole_body": _is_whole_body(doc),
+            "needs_stand": _needs_stand(doc),
         })
     return out
 

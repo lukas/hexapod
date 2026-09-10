@@ -1,0 +1,308 @@
+{
+ "experiment_id": "7b565e2a4be14fd298db47a2c6aaac2b",
+ "note": "Robot Lab artifact names must be flat, so directory separators are encoded as \"__\" (run1/result.json -> run1__result.json). Camera frames exceed the per-experiment artifact limit, so each run's frames directory is bundled as <run>__frames.tar.gz with internal paths robot-N/NNNNN.jpg; every frame sha256 is listed in the matching <run>__frame_index.jsonl.",
+ "artifact_count": 50,
+ "total_bytes": 163094822,
+ "artifacts": [
+  {
+   "artifact": "analyze_l3_hysteresis.py",
+   "original_path": "analyze_l3_hysteresis.py",
+   "bytes": 6669,
+   "sha256": "ea13a61bcd0117eaa70dd2f6d286f5501077debae931580aa0174aa3d8ec59f3"
+  },
+  {
+   "artifact": "camera_and_tag_coverage.json",
+   "original_path": "camera_and_tag_coverage.json",
+   "bytes": 3581,
+   "sha256": "36fe8724c64264951d10170075cdac23e7494abc93aa5141878595c8874cf15b"
+  },
+  {
+   "artifact": "dryrun__chassis_tag_baseline.json",
+   "original_path": "dryrun/chassis_tag_baseline.json",
+   "bytes": 162,
+   "sha256": "5a149f34b2ed3b4d420a852e25fc9bcbaaa9286548fd897b09725e90c3f52e0e"
+  },
+  {
+   "artifact": "dryrun__dry_stop.json",
+   "original_path": "dryrun/dry_stop.json",
+   "bytes": 1845,
+   "sha256": "b125d579d653ffae5101b746b48cc5f622d1c48930e53f488527432f2fb04d27"
+  },
+  {
+   "artifact": "dryrun__events.jsonl",
+   "original_path": "dryrun/events.jsonl",
+   "bytes": 1144,
+   "sha256": "c69ed83b02a5558bfa01bfd636f95b9b27106e0a64f25fed50526a229098521b"
+  },
+  {
+   "artifact": "dryrun__frame_index.jsonl",
+   "original_path": "dryrun/frame_index.jsonl",
+   "bytes": 16884,
+   "sha256": "480c3752c538f4a84ec2616c7a8e97720be8c88e2211aeb8fce90077f3bc61c5"
+  },
+  {
+   "artifact": "dryrun__frames.tar.gz",
+   "original_path": "dryrun/frames/  (bundled, internal paths robot-N/NNNNN.jpg)",
+   "bytes": 9709980,
+   "sha256": "36421950efb1dda3011c5538c7738cb27df448048d3714c8c3b6f596e1219808"
+  },
+  {
+   "artifact": "dryrun__markers.jsonl",
+   "original_path": "dryrun/markers.jsonl",
+   "bytes": 3442,
+   "sha256": "228b7111037e001aaab39df8251da8c89774baeacfe1a16c9d9885668b6a449b"
+  },
+  {
+   "artifact": "dryrun__prearm_samples.json",
+   "original_path": "dryrun/prearm_samples.json",
+   "bytes": 1499,
+   "sha256": "a1adbe0735b022bff26c3028c826b197172ec28b2c49c4e498f5b828036f5e0f"
+  },
+  {
+   "artifact": "dryrun__prearm_samples.jsonl",
+   "original_path": "dryrun/prearm_samples.jsonl",
+   "bytes": 1074,
+   "sha256": "ddcacfffa388c1d8accaa415d251966212de026c7804b7e865ae1e72f8039bc3"
+  },
+  {
+   "artifact": "dryrun__tag_watch.jsonl",
+   "original_path": "dryrun/tag_watch.jsonl",
+   "bytes": 133,
+   "sha256": "c6e2a608991e81444a7eaf2db432009188f4db7fa8150803bc1583ba6151facb"
+  },
+  {
+   "artifact": "exclusive_command_path_demo.json",
+   "original_path": "exclusive_command_path_demo.json",
+   "bytes": 8476,
+   "sha256": "9e1fda44b32057ad9c82d2313e165b3a2564a47e3fb27f9119f9a126e6f7a359"
+  },
+  {
+   "artifact": "exclusive_command_path_demo.py",
+   "original_path": "exclusive_command_path_demo.py",
+   "bytes": 5054,
+   "sha256": "dab2e6766bb6733732458235805a5b3418c6e516baf6c158f678406c2f5499c4"
+  },
+  {
+   "artifact": "fetch_sysid_csv.py",
+   "original_path": "fetch_sysid_csv.py",
+   "bytes": 1922,
+   "sha256": "6251a7a8f8557ec640a55d48aa679fa945d4eafdf464c886738c01191f58a201"
+  },
+  {
+   "artifact": "guarded_runner_l3_hysteresis.py",
+   "original_path": "guarded_runner_l3_hysteresis.py",
+   "bytes": 43408,
+   "sha256": "a66f0b5b37ef80fac93f520e0cdd5a5f5063ce736b51bc4c3475474cfebaafad"
+  },
+  {
+   "artifact": "l3_run1_loop_metrics.json",
+   "original_path": "l3_run1_loop_metrics.json",
+   "bytes": 7491,
+   "sha256": "659d43f59dc701eebd11dfd21ecc53b2299c18ac28646cad42ca088d34d0507d"
+  },
+  {
+   "artifact": "l3_run1_posthoc.json",
+   "original_path": "l3_run1_posthoc.json",
+   "bytes": 5546,
+   "sha256": "14577de76061db634579489b53fffa751dea6238b491a999d296717b4f5d8f5c"
+  },
+  {
+   "artifact": "l3_swept_area_clearance.json",
+   "original_path": "l3_swept_area_clearance.json",
+   "bytes": 5834,
+   "sha256": "874738ac1efd0a767e4eb71accee5e04d9644059eb4c432f14ae8a44411f7f76"
+  },
+  {
+   "artifact": "l3_vs_other_legs.json",
+   "original_path": "l3_vs_other_legs.json",
+   "bytes": 3153,
+   "sha256": "62db7b992da79e02d968c9f2d24306eb652c2d4276005aad0dcf7c014ea4e14a"
+  },
+  {
+   "artifact": "package_artifacts.py",
+   "original_path": "package_artifacts.py",
+   "bytes": 3857,
+   "sha256": "d6e061e11a353f466ae2a3b21eb7fd3e1ca07375fb58c18a11bed83280e8a3b6"
+  },
+  {
+   "artifact": "posthoc_checks_l3.py",
+   "original_path": "posthoc_checks_l3.py",
+   "bytes": 5685,
+   "sha256": "7d7790af30f99c84088e25d0491f9f46281b12ef77201f7395076d2d0b4e2dc2"
+  },
+  {
+   "artifact": "preflight_declaration.json",
+   "original_path": "preflight_declaration.json",
+   "bytes": 13297,
+   "sha256": "fa26e2f70a40ab8bcfe3e91a1c69da52b9ef90da37972cb056e64a733578c9d0"
+  },
+  {
+   "artifact": "preflight_frames__cam0.jpg",
+   "original_path": "preflight_frames/cam0.jpg",
+   "bytes": 147000,
+   "sha256": "c7e6063e79c45bff621b49d4dc1bb5f8ce5c29e4694fdf25e5c5e93b595d6235"
+  },
+  {
+   "artifact": "preflight_frames__cam1.jpg",
+   "original_path": "preflight_frames/cam1.jpg",
+   "bytes": 134928,
+   "sha256": "bdee823d38d89b895d543cc763fda0654f7f1f1afe59fb06a09a93e1f251e3f3"
+  },
+  {
+   "artifact": "preflight_frames__cam2.jpg",
+   "original_path": "preflight_frames/cam2.jpg",
+   "bytes": 137269,
+   "sha256": "e20b8b7d9ea74b8d93109ecc0b47b0aca35a083829d4fea650c2da1177cba888"
+  },
+  {
+   "artifact": "preflight_frames__frames.json",
+   "original_path": "preflight_frames/frames.json",
+   "bytes": 734,
+   "sha256": "61e63f69811564d669cd33c8aea16e3e4d0887df5146f21d049fddce84095215"
+  },
+  {
+   "artifact": "preflight_frames__robot-1_bright.png",
+   "original_path": "preflight_frames/robot-1_bright.png",
+   "bytes": 771732,
+   "sha256": "5684812e48fc0200a318b107e45e1392c966bb5be6efbecfae592cc31e06f04a"
+  },
+  {
+   "artifact": "preflight_frames__robot-1_legs_zoom.png",
+   "original_path": "preflight_frames/robot-1_legs_zoom.png",
+   "bytes": 1081339,
+   "sha256": "3963bfdff50da813b8fb15a8d097066f4e82b05fc1a4ba42b30dee0ce5e29601"
+  },
+  {
+   "artifact": "preflight_frames__robot-2_bright.png",
+   "original_path": "preflight_frames/robot-2_bright.png",
+   "bytes": 1247886,
+   "sha256": "1a30b4f688fff7a2cca5b1e5c3c0c779bb3f6e14b3c7c13709d51dd527aec1b6"
+  },
+  {
+   "artifact": "preflight_frames__robot-2_legs_zoom.png",
+   "original_path": "preflight_frames/robot-2_legs_zoom.png",
+   "bytes": 1234401,
+   "sha256": "9e8e1b13014f2ba34cc583e32f0cf122d399a34d9f0b10220abcb73d8f687cd3"
+  },
+  {
+   "artifact": "preflight_frames__robot-3_bright.png",
+   "original_path": "preflight_frames/robot-3_bright.png",
+   "bytes": 1511248,
+   "sha256": "62204a750041ab5838eb268ff5f3e15d05b2718a6727393bee05d93553868cab"
+  },
+  {
+   "artifact": "run1__chassis_tag_baseline.json",
+   "original_path": "run1/chassis_tag_baseline.json",
+   "bytes": 78,
+   "sha256": "b30b862b13ffdf5ec78b9c80c4b896baaa05becc6c7ebc776017a07b62c00686"
+  },
+  {
+   "artifact": "run1__events.jsonl",
+   "original_path": "run1/events.jsonl",
+   "bytes": 214123,
+   "sha256": "1ea2ba429c97cbbadb83b3cba6d60b79895592ca2750eaf4b25783ef891e0816"
+  },
+  {
+   "artifact": "run1__frame_index.json",
+   "original_path": "run1/frame_index.json",
+   "bytes": 266332,
+   "sha256": "558c9c4eb7dd4bbef12a160a20b06072639cee0bff6b7eff4b1d919ee5663113"
+  },
+  {
+   "artifact": "run1__frame_index.jsonl",
+   "original_path": "run1/frame_index.jsonl",
+   "bytes": 252560,
+   "sha256": "bdbb5a71da7b60ce0af36aa44f395aa310415a58a22b9eef58dec1f0ee39ffdf"
+  },
+  {
+   "artifact": "run1__frames.tar.gz",
+   "original_path": "run1/frames/  (bundled, internal paths robot-N/NNNNN.jpg)",
+   "bytes": 145099001,
+   "sha256": "bea9517b1b49c42b8b4b46c9d825ed4a9549872b92e8c5b85cc6bed1eed672bf"
+  },
+  {
+   "artifact": "run1__markers.json",
+   "original_path": "run1/markers.json",
+   "bytes": 12729,
+   "sha256": "ea66336410348c371f6f2638b944168f267444af4e5d363f42d70c89f7a3fd3f"
+  },
+  {
+   "artifact": "run1__markers.jsonl",
+   "original_path": "run1/markers.jsonl",
+   "bytes": 10190,
+   "sha256": "7db4416ed14fc19b43f55df8a93ef66f3019b6d860354d3f6c587ce40bcf203a"
+  },
+  {
+   "artifact": "run1__new_error_rows.json",
+   "original_path": "run1/new_error_rows.json",
+   "bytes": 2,
+   "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  {
+   "artifact": "run1__post_samples.json",
+   "original_path": "run1/post_samples.json",
+   "bytes": 1506,
+   "sha256": "61427cb3898fad285238db08aebe1acb58ce3d18b66f7c35a52bc10ed2a2091d"
+  },
+  {
+   "artifact": "run1__post_samples.jsonl",
+   "original_path": "run1/post_samples.jsonl",
+   "bytes": 1081,
+   "sha256": "5b81a8736f9c830ef52a6e9697e95e1e84a7e3d8556f5d3dcbecc8851caf6073"
+  },
+  {
+   "artifact": "run1__prearm_samples.json",
+   "original_path": "run1/prearm_samples.json",
+   "bytes": 1499,
+   "sha256": "ca9a2fe94d8be8282d8c1b5f3a5faf5587abd84ec92459ab40785ed3ca2ff0d8"
+  },
+  {
+   "artifact": "run1__prearm_samples.jsonl",
+   "original_path": "run1/prearm_samples.jsonl",
+   "bytes": 1074,
+   "sha256": "34afbb3f4cefc268aa9e38b13e6ad17500dbb29247ae6eb2d9b373baf89d9a03"
+  },
+  {
+   "artifact": "run1__result.json",
+   "original_path": "run1/result.json",
+   "bytes": 146729,
+   "sha256": "b3ba779eaaeffb7d9d28280219040ddb1bcef108f345d9c12654415cf538fcd5"
+  },
+  {
+   "artifact": "run1__tag_watch.json",
+   "original_path": "run1/tag_watch.json",
+   "bytes": 8367,
+   "sha256": "123b360b3fc4f09efd1f23ac9dc7a4d326ea543bea665aef01fd254438b9548a"
+  },
+  {
+   "artifact": "run1__tag_watch.jsonl",
+   "original_path": "run1/tag_watch.jsonl",
+   "bytes": 6955,
+   "sha256": "f5de25fdeb0d89eba15a03176197f2d4394a2691a0698c0ace4e2b4f01819641"
+  },
+  {
+   "artifact": "run1_runner.log",
+   "original_path": "run1_runner.log",
+   "bytes": 3185,
+   "sha256": "add1cea9fecc4561ef4bb79a4f4c56dc3124fcf304266253b1dac3f5d803eba1"
+  },
+  {
+   "artifact": "sysid_l3_belly_rest_radial_shear_hysteresis_repeat6_v1_20260910_153015.csv",
+   "original_path": "sysid_l3_belly_rest_radial_shear_hysteresis_repeat6_v1_20260910_153015.csv",
+   "bytes": 622316,
+   "sha256": "d4934cac97f6724f879aa20e93ffa5edd2980739e24c12ea9a476a0cb3959262"
+  },
+  {
+   "artifact": "sysid_l3_belly_rest_radial_shear_hysteresis_repeat6_v1_20260910_153015_summary.json",
+   "original_path": "sysid_l3_belly_rest_radial_shear_hysteresis_repeat6_v1_20260910_153015_summary.json",
+   "bytes": 328470,
+   "sha256": "83de6ea88f772f0b404312feef1d6d9a44a4363a1d2828aad820f6ce1f9b6fed"
+  },
+  {
+   "artifact": "upload_artifacts.py",
+   "original_path": "upload_artifacts.py",
+   "bytes": 1952,
+   "sha256": "33b4f90fcf3da966f895cd999868bbf979755e567cd6f9a7f1cc8242a3bf42d5"
+  }
+ ]
+}

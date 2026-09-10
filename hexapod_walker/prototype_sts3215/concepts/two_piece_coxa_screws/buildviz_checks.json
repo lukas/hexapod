@@ -1,0 +1,221 @@
+{
+  "generatedAt": "2026-09-09T15:34:44.099Z",
+  "build": {
+    "id": "two_piece_coxa_screws",
+    "name": "STS3215 two-piece coxa — full support plate + four self-tappers"
+  },
+  "checksConfig": {},
+  "summary": {
+    "total": 7,
+    "pass": 7,
+    "warn": 0,
+    "fail": 0,
+    "byKind": {
+      "scene_meta": {
+        "pass": 3,
+        "warn": 0,
+        "fail": 0
+      },
+      "disconnected_components": {
+        "pass": 4,
+        "warn": 0,
+        "fail": 0
+      }
+    }
+  },
+  "checks": [
+    {
+      "id": "scene_meta-units",
+      "kind": "scene_meta",
+      "status": "pass",
+      "label": "units = mm"
+    },
+    {
+      "id": "scene_meta-mesh-refs",
+      "kind": "scene_meta",
+      "status": "pass",
+      "label": "all 10 instances resolve to a mesh"
+    },
+    {
+      "id": "scene_meta-unique-ids",
+      "kind": "scene_meta",
+      "status": "pass",
+      "label": "instance ids are unique"
+    },
+    {
+      "id": "disconnected_components-0",
+      "kind": "disconnected_components",
+      "status": "pass",
+      "label": "coxa_hub_screw.stl: single connected body",
+      "instances": [
+        "hub"
+      ]
+    },
+    {
+      "id": "disconnected_components-1",
+      "kind": "disconnected_components",
+      "status": "pass",
+      "label": "coxa_leg_screw.stl: single connected body",
+      "instances": [
+        "leg"
+      ]
+    },
+    {
+      "id": "disconnected_components-2",
+      "kind": "disconnected_components",
+      "status": "pass",
+      "label": "m3_screw_reference.stl: single connected body",
+      "instances": [
+        "self-tap-0",
+        "self-tap-1",
+        "self-tap-2",
+        "self-tap-3"
+      ]
+    },
+    {
+      "id": "disconnected_components-3",
+      "kind": "disconnected_components",
+      "status": "pass",
+      "label": "yaw_spacer_DO_NOT_PRINT.stl: single connected body",
+      "instances": [
+        "yaw-spacer-0",
+        "yaw-spacer-1",
+        "yaw-spacer-2",
+        "yaw-spacer-3"
+      ]
+    }
+  ],
+  "highlights": {
+    "parts": [],
+    "points": [],
+    "regions": []
+  },
+  "report": {
+    "passed": true,
+    "problemCount": 0,
+    "toleranceMm": 0.5,
+    "minPenetrationMm": 1,
+    "instanceCount": 10,
+    "meshCount": 4,
+    "missingMeshes": [],
+    "fastenersExcluded": 0,
+    "fastenersIncluded": false,
+    "broadPhasePairs": 13,
+    "narrowPhasePairs": 13,
+    "capped": false,
+    "collisions": [],
+    "floating": [],
+    "gaps": [],
+    "declaredInterferences": [],
+    "printability": [
+      {
+        "meshId": "stl:hub",
+        "meshName": "coxa_hub_screw.stl",
+        "instanceIds": [
+          "hub"
+        ],
+        "triangleCount": 9526,
+        "openEdges": null,
+        "nonManifoldEdges": null,
+        "inconsistentWinding": false,
+        "degenerateTriangles": null,
+        "selfIntersections": null,
+        "selfIntersectionPoint": null,
+        "componentCount": 1,
+        "smallestComponent": null,
+        "volumeMm3": 27642.826,
+        "minWallMm": null,
+        "thinPoint": null
+      },
+      {
+        "meshId": "stl:leg",
+        "meshName": "coxa_leg_screw.stl",
+        "instanceIds": [
+          "leg"
+        ],
+        "triangleCount": 6340,
+        "openEdges": null,
+        "nonManifoldEdges": null,
+        "inconsistentWinding": false,
+        "degenerateTriangles": null,
+        "selfIntersections": null,
+        "selfIntersectionPoint": null,
+        "componentCount": 1,
+        "smallestComponent": null,
+        "volumeMm3": 28004.111,
+        "minWallMm": null,
+        "thinPoint": null
+      },
+      {
+        "meshId": "stl:m3_screw",
+        "meshName": "m3_screw_reference.stl",
+        "instanceIds": [
+          "self-tap-0",
+          "self-tap-1",
+          "self-tap-2",
+          "self-tap-3"
+        ],
+        "triangleCount": 408,
+        "openEdges": null,
+        "nonManifoldEdges": null,
+        "inconsistentWinding": false,
+        "degenerateTriangles": null,
+        "selfIntersections": null,
+        "selfIntersectionPoint": null,
+        "componentCount": 1,
+        "smallestComponent": null,
+        "volumeMm3": 150.416,
+        "minWallMm": null,
+        "thinPoint": null
+      },
+      {
+        "meshId": "stl:yaw_spacer",
+        "meshName": "yaw_spacer_DO_NOT_PRINT.stl",
+        "instanceIds": [
+          "yaw-spacer-0",
+          "yaw-spacer-1",
+          "yaw-spacer-2",
+          "yaw-spacer-3"
+        ],
+        "triangleCount": 768,
+        "openEdges": null,
+        "nonManifoldEdges": null,
+        "inconsistentWinding": false,
+        "degenerateTriangles": null,
+        "selfIntersections": null,
+        "selfIntersectionPoint": null,
+        "componentCount": 1,
+        "smallestComponent": null,
+        "volumeMm3": 157.046,
+        "minWallMm": null,
+        "thinPoint": null
+      }
+    ],
+    "fasteners": [],
+    "fasteningChecks": [],
+    "access": [],
+    "mating": [],
+    "routing": [],
+    "minWallMm": 0.8,
+    "minThreadEngagementMm": 2,
+    "matingToleranceMm": 0.2,
+    "components": {
+      "count": 1,
+      "mainComponentSize": 10,
+      "floatingComponentCount": 0
+    },
+    "timings": {
+      "loadMs": 7,
+      "bvhMs": 0,
+      "broadMs": 0,
+      "narrowMs": 174,
+      "connectivityMs": 0,
+      "printabilityMs": 19,
+      "threadMs": 0,
+      "accessMs": 0,
+      "matingMs": 0,
+      "routingMs": 0,
+      "totalMs": 201
+    }
+  }
+}

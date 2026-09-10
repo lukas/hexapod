@@ -1,5 +1,32 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## Second 50Hz walk-role candidate GATE PASS, one UNDERTRAINED continuation (2026-09-10 ~21:4x, standwalk track) — walk leg of op_20260910_50hz now has two independent exported candidates
+
+One plain sentence: `cw-walk50hz-teach-scripted-allhead-scratch-acq10m-cont15m`
+(the scratch+persistent-anchor 50Hz walk-teacher clone, no 100Hz
+BC-clone init) reaches full-gate PASS at 15M steps after one
+08-21-ruling continuation from a 10M-step UNDERTRAINED-on-slip-alone
+read, and is now exported alongside the earlier `allheading-mlp-
+singleframe` 50Hz PASS as a second, independently-derived walk-role
+candidate for the bundle. DR-0 (n=6, dr=0.0): walk/det prog med 0.38
+(bar>=0.35)/slip med 2.57 (bar<=2.9)/gait_valid 6/6/0 term; walk/sto
+prog med 0.35 (bar>=0.15)/slip med 3.08 (bar<=6.0)/gait_valid 6/6
+(bar>=5/6); walk_startjitter det/sto both gait_valid 6/6, slip
+2.52/3.02 — slip closed monotonically from the 10M read's 2.48-3.39
+panel band into the cap while completion held (convergence, not
+misalignment). 8-heading `eval_cmd_suite` and `eval_joystick_gate`
+stress_mix — both missing from the automatic prestage since the
+automatic joygate only fires for `joystick`-track runs and this is
+`standwalk` — were run by hand this cycle: cmd_suite 0/16 falls,
+completion 0.32-0.38 every heading (bar>=0.19); joygate pass=true,
+n=24, zero falls, slip_per_m_med 2.788 (cap 2.9), dir_err_med 34.7deg
+(allow 40), gait_valid_frac 1.0, zero sacrificed legs. Exported
+(`export_policy_np.py --training-hz 50`, parity 1.33e-07, obs 75) to
+`linux_control/policies/walkteach_scripted_allhead_scratch_50hz.json`.
+Evidence: `ops.sh entry cw-walk50hz-teach-scripted-allhead-scratch-
+acq10m-cont15m`; `rl_docs/SKILLS.md` new row; `rl_docs/tracks/
+standwalk/STATUS.md` 2026-09-10 ~21:4x; W&B `c1s0u2lr`.
+
 ## `declegshare-headrel` (13th mechanism class, weight-shared mount-frame-relative per-leg actor) is ALSO refuted for the walkcurr front-pair off-axis-heading sacrifice (2026-09-10 ~21:1x) — closes at the SAME depth `decleg-base` closed, never reaching the multi-heading transfer test it was built for
 
 One plain sentence: tying all six `decleg` towers to one shared weight

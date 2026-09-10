@@ -1,5 +1,65 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## Per-leg obs-masked RND is ALSO refuted for the walkcurr front-pair off-axis-heading sacrifice (12th mechanism class, 2/2 seeds) -- the design note's ENTIRE named RND candidate list (plain full-obs, heading-gated, per-leg obs-masked) is now exhausted, 0/3 variants; no named lever remains for this question (2026-09-10, closed this cycle)
+
+One plain sentence: masking RND's intrinsic bonus to only the
+sacrificed front-pair legs' (leg0/leg5) own joint-obs columns -- the
+harder, more surgical fallback named after both the plain and
+heading-gated full-obs variants closed clean -- still did not repair
+the off-axis-heading gait; both seeds land at the same closed floor
+with the same front-pair fingerprint.
+
+`cw-walkscratch-crutchoff-{s0,s1}-widen8-plusduty-rndobsmask-canary2m`
+(`rnd_vec.py obs_mask_idx/_select`, `train_ppo_mjx.py --rnd-obs-mask-
+legs=0,5`, reusing `decleg_policy.joint_walk_leg_slices` unmodified,
+9 new tests): **mechanism health PASS both seeds** (`rnd/intrinsic_
+mean` decays cleanly 0.036->0.024 (s0) / 0.024->0.016 (s1) over the
+2M steps, proving the predictor is genuinely learning; `ep_rew_mean`
+-404.8 (s0) / -269.2 (s1) in-band with every sibling canary in this
+family; zero new falls, only tilt/truncated terminations).
+**Efficacy: CLEAN FAIL, at/below the closed 0-2/15 floor, both
+seeds** (`eval_checkpoint.py --pinned-heading-panel --baseline
+<frozen cont10m parent>`, n=3 det+3 sto/heading, dr-scale 0.0): DET
+off-axis (±90°/±135°/180°) `gait_valid` 0/15 (s0) + 0/15 (s1) =
+**0/30 pooled**; STO 2/15 (s0) + 3/15 (s1) = **5/30 pooled** --
+nowhere near the pre-registered >=6/15 PASS bar. Sacrificed-leg sets
+dominated by the front pair in both seeds (leg0 in 13/25 s0 / 10/30
+s1 broken-heading episodes; leg5 in 6/25 s0 / 6/30 s1), the same
+fingerprint every prior mechanism in this campaign has produced.
+On-axis (0°/±45°) fully unregressed: 8/9 det + 8/9 sto both seeds --
+the on-axis-regression risk the design note flagged specifically for
+this variant (it fires on every tick, unlike the closed heading gate)
+did NOT materialize. Video confirms: broken-heading frame strips show
+legs cycling in place with zero net translation while the on-axis
+strip on the same checkpoint shows clean forward progress.
+
+**This closes the per-leg obs-masking candidate 2/2 seeds and, with
+it, the design note's ENTIRE named RND list end-to-end**: plain
+full-obs (10th mechanism class), heading-gated (11th), per-leg
+obs-masked (12th) -- three RND variants x 2 seeds each, 0 passes, on
+top of the 9 prior non-RND mechanism classes already closed for this
+exact gap (termination pricing, reward pricing, exposure, exploration-
+noise-widening, self-distillation, PPO-advantage normalization,
+critic calibration [inconclusive], kinematic reachability [ruled
+out], decentralized-actor architecture). **12 independent mechanism
+classes total, ~26+ arms, 0 passes -- no named lever remains for this
+specific off-axis-heading front-pair question.** Per the design
+note's own text, the only paths left are a genuinely new structural
+mechanism not yet conceived (via a fresh first-principles design
+note, same discipline that reopened this question after `decleg`
+closed), or accepting the front-pair off-axis sacrifice as a standing
+`rl_only` walkcurr limitation pending that design work -- NOT another
+RND dose/gate/mask variant of what is now closed 3/3, and NOT a
+re-fund of any of the 9 prior closed classes without new evidence.
+
+Evidence: `ops.sh entry cw-walkscratch-crutchoff-{s0,s1}-widen8-
+plusduty-rndobsmask-canary2m` (verdicts); `logs/ckpt_eval/
+cw_walkscratch_crutchoff_{s0,s1}_widen8_plusduty_rndobsmask_
+canary2m_headpanel/report.json` (on-pod, both pods); W&B `v7dfockc`/
+`ipc1bf6s`; `rl_docs/tracks/walkcurr/STATUS.md` 2026-09-10 ~14:3x
+(this entry's own timestamp); `rl_docs/tracks/walkcurr/DESIGN_NOTE_
+2026-09-10_offaxis_frontpair.md` (full closure inventory + gate text).
+
 ## Heading-gated RND is ALSO refuted for the walkcurr front-pair off-axis-heading sacrifice (11th mechanism class, 2/2 seeds) -- the design note's ENTIRE named candidate list (plain RND + heading-gated RND) is now exhausted; the per-leg obs-masking variant (unbuilt) or a genuinely new structural idea is the only path left (2026-09-10, closed this cycle)
 
 One plain sentence: scoping the RND intrinsic bonus to fire only on

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from io import BytesIO
+from pathlib import Path
 import urllib.error
 
 from hexapod_core.demo_tripod import DEFAULT_DEMO_TRIPOD
@@ -49,6 +50,24 @@ def test_web_defaults_do_not_boot_a_learned_legacy_policy(tmp_path):
     assert DEFAULT_TLS_KEY.name == ".hexapod_sts_key.pem"
     assert str(DEFAULT_WALK_POLICY).startswith("scripted:")
     assert _resolve_policy(tmp_path, args.walk) == _TRIPOD_HW
+    assert args.cfg_set == []
+
+
+def test_cfg_set_flag_parses_and_appends(tmp_path):
+    args = build_arg_parser().parse_args([
+        "--cfg-set", "goal.joint_action_box_yaw_deg=15.0",
+        "--cfg-set", "goal.joint_action_bias_hip_deg=40.0"])
+    assert args.cfg_set == ["goal.joint_action_box_yaw_deg=15.0",
+                            "goal.joint_action_bias_hip_deg=40.0"]
+
+
+def test_sim_web_config_cfg_overrides_default_empty_tuple():
+    from rl_move.sim.web_session import SimWebConfig
+
+    cfg = SimWebConfig(policy_dir=Path("/tmp"), stance=None,
+                       walk=Path("scripted:x"), recover=Path("x.zip"),
+                       log_dir=Path("/tmp"))
+    assert cfg.cfg_overrides == ()
 
 
 def test_generated_tls_certificate_covers_localhost(tmp_path):

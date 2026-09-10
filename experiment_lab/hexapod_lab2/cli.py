@@ -69,11 +69,9 @@ def main(argv=None) -> int:
                           "url": f"/v2/?robot={args.robot}"}, indent=1))
         return 0
     if args.cmd == "recover":
-        from . import recovery
-        rep = recovery.recover(settings, log=lambda m: print(m, flush=True))
-        store.add_event("recovery", ("recovered (operator): " if rep["ok"] else "FAILED (operator): ")
-                        + "; ".join(f"{r['rung']}={r['status'][:60]}" for r in rep["rungs"]))
-        print(json.dumps(rep, indent=1)); return 0 if rep["ok"] else 1
+        row = loop.record_recovery(settings, store, {"protocol": "operator request", "robot": "hexapod1"},
+                                   "operator asked for recovery", log=lambda m: print(m, flush=True))
+        print(json.dumps({k: row[k] for k in ("id", "status", "run_dir")}, indent=1)); return 0 if row["status"] == "ok" else 1
     if args.cmd == "alert-test":
         from . import alerts
         sent = alerts.text(store, f"test-{store.events(1)[0]['id'] if store.events(1) else 'first'}", args.message)

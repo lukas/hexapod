@@ -63,6 +63,31 @@ def run_once(settings: Settings, store: Store, plan: Dict[str, Any], log=print) 
     return store.run(run_id)
 
 
+def record_recovery(settings: Settings, store: Store, plan: Dict[str, Any], trip: str,
+                    *, log=print, sleep=time.sleep, recover=None) -> Dict[str, Any]:
+    """Run the recovery ladder as a recorded, unplanned experiment."""
+    pid = store.add_plan(
+        title=f"Recovery after {plan['protocol']}",
+        why=(f"{plan['protocol']} tripped: {trip}. Unplanned: which of the robot's own escape "
+             f"moves (safe-zero, low-torque untrap) frees it from this pose, and at what cost?"),
+        kind="existing", protocol=None, build_spec=None, source="loop", robot=plan.get("robot") or "hexapod1",
+        status="running")
+    rid = store.start_run(pid)
+    run_dir = settings.runs_dir / rid
+    rep = (recover or recovery.recover)(settings, log=log, sleep=sleep, run_dir=run_dir)
+    lines = [f"trip: {trip}", f"before: {rep.get('before')}"]
+    lines += [f"{r['rung']} ({r['seconds']} s): {r['status']} -> {'free' if r['ok'] else 'still stuck'}" for r in rep["rungs"]]
+    lines.append(f"after: {rep.get('after')}")
+    store.finish_run(rid, status="ok" if rep["ok"] else "failed", exit_code=None, run_dir=str(run_dir),
+                     summary={"recovery": True, "after_protocol": plan["protocol"], "trip": trip, **rep},
+                     log_tail="\n".join(lines))
+    store.set_plan_status(pid, "done" if rep["ok"] else "failed",
+                          f"freed by {next((r['rung'] for r in rep['rungs'] if r['ok']), 'nothing')}")
+    store.add_event("recovery", ("recovered: " if rep["ok"] else "FAILED: ")
+                    + "; ".join(f"{r['rung']}={r['status'][:60]}" for r in rep["rungs"]))
+    return store.run(rid)
+
+
 def main_loop(settings: Settings, store: Store, *, log=print, sleep=time.sleep,
               max_iterations: Optional[int] = None) -> str:
     settings.runs_dir.mkdir(parents=True, exist_ok=True)
@@ -120,18 +145,20 @@ def main_loop(settings: Settings, store: Store, *, log=print, sleep=time.sleep,
         if run["status"] == "failed" and recovery.looks_like_jam(run.get("log_tail") or ""):
             # A tripped joint usually means a leg ended up somewhere the next
             # glide cannot start from. Let the robot free itself before the
-            # next run instead of spending three strikes finding that out.
+            # next run instead of spending three strikes finding that out,
+            # and keep the whole episode as an experiment of its own: which
+            # escape freed which pose is exactly the data a better escape
+            # would be designed from.
+            trip_lines = (run.get("log_tail") or "").strip().splitlines()
+            trip = trip_lines[-1][-160:] if trip_lines else "joint trip"
             log("run tripped on a joint; running recovery ladder")
             sleep(recovery.SETTLE_S)
-            rep = recovery.recover(settings, log=log, sleep=sleep)
-            store.add_event("recovery", ("recovered: " if rep["ok"] else "FAILED: ")
-                            + "; ".join(f"{r['rung']}={r['status'][:60]}" for r in rep["rungs"]))
-            if not rep["ok"]:
+            run = record_recovery(settings, store, plan, trip, log=log, sleep=sleep)
+            if run["status"] != "ok":
                 settings.pause_file.write_text("paused: recovery failed, robot needs a hand\n")
-                store.add_event("needs_hand", f"recovery failed after {plan['protocol']}: {rep['final'][:200]}")
-                trip = (run.get("log_tail") or "").strip().splitlines()
+                store.add_event("needs_hand", f"recovery failed after {plan['protocol']}: {trip}")
                 alerts.text(store, "needs_hand",
-                            f"robot needs a hand. {plan['protocol']} tripped ({trip[-1][-120:] if trip else 'see log'}) "
+                            f"robot needs a hand. {plan['protocol']} tripped ({trip[-120:]}) "
                             f"and safe-zero/untrap could not free it. Loop paused; free the leg, then run hexapod-lab2 resume.")
         # Every run gets its paragraph and the queue gets refreshed while the
         # result is fresh. One call, about a dollar, two minutes max.

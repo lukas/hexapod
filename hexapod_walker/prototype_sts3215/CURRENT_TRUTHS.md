@@ -1,5 +1,51 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## 4th post-fix repeat of the `any_means` interactive "reverse" capture: locomotion_fraction 0.273, clearing the stall floor — 3/4 repeats now clear cleanly, 1/4 still marginal; still "substantially improved, not fully closed" (2026-09-10, later refill cycle; 15/15 GPU free, empty backlog, no GPU-launchable lever on any track — zero-GPU-spend follow-up on the immediately-preceding entry's own explicit "a few more repeats... would settle whether the residual is bug or inherent" next step)
+
+One plain sentence: one more repeat of the exact same fixed-command
+capture on the same `any_means` champion adds a fourth data point that
+also clears the reverse-phase stall floor, strengthening (not yet
+completing) the case that the post-fix borderline case is noise/an
+inherent short transient rather than a residual bug.
+
+Re-ran the identical `web_session_drivecapture.py` invocation (same
+checkpoint, same full training `--cfg-set` stack reconstructed
+verbatim from the `_rep`-series `summary.json`'s own `server_cmd`,
+`--speed 0.08`) a 4th time
+(`anymeans_walkallheading_mlpsf_stdanneal_websession_capture_09-10_
+velblendfix_rep4/`). Overall session: `PASS: true`, `stalled_phases:
+[]`, 0 falls, 0 rejected commands, identity-checked champion at both
+boot and end. Computed the reverse-phase `locomotion_fraction`
+directly from this run's `telemetry.json` with the tool's own helper
+(`web_session_drivecapture.locomotion_fraction`, phase boundaries from
+`drive_video.human_drive_phases`): **0.273** — clears the 0.25 stall
+floor (unlike this run's own top-line `PASS`, which only checks the
+`_STALL_FRAC` floor on the SAME per-phase basis, so this is a
+consistency check, not a new tool).
+
+**Combined post-fix set is now 4 runs: 0.246, 0.313, 0.333, 0.273**
+(mean 0.291). All four still clear the ENTIRE pre-fix range
+(0.19-0.21) with no overlap. 3/4 clear the 0.25 floor outright; only
+the very first post-fix repeat (0.246) sits fractionally under it.
+This is additional evidence for, not proof of, the previous entry's
+"plausible genuine short-window gait-reversal transient and/or HTTP
+timing jitter, not a second bug" read — a single sub-threshold run out
+of four with a mean well clear of the floor is consistent with noise
+near a threshold, but four samples is still too few to rule out a
+real (if small) residual mechanism. **Still not calling this fully
+closed.** No code change this entry (pure additional measurement); no
+other track had a GPU-launchable lever this cycle either (re-checked:
+walkcurr's two open questions unchanged/still lever-less, joystick/amp/
+cpg DONE, assistfade/standwalk closed pending unbuilt redesigns) so
+this zero-GPU-spend follow-up was the justified use of the cycle.
+
+Evidence: `logs/manual_drive/anymeans_walkallheading_mlpsf_stdanneal_
+websession_capture_09-10_velblendfix_rep4/` (`summary.json`,
+`telemetry.json`, `README.md`); locomotion_fraction recomputed inline
+via `rl_move.sim.web_session_drivecapture.locomotion_fraction` +
+`rl_move.sim.drive_video.human_drive_phases` (no new tool, existing
+helpers). No snapshot needed (zero code change).
+
 ## Root cause found (and mostly fixed) for the `any_means` interactive "reverse" stall the previous entry flagged DIG-IN: the live-drive session's velocity command used a fixed-RATE ramp instead of training's fixed-DURATION blend, which happens to create a genuine momentary full-stop for this exact diag-left->reverse command pair (2026-09-10, zero GPU spend, refill cycle — picked up the deep-cycle-flagged item using only already-collected telemetry + a scoped code fix)
 
 One plain sentence: the champion was never fundamentally incapable of

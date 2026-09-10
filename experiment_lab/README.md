@@ -318,6 +318,53 @@ receipt and remaining attempt budget. Once motion has begun, any continuation
 finishes result registration and evidence sealing without replaying the motion.
 A handoff succeeds only when its exact experiment is terminal and sealed;
 reported blockers and exhausted attempts retain their actual status.
+
+Completed physical measurements should release the hardware worker promptly.
+Prepare the evidence list and result skeleton before motion. Once the robot is
+in its observed ending state, recording has stopped, and its command lease is
+released, publish all required raw evidence with one command:
+
+```sh
+uv run python -m hexapod_lab.finalize_run \
+  --experiment-id <saved-experiment-id> \
+  --result-file result.json --artifact-list artifact-list.json
+```
+
+`result.json` supplies `status`, a brief factual `summary_markdown`, the actual
+`recorded_at`, and optionally `what_we_learned` or `error`. The client fetches
+the saved name, description, duration and parameters exactly; conflicting
+overrides are rejected. `artifact-list.json` is an explicit array of file
+paths relative to that JSON file, for example
+`["telemetry.csv", "camera.mp4", "frame_index.json", "end_state.json"]`.
+Include every artifact required by the plan. Do not list the server-owned
+manifest, summary, experiment metadata or pinned vision snapshots. Authentication
+uses `HEXAPOD_LAB_TOKEN`; the default URL is the local service on `:8767`.
+
+The client stages four files concurrently while the plan remains pending,
+using `defer_manifest=true` on the existing upload route. Registration and
+sealing then hash the complete bundle, avoiding a full rehash after every file.
+An upload failure does not register a successful result or seal a partial
+bundle. Retrying reuses existing files only after byte-for-byte verification.
+The command returns a small receipt with the seal and publication duration.
+
+Aim to publish within two minutes of motion ending. Raw evidence and actual
+fault handling take precedence over that target. Detailed interpretation,
+additional plots and follow-up proposals belong to the independent analysis
+lane; generated evidence does not need a Git commit before the next run.
+
+After a successful physical queue handoff is sealed, the supervisor allows
+`HEXAPOD_CODEX_HANDOFF_EXIT_GRACE_SECONDS` (default 60 seconds) for the engineering
+agent to exit. At expiry it stops and **proves the entire process group gone**
+before releasing the worker. Cleanup failure retains the running lease and
+stops the lane. Transcript, usage and workspace evidence are retained, with an
+explicit `supervisor_completed_handoff` receipt rather than invented agent
+output. Failed/cancelled experiments and analysis-triggered engineering jobs
+are not retired by this timer. Every next physical run still establishes fresh
+camera/telemetry observations and exclusive command ownership.
+
+Dashboard progress distinguishes a queued plan from a claimed worker; queueing
+L1 while L2 is finishing no longer reports that L1 preparation has started.
+
 An unresolved blocked handoff stays saved but yields queue priority to the next
 runnable plan; a later audited resume reactivates that same job and budget.
 Operators can set an integer `parameters.queue_priority` (default `0`) when

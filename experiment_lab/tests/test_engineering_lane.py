@@ -1222,6 +1222,47 @@ def _prompt_queue_note(store, tmp_path, workspace):
     return prompt
 
 
+def test_the_card_shows_why_before_it_runs_and_the_finding_after():
+    """A queue of method paragraphs reads as work with no reason or result.
+
+    Both the hypothesis and the measured finding are already written and
+    stored; neither was rendered anywhere.
+    """
+    from hexapod_lab.main import experiment_point
+
+    queued = {
+        "status": "waiting_for_operator",
+        "parameters": {"_automation": {"rationale": (
+            "Hypothesis: L4's loop width is a stable per-leg constant. "
+            "Concrete open question on the path to smooth joystick walking: "
+            "a gait can only compensate per-leg backlash if every stance leg "
+            "has a number, and L4 has none."
+        )}},
+        "what_we_learned": {"status": "pending", "text": "has not run yet"},
+    }
+    label, point = experiment_point(queued)
+    assert label == "Why"
+    assert point.startswith("Hypothesis: L4's loop width")
+
+    done = dict(queued, status="succeeded", what_we_learned={
+        "text": "The run completed on physical hardware.\n\n"
+                "Measured result: L3's loop width is -0.703 deg = exactly "
+                "8.0 encoder counts, within-run sd 0.000.",
+    })
+    label, point = experiment_point(done)
+    assert label == "Found"
+    # The finding, not the runner-completed preamble.
+    assert point.startswith("Measured result:")
+    assert "completed on physical hardware" not in point
+
+
+def test_the_card_falls_back_quietly_without_a_rationale():
+    from hexapod_lab.main import experiment_point
+
+    assert experiment_point({"status": "queued", "parameters": {}}) == ("", "")
+    assert experiment_point({"status": "queued"}) == ("", "")
+
+
 def test_the_analyst_is_told_the_queue_depth_and_asked_to_fill_it(tmp_path):
     """A one-item queue leaves the robot idle while the agent thinks.
 

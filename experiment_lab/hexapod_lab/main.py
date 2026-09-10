@@ -2073,6 +2073,57 @@ def display_status(status):
     return str(status).replace("_", " ")
 
 
+def _first_sentences(text, limit):
+    """Whole sentences up to a budget, with an ellipsis when trimmed."""
+    flat = " ".join(str(text or "").replace("\\n", " ").split())
+    if not flat:
+        return ""
+    if len(flat) <= limit:
+        return flat
+    kept, used = [], 0
+    for piece in re.split(r"(?<=[.!?])\s+", flat):
+        if kept and used + len(piece) + 1 > limit:
+            break
+        kept.append(piece)
+        used += len(piece) + 1
+    out = " ".join(kept) if kept else flat[:limit].rsplit(" ", 1)[0]
+    return out.rstrip() + " …"
+
+
+def experiment_point(item):
+    """Why this experiment exists, or what it found once it has run.
+
+    The description is method: protocol hash, joint remapping, tick counts.
+    That is what the runner needs and it is not what a reader needs. Both the
+    purpose and the conclusion are already written and stored -- the analyst
+    puts a hypothesis and the concrete open question in
+    parameters._automation.rationale, and the finding with its measured
+    numbers in what_we_learned -- and neither was rendered anywhere. A queue
+    that shows only method reads as work with no stated reason and no result.
+    """
+    learned = item.get("what_we_learned")
+    if isinstance(learned, dict):
+        body = str(learned.get("text") or "").strip()
+        if body and learned.get("status") != "pending":
+            # The finding is what matters; skip the runner-completed preamble
+            # when the analyst has flagged the measured result explicitly.
+            paragraphs = [b.strip() for b in body.split("\n\n") if b.strip()]
+            measured = next(
+                (b for b in paragraphs
+                 if re.match(r"(measured|key) (result|finding)", b, re.I)),
+                None,
+            )
+            return "Found", _first_sentences(measured or body, 300)
+    parameters = item.get("parameters")
+    if isinstance(parameters, dict):
+        automation = parameters.get("_automation")
+        if isinstance(automation, dict):
+            rationale = str(automation.get("rationale") or "").strip()
+            if rationale:
+                return "Why", _first_sentences(rationale, 300)
+    return "", ""
+
+
 def experiment_card(item):
     status_label = escape(display_status(item["status"]))
     requirements = run_requirements(item)
@@ -2101,7 +2152,12 @@ def experiment_card(item):
         automation = (
             f"<p class='automation-inline'>{escape(agent_label())} · {labels}</p>"
         )
-    return f"<article><div><span class='status {item['status']}'>{status_label}</span><h2><a href='/experiments/{item['id']}'>{escape(item['name'])}</a></h2>{waiting}<p>{escape(short_description(item['description']))}</p>{automation}</div><small>{escape(local_stamp(item['created_at']))} · {item['duration_seconds']}s</small></article>"
+    label, point = experiment_point(item)
+    point_html = (
+        f"<p class='experiment-point'><strong>{escape(label)}:</strong> "
+        f"{escape(point)}</p>" if point else ""
+    )
+    return f"<article><div><span class='status {item['status']}'>{status_label}</span><h2><a href='/experiments/{item['id']}'>{escape(item['name'])}</a></h2>{waiting}{point_html}<p class='experiment-method'>{escape(short_description(item['description'], limit=200))}</p>{automation}</div><small>{escape(local_stamp(item['created_at']))} · {item['duration_seconds']}s</small></article>"
 
 
 def automation_section(item):
@@ -2326,7 +2382,7 @@ def runner_safety_panel(control, can_resume):
 
 def page(title, body):
     return """<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width'><title>%s</title><style>
-    :root{color-scheme:dark;--bg:#0c1110;--panel:#141c19;--ink:#e8f1ec;--muted:#94a69d;--lime:#b7f34a;--line:#2a3932}*{box-sizing:border-box}body{max-width:980px;margin:0 auto;padding:48px 24px;background:var(--bg);color:var(--ink);font:16px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace}h1{font-size:clamp(1.8rem,4.5vw,3rem);letter-spacing:-.04em;line-height:1;margin:.2em 0}.lede{color:var(--muted);font-size:1.1rem;margin:0}.dashboard-head{display:flex;align-items:center;justify-content:space-between;gap:1.5rem;margin-bottom:1.5rem}.tool-links{display:flex;flex-wrap:wrap;gap:.4rem;justify-content:end}.tool-link{display:inline-flex;align-items:center;gap:.35rem;text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:.3rem .7rem;background:var(--panel);white-space:nowrap;font-size:.8rem}.tool-link span{font-size:.9rem;color:var(--muted)}.tool-links form{margin:0}.tool-links button{padding:.3rem .7rem;border-radius:999px;font-size:.8rem;font-weight:600;background:transparent;color:var(--ink);border:1px solid var(--line)}a{color:var(--lime)}article{display:flex;align-items:start;justify-content:space-between;gap:2rem;border-top:1px solid var(--line);padding:1.5rem 0}article h2{margin:.4rem 0;font-size:1.25rem}article p,small{color:var(--muted)}.status{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:.15rem .55rem;font-size:.72rem;text-transform:uppercase}.succeeded{color:var(--lime)}.failed{color:#ff756b}.running{color:#71caff}.queued{color:#ffd56a}.waiting_for_operator{color:#e6a8ff;border-color:#70477f}video{display:block;width:100%%;margin:2rem 0;border:1px solid var(--line);background:#000}pre{white-space:pre-wrap;background:var(--panel);padding:1.2rem;border:1px solid var(--line);overflow:auto}ul{line-height:2}.context,.review{margin:2rem 0;padding:1.2rem;border:1px solid var(--line);border-radius:16px;background:var(--panel)}.context h2,.review h2{margin-top:0}.table-wrap{overflow:auto}table{width:100%%;border-collapse:collapse;font-size:.76rem}th,td{padding:.65rem;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}td code{white-space:normal}.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.8rem;margin-top:1rem}.stat-tile{border:1px solid var(--line);border-radius:12px;padding:.8rem 1rem;background:var(--bg)}.stat-tile small{display:block;color:var(--muted);font-size:.7rem;text-transform:uppercase;letter-spacing:.04em}.stat-tile strong{font-size:1.35rem;letter-spacing:-.02em}.activation{display:grid;gap:.7rem;margin-top:1.2rem;padding-top:1.2rem;border-top:1px solid var(--line)}textarea{min-height:76px;padding:.7rem;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit}button{padding:.8rem 1rem;border:0;border-radius:10px;background:var(--lime);color:#142006;font:inherit;font-weight:800;cursor:pointer}button:disabled{opacity:.55}@media(max-width:650px){article{display:block}small{display:block;margin-top:1rem}.dashboard-head{display:block}.tool-links{margin-top:1.5rem}.tool-link{justify-content:space-between}}
+    :root{color-scheme:dark;--bg:#0c1110;--panel:#141c19;--ink:#e8f1ec;--muted:#94a69d;--lime:#b7f34a;--line:#2a3932}*{box-sizing:border-box}body{max-width:980px;margin:0 auto;padding:48px 24px;background:var(--bg);color:var(--ink);font:16px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace}h1{font-size:clamp(1.8rem,4.5vw,3rem);letter-spacing:-.04em;line-height:1;margin:.2em 0}.lede{color:var(--muted);font-size:1.1rem;margin:0}.dashboard-head{display:flex;align-items:center;justify-content:space-between;gap:1.5rem;margin-bottom:1.5rem}.tool-links{display:flex;flex-wrap:wrap;gap:.4rem;justify-content:end}.tool-link{display:inline-flex;align-items:center;gap:.35rem;text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:.3rem .7rem;background:var(--panel);white-space:nowrap;font-size:.8rem}.tool-link span{font-size:.9rem;color:var(--muted)}.tool-links form{margin:0}.tool-links button{padding:.3rem .7rem;border-radius:999px;font-size:.8rem;font-weight:600;background:transparent;color:var(--ink);border:1px solid var(--line)}a{color:var(--lime)}article{display:flex;align-items:start;justify-content:space-between;gap:2rem;border-top:1px solid var(--line);padding:1.5rem 0}article h2{margin:.4rem 0;font-size:1.25rem}article p,small{color:var(--muted)}.experiment-point{color:var(--ink)!important;margin:.3rem 0}.experiment-point strong{color:var(--lime)}.experiment-method{font-size:.85rem;opacity:.75}.waiting-note{font-size:.78rem;opacity:.7}.run-requirements summary{cursor:pointer}.status{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:.15rem .55rem;font-size:.72rem;text-transform:uppercase}.succeeded{color:var(--lime)}.failed{color:#ff756b}.running{color:#71caff}.queued{color:#ffd56a}.waiting_for_operator{color:#e6a8ff;border-color:#70477f}video{display:block;width:100%%;margin:2rem 0;border:1px solid var(--line);background:#000}pre{white-space:pre-wrap;background:var(--panel);padding:1.2rem;border:1px solid var(--line);overflow:auto}ul{line-height:2}.context,.review{margin:2rem 0;padding:1.2rem;border:1px solid var(--line);border-radius:16px;background:var(--panel)}.context h2,.review h2{margin-top:0}.table-wrap{overflow:auto}table{width:100%%;border-collapse:collapse;font-size:.76rem}th,td{padding:.65rem;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}td code{white-space:normal}.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.8rem;margin-top:1rem}.stat-tile{border:1px solid var(--line);border-radius:12px;padding:.8rem 1rem;background:var(--bg)}.stat-tile small{display:block;color:var(--muted);font-size:.7rem;text-transform:uppercase;letter-spacing:.04em}.stat-tile strong{font-size:1.35rem;letter-spacing:-.02em}.activation{display:grid;gap:.7rem;margin-top:1.2rem;padding-top:1.2rem;border-top:1px solid var(--line)}textarea{min-height:76px;padding:.7rem;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit}button{padding:.8rem 1rem;border:0;border-radius:10px;background:var(--lime);color:#142006;font:inherit;font-weight:800;cursor:pointer}button:disabled{opacity:.55}@media(max-width:650px){article{display:block}small{display:block;margin-top:1rem}.dashboard-head{display:block}.tool-links{margin-top:1.5rem}.tool-link{justify-content:space-between}}
     .experiment-title{font-size:clamp(1.8rem,5vw,3rem);line-height:1.12;letter-spacing:-.045em;margin:.7em 0}.learnings{margin:1.5rem 0 2rem;padding:1.5rem 1.65rem;background:#17221b;border:1px solid #405638;border-left:4px solid var(--lime);border-radius:14px;font:1.08rem/1.7 system-ui,-apple-system,sans-serif}.learnings h2{font-size:1.3rem;letter-spacing:-.02em;line-height:1.3;margin:0 0 .85rem;color:var(--lime)}.learnings p{margin:.75rem 0}.learnings .learnings-sources{font-size:.8rem;margin-top:1rem;color:var(--muted)}@media(max-width:650px){.learnings{padding:1.2rem;font-size:1rem}}
     </style></head><body>%s</body></html>""" % (escape(title), body)
 

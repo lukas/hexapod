@@ -48,7 +48,10 @@ laptop with no hardware).
 
 EXECUTOR — ``run_safe_zero(bus, stages)``. One eased SyncWrite per
 stage (servo-side trapezoid; host streaming buzzes), then a feedback
-sweep loop (bulk ``read_all_feedback`` = 1 MCU round-trip). LIMPS ALL
+sweep loop (bulk ``read_all_feedback`` = 1 MCU round-trip). Stages run
+at the caller's ``torque_limit`` unless the planner marked one with its
+own (``LOADED_TORQUE_LIMIT`` on the belly-down straighten blend, which
+lifts the body instead of swinging a foot through air). LIMPS ALL
 SERVOS immediately on any of:
 
   * stall-fight: |I| over the limit while the joint is not moving and
@@ -108,6 +111,15 @@ _REFINE_DEPTH = 2           # waypoint bisection depth before giving up
 STALL_CURRENT_A = 2.5       # air / geometric stages
 DRAG_CURRENT_A = 3.0        # descent stage (weight transfer is honest work)
 HARD_CAP_A = 3.5
+# Torque ceiling for the belly-down straighten blend (09-10). Unfolding from
+# the untrap fold (hips -49.5 / knees 121-140) is not an air move: the knees
+# push the body up off its belly, and at the default 700 the servos time out
+# ~119° short of the 6.9° lift knee. The guards for that stage already assume
+# full torque -- DRAG_CURRENT_A (3.0 A) and DRAG_LOAD_MAX_PCT (85%) are not
+# reachable at 700 -- and 1000 is the limit both this executor's ``finally``
+# and the untrap's failure path restore as the robot's normal default. Air
+# and geometry stages keep the reduced 700.
+LOADED_TORQUE_LIMIT = 1000
 # Above this a reading is not a measurement. The bus cannot deliver it and the
 # servo would not survive it: the 09-09 stand-up died 1.76 s in on a reported
 # 106.5 A, thirty times the hard cap, from the same corrupted-byte failure the
@@ -394,9 +406,12 @@ def belly_ground_z_mm() -> float:
 
 
 def _stage(label: str, goal: list[float], seconds: float,
-           drag_ok: bool) -> dict:
-    return {"label": label, "goal": [round(v, 3) for v in goal],
-            "seconds": round(seconds, 2), "drag_ok": drag_ok}
+           drag_ok: bool, *, torque_limit: int | None = None) -> dict:
+    st = {"label": label, "goal": [round(v, 3) for v in goal],
+          "seconds": round(seconds, 2), "drag_ok": drag_ok}
+    if torque_limit is not None:
+        st["torque_limit"] = int(torque_limit)
+    return st
 
 
 # ---------------------------------------------------------------------------
@@ -818,7 +833,8 @@ def plan_safe_zero(present: list[float], *,
                                       "(limp) and retry.")}
                 stages.append(_stage(
                     "straighten hips/knees (feet to lift height)",
-                    q_lift, min(12.0, max(3.0, d1 / 12.0)), True))
+                    q_lift, min(12.0, max(3.0, d1 / 12.0)), True,
+                    torque_limit=LOADED_TORQUE_LIMIT))
                 stage1_done = True
         if not stage1_done:
             trans = plan_ik_pose_transition(
@@ -841,7 +857,8 @@ def plan_safe_zero(present: list[float], *,
                                       "(limp) and retry.")}
                 stages.append(_stage(
                     "straighten hips/knees (feet to lift height)",
-                    q_lift, min(12.0, max(3.0, d1 / 12.0)), True))
+                    q_lift, min(12.0, max(3.0, d1 / 12.0)), True,
+                    torque_limit=LOADED_TORQUE_LIMIT))
                 stage1_done = True
 
     # Stage 2 — yaws to center with the feet geometrically clear.
@@ -974,6 +991,7 @@ def run_safe_zero(bus, stages: list[dict], *,
 
     _set_torque_limit(bus, live, int(torque_limit))
     _enable_torque(bus, live)
+    cur_torque = int(torque_limit)
     n = len(stages)
     try:
         for si, st in enumerate(stages):
@@ -987,6 +1005,14 @@ def run_safe_zero(bus, stages: list[dict], *,
             if check():
                 _hold_here(bus, live)
                 return {"ok": False, "aborted": True, "stage": label}
+            # A stage that has to lift body weight (the belly-down
+            # straighten blend) carries its own ceiling; everything else
+            # stays at the caller's reduced limit. Only write the 18
+            # registers when the value actually changes.
+            want_torque = int(st.get("torque_limit") or torque_limit)
+            if want_torque != cur_torque:
+                _set_torque_limit(bus, live, want_torque)
+                cur_torque = want_torque
             start = _read_pose(bus, live)
             speed, acc = _glide_speed_acc(start, goal, live, secs)
             prog({"msg": f"safe_zero {si + 1}/{n}: {label}",

@@ -1,0 +1,69 @@
+{
+  "schema": "hexapod.transfer_candidate.v1",
+  "candidate_name": "walkcurr-rlonly-widen8-crutchoff-s0-warmadapt-50hz-acq1-v2",
+  "parent_goal": "rl_only",
+  "supersedes": "walkcurr-rlonly-widen8-crutchoff-s0-cont10m-v1 (rl_docs/tracks/walkcurr/bundle_rlonly_v1) -- that candidate trained at control.hz=100, which the operator's 2026-09-10 op_20260910_50hz order confirmed trips the hexapod2 MCU-bridge timing fault and is NOT deployable; this v2 candidate is the same recipe family's 50Hz warm-start + 18M-step acquisition continuation, re-verified against the 100Hz parent checkpoint by matched-harness DR-0 comparison before export.",
+  "source_demo_summaries": [
+    "logs/manual_drive/cw_walk50hz_rlonly_crutchoff_s0_warmadapt_acq1_drivevideo_20260910_231906/summary.json",
+    "logs/manual_drive/cw_walk50hz_rlonly_crutchoff_s0_warmadapt_acq1_drivevideo_20260910_231958/summary.json"
+  ],
+  "no_physical_robot_motion_performed": true,
+  "candidate_is_composition_not_single_policy": false,
+  "training_lineage_contract": "walkcurr rl_only (tracks.json): no gait clock, no BC teacher, no motion prior, no AMP/demo reward anywhere in this lineage. This checkpoint is a plain --init-from-source warm start of the 100Hz champion (control.hz 100->50 and the deg/s-preserving safety.max_delta_q_deg 3.6->7.2 ONLY changed) plus an 18M-step acquisition continuation under the identical reward/task stack -- no demonstration data enters this lineage at any point, same as its 100Hz parent. See CURRENT_TRUTHS.md 2026-09-09 rl_only sim-demo entry and 2026-09-10 ~21:3x/~21:5x/~22:4x 50Hz-transfer entries.",
+  "components": [
+    {
+      "state": "walk_ready -> walk_done (single policy, no stand/lower composition)",
+      "controller": "rl_move/sim/policies/ppo_goal_cw_walk50hz_rlonly_crutchoff_s0_warmadapt_acq1.zip",
+      "checkpoint_sha256": "a91b3c1d8909a9f456ee02f137a5e0e7165b7a94b5402ae337aa3f6e5f183885",
+      "policy_mode": "deterministic",
+      "exported_np_policy": "linux_control/policies/walkscratch_rlonly_widen8_crutchoff_s0_warmadapt_50hz_acq1.json",
+      "exported_np_policy_sha256": "df665e9931d4644949492e7096e1b0b95c785b64742fc7fd5992391ddf843f93",
+      "export_notes": "export_policy_np.py --training-hz 50 --inner-hz 50, generic N-layer/ELU format (net-arch 256,256,128), parity 2.23e-07 over 200 random obs (bar 1e-5).",
+      "joystick_contract": {
+        "body_frame_vx_vy_m_s": true,
+        "trained_speed_m_s": 0.06,
+        "trained_heading_set_rad_8way": true,
+        "obs_dim": 72,
+        "control_hz": 50
+      }
+    }
+  ],
+  "no_stand_or_lower_role_in_this_bundle": "This candidate is the WALK role only. It has no learned/scripted stand or lower stage of its own; a physical trial needs a separate stand-up to the walk_ready pose (e.g. the existing todaypolicy tuck stand, itself being retrained at 50Hz in a parallel arm) or a manual/gantry start, and a separate lower/catch at the end. Do not read this manifest as a full sit-to-walk-to-sit bundle.",
+  "seed_family_status": "n=3 seeds (s0/s1/s2) were canaried and passed the 100->50Hz warm-start transfer by matched-parent-comparison; s0's own +18M acquisition continuation is this candidate (ACQUISITION PASS, exported). s2's own +18M acquisition continuation also independently PASSED and exported (linux_control/policies/walkscratch_rlonly_widen8_crutchoff_s2_warmadapt_50hz_acq1.json, ops.sh entry cw-walk50hz-rlonly-crutchoff-s2-warmadapt-acq1) -- named here as a same-quality alternate seed, not required for this candidate's GO. s1's own acquisition continuation is still in flight as of this manifest's writing.",
+  "transfer_blockers_or_work": [
+    "PHYSICAL SAFETY: this checkpoint trained with bus.write_speed=4096, bus.write_acc=1000 and safety.max_delta_q_deg=7.2 (360 deg/s per-tick cap, deg/s-equivalent to the 100Hz parent's 3.6 deg/tick contract -- NOT the buggy 4x-slew value a sibling stand-role 50Hz retrain briefly used and was caught/fixed, see CURRENT_TRUTHS.md 2026-09-10 ~22:4x). This is the SIM TRAINING contract, not a physical-safe contract. Other exported policies on this project (e.g. walk_allheading_mlp_singleframe_acq1_stdanneal) use bus_write_speed=400/write_acc=20 and max_delta_q_deg=0.375 (37.5 deg/s). Robot Lab MUST independently verify/derate these against real servo/current limits before ANY motion; do not run the exported JSON's contract values as-is. This is flagged in the exported JSON's own meta.PHYSICAL_SAFETY_CAUTION field so it travels with the artifact.",
+    "CONTROL RATE: this candidate is control.hz=50 (20ms tick), the operator-mandated deployable rate for hexapod2 (op_20260910_50hz, 2026-09-10) -- unlike bundle_rlonly_v1's control.hz=100 candidate, which the same order established trips the MCU-bridge timing fault. Use ONLY this v2 candidate (or its s2 sibling) for any physical handoff; v1's 100Hz export is retained for lineage/history only and should not be run on hexapod2.",
+    "KNOWN BEHAVIORAL LIMITATION (carried unchanged from the 100Hz parent, re-confirmed on this checkpoint): a SUSTAINED (~15 s) off-forward heading (approx +-90/+-135/180 deg) chronically sacrifices one front leg's swing (root-caused as a policy/exploration gap across 13/13 closed mechanism classes, no successor fix in flight as of 2026-09-10). Forward and brief-transition headings are clean on video (0 falls, gait_valid=true, sacrificed_legs=[] for both 26 s captures, course_err_1s_med 12.0/6.1 deg). RECOMMEND: restrict the first physical trial's command envelope to forward + brief (<5 s) turns/diagonals until this is resolved, per the demo evidence actually shown.",
+    "KNOWN LIMITATION (SCORE/* multi-skill check, own-cfg on-pod eval): the OTHER bundle_rlonly_v1 skills (rise_flat/rise_bridge/rise_crouch/raise) remain broken or degraded on this checkpoint, same class of pre-existing brokenness as the 100Hz parent -- this bundle is a WALK-role candidate only, not a sit/rise/walk/lower composition; see components above.",
+    "Run only the read-only hardware preflight first: 18 servos, IMU, pose near walk_ready, tilt within limit (same preflight class as other exported-policy handoffs).",
+    "Joystick commands must stay inside the trained command envelope (0.06 m/s, the 8-way heading set above) until a hardware ladder says otherwise -- this checkpoint was never trained on continuous/arbitrary yaw rates.",
+    "Stop immediately on tip, brownout, high current, missing servo, or hot motor.",
+    "This is a single learned policy with clean rl_only ancestry, but it has NOT been through any physical trial; GO below is for simulation/export readiness, not physical acceptance."
+  ],
+  "demo_metrics": {
+    "human_script": {
+      "terminated": false,
+      "sim_seconds": 26.0,
+      "progress_ratio": 1.167,
+      "slip_per_m": 5.749,
+      "sacrificed_legs": [],
+      "gait_valid": true,
+      "cur_max_a": 2.518,
+      "wrong_course_frac_1s": 0.0,
+      "course_err_1s_med_deg": 11.99
+    },
+    "human_turn_script": {
+      "terminated": false,
+      "sim_seconds": 26.0,
+      "progress_ratio": 1.233,
+      "slip_per_m": 5.937,
+      "sacrificed_legs": [],
+      "gait_valid": true,
+      "cur_max_a": 2.588,
+      "wrong_course_frac_1s": 0.055,
+      "course_err_1s_med_deg": 6.07
+    }
+  },
+  "interactive_launch": "cd hexapod_walker/prototype_sts3215 && sim_viewer/sim_web.sh --walk rl_move/sim/policies/ppo_goal_cw_walk50hz_rlonly_crutchoff_s0_warmadapt_acq1.zip",
+  "reproducible_video_capture": "ops.sh drivevideo cw-walk50hz-rlonly-crutchoff-s0-warmadapt-acq1 --script human   (and --script human_turn)"
+}

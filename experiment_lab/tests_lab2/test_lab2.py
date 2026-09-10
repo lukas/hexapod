@@ -91,10 +91,10 @@ def test_loop_stops_after_three_failed_runs(settings, store, monkeypatch):
     monkeypatch.setattr(runner, "run_protocol", lambda s, p, rid, force=False: runner.RunResult(
         status="failed", exit_code=1, run_dir=None, summary=None, log_tail="boom", motion_s=1.0))
     monkeypatch.setattr(planner, "plan", lambda *a, **k: {"ok": True, "added": 0, "cost_usd": 0.5})
-    reason = loop.main_loop(settings, store, log=lambda m: None, sleep=lambda s: None)
-    assert reason == "3 failed runs in a row"
+    loop.main_loop(settings, store, log=lambda m: None, sleep=lambda s: None, max_iterations=6)
     assert len([r for r in store.runs() if r["status"] == "failed"]) == 3
-    assert store.last_stop()["text"] == reason
+    assert store.last_stop()["text"] == "3 failed runs in a row"
+    assert settings.pause_file.read_text().startswith("stopped: 3 failed runs")
 
 
 def test_loop_runs_then_plans_and_records_learning(settings, store, monkeypatch):
@@ -111,9 +111,9 @@ def test_loop_runs_then_plans_and_records_learning(settings, store, monkeypatch)
             st.add_learning("leg moved 5 deg", run_id=last_run_id)
         return {"ok": True, "added": 0, "cost_usd": 0.4}
     monkeypatch.setattr(planner, "plan", fake_plan)
-    reason = loop.main_loop(settings, store, log=lambda m: None, sleep=lambda s: None)
+    loop.main_loop(settings, store, log=lambda m: None, sleep=lambda s: None, max_iterations=6)
     assert calls[0] == "ok"
-    assert reason.startswith("planner returned nothing 2 times")
+    assert store.last_stop()["text"].startswith("planner returned nothing 2 times")
     run = store.runs()[0]
     assert run["status"] == "ok" and store.learning_for_run(run["id"]) == "leg moved 5 deg"
 
@@ -132,8 +132,8 @@ def test_unreachable_robot_requeues_plan_and_stops_after_two(settings, store, mo
     def down(url, budget):
         raise robot.RobotUnreachable("connection refused")
     monkeypatch.setattr(robot, "health", down)
-    reason = loop.main_loop(settings, store, log=lambda m: None, sleep=lambda s: None)
-    assert reason == "robot unreachable 2 times in a row"
+    loop.main_loop(settings, store, log=lambda m: None, sleep=lambda s: None, max_iterations=4)
+    assert store.last_stop()["text"] == "robot unreachable 2 times in a row"
     assert store.plan(pid)["status"] == "queued"
 
 
@@ -214,8 +214,8 @@ def test_restart_after_a_stop_gets_fresh_strikes(settings, store, monkeypatch):
     monkeypatch.setattr(runner, "run_protocol", lambda s, p, rid, force=False: runner.RunResult(
         status="ok", exit_code=0, run_dir=None, summary={}, log_tail="", motion_s=1.0))
     monkeypatch.setattr(planner, "plan", lambda *a, **k: {"ok": True, "added": 0, "cost_usd": 0.0})
-    reason = loop.main_loop(settings, store, log=lambda m: None, sleep=lambda s: None, max_iterations=3)
-    assert reason != "3 failed runs in a row"
+    loop.main_loop(settings, store, log=lambda m: None, sleep=lambda s: None, max_iterations=2)
+    assert not settings.pause_file.exists()
     assert store.runs()[0]["status"] == "ok"
 
 
@@ -366,3 +366,63 @@ def test_recovery_is_recorded_as_a_run_with_artifacts(settings, store, monkeypat
     # A recovered jam is an experiment, not a strike.
     rid = store.start_run(plan_row["id"]); store.finish_run(rid, status="failed", exit_code=1, run_dir=None, summary=None, log_tail="")
     assert store.consecutive_failed_runs() == 1
+
+
+def test_cap_file_overrides_default_and_stop_pauses_with_reply_hint(settings, store, monkeypatch):
+    from hexapod_lab2 import alerts, commands
+    sent = []
+    monkeypatch.setattr(alerts, "send_messages_text", lambda r, m: sent.append(m))
+    monkeypatch.setenv("HEXAPOD_LAB2_ALERT_RECIPIENT", "+15555550100")
+    store.add_spend("planner", 45.0)
+    assert settings.current_cap() == 40.0
+    loop.main_loop(settings, store, log=lambda m: None, sleep=lambda s: None, max_iterations=2,
+                   inbox=commands.Inbox(recipient="", db_path=settings.data_dir / "none.db"))
+    assert settings.pause_file.read_text().startswith("stopped: spent $45.00")
+    assert sent and "raise cap" in sent[0]
+    settings.set_cap(100)
+    assert settings.current_cap() == 100.0
+    assert loop.stop_reason(settings, store, loop.Counters()) is None
+
+
+def test_text_commands_parse_and_apply(settings, store):
+    from hexapod_lab2 import commands
+    assert commands.parse("raise cap to 100", 40) == ("cap", 100.0)
+    assert commands.parse("Raise cap", 40) == ("cap", 60.0)   # 1.5x, rounded up to $10
+    assert commands.parse("cap 80", 40) == ("cap", 80.0)
+    assert commands.parse("resume", 40)[0] == "resume"
+    assert commands.parse("please pause it", 40)[0] == "pause"
+    assert commands.parse("status?", 40)[0] == "status"
+    assert commands.parse("hello", 40)[0] == "unknown"
+    settings.data_dir.mkdir(parents=True, exist_ok=True)
+    settings.pause_file.write_text("stopped: spent $41 in 24 h, cap $40\n")
+    replies, resumed = [], []
+    commands.apply(settings, store, "raise cap 100", reply=replies.append, on_resume=lambda: resumed.append(1))
+    assert settings.current_cap() == 100.0 and not settings.pause_file.exists() and resumed
+    assert "resuming" in replies[-1]
+    commands.apply(settings, store, "pause", reply=replies.append)
+    assert settings.pause_file.exists()
+    commands.apply(settings, store, "status", reply=replies.append)
+    assert "PAUSED" in replies[-1] and "$100" in replies[-1]
+    assert [e["kind"] for e in store.events(3)] == ["command"] * 3
+
+
+def test_inbox_reads_only_recipient_messages_after_start(tmp_path):
+    import sqlite3
+    from hexapod_lab2 import commands
+    db = tmp_path / "chat.db"
+    con = sqlite3.connect(db)
+    con.executescript("CREATE TABLE handle (ROWID INTEGER PRIMARY KEY, id TEXT);"
+                      "CREATE TABLE message (ROWID INTEGER PRIMARY KEY, text TEXT, handle_id INTEGER, is_from_me INTEGER, date INTEGER);")
+    con.execute("INSERT INTO handle VALUES (1, '+15555550100'), (2, 'other@example.com')")
+    now_apple_ns = int((commands.time.time() - commands.APPLE_EPOCH_OFFSET) * 1e9)
+    old = now_apple_ns - int(3600e9)
+    con.execute("INSERT INTO message VALUES (1, 'old resume', 1, 0, ?)", (old,))
+    con.execute("INSERT INTO message VALUES (2, 'raise cap 100', 1, 0, ?)", (now_apple_ns + int(5e9),))
+    con.execute("INSERT INTO message VALUES (3, 'status', 2, 0, ?)", (now_apple_ns + int(5e9),))
+    con.execute("INSERT INTO message VALUES (4, 'Robot Lab: cap is now', 1, 1, ?)", (now_apple_ns + int(6e9),))
+    con.commit(); con.close()
+    inbox = commands.Inbox(recipient="+1 (555) 555-0100", db_path=db, started_unix=commands.time.time() - 1)
+    assert inbox.poll() == ["raise cap 100"]
+    assert inbox.poll() == []
+    missing = commands.Inbox(recipient="+15555550100", db_path=tmp_path / "nope.db")
+    assert missing.poll() == [] and missing.unavailable

@@ -1,11 +1,12 @@
 """The loop. Read top to bottom; it is the whole design."""
 from __future__ import annotations
 
+import os
 import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
-from . import alerts, planner, recovery, robot, runner
+from . import alerts, commands, planner, recovery, robot, runner
 from .builder import BuilderThread
 from .config import Settings
 from .store import Store, now_iso
@@ -30,8 +31,9 @@ def stop_reason(settings: Settings, store: Store, c: Counters) -> Optional[str]:
     if c.empty_plans >= settings.max_consecutive_empty_plans:
         return f"planner returned nothing {c.empty_plans} times in a row with an empty queue"
     spent = store.spend_last_24h()
-    if spent >= settings.daily_spend_cap_usd:
-        return f"spent ${spent:.2f} in 24 h, cap ${settings.daily_spend_cap_usd:.0f}"
+    cap = settings.current_cap()
+    if spent >= cap:
+        return f"spent ${spent:.2f} in 24 h, cap ${cap:.0f}"
     return None
 
 
@@ -89,25 +91,43 @@ def record_recovery(settings: Settings, store: Store, plan: Dict[str, Any], trip
 
 
 def main_loop(settings: Settings, store: Store, *, log=print, sleep=time.sleep,
-              max_iterations: Optional[int] = None) -> str:
+              max_iterations: Optional[int] = None, inbox: Optional[commands.Inbox] = None) -> str:
     settings.runs_dir.mkdir(parents=True, exist_ok=True)
     builder = BuilderThread(settings, store)
     c = Counters(started_at=now_iso())
     released = store.release_stuck_builds()
     store.add_event("note", "loop started" + (f"; {released} interrupted build(s) requeued" if released else ""))
+    if inbox is None:
+        inbox = commands.Inbox(recipient=os.getenv("HEXAPOD_LAB2_ALERT_RECIPIENT", "").strip())
+
+    def fresh_start() -> None:
+        # A resume (by text, by CLI, or by deleting PAUSE) is a fresh three
+        # strikes; whatever stopped us has been looked at.
+        c.started_at, c.unreachable, c.empty_plans = now_iso(), 0, 0
+
     iterations = 0
+    was_paused = False
     while max_iterations is None or iterations < max_iterations:
         iterations += 1
+        commands.poll_and_apply(settings, store, inbox, on_resume=fresh_start, log=log)
         if settings.pause_file.exists():
+            was_paused = True
             log("paused (PAUSE file present)")
             sleep(settings.idle_sleep_s)
             continue
+        if was_paused:
+            was_paused = False
+            fresh_start()
+            store.add_event("note", "resumed")
         reason = stop_reason(settings, store, c)
         if reason:
+            # Stop means pause, not exit: the process stays up so a text
+            # reply ("resume", "raise cap 100") can get it going again.
             store.add_event("stop", reason)
             log(f"STOP: {reason}")
-            alerts.text(store, "stop", f"loop stopped: {reason}. Restart with launchctl kickstart once fixed.")
-            return reason
+            settings.pause_file.write_text(f"stopped: {reason}\n")
+            alerts.text(store, "stop", f"stopped: {reason}. {commands.HELP}")
+            continue
         started = builder.maybe_start()
         if started:
             log(f"builder started for plan {started}")
@@ -159,7 +179,7 @@ def main_loop(settings: Settings, store: Store, *, log=print, sleep=time.sleep,
                 store.add_event("needs_hand", f"recovery failed after {plan['protocol']}: {trip}")
                 alerts.text(store, "needs_hand",
                             f"robot needs a hand. {plan['protocol']} tripped ({trip[-120:]}) "
-                            f"and safe-zero/untrap could not free it. Loop paused; free the leg, then run hexapod-lab2 resume.")
+                            f"and safe-zero/untrap could not free it. Paused; free the leg, then reply resume.")
         # Every run gets its paragraph and the queue gets refreshed while the
         # result is fresh. One call, about a dollar, two minutes max.
         report = planner.plan(settings, store, run, last_run_id=run["id"])

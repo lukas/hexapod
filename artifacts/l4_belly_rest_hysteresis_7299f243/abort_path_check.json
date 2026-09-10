@@ -1,0 +1,30 @@
+{
+ "purpose": "plan preflight require_remote_abort_path / execution.abort_paths_never_gated: LIVENESS of the never-gated abort paths, checked immediately before arming experiment 7299f243",
+ "when_utc": "2026-09-10T16:38:47.751112Z",
+ "robot_url": "http://192.168.4.39:8080",
+ "note": "probed with NO lease held, which is the point: these three routes must answer even when an exclusive command lease is active. All three are no-ops in the current state (robot limp/idle and already at logical zero), so the probe cannot itself move the robot.",
+ "checks": [
+  {
+   "path": "/api/rl/stop",
+   "method": "POST",
+   "code": 200,
+   "ms": 119,
+   "body_head": "{\"ok\": true, \"demo\": {\"name\": \"sysid_run\", \"status\": \"done \\u00b7 1560/1560 ticks\", \"running\": false, \"speed_live\": 1.0, \"params\": {\"name\": \"l3_belly_rest_radial_shear_hysteresis_repeat6_v1\", \"force\": true, \"duration_s\":"
+  },
+  {
+   "path": "/api/standup/stop",
+   "method": "POST",
+   "code": 200,
+   "ms": 49,
+   "body_head": "{\"ok\": true, \"demo\": {\"name\": \"sysid_run\", \"status\": \"done \\u00b7 1560/1560 ticks\", \"running\": false, \"speed_live\": 1.0, \"params\": {\"name\": \"l3_belly_rest_radial_shear_hysteresis_repeat6_v1\", \"force\": true, \"duration_s\":"
+  },
+  {
+   "path": "/api/safe_zero",
+   "method": "POST",
+   "code": 200,
+   "ms": 39,
+   "body_head": "{\"ok\": true, \"stages\": [], \"already_at_zero\": true, \"ground_z_mm\": -40.0, \"present_deg\": [0.0, -0.09, 0.18, -0.18, -0.09, 0.09, -0.26, -0.09, 0.18, 0.0, -0.18, -0.09, -0.09, 0.26, 0.0, 0.0, 0.44, 0.18], \"tilt_deg\": 2.3, "
+  }
+ ],
+ "verdict": "PASS -- all three never-gated abort routes answer 200 while the robot is limp and idle; a working remote abort path is live immediately before motion."
+}

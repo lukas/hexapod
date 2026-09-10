@@ -1,0 +1,78 @@
+{
+ "purpose": "plan preflight require_l4_swept_area_clear + verify_commanded_l4_foot_clearance_before_submission, for experiment 7299f243 (L4 belly-rest radial shear hysteresis, first L4 measurement)",
+ "when_utc": "2026-09-10T16:40:12.003841Z",
+ "which_leg_is_L4": {
+  "body_azimuth_deg": 270.0,
+  "how_established": "mesh_mujoco/hexapod_mesh_mjx.xml gives body L4_yaw pos (-0.000000, -0.100000, 0.015250) -> atan2(-0.10, 0.0) = -90 deg = 270 deg. The joint indices j12/j13/j14 are fixed by the joint contract (axis_of(j)=AXES[j%3], so 12=yaw, 13=hip, 14=knee).",
+  "role": "RIGHT-MIDDLE leg -- one of the two structurally redundant middle-pair legs (L1/L4), the pair CURRENT_TRUTHS repeatedly identifies as the sole diametrically-opposite pair with no close fore/aft neighbour",
+  "tracker_status_this_run": "not relied upon; identity taken from the durable mesh geometry and the joint contract rather than a live tracker read"
+ },
+ "swept_volume_computed_from_the_protocol": {
+  "method": "computed from THIS run's generated protocol file using the project's OWN kinematics (linux_control/geometry_plant.py foot_z_mm/foot_r_mm). The project's knee angle is ABSOLUTE, not relative to the femur: z = -FEMUR*sin(hip) - TIBIA*sin(knee). geometry_plant.py states this in its own header comment ('Knee is the tibia's absolute leg-plane angle'). foot_z_mm/foot_r_mm take NO leg index, so the profile is leg-agnostic; j12 is constant so the leg does not sweep laterally and the radial direction is fixed.",
+  "protocol_file": "hexapod_walker/prototype_sts3215/sysid/protocols/l4_belly_rest_radial_shear_hysteresis_repeat6_v1.json",
+  "canonical_protocol_hash": "a77e379c68c5",
+  "protocol_file_sha256": "23b4e54b4d206f6f58e601510888bef0c8b70e27fdba5bac545cfcffbe8211ad",
+  "link_lengths_mm": {
+   "coxa": 12.5,
+   "femur": 90.0,
+   "tibia": 150.0
+  },
+  "ticks": 1560,
+  "l4_yaw_joint_j12": "constant [0] in every one of 1560 rows, so the leg does NOT sweep laterally at all",
+  "other_16_joints_all_exactly_zero": true,
+  "varying_columns": [
+   13,
+   14
+  ],
+  "hip_j13_range_deg": [
+   -51.142729,
+   0.0
+  ],
+  "knee_j14_range_deg": [
+   0.0,
+   34.557059
+  ],
+  "radius_from_yaw_axis_mm": [
+   192.499,
+   252.5
+  ],
+  "radial_travel_mm": 60.001,
+  "foot_z_mm": [
+   -15.0,
+   -0.0
+  ],
+  "z_profile_identical_to_L2_tick_for_tick": true,
+  "verdict": "a 60.00 mm long, 15.00 mm deep sliver directly along the leg L4 is already resting on"
+ },
+ "why_a_floor_cable_cannot_be_in_this_volume": {
+  "first_floor_contact_foot_z_mm": -80.95,
+  "deepest_commanded_foot_z_mm": -15.0,
+  "clearance_above_the_floor_plane_mm": 65.95,
+  "plan_requires_mm": 15,
+  "passes": true,
+  "statement": "the deepest commanded point of the whole trajectory is 65.95 mm above the plane the feet contact, so a cable LYING ON THE FLOOR is not in the swept volume by construction. Only an object standing more than ~66 mm tall directly beneath the resting L4 leg could enter it. The frames below were checked for exactly that."
+ },
+ "absolute_vs_relative_knee_correction": {
+  "plan_text": "the saved plan says 'a relative-knee reconstruction gives a wrongly deep answer'",
+  "measured": "for THIS trajectory the relative-knee reconstruction is not deeper anywhere -- it is SHALLOWER at every one of the 1560 ticks (relative min -0.000 mm vs absolute min -15.000 mm; 0 ticks where relative reads deeper).",
+  "why_it_does_not_weaken_the_gate": "the direction of the plan's parenthetical is inverted for this trajectory family, but the consequence is conservative rather than permissive: the project's ABSOLUTE convention -- the one the plan mandates and the one used here -- yields the DEEPER of the two readings, so the clearance gate is evaluated against the stricter number and still passes with 65.95 mm against a 15 mm requirement. Recorded as a documentation correction, exactly as run 022f2098 recorded its own inherited-index correction.",
+  "relative_reconstruction_foot_z_mm": [
+   -0.0,
+   112.901
+  ]
+ },
+ "visual_inspection": {
+  "frames": [
+   "preflight_frames/preflight_cam0.jpg",
+   "preflight_frames/preflight_cam1.jpg",
+   "preflight_frames/preflight_cam2.jpg"
+  ],
+  "captured_utc": "2026-09-10T16:37:13Z",
+  "captured_stamp_in_frame": "09:37:13.107 / 09:37:13.093 / 09:37:13.275 local, burned into each overlay",
+  "source": "camera server :8766 /preview/{0,1,2}.jpg -- the same bus-free path the runner records from",
+  "looked_at": "all three frames were opened and read, not merely fetched. Camera 0 (robot-1) is the Arducam OV9281 MONO overhead view showing the whole hexapod; cameras 1 and 2 (robot-3, robot-2) are the 12MP colour views of the same robot.",
+  "finding": "the hexapod is belly-resting with the chassis down on the floor and all six legs splayed straight out, feet at floor level -- the protocol's start_pose, and consistent with all 18 joints reading within 0.44 deg of logical zero. Cabling visible in the frames (the robot's own tether and a red/black strand pair crossing the floor) lies FLAT ON THE FLOOR, i.e. at least 65.95 mm below the deepest commanded foot point. The floor immediately around the legs carries only flat printed AprilTag markers. No object standing anywhere near 66 mm tall is present beneath or along the resting L4 leg. Camera 2 additionally shows two OTHER robots and background clutter (boxes, a bin, a grate); all of it is well outside this robot's own footprint and nowhere near the 60 mm radial sliver L4 moves within.",
+  "verdict": "CLEAR -- the actual L4 swept volume is free of cables, fixtures and obstacles"
+ },
+ "overall": "PASS"
+}

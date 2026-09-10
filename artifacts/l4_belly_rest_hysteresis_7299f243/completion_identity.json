@@ -1,0 +1,17 @@
+{
+ "purpose": "record, before arming, exactly which identity fields this run will send to complete_external_experiment, and why two optional fields are deliberately omitted",
+ "experiment_id": "7299f24343654f9893274d4328b277ad",
+ "will_send": {
+  "experiment_id": "7299f24343654f9893274d4328b277ad",
+  "name": "L4 belly-rest radial shear hysteresis, 6 repeats",
+  "duration_seconds": 180.0,
+  "status": "(set from the actual outcome)",
+  "recorded_at": "(actual evidence capture time, with timezone)",
+  "summary_markdown": "(the run's own result)",
+  "what_we_learned": "(plain-language finding)"
+ },
+ "deliberately_omitted": ["description", "parameters"],
+ "why_omitted": "complete_external_experiment marks description and parameters OPTIONAL, and its contract rejects a mismatched spec opaquely. The saved description is a multi-paragraph text and the parameters a deeply nested object; re-sending either means re-transcribing them byte-identically, where a single character of drift produces an opaque rejection with no diagnostic. Omitting them removes that failure mode entirely while leaving the Lab's own authoritative queued copy untouched. name and duration_seconds are short, exact, and taken verbatim from the queued record.",
+ "verified_against": "mcp__robot_lab__get_experiment for 7299f24343654f9893274d4328b277ad, whose name is 'L4 belly-rest radial shear hysteresis, 6 repeats' and duration_seconds 180 -- matching the engineering job's own source_context.experiment copy exactly.",
+ "ordering": "artifacts are uploaded BEFORE complete_external_experiment, and seal_experiment_evidence is called only after completion, because evidence seals shortly after completion and post-seal uploads are refused."
+}

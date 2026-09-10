@@ -6,7 +6,10 @@ set -u
 DB="/Users/lukas/Library/Application Support/Hexapod Lab/data/lab.sqlite3"
 VENV="/Users/lukas/Library/Application Support/Hexapod Lab/venv"
 LOG=/tmp/lab_upgrade_watch.log
-DEADLINE=$(( $(date +%s) + 3*3600 ))
+# A single experiment can hold the lane for over an hour, and waiting is
+# always safer than cutting one: a restart at 00:37 tonight killed a run
+# mid-stand-up. Default generously and let the caller override.
+DEADLINE=$(( $(date +%s) + ${UPGRADE_WHEN_IDLE_TIMEOUT:-21600} ))
 
 say() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" | tee -a "$LOG"; }
 
@@ -20,8 +23,8 @@ while :; do
     break
   fi
   if [ "$(date +%s)" -ge "$DEADLINE" ]; then
-    say "3h deadline reached with a job still running; upgrading anyway"
-    break
+    say "deadline reached with a job still running; NOT upgrading"
+    exit 1
   fi
   sleep 30
 done

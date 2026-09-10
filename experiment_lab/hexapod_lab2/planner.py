@@ -11,6 +11,10 @@ from .config import Settings
 from .runner import list_protocols, protocol_exists
 from .store import Store
 
+# Builds cost $1-2 and 5-10 minutes each and run one at a time; past this
+# many pending, more proposals are just a backlog.
+MAX_BUILDING = 3
+
 PLAN_SCHEMA = {
     "type": "object",
     "properties": {
@@ -89,6 +93,13 @@ def build_prompt(settings: Settings, store: Store, last_run: Optional[Dict[str, 
     learn_lines = "\n".join(f"- {_local(l['created_at'])}: {_trim(l['text'], 700)}" for l in learnings) or "- none yet"
     queue = store.plans(["queued", "building"])
     queue_lines = "\n".join(f"- [{p['status']}] {p['title']} ({p['protocol'] or p['kind']})" for p in queue) or "- empty"
+    building = sum(1 for p in queue if p["status"] == "building")
+    runnable = sum(1 for p in queue if p["status"] == "queued")
+    queue_note = ""
+    if building >= MAX_BUILDING:
+        queue_note += f"\n{building} builds are already pending; new needs_code plans will be dropped, so propose only existing protocols."
+    if runnable == 0:
+        queue_note += "\nNothing runnable is queued: the robot is idle until you name at least one existing protocol worth running now."
     recent = store.runs(limit=6)
     recent_lines = "\n".join(
         f"- {_local(r['started_at'])} {r['protocol']}: {r['status']}" for r in recent) or "- none"
@@ -111,7 +122,7 @@ RECENT RUNS:
 {recent_lines}
 
 CURRENT QUEUE:
-{queue_lines}
+{queue_lines}{queue_note}
 
 MOST RECENT RUN, IN FULL:
 {_run_digest(last_run)}
@@ -173,7 +184,12 @@ def plan(settings: Settings, store: Store, last_run: Optional[Dict[str, Any]],
     if learned and last_run:
         store.add_learning(learned, run_id=last_run_id)
     added = 0
+    building = len(store.building_plans())
     for p in validate_plans(settings, res.output.get("plans")):
+        if p["kind"] == "needs_code":
+            if building >= MAX_BUILDING:
+                continue
+            building += 1
         store.add_plan(title=p["title"], why=p["why"], kind=p["kind"], protocol=p["protocol"],
                        build_spec=p["build_spec"], force=p["force"])
         added += 1

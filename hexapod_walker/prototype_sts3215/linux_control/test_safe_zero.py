@@ -477,6 +477,70 @@ def test_three_overload_reads_trip():
     assert "load" in res["error"] or "stall" in res["error"], res
 
 
+class _GroundLoadedKneeBus(FakeBus):
+    """A knee that cannot be driven past ``floor_deg`` and shows no force.
+
+    The 2026-09-10 l4_vertical_ground_load_ladder_v1 pre-roll: belly-down,
+    the knee carries body weight, stops short of its goal and reports
+    0 A / 0 % load. That is compliance, not a jam.
+    """
+
+    def __init__(self, start_deg, *, joint, floor_deg, load_pct=0.0,
+                 current_a=0.0):
+        super().__init__(start_deg)
+        self.joint = joint
+        self.floor_deg = floor_deg
+        self.stuck_load_pct = load_pct
+        self.stuck_current_a = current_a
+
+    def read_all_feedback(self):
+        out = super().read_all_feedback()
+        j = self.joint
+        if self.pos[j] < self.floor_deg:
+            self.pos[j] = self.floor_deg
+        fb = out[j]
+        fb["deg"] = self.pos[j]
+        if self.pos[j] <= self.floor_deg:
+            fb["current_a"] = self.stuck_current_a
+            fb["load_pct"] = self.stuck_load_pct
+            fb["speed_deg_s"] = 0.0
+            fb["moving"] = 0
+        return out
+
+
+def _loaded_knee_run(floor_deg, **kw):
+    start = _pose(hip=10.0, knee=25.0)
+    plan = plan_safe_zero(start)
+    assert plan["ok"] and plan["stages"]
+    bus = _GroundLoadedKneeBus(start, joint=2, floor_deg=floor_deg, **kw)
+    return run_safe_zero(bus, plan["stages"])
+
+
+@pytest.mark.slow  # >5 s: the loaded stage runs to its timeout
+def test_ground_loaded_knee_residual_does_not_limp():
+    """11 deg of loaded knee residual at 0 A / 0 % load must not limp."""
+    res = _loaded_knee_run(11.0)
+    assert res["ok"], res
+    assert "not turning" not in str(res.get("error") or "")
+
+
+@pytest.mark.slow  # >5 s: the loaded stage runs to its timeout
+def test_unreachable_knee_still_trips_but_not_as_a_jam():
+    """No force behind it -> the honest timeout, not a jam claim."""
+    res = _loaded_knee_run(60.0)
+    assert not res["ok"], res
+    assert "timed out" in res["error"], res
+    assert "not turning" not in res["error"], res
+
+
+@pytest.mark.slow  # >5 s: the loaded stage runs until the guard confirms
+def test_stuck_knee_with_force_behind_it_still_limps():
+    """The quiet-stall case: under the other guards' limits, still a jam."""
+    res = _loaded_knee_run(60.0, load_pct=50.0, current_a=0.4)
+    assert not res["ok"] and res.get("limp"), res
+    assert "L0 knee not turning" in res["error"], res
+
+
 if __name__ == "__main__":
     fns = [(n, f) for n, f in sorted(globals().items())
            if n.startswith("test_") and callable(f)]

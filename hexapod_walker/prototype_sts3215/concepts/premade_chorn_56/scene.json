@@ -3327,7 +3327,7 @@
   {
    "id": "099-L0 screw-on upper bearing carrier",
    "meshId": "stl:hip_bearing_carrier_ovh",
-   "name": "L0 upper bearing carrier + 3 nut traps (NEW)",
+   "name": "L0 upper bearing carrier + 4 nut traps (NEW)",
    "partType": "hip_bearing_carrier_ovh",
    "role": "variant",
    "leg": 0,
@@ -3501,7 +3501,7 @@
   {
    "id": "105-L1 screw-on upper bearing carrier",
    "meshId": "stl:hip_bearing_carrier_ovh",
-   "name": "L1 upper bearing carrier + 3 nut traps (NEW)",
+   "name": "L1 upper bearing carrier + 4 nut traps (NEW)",
    "partType": "hip_bearing_carrier_ovh",
    "role": "variant",
    "leg": 1,
@@ -3675,7 +3675,7 @@
   {
    "id": "111-L2 screw-on upper bearing carrier",
    "meshId": "stl:hip_bearing_carrier_ovh",
-   "name": "L2 upper bearing carrier + 3 nut traps (NEW)",
+   "name": "L2 upper bearing carrier + 4 nut traps (NEW)",
    "partType": "hip_bearing_carrier_ovh",
    "role": "variant",
    "leg": 2,
@@ -3849,7 +3849,7 @@
   {
    "id": "117-L3 screw-on upper bearing carrier",
    "meshId": "stl:hip_bearing_carrier_ovh",
-   "name": "L3 upper bearing carrier + 3 nut traps (NEW)",
+   "name": "L3 upper bearing carrier + 4 nut traps (NEW)",
    "partType": "hip_bearing_carrier_ovh",
    "role": "variant",
    "leg": 3,
@@ -4023,7 +4023,7 @@
   {
    "id": "123-L4 screw-on upper bearing carrier",
    "meshId": "stl:hip_bearing_carrier_ovh",
-   "name": "L4 upper bearing carrier + 3 nut traps (NEW)",
+   "name": "L4 upper bearing carrier + 4 nut traps (NEW)",
    "partType": "hip_bearing_carrier_ovh",
    "role": "variant",
    "leg": 4,
@@ -4197,7 +4197,7 @@
   {
    "id": "129-L5 screw-on upper bearing carrier",
    "meshId": "stl:hip_bearing_carrier_ovh",
-   "name": "L5 upper bearing carrier + 3 nut traps (NEW)",
+   "name": "L5 upper bearing carrier + 4 nut traps (NEW)",
    "partType": "hip_bearing_carrier_ovh",
    "role": "variant",
    "leg": 5,

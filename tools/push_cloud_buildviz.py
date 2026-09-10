@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Mirror a BuildViz build's current default version to the cloud hub.
 
+Analysis pages whose ``sourceVersion`` matches that default version are
+mirrored after the build, so a locally verified FEA page does not disappear
+when the build is viewed on the cloud hub.
+
 Standing convention (Lukas, Aug 2026): every local `verify-buildviz` publish
 should also land on the CoreWeave-hosted BuildViz hub so the build is
 viewable off this machine:
@@ -56,6 +60,33 @@ def _resolve_mesh_file(url: str, scene_dir: Path) -> Path | None:
     return candidate if candidate.exists() else None
 
 
+def _assets_for_scene(scene: dict, scene_dir: Path) -> list[dict]:
+    assets = []
+    for mesh in scene.get("meshes", []):
+        url, mesh_id = mesh.get("url", ""), mesh.get("id", "")
+        if not url or not mesh_id:
+            continue
+        file = _resolve_mesh_file(url, scene_dir)
+        if file is not None:
+            assets.append({
+                "meshId": mesh_id,
+                "data": base64.b64encode(file.read_bytes()).decode(),
+                "ext": file.suffix.lstrip(".") or "stl",
+            })
+    return assets
+
+
+def _post_json(url: str, api_key: str, payload: dict) -> dict:
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode(),
+        headers={"Content-Type": "application/json", "X-API-Key": api_key},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=300) as response:
+        return json.load(response)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--build-id", default=DEFAULT_BUILD_ID)
@@ -105,18 +136,7 @@ def main() -> int:
                       file=sys.stderr)
                 return 1
 
-    assets = []
-    for mesh in scene.get("meshes", []):
-        url, mesh_id = mesh.get("url", ""), mesh.get("id", "")
-        if not url or not mesh_id:
-            continue
-        file = _resolve_mesh_file(url, build_dir)
-        if file is not None:
-            assets.append({
-                "meshId": mesh_id,
-                "data": base64.b64encode(file.read_bytes()).decode(),
-                "ext": file.suffix.lstrip(".") or "stl",
-            })
+    assets = _assets_for_scene(scene, build_dir)
 
     # The hub REQUIRES a version message naming the change. Mirror the local
     # version's own message when it has one; otherwise say what this is.
@@ -142,17 +162,43 @@ def main() -> int:
     if spec.exists():
         payload["designSpec"] = spec.read_text()
 
-    req = urllib.request.Request(
-        f"{base}/__buildviz/push",
-        data=json.dumps(payload).encode(),
-        headers={"Content-Type": "application/json", "X-API-Key": api_key},
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=300) as response:
-        result = json.load(response)
+    result = _post_json(f"{base}/__buildviz/push", api_key, payload)
     print(f"    cloud mirror: {result.get('summary', 'ok')} -> "
           f"{base}/?project={args.build_id.split('/')[0]}"
           f"&build={args.build_id.split('/')[-1]}")
+
+    analyses_dir = build_dir / "analyses"
+    if analyses_dir.exists():
+        for analysis_dir in sorted(p for p in analyses_dir.iterdir()
+                                   if p.is_dir()):
+            analysis_scene_file = analysis_dir / "scene.json"
+            analysis_meta_file = analysis_dir / "meta.json"
+            if not analysis_scene_file.exists() or not analysis_meta_file.exists():
+                continue
+            analysis_meta = json.loads(analysis_meta_file.read_text())
+            if analysis_meta.get("sourceVersion") != version:
+                continue
+            analysis_scene = json.loads(analysis_scene_file.read_text())
+            analysis_payload = {
+                "buildId": args.build_id,
+                "name": analysis_meta.get("name") or analysis_dir.name,
+                "displayName": analysis_meta.get("displayName"),
+                "message": analysis_meta.get("message"),
+                "sourceVersion": version,
+                "sourceBranch": analysis_meta.get("sourceBranch"),
+                "scene": analysis_scene,
+                "assets": _assets_for_scene(analysis_scene, analysis_dir),
+                "maxUploadBytes": MAX_UPLOAD_BYTES,
+            }
+            analysis_result = _post_json(
+                f"{base}/__buildviz/push-analysis", api_key,
+                analysis_payload,
+            )
+            print("    cloud analysis: "
+                  f"{analysis_result.get('summary', analysis_dir.name)} -> "
+                  f"{base}/?project={args.build_id.split('/')[0]}"
+                  f"&build={args.build_id.split('/')[-1]}"
+                  f"&analysis={analysis_dir.name}")
     return 0
 
 

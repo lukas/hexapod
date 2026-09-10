@@ -24,16 +24,23 @@
     "unsupported_tube_span_reduction_vs_original_mm": 16.0,
     "socket_mouth_outboard_vs_overhead_mm": 21.200000000000003
   },
+  "chassis_bottom": {
+    "former_trunk_hole_closed": true,
+    "former_trunk_hole_x_mm": 14.0,
+    "former_trunk_hole_y_mm": 22.0,
+    "solid_probes": 60,
+    "centre_strap_passage_retained": true
+  },
   "masses": {
     "premade_bracket_reference_g": 23.0,
     "driven_spacer_g": 2.5,
     "passive_spacer_g": 2.2,
-    "femur_body_g": 38.0,
-    "tibia_socket_g": 18.0,
-    "flat_coxa_link_with_integral_tower_g": 76.6,
+    "femur_body_g": 37.8,
+    "tibia_socket_g": 19.2,
+    "flat_coxa_link_with_integral_tower_g": 80.4,
     "screw_on_lower_yaw_hub_g": 10.2,
-    "flat_hip_clamp_cap_g": 32.2,
-    "screw_on_hip_bearing_carrier_g": 11.3,
+    "flat_hip_clamp_cap_g": 31.3,
+    "screw_on_hip_bearing_carrier_g": 11.2,
     "driven_spacer_nominal_preload_overlap_mm3": 31.15,
     "passive_spacer_nominal_preload_overlap_mm3": 30.21
   },
@@ -57,9 +64,14 @@
     "cap_bracket_overlap_mm3": 0.0,
     "cap_servo_intentional_press_mm3": 791.95,
     "receiver_thickness_mm": 3.6,
-    "retention": "6x short front-loaded M3 heat-set inserts",
-    "insert_depth_mm": 3.1,
-    "servo_side_skin_mm": 0.5
+    "retention": "6x front-loaded ordinary captive M3 hex nuts",
+    "screw": "M3x5",
+    "nut_pocket_across_flats_mm": 5.8,
+    "nut_pocket_depth_mm": 2.7,
+    "pocket_back_skin_mm": 0.9,
+    "servo_side_skin_mm": 0.5,
+    "thread_beyond_nut_mm": 0.5,
+    "center_to_nut_flat_web_mm": 0.1
   },
   "split_lower_yaw_hub": {
     "interface_z_mm": 4.0,
@@ -97,7 +109,7 @@
     "carrier_flat_face_y_mm": 21.9,
     "cap_carrier_overlap_mm3": 0.0,
     "bearing_press_overlap_mm3": 0.146,
-    "attachment": "3x M3x8 countersunk screws into captive M3 nuts",
+    "attachment": "4x M3x8 countersunk screws into captive M3 nuts",
     "nut_pocket_across_flats_mm": 5.8,
     "nut_pocket_depth_mm": 2.7,
     "minimum_nut_to_outer_shell_mm": 0.6,
@@ -110,11 +122,15 @@
     "window_width_mm": 6.8,
     "window_x_range_mm": [
       67.3,
-      72.3
+      71.85
     ],
     "tube_engagement_depth_mm": 30.0,
     "unsupported_tube_span_reduction_vs_original_mm": 16.0,
-    "complete_mouth_collar_length_mm": 21.5
+    "complete_mouth_collar_length_mm": 21.95,
+    "root_flare_outer_diameter_mm": 24.0,
+    "root_flare_length_mm": 10.0,
+    "diagonal_root_ribs": 4,
+    "root_rib_outer_radius_mm": 13.0
   },
   "servo_serviceability": {
     "holder_slot_width_mm": 24.0,
@@ -145,7 +161,7 @@
     "minimum_top_nut_to_outer_shell_mm": 0.87,
     "yaw_driver_envelope_diameter_mm": 5.9,
     "rear_yaw_driver_extra_radial_clearance_mm": 2.0,
-    "reinforcement": "solid positive-Y servo-tab block plus two negative-Y arms",
+    "reinforcement": "solid positive-Y servo-tab block, two negative-Y arms, and two rear upper-bearing root buttresses",
     "reinforcement_arm_count": 3,
     "upper_arm_screw_access_diameter_mm": 6.5,
     "servo_holder_foot_y_range_mm": [
@@ -177,7 +193,13 @@
       27.5,
       35.8
     ],
-    "reinforcement_volume_mm3": 13821.8
+    "upper_bearing_buttress_z_range_mm": [
+      34.5,
+      44.0
+    ],
+    "upper_bearing_buttress_outer_radius_mm": 25.1,
+    "upper_bearing_buttress_front_x_mm": -7.5,
+    "reinforcement_volume_mm3": 17467.5
   },
   "sweep": {
     "limit_deg": -110.0,

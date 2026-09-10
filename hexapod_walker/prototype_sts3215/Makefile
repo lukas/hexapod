@@ -178,7 +178,7 @@ buildviz-premade-chorn-56:
 		--design-spec hexapod_walker/prototype_sts3215/concepts/premade_chorn_56/design_spec.yaml \
 		--name "STS3215 premade 56 mm C-horn experiment" \
 		--bump --upload-assets \
-		--message "remove knee-cap island and enforce connected-print gate"
+		--message "reinforce tibia root and upper-bearing load path; add rear carrier fastener"
 	-$(RUN) tools/push_cloud_buildviz.py \
 		--build-id prototype_sts3215/premade-chorn-56 || \
 		echo "    WARNING: cloud mirror failed; local premade-chorn build is unaffected"

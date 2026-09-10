@@ -8,6 +8,14 @@ spares**.
 
 The build is `prototype_sts3215/premade-chorn-56` in BuildViz.
 
+## Chassis-bottom cleanup
+
+The obsolete rectangular **14 x 22 mm battery-trunk pass-through** at chassis
+XY (48, 0) is closed through the complete lower plate in this concept. The six
+Velcro strap slots remain unchanged; the center pair remains available for the
+battery leads as well as the under-belly safety strap. This is a concept-only
+chassis change and does not alter the production or shared `rigid_hip` chassis.
+
 ## Horn-on servo removal
 
 Both motor holders now inherit the current production service opening. The
@@ -43,7 +51,9 @@ the servo's own molded case holes are deliberately unchanged.
 One upper-bearing-carrier screw moved from 0° to 35° on the same bolt circle;
 its countersink had been only 1.66 mm from the fixed inboard hip-clamp screw.
 The revised head pockets have 4.35 mm edge-to-edge clearance without moving the
-servo walls or either clamp screw.
+servo walls or either clamp screw. A fourth carrier fastener at 180° supports
+the formerly unbolted rear side of the bearing cartridge at the walking-load
+hotspot.
 
 ## Rear support for the outboard coxa
 
@@ -66,9 +76,8 @@ R13.0–R16.6 annular collar rises 8 mm into a continuous R16.9–R19.0 socket i
 the coxa. Three M3×6 low-profile screws enter radially through edge-access
 tunnels at 120°, 180°, and 240° and engage captive nuts in the carrier edge.
 The collar/socket has 0.30 mm radial assembly clearance and leaves all five
-vertical horn-driver paths open. The upper cartridge uses three M3×8
-countersunk screws
-from the cap underside into three more captive M3 nuts. Those nuts drop into
+vertical horn-driver paths open. The upper cartridge uses four M3×8
+countersunk screws from the cap underside into four captive M3 nuts. Those nuts drop into
 5.8 mm-AF hex recesses in the carrier's flat mounting face and are captured
 when the cap is seated. Both cartridges preserve their original 6805 bearing
 seats and horn interfaces.
@@ -122,7 +131,12 @@ Per hip or knee joint:
   **9.5 mm from each outside edge** of the 56 mm bracket. The bracket's central
   Ø8 hole is clearance, not a primary fastener.
 
-The front M3 screws pass through the 2.1 mm metal web and 8 mm printed
+At the femur, six M3×5 screws pass through the 2.1 mm metal web into ordinary
+M3 hex nuts loaded into 5.8 mm-AF × 2.7 mm-deep pockets from the bracket face.
+The seated bracket captures the nuts. Each screw reaches 0.5 mm beyond its nut
+but stops inside the remaining printed skin before the servo cavity.
+
+At the tibia, the front M3 screws pass through the metal web and 8 mm printed
 receiver into accessible captive M3 nyloc pockets. This gives four screws
 around the center plus a much larger top/bottom anti-twist couple. The tibia's
 Ø8 carbon tube is coaxial with the front center hole and seats against a
@@ -201,14 +215,16 @@ Files ending in `DO_NOT_PRINT` are viewer references.
 - Each coxa contains its own contour-matched rear stand, one solid positive-Y
   servo-tab block, and two negative-Y contour arms. The tab block has two Ø6.8
   driver holes; the remaining upper arm retains its Ø6.5 case-screw access.
+  Two rear annular buttresses now carry the upper-bearing wall down into the
+  coxa from Z=44.0 to 34.5 mm without entering the servo enclosure.
 - The old full-width lower rail, nine-hole grid, and two small vertical screw
   pads are gone. The lower carrier now keys 8 mm into the coxa and is retained
   by three radial edge screws.
 - Both yaw-bearing protrusions are split into closed, single-body screw-on
   cartridges. The lower carrier has a 0.30 mm-clearance collar/socket joint;
   its three captive nuts are closed by the coxa after the collar is inserted.
-- The upper-bearing connection uses five ordinary captive M3 nuts per leg:
-  three between the hip cap and carrier, plus two between the carrier and coxa
+- The upper-bearing connection uses six ordinary captive M3 nuts per leg:
+  four between the hip cap and carrier, plus two between the carrier and coxa
   tower. No heat-set inserts are used at this connection.
 - The removable servo clamp caps use 18 additional ordinary captive M3 nuts:
   two per hip and one per knee. Every M3×8 screw passes fully through its nut;
@@ -218,7 +234,9 @@ Files ending in `DO_NOT_PRINT` are viewer references.
   slot and pass the horn-on servo extraction sweep.
 - The tibia socket exposes all six bracket fasteners: four central captive
   nylocs through rounded radial windows and two outer pockets directly, while
-  retaining a 21.5 mm complete tube collar at the mouth.
+  retaining a 21.95 mm complete tube collar at the mouth. A Ø24-to-Ø18 tapered
+  root flare and four diagonal ribs bridge the receiver into that collar while
+  keeping every nut window open.
 - The normal knee range −30°…+20° is clear.
 - The longer premade bracket first meets the rigid top structure at −117.5°;
   the build uses a conservative −110° hip up-limit, the same safe limit as the
@@ -229,6 +247,93 @@ Files ending in `DO_NOT_PRINT` are viewer references.
   farther out than production, so the CF tube cut remains 21.8 mm shorter than
   production. The socket mouth now extends another 16 mm along that same tube;
   this adds support without changing the cut length or foot position.
+
+## MuJoCo load run and FEA screen
+
+The rigid-top/bottom-bearing MuJoCo twin is the dynamic proxy for this concept:
+the joint centers and foot endpoint are unchanged, while the concept CAD is
+used for the structural meshes. A deterministic 10 s rollout of
+`ppo_goal_cw_walk_longdist_r2.zip` completed without termination and travelled
+0.39 m. Its recorded maxima were 28.64 N foot force, 3.757 N·m link bending,
+2.2 N·m servo torque, and 30.774 N transmitted joint force. The FEA also uses
+the existing rise/lower envelope, increasing the applied single-foot and
+transmitted load to 50.715 N.
+
+The current BuildViz full-leg screen uses material-specific models: isotropic
+PETG at 25% infill (E=900 MPa, 22.66 MPa effective yield), the real hollow
+8 mm OD / 6 mm ID carbon tube (55 GPa isotropic bending proxy, 300 MPa
+conservative allowable), the bought aluminum C-horn (69 GPa, 110 MPa
+conservative allowable because its alloy/temper is unverified), and a TPU 95A
+linear secant proxy (E=25 MPa, 7 MPa screening allowable). The C-horn and tube
+use fine quadratic meshes; the printed parts use repaired C3D4 meshes because
+their otherwise watertight exports contain degenerate surface triangles.
+
+The six-part foot-to-hip load-chain envelope is:
+
+| part | peak stress | safety factor | screen |
+|---|---:|---:|---|
+| aluminum C-horn, worst knee context | 127.57 MPa | 0.86 vs unverified-alloy allowable | fails pending alloy verification |
+| femur body | 23.93 MPa | 0.95 | fails |
+| TPU 95A foot boot, linear proxy | 5.01 MPa | 1.40 | marginal |
+| tibia tube socket | 15.48 MPa | 1.46 | marginal |
+| coxa link | 14.60 MPa | 1.55 | marginal |
+| hollow carbon tube | 188.63 MPa | 1.59 | marginal |
+
+The aluminum result is governed by sideways bending of the 2.1 mm arms. A
+simple two-arm beam check gives about 102 MPa nominal under the 3.757 N·m knee
+moment; mesh refinement puts the solid-model peak higher. If the bracket is
+verified 6061-T6, 127.57 MPa is below its yield strength, but the plot remains
+red against 110 MPa until the commodity bracket's actual alloy and temper are
+known. The hollow-tube result converged to 189-190 MPa at 0.8/0.6 mm mesh size;
+its nominal beam stress is 109 MPa and the higher FEA peak is the physically
+expected socket-edge restraint concentration. The foot result is only a
+small-strain TPU proxy: its approximately 0.63 mm predicted displacement and
+stress utilization need a hyperelastic material test before certification.
+
+### v28 reinforced-target check
+
+The tibia root flare/ribs and the upper-bearing coxa buttresses were checked
+against v26 with the same 80-voxel repaired C3D4 mesh, the same recorded
+MuJoCo + rise/lower envelope, and deterministic single-threaded CalculiX
+solves. The comparison is:
+
+| part | v26 peak / SF | v28 peak / SF | result |
+|---|---:|---:|---|
+| tibia socket | 15.48 MPa / 1.46 | 4.87 MPa / 4.65 | root transition fixed |
+| coxa link | 14.60 MPa / 1.55 | 3.68 MPa / 6.16 | bearing-wall load path fixed |
+| upper bearing carrier | 5.52 MPa / 4.10 | 6.02 MPa / 3.76 | still clear; extra nut pocket shifts the bonded-solid peak |
+
+The carrier correction matters: it is an upper **yaw**-bearing cartridge, not
+a hip-pitch link. Its radial walking reaction is resolved from the measured
+2.856 N·m yaw moment across the 56.3 mm upper/lower bearing-center span
+(approximately 51 N). The former automatic model divided the complete hip
+moment by the cartridge's roughly 15 mm local contact spacing and created an
+artificial 200+ N point load. `fea_materials.json` records the axis and
+reaction span, and the result JSON records the applied load model. The fourth
+rear fastener improves the physical clamp pattern, but this bonded single-part
+screen does not model bolt preload or contact slip and therefore cannot credit
+that benefit.
+
+Treat all values as design screening, not certification. The assembled view
+does not yet model bolt preload, hole bearing/slip, carbon laminate directions,
+TPU hyperelasticity, print-layer anisotropy, creep, or nonlinear multi-part
+contact. The remaining v26 concerns are the unverified-alloy C-horn, femur
+knee-end transition, carbon tube socket-edge concentration, and TPU foot
+model. Target a load-path safety factor above 2 before a full 25%-infill print.
+
+Recorded artifacts:
+
+- `mujoco_walk_loads.json`
+- `fea_materials.json`
+- `mujoco_walk_fea_full_leg_envelope.json`
+- `mujoco_walk_fea_reinforced_targets_v28.json`
+- `mujoco_walk_fea_petg25_loadpath.json`
+- `mujoco_walk_fea_petg25_chassis.json`
+
+The material-specific full-leg BuildViz page is `mujoco-walk-fea-full-leg` on
+v26. The corrected changed-part page is
+`mujoco-walk-fea-reinforced-targets` on v28. The older PETG-only pages remain
+as historical printed-part/chassis screens.
 
 ## Regenerate and publish
 

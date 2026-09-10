@@ -55,10 +55,14 @@ place without widening a deliberately narrow one, and pushes anything
 unreachable with `--push`. Worktrees live in `/tmp`, which macOS prunes, so a
 commit existing only there is one cleanup away from gone.
 
-## Manual project metaagent: register purpose and evidence
+## Project metaagent: register purpose and evidence
 
-The project metaagent (formerly overseer) is manual-only; do not schedule or enable it without a
-new user request. See
+Lukas requested recurring Metaagent reviews on 2026-09-09 after the manual trial.
+The project metaagent uses a deterministic local timer: free checks every five
+minutes, paid reviews at most every six hours when changed eligible work exists.
+Idle/unchanged checks exit without a model call; a failed or interrupted paid
+attempt holds further paid reviews until explicitly re-enabled. The old Codex
+watchdogs stay paused. See
 `hexapod_walker/prototype_sts3215/rl_move/overseer/README.md` for its CLI.
 Discovery inventories existing Claude/Codex/Lab/RL work without controlling it.
 For new long-running work, register a stable agent ID, logical task ID, parent,

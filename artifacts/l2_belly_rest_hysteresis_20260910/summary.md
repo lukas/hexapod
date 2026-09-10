@@ -144,7 +144,29 @@ protocol it names; the reviewed document governed.
 what limped the L5 sibling's first attempt. Same design used here: the runner's
 in-loop interlocks are the real-time layer; supervision is the bus-free
 continuous camera record plus a freshness watchdog plus the lease watch; bus
-telemetry read pre/post. **Continuous coverage on all three cameras for 165.9 s,
+telemetry read pre/post.
+
+**Which stop conditions were live and which were post-hoc — stated plainly.**
+Enforced in real time: per-servo current (0.75 A / 3 polls, 3.0 A ceiling),
+55 C, 30 deg tracking against a slewed reference, 3 consecutive missed reads,
+stale/nonadvancing state and limp-on-trip — all inside the on-robot runner's
+own tick loop; plus, supervisor-side and bus-free, camera-freshness (>2 s stall
+on any of the three) and the exclusive command lease (a foreign motion command
+would have aborted the run). Checked **post-hoc only**, because reading them
+costs a ~5–6 s bus scan per sample that would itself have starved the runner:
+chassis tilt >10 deg (IMU comes only from `/api/feedback`), "any `/api/errors`
+row", and the L2-knee +8 C-over-baseline bound. Not measured at all:
+chassis-tag-versus-floor-tags, for the illumination reason above.
+
+The consequence is concrete and worth stating rather than glossing: under the
+plan's literal wording, the single transient `ascii_err` row at 03:00:34.289Z
+would have halted the run around tick ~1330, in the last third of block B. It
+did not, because nothing was watching `/api/errors` in real time. The run is
+reported as succeeded because the robot's own fault stops are the real-time
+layer and none of them tripped, and because that row is a 15 ms self-recovered
+MCU framing retry that cost no tick — but the trade is a real deviation from
+the saved stop set, not a technicality, and the six affected cycles' numbers sit
+inside the same tight band as the other eighteen. **Continuous coverage on all three cameras for 165.9 s,
 251 frames each, all 251 distinct by sha256, max inter-frame gap 0.71 s** —
 so the record spans the whole 156 s of motion with margin. 96 stamped frames at
 pre-run, every dwell and post-run, max 0.34 s from target.

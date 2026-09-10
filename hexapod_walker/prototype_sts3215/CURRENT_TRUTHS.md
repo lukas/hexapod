@@ -1,5 +1,103 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## Root cause found (and mostly fixed) for the `any_means` interactive "reverse" stall the previous entry flagged DIG-IN: the live-drive session's velocity command used a fixed-RATE ramp instead of training's fixed-DURATION blend, which happens to create a genuine momentary full-stop for this exact diag-left->reverse command pair (2026-09-10, zero GPU spend, refill cycle — picked up the deep-cycle-flagged item using only already-collected telemetry + a scoped code fix)
+
+One plain sentence: the champion was never fundamentally incapable of
+walking backward — the interactive session's velocity-ramp code just
+didn't match how the champion was actually trained to receive command
+changes, and fixing that (not another cfg-knob guess) measurably
+improves, though does not yet perfectly clean up, the "reverse" phase.
+
+**Root cause, found from data already on disk (no new sim run needed
+to diagnose).** The previous entry's own telemetry
+(`anymeans_walkallheading_mlpsf_stdanneal_websession_capture_09-10_
+fullcfg_velfix/telemetry.json`) shows the "reverse" phase's measured
+body speed (not just its direction) collapsing to near-zero
+(magnitudes mostly <0.02 m/s, oscillating in sign) for almost the
+whole 4s phase — a real stall, not a tracking-angle problem. Read
+`_PlayTraj.at()` (`rl_move/sim/play_core.py`, the interactive session's
+command trajectory) against `WalkTrajectory`'s mid-episode command
+resample (`rl_move/sim/walk_task.py`, the actual training-time command
+generator this champion trained under, `goal.walk_cmd_resample_s=6.0`
++ default `walk_cmd_blend_s_min/max=1.0`): training blends a NEW
+(vx, vy) target in over a FIXED 1-second straight-line interpolation
+regardless of how far the command has to move, while `_PlayTraj` ramped
+each axis independently at a FIXED RATE (`VEL_RATE=0.06` m/s^2). For a
+single-axis 0.06-0.08 m/s step these are similar (~1-1.3s), but for the
+scripted "human" drive script's diag-left(0.0566, 0.0566) ->
+reverse(-0.08, 0) transition, the worst-axis delta is 0.1366 m/s, so
+the old rate-limited ramp took **2.28s** — over 2x training's 1s
+contract. Worse: because BOTH axes happen to start this specific
+transition at the exact same value (`d=0.0566`, diag-left's 45 deg
+command), and rate-limiting is linear-in-time-per-axis, both axes
+independently reach/cross zero at the identical instant (t~0.94s into
+the transition) — a genuine near-zero-velocity "full stop" the
+synchronized real command generator's blend design does not produce
+for this pair (verified algebraically, not just by re-running): training's
+straight-line interpolation over a SHARED 1s window has vy (target 0)
+approach zero only at the very end of the blend while vx is already
+substantially negative, so the compound magnitude never actually
+bottoms out near true zero the way the old rate-limited ramp did.
+
+**Fixed** `_PlayTraj` (`rl_move/sim/play_core.py`) to blend to a new
+velocity/yaw-rate target over a fixed `BLEND_S=1.0s` window (restarting
+from wherever the command currently is whenever the target changes),
+matching `WalkTrajectory`'s own blend contract instead of an
+independent per-axis rate. Scope: `_PlayTraj` only (used by the
+interactive keyboard/joystick-driven sessions in `play.py` and
+`web_session.py`); no training/eval-harness code path is touched, so
+no existing champion, reward, or held-out gate result is affected.
+6 new/changed tests (`test_drive_video_scripts.py`:
+`test_play_traj_velocity_blend_finishes_in_a_fixed_duration`,
+`test_play_traj_velocity_blend_restarts_from_the_published_value`,
+existing wz-ramp test unchanged and still green); full
+`test_drive_video_scripts.py` + `test_web_session_drivecapture.py` +
+`test_sim_web_server.py` suites green (134 passed, unrelated
+collection errors on 4 pre-existing files with missing optional deps
+are untouched by this change).
+
+**Measured effect, honestly reported — real improvement, not yet a
+clean fix.** Re-ran the exact same full-cfg interactive HTTP capture
+against this track's `any_means` walk-role champion
+(`ppo_goal_cw_walk_allheading_mlp_singleframe_acq1_stdanneal.zip`)
+THREE times post-fix: reverse-phase `locomotion_fraction` reads
+**0.246, 0.313, 0.333** — every one of the three exceeds the ENTIRE
+pre-fix range (0.19-0.21, two runs, tight spread, both cited in the
+prior entry) with no overlap, a real and repeatable improvement (mean
+~0.297 vs ~0.20, +~48% relative). Two of the three post-fix runs clear
+the capture tool's 0.25 stall floor outright (`stalled_phases: []`,
+overall `PASS: true`); the first repeat (0.246) still falls fractionally
+short of the floor. **Do not call this fully closed**: the residual
+sub-threshold run shows the champion still needs noticeably longer than
+this script's 4s phase window to build full, confident backward
+translation after a 135 deg diag-left->reverse flip (per-tick telemetry:
+sustained negative `vx_body` only appears in the back half of the
+phase in most runs) — consistent with a genuine short-window gait-
+reversal transient (the phase clock / swing-leg assignment needs part
+of a gait cycle to re-orient after a big heading flip) layered on top
+of the now-fixed command-blend bug, not necessarily a second bug. Real
+run-to-run HTTP-loop timing jitter (wall-clock heartbeat resend cadence)
+also plausibly contributes noise near this exact threshold.
+
+**What this does and does not change.** Confirms and extends the
+previous entry's finding (real stall, capture tool correctly detects
+it, not a false positive) — the previous entry's honest "not yet
+root-caused" framing was correct, and is now superseded by an actual
+root cause with a real, tested, evidence-backed fix, not another guess.
+Does not reopen the `rl_only` champion's own already-closed heartbeat
+finding (a different, already-fixed bug in a different file/code path).
+Does not change any training/eval result (fix is scoped to the
+interactive-session-only trajectory class). `STATUS.md`/
+`rl_docs/tracks/todaypolicy/STATUS.md` updated to reflect "substantially
+improved, still marginal" rather than either "closed" or the previous
+"open, cause unknown."
+
+Evidence: `rl_move/sim/play_core.py` (`_PlayTraj` rewrite),
+`rl_move/tests/test_drive_video_scripts.py` (2 new tests),
+`logs/manual_drive/anymeans_walkallheading_mlpsf_stdanneal_
+websession_capture_09-10_velblendfix{,_rep2,_rep3}/` (3 post-fix
+captures); snapshot pending (`exp/playtraj-velocity-blend-fixedduration`).
+
 ## First empirical interactive-HTTP capture of an `any_means` candidate: found and fixed a real config-threading bug (explicit `walk_obs_body_vel` override silently clobbered), but a genuine, still-open "reverse" direction stall remains — DIG-IN flagged, not resolved (2026-09-10, zero GPU spend)
 
 One plain sentence: the "interactive sim-demo requirement is met for both

@@ -442,6 +442,49 @@ def _is_action_parameter_key(value: str) -> bool:
     return bool(set(canonical.split("_")) & _ACTION_PARAMETER_KEY_PARTS)
 
 
+# A key that declares which emergency paths must stay reachable is a safety
+# promise, not an instruction to move. Two adaptive proposals -- L0 and L1
+# per-leg backlash coverage, 2026-09-10 03:22Z and 03:33Z -- were rejected as
+# "forbidden motion/control operation" purely for listing "/cmd X", the limp
+# word, under abort_paths_never_gated. Per-leg coverage could not reach the
+# unmeasured legs because the plans promised to keep the stop path open.
+#
+# The key is still scanned, so a motion command cannot hide behind a
+# safety-sounding name: only these exact stop endpoints pass, and any other
+# string in such a key stays in action context and still rejects. Every entry
+# here either removes torque or halts an existing motion; none starts one.
+_ALLOWED_ABORT_PATHS = frozenset({
+    "/cmd x",
+    "/api/rl/stop",
+    "/api/standup/stop",
+    "/api/safe_zero",
+    "/api/bus/recover",
+})
+_ABORT_PATH_KEY_PATTERN = re.compile(
+    r"(?:^|_)(?:abort|stop|emergency)_paths?(?:_|$)|_never_gated$"
+)
+
+
+def _is_abort_path_declaration_key(value: str) -> bool:
+    """Return whether a key declares which stop paths must stay reachable."""
+    return bool(
+        _ABORT_PATH_KEY_PATTERN.search(_canonical_parameter_key(value))
+    )
+
+
+def _iter_unapproved_abort_paths(value: Any) -> Iterable[str]:
+    """Yield entries of a declared stop path that are not a known stop."""
+    if isinstance(value, dict):
+        for item in value.values():
+            yield from _iter_unapproved_abort_paths(item)
+    elif isinstance(value, (list, tuple)):
+        for item in value:
+            yield from _iter_unapproved_abort_paths(item)
+    elif isinstance(value, str):
+        if " ".join(value.lower().split()) not in _ALLOWED_ABORT_PATHS:
+            yield value
+
+
 def _is_declarative_parameter_key(value: str) -> bool:
     """Return whether a key describes a gate rather than an action surface."""
     canonical = _canonical_parameter_key(value)
@@ -481,6 +524,11 @@ def _iter_action_parameter_text(
             else:
                 child_action = action_context
                 child_passive = passive_context
+            if _is_abort_path_declaration_key(key):
+                # Known stop endpoints are prose here; anything else in the
+                # key is still surfaced to the forbidden-operation check.
+                yield from _iter_unapproved_abort_paths(item)
+                continue
             if key_is_action and _meaningful_parameter_value(item):
                 yield key
             yield from _iter_action_parameter_text(

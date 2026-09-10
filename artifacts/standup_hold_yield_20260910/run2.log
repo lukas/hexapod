@@ -1,0 +1,26 @@
+[17:51:42] baseline /api/errors count=100 last=2026-09-10T00:49:23.607Z
+[17:51:47] pre: live=18/18 maxtemp=35C roll=0.04 pitch=2.15
+[17:52:13] seeded cycle-1 yield reference: {0: 2.68, 1: 0.57, 2: 0.39, 3: 2.85, 4: -0.05, 5: 1.09}
+[17:52:13] === cycle 2/2: stand up (step) ===
+[17:52:24]   up ack: ok=True 
+[17:52:41]   NOTE: job never reported running (fast path or refusal); progress=done · step stand-up peak 2.86 A
+[17:52:41]   up done in 22.48s: done · step stand-up peak 2.86 A
+[17:52:46]   ambiguous stand-up ack; knees=[82.9, 82.1, 82.2, 82.1, 82.1, 82.4] -> stood=True
+[17:52:46]   robot IS standing -- continuing into the hold rather than leaving it up at torque
+[17:52:56]   hold t=  5.0s live=18/18 maxT=35C maxI=0.03A roll=-0.33 pitch=5.68 hips={'L0': 20.48, 'L1': 21.8, 'L2': 21.01, 'L3': 20.21, 'L4': 21.09, 'L5': 21.18}
+[17:53:17]   cycle 2 hip yield at exit: {0: 0.39, 1: -0.93, 2: -0.14, 3: 0.66, 4: -0.22, 5: -0.31}
+[17:53:17] === cycle 2: sit down ===
+[17:53:37]   down done in 15.44s: done · step sit-down peak 2.72 A
+[17:54:00]   cycle 2 clean: live=18/18
+[17:54:00] === cycle 3/2: stand up (step) ===
+[17:54:10]   up ack: ok=True 
+[17:54:28]   NOTE: job never reported running (fast path or refusal); progress=done · step stand-up peak 2.74 A
+[17:54:28]   up done in 22.88s: done · step stand-up peak 2.74 A
+[17:54:33]   ambiguous stand-up ack; knees=[84.5, 82.3, 82.4, 82.8, 82.1, 82.7] -> stood=True
+[17:54:33]   robot IS standing -- continuing into the hold rather than leaving it up at torque
+[17:54:43]   hold t=  5.1s live=18/18 maxT=36C maxI=0.12A roll=-0.21 pitch=6.69 hips={'L0': 21.45, 'L1': 21.53, 'L2': 21.01, 'L3': 21.09, 'L4': 20.92, 'L5': 20.83}
+[17:55:04]   cycle 3 hip yield at exit: {0: -0.58, 1: -0.66, 2: -0.14, 3: -0.22, 4: -0.05, 5: 0.04}
+[17:55:04] === cycle 3: sit down ===
+[17:55:24]   down done in 15.51s: done · step sit-down peak 2.89 A
+[17:55:47]   cycle 3 clean: live=18/18
+[17:56:13] WROTE cycles.json (2 cycles); stopped_reason=None

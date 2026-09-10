@@ -12,7 +12,8 @@ PROTO="$(cd "$(dirname "$0")/.." && pwd)"
 LOG="${DEPLOY_WHEN_IDLE_LOG:-/tmp/deploy_when_lab_idle.log}"
 DEADLINE=$(( $(date +%s) + ${DEPLOY_WHEN_IDLE_TIMEOUT:-10800} ))
 
-say() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" | tee -a "$LOG"; }
+# Operator-facing log: use the operator's clock, not UTC.
+say() { printf '%s %s\n' "$(date '+%F %-I:%M:%S %p %Z')" "$*" | tee -a "$LOG"; }
 
 say "waiting for the engineering lane to go idle"
 while :; do

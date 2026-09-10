@@ -11,7 +11,8 @@ LOG=/tmp/lab_upgrade_watch.log
 # mid-stand-up. Default generously and let the caller override.
 DEADLINE=$(( $(date +%s) + ${UPGRADE_WHEN_IDLE_TIMEOUT:-21600} ))
 
-say() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" | tee -a "$LOG"; }
+# Operator-facing log: use the operator's clock, not UTC.
+say() { printf '%s %s\n' "$(date '+%F %-I:%M:%S %p %Z')" "$*" | tee -a "$LOG"; }
 
 say "watching for the running engineering job to finish"
 while :; do

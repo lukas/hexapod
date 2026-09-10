@@ -21,6 +21,13 @@ def main(argv=None) -> int:
     sub.add_parser("plan", help="one planner call against the current state")
     add = sub.add_parser("add", help="queue an existing protocol")
     add.add_argument("protocol"); add.add_argument("title"); add.add_argument("why")
+    imp = sub.add_parser("import", help="record a hand-run experiment (e.g. on hexapod 2) with its folder of video/telemetry")
+    imp.add_argument("folder", nargs="?", default=None, help="folder to copy in whole; optional")
+    imp.add_argument("--robot", default="hexapod2")
+    imp.add_argument("--title", required=True)
+    imp.add_argument("--why", required=True)
+    imp.add_argument("--found", default="", help="one paragraph: what it showed. Joins the learnings the planner reads.")
+    imp.add_argument("--status", default="ok", choices=["ok", "failed"])
     sub.add_parser("status")
     sub.add_parser("pause"); sub.add_parser("resume")
     args = ap.parse_args(argv)
@@ -47,6 +54,16 @@ def main(argv=None) -> int:
     if args.cmd == "add":
         print(store.add_plan(title=args.title, why=args.why, kind="existing", protocol=args.protocol,
                              build_spec=None, source="operator"))
+        return 0
+    if args.cmd == "import":
+        from pathlib import Path
+        folder = Path(args.folder).expanduser() if args.folder else None
+        if folder is not None and not folder.is_dir():
+            print(f"not a folder: {folder}"); return 2
+        rid = store.import_run(robot=args.robot, title=args.title, why=args.why, found=args.found,
+                               source_dir=folder, runs_dir=settings.runs_dir, status=args.status)
+        print(json.dumps({"run_id": rid, "files": store.run_files(rid),
+                          "url": f"/v2/?robot={args.robot}"}, indent=1))
         return 0
     if args.cmd == "status":
         print(json.dumps({"paused": settings.pause_file.exists(), "last_stop": store.last_stop(),

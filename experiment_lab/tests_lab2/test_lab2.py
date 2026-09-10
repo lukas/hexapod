@@ -146,3 +146,20 @@ def test_planner_prompt_is_small_and_names_protocols(settings, store):
     assert "--force for them automatically" in text
     gated = planner.build_prompt(dataclasses.replace(settings, allow_force=False), store, None)
     assert "cannot run in this loop" in gated
+
+
+def test_import_hand_run_experiment(settings, store, tmp_path):
+    folder = tmp_path / "hex2_trial"
+    folder.mkdir()
+    (folder / "clip.mp4").write_bytes(b"video")
+    (folder / "telemetry.csv").write_text("t,cur\n0,1\n")
+    rid = store.import_run(robot="hexapod2", title="Hex2 tripod shuffle", why="See if it stands.",
+                           found="It stood for 40 s then tipped left.", source_dir=folder,
+                           runs_dir=settings.runs_dir)
+    run = store.run(rid)
+    assert run["status"] == "ok" and run["robot"] == "hexapod2"
+    assert store.run_files(rid) == ["clip.mp4", "telemetry.csv"]
+    assert store.learning_for_run(rid).startswith("[hexapod2] It stood")
+    assert store.runs(robot="hexapod2")[0]["id"] == rid and store.runs(robot="hexapod1") == []
+    assert store.next_runnable() is None  # imported plans never enter the robot-1 queue
+    assert store.robots() == ["hexapod2"]

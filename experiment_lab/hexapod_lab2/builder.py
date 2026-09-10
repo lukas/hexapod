@@ -120,7 +120,10 @@ class BuilderThread:
         plan = pending[-1]  # oldest first (plans() is newest-first)
         self.store.set_plan_status(plan["id"], "building", "builder running")
         self.current = plan["id"]
-        self._thread = threading.Thread(target=build_plan, args=(self.settings, self.store, plan),
+        # A sqlite3 connection is not shareable across threads; the build
+        # thread opens its own handle on the same database.
+        thread_store = Store(self.store.path)
+        self._thread = threading.Thread(target=build_plan, args=(self.settings, thread_store, plan),
                                         name=f"builder-{plan['id']}", daemon=True)
         self._thread.start()
         return plan["id"]

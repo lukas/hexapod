@@ -140,7 +140,8 @@ def test_planner_prompt_is_small_and_names_protocols(settings, store):
     store.add_learning("Leg 5 knee hysteresis 3.1 deg at 1.5 A.")
     text = planner.build_prompt(settings, store, None)
     assert len(text) < 20_000
-    assert "steps_air_v1" in text and "champion_stand_ground_v1 [WHOLE-BODY]" in text
+    assert "steps_air_v1" in text and "champion_stand_ground_v1 [traj]" in text
+    assert "WHOLE-BODY" not in text
     assert "STEP BACK FIRST" in text and "Leg 5 knee hysteresis" in text
     assert "--force for them automatically" in text
     gated = planner.build_prompt(dataclasses.replace(settings, allow_force=False), store, None)

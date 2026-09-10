@@ -1206,6 +1206,61 @@ def _drain_terminal_jobs(store):
                 )
 
 
+def _prompt_queue_note(store, tmp_path, workspace):
+    """Build the analysis prompt and return just its queue-depth line."""
+    orchestrator = CodexOrchestrator(
+        store, configured(tmp_path, workspace),
+        invoker=lambda *_a, **_k: {},
+    )
+    experiment = _sealed_experiment(store, "prompt source")
+    prompt = orchestrator._analysis_prompt(
+        {"id": "job", "experiment_id": experiment["id"]},
+        store.get(experiment["id"]),
+        tmp_path / "missing-run-dir",
+        {"artifacts": []},
+    )
+    return prompt
+
+
+def test_the_analyst_is_told_the_queue_depth_and_asked_to_fill_it(tmp_path):
+    """A one-item queue leaves the robot idle while the agent thinks.
+
+    Each physical run occupies the robot for a couple of minutes; the
+    analysis around it takes far longer. The machinery already accepts
+    three follow-ups per analysis, so the prompt must ask for depth
+    rather than for a single next step.
+    """
+    workspace = tmp_path / "project"
+    workspace.mkdir()
+    store = Store(tmp_path / "lab.sqlite3")
+    prompt = _prompt_queue_note(store, tmp_path, workspace)
+    assert "Queue depth right now: 0" in prompt
+    assert "room for 3 more" in prompt
+    assert "MUST return at least one experiment" in prompt
+    assert "Return up to 3 experiments, not just one" in prompt
+    assert "at most one next physical experiment" not in prompt
+
+
+def test_a_stocked_queue_is_not_asked_to_pad(tmp_path):
+    workspace = tmp_path / "project"
+    workspace.mkdir()
+    store = Store(tmp_path / "lab.sqlite3")
+    for index in range(3):
+        store.create(
+            {
+                "name": f"queued {index}",
+                "duration_seconds": 1,
+                "parameters": {},
+                "execution_mode": "external_guarded",
+            },
+            "test",
+        )
+    prompt = _prompt_queue_note(store, tmp_path, workspace)
+    assert "room for 0 more" in prompt
+    assert "The queue is stocked" in prompt
+    assert "MUST return at least one experiment" not in prompt
+
+
 def test_an_empty_queue_with_a_ready_robot_asks_for_a_new_proposal(tmp_path):
     """Ten experiments then eight idle hours: an empty queue must self-refill."""
     workspace = tmp_path / "project"

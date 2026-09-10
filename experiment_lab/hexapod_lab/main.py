@@ -1441,7 +1441,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
 
         recent = "".join(
             "<tr>"
-            f"<td>{escape(str(item.get('started_at') or ''))[:19]}</td>"
+            f"<td>{escape(local_stamp(item.get('started_at')))}</td>"
             f"<td>{escape(str(item.get('kind')))}</td>"
             f"<td>{escape(str(item.get('provider')))}</td>"
             f"<td>{escape(str(item.get('model')))}</td>"
@@ -1466,7 +1466,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             "<h1>Lab stats</h1>"
             f"<p class='lede'>Backend <strong>{escape(agent['label'])}</strong> · "
             f"{escape(agent['model'])} · effort {escape(agent['effort'])}</p>"
-            f"<p class='lede'>Generated {escape(data['generated_at'])}</p>"
+            f"<p class='lede'>Generated {escape(local_stamp(data['generated_at']))}</p>"
             "</div><div class='tool-links'>"
             "<a class='tool-link' href='/'>Dashboard <span>→</span></a>"
             "</div></div>"
@@ -2089,7 +2089,7 @@ def experiment_card(item):
         automation = (
             f"<p class='automation-inline'>{escape(agent_label())} · {labels}</p>"
         )
-    return f"<article><div><span class='status {item['status']}'>{status_label}</span><h2><a href='/experiments/{item['id']}'>{escape(item['name'])}</a></h2>{waiting}<p>{escape(item['description'])}</p>{automation}</div><small>{escape(item['created_at'])} · {item['duration_seconds']}s</small></article>"
+    return f"<article><div><span class='status {item['status']}'>{status_label}</span><h2><a href='/experiments/{item['id']}'>{escape(item['name'])}</a></h2>{waiting}<p>{escape(item['description'])}</p>{automation}</div><small>{escape(local_stamp(item['created_at']))} · {item['duration_seconds']}s</small></article>"
 
 
 def automation_section(item):
@@ -2170,6 +2170,46 @@ def pause_controls():
           }catch(error){result.textContent=error.message;button.disabled=false}
         })})();
         </script>"""
+
+
+def local_stamp(value, *, relative: bool = True) -> str:
+    """Render a stored UTC timestamp in the operator's own clock.
+
+    The dashboard used to print the raw ISO UTC string, so a run that
+    finished at 9:23am read as "16:23" and looked either stale or in the
+    future. Times are stored in UTC and that stays authoritative; this is
+    presentation only. The relative age is the part that actually answers
+    "is it stuck?" at a glance.
+    """
+    if not value:
+        return "—"
+    try:
+        when = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return str(value)
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    local = when.astimezone()
+    now = datetime.now(timezone.utc)
+    today = now.astimezone().date()
+    clock = local.strftime("%-I:%M %p %Z")
+    if local.date() != today:
+        clock = f"{local.strftime('%b %-d')}, {clock}"
+    if not relative:
+        return clock
+    seconds = (now - when).total_seconds()
+    if seconds < 0:
+        return clock
+    if seconds < 90:
+        ago = f"{int(seconds)}s ago"
+    elif seconds < 5400:
+        ago = f"{int(seconds // 60)} min ago"
+    elif seconds < 172800:
+        hours = seconds / 3600.0
+        ago = f"{hours:.1f}h ago"
+    else:
+        ago = f"{int(seconds // 86400)}d ago"
+    return f"{clock} · {ago}"
 
 
 def codex_queue_panel(control, can_resume):

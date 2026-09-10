@@ -3021,18 +3021,34 @@ class CodexOrchestrator:
         # else authors a plan. State the depth, and when it is zero make one
         # recommendation the required output.
         queued_now = sum(self.store.queue_counts().values())
+        cap = max(1, int(self.settings.codex_max_followups_per_analysis))
+        wanted = max(0, cap - queued_now)
         queue_note = (
             f"Queue depth right now: {queued_now} experiment(s) waiting or "
-            "running."
-            if queued_now
-            else "Queue depth right now: 0. NOTHING is queued and the robot "
-            "reported ready, so the 'stay quiet when a test is already "
-            "queued' rule does not apply: you MUST return exactly one next "
-            "physical experiment that moves smooth joystick walking forward. "
-            "Prefer the smallest bounded measurement that answers a concrete "
-            "open question. If the obvious next step is genuinely blocked, "
-            "recommend the bounded experiment that unblocks it and say so in "
-            "the rationale -- do not return an empty recommendation list."
+            f"running; room for {wanted} more before the queue is stocked.\n"
+            + (
+                "The queue is stocked. Recommend another experiment only if it "
+                "answers a question none of the queued ones do."
+                if wanted <= 0
+                else (
+                    "NOTHING is queued and the robot reported ready, so the "
+                    "'stay quiet when a test is already queued' rule does not "
+                    "apply: you MUST return at least one experiment."
+                    if queued_now == 0
+                    else "The robot will finish the queued work and go idle."
+                )
+                + f" Return up to {wanted} experiments, not just one, whenever "
+                "you can name that many INDEPENDENT open questions -- "
+                "independent meaning none of them needs another's result to be "
+                "worth running. Each physical run occupies the robot for only "
+                "a couple of minutes but the analysis around it takes far "
+                "longer, so a single-item queue leaves the robot standing "
+                "still while you think. Queue depth is what keeps it working. "
+                "Do not pad: a second or third entry must answer a real "
+                "question, and per-leg or per-joint coverage of a measurement "
+                "you have already validated on one leg is exactly the kind of "
+                "genuinely independent work that should go out together."
+            )
         )
         return f"""You are the read-only Robot Lab evidence analyst for one completed experiment.
 
@@ -3050,7 +3066,7 @@ Evidence bundle:
 {json.dumps(evidence_bundle, indent=2, sort_keys=True)}
 
 Return the required JSON object. `what_we_learned` should be concise plain language. Set safety_disposition to stop for an observed physical hazard and needs_inspection when evidence cannot clear a plausible hazard. {queue_note}
-Recommend at most one next physical experiment when it answers a concrete open question on the path to smooth joystick walking. Return no recommendations when the next useful physical test is already queued. Never create offline replay, review, qualification, evidence-packaging, or code-audit experiments: the assigned engineering worker owns those checks and fixes inside its existing job. Explicitly requested RL training and simulation remain independent work; do not turn software housekeeping into an experiment campaign. Missing AprilTag metric coverage should make calibrated displacement unmeasured, not block a functional video-and-telemetry test whose question does not require that metric. For bounded independent-leg hysteresis tests from the normal belly-resting pose, prefer the reviewed `l2_belly_rest_radial_shear_hysteresis_repeat6_v1` and `l5_belly_rest_radial_shear_hysteresis_repeat6_v1` protocols. They intentionally require no chassis stand and keep the commanded foot clear of the floor; do not turn them back into supported-air plans or require every stationary foot to be airborne. Check that the moving leg's actual swept area is clear, and treat a cable as a blocker only when it is actually in that swept area. Each recommendation needs a stable recommendation_key, hypothesis/rationale, exact duration/parameters, dependencies, and stop conditions. In the response schema, each recommendation's `parameters` field is a JSON-encoded string; encode one JSON object there, with no prose outside that object. Use external_guarded for the next physical follow-up. Reuse completed validation when its relevant policy, runtime, and observations are unchanged. Fresh live camera plus three advancing healthy 18/18 samples and a remote abort path counts as supervision for a later guarded run. Never make mere human presence, repeated operator authorization, or standing at the abort path a prerequisite; reserve hands-on requirements for a concrete physical condition that camera, telemetry, service recovery, and documented remote controls cannot diagnose or resolve. Never recommend weakening safety, bypassing a prerequisite, unbounded motion, an automatic retry while a physical hazard remains, or learned stand/rise/lower motion.
+Recommend each next physical experiment that answers a concrete open question on the path to smooth joystick walking, up to the room stated above. Return no recommendations only when every useful physical test you can name is already queued. Never create offline replay, review, qualification, evidence-packaging, or code-audit experiments: the assigned engineering worker owns those checks and fixes inside its existing job. Explicitly requested RL training and simulation remain independent work; do not turn software housekeeping into an experiment campaign. Missing AprilTag metric coverage should make calibrated displacement unmeasured, not block a functional video-and-telemetry test whose question does not require that metric. For bounded independent-leg hysteresis tests from the normal belly-resting pose, prefer the reviewed `l2_belly_rest_radial_shear_hysteresis_repeat6_v1` and `l5_belly_rest_radial_shear_hysteresis_repeat6_v1` protocols. They intentionally require no chassis stand and keep the commanded foot clear of the floor; do not turn them back into supported-air plans or require every stationary foot to be airborne. Check that the moving leg's actual swept area is clear, and treat a cable as a blocker only when it is actually in that swept area. Each recommendation needs a stable recommendation_key, hypothesis/rationale, exact duration/parameters, dependencies, and stop conditions. In the response schema, each recommendation's `parameters` field is a JSON-encoded string; encode one JSON object there, with no prose outside that object. Use external_guarded for the next physical follow-up. Reuse completed validation when its relevant policy, runtime, and observations are unchanged. Fresh live camera plus three advancing healthy 18/18 samples and a remote abort path counts as supervision for a later guarded run. Never make mere human presence, repeated operator authorization, or standing at the abort path a prerequisite; reserve hands-on requirements for a concrete physical condition that camera, telemetry, service recovery, and documented remote controls cannot diagnose or resolve. Never recommend weakening safety, bypassing a prerequisite, unbounded motion, an automatic retry while a physical hazard remains, or learned stand/rise/lower motion.
 """
 
     @staticmethod

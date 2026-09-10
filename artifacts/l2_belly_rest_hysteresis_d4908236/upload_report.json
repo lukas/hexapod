@@ -1,0 +1,482 @@
+[
+ {
+  "name": "metrics_20260910_034513.json",
+  "code": 201,
+  "bytes": 7457
+ },
+ {
+  "name": "l2_hysteresis_loop_table.txt",
+  "code": 201,
+  "bytes": 1908
+ },
+ {
+  "name": "l2_hysteresis_crossrun.json",
+  "code": 201,
+  "bytes": 1000
+ },
+ {
+  "name": "l2_vs_l5_comparison.json",
+  "code": 201,
+  "bytes": 1171
+ },
+ {
+  "name": "disturbance_robustness.json",
+  "code": 201,
+  "bytes": 2009
+ },
+ {
+  "name": "terminal_run_verification.json",
+  "code": 201,
+  "bytes": 2352
+ },
+ {
+  "name": "stop_condition_disclosure.json",
+  "code": 201,
+  "bytes": 6493
+ },
+ {
+  "name": "l2_swept_area_clearance.json",
+  "code": 201,
+  "bytes": 3186
+ },
+ {
+  "name": "camera_coverage.json",
+  "code": 201,
+  "bytes": 793
+ },
+ {
+  "name": "observation_frame_luma.json",
+  "code": 201,
+  "bytes": 2664
+ },
+ {
+  "name": "observation_frames.json",
+  "code": 201,
+  "bytes": 24263
+ },
+ {
+  "name": "passive_recorder_summary.json",
+  "code": 201,
+  "bytes": 2917
+ },
+ {
+  "name": "prearm_samples.json",
+  "code": 201,
+  "bytes": 1491
+ },
+ {
+  "name": "post_samples.json",
+  "code": 201,
+  "bytes": 1494
+ },
+ {
+  "name": "new_error_rows.json",
+  "code": 201,
+  "bytes": 549
+ },
+ {
+  "name": "runner_result.json",
+  "code": 201,
+  "bytes": 146852
+ },
+ {
+  "name": "markers.json",
+  "code": 201,
+  "bytes": 12476
+ },
+ {
+  "name": "repose_to_zero.json",
+  "code": 201,
+  "bytes": 10375
+ },
+ {
+  "name": "repose_pass2.json",
+  "code": 201,
+  "bytes": 3485
+ },
+ {
+  "name": "zero_hold_check.json",
+  "code": 201,
+  "bytes": 12777
+ },
+ {
+  "name": "guarded_runner_l2_hysteresis.py",
+  "code": 201,
+  "bytes": 21175
+ },
+ {
+  "name": "analyze_l2_hysteresis.py",
+  "code": 201,
+  "bytes": 6671
+ },
+ {
+  "name": "verify_terminal_run.py",
+  "code": 201,
+  "bytes": 5420
+ },
+ {
+  "name": "pool_crossrun.py",
+  "code": 201,
+  "bytes": 1499
+ },
+ {
+  "name": "slice_passive_recorder.py",
+  "code": 201,
+  "bytes": 4055
+ },
+ {
+  "name": "select_observation_frames.py",
+  "code": 201,
+  "bytes": 6255
+ },
+ {
+  "name": "repose_to_zero.py",
+  "code": 201,
+  "bytes": 5052
+ },
+ {
+  "name": "repose_pass2.py",
+  "code": 201,
+  "bytes": 3795
+ },
+ {
+  "name": "zero_hold_check.py",
+  "code": 201,
+  "bytes": 4378
+ },
+ {
+  "name": "upload_artifacts.py",
+  "code": 201,
+  "bytes": 1731
+ },
+ {
+  "name": "l2_belly_rest_radial_shear_hysteresis_repeat6_v1.json",
+  "code": 201,
+  "bytes": 451022
+ },
+ {
+  "name": "sysid_l2_belly_rest_radial_shear_hysteresis_repeat6_v1_20260910_034513.csv",
+  "code": 201,
+  "bytes": 620826
+ },
+ {
+  "name": "run_events.jsonl",
+  "code": 201,
+  "bytes": 214068
+ },
+ {
+  "name": "run_frame_index.jsonl",
+  "code": 201,
+  "bytes": 234163
+ },
+ {
+  "name": "run_markers.jsonl",
+  "code": 201,
+  "bytes": 9998
+ },
+ {
+  "name": "run_runner.log",
+  "code": 201,
+  "bytes": 3085
+ },
+ {
+  "name": "dry_stop.json",
+  "code": 201,
+  "bytes": 1836
+ },
+ {
+  "name": "run_frames_robot-2.tar.gz",
+  "code": 201,
+  "bytes": 5582575
+ },
+ {
+  "name": "run_frames_robot-3.tar.gz",
+  "code": 201,
+  "bytes": 6135304
+ },
+ {
+  "name": "run_frames_robot-1.tar.gz",
+  "code": 201,
+  "bytes": 9611513
+ },
+ {
+  "name": "observation_frames.tar.gz",
+  "code": 201,
+  "bytes": 1368830
+ },
+ {
+  "name": "passive_recorder_window.jsonl.gz",
+  "code": 201,
+  "bytes": 229344
+ },
+ {
+  "name": "frame_post_run_robot-1.jpg",
+  "code": 201,
+  "bytes": 40576
+ },
+ {
+  "name": "frame_post_run_robot-2.jpg",
+  "code": 201,
+  "bytes": 28297
+ },
+ {
+  "name": "frame_post_run_robot-3.jpg",
+  "code": 201,
+  "bytes": 29633
+ },
+ {
+  "name": "frame_pre_run_robot-1.jpg",
+  "code": 201,
+  "bytes": 40850
+ },
+ {
+  "name": "frame_pre_run_robot-2.jpg",
+  "code": 201,
+  "bytes": 27817
+ },
+ {
+  "name": "frame_pre_run_robot-3.jpg",
+  "code": 201,
+  "bytes": 29618
+ },
+ {
+  "name": "frame_reversal_01_inner_robot-1.jpg",
+  "code": 201,
+  "bytes": 41084
+ },
+ {
+  "name": "frame_reversal_01_inner_robot-2.jpg",
+  "code": 201,
+  "bytes": 27986
+ },
+ {
+  "name": "frame_reversal_01_inner_robot-3.jpg",
+  "code": 201,
+  "bytes": 29819
+ },
+ {
+  "name": "frame_reversal_02_outer_robot-1.jpg",
+  "code": 201,
+  "bytes": 41008
+ },
+ {
+  "name": "frame_reversal_02_outer_robot-2.jpg",
+  "code": 201,
+  "bytes": 28020
+ },
+ {
+  "name": "frame_reversal_02_outer_robot-3.jpg",
+  "code": 201,
+  "bytes": 29955
+ },
+ {
+  "name": "frame_reversal_03_inner_robot-1.jpg",
+  "code": 201,
+  "bytes": 40732
+ },
+ {
+  "name": "frame_reversal_03_inner_robot-2.jpg",
+  "code": 201,
+  "bytes": 28045
+ },
+ {
+  "name": "frame_reversal_03_inner_robot-3.jpg",
+  "code": 201,
+  "bytes": 29461
+ },
+ {
+  "name": "frame_reversal_04_outer_robot-1.jpg",
+  "code": 201,
+  "bytes": 40413
+ },
+ {
+  "name": "frame_reversal_04_outer_robot-2.jpg",
+  "code": 201,
+  "bytes": 28024
+ },
+ {
+  "name": "frame_reversal_04_outer_robot-3.jpg",
+  "code": 201,
+  "bytes": 29398
+ },
+ {
+  "name": "frame_reversal_05_inner_robot-1.jpg",
+  "code": 201,
+  "bytes": 40601
+ },
+ {
+  "name": "frame_reversal_05_inner_robot-2.jpg",
+  "code": 201,
+  "bytes": 28309
+ },
+ {
+  "name": "frame_reversal_05_inner_robot-3.jpg",
+  "code": 201,
+  "bytes": 29352
+ },
+ {
+  "name": "frame_reversal_06_outer_robot-1.jpg",
+  "code": 201,
+  "bytes": 40642
+ },
+ {
+  "name": "frame_reversal_06_outer_robot-2.jpg",
+  "code": 201,
+  "bytes": 27971
+ },
+ {
+  "name": "frame_reversal_06_outer_robot-3.jpg",
+  "code": 201,
+  "bytes": 29333
+ },
+ {
+  "name": "frame_reversal_07_zero_return_robot-1.jpg",
+  "code": 201,
+  "bytes": 40954
+ },
+ {
+  "name": "frame_reversal_07_zero_return_robot-2.jpg",
+  "code": 201,
+  "bytes": 28429
+ },
+ {
+  "name": "frame_reversal_07_zero_return_robot-3.jpg",
+  "code": 201,
+  "bytes": 29114
+ },
+ {
+  "name": "frame_reversal_08_outer_robot-1.jpg",
+  "code": 201,
+  "bytes": 40857
+ },
+ {
+  "name": "frame_reversal_08_outer_robot-2.jpg",
+  "code": 201,
+  "bytes": 28258
+ },
+ {
+  "name": "frame_reversal_08_outer_robot-3.jpg",
+  "code": 201,
+  "bytes": 29404
+ },
+ {
+  "name": "frame_reversal_09_inner_robot-1.jpg",
+  "code": 201,
+  "bytes": 40821
+ },
+ {
+  "name": "frame_reversal_09_inner_robot-2.jpg",
+  "code": 201,
+  "bytes": 27808
+ },
+ {
+  "name": "frame_reversal_09_inner_robot-3.jpg",
+  "code": 201,
+  "bytes": 29468
+ },
+ {
+  "name": "frame_reversal_10_outer_robot-1.jpg",
+  "code": 201,
+  "bytes": 40922
+ },
+ {
+  "name": "frame_reversal_10_outer_robot-2.jpg",
+  "code": 201,
+  "bytes": 27983
+ },
+ {
+  "name": "frame_reversal_10_outer_robot-3.jpg",
+  "code": 201,
+  "bytes": 29383
+ },
+ {
+  "name": "frame_reversal_11_inner_robot-1.jpg",
+  "code": 201,
+  "bytes": 40852
+ },
+ {
+  "name": "frame_reversal_11_inner_robot-2.jpg",
+  "code": 201,
+  "bytes": 28173
+ },
+ {
+  "name": "frame_reversal_11_inner_robot-3.jpg",
+  "code": 201,
+  "bytes": 29672
+ },
+ {
+  "name": "frame_reversal_12_outer_robot-1.jpg",
+  "code": 201,
+  "bytes": 40776
+ },
+ {
+  "name": "frame_reversal_12_outer_robot-2.jpg",
+  "code": 201,
+  "bytes": 28053
+ },
+ {
+  "name": "frame_reversal_12_outer_robot-3.jpg",
+  "code": 201,
+  "bytes": 29443
+ },
+ {
+  "name": "frame_reversal_13_inner_robot-1.jpg",
+  "code": 201,
+  "bytes": 41116
+ },
+ {
+  "name": "frame_reversal_13_inner_robot-2.jpg",
+  "code": 201,
+  "bytes": 28411
+ },
+ {
+  "name": "frame_reversal_13_inner_robot-3.jpg",
+  "code": 201,
+  "bytes": 29567
+ },
+ {
+  "name": "frame_reversal_14_outer_robot-1.jpg",
+  "code": 201,
+  "bytes": 40917
+ },
+ {
+  "name": "frame_reversal_14_outer_robot-2.jpg",
+  "code": 201,
+  "bytes": 28159
+ },
+ {
+  "name": "frame_reversal_14_outer_robot-3.jpg",
+  "code": 201,
+  "bytes": 29364
+ },
+ {
+  "name": "preflight_post_cam0.jpg",
+  "code": 201,
+  "bytes": 137932
+ },
+ {
+  "name": "preflight_post_cam1.jpg",
+  "code": 201,
+  "bytes": 218263
+ },
+ {
+  "name": "preflight_post_cam2.jpg",
+  "code": 201,
+  "bytes": 181428
+ },
+ {
+  "name": "preflight_pre_cam0.jpg",
+  "code": 201,
+  "bytes": 138973
+ },
+ {
+  "name": "preflight_pre_cam1.jpg",
+  "code": 201,
+  "bytes": 218874
+ },
+ {
+  "name": "preflight_pre_cam2.jpg",
+  "code": 201,
+  "bytes": 182017
+ }
+]

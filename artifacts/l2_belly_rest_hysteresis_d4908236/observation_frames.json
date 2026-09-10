@@ -1,0 +1,493 @@
+{
+ "requirement": "observation_frames [pre_run, each_reversal, post_run] on cameras 0/1/2, frame_actual_timestamp_required, frame_dedup_check",
+ "reversal_definition": "local extrema of the reviewed protocol's own commanded hip dwell sequence. The sweep has three plateau levels plus a mid-run full return to logical zero; the shared -47.13 deg waypoint is passed through in BOTH directions and is a measurement point, not a reversal, so it is excluded.",
+ "reversal_kinds": {
+  "outer": 7,
+  "inner": 6,
+  "zero_return": 1
+ },
+ "n_targets": 16,
+ "n_reversals": 14,
+ "n_frames_selected": 48,
+ "max_offset_from_target_s": 0.314,
+ "median_offset_from_target_s": 0.19,
+ "distinct_sha256": 48,
+ "all_distinct": true,
+ "note": "Selected from the continuous 252-frame-per-camera record, whose sampling period is ~0.695 s, so the offsets below are bounded by half that. Each entry carries the frame's OWN capture time, not the target time. Low exposure applies here as everywhere in this run: these frames document coverage and chassis stillness at each reversal, not obstacle discrimination.",
+ "targets": [
+  {
+   "label": "pre_run",
+   "target_utc": 1789011913.44467,
+   "cameras": {
+    "robot-1": {
+     "file": "observation_frames/pre_run_robot-1.jpg",
+     "actual_capture_utc": 1789011913.1305401,
+     "offset_from_target_s": -0.314,
+     "sha256": "aa4324711adf7079b5081d3a525c513b3d6884e8b246a21e62ee66e54fb96bb4",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-1/00004.jpg"
+    },
+    "robot-3": {
+     "file": "observation_frames/pre_run_robot-3.jpg",
+     "actual_capture_utc": 1789011913.1329339,
+     "offset_from_target_s": -0.312,
+     "sha256": "5a8a91256cbd1c9b6f53adc60b345890f06201914bf4827957574f6393ceeda2",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-3/00004.jpg"
+    },
+    "robot-2": {
+     "file": "observation_frames/pre_run_robot-2.jpg",
+     "actual_capture_utc": 1789011913.135463,
+     "offset_from_target_s": -0.309,
+     "sha256": "2801cdcf50a2957e5cdf72c5af6370c148dd29630ea1751318618fae11ecde70",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-2/00004.jpg"
+    }
+   }
+  },
+  {
+   "label": "reversal_01_inner",
+   "protocol_t_s": 20.4,
+   "commanded_hip_deg": -42.955,
+   "kind": "inner",
+   "target_utc": 1789011935.928883,
+   "cameras": {
+    "robot-1": {
+     "file": "observation_frames/reversal_01_inner_robot-1.jpg",
+     "actual_capture_utc": 1789011935.838739,
+     "offset_from_target_s": -0.09,
+     "sha256": "d60e01237e0e77297bc879e6967091cb6f274b56d3518d0019c58a3d7385918b",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-1/00038.jpg"
+    },
+    "robot-3": {
+     "file": "observation_frames/reversal_01_inner_robot-3.jpg",
+     "actual_capture_utc": 1789011935.840833,
+     "offset_from_target_s": -0.088,
+     "sha256": "e2689b7fd097f6b35dd71d7fccec682ca7843f45456a46ccfa6ed9efeefac2b2",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-3/00038.jpg"
+    },
+    "robot-2": {
+     "file": "observation_frames/reversal_01_inner_robot-2.jpg",
+     "actual_capture_utc": 1789011935.842589,
+     "offset_from_target_s": -0.086,
+     "sha256": "6e2a7b0de9869bde0759c3bb3c3b98a389cee8395f1eb8e75acebfcfb6fa8dad",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-2/00038.jpg"
+    }
+   }
+  },
+  {
+   "label": "reversal_02_outer",
+   "protocol_t_s": 28.4,
+   "commanded_hip_deg": -51.141,
+   "kind": "outer",
+   "target_utc": 1789011943.928883,
+   "cameras": {
+    "robot-1": {
+     "file": "observation_frames/reversal_02_outer_robot-1.jpg",
+     "actual_capture_utc": 1789011943.9980989,
+     "offset_from_target_s": 0.069,
+     "sha256": "543b2348d1c6e203f1480aac757fedd2963aff4501b75223697af6713aec02f4",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-1/00050.jpg"
+    },
+    "robot-3": {
+     "file": "observation_frames/reversal_02_outer_robot-3.jpg",
+     "actual_capture_utc": 1789011944.000661,
+     "offset_from_target_s": 0.072,
+     "sha256": "a38ba29395f285421a42bd7bea9ff8075ee88bd3c7103518caace172ad4164be",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-3/00050.jpg"
+    },
+    "robot-2": {
+     "file": "observation_frames/reversal_02_outer_robot-2.jpg",
+     "actual_capture_utc": 1789011944.0026932,
+     "offset_from_target_s": 0.074,
+     "sha256": "b33226fc37f1bc658390134c929a866861776e22f811f7587883edc2c18f1bbf",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-2/00050.jpg"
+    }
+   }
+  },
+  {
+   "label": "reversal_03_inner",
+   "protocol_t_s": 36.4,
+   "commanded_hip_deg": -42.955,
+   "kind": "inner",
+   "target_utc": 1789011951.928883,
+   "cameras": {
+    "robot-1": {
+     "file": "observation_frames/reversal_03_inner_robot-1.jpg",
+     "actual_capture_utc": 1789011952.152213,
+     "offset_from_target_s": 0.223,
+     "sha256": "042abe5cb477c49516a81890ed4663f8f177e3762231f00a5705430563b0d5db",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-1/00062.jpg"
+    },
+    "robot-3": {
+     "file": "observation_frames/reversal_03_inner_robot-3.jpg",
+     "actual_capture_utc": 1789011952.1534662,
+     "offset_from_target_s": 0.225,
+     "sha256": "ed2ce071baf4250ec1375b7300081726b26c857f7d1a96f90e85e7988be55a6f",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-3/00062.jpg"
+    },
+    "robot-2": {
+     "file": "observation_frames/reversal_03_inner_robot-2.jpg",
+     "actual_capture_utc": 1789011952.154617,
+     "offset_from_target_s": 0.226,
+     "sha256": "035742ba0d946a1058a298253d6f25b3444cc46ad27984e2516b51cf86b2e2af",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-2/00062.jpg"
+    }
+   }
+  },
+  {
+   "label": "reversal_04_outer",
+   "protocol_t_s": 44.4,
+   "commanded_hip_deg": -51.141,
+   "kind": "outer",
+   "target_utc": 1789011959.928883,
+   "cameras": {
+    "robot-1": {
+     "file": "observation_frames/reversal_04_outer_robot-1.jpg",
+     "actual_capture_utc": 1789011959.7274969,
+     "offset_from_target_s": -0.201,
+     "sha256": "ab1b196ef9558c56260e7b268302acf873bad224a4b3bb332b271cc93c42c246",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-1/00073.jpg"
+    },
+    "robot-3": {
+     "file": "observation_frames/reversal_04_outer_robot-3.jpg",
+     "actual_capture_utc": 1789011959.728967,
+     "offset_from_target_s": -0.2,
+     "sha256": "43189dc596716da9403dfe85edf844c34a3dfe7522a86a4af7314ef31a02e431",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-3/00073.jpg"
+    },
+    "robot-2": {
+     "file": "observation_frames/reversal_04_outer_robot-2.jpg",
+     "actual_capture_utc": 1789011959.7307441,
+     "offset_from_target_s": -0.198,
+     "sha256": "0999a5fd83c0d68031967328b644c91cafb3a5c13820fbb9819afe262a164bf6",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-2/00073.jpg"
+    }
+   }
+  },
+  {
+   "label": "reversal_05_inner",
+   "protocol_t_s": 52.4,
+   "commanded_hip_deg": -42.955,
+   "kind": "inner",
+   "target_utc": 1789011967.928883,
+   "cameras": {
+    "robot-1": {
+     "file": "observation_frames/reversal_05_inner_robot-1.jpg",
+     "actual_capture_utc": 1789011968.070942,
+     "offset_from_target_s": 0.142,
+     "sha256": "9e9383f0c692e0602a9dcdffce4b41741517143dd611c3ca136249432198ac81",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-1/00086.jpg"
+    },
+    "robot-3": {
+     "file": "observation_frames/reversal_05_inner_robot-3.jpg",
+     "actual_capture_utc": 1789011968.073436,
+     "offset_from_target_s": 0.145,
+     "sha256": "c0cc5db1d5d806865b104897fbdfffac2db00c89249030a4f491d1d73713103d",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-3/00086.jpg"
+    },
+    "robot-2": {
+     "file": "observation_frames/reversal_05_inner_robot-2.jpg",
+     "actual_capture_utc": 1789011968.075412,
+     "offset_from_target_s": 0.147,
+     "sha256": "ee5a9c6dc8f93cce99877b7f8ca97599f0ea881ae5f83986dee0d8ced39c57ff",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-2/00086.jpg"
+    }
+   }
+  },
+  {
+   "label": "reversal_06_outer",
+   "protocol_t_s": 64.4,
+   "commanded_hip_deg": -51.141,
+   "kind": "outer",
+   "target_utc": 1789011979.928883,
+   "cameras": {
+    "robot-1": {
+     "file": "observation_frames/reversal_06_outer_robot-1.jpg",
+     "actual_capture_utc": 1789011979.760566,
+     "offset_from_target_s": -0.168,
+     "sha256": "7525a335a8176a7db8b1eaa10db9471830f242ad71b3e7f168e38c0d4d7caeb6",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-1/00104.jpg"
+    },
+    "robot-3": {
+     "file": "observation_frames/reversal_06_outer_robot-3.jpg",
+     "actual_capture_utc": 1789011979.763026,
+     "offset_from_target_s": -0.166,
+     "sha256": "e17846f9725d899017cf64d15017cb85d57384cd7ad33d23f061b3108ebd2ce9",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-3/00104.jpg"
+    },
+    "robot-2": {
+     "file": "observation_frames/reversal_06_outer_robot-2.jpg",
+     "actual_capture_utc": 1789011979.7654731,
+     "offset_from_target_s": -0.163,
+     "sha256": "e2bb481176eb70c09a1dbdaf1c4a6761587400dfbd0bd0041527456ab32e2ee2",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-2/00104.jpg"
+    }
+   }
+  },
+  {
+   "label": "reversal_07_zero_return",
+   "protocol_t_s": 76.9,
+   "commanded_hip_deg": 0.0,
+   "kind": "zero_return",
+   "target_utc": 1789011992.428883,
+   "cameras": {
+    "robot-1": {
+     "file": "observation_frames/reversal_07_zero_return_robot-1.jpg",
+     "actual_capture_utc": 1789011992.372448,
+     "offset_from_target_s": -0.056,
+     "sha256": "b8409f6c19d16bbfaa388b103e623ac3fae1da7c9bcb21f314d74b8aab022ae9",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-1/00123.jpg"
+    },
+    "robot-3": {
+     "file": "observation_frames/reversal_07_zero_return_robot-3.jpg",
+     "actual_capture_utc": 1789011992.3748522,
+     "offset_from_target_s": -0.054,
+     "sha256": "ec0518fda24c603ef27f450b80e4fc47d7c73fda0fbe2088ff5fcf5e5a173d6f",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-3/00123.jpg"
+    },
+    "robot-2": {
+     "file": "observation_frames/reversal_07_zero_return_robot-2.jpg",
+     "actual_capture_utc": 1789011992.377174,
+     "offset_from_target_s": -0.052,
+     "sha256": "2091de35b6b7af9dcee842f460cb403ab69895674d35ca5a4c3350ecd9ab8932",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-2/00123.jpg"
+    }
+   }
+  },
+  {
+   "label": "reversal_08_outer",
+   "protocol_t_s": 87.9,
+   "commanded_hip_deg": -51.143,
+   "kind": "outer",
+   "target_utc": 1789012003.428883,
+   "cameras": {
+    "robot-1": {
+     "file": "observation_frames/reversal_08_outer_robot-1.jpg",
+     "actual_capture_utc": 1789012003.128265,
+     "offset_from_target_s": -0.301,
+     "sha256": "2c60ddb811dc8e7c8725c2a293c8959b0764abdd51033c122c66c6812da8f0c7",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-1/00139.jpg"
+    },
+    "robot-3": {
+     "file": "observation_frames/reversal_08_outer_robot-3.jpg",
+     "actual_capture_utc": 1789012003.130115,
+     "offset_from_target_s": -0.299,
+     "sha256": "2da45d87d6549e411d4f2fb56ec79c3714eb4799189088426d97d215384b7d4b",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-3/00139.jpg"
+    },
+    "robot-2": {
+     "file": "observation_frames/reversal_08_outer_robot-2.jpg",
+     "actual_capture_utc": 1789012003.131922,
+     "offset_from_target_s": -0.297,
+     "sha256": "19d37b2a53a093b4bc10c7996b20a2515e3c7ef2ac0c315c38093f9b438ecdcc",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-2/00139.jpg"
+    }
+   }
+  },
+  {
+   "label": "reversal_09_inner",
+   "protocol_t_s": 98.4,
+   "commanded_hip_deg": -42.955,
+   "kind": "inner",
+   "target_utc": 1789012013.928883,
+   "cameras": {
+    "robot-1": {
+     "file": "observation_frames/reversal_09_inner_robot-1.jpg",
+     "actual_capture_utc": 1789012013.7554162,
+     "offset_from_target_s": -0.173,
+     "sha256": "c83532bea2f7008246b5133376049d07f55ba828ac896f4814c921263d240fa3",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-1/00155.jpg"
+    },
+    "robot-3": {
+     "file": "observation_frames/reversal_09_inner_robot-3.jpg",
+     "actual_capture_utc": 1789012013.757518,
+     "offset_from_target_s": -0.171,
+     "sha256": "4b18f48813055642b14e32363faf5a6ef900664dabc1ab05868427f3635122fe",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-3/00155.jpg"
+    },
+    "robot-2": {
+     "file": "observation_frames/reversal_09_inner_robot-2.jpg",
+     "actual_capture_utc": 1789012013.759674,
+     "offset_from_target_s": -0.169,
+     "sha256": "ed96d848d69f3d49d86058882ecad73682b229340d0dcef548265c1a59577dcd",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-2/00155.jpg"
+    }
+   }
+  },
+  {
+   "label": "reversal_10_outer",
+   "protocol_t_s": 106.4,
+   "commanded_hip_deg": -51.141,
+   "kind": "outer",
+   "target_utc": 1789012021.928883,
+   "cameras": {
+    "robot-1": {
+     "file": "observation_frames/reversal_10_outer_robot-1.jpg",
+     "actual_capture_utc": 1789012021.706505,
+     "offset_from_target_s": -0.222,
+     "sha256": "9d37527be37ce86fa32719144c9d3a1d43bcc3a50f30f33616a03fcdf23c775f",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-1/00168.jpg"
+    },
+    "robot-3": {
+     "file": "observation_frames/reversal_10_outer_robot-3.jpg",
+     "actual_capture_utc": 1789012021.708572,
+     "offset_from_target_s": -0.22,
+     "sha256": "9f59745280670d8598650a9c1d3f96703d719bcfe10f2e2eb78b3fc80e40c60a",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-3/00168.jpg"
+    },
+    "robot-2": {
+     "file": "observation_frames/reversal_10_outer_robot-2.jpg",
+     "actual_capture_utc": 1789012021.710517,
+     "offset_from_target_s": -0.218,
+     "sha256": "8315f7cbb4e4238526478f100095ec538196b7b9ed22da7ce79e294b78265485",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-2/00168.jpg"
+    }
+   }
+  },
+  {
+   "label": "reversal_11_inner",
+   "protocol_t_s": 114.4,
+   "commanded_hip_deg": -42.955,
+   "kind": "inner",
+   "target_utc": 1789012029.928883,
+   "cameras": {
+    "robot-1": {
+     "file": "observation_frames/reversal_11_inner_robot-1.jpg",
+     "actual_capture_utc": 1789012029.818143,
+     "offset_from_target_s": -0.111,
+     "sha256": "439aa5a0e3f0671d877f59634b2267c57a252ac1e44cd732f7830a7cf569dd18",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-1/00181.jpg"
+    },
+    "robot-3": {
+     "file": "observation_frames/reversal_11_inner_robot-3.jpg",
+     "actual_capture_utc": 1789012029.820199,
+     "offset_from_target_s": -0.109,
+     "sha256": "87a627dea1465a633e39d09f840ef2550926b923a02474525fd485f3c39f758d",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-3/00181.jpg"
+    },
+    "robot-2": {
+     "file": "observation_frames/reversal_11_inner_robot-2.jpg",
+     "actual_capture_utc": 1789012029.822679,
+     "offset_from_target_s": -0.106,
+     "sha256": "9b29824731be3cf60b141a8df8a601bfa8f70a8b3d21785d72f4e6c85cb7d5bf",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-2/00181.jpg"
+    }
+   }
+  },
+  {
+   "label": "reversal_12_outer",
+   "protocol_t_s": 122.4,
+   "commanded_hip_deg": -51.141,
+   "kind": "outer",
+   "target_utc": 1789012037.928883,
+   "cameras": {
+    "robot-1": {
+     "file": "observation_frames/reversal_12_outer_robot-1.jpg",
+     "actual_capture_utc": 1789012037.734657,
+     "offset_from_target_s": -0.194,
+     "sha256": "4879448a02aeb9a10514348a5d9ebfbb24666d28b345f5278b6c31fa70fd9374",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-1/00193.jpg"
+    },
+    "robot-3": {
+     "file": "observation_frames/reversal_12_outer_robot-3.jpg",
+     "actual_capture_utc": 1789012037.7371578,
+     "offset_from_target_s": -0.192,
+     "sha256": "64363ec28f6375beb074618ca1d44c85de84147a76b0a575d88c52894af08aed",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-3/00193.jpg"
+    },
+    "robot-2": {
+     "file": "observation_frames/reversal_12_outer_robot-2.jpg",
+     "actual_capture_utc": 1789012037.739042,
+     "offset_from_target_s": -0.19,
+     "sha256": "617c048ca3b75c0218a1be10e1e593dea4cf19e3ac4bfb63798d14a0d4aff7c0",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-2/00193.jpg"
+    }
+   }
+  },
+  {
+   "label": "reversal_13_inner",
+   "protocol_t_s": 130.4,
+   "commanded_hip_deg": -42.955,
+   "kind": "inner",
+   "target_utc": 1789012045.928883,
+   "cameras": {
+    "robot-1": {
+     "file": "observation_frames/reversal_13_inner_robot-1.jpg",
+     "actual_capture_utc": 1789012045.669067,
+     "offset_from_target_s": -0.26,
+     "sha256": "3d52e8b8e40735a6925e75787c1a220d2a0d0ddf4d2e2f67aaae34d5578a1037",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-1/00205.jpg"
+    },
+    "robot-3": {
+     "file": "observation_frames/reversal_13_inner_robot-3.jpg",
+     "actual_capture_utc": 1789012045.671078,
+     "offset_from_target_s": -0.258,
+     "sha256": "7c3778f0af5d07a63d3c25a79ce522f28f0670dd3d90e0abba97906087ae6e60",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-3/00205.jpg"
+    },
+    "robot-2": {
+     "file": "observation_frames/reversal_13_inner_robot-2.jpg",
+     "actual_capture_utc": 1789012045.6730099,
+     "offset_from_target_s": -0.256,
+     "sha256": "7c1357c55adb116811268b762ebd47e60693ca355a4f2471d12c7804b43ebf99",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-2/00205.jpg"
+    }
+   }
+  },
+  {
+   "label": "reversal_14_outer",
+   "protocol_t_s": 142.4,
+   "commanded_hip_deg": -51.141,
+   "kind": "outer",
+   "target_utc": 1789012057.928883,
+   "cameras": {
+    "robot-1": {
+     "file": "observation_frames/reversal_14_outer_robot-1.jpg",
+     "actual_capture_utc": 1789012057.8494132,
+     "offset_from_target_s": -0.079,
+     "sha256": "14d7663fc3094e6210c22cfc2cc48dcb6e2d89057dd8ccf7467350fe79b29606",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-1/00223.jpg"
+    },
+    "robot-3": {
+     "file": "observation_frames/reversal_14_outer_robot-3.jpg",
+     "actual_capture_utc": 1789012057.8583171,
+     "offset_from_target_s": -0.071,
+     "sha256": "6c50e584babc30877404e5532dc42a04da6c7d5d7ddc3b3ee597f761cf7a0603",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-3/00223.jpg"
+    },
+    "robot-2": {
+     "file": "observation_frames/reversal_14_outer_robot-2.jpg",
+     "actual_capture_utc": 1789012057.860151,
+     "offset_from_target_s": -0.069,
+     "sha256": "77f75af841deaed739bb0bdd4392e193591c59ce88c0e1796d43cc61481093de",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-2/00223.jpg"
+    }
+   }
+  },
+  {
+   "label": "post_run",
+   "target_utc": 1789012074.6784341,
+   "cameras": {
+    "robot-1": {
+     "file": "observation_frames/post_run_robot-1.jpg",
+     "actual_capture_utc": 1789012074.474698,
+     "offset_from_target_s": -0.204,
+     "sha256": "3263a90d957e7b3a594c0bf257ac89d02ed337a4dcfa62becc3e7bd2b8813600",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-1/00249.jpg"
+    },
+    "robot-3": {
+     "file": "observation_frames/post_run_robot-3.jpg",
+     "actual_capture_utc": 1789012074.477002,
+     "offset_from_target_s": -0.201,
+     "sha256": "0e607607c78b9954cdb6049dd650e8107ca3645093081aefe4d26d34f6faf998",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-3/00249.jpg"
+    },
+    "robot-2": {
+     "file": "observation_frames/post_run_robot-2.jpg",
+     "actual_capture_utc": 1789012074.479114,
+     "offset_from_target_s": -0.199,
+     "sha256": "5cba73efc588a58be99e32087fff297558f58d6830174bec31cca3c90f772c4a",
+     "source_frame": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v4/artifacts/l2_belly_rest_hysteresis_d4908236/run/frames/robot-2/00249.jpg"
+    }
+   }
+  }
+ ]
+}

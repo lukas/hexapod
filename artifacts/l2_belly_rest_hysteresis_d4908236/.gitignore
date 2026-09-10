@@ -6,3 +6,6 @@
 run/frames/
 dry/frames/
 passive_recorder_window.jsonl
+observation_frames/
+*.tar.gz
+*.jsonl.gz

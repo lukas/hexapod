@@ -105,6 +105,14 @@ _REFINE_DEPTH = 2           # waypoint bisection depth before giving up
 STALL_CURRENT_A = 2.5       # air / geometric stages
 DRAG_CURRENT_A = 3.0        # descent stage (weight transfer is honest work)
 HARD_CAP_A = 3.5
+# Above this a reading is not a measurement. The bus cannot deliver it and the
+# servo would not survive it: the 09-09 stand-up died 1.76 s in on a reported
+# 106.5 A, thirty times the hard cap, from the same corrupted-byte failure the
+# temperature check below is already debounced against. Real overcurrent lives
+# between HARD_CAP_A and here (the 08-06 incident held about 7 A) and must
+# still trip on the first read, so only implausible values are debounced.
+IMPLAUSIBLE_CURRENT_A = 12.0
+IMPLAUSIBLE_CURRENT_READS = 3
 LOAD_MAX_PCT = 70.0
 DRAG_LOAD_MAX_PCT = 85.0
 SLOW_DPS = 8.0              # below this the joint counts as "not moving"
@@ -943,6 +951,7 @@ def run_safe_zero(bus, stages: list[dict], *,
             stall_prev: set[int] = set()
             load_prev: set[int] = set()
             temp_prev: set[int] = set()
+            wild_count: dict[int, int] = {}
             miss_count: dict[int, int] = {}
             sweep_misses = 0
             progress_ref: dict[int, tuple[float, float]] = {}
@@ -993,6 +1002,20 @@ def run_safe_zero(bus, stages: list[dict], *,
                     now_temp: set[int] = set()
                     for j, fb in fb_map.items():
                         a = abs(float(fb.get("current_a") or 0.0))
+                        if a > IMPLAUSIBLE_CURRENT_A:
+                            # Corrupt read, not an event. Require it to repeat
+                            # before trusting it, and keep it out of peak_a so
+                            # one bad byte cannot poison the run's report.
+                            wild_count[j] = wild_count.get(j, 0) + 1
+                            if wild_count[j] >= IMPLAUSIBLE_CURRENT_READS:
+                                return _trip(
+                                    f"{joint_name(j)} read {a:.1f} A on "
+                                    f"{wild_count[j]} consecutive sweeps "
+                                    f"(implausible above "
+                                    f"{IMPLAUSIBLE_CURRENT_A:.0f} A — suspect "
+                                    f"the bus, not the joint)", label)
+                            continue
+                        wild_count[j] = 0
                         if a > peak_a:
                             peak_a, peak_j = a, j
                         if a > HARD_CAP_A:

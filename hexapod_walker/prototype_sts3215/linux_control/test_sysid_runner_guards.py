@@ -222,3 +222,81 @@ def test_nonadvancing_state_timestamp_during_trajectory_aborts_before_further_mo
     assert "runtime state timestamp did not advance" in result["error"]
     assert len(bus.writes) == 1
     assert "limp" in calls
+
+
+def _glide_current_run(monkeypatch, tmp_path, *, hot_joint: int,
+                       amps: float = 1.4):
+    """Glide + one segment tick on joint 0, with ``hot_joint`` at ``amps``."""
+    import sysid_runner
+
+    calls = []
+    fake_demos = types.SimpleNamespace(
+        _enable_torque=lambda bus, ids: calls.append("enable"),
+        _live_robot_ids=lambda bus: {
+            sysid_runner.joint_to_servo_id(joint) for joint in range(18)
+        },
+        _limp_all=lambda bus, ids: calls.append("limp"),
+        _set_torque_limit=lambda bus, ids, value: calls.append(("limit", value)),
+        _write_pose=lambda *args, **kwargs: calls.append("hold"),
+    )
+    monkeypatch.setitem(sys.modules, "inplace_demos", fake_demos)
+    monkeypatch.setattr(sysid_runner, "validate", lambda protocol: [])
+    monkeypatch.setattr(sysid_runner, "start_pose", lambda protocol: [10.0] * 18)
+    monkeypatch.setattr(
+        sysid_runner,
+        "materialize",
+        lambda protocol: {
+            "hz": 10.0,
+            "ticks": [{"active": [0], "cmd": [0.0] * 18,
+                       "mode": "rel", "seg": 0, "phase": "test"}],
+            "seg_labels": ["test"],
+        },
+    )
+    monkeypatch.setattr(sysid_runner.time, "sleep", lambda _seconds: None)
+    # Every poll counts as fresh so the trip counters advance in wall-clock
+    # time the test does not spend.
+    monkeypatch.setattr(sysid_runner, "FEEDBACK_HZ", 1e6)
+
+    def _feedback():
+        return {joint: {"volt": 12.0, "temp_c": 33.0,
+                        "current_a": amps if joint == hot_joint else 0.0}
+                for joint in range(18)}
+
+    bus = _Bus([])
+    bus.read_all_feedback = _feedback
+    pose = {joint: 0.0 for joint in range(18)}
+    bus.read_all_positions = lambda: dict(pose)
+
+    def _write_all(target, **kwargs):
+        bus.writes.append(("all", list(target)))
+        pose.update({joint: float(v) for joint, v in enumerate(target)})
+
+    bus.write_all = _write_all
+    return run_sysid_protocol(
+        bus,
+        {"name": "glide_current_guard", "max_current_a": 0.75,
+         "current_trip_polls": 1, "hard_current_a": 3.0,
+         "segments": [{"kind": "step"}]},
+        log_dir=tmp_path,
+    )
+
+
+def test_loaded_knee_current_during_glide_does_not_trip_the_protocol_budget(
+        monkeypatch, tmp_path):
+    # 2026-09-10: the L4 ladder limped 2.2 s into its glide because joint 14
+    # drew 1.38 A unfolding a weight-loaded knee off the floor, over the
+    # protocol's 0.75 A MEASUREMENT budget.  The glide runs on GLIDE_CURRENT_A.
+    result = _glide_current_run(monkeypatch, tmp_path, hot_joint=14)
+
+    assert result["error"] is None, result["error"]
+    assert result["ok"] is True
+
+
+def test_protocol_current_budget_still_trips_once_the_segments_run(
+        monkeypatch, tmp_path):
+    # The wider budget is scoped to the glide: the measured motion keeps the
+    # protocol's own limit, and glide polls do not carry into segment 0.
+    result = _glide_current_run(monkeypatch, tmp_path, hot_joint=0)
+
+    assert result["ok"] is False
+    assert "overcurrent 1.40 A (limit 0.75" in result["error"]

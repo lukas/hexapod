@@ -465,8 +465,12 @@ def qualify(
     camera_injections.update({
         "stale_state_timestamp": {
             "passed": telemetry_guard_ok
-            and "test_telemetry_admission_rejects_stale_sample" in telemetry_tests,
-            "guard_result": "telemetry admission rejects state age over bound",
+            and "test_telemetry_admission_rejects_persistently_stale_samples"
+            in telemetry_tests,
+            "guard_result": (
+                "telemetry admission rejects state age over bound on three "
+                "consecutive reads"
+            ),
             "abort_bound": True,
         },
         "nonadvancing_state_timestamp_during_glide": {
@@ -493,8 +497,12 @@ def qualify(
         },
         "incomplete_servo_sample": {
             "passed": telemetry_guard_ok
-            and "test_telemetry_admission_rejects_incomplete_sample" in telemetry_tests,
-            "guard_result": "telemetry admission rejects incomplete 18-servo sample",
+            and "test_telemetry_admission_rejects_persistently_incomplete_stream"
+            in telemetry_tests,
+            "guard_result": (
+                "telemetry admission rejects an incomplete 18-servo sample that "
+                "persists for three consecutive reads"
+            ),
             "abort_bound": True,
         },
         "out_of_bounds_voltage": {

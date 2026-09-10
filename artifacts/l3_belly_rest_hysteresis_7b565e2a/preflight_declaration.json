@@ -1,0 +1,136 @@
+{
+  "purpose": "Satisfy analysis_dependencies[6] and reporting.state_realtime_vs_posthoc_stop_coverage for experiment 7b565e2a4be14fd298db47a2c6aaac2b: 'Real-time stop coverage for /api/errors, IMU tilt and the knee rise bound either enforced without adding bus load, or the post-hoc-only scope declared in advance rather than discovered afterwards.' This file is written and committed BEFORE arming. Anything listed as post-hoc here is a declared scope, not a discovery.",
+  "declared_at_utc": "2026-09-10T15:25Z",
+  "declared_before_arming": true,
+  "protocol_hash": "c3727df8dc7e",
+  "bus_load_policy": "No watch in this runner touches the servo bus. /api/errors reads the tail of the persisted errors.jsonl; /api/logs is a directory stat; /api/pose-state and the frame previews are served by the LOCAL camera server. /api/feedback IS a full 18-servo bus scan and is therefore read PRE and POST only -- dense polling of it is what limped the L5 sibling's first attempt.",
+  "stop_conditions": [
+    {
+      "condition": "Per-servo current above 0.75 A on three consecutive polls, or any reading reaching the 3.0 A ceiling",
+      "coverage": "realtime",
+      "enforced_by": "the on-robot executor in-loop (sysid_runner._trip_feedback, 10 Hz throttled bus feedback; max_current_a 0.75 with current_trip_polls 3, hard_current_a 3.0)",
+      "scope_limit": "During the traj segment the in-loop current/temperature trips iterate the ACTIVE joints only, i.e. L3 hip j1 and knee j2. During the pre-run glide they cover all 18. Non-L3 currents are still recorded per joint every row (cur0_a..cur17_a) and are checked post-hoc."
+    },
+    {
+      "condition": "Any motor temperature reaching 55 C",
+      "coverage": "realtime",
+      "enforced_by": "the on-robot executor in-loop (MAX_TEMP_C 55.0, debounced over TEMP_TRIP_POLLS 3 fresh polls)",
+      "scope_limit": "Same active-joint scope as the current trip during the traj segment; all 18 temperatures are captured in the pre/post 18-servo samples."
+    },
+    {
+      "condition": "The L3 knee rising more than 8 C above its pre-run baseline",
+      "coverage": "post-hoc (declared)",
+      "why": "Evaluating it live needs the L3 knee's temperature at run time, and the only route to it is /api/feedback, a full 18-servo bus scan. Polling it during a 10 Hz command/read loop is the exact load that limped the L5 sibling, so it is not enforced live 'without adding bus load' and is not enforced live at all.",
+      "enforced_by": "L3 knee baseline recorded from three advancing healthy 18/18 samples immediately before arming, and the post-run samples compared against it (l3_knee_rise_c vs l3_knee_rise_trip_c 8.0). The absolute 55 C trip does run in-loop underneath it, and the whole run is 156 s.",
+      "precedent": "Every prior member of this family (L0, L1, L2, L5) scoped this the same way; observed rise was 0 C."
+    },
+    {
+      "condition": "Any servo ID missing on three consecutive reads",
+      "coverage": "realtime",
+      "enforced_by": "the on-robot executor in-loop over ALL 18 live joints every tick (MAX_MISSED_READS 3), plus a segment-start all-joint check"
+    },
+    {
+      "condition": "A stale or nonadvancing state stream",
+      "coverage": "realtime",
+      "enforced_by": "the executor's own runtime-pose read error path in-loop, plus this supervisor's bus-free csv_watch: the on-robot CSV is flushed once per second and its size is polled at 1 Hz via /api/logs"
+    },
+    {
+      "condition": "Tracking error above 30 deg against the slewed reference",
+      "coverage": "realtime",
+      "enforced_by": "the on-robot executor in-loop (MAX_TRACK_ERR_DEG 30.0) against a reference slewed at the write_speed profile",
+      "scope_limit": "Active joints only, i.e. L3 hip j1 and knee j2. The 16 non-L3 joints are not tracked against a reference in-loop."
+    },
+    {
+      "condition": "Any measured non-L3 joint departing logical zero by more than 1.0 deg",
+      "coverage": "post-hoc (declared)",
+      "why": "Same reason as the knee-rise bound: the measured angles of the 16 non-L3 joints are read by the executor every tick but are not exposed to this supervisor during the run except through the CSV, which is fetched after the run. There is no bus-free live route to them.",
+      "enforced_by": "post-hoc over every one of the 1560 CSV rows, which carry q0_deg..q17_deg (all 18 MEASURED angles at 10 Hz). Reported as the worst non-L3 departure across the whole window.",
+      "what_does_run_live_underneath_it": "The 16 non-L3 joints are commanded at absolute logical zero on every tick -- proved for this exact protocol in its review record, all 16 columns 0.0 in all 1560 rows -- so a departure requires an external force, and the all-18 missing-read trip plus the three-camera record plus the chassis-tag watch all run live."
+    },
+    {
+      "condition": "Chassis tilt exceeding 10 deg",
+      "coverage": "post-hoc (declared), with a live gross-motion proxy",
+      "why": "Live roll/pitch is only available from /api/feedback, the 18-servo bus scan (imu_state() on /api/rl/state is IMU CALIBRATION state, not live tilt), and the on-robot sysid executor has no IMU trip of its own. There is no bus-free live tilt.",
+      "enforced_by": "IMU roll/pitch captured in the three pre-arm and three post-run healthy samples and compared; the chassis is belly-resting and never stands.",
+      "live_proxy": "the chassis-tag watch below, and the continuous three-camera record."
+    },
+    {
+      "condition": "The chassis tag moving relative to the floor tags in any camera when tags are resolvable",
+      "coverage": "realtime",
+      "enforced_by": "tag_watch(), polling the LOCAL camera server's /api/pose-state at 1 Hz for chassis tag 0 in the floor-tag world frame (origin tag 104, +X toward 102/103, +Y toward 112/105). Zero bus load.",
+      "enabled_this_run": true,
+      "why_enabled": "The plan makes this conditional: 'If arena lighting is restored before the run the chassis-tag-versus-floor-tags watch becomes measurable and should be enabled.' It has been. Mean luma is 49.8 / 23.0 / 24.4 against the L1 run's 24.9 / 4.6 / 4.4, and the tracker now resolves 10-14 tags per view where it reported 'tags: none' on all three views at 05:06Z.",
+      "thresholds": {
+        "shift_mm": 120.0,
+        "yaw_deg": 15.0,
+        "consecutive_resolved_samples": 3
+      },
+      "how_thresholds_were_set": "From a measured 40 s at-rest baseline of this exact tag (tagwatch_baseline.json): max radial excursion from the mean 39.7 mm, x sd 6.3 mm, y sd 17.2 mm, yaw sd 0.94 deg / ptp 3.67 deg, with only 17 of 40 samples resolved. The trips are ~3x that scatter and require three consecutive resolved samples over the bound.",
+      "honest_limit": "This bounds GROSS chassis motion, not millimetre motion: the tag's own error_95 is ~93 mm because one camera sees it at ~14 px. Fine stillness rests on the joint telemetry, as the plan itself says it did for L2."
+    },
+    {
+      "condition": "Loss of live frames from any of the three cameras for more than 2 s",
+      "coverage": "realtime",
+      "enforced_by": "camera_watchdog(), 4 Hz, over the continuous recorder's own per-camera last-frame timestamps; CAMERA_STALL_S 2.0, two consecutive strikes. Bus-free."
+    },
+    {
+      "condition": "Loss of the remote abort path",
+      "coverage": "realtime (indirect) + preflight",
+      "enforced_by": "/api/rl/stop and /api/standup/stop are exercised with NO lease held immediately before arming, proving they are never gated. During the window the 1 Hz /api/errors poll and the 0.5 Hz lease poll both exercise robot HTTP continuously; a loss of the robot HTTP surface therefore surfaces within ~1 s."
+    },
+    {
+      "condition": "Any command to the robot from a controller other than the guarded runner during the leased window",
+      "coverage": "realtime",
+      "enforced_by": "lease_watch(), 2 Hz on /api/command-lease, treating any NEW entry in recent_refusals as the plan's foreign_controller_command_observed stop, and a lost/foreign lease as command_lease_lost. Pre-existing refusals are snapshotted so the run cannot abort on its own history."
+    },
+    {
+      "condition": "Brownout, any new /api/errors row beyond a single self-recovered transient bus_timing retry, or any alarm",
+      "coverage": "realtime",
+      "enforced_by": "error_watch(), 1 Hz on /api/errors, which reads the tail of the persisted errors.jsonl and never touches the servo bus.",
+      "tolerance_declared_in_advance": {
+        "allowance": 1,
+        "narrowness": "A row is tolerable only if kind == bus_timing AND src == mcu AND level != critical AND data.reason == ascii_err with n == 0 AND the reviewed classifier mcu_feetech_bus.classify_bare_err_reply() attributes it to a torn frame on one of the bridge's two documented reject paths (desync_guard or checksum_or_bad_n). 'unattributed' is NOT tolerated.",
+        "self_recovery_must_be_confirmed": "Tolerance is provisional. Within 4 s the on-robot CSV must keep growing (proving the executor's 10 Hz loop is still turning) and /api/rl/state must still report the bus available and not quarantined. If either fails, the run halts on the original row.",
+        "anything_else": "A second bus_timing row, or any row of any other kind, halts immediately.",
+        "why_not_just_halt_on_the_first_row": "This plan's stop condition is written as 'any new /api/errors row BEYOND a single self-recovered transient bus_timing retry'. The L1 sibling's runner halted on the first row of any kind, which is stricter than this plan asks, and it cost that run the closing return-to-zero glide after all six measured cycles were already complete. This runner implements the plan as written.",
+        "fallback": "If the reviewed classifier cannot be loaded, NO row is tolerable and the runner halts on the first one.",
+        "verification": "test_tolerance_l0.py, 12 cases including the real 05:14:30.087Z row this rig produced; all pass."
+      }
+    },
+    {
+      "condition": "The commanded L3 foot contacting the floor",
+      "coverage": "realtime by construction (no evaluation needed)",
+      "enforced_by": "The commanded trajectory is fixed and reviewed: its deepest commanded foot_z is -15.00 mm against a measured first-floor-contact of -80.95 mm, so the commanded foot is 65.95 mm clear of the floor for all 1560 ticks. Departure from the commanded path is caught by the in-loop 30 deg tracking trip."
+    },
+    {
+      "condition": "Hysteresis growing monotonically across repeats beyond the reviewed bound",
+      "coverage": "post-hoc (declared)",
+      "why": "Loop width is defined on the settled last 1.0 s of each 3.1 s dwell, so a cycle's value only exists after that cycle completes; it is a per-cycle analysis quantity, not a live signal.",
+      "enforced_by": "analyze_l0_hysteresis.py over the run's own CSV, reporting all six per-cycle loop widths and testing strict monotonicity across repeats.",
+      "on_a_positive": "The plan says 'halt and hold, do not retry'. With a 156 s window the run is already complete when this is computable, so the obligation it creates is: do not run again. It will be honoured."
+    },
+    {
+      "condition": "Audible or visible mechanical binding in L3",
+      "coverage": "post-hoc for audio (no microphone in the rig), realtime for visible",
+      "enforced_by": "Three-camera continuous record at ~2 fps per camera with a 2 s freshness watchdog; the recorded frames are reviewed after the run. Binding severe enough to load the joint trips the in-loop current and tracking interlocks live."
+    },
+    {
+      "condition": "tip / jam or unexpected force / brownout / hot motor / hard or sustained current / persistent servo loss",
+      "coverage": "realtime",
+      "enforced_by": "The in-loop current (0.75 A x3 polls, 3.0 A ceiling), temperature (55 C x3 polls), tracking-error (30 deg) and missing-read (3 consecutive, all 18 joints) trips, each of which limps the robot; plus the live /api/errors watch for brownout and alarm rows. A tip is additionally covered by the chassis-tag watch and the camera record; the chassis never stands in this protocol."
+    }
+  ],
+  "summary": {
+    "realtime": 12,
+    "post_hoc_declared": 5,
+    "post_hoc_list": [
+      "L3 knee rise > 8 C over baseline",
+      "measured non-L3 joint departure > 1.0 deg",
+      "chassis tilt > 10 deg (live gross-motion proxy via the chassis-tag watch)",
+      "hysteresis growing monotonically across repeats",
+      "audible mechanical binding (no microphone)"
+    ],
+    "root_cause_of_every_post_hoc_item": "Each needs a quantity whose only route is /api/feedback, the full 18-servo bus scan, which cannot be polled densely during a 10 Hz command/read loop without becoming the fault it is meant to catch -- or, for the hysteresis and audio items, a quantity that does not exist as a live signal at all."
+  },
+  "derived_from": "artifacts/l0_belly_rest_hysteresis_881677a0/preflight_declaration.json (experiment 881677a0). This plan carries the same 17 stop conditions verbatim and the same 1.0 deg start-pose gate, so the coverage split is retargeted from L0 to L3 rather than re-derived. Only the leg identity, the active joint indices (j1/j2 -> j10/j11) and the protocol hash change."
+}

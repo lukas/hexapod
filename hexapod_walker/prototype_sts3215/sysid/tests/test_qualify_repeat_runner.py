@@ -222,3 +222,60 @@ def test_requalification_uses_sealed_input_and_exact_protocol_hashes():
         "nonadvancing_state_timestamp_during_trajectory",
     }
     assert all(item["passed"] for item in report["fault_injections"].values())
+
+
+def test_fault_injection_test_names_resolve_against_the_guard_suite():
+    """Every guard test name the qualifier greps for must actually exist.
+
+    `qualify` proves a fault injection is covered by looking for a test name
+    in `linux_control/test_sysid_runner_guards.py`'s source.  A rename there
+    therefore turns the injection silently into `passed: false` while the
+    guard itself is untouched -- which is exactly what happened when
+    71459673/66e22bdf debounced the two pre-motion telemetry gates and
+    renamed `..._rejects_incomplete_sample` ->
+    `..._rejects_persistently_incomplete_stream` and
+    `..._rejects_stale_sample` -> `..._rejects_persistently_stale_samples`.
+    Pin the direction that broke: a referenced name that no longer exists is
+    a defect in the qualifier, not evidence of a missing interlock.
+    """
+    import ast
+    import re
+    from pathlib import Path
+
+    qualifier_src = Path(
+        "sysid/qualify_repeat_runner.py"
+    ).read_text(encoding="utf-8")
+    guard_suite = Path(
+        "linux_control/test_sysid_runner_guards.py"
+    ).read_text(encoding="utf-8")
+
+    # The parser folds adjacent string literals, so a name the qualifier
+    # splits over two source lines for length arrives here whole.
+    referenced = {
+        node.value
+        for node in ast.walk(ast.parse(qualifier_src))
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and node.value.startswith("test_")
+    }
+    assert referenced, "expected the qualifier to reference guard test names"
+
+    defined = set(re.findall(r"^def (test_[a-z0-9_]+)", guard_suite,
+                             re.MULTILINE))
+    # The qualifier's own lookup is a substring test, so a referenced name
+    # that is a proper PREFIX of a real test (e.g. the voltage gate's
+    # `..._out_of_bounds` vs `..._out_of_bounds_immediately`) does resolve.
+    # Anything that matches no defined test does not.
+    missing = sorted(
+        name for name in referenced
+        if not any(defined_name.startswith(name) for defined_name in defined)
+    )
+    assert not missing, (
+        "qualify_repeat_runner references guard tests that no longer exist "
+        f"in test_sysid_runner_guards.py: {missing}"
+    )
+    # And each must satisfy the qualifier's actual substring lookup.
+    unresolved = sorted(n for n in referenced if n not in guard_suite)
+    assert not unresolved, (
+        f"referenced names absent from the guard suite source: {unresolved}"
+    )

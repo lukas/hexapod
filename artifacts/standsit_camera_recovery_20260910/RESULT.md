@@ -52,8 +52,9 @@ robot in that window.
 
 3. **Sit-down current reproduces the hand reference exactly.** Peak per-servo current was
    2.73 A on the stand-up and **2.78 A** on the sit-down; the plan's by-hand reference was
-   2.78 A. Both peaks sit under the 2.70 A nominal stall only marginally and are consistent
-   with the STEP keyframe profile, not a jam.
+   2.78 A. Both peaks are brief single-sample transients within ~3% of the 2.70 A nominal
+   stall, they match the hand reference, and they are consistent with the STEP keyframe
+   profile — not a jam and not a sustained current event.
 
 4. **Roll/pitch are unmeasured, and that is a gap in the recovery, not a pass.** The robot's
    `servo_fb` records carry per-joint angle, current, load and temperature but no IMU field,

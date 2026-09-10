@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-04T20:52:35.952Z",
+  "generatedAt": "2026-09-05T19:25:09.692Z",
   "build": {
     "id": "premade_chorn_56",
     "name": "STS3215 experimental premade 56 mm C-horns + rigid top/bottom bearings"
@@ -4052,7 +4052,7 @@
           "076-L4 femur body OVH (NEW)",
           "091-L5 femur body OVH (NEW)"
         ],
-        "triangleCount": 13940,
+        "triangleCount": 11090,
         "openEdges": null,
         "nonManifoldEdges": null,
         "inconsistentWinding": false,
@@ -4061,7 +4061,7 @@
         "selfIntersectionPoint": null,
         "componentCount": 1,
         "smallestComponent": null,
-        "volumeMm3": 29915.621,
+        "volumeMm3": 29772.628,
         "minWallMm": null,
         "thinPoint": null
       },
@@ -4076,7 +4076,7 @@
           "080-L4 tibia socket OVH (NEW)",
           "095-L5 tibia socket OVH (NEW)"
         ],
-        "triangleCount": 7064,
+        "triangleCount": 7602,
         "openEdges": null,
         "nonManifoldEdges": null,
         "inconsistentWinding": false,
@@ -4085,7 +4085,7 @@
         "selfIntersectionPoint": null,
         "componentCount": 1,
         "smallestComponent": null,
-        "volumeMm3": 14136.502,
+        "volumeMm3": 15083.542,
         "minWallMm": null,
         "thinPoint": null
       },
@@ -4100,7 +4100,7 @@
           "081-L4 tibia tube (shortened)",
           "096-L5 tibia tube (shortened)"
         ],
-        "triangleCount": 192,
+        "triangleCount": 384,
         "openEdges": null,
         "nonManifoldEdges": null,
         "inconsistentWinding": false,
@@ -4109,7 +4109,7 @@
         "selfIntersectionPoint": null,
         "componentCount": 1,
         "smallestComponent": null,
-        "volumeMm3": 6024.671,
+        "volumeMm3": 2635.794,
         "minWallMm": null,
         "thinPoint": null
       },
@@ -4148,7 +4148,7 @@
           "068-L4 coxa OVH outboard arm (NEW)",
           "083-L5 coxa OVH outboard arm (NEW)"
         ],
-        "triangleCount": 12048,
+        "triangleCount": 12300,
         "openEdges": null,
         "nonManifoldEdges": null,
         "inconsistentWinding": false,
@@ -4157,7 +4157,7 @@
         "selfIntersectionPoint": null,
         "componentCount": 1,
         "smallestComponent": null,
-        "volumeMm3": 60298.353,
+        "volumeMm3": 63338.637,
         "minWallMm": null,
         "thinPoint": null
       },
@@ -4172,7 +4172,7 @@
           "122-L4 deep lower yaw carrier",
           "128-L5 deep lower yaw carrier"
         ],
-        "triangleCount": 7690,
+        "triangleCount": 7700,
         "openEdges": null,
         "nonManifoldEdges": null,
         "inconsistentWinding": false,
@@ -4181,7 +4181,7 @@
         "selfIntersectionPoint": null,
         "componentCount": 1,
         "smallestComponent": null,
-        "volumeMm3": 8003.204,
+        "volumeMm3": 8003.205,
         "minWallMm": null,
         "thinPoint": null
       },
@@ -4196,7 +4196,7 @@
           "071-L4 hip cap OVH + yaw pedestal (NEW)",
           "086-L5 hip cap OVH + yaw pedestal (NEW)"
         ],
-        "triangleCount": 6680,
+        "triangleCount": 6662,
         "openEdges": null,
         "nonManifoldEdges": null,
         "inconsistentWinding": false,
@@ -4205,7 +4205,7 @@
         "selfIntersectionPoint": null,
         "componentCount": 1,
         "smallestComponent": null,
-        "volumeMm3": 25344.272,
+        "volumeMm3": 24655.195,
         "minWallMm": null,
         "thinPoint": null
       },
@@ -4220,7 +4220,7 @@
           "123-L4 screw-on upper bearing carrier",
           "129-L5 screw-on upper bearing carrier"
         ],
-        "triangleCount": 4262,
+        "triangleCount": 4698,
         "openEdges": null,
         "nonManifoldEdges": null,
         "inconsistentWinding": false,
@@ -4229,7 +4229,7 @@
         "selfIntersectionPoint": null,
         "componentCount": 1,
         "smallestComponent": null,
-        "volumeMm3": 8877.004,
+        "volumeMm3": 8792.924,
         "minWallMm": null,
         "thinPoint": null
       },
@@ -4296,7 +4296,7 @@
         "instanceIds": [
           "000-chassis_bottom RIGID"
         ],
-        "triangleCount": 31632,
+        "triangleCount": 31516,
         "openEdges": null,
         "nonManifoldEdges": null,
         "inconsistentWinding": false,
@@ -4305,7 +4305,7 @@
         "selfIntersectionPoint": null,
         "componentCount": 1,
         "smallestComponent": null,
-        "volumeMm3": 268916.084,
+        "volumeMm3": 271403.353,
         "minWallMm": null,
         "thinPoint": null
       },
@@ -4493,17 +4493,17 @@
       "floatingComponentCount": 12
     },
     "timings": {
-      "loadMs": 115,
+      "loadMs": 77,
       "bvhMs": 2,
       "broadMs": 1,
-      "narrowMs": 6092,
-      "connectivityMs": 19,
-      "printabilityMs": 348,
+      "narrowMs": 3518,
+      "connectivityMs": 9,
+      "printabilityMs": 207,
       "threadMs": 0,
       "accessMs": 0,
       "matingMs": 0,
       "routingMs": 0,
-      "totalMs": 6832
+      "totalMs": 3972
     }
   }
 }

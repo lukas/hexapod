@@ -53,8 +53,10 @@ front_receiver:
   tibia_thickness_mm: 8.0
   tibia_attachment: 6x M3 through the metal web into captive M3 nylocs
   femur_thickness_mm: 3.6
-  femur_attachment: 6x short front-loaded M3 heat-set inserts
-  femur_insert_depth_mm: 3.1
+  femur_attachment: 6x M3x5 through the metal web into front-loaded ordinary
+    captive M3 hex nuts; the seated bracket captures the nuts
+  femur_nut_pocket_mm: 5.8 across flats x 2.7 deep
+  femur_thread_beyond_nut_mm: 0.5
   femur_servo_side_skin_mm: 0.5
   femur_servo_overlap_mm3: 0.0
   central_8mm_hole_role: clearance_only
@@ -90,9 +92,18 @@ tibia:
     central_pattern: 4 rounded radial U-windows into the captive nyloc pockets
     measured_outer_pair: naturally outside the tube ring
     window_width_mm: 6.8
-    complete_ring_retained_at_tube_mouth_mm: 21.5
+    complete_ring_retained_at_tube_mouth_mm: 21.95
     assembly_order: install all six bracket screws and nylocs before inserting
       the carbon tube
+  root_reinforcement:
+    load_case: walking-load FEA hotspot at the receiver-to-collar transition
+      beside the four central nut windows
+    flare: 24 mm root diameter tapering to the normal 18 mm collar over 10 mm
+    ribs: four 3.2 mm-wide diagonal ribs reaching radius 13 mm between the
+      cardinal screw windows
+    shortened_window_end_x_mm: 71.85
+    serviceability: the radial windows are carried through the larger flare;
+      all six nuts remain accessible before inserting the tube
 
 inherited:
   rigid_top_bottom_6805_bearings: true
@@ -100,6 +111,26 @@ inherited:
   chassis_top_rigid: unchanged
   top_hatch_rigid: unchanged
   outboard_coxa_and_top_bearing_cap: derived_from_cnc_chorn_overhead_then_split
+
+reinforced_target_fea:
+  source_build_version: v28
+  baseline_build_version: v26
+  load_envelope: recorded MuJoCo walk maxima merged with rise/lower study
+  solver: repaired C3D4, 80-voxel surface reconstruction, deterministic
+    single-threaded CalculiX
+  material: PETG 25% infill, E 900 MPa, effective yield 22.66 MPa
+  results:
+    tibia_socket: {baseline_mpa: 15.48, baseline_sf: 1.46, v28_mpa: 4.87,
+      v28_sf: 4.65}
+    coxa_link: {baseline_mpa: 14.60, baseline_sf: 1.55, v28_mpa: 3.68,
+      v28_sf: 6.16}
+    upper_bearing_carrier: {baseline_mpa: 5.52, baseline_sf: 4.10,
+      v28_mpa: 6.02, v28_sf: 3.76}
+  carrier_load_model: yaw-axis reaction from 2.856 Nm across the 56.3 mm
+    upper/lower bearing-center span; approximately 51 N, not the full
+    hip-pitch moment divided by the carrier's local contact spacing
+  limitation: bonded single-part screen does not credit the fourth carrier
+    bolt's preload or rear-side contact support
 
 servo_serviceability:
   applies_to: [hip_motor_holder, knee_motor_holder]
@@ -234,13 +265,14 @@ hip_bearing_split:
     a flat face at hip-cap-local Y 21.9 mm
   carrier: separate flat-backed R19 cartridge carrying the original upper
     6805 press seat and puller notches
-  cap_to_carrier_attachment: 3x M3x8 countersunk screws from the cap underside
+  cap_to_carrier_attachment: 4x M3x8 countersunk screws from the cap underside
     into captive M3 nuts in 5.8 mm AF x 2.7 mm-deep hex pockets in the carrier
-    mounting face
+    mounting face; the added 180-degree fastener supports the rear side of the
+    cartridge at the former walking-load hotspot
   tower_to_carrier_attachment: 2x top-entry M3x8 SHCS into the integral coxa
     tower's captive M3 nuts, retaining the requested rotate-and-screw assembly
     sequence
-  nut_loading: load three nuts into the carrier face and two into the tower
+  nut_loading: load four nuts into the carrier face and two into the tower
     top; the mating flat parts close the pockets before the screws are driven
   print_orientation:
     hip_clamp_cap_ovh: flat bearing-pad face on the build plate
@@ -262,7 +294,7 @@ parts:
     qty_per_robot: 12
   femur_ovh_body:
     description: servo-safe 3.6 mm six-hole front receiver fused to the
-      inherited overhead knee body, using six short bracket-side insert
+      inherited overhead knee body, using six bracket-side captive M3 hex-nut
       pockets without entering the servo cavity; the remaining side clamp
       screw uses a face-loaded captive M3 nut and the 24 mm horn opening
       continues through the open clamp face
@@ -270,7 +302,9 @@ parts:
     qty_per_robot: 6
   tibia_ovh_socket:
     description: six-hole front receiver and 30 mm-deep carbon-tube socket with
-      four radial nut-access cutouts and a long complete support collar
+      four radial nut-access cutouts, a long complete support collar, a 24 mm
+      tapered receiver-root flare, and four diagonal load-path ribs between
+      the access windows
     material: PETG
     qty_per_robot: 6
   tibia_tube_ovh:
@@ -285,11 +319,13 @@ parts:
       screw pads are deleted and replaced by a continuous R16.9-R19 socket;
       two negative-Y contour arms and one solid positive-Y rectangular block
       wrap into the R19 lower contour, with the block stopping at the servo
-      rear-retention tab and carrying two 6.8 mm driver openings; no
-      reinforcement continues across the servo and there is no perforated
-      central bridge; its two clamp-cap screws use face-loaded captive M3 nuts,
-      its low foot remains centered within 0.20 mm of the seated servo, and the
-      24 mm horn opening continues through the open face
+      rear-retention tab and carrying two 6.8 mm driver openings; paired rear
+      contour webs continue from Z 34.5 to 44.0 below the upper bearing while
+      stopping before the servo enclosure; no reinforcement continues across
+      the servo and there is no perforated central bridge; its two clamp-cap
+      screws use face-loaded captive M3 nuts, its low foot remains centered
+      within 0.20 mm of the seated servo, and the 24 mm horn opening continues
+      through the open face
     material: PETG
     qty_per_robot: 6
   coxa_yaw_hub_carrier_ovh:
@@ -301,14 +337,14 @@ parts:
     qty_per_robot: 6
   hip_clamp_cap_ovh:
     description: flat-printing outboard hip cap with the former upper bearing
-      pedestal removed, a flat R19 cartridge pad, and three countersunk mounting
+      pedestal removed, a flat R19 cartridge pad, and four countersunk mounting
       holes; its clamp ledge is cleared while retaining servo-tongue preload
     material: PETG
     qty_per_robot: 6
   hip_bearing_carrier_ovh:
     description: separate flat-backed cartridge containing the upper 6805
-      press seat, puller notches, three cap-mount captive-nut pockets, and two
-      top-entry coxa-tower screw paths
+      press seat, puller notches, four cap-mount captive-nut pockets including a
+      rear hotspot support, and two top-entry coxa-tower screw paths
     material: PETG
     qty_per_robot: 6
   knee_clamp_cap_ovh:
@@ -317,7 +353,10 @@ parts:
     material: PETG
     qty_per_robot: 6
   chassis_bottom:
-    description: inherited rigid-hip lower chassis and lower bearing towers
+    description: rigid-hip lower chassis and lower bearing towers with the
+      obsolete 14 x 22 mm battery-trunk pass-through at XY (48, 0) filled
+      through the full lower-sheet thickness; the center Velcro strap slots
+      remain open as the alternate battery-lead route
     material: PETG
     qty_per_robot: 1
   chassis_top_rigid:

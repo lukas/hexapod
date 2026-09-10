@@ -49,6 +49,15 @@ CONFIG_PATH = HERE / "hardware_config.toml"
 with CONFIG_PATH.open("rb") as config_file:
     CONFIG = tomllib.load(config_file)
 
+# This concept does not use production's dedicated 14 x 22 mm battery-trunk
+# pass-through at chassis XY (48, 0). Close it across the complete lower-sheet
+# stack while retaining all six Velcro strap slots, including the centre pair
+# that can also carry the battery leads. The small XY overlap makes the patch
+# a robust volumetric union with the existing hole perimeter.
+CHASSIS_TRUNK_PATCH_OVERLAP = 0.40
+CHASSIS_BOTTOM_Z0 = hp.CHASSIS_SPLIT_Z - hp.CHASSIS_BOTTOM_FLOOR_T
+CHASSIS_BOTTOM_Z1 = hp.CHASSIS_PLATE_T / 2.0
+
 # ---------------------------------------------------------------------------
 # Purchased hardware.  The first four values are user measurements; the
 # 25 mm blade/web width is the matching commodity long-U nominal and remains
@@ -184,6 +193,24 @@ COXA_REINF_ACCESS_Z = float(COXA_REINF["upper_screw_access_z_mm"])
 COXA_REINF_ACCESS_D = float(
     COXA_REINF["upper_screw_access_diameter_mm"]
 )
+COXA_BEARING_BUTTRESS_Z0 = float(
+    COXA_REINF["upper_bearing_buttress_z0_mm"]
+)
+COXA_BEARING_BUTTRESS_Z1 = float(
+    COXA_REINF["upper_bearing_buttress_z1_mm"]
+)
+COXA_BEARING_BUTTRESS_R0 = float(
+    COXA_REINF["upper_bearing_buttress_inner_radius_mm"]
+)
+COXA_BEARING_BUTTRESS_R1 = float(
+    COXA_REINF["upper_bearing_buttress_outer_radius_mm"]
+)
+COXA_BEARING_BUTTRESS_X1 = float(
+    COXA_REINF["upper_bearing_buttress_front_x_mm"]
+)
+assert COXA_BEARING_BUTTRESS_Z0 < COXA_REINF_HI_Z1
+assert COXA_BEARING_BUTTRESS_Z1 < TOWER_TOP_Z
+assert COXA_BEARING_BUTTRESS_R0 < TOWER_OUTER_R
 COXA_REINF_TAB_BLOCK_X0 = float(COXA_REINF["positive_tab_block_x0_mm"])
 COXA_REINF_TAB_BLOCK_X1 = float(COXA_REINF["positive_tab_block_x1_mm"])
 COXA_REINF_TAB_BLOCK_Y0 = float(COXA_REINF["positive_tab_block_y0_mm"])
@@ -356,9 +383,9 @@ RECEIVER_CENTER_D = 8.6
 
 # The inherited knee holder's -X wall ends exactly at the servo cavity.  The
 # old common 8 mm receiver ran 4.4 mm past this plane and into the servo body.
-# Stop the femur receiver at the real cavity wall and use short, front-loaded
-# heat-set inserts instead of nylocs behind it.  The tibia keeps the 8 mm
-# through-bolt receiver because there is no servo behind that part.
+# Stop the femur receiver at the real cavity wall and use ordinary front-loaded
+# M3 hex nuts captured by the bracket. The tibia keeps the 8 mm through-bolt
+# receiver and captive nylocs because there is no servo behind that part.
 FEMUR_CAVITY_W = (
     hp.SERVO_BODY_W
     + 2.0 * hp.WELL_BODY_CL
@@ -366,15 +393,38 @@ FEMUR_CAVITY_W = (
 )
 FEMUR_RECEIVER_X1 = hp.FEMUR_LENGTH - FEMUR_CAVITY_W / 2.0
 FEMUR_RECEIVER_T = FEMUR_RECEIVER_X1 - RECEIVER_X0
-FEMUR_INSERT_D = float(CONFIG["front"]["femur_insert_bore_diameter_mm"])
-FEMUR_INSERT_DEPTH = float(CONFIG["front"]["femur_insert_depth_mm"])
-FEMUR_INSERT_LEADIN_D = float(
-    CONFIG["front"]["femur_insert_leadin_diameter_mm"]
+FEMUR_CENTER_D = float(
+    CONFIG["front"]["femur_center_clearance_diameter_mm"]
 )
-FEMUR_INSERT_LEADIN_DEPTH = float(
-    CONFIG["front"]["femur_insert_leadin_depth_mm"]
+FEMUR_NUT_AF = float(
+    CONFIG["front"]["femur_nut_pocket_across_flats_mm"]
 )
-assert FEMUR_RECEIVER_T > FEMUR_INSERT_DEPTH + 0.3
+FEMUR_NUT_DEPTH = float(CONFIG["front"]["femur_nut_pocket_depth_mm"])
+FEMUR_NUT_T = float(CONFIG["front"]["femur_nut_nominal_thickness_mm"])
+FEMUR_FRONT_SCREW_LENGTH = float(
+    CONFIG["front"]["femur_screw_length_mm"]
+)
+FEMUR_SCREW_TIP_CLEARANCE = float(
+    CONFIG["front"]["femur_screw_tip_clearance_mm"]
+)
+FEMUR_MIN_THREAD_BEYOND_NUT = float(
+    CONFIG["front"]["femur_minimum_thread_beyond_nut_mm"]
+)
+FEMUR_SCREW_PROJECTION = FEMUR_FRONT_SCREW_LENGTH - CHORN_PLATE_T
+FEMUR_THREAD_BEYOND_NUT = FEMUR_SCREW_PROJECTION - FEMUR_NUT_T
+FEMUR_TIP_BORE_DEPTH = (
+    FEMUR_SCREW_PROJECTION + FEMUR_SCREW_TIP_CLEARANCE
+)
+FEMUR_POCKET_BACK_SKIN = FEMUR_RECEIVER_T - FEMUR_NUT_DEPTH
+FEMUR_SERVO_SIDE_SKIN = FEMUR_RECEIVER_T - FEMUR_TIP_BORE_DEPTH
+FEMUR_CENTER_TO_NUT_FLAT_WEB = (
+    FRONT_PATTERN_PCD / 2.0 - FEMUR_CENTER_D / 2.0 - FEMUR_NUT_AF / 2.0
+)
+assert FEMUR_NUT_T <= FEMUR_NUT_DEPTH
+assert FEMUR_THREAD_BEYOND_NUT >= FEMUR_MIN_THREAD_BEYOND_NUT
+assert FEMUR_POCKET_BACK_SKIN >= 0.8
+assert FEMUR_SERVO_SIDE_SKIN >= 0.4
+assert FEMUR_CENTER_TO_NUT_FLAT_WEB >= 0.09
 
 # The tube boss sits directly behind the normal four-hole pattern.  Radial
 # U-windows expose those four captive nyloc pockets from the sides while the
@@ -391,6 +441,27 @@ TIB_ACCESS_X1 = RECEIVER_X1 + float(
 )
 TIB_SOCKET_OUTER_R = hp.LEG_TUBE_OD / 2.0 + hp.LEG_TUBE_SOCKET_WALL
 TIB_SOCKET_BORE_R = hp.LEG_TUBE_OD / 2.0 + hp.LEG_TUBE_SOCKET_CLEAR
+TIB_ROOT_FLARE_R = float(TIB_SOCKET["root_flare_outer_radius_mm"])
+TIB_ROOT_FLARE_LEN = float(TIB_SOCKET["root_flare_length_mm"])
+TIB_ROOT_FLARE_OVERLAP = float(
+    TIB_SOCKET["root_flare_receiver_overlap_mm"]
+)
+TIB_ROOT_RIB_R1 = float(TIB_SOCKET["root_rib_outer_radius_mm"])
+TIB_ROOT_RIB_R0 = float(TIB_SOCKET["root_rib_inner_radius_mm"])
+TIB_ROOT_RIB_W = float(TIB_SOCKET["root_rib_width_mm"])
+TIB_ROOT_RIB_LEN = float(TIB_SOCKET["root_rib_length_mm"])
+TIB_ROOT_RIB_ANGLES = [
+    math.radians(float(value))
+    for value in TIB_SOCKET["root_rib_angles_deg"]
+]
+TIB_ACCESS_RADIAL_OUTER = max(
+    TIB_SOCKET_OUTER_R,
+    TIB_ROOT_FLARE_R,
+    TIB_ROOT_RIB_R1,
+) + 1.0
+assert TIB_ROOT_FLARE_R > TIB_SOCKET_OUTER_R
+assert TIB_ROOT_RIB_R1 > TIB_ROOT_RIB_R0
+assert TIB_ROOT_RIB_R0 < TIB_SOCKET_OUTER_R
 
 # Moving the receiver from the custom clamp's x=58.3 datum to the bought
 # bracket's x=63.5 face moves the blind tube stop by 5.2 mm.  The 30 mm socket
@@ -452,12 +523,47 @@ def _cone_y(radius: float, y0: float, y1: float,
     return mesh
 
 
-def _hex_x(across_flats: float, x0: float, x1: float,
-           y: float, z: float) -> trimesh.Trimesh:
+def _frustum_x(
+    radius0: float,
+    radius1: float,
+    x0: float,
+    x1: float,
+    *,
+    y: float = 0.0,
+    z: float = 0.0,
+    sections: int = 96,
+) -> trimesh.Trimesh:
+    """Solid circular frustum along X, with ``radius0`` at ``x0``."""
+    length = x1 - x0
+    assert length > 0.0 and radius0 > 0.0 and radius1 > 0.0
+    profile = np.array([
+        [0.0, 0.0],
+        [radius0, 0.0],
+        [radius1, length],
+        [0.0, length],
+        [0.0, 0.0],
+    ])
+    mesh = trimesh.creation.revolve(profile, sections=sections)
+    mesh.apply_transform(rotation_matrix(math.pi / 2.0, [0, 1, 0]))
+    mesh.apply_translation([x0, y, z])
+    return mesh
+
+
+def _hex_x(
+    across_flats: float,
+    x0: float,
+    x1: float,
+    y: float,
+    z: float,
+    *,
+    flat_normal_angle_rad: float = 0.0,
+) -> trimesh.Trimesh:
+    """Hex prism on X with one flat normal in the requested YZ direction."""
     mesh = trimesh.creation.cylinder(
         radius=across_flats / math.sqrt(3.0), height=x1 - x0, sections=6
     )
     mesh.apply_transform(rotation_matrix(math.pi / 2.0, [0, 1, 0]))
+    mesh.apply_transform(rotation_matrix(flat_normal_angle_rad, [1, 0, 0]))
     mesh.apply_translation([(x0 + x1) / 2.0, y, z])
     return mesh
 
@@ -634,6 +740,25 @@ def _inter_vol(a: trimesh.Trimesh, b: trimesh.Trimesh) -> float:
     return base._inter_vol(a, b)
 
 
+def make_chassis_bottom_without_trunk(
+    source: trimesh.Trimesh,
+) -> trimesh.Trimesh:
+    """Close only the inherited rectangular battery-trunk through-hole."""
+    patch = hp._box(
+        (
+            hp.BATTERY_TRUNK_HOLE_X + 2.0 * CHASSIS_TRUNK_PATCH_OVERLAP,
+            hp.BATTERY_TRUNK_HOLE_Y + 2.0 * CHASSIS_TRUNK_PATCH_OVERLAP,
+            CHASSIS_BOTTOM_Z1 - CHASSIS_BOTTOM_Z0,
+        ),
+        center=(
+            hp.BATTERY_TRUNK_HOLE_CENTRE[0],
+            hp.BATTERY_TRUNK_HOLE_CENTRE[1],
+            0.5 * (CHASSIS_BOTTOM_Z0 + CHASSIS_BOTTOM_Z1),
+        ),
+    )
+    return _union(source, patch)
+
+
 def _front_usual_m3_centres() -> list[tuple[float, float]]:
     """Return the ordinary four (y,z) centres on the closed/front web."""
     r = FRONT_PATTERN_PCD / 2.0
@@ -739,32 +864,36 @@ def _tibia_receiver_plate() -> trimesh.Trimesh:
 
 
 def _femur_receiver_cuts() -> list[trimesh.Trimesh]:
-    """Centre clearance plus six blind, bracket-side insert pockets."""
+    """Centre clearance plus six front-loaded captive-M3-nut pockets."""
     cuts = [
         _cyl_x(
-            RECEIVER_CENTER_D / 2.0,
+            FEMUR_CENTER_D / 2.0,
             RECEIVER_X0 - 0.5,
             FEMUR_RECEIVER_X1 + 0.5,
             z=BRACKET_MID_Z,
         )
     ]
     for y, z in _front_m3_centres():
+        # Aim an inward flat at the centre hole. This preserves the maximum
+        # possible web between the four PCD nut pockets and the Phi8 opening.
+        flat_angle = math.atan2(z - BRACKET_MID_Z, y)
         cuts.append(
             _cyl_x(
-                FEMUR_INSERT_D / 2.0,
+                FRONT_M3_D / 2.0,
                 RECEIVER_X0 - 0.3,
-                RECEIVER_X0 + FEMUR_INSERT_DEPTH,
+                RECEIVER_X0 + FEMUR_TIP_BORE_DEPTH,
                 y=y,
                 z=z,
             )
         )
         cuts.append(
-            _cyl_x(
-                FEMUR_INSERT_LEADIN_D / 2.0,
-                RECEIVER_X0 - 0.4,
-                RECEIVER_X0 + FEMUR_INSERT_LEADIN_DEPTH,
+            _hex_x(
+                FEMUR_NUT_AF,
+                RECEIVER_X0 - 0.2,
+                RECEIVER_X0 + FEMUR_NUT_DEPTH,
                 y=y,
                 z=z,
+                flat_normal_angle_rad=flat_angle,
             )
         )
     return cuts
@@ -822,7 +951,7 @@ def make_femur_body(source: trimesh.Trimesh) -> trimesh.Trimesh:
     receiver = _femur_receiver_plate()
     body = _union(trimmed, receiver)
     # The inherited wall overlaps the receiver and would otherwise refill the
-    # insert pockets during union, so cut the final interface once more.
+    # captive-nut pockets during union, so cut the final interface once more.
     body = _diff(body, *_femur_receiver_cuts())
     knee_outboard_bolt = [
         centre for centre in hp.servo_clamp_bolt_centres()
@@ -882,7 +1011,7 @@ def make_knee_cap_premade(source: trimesh.Trimesh) -> trimesh.Trimesh:
 def _tibia_ring_access_cuts() -> list[trimesh.Trimesh]:
     """Four rounded radial windows into the boss-covered nyloc pockets."""
     cuts = []
-    radial_outer = TIB_SOCKET_OUTER_R + 1.0
+    radial_outer = TIB_ACCESS_RADIAL_OUTER
     xmid = (TIB_ACCESS_X0 + TIB_ACCESS_X1) / 2.0
     xlen = TIB_ACCESS_X1 - TIB_ACCESS_X0
     for y, z in _front_usual_m3_centres():
@@ -920,8 +1049,38 @@ def _tibia_ring_access_cuts() -> list[trimesh.Trimesh]:
     return cuts
 
 
+def _tibia_root_reinforcement() -> list[trimesh.Trimesh]:
+    """Tapered receiver shoulder plus diagonal ribs between nut windows."""
+    x0 = RECEIVER_X1 - TIB_ROOT_FLARE_OVERLAP
+    flare = _frustum_x(
+        TIB_ROOT_FLARE_R,
+        TIB_SOCKET_OUTER_R,
+        x0,
+        RECEIVER_X1 + TIB_ROOT_FLARE_LEN,
+        z=BRACKET_MID_Z,
+    )
+    ribs = []
+    rib_x0 = RECEIVER_X1 - TIB_ROOT_FLARE_OVERLAP
+    rib_x1 = RECEIVER_X1 + TIB_ROOT_RIB_LEN
+    radial_mid = (TIB_ROOT_RIB_R0 + TIB_ROOT_RIB_R1) / 2.0
+    for angle in TIB_ROOT_RIB_ANGLES:
+        rib = trimesh.creation.box(extents=(
+            rib_x1 - rib_x0,
+            TIB_ROOT_RIB_R1 - TIB_ROOT_RIB_R0,
+            TIB_ROOT_RIB_W,
+        ))
+        rib.apply_transform(rotation_matrix(angle, [1, 0, 0]))
+        rib.apply_translation([
+            (rib_x0 + rib_x1) / 2.0,
+            radial_mid * math.cos(angle),
+            BRACKET_MID_Z + radial_mid * math.sin(angle),
+        ])
+        ribs.append(rib)
+    return [flare, *ribs]
+
+
 def make_tibia_socket() -> trimesh.Trimesh:
-    """Six-hole receiver and Phi8 tube socket with four nut windows."""
+    """Six-hole receiver and reinforced Phi8 socket with four nut windows."""
     receiver = _tibia_receiver_plate()
     boss = _cyl_x(
         hp.LEG_TUBE_OD / 2.0 + hp.LEG_TUBE_SOCKET_WALL,
@@ -938,7 +1097,7 @@ def make_tibia_socket() -> trimesh.Trimesh:
     # Keep a 0.30 mm tube stop behind the metal web's Phi8 centre opening.
     # The four boss-covered nyloc pockets open radially through U-windows;
     # the two measured outer-pair pockets already lie outside the ring.
-    return _diff(_union(receiver, boss), bore,
+    return _diff(_union(receiver, boss, *_tibia_root_reinforcement()), bore,
                  *_receiver_cuts(include_center=False),
                  *_tibia_ring_access_cuts())
 
@@ -1090,6 +1249,53 @@ def _upper_arm_access() -> trimesh.Trimesh:
     )
 
 
+def _upper_bearing_root_buttresses() -> list[trimesh.Trimesh]:
+    """Two rear contour webs carrying the upper bearing into the coxa.
+
+    These stop before the servo enclosure: only the circular roots continue
+    upward. They overlap the existing upper supports at their lower edge and
+    the R19 tower through their full height.
+    """
+    annulus = _diff(
+        _cyl_z(
+            COXA_BEARING_BUTTRESS_R1,
+            COXA_BEARING_BUTTRESS_Z0,
+            COXA_BEARING_BUTTRESS_Z1,
+        ),
+        _cyl_z(
+            COXA_BEARING_BUTTRESS_R0,
+            COXA_BEARING_BUTTRESS_Z0 - 0.2,
+            COXA_BEARING_BUTTRESS_Z1 + 0.2,
+        ),
+    )
+    x0 = -COXA_BEARING_BUTTRESS_R1 - 0.5
+    buttresses = []
+    for side in (-1, 1):
+        y0, y1 = (
+            (0.5, COXA_BEARING_BUTTRESS_R1 + 0.5)
+            if side > 0
+            else (-COXA_BEARING_BUTTRESS_R1 - 0.5, -0.5)
+        )
+        buttresses.append(_intersect(
+            annulus,
+            _box(
+                (
+                    COXA_BEARING_BUTTRESS_X1 - x0,
+                    y1 - y0,
+                    COXA_BEARING_BUTTRESS_Z1
+                    - COXA_BEARING_BUTTRESS_Z0 + 0.4,
+                ),
+                (
+                    (x0 + COXA_BEARING_BUTTRESS_X1) / 2.0,
+                    (y0 + y1) / 2.0,
+                    (COXA_BEARING_BUTTRESS_Z0
+                     + COXA_BEARING_BUTTRESS_Z1) / 2.0,
+                ),
+            ),
+        ))
+    return buttresses
+
+
 def _positive_servo_tab_block() -> trimesh.Trimesh:
     """One solid contour-rooted block ending at the servo retention tab."""
     # A full-height circular root keeps the earlier contour requirement and
@@ -1142,7 +1348,7 @@ def _positive_servo_tab_block() -> trimesh.Trimesh:
 
 
 def make_coxa_reinforcement_rails() -> trimesh.Trimesh:
-    """Two negative-Y ribs plus one solid positive-Y servo-tab block."""
+    """Servo supports plus two rear webs below the upper bearing."""
     lower_arms = [
         _contoured_arm(
             side,
@@ -1169,6 +1375,7 @@ def make_coxa_reinforcement_rails() -> trimesh.Trimesh:
         *lower_arms,
         *upper_arms,
         _positive_servo_tab_block(),
+        *_upper_bearing_root_buttresses(),
     )
     return _diff(rails, _upper_arm_access())
 
@@ -1232,7 +1439,14 @@ def make_integral_tower_coxa(source: trimesh.Trimesh) -> trimesh.Trimesh:
         f"coxa contour arms have only {source_overlap:.1f} mm3 cradle overlap"
     )
     body = _union(source.copy(), tower, rails)
-    return _diff(body, *_clamp_cap_captive_nut_cuts(HIP_CAP_TO_COXA))
+    # The new upper bearing-root webs overlap the lower end of the existing
+    # top-entry screw corridors. Re-cut those authored paths after the union;
+    # otherwise the reinforcement would make the carrier impossible to fit.
+    return _diff(
+        body,
+        *_tower_nut_cuts(),
+        *_clamp_cap_captive_nut_cuts(HIP_CAP_TO_COXA),
+    )
 
 
 def split_coxa_yaw_hub(
@@ -1474,7 +1688,7 @@ def make_reinforced_hip_cap(
     pair is supposed to close face-to-face (only the cap tongue intentionally
     preloads the servo), so carve clearance rather than allowing that pair.
     The old integral 6805 pedestal is removed at the cap-face plane; a circular
-    flat pad and three countersunk through-holes receive the new cartridge.
+    flat pad and four countersunk through-holes receive the new cartridge.
     """
     cap = source.copy()
     bearing_cut = _cyl_y(
@@ -1519,7 +1733,12 @@ def make_reinforced_hip_cap(
 
 
 def _tibia_tube() -> tuple[trimesh.Trimesh, np.ndarray]:
-    """Shorter visual tube while retaining the production foot position."""
+    """Actual hollow 8 mm OD / 6 mm ID tube at the shortened length.
+
+    The old scene-only reference was a solid cylinder. That was adequate for
+    collision visualization but overstated bending stiffness in FEA. Keep the
+    physical 1 mm wall so the BuildViz load-chain study sees the real section.
+    """
     start_prod = (base.MH @ np.array([
         hp._YOKE_SOCKET_X, 0.0, hp.JOINT_SOCKET_Z, 1.0
     ]))[:3]
@@ -1527,7 +1746,13 @@ def _tibia_tube() -> tuple[trimesh.Trimesh, np.ndarray]:
     start = (base.MH @ np.array([
         TIB_BORE_X0, 0.0, hp.JOINT_SOCKET_Z, 1.0
     ]))[:3]
-    tube = hp._tube_between(start, tube_end, hp.LEG_TUBE_OD / 2.0)
+    outer = hp._tube_between(start, tube_end, hp.LEG_TUBE_OD / 2.0)
+    axis = tube_end - start
+    axis /= np.linalg.norm(axis)
+    inner_radius = hp.LEG_TUBE_OD / 2.0 - hp.LEG_TUBE_WALL
+    inner = hp._tube_between(start - 0.5 * axis, tube_end + 0.5 * axis,
+                             inner_radius)
+    tube = _diff(outer, inner)
     foot_frame = hp._frame(tube_end, (1, 0, 0), (0, 0, 1))
     return tube, foot_frame
 
@@ -1592,6 +1817,7 @@ def build_meshes() -> dict[str, trimesh.Trimesh]:
     source_knee_cap = meshes["knee_clamp_cap_ovh"]
     source_coxa = meshes["coxa_link_ovh"]
     source_hip_cap = meshes["hip_clamp_cap_ovh"]
+    source_chassis_bottom = meshes["chassis_bottom"]
     reinforced_coxa_assembly = make_integral_tower_coxa(source_coxa)
     reinforced_coxa, lower_yaw_carrier = split_coxa_yaw_hub(
         reinforced_coxa_assembly
@@ -1610,6 +1836,9 @@ def build_meshes() -> dict[str, trimesh.Trimesh]:
         "coxa_link_assembled_check": reinforced_coxa_assembly,
         "hip_clamp_cap_ovh": flat_hip_cap,
         "hip_bearing_carrier_ovh": make_hip_bearing_carrier(),
+        "chassis_bottom": make_chassis_bottom_without_trunk(
+            source_chassis_bottom
+        ),
     })
     meshes["tibia_tube_ovh"], _ = _tibia_tube()
 
@@ -1619,12 +1848,12 @@ def build_meshes() -> dict[str, trimesh.Trimesh]:
         "front_pattern_coupon",
         "coxa_link_ovh", "coxa_yaw_hub_carrier_ovh",
         "hip_clamp_cap_ovh", "hip_bearing_carrier_ovh",
-        "tibia_tube_ovh",
+        "tibia_tube_ovh", "chassis_bottom",
     ):
         meshes[key] = hp._heal_for_export(meshes[key])
     for key in (
         "coxa_link_ovh", "coxa_yaw_hub_carrier_ovh",
-        "hip_clamp_cap_ovh", "hip_bearing_carrier_ovh",
+        "hip_clamp_cap_ovh", "hip_bearing_carrier_ovh", "chassis_bottom",
     ):
         meshes[key] = _buildviz_clean(meshes[key], key)
 
@@ -1712,8 +1941,9 @@ def check_parts(meshes: dict[str, trimesh.Trimesh]) -> dict:
         | meshes["tibia_ovh_socket"].contains(np.asarray(tibia_line))
     ).any(), "six through-bolt paths blocked in tibia receiver"
 
-    # Femur: six blind insert bores open from the bracket face, with a solid
-    # skin before the servo cavity.  No nut or screw tip enters the body.
+    # Femur: six captive hex pockets open from the bracket face, with a solid
+    # skin before the servo cavity. The seated metal web closes the pockets;
+    # each M3x5 tip passes through its nut without entering the servo cavity.
     femur = meshes["femur_ovh_body"]
     assert abs(FEMUR_RECEIVER_T - 3.6) < 0.02
     for index, (y, z) in enumerate(_front_m3_centres()):
@@ -1722,17 +1952,17 @@ def check_parts(meshes: dict[str, trimesh.Trimesh]) -> dict:
                 [x, y, z]
                 for x in np.linspace(
                     FRONT_X0 - 0.2,
-                    RECEIVER_X0 + FEMUR_INSERT_DEPTH - 0.1,
+                    RECEIVER_X0 + FEMUR_SCREW_PROJECTION - 0.1,
                     24,
                 )
             ]
         )
         assert not (
             bracket.contains(open_line) | femur.contains(open_line)
-        ).any(), f"femur insert path {index} blocked"
+        ).any(), f"femur captive-nut screw path {index} blocked"
         blind_end = np.array([[FEMUR_RECEIVER_X1 - 0.2, y, z]])
         assert femur.contains(blind_end).all(), \
-            f"femur insert {index} has no servo-side retaining skin"
+            f"femur nut {index} has no servo-side retaining skin"
 
     # The exact user dimensions intentionally encode the 0.12 mm/side spring
     # spread calculated above.  In the rigid CAD that appears as a small face
@@ -1781,6 +2011,58 @@ def check_parts(meshes: dict[str, trimesh.Trimesh]) -> dict:
         f"Ø{EXTRA_PHYSICAL_HOLE_D:.1f}, printed clearance Ø{FRONT_M3_D:.1f}"
     )
     return masses
+
+
+def check_chassis_bottom_without_trunk(
+    meshes: dict[str, trimesh.Trimesh],
+) -> dict[str, float | int | bool]:
+    """The circled battery-trunk rectangle is solid through the full plate."""
+    chassis = meshes["chassis_bottom"]
+    assert chassis.is_watertight and chassis.is_volume, \
+        "closed-port chassis_bottom is not a volume"
+    assert chassis.body_count == 1, \
+        "closed-port chassis_bottom is not one connected body"
+
+    cx, cy = hp.BATTERY_TRUNK_HOLE_CENTRE
+    xs = np.linspace(
+        cx - hp.BATTERY_TRUNK_HOLE_X / 2.0 + 1.0,
+        cx + hp.BATTERY_TRUNK_HOLE_X / 2.0 - 1.0,
+        4,
+    )
+    ys = np.linspace(
+        cy - hp.BATTERY_TRUNK_HOLE_Y / 2.0 + 1.0,
+        cy + hp.BATTERY_TRUNK_HOLE_Y / 2.0 - 1.0,
+        5,
+    )
+    zs = np.linspace(CHASSIS_BOTTOM_Z0 + 0.5, CHASSIS_BOTTOM_Z1 - 0.5, 3)
+    probes = np.array([[x, y, z] for x in xs for y in ys for z in zs])
+    filled = chassis.contains(probes)
+    assert filled.all(), (
+        f"battery-trunk patch left {int((~filled).sum())} of "
+        f"{len(filled)} interior probes open"
+    )
+
+    # The centre strap pair remains the intentional alternate lead route.
+    strap_x = hp.BATTERY_HOLDER_CENTRE_X
+    strap_probes = np.array([
+        [strap_x, sy * hp.BATTERY_STRAP_SLOT_Y, z]
+        for sy in (-1.0, 1.0)
+        for z in (CHASSIS_BOTTOM_Z0 - 0.2, -2.0, CHASSIS_BOTTOM_Z1 + 0.2)
+    ])
+    assert not chassis.contains(strap_probes).any(), \
+        "centre Velcro strap / alternate battery-lead passage was blocked"
+
+    print(
+        "  chassis bottom: former 14 x 22 mm battery-trunk port closed; "
+        "centre Velcro strap passage retained"
+    )
+    return {
+        "former_trunk_hole_closed": True,
+        "former_trunk_hole_x_mm": hp.BATTERY_TRUNK_HOLE_X,
+        "former_trunk_hole_y_mm": hp.BATTERY_TRUNK_HOLE_Y,
+        "solid_probes": int(filled.sum()),
+        "centre_strap_passage_retained": True,
+    }
 
 
 def check_clamp_cap_captive_nuts(
@@ -1917,7 +2199,7 @@ def check_clamp_cap_captive_nuts(
 
 
 def check_femur_servo_fit(meshes: dict[str, trimesh.Trimesh]) -> dict:
-    """The final six-insert femur body must not occupy the servo envelope."""
+    """The final six-nut femur body must not occupy the servo envelope."""
     transforms = base.leg_transforms(0)
     femur = base._placed(
         meshes,
@@ -1959,17 +2241,24 @@ def check_femur_servo_fit(meshes: dict[str, trimesh.Trimesh]) -> dict:
         "cap_bracket_overlap_mm3": round(cap_bracket_overlap, 4),
         "cap_servo_intentional_press_mm3": round(cap_servo_press, 2),
         "receiver_thickness_mm": round(FEMUR_RECEIVER_T, 2),
-        "retention": "6x short front-loaded M3 heat-set inserts",
-        "insert_depth_mm": FEMUR_INSERT_DEPTH,
-        "servo_side_skin_mm": round(
-            FEMUR_RECEIVER_T - FEMUR_INSERT_DEPTH, 2
+        "retention": "6x front-loaded ordinary captive M3 hex nuts",
+        "screw": f"M3x{FEMUR_FRONT_SCREW_LENGTH:g}",
+        "nut_pocket_across_flats_mm": FEMUR_NUT_AF,
+        "nut_pocket_depth_mm": FEMUR_NUT_DEPTH,
+        "pocket_back_skin_mm": round(FEMUR_POCKET_BACK_SKIN, 2),
+        "servo_side_skin_mm": round(FEMUR_SERVO_SIDE_SKIN, 2),
+        "thread_beyond_nut_mm": round(FEMUR_THREAD_BEYOND_NUT, 2),
+        "center_to_nut_flat_web_mm": round(
+            FEMUR_CENTER_TO_NUT_FLAT_WEB, 2
         ),
     }
     print(
         "  femur servo fit: 0.00 mm3 servo/receiver and cap/interface "
         "overlap; "
         f"{FEMUR_RECEIVER_T:.1f} mm wall with 6x "
-        f"{FEMUR_INSERT_DEPTH:.1f} mm front-loaded insert pockets"
+        f"{FEMUR_NUT_DEPTH:.1f} mm front-loaded M3 hex pockets; "
+        f"M3x{FEMUR_FRONT_SCREW_LENGTH:g} reaches "
+        f"{FEMUR_THREAD_BEYOND_NUT:.1f} mm beyond each nut"
     )
     return result
 
@@ -2255,7 +2544,10 @@ def check_split_hip_bearing(
         "carrier_flat_face_y_mm": round(float(carrier.bounds[0, 1]), 2),
         "cap_carrier_overlap_mm3": round(cap_carrier_overlap, 4),
         "bearing_press_overlap_mm3": round(bearing_press, 3),
-        "attachment": "3x M3x8 countersunk screws into captive M3 nuts",
+        "attachment": (
+            f"{len(BEARING_CARRIER_SCREW_ANGLES)}x M3x8 countersunk screws "
+            "into captive M3 nuts"
+        ),
         "nut_pocket_across_flats_mm": BEARING_CARRIER_NUT_AF,
         "nut_pocket_depth_mm": BEARING_CARRIER_NUT_DEPTH,
         "minimum_nut_to_outer_shell_mm": round(nut_shell, 2),
@@ -2263,7 +2555,8 @@ def check_split_hip_bearing(
     }
     print(
         "  split upper bearing: flat hip cap + flat-backed carrier, "
-        f"3x M3x8 CSK + captive nuts, bearing press {bearing_press:.2f} mm3"
+        f"{len(BEARING_CARRIER_SCREW_ANGLES)}x M3x8 CSK + captive nuts, "
+        f"bearing press {bearing_press:.2f} mm3"
     )
     return result
 
@@ -2281,6 +2574,12 @@ def check_integral_coxa_tower(meshes: dict[str, trimesh.Trimesh]) -> dict:
         "expected one positive-Y tab block plus two negative-Y arms, "
         f"got {rails.body_count} reinforcement bodies"
     )
+    buttress_probes = np.array([
+        [-10.0, side * 18.0, 40.0]
+        for side in (-1.0, 1.0)
+    ])
+    assert coxa.contains(buttress_probes).all(), \
+        "upper bearing-root buttress is not continuous with the coxa"
     holder_foot = make_centered_servo_holder_foot()
     holder_foot_centre_y = (
         COXA_HOLDER_FOOT_Y0 + COXA_HOLDER_FOOT_Y1
@@ -2447,7 +2746,8 @@ def check_integral_coxa_tower(meshes: dict[str, trimesh.Trimesh]) -> dict:
         "yaw_driver_envelope_diameter_mm": hp.YAW_HUB_HORN_HEAD_CB_OD,
         "rear_yaw_driver_extra_radial_clearance_mm": TOWER_YAW_DRIVER_EXTRA_R,
         "reinforcement": (
-            "solid positive-Y servo-tab block plus two negative-Y arms"
+            "solid positive-Y servo-tab block, two negative-Y arms, and "
+            "two rear upper-bearing root buttresses"
         ),
         "reinforcement_arm_count": rails.body_count,
         "upper_arm_screw_access_diameter_mm": COXA_REINF_ACCESS_D,
@@ -2472,12 +2772,21 @@ def check_integral_coxa_tower(meshes: dict[str, trimesh.Trimesh]) -> dict:
         "positive_tab_driver_diameter_mm": COXA_REINF_TAB_DRIVER_D,
         "lower_rail_z_range_mm": [COXA_REINF_LO_Z0, COXA_REINF_LO_Z1],
         "upper_rail_z_range_mm": [COXA_REINF_HI_Z0, COXA_REINF_HI_Z1],
+        "upper_bearing_buttress_z_range_mm": [
+            COXA_BEARING_BUTTRESS_Z0,
+            COXA_BEARING_BUTTRESS_Z1,
+        ],
+        "upper_bearing_buttress_outer_radius_mm": (
+            COXA_BEARING_BUTTRESS_R1
+        ),
+        "upper_bearing_buttress_front_x_mm": COXA_BEARING_BUTTRESS_X1,
         "reinforcement_volume_mm3": round(float(rails.volume), 1),
     }
     print(
         "  integral coxa tower: "
         f"rear R{TOWER_OUTER_R:.1f} contour, x <= {TOWER_FRONT_X:.1f}, "
         f"{result['height_mm']:.2f} mm straight rise, solid tab block, "
+        "paired upper-bearing root buttresses, "
         f"centered holder within {holder_centre_error:.2f} mm, "
         "2x top-entry M3 + captive nuts, "
         f"{TOWER_YAW_DRIVER_EXTRA_R:.1f} mm rear-driver scallop margin"
@@ -2506,7 +2815,7 @@ def check_tibia_screw_access(meshes: dict[str, trimesh.Trimesh]) -> dict:
     probe_width = TIB_ACCESS_W - 0.4
     probe_x0 = TIB_ACCESS_X0 + 0.2
     probe_x1 = TIB_ACCESS_X1 - 0.2
-    radial_outer = TIB_SOCKET_OUTER_R + 0.5
+    radial_outer = TIB_ACCESS_RADIAL_OUTER - 0.5
     for index, (y, z) in enumerate(_front_usual_m3_centres()):
         probes = [
             _cyl_x(probe_width / 2.0, probe_x0, probe_x1, y=y, z=z)
@@ -2578,6 +2887,25 @@ def check_tibia_screw_access(meshes: dict[str, trimesh.Trimesh]) -> dict:
     assert socket.contains(np.asarray(collar_points)).all(), \
         "tibia mouth no longer has a complete supporting collar"
 
+    # The four diagonal sectors are the uninterrupted load paths around the
+    # cardinal screw windows. Verify the tapered shoulder and its outer ribs
+    # survived the final booleans at the receiver root.
+    root_x = RECEIVER_X1 + 0.8
+    root_points = []
+    for angle in TIB_ROOT_RIB_ANGLES:
+        for radius in (
+            TIB_SOCKET_OUTER_R + 0.5,
+            TIB_ROOT_FLARE_R - 0.6,
+            TIB_ROOT_RIB_R1 - 0.6,
+        ):
+            root_points.append([
+                root_x,
+                radius * math.cos(angle),
+                BRACKET_MID_Z + radius * math.sin(angle),
+            ])
+    assert socket.contains(np.asarray(root_points)).all(), \
+        "tibia root flare/rib load path is discontinuous"
+
     result = {
         "accessible_screw_sites": 6,
         "radial_u_windows": 4,
@@ -2589,12 +2917,18 @@ def check_tibia_screw_access(meshes: dict[str, trimesh.Trimesh]) -> dict:
             UNSUPPORTED_TUBE_REDUCTION, 2
         ),
         "complete_mouth_collar_length_mm": round(full_collar_len, 2),
+        "root_flare_outer_diameter_mm": 2.0 * TIB_ROOT_FLARE_R,
+        "root_flare_length_mm": TIB_ROOT_FLARE_LEN,
+        "diagonal_root_ribs": len(TIB_ROOT_RIB_ANGLES),
+        "root_rib_outer_radius_mm": TIB_ROOT_RIB_R1,
     }
     print(
         "  tibia screw access: 4 rounded radial nut windows + 2 clear outer "
         f"pockets; all 6 accessible; {engagement:.1f} mm tube engagement "
         f"({UNSUPPORTED_TUBE_REDUCTION:.1f} mm more support), "
-        f"{full_collar_len:.2f} mm complete collar at mouth"
+        f"{full_collar_len:.2f} mm complete collar at mouth; "
+        f"R{TIB_ROOT_FLARE_R:.1f} x {TIB_ROOT_FLARE_LEN:.1f} mm root flare "
+        f"with {len(TIB_ROOT_RIB_ANGLES)} diagonal ribs"
     )
     return result
 
@@ -2818,7 +3152,7 @@ def build_scene(meshes: dict[str, trimesh.Trimesh], limit: float) -> dict:
         scene["instances"].append({
             "id": carrier_id,
             "meshId": "stl:hip_bearing_carrier_ovh",
-            "name": f"L{leg} upper bearing carrier + 3 nut traps (NEW)",
+            "name": f"L{leg} upper bearing carrier + 4 nut traps (NEW)",
             "partType": "hip_bearing_carrier_ovh",
             "role": "variant",
             "leg": leg,
@@ -3013,6 +3347,7 @@ def main() -> None:
     meshes = build_meshes()
     print("premade-chorn checks ...")
     masses = check_parts(meshes)
+    chassis_bottom = check_chassis_bottom_without_trunk(meshes)
     clamp_cap_captive_nuts = check_clamp_cap_captive_nuts(meshes)
     femur_servo_fit = check_femur_servo_fit(meshes)
     tibia_screw_access = check_tibia_screw_access(meshes)
@@ -3093,6 +3428,7 @@ def main() -> None:
                 MOUTH_OUTBOARD_THAN_OVERHEAD
             ),
         },
+        "chassis_bottom": chassis_bottom,
         "masses": masses,
         "clamp_cap_captive_nuts": clamp_cap_captive_nuts,
         "femur_servo_fit": femur_servo_fit,

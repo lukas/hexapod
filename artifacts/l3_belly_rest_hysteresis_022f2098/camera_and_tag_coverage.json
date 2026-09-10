@@ -1,0 +1,60 @@
+{
+ "experiment_id": "022f2098d5644629869380d2a91334d0",
+ "generated_utc": "2026-09-10T16:11:25Z",
+ "cameras": {
+  "required": [
+   "robot-1",
+   "robot-2",
+   "robot-3"
+  ],
+  "source": "camera server :8766, bus-free",
+  "record": true,
+  "freshness_watchdog_s": 2.0,
+  "per_camera": {
+   "robot-1": {
+    "frames": 265,
+    "span_s": 174.9,
+    "max_gap_s": 0.709,
+    "median_gap_s": 0.691,
+    "gaps_over_2s": 0
+   },
+   "robot-3": {
+    "frames": 265,
+    "span_s": 174.9,
+    "max_gap_s": 0.708,
+    "median_gap_s": 0.69,
+    "gaps_over_2s": 0
+   },
+   "robot-2": {
+    "frames": 265,
+    "span_s": 174.9,
+    "max_gap_s": 0.709,
+    "median_gap_s": 0.69,
+    "gaps_over_2s": 0
+   }
+  },
+  "verdict": "PASS -- all three cameras recorded the full window; no gap exceeded the 2.0 s freshness watchdog and no camera_stall stop fired"
+ },
+ "chassis_tag_watch": {
+  "status": "MEASURED (baseline resolved) -- unlike run 1, which recorded UNMEASURED",
+  "baseline": {
+   "resolved_samples": 5,
+   "base_xy_mm": [
+    465.17920000000004,
+    618.6043999999999
+   ],
+   "base_yaw_deg": 83.54560000000001
+  },
+  "samples_total": 144,
+  "samples_resolved": 44,
+  "max_shift_mm": 31.5,
+  "shift_trip_mm": 120.0,
+  "max_yaw_delta_deg": 4.86,
+  "yaw_trip_deg": 15.0,
+  "trips": 0,
+  "max_over_bound_streak": 0,
+  "measurement_uncertainty_note": "err95 on the resolved samples runs 32-195 mm, i.e. larger than the 31.5 mm largest observed shift. The watch therefore bounds GROSS chassis motion only, which is exactly the scope the plan assigns it ('bounds gross chassis motion only; joint telemetry answers the pose-held question'). It is reported as a passed bound, not as a 31.5 mm measurement of real movement.",
+  "verdict": "PASS -- no trip; gross chassis motion bounded well inside both the 120 mm and 15 deg limits"
+ },
+ "improvement_over_run1": "run 1 could not resolve a chassis-tag baseline and recorded the condition UNMEASURED, which the plan expressly allows. This run resolved a baseline from 5 samples and ran the watch live for the whole window, so the replicate carries strictly better gross-motion evidence than the run it replicates."
+}

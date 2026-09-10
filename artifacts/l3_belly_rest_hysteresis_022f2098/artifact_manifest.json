@@ -1,0 +1,218 @@
+{
+ "experiment_id": "022f2098d5644629869380d2a91334d0",
+ "note": "Robot Lab artifact names must be flat, so directory separators are encoded as \"__\" (run2/result.json -> run2__result.json). Camera frames exceed the per-experiment artifact limit, so each run's frames directory is bundled as <run>__frames.tar.gz with internal paths robot-N/NNNNN.jpg; every frame sha256 is listed in the matching <run>__frame_index.jsonl.",
+ "artifact_count": 35,
+ "total_bytes": 113793589,
+ "artifacts": [
+  {
+   "artifact": "abort_path_check.json",
+   "original_path": "abort_path_check.json",
+   "bytes": 2132,
+   "sha256": "a5012da4222b44d0f075fe09fc30cc0095a8c0cfb4ff75f877a966db0af07da2"
+  },
+  {
+   "artifact": "analyze_l3_hysteresis.py",
+   "original_path": "analyze_l3_hysteresis.py",
+   "bytes": 6669,
+   "sha256": "ea13a61bcd0117eaa70dd2f6d286f5501077debae931580aa0174aa3d8ec59f3"
+  },
+  {
+   "artifact": "camera_and_tag_coverage.json",
+   "original_path": "camera_and_tag_coverage.json",
+   "bytes": 2146,
+   "sha256": "be022d711195c1164636ad0b265d2e1d30347214f3b286156e6c4b3182a40592"
+  },
+  {
+   "artifact": "exclusive_command_path_demo.py",
+   "original_path": "exclusive_command_path_demo.py",
+   "bytes": 5054,
+   "sha256": "dab2e6766bb6733732458235805a5b3418c6e516baf6c158f678406c2f5499c4"
+  },
+  {
+   "artifact": "fetch_sysid_csv.py",
+   "original_path": "fetch_sysid_csv.py",
+   "bytes": 1922,
+   "sha256": "6251a7a8f8557ec640a55d48aa679fa945d4eafdf464c886738c01191f58a201"
+  },
+  {
+   "artifact": "guarded_runner_l3_hysteresis.py",
+   "original_path": "guarded_runner_l3_hysteresis.py",
+   "bytes": 43408,
+   "sha256": "a66f0b5b37ef80fac93f520e0cdd5a5f5063ce736b51bc4c3475474cfebaafad"
+  },
+  {
+   "artifact": "l3_run2_loop_metrics.json",
+   "original_path": "l3_run2_loop_metrics.json",
+   "bytes": 7589,
+   "sha256": "8ffcd246186347289fbaa088459d1234bf30d7566c96c091d30bd62de1826ed7"
+  },
+  {
+   "artifact": "l3_run2_posthoc.json",
+   "original_path": "l3_run2_posthoc.json",
+   "bytes": 5546,
+   "sha256": "fa556d39851cf97053f39618f08c59b6f1e98793793446b339e97e9660ecd2cc"
+  },
+  {
+   "artifact": "l3_swept_area_clearance.json",
+   "original_path": "l3_swept_area_clearance.json",
+   "bytes": 4531,
+   "sha256": "f256531461e0f4c6b5705875c820f15a81399ad237f4a5dd5a3a2cb0d6b13e6f"
+  },
+  {
+   "artifact": "l3_two_run_pooled.json",
+   "original_path": "l3_two_run_pooled.json",
+   "bytes": 6429,
+   "sha256": "48604e41c658f65c0d43e126278151fd668658f28a7d078203903631e7be52b1"
+  },
+  {
+   "artifact": "package_artifacts.py",
+   "original_path": "package_artifacts.py",
+   "bytes": 3857,
+   "sha256": "ceb682ac6db55f0b5ee438da61e196f657428d4e4a60e3c996745b12f20999ba"
+  },
+  {
+   "artifact": "posthoc_checks_l3.py",
+   "original_path": "posthoc_checks_l3.py",
+   "bytes": 5685,
+   "sha256": "7d7790af30f99c84088e25d0491f9f46281b12ef77201f7395076d2d0b4e2dc2"
+  },
+  {
+   "artifact": "preflight_declaration.json",
+   "original_path": "preflight_declaration.json",
+   "bytes": 14656,
+   "sha256": "860f8f69b152d7ee6e0477cd7594d90b46097425f93ca18fe849475d2dc0f91d"
+  },
+  {
+   "artifact": "preflight_frames__preflight_robot-1.jpg",
+   "original_path": "preflight_frames/preflight_robot-1.jpg",
+   "bytes": 148469,
+   "sha256": "9be34b44ad6d9544db046ee6df56c8b2112ea7888b990fe60e943987e9da0107"
+  },
+  {
+   "artifact": "preflight_frames__preflight_robot-2.jpg",
+   "original_path": "preflight_frames/preflight_robot-2.jpg",
+   "bytes": 138567,
+   "sha256": "8ed45802c9c5bc5b4ce38a98581a83e5d307ef2ba1bb7caa89f4bb08881b2d89"
+  },
+  {
+   "artifact": "preflight_frames__preflight_robot-3.jpg",
+   "original_path": "preflight_frames/preflight_robot-3.jpg",
+   "bytes": 130253,
+   "sha256": "5c1384131d49f961d24ed5a3f05ef3d9cb40b92d1af0172116be0fb6b6e8228b"
+  },
+  {
+   "artifact": "run2__chassis_tag_baseline.json",
+   "original_path": "run2/chassis_tag_baseline.json",
+   "bytes": 433,
+   "sha256": "dc734bd108e530f01085aeb63a63904ef9e86743ac3caf58b9d72b21f2624250"
+  },
+  {
+   "artifact": "run2__events.jsonl",
+   "original_path": "run2/events.jsonl",
+   "bytes": 214348,
+   "sha256": "34852daad3191f578391c1e6b77bf6017d7b6522c5179f1d32aec9c161b38308"
+  },
+  {
+   "artifact": "run2__frame_index.json",
+   "original_path": "run2/frame_index.json",
+   "bytes": 261368,
+   "sha256": "407f9e8ba84b64816c4c13a77f7ce138b82029877d1c2c8f4f5b80ff4f102bb9"
+  },
+  {
+   "artifact": "run2__frame_index.jsonl",
+   "original_path": "run2/frame_index.jsonl",
+   "bytes": 247851,
+   "sha256": "bb2ce901e84d0e1600d78139a367ad3d5a21c0a17abc10e1a935796c6a61e0d8"
+  },
+  {
+   "artifact": "run2__frames.tar.gz",
+   "original_path": "run2/frames/  (bundled, internal paths robot-N/NNNNN.jpg)",
+   "bytes": 111382908,
+   "sha256": "d1b047315691d29bd0797a75864f83fb307f2fd501dc91bfa9fc85bdff6f64d8"
+  },
+  {
+   "artifact": "run2__markers.json",
+   "original_path": "run2/markers.json",
+   "bytes": 13033,
+   "sha256": "a0ed5801dc7f02b783e04fef904e570bb79fbb2f3272a0e25ece8e395839c8a0"
+  },
+  {
+   "artifact": "run2__markers.jsonl",
+   "original_path": "run2/markers.jsonl",
+   "bytes": 10482,
+   "sha256": "5bb6cf839e95d1d8a9f4e25186f5437595c8b44012a7c3d7259f6a820391781f"
+  },
+  {
+   "artifact": "run2__new_error_rows.json",
+   "original_path": "run2/new_error_rows.json",
+   "bytes": 2,
+   "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  {
+   "artifact": "run2__post_samples.json",
+   "original_path": "run2/post_samples.json",
+   "bytes": 1503,
+   "sha256": "3f6603968340394ced5316f74e36c7dc4ef880c9aec79111987cd0bc74034201"
+  },
+  {
+   "artifact": "run2__post_samples.jsonl",
+   "original_path": "run2/post_samples.jsonl",
+   "bytes": 1078,
+   "sha256": "62d2d366508a5d35c4720b8678bea00ae0bb4af64362ef1bb24418ba147ac889"
+  },
+  {
+   "artifact": "run2__prearm_samples.json",
+   "original_path": "run2/prearm_samples.json",
+   "bytes": 1506,
+   "sha256": "f916ef560c09766aa7fd77725b5d139da68b8729a714d85a075d3587e38df913"
+  },
+  {
+   "artifact": "run2__prearm_samples.jsonl",
+   "original_path": "run2/prearm_samples.jsonl",
+   "bytes": 1081,
+   "sha256": "d77aeb6cee7c787a9936513fa045e4bcc5dd0a6058f9ca67dcc6711d16ca0c65"
+  },
+  {
+   "artifact": "run2__result.json",
+   "original_path": "run2/result.json",
+   "bytes": 146791,
+   "sha256": "5da756f5f4f06df3386efd022cf71a39839c6c61a6fa83f38bef8f7d3d004a9c"
+  },
+  {
+   "artifact": "run2__tag_watch.json",
+   "original_path": "run2/tag_watch.json",
+   "bytes": 14830,
+   "sha256": "9fe9b5e28dd83c15e9b4dd76310117cae01862a4e954d7c14aa0eef341edcf35"
+  },
+  {
+   "artifact": "run2__tag_watch.jsonl",
+   "original_path": "run2/tag_watch.jsonl",
+   "bytes": 12520,
+   "sha256": "cfc6ea0770e62fd6507a1b0ed720fd21f4d870cd8b66c0e79fe154da124e90df"
+  },
+  {
+   "artifact": "run2_runner.log",
+   "original_path": "run2_runner.log",
+   "bytes": 3163,
+   "sha256": "c1206dd98a3759af0eb5d0616ecbc9e4c5eb380765cade23f228110339b1052c"
+  },
+  {
+   "artifact": "sysid_l3_belly_rest_radial_shear_hysteresis_repeat6_v1_20260910_160447.csv",
+   "original_path": "sysid_l3_belly_rest_radial_shear_hysteresis_repeat6_v1_20260910_160447.csv",
+   "bytes": 622369,
+   "sha256": "4981ccf65c22da7b4427d3ce2c5cf2c9cf128d75b4467086c960b80013b2a987"
+  },
+  {
+   "artifact": "sysid_l3_belly_rest_radial_shear_hysteresis_repeat6_v1_20260910_160447_summary.json",
+   "original_path": "sysid_l3_belly_rest_radial_shear_hysteresis_repeat6_v1_20260910_160447_summary.json",
+   "bytes": 328470,
+   "sha256": "dd535d3979551ded50de80243ea1bc3f64ea2dac237a4be1f0adc2fdf8d94a5d"
+  },
+  {
+   "artifact": "upload_artifacts.py",
+   "original_path": "upload_artifacts.py",
+   "bytes": 2940,
+   "sha256": "29495caba4f9f8253aa0b1f1a7832a232af30b6697bd5aef418b6625905a416d"
+  }
+ ]
+}

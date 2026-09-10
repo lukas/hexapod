@@ -16,7 +16,7 @@ process table, or this script's output.
 """
 import json, os, pathlib, subprocess, sys, tempfile
 
-EXP = "7b565e2a4be14fd298db47a2c6aaac2b"
+EXP = "022f2098d5644629869380d2a91334d0"
 BASE = os.environ.get("LAB_BASE", "http://127.0.0.1:8767")
 D = pathlib.Path(__file__).resolve().parent
 STAGE = D / "_staged"

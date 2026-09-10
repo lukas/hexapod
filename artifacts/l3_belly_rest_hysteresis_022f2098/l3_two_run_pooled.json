@@ -1,0 +1,165 @@
+{
+ "experiment_id": "022f2098d5644629869380d2a91334d0",
+ "generated_utc": "2026-09-10T16:10:58Z",
+ "loop_definition": "settled measured hip angle at the shared commanded -47.133 deg, out-stroke minus in-stroke, settled = last 1.0 s of each 3.1 s dwell -- the identical definition L0, L1, L2 and L5 used, so the numbers are directly comparable",
+ "encoder_resolution_deg_per_count": 0.0879,
+ "per_run": [
+  {
+   "run": "7b565e2a run1 (15:30Z)",
+   "n_cycles": 6,
+   "loops": [
+    -0.527,
+    -0.703,
+    -0.703,
+    -0.703,
+    -0.703,
+    -0.703
+   ],
+   "mean": -0.6737,
+   "sd": 0.0719,
+   "settled_value_deg": -0.703,
+   "settled_counts": 8.0,
+   "note": "cycle 1 read -0.527 (6 counts); cycles 2-6 identical at -0.703 (8 counts)"
+  },
+  {
+   "run": "022f2098 run2 (16:04Z, this run)",
+   "n_cycles": 6,
+   "loops": [
+    -0.703,
+    -0.703,
+    -0.703,
+    -0.703,
+    -0.703,
+    -0.703
+   ],
+   "mean": -0.703,
+   "sd": 0.0,
+   "settled_value_deg": -0.703,
+   "settled_counts": 8.0,
+   "note": "ALL SIX cycles identical at -0.703 = exactly 8.0 counts, sd 0.000; no first-cycle outlier"
+  }
+ ],
+ "L3_pooled": {
+  "n_cycles": 12,
+  "n_runs": 2,
+  "mean": -0.6883,
+  "sd": 0.0508,
+  "mean_counts": -7.831,
+  "min": -0.703,
+  "max": -0.527,
+  "settled_value_deg": -0.703,
+  "settled_counts": 8.0
+ },
+ "between_run_spread": {
+  "on_the_settled_value": {
+   "run1": -0.703,
+   "run2": -0.703,
+   "spread_deg": 0.0,
+   "spread_counts": 0.0,
+   "why_this_is_the_right_statistic": "the settled value is not an average of a drifting joint -- every one of the 12 settled windows in BOTH runs holds a single value across all ten of its 10 Hz samples, and each sits on an exact encoder count. Run 1 and run 2 landed on the SAME two counts: out-stroke count 538 (-47.285 deg) and in-stroke count 530 (-46.582 deg). This is not two averages that happened to agree; it is the same discrete count twice."
+  },
+  "on_the_6_cycle_mean": {
+   "run1": -0.6737,
+   "run2": -0.703,
+   "spread_deg": 0.0293,
+   "spread_counts": 0.334,
+   "note": "the whole 0.029 deg is run 1's single first-cycle 2-count event"
+  },
+  "family_context": {
+   "L1_demonstrated_spread_deg": 0.2299,
+   "L1_n_runs": 3,
+   "L1_per_run_means": [
+    -0.2947,
+    -0.4631,
+    -0.2332
+   ],
+   "L2_demonstrated_spread_deg": 0.0718,
+   "L2_n_runs": 4,
+   "L2_per_run_means": [
+    -0.4361,
+    -0.4155,
+    -0.4097,
+    -0.4815
+   ],
+   "L3_demonstrated_spread_deg": 0.0,
+   "L3_n_runs": 2,
+   "reading": "the plan asks this run's spread to be set against L1's demonstrated 0.230 deg. L3's is 0.000 deg on the settled value and 0.029 deg on the 6-cycle mean -- an order of magnitude smaller. Two further facts stop L1's 0.230 from being treated as a family-wide bound that L3 must inherit. First, L1's large BETWEEN-run spread comes with a large WITHIN-run scatter (per-run sd 0.123, 0.149, 0.065; its cycles bounce between 2 and 8 counts inside a single run) and L3 has none of that -- run 2's within-run sd is exactly 0.000. Second, L2 has MORE runs than L1 (4 vs 3) and a between-run spread of only 0.072 deg, so 0.230 is the family's outlier, not its norm. The honest limit is that n=2 runs cannot prove L3's population spread is truly zero; it can only show that the two runs landed on the same encoder count."
+  }
+ },
+ "ladder_all_five_legs": [
+  {
+   "leg": "L1",
+   "deg": -0.33,
+   "counts": -3.754
+  },
+  {
+   "leg": "L2",
+   "deg": -0.4357,
+   "counts": -4.957
+  },
+  {
+   "leg": "L3",
+   "deg": -0.703,
+   "counts": -7.998
+  },
+  {
+   "leg": "L5",
+   "deg": -0.832,
+   "counts": -9.465
+  },
+  {
+   "leg": "L0",
+   "deg": -0.967,
+   "counts": -11.001
+  }
+ ],
+ "adjacent_gaps": [
+  {
+   "pair": "L1->L2",
+   "deg": 0.1057,
+   "counts": 1.203
+  },
+  {
+   "pair": "L2->L3",
+   "deg": 0.2673,
+   "counts": 3.041
+  },
+  {
+   "pair": "L3->L5",
+   "deg": 0.129,
+   "counts": 1.468
+  },
+  {
+   "pair": "L5->L0",
+   "deg": 0.135,
+   "counts": 1.536
+  }
+ ],
+ "required_conclusion": {
+  "question": "is L3 separable from the L5/L0 bracket?",
+  "answer": "NO -- and with a two-run number precise enough to say so, L3 now reads as the LOWEST MEMBER of that bracket rather than a third intermediate value.",
+  "arithmetic": "L3 sits 1.468 counts from L5. L5 and L0 -- the two legs already accepted as ONE bracket -- sit 1.536 counts apart. L3's distance to the bracket is therefore SMALLER than the bracket's own internal spacing. Accepting {L5, L0} as one group forces {L3, L5, L0} to be one group at the same standard. The real discontinuity in the five-leg series is L2->L3 at 3.041 counts, more than double any other adjacent gap.",
+  "two_questions_kept_apart": [
+   {
+    "q": "is L3's VALUE distinguishable from L5's value?",
+    "a": "Yes. 1.468 counts against a measured between-run spread of 0.000-0.334 counts. L3 and L5 are different numbers and a gait should not use one for the other."
+   },
+   {
+    "q": "is L3 SEPARABLE FROM the L5/L0 bracket as a cluster?",
+    "a": "No, for the spacing reason above. These answer different things and both are reported because conflating them is how a single number turns into a wrong bracket."
+   }
+  ],
+  "what_run1_could_not_say": "run 1's gap to L5 was 0.158 deg against an assumed-applicable 0.230 deg spread, so it could not tell 'L3 is a third value' from 'L3 belongs to the high bracket and read low'. The replicate resolves it: L3's own spread is 0.000, the gap is a real 1.47 counts, and the spacing test places L3 inside the bracket. This REVERSES run 1's tentative 'not a two-bracket picture' reading.",
+  "gait_consequence": "the open question that justified this run was whether L3's number could be used as a per-leg gait constant. It now can: L3 = 8.0 encoder counts (-0.703 deg), reproduced exactly across two independent runs. That is the deliverable."
+ },
+ "plan_question_2_drift": {
+  "answer": "No drift.",
+  "detail": "all six cycles identical at -0.703; the post-hoc monotonicity check reports no growth."
+ },
+ "plan_question_1_loaded_vs_unloaded": {
+  "out_err_deg_mean": -0.1524,
+  "in_err_deg_mean": 0.5506,
+  "identical_to_run1": true,
+  "detail": "out-stroke error -0.152 and in-stroke +0.551 on every one of the six cycles, matching run 1's cycles 2-6 exactly. Peak current on the moving joint 0.026 A against a 0.75 A trip -- the same 0.026 A run 1 measured. Loaded stroke draws roughly 4-8x the unloaded stroke (0.0088-0.0116 A vs 0.0012-0.0030 A) at loads of 4.0-5.1 % vs 3.2-3.9 %."
+ }
+}

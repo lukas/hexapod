@@ -1,0 +1,145 @@
+{
+ "_adaptive_admission": {
+  "analysis_generated": true,
+  "policy": "known-bounded-runner-v1",
+  "ready": false,
+  "reason": "adaptive physical proposal has not proved current runtime compatibility; adaptive physical proposal does not yet name an available trusted deterministic executor"
+ },
+ "_automation": {
+  "analysis_job_id": "0065bbfd08764460b8ea281d3f89f759",
+  "lineage_depth": 2,
+  "parent_experiment_id": "7b565e2a4be14fd298db47a2c6aaac2b",
+  "rationale": "Hypothesis: a second byte-identical L3 run reproduces the 8-count settled loop, giving a two-run L3 number whose between-run spread can be measured instead of assumed. Concrete open question on the path to smooth joystick walking: per-leg backlash must be known per stance leg before a gait can compensate it, and l3_vs_other_legs.json shows this run's L3 value sits 0.158 deg from L5 while L1 demonstrated a 0.230 deg spread across replicates of one identical protocol on one leg. That means the current L3 number cannot be used as a per-leg gait constant, and a single replicate is the one measurement that resolves it. The plan for experiment 7b565e2a pre-registered exactly this follow-up ('a replicate is the cheap follow-up if L3 lands near a bracket boundary') and summary.md names it as the next measurement; no queued experiment record for it exists in this evidence. The physical envelope is already established rather than argued: identical trips, 65.95 mm of commanded floor clearance, peak current 0.026 A against a 0.75 A trip, 0 C knee rise, no stand and no learned motion. Supervision carries over unchanged from this run (fresh live frames on all three cameras, three advancing healthy 18/18 servo_fb samples, a proven remote abort path, and lease exclusivity demonstrated against both the direct and :8898 hub motion routes). The tag watch is explicitly allowed to record UNMEASURED again: it bounds gross motion only, and this run showed joint telemetry answers pose-held more precisely. If L3 is confirmed intermediate, L4 (still with no number at all) is the natural next leg rather than a third L3 run.",
+  "recommendation_key": "l3-belly-rest-radial-shear-hysteresis-repeat6-replicate-v1",
+  "root_experiment_id": "881677a009404afda40c6c0d84e8b7d6"
+ },
+ "analysis_dependencies": [
+  "The reviewed l3_belly_rest_radial_shear_hysteresis_repeat6_v1 protocol document, canonical protocol_hash c3727df8dc7e, submitted byte-exact with no parameter edits; its derivation from the reviewed l2 protocol (hash a99ceef28136) by remapping only the two varying hip/knee columns to joints 10 and 11 is already established in this record",
+  "/api/command-lease answers rather than 404 on the installed revision, and the exclusive lease is demonstrated to refuse the :8898 hub and direct motion routes while /api/rl/stop, /api/standup/stop and /api/safe_zero stay open",
+  "Camera server on :8766 serving fresh live frames on robot-1, robot-2 and robot-3, plus three advancing healthy 18/18 servo_fb samples and a working remote abort path immediately before motion",
+  "L3 swept volume confirmed clear of cables, fixtures and obstacles in the three preflight frames; a cable is a blocker only if it lies inside that swept volume, and a strand lying flat on the floor is 65.95 mm below the deepest commanded foot point",
+  "Commanded L3 foot trajectory verified before submission to stay at least 15 mm clear of the floor and inside the volume the resting leg already occupies, with the other 16 joints commanded at absolute logical zero and j9 constant",
+  "Start pose within 1.0 deg of logical zero on all 18 measured joints; the 2-count (-0.18 deg) L3 hip residual left by run 1 is inside this gate and needs no re-zeroing",
+  "Runner supervision persists per-cycle telemetry to disk during the run and the process is not SIGTERM'd mid-run",
+  "Realtime versus post-hoc stop coverage declared and committed before arming, as it was for this run, rather than discovered afterwards"
+ ],
+ "cameras": {
+  "freshness_watchdog_s": 2.0,
+  "ids": [
+   "robot-1",
+   "robot-2",
+   "robot-3"
+  ],
+  "record": true,
+  "source": "camera_server",
+  "url": "http://127.0.0.1:8766",
+  "width": 1280
+ },
+ "chassis_stand": false,
+ "chassis_tag_watch": {
+  "consecutive_resolved_samples": 3,
+  "enable_if_baseline_resolves": true,
+  "if_baseline_unresolvable": "record UNMEASURED and proceed; do not synthesize a baseline and do not treat unresolvability as a stop",
+  "scope": "bounds gross chassis motion only; joint telemetry answers the pose-held question",
+  "shift_trip_mm": 120.0,
+  "yaw_trip_deg": 15.0
+ },
+ "commanded_foot_floor_clearance_mm": 15,
+ "cycle": {
+  "dwell_s": 3.1,
+  "hip_span_deg_peak_to_peak": 51.14,
+  "measured_sweep_half_span_deg": 4.09,
+  "measured_waypoint_hip_deg": -47.133,
+  "ramp_rate_deg_per_s": 10.0,
+  "settle_window_s": 1.0
+ },
+ "execution": {
+  "abort_paths_never_gated": [
+   "/api/rl/stop",
+   "/api/safe_zero",
+   "/cmd X"
+  ],
+  "exclusive_command_lease_required": true,
+  "lease_ttl_s": 900,
+  "mode": "external_guarded",
+  "motion_seconds": 156.0
+ },
+ "hip_joint": 10,
+ "knee_joint": 11,
+ "moving_leg": "L3",
+ "preflight": {
+  "record_l3_knee_baseline_c": true,
+  "require_advancing_healthy_servo_fb_samples": 3,
+  "require_l3_swept_area_clear": true,
+  "require_live_camera_frames_all_three": true,
+  "require_remote_abort_path": true,
+  "swept_area_clear_check": "confirm the actual L3 swept volume is free of cables, fixtures and obstacles; a cable is a blocker only if it lies in that swept area",
+  "verify_command_lease_endpoint_present": true,
+  "verify_commanded_l3_foot_clearance_before_submission": true,
+  "verify_start_pose_within_deg_of_logical_zero": 1.0
+ },
+ "protocol": "l3_belly_rest_radial_shear_hysteresis_repeat6_v1",
+ "protocol_derivation": "Byte-exact replay of the reviewed protocol used by experiment 7b565e2a, itself derived from the reviewed l2_belly_rest_radial_shear_hysteresis_repeat6_v1 (hash a99ceef28136) by remapping only the two varying hip/knee command columns from L2 joints 7 and 8 to L3 joints 10 and 11. No parameter edits: sysid_protocol 1, hz 10, 1560 ticks, one absolute 18-joint traj segment, home_deg all zero, write_speed 180, write_acc 10, soft_torque 700, max_current_a 0.75 with current_trip_polls 3, hard_current_a 3.0.",
+ "protocol_hash": "c3727df8dc7e",
+ "repeats": 6,
+ "reporting": {
+  "compare_against": [
+   "l0 pooled -0.967 deg sd 0.000 n=6 cycles / 1 run",
+   "l1 pooled -0.330 deg sd 0.153 n=18 cycles / 3 runs",
+   "l2 pooled -0.4357 deg sd 0.077 n=24",
+   "l5 pooled -0.832 deg sd 0.065 n=25"
+  ],
+  "encoder_resolution_deg_per_count": 0.0879,
+  "pool_with": "7b565e2a L3 run 1: -0.6737 deg sd 0.0656 n=6 cycles, settled -0.703 deg = 8.0 counts",
+  "report_settled_window_raw_counts": true,
+  "required_conclusion": "state the two-run L3 between-run spread against L1's demonstrated 0.230 deg spread and whether L3 is separable from the L5/L0 bracket",
+  "state_realtime_vs_posthoc_stop_coverage": true
+ },
+ "robot_url": "http://192.168.4.39:8080",
+ "safety": {
+  "current_trip_polls": 3,
+  "final_state": "limp",
+  "hard_current_ceiling_a": 3.0,
+  "missing_servo_consecutive_reads": 3,
+  "motor_temp_trip_c": 55,
+  "moving_knee_rise_over_baseline_trip_c": 8,
+  "per_servo_current_trip_a": 0.75,
+  "retries": 0,
+  "tilt_trip_deg": 10,
+  "tracking_error_trip_deg": 30
+ },
+ "start_pose": "belly_rest_logical_zero",
+ "stationary_legs_remain_belly_resting": true,
+ "stop_conditions": [
+  "Per-servo current above 0.75 A on three consecutive polls, or any reading reaching the 3.0 A ceiling",
+  "Any motor temperature reaching 55 C, or the L3 knee rising more than 8 C above its pre-run baseline",
+  "Any servo ID missing on three consecutive reads, or a stale or nonadvancing state stream",
+  "Chassis tilt exceeding 10 deg, or the chassis tag moving relative to the floor tags in any camera when tags are resolvable",
+  "Any measured non-L3 joint departing logical zero by more than 1.0 deg, or the commanded L3 foot contacting the floor",
+  "Tracking error above 30 deg against the slewed reference",
+  "Any command to the robot from a controller other than the guarded runner during the leased window",
+  "Loss of live frames from any of the three cameras for more than 2 s, or loss of the remote abort path",
+  "Brownout, any new /api/errors row beyond a single self-recovered transient bus_timing retry, or any alarm",
+  "Hysteresis growing monotonically across repeats beyond the reviewed bound, or any audible or visible mechanical binding in L3: halt and hold, do not retry",
+  "tip",
+  "jam or unexpected force",
+  "brownout",
+  "hot motor",
+  "hard or sustained current",
+  "persistent servo loss",
+  "stale or nonadvancing state stream"
+ ],
+ "telemetry": {
+  "log_fields": [
+   "commanded_angle_deg",
+   "actual_angle_deg",
+   "current_a",
+   "load",
+   "temperature_c"
+  ],
+  "passive_recorder_hz": 50,
+  "per_cycle_hysteresis_report": true,
+  "persist_to_disk_each_second": true,
+  "runner_log_hz": 10
+ }
+}

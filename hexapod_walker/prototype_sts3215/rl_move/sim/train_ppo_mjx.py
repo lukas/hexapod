@@ -1742,6 +1742,18 @@ def main(argv: list[str] | None = None) -> int:
                          "--amp-disc-steps).")
     ap.add_argument("--rnd-train-batch", type=int, default=256,
                     help="predictor minibatch size per update.")
+    ap.add_argument("--rnd-heading-gate-cos-max", type=float, default=None,
+                    help="walkcurr off-axis-heading fallback (design "
+                         "note DESIGN_NOTE_2026-09-10_offaxis_frontpair, "
+                         "the full-obs --rnd-coef canary's clean FAIL): "
+                         "zero the RND bonus on ticks where the commanded "
+                         "heading's cosine-vs-forward exceeds this value "
+                         "(reuses heading_selfdistill's cos_heading "
+                         "convention/obs-index math; needs --rnd-coef>0 "
+                         "and the plain walk-task obs frame, same "
+                         "restriction as --heading-selfdistill-coef). "
+                         "Default None = OFF, bit-exact original "
+                         "unscoped RND path (no mask multiply at all).")
     ap.add_argument("--use-sde", action="store_true",
                     help="SB3 generalized State-Dependent Exploration "
                          "(gSDE): sample ONE noise matrix per rollout "
@@ -3093,10 +3105,33 @@ def main(argv: list[str] | None = None) -> int:
         # style above. Operates on the raw observation vector directly
         # — no env cfg injection needed (unlike AMP's amp_obs_style).
         from .rnd_vec import RNDVecWrapper
+        heading_gate_idx = None
+        if args.rnd_heading_gate_cos_max is not None:
+            # Same obs-layout restriction/validation as
+            # --heading-selfdistill-coef (heading_selfdistill.py):
+            # this index math assumes ONE plain walk-task obs frame,
+            # no phase-clock/yaw-cmd/mode/recover/fault tail, no
+            # stacked history. Raise loudly rather than silently
+            # gating on the wrong columns.
+            from .heading_selfdistill import (
+                heading_frame_width, heading_vref_index)
+            n_act = int(venv.action_space.shape[0])
+            heading_gate_idx = heading_vref_index(n_act)
+            obs_dim_now = int(np.prod(venv.observation_space.shape))
+            frame_w = heading_frame_width(n_act)
+            if obs_dim_now != frame_w:
+                raise SystemExit(
+                    "--rnd-heading-gate-cos-max obs-width mismatch: "
+                    f"expected {frame_w} (n_act={n_act}) got "
+                    f"{obs_dim_now} -- this run's obs layout does not "
+                    "match the plain walk-task assumption; fix the "
+                    "index math or leave this lever off")
         rnd_wrap = RNDVecWrapper(
             venv, rnd_coef=args.rnd_coef, hidden=args.rnd_hidden,
             out_dim=args.rnd_out_dim, lr=args.rnd_lr,
-            buffer_size=args.rnd_buffer, seed=args.seed)
+            buffer_size=args.rnd_buffer, seed=args.seed,
+            heading_gate_idx=heading_gate_idx,
+            heading_gate_cos_max=args.rnd_heading_gate_cos_max)
         venv = rnd_wrap
     venv = VecMonitor(venv)
     print(f"[mjx-train] vec env up in {time.monotonic() - t0:.1f}s "
@@ -5146,6 +5181,9 @@ def main(argv: list[str] | None = None) -> int:
                     import wandb
                     payload = {"global_step": self.num_timesteps,
                                "rnd/intrinsic_mean": roll["intrinsic_mean"]}
+                    if "gate_off_axis_frac" in roll:
+                        payload["rnd/gate_off_axis_frac"] = roll[
+                            "gate_off_axis_frac"]
                     if stats is not None:
                         payload.update({f"rnd/{k}": v
                                         for k, v in stats.items()})
@@ -5155,6 +5193,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[rnd] predictor co-training armed: "
               f"{args.rnd_train_steps} updates x {args.rnd_train_batch} "
               "batch per rollout")
+        if rnd_wrap.heading_gate_idx is not None:
+            print(f"[rnd] heading gate ON: bonus zeroed for "
+                  f"cos_heading > {rnd_wrap.heading_gate_cos_max} "
+                  f"(obs idx {rnd_wrap.heading_gate_idx})")
     if args.predictive_live:
         class _LivePredictorCapture(BaseCallback):
             """Harvest a bounded MJX subset into CUDA live replay."""

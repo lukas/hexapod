@@ -221,3 +221,104 @@ def test_save_load_round_trips_intrinsic_reward(tmp_path):
     after = _intrinsic(w2)
     assert after == pytest.approx(before, rel=1e-6)
     assert w2.updates == w.updates
+
+
+# ---------------------------------------------------------- heading gate
+# (walkcurr, 2026-09-10: the full-obs --rnd-coef canary's own clean FAIL
+# against the widen8/crutchoff off-axis-heading front-pair sacrifice
+# licenses this fallback per DESIGN_NOTE_2026-09-10_offaxis_frontpair.md
+# — see rnd_vec.py's module docstring for the full design rationale.)
+
+class _HeadingStubVecEnv(_StubVecEnv):
+    """Like _StubVecEnv, but two fixed obs columns starting at
+    ``vref_idx`` carry a caller-supplied per-env [vx_ref, vy_ref] pair
+    (held constant across ticks), matching the plain walk-task frame's
+    vref-pair convention closely enough for heading_cos to read it."""
+
+    def __init__(self, vref_idx, vref_xy, obs_dim=10):
+        super().__init__(n_envs=len(vref_xy), obs_dim=obs_dim)
+        self.vref_idx = vref_idx
+        self.vref_xy = np.asarray(vref_xy, dtype=np.float32)
+
+    def step_wait(self):
+        obs, rews, dones, infos = super().step_wait()
+        obs[:, self.vref_idx:self.vref_idx + 2] = self.vref_xy
+        return obs, rews, dones, infos
+
+
+def test_heading_gate_requires_both_or_neither():
+    stub = _HeadingStubVecEnv(4, [[1.0, 0.0]])
+    with pytest.raises(ValueError):
+        _wrap(stub, heading_gate_idx=4)
+    stub2 = _HeadingStubVecEnv(4, [[1.0, 0.0]])
+    with pytest.raises(ValueError):
+        _wrap(stub2, heading_gate_cos_max=0.5)
+
+
+def test_heading_gate_none_is_bit_exact_original_path():
+    """cos_max/idx both None must reproduce the pre-09-10 blend exactly
+    (no mask multiply at all, not a multiply-by-1.0 that could round
+    differently)."""
+    stub_a = _HeadingStubVecEnv(4, [[1.0, 0.0], [0.0, 1.0], [-1.0, 0.0]])
+    stub_b = _HeadingStubVecEnv(4, [[1.0, 0.0], [0.0, 1.0], [-1.0, 0.0]])
+    w_gateless = _wrap(stub_a, rnd_coef=0.4, seed=3)
+    w_explicit_none = _wrap(stub_b, rnd_coef=0.4, seed=3,
+                             heading_gate_idx=None,
+                             heading_gate_cos_max=None)
+    w_gateless.reset()
+    w_explicit_none.reset()
+    for _ in range(4):
+        w_gateless.step_async(None)
+        _, r1, _, _ = w_gateless.step_wait()
+        w_explicit_none.step_async(None)
+        _, r2, _, _ = w_explicit_none.step_wait()
+        np.testing.assert_array_equal(r1, r2)
+
+
+def test_heading_gate_zeroes_bonus_on_axis_keeps_off_axis():
+    # 3 envs: forward (on-axis, cos=1.0), pure-lateral (off-axis,
+    # cos=0.0), backward (off-axis, cos=-1.0). cos_max=0.5 -> only
+    # the forward env's bonus should be zeroed.
+    stub = _HeadingStubVecEnv(4, [[1.0, 0.0], [0.0, 1.0], [-1.0, 0.0]])
+    w = _wrap(stub, rnd_coef=0.6, seed=1,
+              heading_gate_idx=4, heading_gate_cos_max=0.5)
+    w.reset()
+    w.step_async(None)
+    obs, rews, dones, infos = w.step_wait()
+    # bonus == blended_reward - env_reward (env reward is a constant
+    # 1.0 from the stub for every env).
+    bonus = rews - 1.0
+    assert bonus[0] == pytest.approx(0.0, abs=1e-9), bonus
+    assert bonus[1] > 0.0
+    assert bonus[2] > 0.0
+    for i in (1, 2):
+        assert infos[i]["reward_rnd_intrinsic"] == pytest.approx(
+            float(bonus[i]), rel=1e-6)
+    assert infos[0]["reward_rnd_intrinsic"] == pytest.approx(0.0, abs=1e-9)
+
+
+def test_heading_gate_off_axis_frac_stat_reported_only_when_gated():
+    stub_gated = _HeadingStubVecEnv(
+        4, [[1.0, 0.0], [0.0, 1.0], [-1.0, 0.0], [0.0, -1.0]])
+    w = _wrap(stub_gated, rnd_coef=0.5, seed=2,
+              heading_gate_idx=4, heading_gate_cos_max=0.5)
+    w.reset()
+    for _ in range(3):
+        w.step_async(None)
+        w.step_wait()
+    stats = w.pop_rollout_stats()
+    # 3/4 envs (all but the forward one) are off-axis every tick.
+    assert stats["gate_off_axis_frac"] == pytest.approx(0.75)
+    # stat resets after pop
+    w.step_async(None)
+    w.step_wait()
+    stats2 = w.pop_rollout_stats()
+    assert "gate_off_axis_frac" in stats2
+
+    stub_ungated = _HeadingStubVecEnv(
+        4, [[1.0, 0.0], [0.0, 1.0], [-1.0, 0.0], [0.0, -1.0]])
+    w2 = _wrap(stub_ungated, rnd_coef=0.5, seed=2)
+    w2.reset()
+    w2.step_async(None)
+    w2.step_wait()
+    assert "gate_off_axis_frac" not in w2.pop_rollout_stats()

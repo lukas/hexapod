@@ -3,10 +3,12 @@ helpers. No server, no MuJoCo, no network -- <1s total. See
 RESEARCH_RULES "Tests".
 """
 from rl_move.sim.web_session_drivecapture import (
+    _row_t,
     directional_locomotion_fraction,
     drive_cmd_rejected,
     fell_during_session,
     locomotion_fraction,
+    net_displacement_fraction,
     policy_identity_ok,
     stalled_phases,
 )
@@ -123,6 +125,105 @@ def test_directional_locomotion_fraction_ignores_near_zero_commands():
 
 def test_directional_locomotion_fraction_empty_rows_is_not_a_stall():
     assert directional_locomotion_fraction([], 0.06, 0.0) == 1.0
+
+
+def test_net_displacement_fraction_matches_steady_on_axis_motion():
+    # yaw stays 0 (no turning), body walks straight along its own +x axis
+    # at exactly the commanded speed for 1s -- true displacement equals
+    # commanded speed * duration, so the fraction should read ~1.0.
+    rows = [{"t": 0.0, "pos_x": 0.0, "pos_y": 0.0, "yaw_deg": 0.0},
+           {"t": 1.0, "pos_x": 0.06, "pos_y": 0.0, "yaw_deg": 0.0}]
+    frac = net_displacement_fraction(rows, 0.06, 0.0)
+    assert abs(frac - 1.0) < 1e-9
+
+
+def test_net_displacement_fraction_rotates_by_yaw_at_window_start():
+    # body yaw is 90deg (facing world +y) but the command is still
+    # expressed in the BODY frame as (+0.06, 0) == "forward" -- world
+    # displacement should be along world +y, and the metric must rotate
+    # it back into the body frame before projecting, still reading ~1.0.
+    rows = [{"t": 0.0, "pos_x": 0.0, "pos_y": 0.0, "yaw_deg": 90.0},
+           {"t": 1.0, "pos_x": 0.0, "pos_y": 0.06, "yaw_deg": 90.0}]
+    frac = net_displacement_fraction(rows, 0.06, 0.0)
+    assert abs(frac - 1.0) < 1e-9
+
+
+def test_net_displacement_fraction_reads_near_zero_for_pure_jitter():
+    # oscillating in place: the SAMPLE-MEAN of an aliased velocity signal
+    # might read high (the exact failure mode this metric exists to
+    # catch), but true net displacement over the window is ~0 regardless
+    # of how many oscillations happened in between.
+    rows = [{"t": 0.0, "pos_x": 0.0, "pos_y": 0.10, "yaw_deg": 0.0},
+           {"t": 1.0, "pos_x": 0.002, "pos_y": 0.09, "yaw_deg": 0.0}]
+    frac = net_displacement_fraction(rows, -0.08, 0.0)
+    assert abs(frac) < 0.1
+
+
+def test_net_displacement_fraction_none_when_position_missing():
+    # older telemetry (pre-2026-09-10) has no pos_x/pos_y/yaw_deg --
+    # must report "no data" (None), not silently read as 0 or 1.
+    rows = [{"t": 0.0, "vx_body": 0.05}, {"t": 1.0, "vx_body": 0.05}]
+    assert net_displacement_fraction(rows, 0.06, 0.0) is None
+
+
+def test_net_displacement_fraction_ignores_near_zero_commands():
+    assert net_displacement_fraction(
+        [{"t": 0.0, "pos_x": 0.0, "pos_y": 0.0, "yaw_deg": 0.0},
+         {"t": 1.0, "pos_x": 0.0, "pos_y": 0.0, "yaw_deg": 0.0}],
+        0.0, 0.0) is None
+
+
+def test_net_displacement_fraction_needs_at_least_two_rows():
+    assert net_displacement_fraction(
+        [{"t": 0.0, "pos_x": 0.0, "pos_y": 0.0, "yaw_deg": 0.0}],
+        0.06, 0.0) is None
+    assert net_displacement_fraction([], 0.06, 0.0) is None
+
+
+def test_row_t_prefers_sim_time_over_wall_clock():
+    # 2026-09-10 root-cause fix: when the row carries the server's own
+    # simulated time (``sim_t_s``), that is the correct time base for
+    # phase/window logic, not the HTTP-poll wall clock -- the two can
+    # differ substantially when the server steps physics slower than
+    # real time (measured ~0.28x on the controller pod).
+    assert _row_t({"t": 5.0, "sim_t_s": 1.4}) == 1.4
+
+
+def test_row_t_falls_back_to_wall_clock_for_older_telemetry():
+    assert _row_t({"t": 5.0}) == 5.0
+
+
+def test_net_displacement_fraction_uses_sim_time_not_wall_clock():
+    # Same true motion (0.06m over 1 SIMULATED second == exactly the
+    # commanded speed) but wall-clock elapsed is artificially inflated
+    # to 3s (as it would be under ~0.33x real-time server throughput).
+    # Using wall-clock dt would read the fraction ~3x too LOW; using
+    # sim_t_s (the fix) reads the correct ~1.0.
+    rows = [{"t": 0.0, "sim_t_s": 0.0, "pos_x": 0.0, "pos_y": 0.0,
+            "yaw_deg": 0.0},
+           {"t": 3.0, "sim_t_s": 1.0, "pos_x": 0.06, "pos_y": 0.0,
+            "yaw_deg": 0.0}]
+    frac = net_displacement_fraction(rows, 0.06, 0.0)
+    assert abs(frac - 1.0) < 1e-9
+
+
+def test_stalled_phases_uses_sim_time_to_place_rows_in_the_right_phase():
+    # wall-clock ``t`` would put every row in the SECOND phase (all
+    # t>=5), but sim_t_s (the true, much-slower-advancing clock) keeps
+    # them in the FIRST phase's settle window -- the fix must window on
+    # sim_t_s, not wall-clock t, or this reads the wrong phase entirely.
+    phases = [(0.0, 0.08, 0.0, 0.0, "forward"),
+             (5.0, 0.0, -0.08, 0.0, "crab-right")]
+    telemetry = [
+        {"t": 6.0, "sim_t_s": 1.6, "vx_body": 0.08, "vy_body": 0.0},
+        {"t": 6.2, "sim_t_s": 1.8, "vx_body": 0.08, "vy_body": 0.0},
+    ]
+    # Rows are inside the "forward" phase's settled window in SIM time
+    # (1.5 <= sim_t_s < 5.0) even though wall-clock t (6.0-6.2) already
+    # looks like the crab-right phase -- locomotion_fraction on these
+    # rows tracks the FORWARD command well, so no stall should fire.
+    out = stalled_phases(telemetry, phases, t_end=9.0)
+    assert out == []
 
 
 def test_stalled_phases_catches_the_09_10_regression_pattern():

@@ -181,6 +181,77 @@ def directional_locomotion_fraction(rows: list[dict], cmd_vx: float,
     return (sum(proj) / len(proj)) / cmd_mag
 
 
+def net_displacement_fraction(rows: list[dict], cmd_vx: float, cmd_vy: float
+                              ) -> float | None:
+    """TRUE net-displacement directional tracking, independent of the
+    per-tick velocity SAMPLING RATE.
+
+    Added 2026-09-10, closing the "telemetry-sampling artifact" branch
+    CURRENT_TRUTHS.md left open next to the "real undertrained-direction
+    skill gap" branch: ``directional_locomotion_fraction`` averages
+    instantaneous ``vx_body``/``vy_body`` SAMPLES taken every ~0.2-0.3s
+    (the HTTP poll cadence) -- if the true velocity signal aliases with
+    the gait's stride period at that sampling rate, the sample-mean can
+    misrepresent the actual mean velocity even though every individual
+    sample is a real, correctly-measured reading. Actual body
+    DISPLACEMENT over the window has no such aliasing risk: it is the
+    exact integral of true velocity, regardless of how coarsely it is
+    polled (position samples do not alias the way instantaneous rate
+    samples can). This function uses the WORLD-frame chassis position
+    (``pos_x``/``pos_y``, added alongside ``vx_body``/``vy_body`` in the
+    telemetry row) and the body's own ``yaw_deg`` at the START of the
+    window to rotate the net world-frame displacement into the same
+    body-relative frame the (body-frame) command is expressed in, then
+    reports it as an average-velocity-equivalent fraction of commanded
+    speed -- directly comparable to ``directional_locomotion_fraction``.
+    Assumes yaw does not change materially across the window (true for
+    every phase used by this tool's own scripted "human" script -- none
+    of them command a nonzero ``wz``); returns ``None`` (not 1.0/0.0)
+    when position/yaw fields are missing (older telemetry captured
+    before this field existed) so a caller can tell "no data" apart from
+    "measured and near-zero", unlike the two velocity-based siblings
+    above which predate this distinction and use 1.0 as their
+    not-applicable sentinel."""
+    cmd_mag = math.hypot(cmd_vx, cmd_vy)
+    if cmd_mag < _STALL_CMD_MPS or len(rows) < 2:
+        return None
+    r0, r1 = rows[0], rows[-1]
+    for key in ("pos_x", "pos_y", "yaw_deg"):
+        if r0.get(key) is None or r1.get(key) is None:
+            return None
+    dt = _row_t(r1) - _row_t(r0)
+    if dt <= 0:
+        return None
+    dx_world = float(r1["pos_x"]) - float(r0["pos_x"])
+    dy_world = float(r1["pos_y"]) - float(r0["pos_y"])
+    yaw0 = math.radians(float(r0["yaw_deg"]))
+    cos_y, sin_y = math.cos(yaw0), math.sin(yaw0)
+    # Rotate the WORLD displacement into the body frame at t=r0 (inverse
+    # of the world<-body rotation by +yaw0).
+    dx_body = cos_y * dx_world + sin_y * dy_world
+    dy_body = -sin_y * dx_world + cos_y * dy_world
+    ux, uy = cmd_vx / cmd_mag, cmd_vy / cmd_mag
+    net_along = dx_body * ux + dy_body * uy
+    return (net_along / dt) / cmd_mag
+
+
+def _row_t(row: dict) -> float:
+    """The row's SIMULATED time if captured (``sim_t_s``, added
+    2026-09-10), else its wall-clock ``t`` for older telemetry. Phase
+    boundaries from ``human_drive_phases`` are defined in simulated
+    seconds (shared with ``drive_video.py``'s direct env-stepping,
+    which runs near 1:1 sim:wall time); this HTTP-driven tool's own
+    background server thread does NOT reliably run at 1:1 (measured as
+    low as ~0.28x real-time on the controller pod under HTTP-poll/GIL
+    contention), so windowing by wall-clock ``t`` against
+    simulated-second phase boundaries silently shrank every phase's
+    analyzed window to a fraction of its intended simulated duration --
+    see the sim-time-pacing fix in ``main()`` and CURRENT_TRUTHS.md
+    2026-09-10."""
+    v = row.get("sim_t_s")
+    return float(v) if v is not None else float(row["t"])
+
+
 def stalled_phases(telemetry: list[dict], phases: list[tuple],
                    t_end: float, settle_s: float = 1.5,
                    frac_floor: float = _STALL_FRAC) -> list[dict]:
@@ -188,14 +259,16 @@ def stalled_phases(telemetry: list[dict], phases: list[tuple],
     during, skipping the velocity-ramp settle window (the live drive
     session ramps commanded velocity in over ~1s -- see ``_PlayTraj.
     VEL_RATE`` -- so judging from t=0 of a phase would flag the ramp
-    itself, not a stall)."""
+    itself, not a stall). Windows on SIMULATED time (``_row_t``), not
+    wall-clock, since the phase boundaries themselves are simulated
+    seconds (2026-09-10 fix)."""
     out = []
     for i, (t0, vx, vy, _wz, label) in enumerate(phases):
         cmd_mag = math.hypot(vx, vy)
         if cmd_mag < _STALL_CMD_MPS:
             continue
         t1 = phases[i + 1][0] if i + 1 < len(phases) else t_end
-        window = [r for r in telemetry if t0 + settle_s <= r["t"] < t1]
+        window = [r for r in telemetry if t0 + settle_s <= _row_t(r) < t1]
         frac = locomotion_fraction(window, vx, vy)
         if frac < frac_floor:
             out.append({"label": label, "t0": t0, "t1": t1,
@@ -295,6 +368,28 @@ def main() -> int:
         first_rejected_t: float | None = None
         idx = 0
         next_frame_at = 0.0
+        # SIM-TIME PACING (2026-09-10, root-cause finding this same
+        # investigation surfaced): ``human_drive_phases``'s boundaries
+        # (0, 5, 9, 13, 17, 19.5, 24) are SIMULATED seconds -- shared
+        # with ``drive_video.py``, which steps the env directly and so
+        # gets ~1:1 sim:wall time. THIS tool instead drives through the
+        # real HTTP server, whose background stepping thread competes
+        # (GIL/CPU) with this loop's own HTTP round-trips; measured on
+        # this controller pod, ``sim_t_s`` advanced only ~7.7s over
+        # ~27.2s of WALL clock (~0.28x real-time). Gating phase
+        # transitions on wall-clock ``elapsed`` (the old behavior) cut
+        # every phase down to ~0.28x its intended simulated duration --
+        # e.g. the nominal 4 simulated seconds of "reverse" became ~1.0
+        # actual simulated second, most or all of which sits inside the
+        # velocity command's own 1.0-simulated-second blend ramp
+        # (``_PlayTraj``/``WalkTrajectory``) -- so every phase's
+        # "post-settle" analysis window may have been measuring the
+        # ramp transient, not settled walking, regardless of host
+        # speed. Fixed: phase transitions (and the overall session end)
+        # now gate on the SERVER'S OWN ``live.t_s`` (simulated seconds),
+        # so every phase always gets its full intended simulated
+        # duration no matter how fast or slow this pod steps physics.
+        sim_t_s = 0.0
         # HEARTBEAT FIX (2026-09-10, root-cause of the "full-cfg PASS was a
         # stalled-locomotion false positive" regression this same investigation
         # found): the real browser client resends the CURRENT (vx, vy, wz) at
@@ -316,21 +411,45 @@ def main() -> int:
         cur_vx, cur_vy, cur_wz, cur_label = 0.0, 0.0, 0.0, "boot"
         while True:
             elapsed = time.monotonic() - session_t0
-            if idx < len(phases) and elapsed >= phases[idx][0]:
+            if idx < len(phases) and sim_t_s >= phases[idx][0]:
                 _, cur_vx, cur_vy, cur_wz, cur_label = phases[idx]
                 idx += 1
-                print(f"[websession_capture] t={elapsed:5.1f}s cmd={cur_label} "
+                print(f"[websession_capture] wall={elapsed:5.1f}s "
+                     f"sim={sim_t_s:5.1f}s cmd={cur_label} "
                      f"vx={cur_vx:+.3f} vy={cur_vy:+.3f} wz={cur_wz:+.3f}")
             cmd_resp = http_post(base_url, "/api/rl/drive/cmd",
                                 {"vx": cur_vx, "vy": cur_vy, "wz": cur_wz})
             state = http_get(base_url, "/api/rl/drive")
             live = state.get("live") or {}
+            chassis_xyz = live.get("chassis_xyz_m") or [None, None, None]
+            live_t_s = live.get("t_s")
+            if live_t_s is not None:
+                sim_t_s = float(live_t_s)
             row = {"t": round(elapsed, 2),
                   "label": phases[idx - 1][4] if idx else "boot",
                   "active": state.get("active"), "status": state.get("status"),
                   "vx_body": live.get("vx_body"), "vy_body": live.get("vy_body"),
                   "roll_deg": live.get("roll_deg"),
                   "pitch_deg": live.get("pitch_deg"),
+                  # World-frame chassis x/y + body yaw, added 2026-09-10
+                  # so a true net-DISPLACEMENT metric (not just an
+                  # average of instantaneous velocity samples) can be
+                  # computed post-hoc -- see
+                  # ``net_displacement_fraction`` below and
+                  # CURRENT_TRUTHS.md 2026-09-10 "telemetry-sampling
+                  # artifact" open question. Purely additive fields;
+                  # every existing consumer keys off vx_body/vy_body
+                  # unchanged.
+                  "pos_x": chassis_xyz[0], "pos_y": chassis_xyz[1],
+                  "yaw_deg": live.get("yaw_deg"),
+                  # Simulated time (the server's own ``self.sim_t``), NOT
+                  # wall-clock ``elapsed`` -- added 2026-09-10 alongside
+                  # pos_x/pos_y/yaw_deg to let a caller detect/correct
+                  # for the sim background thread running slower than
+                  # real wall-clock time under HTTP-poll overhead, which
+                  # would bias a displacement/WALL-TIME average low even
+                  # though displacement/SIM-TIME is correct.
+                  "sim_t_s": live_t_s,
                   "height_mm": live.get("height_mm")}
             telemetry.append(row)
             if fell_during_session(state.get("status")):
@@ -364,7 +483,18 @@ def main() -> int:
                     print(f"[websession_capture] frame capture failed at "
                          f"t={elapsed:.1f}s: {e}")
                 next_frame_at = elapsed + args.frame_every_s
-            if elapsed >= t_end:
+            if sim_t_s >= t_end:
+                break
+            # Wall-clock safety timeout, independent of the sim-time exit
+            # above: a stalled/dead server would otherwise never advance
+            # sim_t_s and this loop would hang forever. Generous multiple
+            # (this pod measured ~0.28x real-time; allow for far worse).
+            if elapsed >= t_end * 20.0 + 30.0:
+                print(f"[websession_capture] WALL-CLOCK SAFETY TIMEOUT at "
+                     f"wall={elapsed:.1f}s (sim only reached {sim_t_s:.1f}s "
+                     f"of {t_end:.1f}s target) -- server may be stalled; "
+                     f"aborting instead of hanging")
+                result["timed_out"] = True
                 break
             time.sleep(0.2)
 
@@ -381,7 +511,13 @@ def main() -> int:
         result["drive_cmd_rejected_ticks"] = rejected_ticks
         result["drive_cmd_first_rejected_t"] = first_rejected_t
         result["n_frames"] = len(frame_paths)
-        result["sim_seconds_driven"] = round(elapsed, 2)
+        # NOTE (2026-09-10): this field name predates the sim-time-pacing
+        # fix above and was actually reporting WALL-CLOCK elapsed the
+        # whole time (misnamed, not a behavior bug) -- now reports the
+        # true simulated seconds driven, with the wall-clock figure kept
+        # alongside under its own honest name.
+        result["sim_seconds_driven"] = round(sim_t_s, 2)
+        result["wall_seconds_elapsed"] = round(elapsed, 2)
         stalled = stalled_phases(telemetry, phases, t_end)
         result["stalled_phases"] = stalled
         if stalled:

@@ -663,6 +663,20 @@ class SimWebSession:
         pitch = math.asin(max(-1.0, min(1.0, 2 * (qw * qy - qz * qx))))
         return round(math.degrees(roll), 1), round(math.degrees(pitch), 1)
 
+    def _yaw_deg(self) -> float:
+        """Body heading (world-frame yaw about +Z) in degrees. Added
+        2026-09-10 alongside ``chassis_xyz_m`` in ``_live()`` so a
+        capture client can rotate a WORLD-frame position delta into the
+        body-relative command frame and compute a true net-displacement
+        tracking metric, instead of only ever averaging instantaneous
+        ``vx_body``/``vy_body`` samples (see CURRENT_TRUTHS.md 2026-09-10,
+        "telemetry-sampling artifact" open question) — pure read, no
+        behavior change."""
+        qw, qx, qy, qz = self.env.data.qpos[3:7]
+        yaw = math.atan2(2 * (qw * qz + qx * qy),
+                         1 - 2 * (qy * qy + qz * qz))
+        return round(math.degrees(yaw), 1)
+
     def _body_vel(self) -> tuple[float, float]:
         try:
             v = self.env._body_vel_xy()
@@ -1584,6 +1598,7 @@ class SimWebSession:
             "vy_body": round(vy, 4),
             "roll_deg": roll,
             "pitch_deg": pitch,
+            "yaw_deg": self._yaw_deg(),
             "height_mm": round(self._chassis_z() * 1000.0, 1),
             "height_ref_mm": round(self._published_height_ref()
                                    * 1000.0, 1),

@@ -1,5 +1,33 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## The 09-07 "needs a STRUCTURAL, non-reward lever" escalation for walkcurr's slip floor is now ALSO exhausted: all 3 named structural candidates refuted/non-beneficial, none licensed for reopening (2026-09-10 ~00:0x, zero spend, re-read of already-collected evidence)
+
+Consolidating three separate closures nobody had tallied together: foot-pad
+contact-geometry widening (4.5mm->13.5mm) won 15-26% in a frozen zero-shot
+read but got WORSE (+6-13%, all 4 groups) after a real 2M-step retraining
+canary (`footgeom0135-fix1`, 09-08 ~12:3x); torsional ground friction
+(mu_t 0.1->0.005, the physical-boot estimate) was flat-to-slightly-worse
+for straight-walk slip specifically (09-08 ~03:5x, it only helped turning);
+the Cartesian foot-placement action space (`cart_foot`) fails to ignite
+on the champion's own hard-DR widen8 composite identically to joint-space,
+and where it DOES ignite (easier rungs) its own slip numbers run 3-10x
+WORSE than the matched joint-space rung, the opposite of a fix. The first
+two were tested on an older, now-superseded precursor lineage rather than
+the exact current champion — a documented gap, not a fresh lever, and not
+worth a GPU re-test given the retraining-cancels-the-freebie mechanism is
+a PPO-optimizer effect, not composite-specific. **No new mechanism
+licensed.** Combined with the already-closed 4/4 off-axis-heading
+mechanism classes (below) and the closed 9-arm direct-slip-pricing floor,
+walkcurr's `rl_only` sim-demo has exhausted every named lever for both its
+open gaps (off-axis sacrifice, slip); the only honest next step for either
+is a genuinely new mechanism designed from first principles, not a dose/
+seed/lineage variant of anything already tried. Every other track
+re-confirmed unchanged (joystick/amp/cpg DONE-or-closed; standwalk/
+assistfade fully closed; todaypolicy has no queued executable experiment).
+No GPU launched this cycle (11/11 free, backlog empty, no non-duplicate
+arm on any of the 7 registered tracks). Evidence: `rl_docs/tracks/
+walkcurr/STATUS.md` 2026-09-10 ~00:0x entry (full citations).
+
 ## The fresh contextualgate slip FAIL (9.52/m) is a REAL lineage-wide floor, not a metric artifact, and predates the leg-duty-fairness charges (2026-09-09 ~23:5x follow-up, zero spend)
 
 Checked the one cheap alternative explanation for the ~23:5x slip FAIL

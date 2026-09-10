@@ -322,3 +322,113 @@ def test_heading_gate_off_axis_frac_stat_reported_only_when_gated():
     w2.step_async(None)
     w2.step_wait()
     assert "gate_off_axis_frac" not in w2.pop_rollout_stats()
+
+
+# ------------------------------------------------------ per-leg obs mask
+# (walkcurr, 2026-09-10, DESIGN_NOTE_2026-09-10_offaxis_frontpair.md's
+# named fallback for the heading-gate's own clean FAIL: scope WHAT the
+# RND nets see, not WHEN the bonus pays out.)
+
+def test_obs_mask_rejects_empty_and_out_of_range():
+    stub = _StubVecEnv(n_envs=3, obs_dim=8)
+    with pytest.raises(ValueError):
+        _wrap(stub, obs_mask_idx=[])
+    stub2 = _StubVecEnv(n_envs=3, obs_dim=8)
+    with pytest.raises(ValueError):
+        _wrap(stub2, obs_mask_idx=[8])
+    stub3 = _StubVecEnv(n_envs=3, obs_dim=8)
+    with pytest.raises(ValueError):
+        _wrap(stub3, obs_mask_idx=[-1])
+
+
+def test_obs_mask_none_is_bit_exact_original_path():
+    """obs_mask_idx=None (default) must reproduce the pre-09-10 blend
+    exactly — same seed, same stub, no column selection at all."""
+    stub_a = _StubVecEnv(n_envs=4, obs_dim=8)
+    stub_b = _StubVecEnv(n_envs=4, obs_dim=8)
+    w_unmasked = _wrap(stub_a, rnd_coef=0.4, seed=3)
+    w_explicit_none = _wrap(stub_b, rnd_coef=0.4, seed=3, obs_mask_idx=None)
+    w_unmasked.reset()
+    w_explicit_none.reset()
+    for _ in range(4):
+        w_unmasked.step_async(None)
+        _, r1, _, _ = w_unmasked.step_wait()
+        w_explicit_none.step_async(None)
+        _, r2, _, _ = w_explicit_none.step_wait()
+        np.testing.assert_array_equal(r1, r2)
+
+
+def test_obs_mask_networks_are_sized_to_masked_dim_not_full_obs():
+    stub = _StubVecEnv(n_envs=3, obs_dim=10)
+    w = _wrap(stub, obs_mask_idx=[1, 3, 5])
+    assert w.target.net[0].in_features == 3
+    assert w.predictor.net[0].in_features == 3
+    assert w.obs_rms.mean.shape == (3,)
+    assert w.ring.buf.shape[1] == 3
+
+
+def test_obs_mask_rms_and_ring_see_only_masked_columns():
+    """The running-stats/ring-buffer state the RND nets actually learn
+    from must reflect ONLY the masked columns of the raw obs, never the
+    unmasked ones — the direct, non-noise-sensitive version of "the RND
+    nets never touch the unmasked columns" (intrinsic-reward deltas on
+    a single sample are dominated by the obs-rms's own instant-adapt-
+    to-one-sample behavior, not a good discriminator here)."""
+    stub = _StubVecEnv(n_envs=3, obs_dim=6)
+    w = _wrap(stub, rnd_coef=0.5, seed=1, obs_mask_idx=[1, 4])
+    w.reset()
+    w.step_async(None)
+    obs, _, _, _ = w.step_wait()
+    raw = np.asarray(obs, dtype=np.float32).reshape(3, -1)
+    np.testing.assert_allclose(w.obs_rms.mean, raw[:, [1, 4]].mean(axis=0),
+                                rtol=1e-3, atol=1e-6)
+    np.testing.assert_array_equal(w.ring.buf[:3], raw[:, [1, 4]])
+
+
+def test_obs_mask_intrinsic_depends_only_on_masked_columns():
+    """Two obs streams that differ ONLY outside the mask, replayed for
+    enough ticks that the running-stats stop instant-adapting to a
+    single sample, must produce IDENTICAL intrinsic reward on the final
+    tick; the same streams differing INSIDE the mask must not."""
+    class _FixedObsVecEnv(_StubVecEnv):
+        def __init__(self, rows, **kw):
+            super().__init__(**kw)
+            self._rows = np.asarray(rows, dtype=np.float32)
+            self._k = 0
+
+        def step_wait(self):
+            self._t += 1
+            rews = np.full(self.num_envs, 1.0, dtype=np.float32)
+            dones = np.zeros(self.num_envs, dtype=bool)
+            obs = self._rows[self._k % len(self._rows)].copy()
+            self._k += 1
+            infos = [{} for _ in range(self.num_envs)]
+            return obs, rews, dones, infos
+
+    # obs cols: mask={1,3}. Rows vary tick-to-tick OUTSIDE the mask
+    # (cols 0/2/4) between the "a" and "b" streams, but hold the SAME
+    # masked-column values every tick and across streams; a third
+    # stream ("c") instead varies the masked columns.
+    rows_a = [[0.0, 5.0, 0.0, 5.0, 0.0], [1.0, 5.0, 2.0, 5.0, 3.0],
+              [4.0, 5.0, -1.0, 5.0, -2.0]]
+    rows_b = [[9.0, 5.0, -9.0, 5.0, 9.0], [-3.0, 5.0, 8.0, 5.0, -8.0],
+              [2.0, 5.0, 2.0, 5.0, 2.0]]
+    rows_c = [[0.0, 1.0, 0.0, 1.0, 0.0], [1.0, 2.0, 2.0, 2.0, 3.0],
+              [4.0, 3.0, -1.0, 3.0, -2.0]]
+
+    def _probe(rows):
+        stub = _FixedObsVecEnv(rows, n_envs=1, obs_dim=5)
+        w = _wrap(stub, rnd_coef=0.5, seed=7, obs_mask_idx=[1, 3])
+        w.reset()
+        bonus = None
+        for _ in range(len(rows)):
+            w.step_async(None)
+            _, _, _, infos = w.step_wait()
+            bonus = infos[0]["reward_rnd_intrinsic"]
+        return bonus
+
+    bonus_a = _probe(rows_a)
+    bonus_b = _probe(rows_b)
+    bonus_c = _probe(rows_c)
+    assert bonus_a == pytest.approx(bonus_b, rel=1e-6)
+    assert bonus_a != pytest.approx(bonus_c, rel=1e-3)

@@ -67,6 +67,29 @@ do nothing for the front pair specifically, or destabilize the
 already-good on-axis behavior chasing novelty elsewhere"): an on-axis
 tick can never earn this bonus, so it cannot buy exploration currency
 by perturbing behavior PPO already has working.
+
+PER-LEG OBS-MASKING VARIANT (walkcurr, 2026-09-10, same design note —
+the HEADING gate above closed 2/2 seeds, clean FAIL, byte-identical to
+the untouched parent at every off-axis heading/mode cell; the note's
+own harder-named fallback is this one): rather than gate WHEN the
+bonus pays out (by commanded heading), this scopes WHAT STATE the
+novelty predictor is even asked to model — the RND target/predictor
+nets see ONLY the sacrificed legs' own obs columns (``obs_mask_idx``),
+never the other four legs' or the shared body/command state. A tick
+now earns novelty income purely for visiting an under-explored
+JOINT-SPACE region for those specific legs, regardless of commanded
+heading — this is deliberately heading-agnostic (unlike the closed
+heading gate) because the design note's kinematic finding (mount-angle
+table) says the front pair's problem is that off-axis commands ask
+them for a joint trajectory they otherwise never practice, not that
+the bonus was firing at the wrong time. ``obs_mask_idx=None`` (default)
+is BIT-EXACT identical to the pre-09-10 wrapper: no column selection,
+full observation feeds the nets exactly as before. When set, the
+column list is expected to come from ``decleg_policy.joint_walk_leg_
+slices`` (already built/tested for the decentralized-actor track,
+09-10 CURRENT_TRUTHS closure) restricted to the target legs — this
+module does not re-derive the per-leg obs-column enumeration, it
+reuses the one that already exists and is unit-tested.
 """
 from __future__ import annotations
 
@@ -164,7 +187,8 @@ class RNDVecWrapper(VecEnvWrapper):
                  buffer_size: int = 200_000, seed: int = 0,
                  clip_obs: float = 5.0,
                  heading_gate_idx: int | None = None,
-                 heading_gate_cos_max: float | None = None):
+                 heading_gate_cos_max: float | None = None,
+                 obs_mask_idx: list[int] | None = None):
         super().__init__(venv)
         if rnd_coef <= 0.0:
             raise ValueError("RNDVecWrapper needs rnd_coef > 0; for RND "
@@ -185,16 +209,36 @@ class RNDVecWrapper(VecEnvWrapper):
                 "must both be set or both be None")
         obs_dim = int(obs_dim if obs_dim is not None
                       else np.prod(venv.observation_space.shape))
+        # Per-leg obs-masking (2026-09-10, off by default): None is the
+        # ORIGINAL bit-exact path (full obs feeds the RND nets, no
+        # column selection at all — not a no-op selection of every
+        # index, an actually-skipped branch).
+        if obs_mask_idx is None:
+            self.obs_mask_idx: np.ndarray | None = None
+            net_dim = obs_dim
+        else:
+            idx = np.asarray(sorted(int(i) for i in obs_mask_idx),
+                              dtype=np.int64)
+            if idx.size == 0:
+                raise ValueError(
+                    "RNDVecWrapper: obs_mask_idx must be non-empty "
+                    "(pass None for the unmasked full-obs path)")
+            if idx.min() < 0 or idx.max() >= obs_dim:
+                raise ValueError(
+                    f"RNDVecWrapper: obs_mask_idx entries must be in "
+                    f"[0, {obs_dim}), got min={idx.min()} max={idx.max()}")
+            self.obs_mask_idx = idx
+            net_dim = int(idx.size)
         g = torch.Generator().manual_seed(int(seed))
         torch.manual_seed(int(seed))
-        self.target = _RNDNet(obs_dim, hidden, out_dim)
-        self.predictor = _RNDNet(obs_dim, hidden, out_dim)
+        self.target = _RNDNet(net_dim, hidden, out_dim)
+        self.predictor = _RNDNet(net_dim, hidden, out_dim)
         for p in self.target.parameters():
             p.requires_grad_(False)
         self.opt = torch.optim.Adam(self.predictor.parameters(), lr=lr)
-        self.obs_rms = _RunningMeanStd((obs_dim,))
+        self.obs_rms = _RunningMeanStd((net_dim,))
         self.ret_rms = _RunningMeanStd(())
-        self.ring = _ObsRing(buffer_size, obs_dim)
+        self.ring = _ObsRing(buffer_size, net_dim)
         self.rng = np.random.default_rng(seed)
         self.updates = 0
         self._stat_intrinsic_sum = 0.0
@@ -202,6 +246,15 @@ class RNDVecWrapper(VecEnvWrapper):
         self._stat_gate_off_axis_sum = 0.0
         self._stat_gate_n = 0
         del g
+
+    def _select(self, flat: np.ndarray) -> np.ndarray:
+        """Apply the per-leg obs mask (if armed) — the ONLY point where
+        raw obs columns are subset before touching the RND nets/rms/
+        ring, so every downstream consumer works in "network space"
+        (full obs when unmasked, masked columns when armed) uniformly."""
+        if self.obs_mask_idx is None:
+            return flat
+        return flat[:, self.obs_mask_idx]
 
     # ------------------------------------------------------------- env
     def reset(self):
@@ -213,7 +266,8 @@ class RNDVecWrapper(VecEnvWrapper):
 
     def step_wait(self):
         obs, rews, dones, infos = self.venv.step_wait()
-        flat = np.asarray(obs, dtype=np.float32).reshape(len(rews), -1)
+        raw = np.asarray(obs, dtype=np.float32).reshape(len(rews), -1)
+        flat = self._select(raw)
         self.obs_rms.update(flat)
         norm = self._normalize(flat)
         with torch.no_grad():
@@ -226,7 +280,11 @@ class RNDVecWrapper(VecEnvWrapper):
         bonus = self.rnd_coef * scaled
         if self.heading_gate_idx is not None:
             idx = self.heading_gate_idx
-            cos_h = heading_cos(flat[:, idx:idx + 2])
+            # Heading index is always expressed in FULL-obs space (from
+            # heading_selfdistill.heading_vref_index) regardless of
+            # whether obs_mask_idx narrowed what the RND nets see —
+            # read it off `raw`, never the (possibly masked) `flat`.
+            cos_h = heading_cos(raw[:, idx:idx + 2])
             off_axis = (cos_h <= self.heading_gate_cos_max).astype(
                 np.float32)
             bonus = bonus * off_axis

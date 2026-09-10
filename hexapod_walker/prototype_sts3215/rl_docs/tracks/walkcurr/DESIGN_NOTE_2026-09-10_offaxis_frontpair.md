@@ -135,3 +135,95 @@ Evidence for this note: `CURRENT_TRUTHS.md` 2026-09-09 ~19:4x through
 read); `RL_LOG.md` 08-23 22:1x-23:5x (RND closure, from-scratch regime);
 `rl_move/sim/rnd_vec.py`, `rl_move/sim/train_ppo_mjx.py` (`--rnd-coef`,
 already wired, zero new code this note).
+
+## Addendum, 2026-09-10 (refill cycle, after both plain full-obs AND
+heading-gated RND closed 2/2 seeds each): per-leg obs-masking variant —
+this note's own named fallback for a clean heading-gate FAIL — built
+and launched
+
+The heading-gate canary above closed CLEAN-FAIL, 2/2 seeds, byte-
+identical to the untouched parent at every off-axis cell (not merely
+unhelpful — the strongest possible negative read, `CURRENT_TRUTHS.md`
+2026-09-10). Per this note's own text ("the next idea needs the leg/
+heading-scoped RND variant (new code) or a genuinely different
+structural mechanism"), the harder named fallback is the one still
+untried: **mask WHAT the RND target/predictor nets see, not WHEN the
+bonus pays out.**
+
+**Why this is a genuinely different mechanism, not a third dose of the
+same closed idea.** Both closed RND variants computed the intrinsic
+bonus over the FULL observation (full-obs) or gated WHEN it pays out
+by commanded heading (heading-gate) — both still let the front pair's
+own joint-state novelty compete for bonus income against the five
+OTHER legs' and the body's own natural variation, all baked into one
+shared predictor. The obs-mask variant restricts the predictor/target
+nets' INPUT to only the sacrificed legs' own columns (`leg0`, `leg5` —
+q_rel/qd/prev_action triplets), so the ENTIRE bonus budget is novelty
+in exactly the joint-space region the design note's mount-angle
+argument says is under-practiced, on every tick regardless of
+commanded heading (deliberately heading-agnostic, unlike the closed
+gate — the kinematic argument is about what trajectory the legs need
+to practice, not when the practice should be rewarded).
+
+**Built (zero re-derivation of the per-leg obs-column enumeration):**
+`rnd_vec.py` gained `obs_mask_idx` (new `RNDVecWrapper` kwarg, default
+`None` = bit-exact original full-obs path — no column selection at
+all) plus a `_select()` helper used uniformly by `step_wait` (obs-rms
+update/normalize, target/predictor forward, ring-buffer push) and
+`train_predictor`'s replay path; the heading-gate's own `cos_heading`
+read is fixed to always index the FULL raw obs regardless of masking
+(the two levers compose safely, though this canary uses obs-masking
+alone). `train_ppo_mjx.py` gained `--rnd-obs-mask-legs` (comma-
+separated leg indices, e.g. `0,5`), which calls `decleg_policy.
+joint_walk_leg_slices` — the exact same per-leg obs-column
+enumeration the (now-closed) `decleg` architecture already built and
+unit-tested — rather than hand-deriving a new index map a third time.
+9 new tests (`rl_move/tests/test_rnd_vec.py`): empty/out-of-range mask
+rejected, `None` bit-exact-equivalence to the pre-09-10 wrapper,
+network/obs-rms/ring sized to the masked dim not the full obs, obs-rms
+and ring state reflect ONLY the masked columns after a step, and a
+multi-tick probe showing intrinsic reward depends only on the masked
+columns (unmasked-column variation leaves it unchanged; masked-column
+variation changes it). Full file 17/17 green; touched-file suite
+(`test_rnd_vec.py`+`test_decleg_policy.py`+`test_heading_selfdistill.py`
++`test_heading_adv_norm.py`) 52/52 green. `--help` smoke-parses the new
+flag. Snapshotted before launch.
+
+**Canary (pre-registered before launch):**
+`cw-walkscratch-crutchoff-{s0,s1}-widen8-plusduty-rndobsmask-
+canary2m`: respec of the SAME shared parent the heading-gate canary
+used (`...-rndexplore-canary2m-clean`, i.e. the plain full-obs
+`--rnd-coef=0.02` arm, NOT the heading-gated one — obs-masking and
+heading-gating are independent levers, tested one at a time per
+RESEARCH_RULES §10 discipline), single new lever
+`--rnd-obs-mask-legs=0,5`. 2M steps, phase=canary, mesh_mjx, otherwise
+bit-for-bit identical to the family.
+
+**Gate.** MECHANISM-HEALTH: `ep_rew_mean`/`reward_per_tick` in the same
+band as every sibling canary in this family at this depth (no
+order-of-magnitude collapse), `rnd/intrinsic_mean` logged and decaying
+over the run (predictor genuinely learning, not inert — same
+diagnostic as every prior RND arm; no `gate_off_axis_frac` analog
+exists for this variant since it does not gate by heading), zero new
+falls vs baseline. **Efficacy PASS:** `--pinned-heading-panel
+--baseline <frozen champion cont10m parent>` (n=3 det+sto/heading,
+both seeds pooled) DET `gait_valid` at the 5 chronically-broken
+headings >= 6/15 combined AND on-axis (0°/±45°) `gait_valid` does not
+regress below the champion's own clean baseline (this variant fires on
+EVERY tick including on-axis ones, unlike the closed heading gate, so
+on-axis regression is a live risk here specifically — watch it
+closely). **FAIL:** gait_valid stays at/below the closed 0-2/15 floor
+with the same sacrificed-leg fingerprint, OR on-axis regresses —
+closes this candidate too, at which point the design note's ENTIRE
+named list (full-obs RND, heading-gated RND, per-leg obs-masked RND)
+is exhausted and the next idea must be a genuinely different
+structural mechanism, not another RND variant of any kind.
+**CONTINUE per the 08-21 ruling** if reward is cleanly rising/healthy
+and gait_valid is trending up but short of the bar at 2M.
+
+Evidence: `rl_move/sim/rnd_vec.py` (`obs_mask_idx`/`_select`),
+`rl_move/sim/train_ppo_mjx.py` (`--rnd-obs-mask-legs`),
+`rl_move/sim/decleg_policy.py` (`joint_walk_leg_slices`, reused
+unmodified), `rl_move/tests/test_rnd_vec.py` (17/17 including the 9
+new obs-mask tests); `CURRENT_TRUTHS.md` 2026-09-10 (heading-gate
+closure, this addendum's own trigger).

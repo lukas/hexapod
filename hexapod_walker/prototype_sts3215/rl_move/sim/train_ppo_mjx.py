@@ -1754,6 +1754,22 @@ def main(argv: list[str] | None = None) -> int:
                          "restriction as --heading-selfdistill-coef). "
                          "Default None = OFF, bit-exact original "
                          "unscoped RND path (no mask multiply at all).")
+    ap.add_argument("--rnd-obs-mask-legs", type=str, default=None,
+                    help="walkcurr off-axis-heading fallback #2 (design "
+                         "note DESIGN_NOTE_2026-09-10_offaxis_frontpair, "
+                         "the heading-gate variant's own clean FAIL, 2/2 "
+                         "seeds): comma-separated leg indices (0-5, "
+                         "e.g. '0,5' for the front pair) whose obs "
+                         "columns are the ONLY input the RND target/ "
+                         "predictor nets see (decleg_policy.joint_walk_"
+                         "leg_slices — reused, not re-derived). Unlike "
+                         "--rnd-heading-gate-cos-max (which zeroes WHEN "
+                         "the bonus pays out), this scopes WHAT STATE "
+                         "counts as novel, heading-agnostic. Needs "
+                         "--rnd-coef>0 and the plain walk-task obs frame "
+                         "(joint_walk_leg_slices' >=59-dim contract). "
+                         "Default None = OFF, bit-exact original "
+                         "full-obs RND path (no column selection).")
     ap.add_argument("--use-sde", action="store_true",
                     help="SB3 generalized State-Dependent Exploration "
                          "(gSDE): sample ONE noise matrix per rollout "
@@ -3126,12 +3142,35 @@ def main(argv: list[str] | None = None) -> int:
                     f"{obs_dim_now} -- this run's obs layout does not "
                     "match the plain walk-task assumption; fix the "
                     "index math or leave this lever off")
+        obs_mask_idx = None
+        if args.rnd_obs_mask_legs is not None:
+            # Reuses decleg_policy's already-built/tested per-leg
+            # obs-column enumeration (joint_walk_leg_slices) rather
+            # than re-deriving the layout math a third time.
+            from .decleg_policy import joint_walk_leg_slices
+            obs_dim_now = int(np.prod(venv.observation_space.shape))
+            try:
+                legs, _shared = joint_walk_leg_slices(obs_dim_now)
+            except ValueError as exc:
+                raise SystemExit(
+                    f"--rnd-obs-mask-legs: {exc}") from exc
+            wanted = [int(t) for t in
+                      args.rnd_obs_mask_legs.split(",") if t.strip()]
+            bad = [i for i in wanted if not 0 <= i < len(legs)]
+            if bad:
+                raise SystemExit(
+                    f"--rnd-obs-mask-legs: leg indices must be in "
+                    f"[0, {len(legs)}), got {bad}")
+            obs_mask_idx = [j for i in wanted for j in legs[i]]
+            print(f"[rnd] obs-mask ON: legs {wanted} -> obs idx "
+                  f"{obs_mask_idx} (of {obs_dim_now})")
         rnd_wrap = RNDVecWrapper(
             venv, rnd_coef=args.rnd_coef, hidden=args.rnd_hidden,
             out_dim=args.rnd_out_dim, lr=args.rnd_lr,
             buffer_size=args.rnd_buffer, seed=args.seed,
             heading_gate_idx=heading_gate_idx,
-            heading_gate_cos_max=args.rnd_heading_gate_cos_max)
+            heading_gate_cos_max=args.rnd_heading_gate_cos_max,
+            obs_mask_idx=obs_mask_idx)
         venv = rnd_wrap
     venv = VecMonitor(venv)
     print(f"[mjx-train] vec env up in {time.monotonic() - t0:.1f}s "

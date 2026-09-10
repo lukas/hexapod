@@ -1302,6 +1302,51 @@ class Store:
             "queue_control": control_result,
         }
 
+    def latest_analyzable_experiment(self) -> Optional[Dict[str, Any]]:
+        """The newest sealed terminal experiment, for a fresh proposal pass."""
+        with self.connect() as con:
+            row = con.execute(
+                "SELECT * FROM experiments WHERE status='succeeded' "
+                "AND evidence_sealed_at IS NOT NULL "
+                "AND evidence_manifest_sha256 IS NOT NULL "
+                "ORDER BY finished_at DESC, id LIMIT 1"
+            ).fetchone()
+        return self.row(row) if row else None
+
+    def enqueue_queue_refill_analysis(
+        self, experiment_id: str, *, max_attempts: Optional[int] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Ask for one next-step proposal because the queue has run dry.
+
+        Keyed per experiment so one sealed result cannot be milked for an
+        unbounded number of paid analysis passes: once this experiment has
+        been asked, a genuinely new result is needed before asking again.
+        """
+        now = utcnow()
+        max_attempts = max_attempts or self.codex_max_attempts
+        key = f"queue-refill:{experiment_id}:analysis"
+        with self.connect() as con:
+            con.execute("BEGIN IMMEDIATE")
+            existing = con.execute(
+                "SELECT 1 FROM codex_jobs WHERE dedupe_key=?", (key,)
+            ).fetchone()
+            if existing is not None:
+                con.execute("COMMIT")
+                return None
+            con.execute(
+                "INSERT INTO codex_jobs("
+                "id,dedupe_key,kind,trigger_kind,experiment_id,status,"
+                "max_attempts,not_before,created_at,updated_at) "
+                "VALUES(?,?,'analysis','queue_refill',?,'queued',?,?,?,?)",
+                (uuid.uuid4().hex, key, experiment_id, max_attempts,
+                 now, now, now),
+            )
+            row = con.execute(
+                "SELECT * FROM codex_jobs WHERE dedupe_key=?", (key,)
+            ).fetchone()
+            con.execute("COMMIT")
+        return self.codex_job_row(row) if row else None
+
     def enqueue_advance(
         self,
         dedupe_key: str,

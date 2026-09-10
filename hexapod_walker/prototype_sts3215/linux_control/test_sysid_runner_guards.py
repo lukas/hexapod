@@ -172,7 +172,9 @@ def _runtime_stream_run(monkeypatch, tmp_path, *, glide: bool):
     monkeypatch.setattr(sysid_runner, "validate", lambda protocol: [])
     monkeypatch.setattr(
         sysid_runner, "start_pose",
-        lambda protocol: [10.0] * 18 if glide else None,
+        # Travel must exceed GLIDE_TOL_DEG for a glide to happen at all.
+        lambda protocol: [sysid_runner.GLIDE_TOL_DEG + 10.0] * 18
+        if glide else None,
     )
     monkeypatch.setattr(
         sysid_runner,

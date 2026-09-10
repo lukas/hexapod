@@ -56,9 +56,12 @@ SERVOS immediately on any of:
     same as standup);
   * hard current cap (any single reading);
   * sustained high load while not moving;
-  * "not turning": a commanded joint > 10° from target makes < 2° of
-    progress over 2 s (quiet stall — servos give up under the torque
-    limit without a current spike; measured on the blend standup);
+  * "not turning": a commanded joint > ``GROUND_DROOP_TOL_DEG`` from
+    target makes < 2° of progress over 2 s WHILE SHOWING FORCE (quiet
+    stall — servos give up under the torque limit without a current
+    spike, but still report load; measured on the blend standup). A
+    no-progress joint with no force behind it is a weight-bearing joint
+    on the floor, not a jam, and is left to the stage timeout;
   * a servo that stops answering feedback, or over-temp.
 
 Operator abort (Stop button) HOLDS pose instead of limping — house
@@ -124,7 +127,35 @@ DRAG_LOAD_MAX_PCT = 85.0
 SLOW_DPS = 8.0              # below this the joint counts as "not moving"
 NO_PROGRESS_S = 2.0
 NO_PROGRESS_DEG = 2.0
-NO_PROGRESS_MIN_ERR = 10.0
+# How far short of a stage goal a joint may finish and still count as
+# arrived. Was 8.0 (timeout check) / 10.0 (no-progress floor): on
+# 2026-09-10 the l4_vertical_ground_load_ladder_v1 pre-roll limped twice
+# on GROUND-LOADED KNEES ("L0 knee not turning: stuck 11 deg from target
+# for 2.3 s") at 0.0 A peak and a flat 38 C, camera showing no fault —
+# the robot was belly-down and the knee was carrying body weight, which
+# is compliance, not a jam. sysid_runner's GLIDE_TOL_DEG took the same
+# widening the same day for the same reason; 15 deg clears the measured
+# loaded residual and still catches what these guards exist for (a jam
+# or a wrong logical zero shows up at 20-30+ deg).
+GROUND_DROOP_TOL_DEG = 15.0
+NO_PROGRESS_MIN_ERR = GROUND_DROOP_TOL_DEG
+# A joint only counts as "not turning" if it is actually FIGHTING
+# something. Both loaded-knee limps above had a position error and no
+# force at all behind it: a servo reading ~0 A and near-zero load is not
+# pushing, so there is nothing there to jam on. The guard's original
+# quiet-stall case (servos giving up under the torque limit without a
+# current spike, measured on the blend standup) still reports load, so it
+# stays armed. load_pct is the primary signal because current reads low on
+# this bus for light work (the 09-10 untrap left loaded knees at 0.1-0.3 A
+# and 20 % load); current is the second chance. The floors below are one
+# measurement wide -- that untrap snapshot is the only loaded reading we
+# have, and neither LIMP recorded its own load/current -- so treat them as
+# provisional and re-tune from the next run's per-sweep numbers. Above
+# them, no-progress limps as before; below them the stage timeout is the
+# backstop and its message ("timed out N deg short of target — joints not
+# tracking") is the honest diagnosis.
+NO_PROGRESS_MIN_LOAD_PCT = 35.0   # < LOAD_MAX_PCT (70); loaded knees ~20
+NO_PROGRESS_MIN_CURRENT_A = 0.5   # < STALL_CURRENT_A (2.5)
 TEMP_MAX_C = 63
 SETTLE_DEG = 3.5
 FB_MISS_LIMIT = 3
@@ -968,6 +999,7 @@ def run_safe_zero(bus, stages: list[dict], *,
             fb_interval = 0.3 if bulk else 0.6
             last_fb = 0.0
             stall_count: dict[int, int] = {}
+            stuck_count: dict[int, int] = {}
             load_count: dict[int, int] = {}
             temp_count: dict[int, int] = {}
             hard_count: dict[int, int] = {}
@@ -984,7 +1016,7 @@ def run_safe_zero(bus, stages: list[dict], *,
                     return {"ok": False, "aborted": True, "stage": label}
                 now = time.monotonic()
                 if now - t0 > timeout:
-                    if worst_err > 8.0:
+                    if worst_err > GROUND_DROOP_TOL_DEG:
                         return _trip(
                             f"timed out {worst_err:.0f}° short of target "
                             f"— joints not tracking", label)
@@ -1094,17 +1126,34 @@ def run_safe_zero(bus, stages: list[dict], *,
                             f"consecutive sweeps{FORCE_HINT}", label)
 
                     el = last_fb - t0
+                    now_stuck: set[int] = set()
                     for j, e in errs.items():
                         ref = progress_ref.get(j)
                         if ref is None or e < ref[1] - NO_PROGRESS_DEG:
                             progress_ref[j] = (el, e)
                             continue
-                        if (e > NO_PROGRESS_MIN_ERR
+                        fighting = (
+                            float(fb_map[j].get("load_pct") or 0.0)
+                            >= NO_PROGRESS_MIN_LOAD_PCT
+                            or (NO_PROGRESS_MIN_CURRENT_A
+                                <= amps.get(j, 0.0)
+                                <= IMPLAUSIBLE_CURRENT_A))
+                        if (e > NO_PROGRESS_MIN_ERR and fighting
                                 and el - ref[0] > NO_PROGRESS_S):
-                            return _trip(
-                                f"{joint_name(j)} not turning: stuck "
-                                f"{e:.0f}° from target for "
-                                f"{el - ref[0]:.1f} s{FORCE_HINT}", label)
+                            now_stuck.add(j)
+                    # Force evidence is read one sweep at a time, so it
+                    # confirms x3 like every other guard here: a single
+                    # flipped load byte (0x14 -> 52/84/148%) must not limp.
+                    bad = _confirm(stuck_count, now_stuck)
+                    if bad is not None:
+                        return _trip(
+                            f"{joint_name(bad)} not turning: stuck "
+                            f"{errs[bad]:.0f}° from target for "
+                            f"{el - progress_ref[bad][0]:.1f} s at "
+                            f"{amps.get(bad, 0.0):.2f} A / "
+                            f"{float(fb_map[bad].get('load_pct') or 0.0):.0f}%"
+                            f" load on {GUARD_CONFIRM_READS} consecutive "
+                            f"sweeps{FORCE_HINT}", label)
 
                     if el >= min_settle and worst_err <= SETTLE_DEG:
                         settled += 1

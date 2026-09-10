@@ -97,7 +97,13 @@ GLIDE_SETTLE_S = 1.0
 # gate was rejecting the robot's own compliance. 8 deg clears the measured
 # droop with margin and still catches the failures it exists for: a jam or
 # a wrong logical zero shows up as 20-30+ deg (MAX_TRACK_ERR_DEG is 30).
-GLIDE_TOL_DEG = 8.0
+# Then 8.0 -> 15.0 later the same day: a KNEE carrying body weight belly-down
+# holds a much bigger residual than a hip at the stand pose (11 deg measured
+# in the l4_vertical_ground_load_ladder_v1 pre-roll), and safe_zero's own
+# arrival tolerance moved to GROUND_DROOP_TOL_DEG = 15 for it. A start pose
+# safe_zero accepts must not then fail here one step downstream. Still under
+# the 20-30 deg a real jam shows.
+GLIDE_TOL_DEG = 15.0
 DEFAULT_MIN_VOLTAGE_V = 10.8
 DEFAULT_MAX_VOLTAGE_V = 13.0
 DEFAULT_MAX_STATE_AGE_MS = 1500.0

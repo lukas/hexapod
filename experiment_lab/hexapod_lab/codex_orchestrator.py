@@ -21,6 +21,8 @@ import sys
 import threading
 import time
 from typing import Any, Callable, Dict, Iterable, List, Optional
+from urllib.parse import urlsplit, urlunsplit
+from urllib.request import Request, urlopen
 import uuid
 
 from .agent_providers import (
@@ -638,6 +640,34 @@ _codex_no_tool_arguments = codex_no_tool_arguments
 # and 'P' are reads, and 'S' with n == 0 is a plain snapshot. Anything else
 # on the wire is ASCII and never moves a joint. See mcu_feetech_bus.py.
 _MOTION_FRAME_PREFIXES = ("a55a53", "a55a57")
+
+
+def _state_reports_motion(state: Any) -> bool:
+    """Whether a /api/rl/state payload shows the robot armed or running."""
+    if not isinstance(state, dict):
+        return False
+    pose = state.get("pose") if isinstance(state.get("pose"), dict) else state
+    demo = pose.get("demo") if isinstance(pose.get("demo"), dict) else {}
+    return bool(pose.get("armed") is True or demo.get("running") is True)
+
+
+def _robot_reports_motion(robot_base_url: str) -> Optional[bool]:
+    """Ask the robot right now; None when it cannot be reached.
+
+    The serial transcript is only copied to disk when an attempt finishes,
+    so counting it live reads "no file" -- the first version of this
+    watchdog disarmed itself on exactly that and let a 13-minute attempt
+    run to the operator's patience instead of to its deadline. The robot's
+    own state endpoint answers in milliseconds.
+    """
+    try:
+        parts = urlsplit(robot_base_url)
+        url = urlunsplit((parts.scheme, parts.netloc, "/api/rl/state", "", ""))
+        request = Request(url, headers={"User-Agent": "robot-lab-motion-watch/1.0"})
+        with urlopen(request, timeout=2.5) as response:
+            return _state_reports_motion(json.loads(response.read(256 * 1024)))
+    except Exception:
+        return None
 
 
 def _count_motion_frames(transcript: Path) -> Optional[int]:
@@ -2699,13 +2729,22 @@ class CodexOrchestrator:
                 motion_watch = (
                     role == "engineering"
                     and engineering_lane == ENGINEERING_LANE_HARDWARE
-                    and communication_capture is not None
                 )
                 motion_deadline = (
                     time.monotonic()
                     + max(30, int(self.settings.codex_engineering_motion_deadline_seconds))
                 )
-                transcript_path = run_dir / "robot-communication.jsonl"
+                motion_seen = False
+                next_motion_poll = 0.0
+                robot_base_url = ""
+                if motion_watch:
+                    try:
+                        robot_base_url = RobotStatusService(
+                            self.settings.robot_status_url,
+                            self.settings.robot_vision_url,
+                        ).resolved_robot_url()
+                    except Exception:
+                        robot_base_url = self.settings.robot_status_url
                 no_motion_error = ""
                 while True:
                     if role == "engineering":
@@ -2713,20 +2752,22 @@ class CodexOrchestrator:
                         if revocation_error:
                             _terminate_deadline_wrapper(process, grace_seconds=5)
                             break
-                    if motion_watch and time.monotonic() >= motion_deadline:
-                        frames = _count_motion_frames(transcript_path)
-                        if frames == 0:
-                            elapsed = int(time.monotonic() - (parent_deadline - timeout - 15))
+                    if motion_watch and not motion_seen:
+                        now_mono = time.monotonic()
+                        if now_mono >= next_motion_poll:
+                            next_motion_poll = now_mono + 3.0
+                            if _robot_reports_motion(robot_base_url) is True:
+                                motion_seen = True
+                        if not motion_seen and now_mono >= motion_deadline:
+                            elapsed = int(now_mono - (parent_deadline - timeout - 15))
                             no_motion_error = (
-                                f"no motion command reached the robot within "
+                                f"the robot was never armed or running within "
                                 f"{self.settings.codex_engineering_motion_deadline_seconds} s "
-                                f"(stopped after {elapsed} s; 0 position frames in the "
-                                "serial transcript). A queued plan is execution: start "
-                                "the run, do not audit it."
+                                f"(stopped after {elapsed} s). A queued plan is "
+                                "execution: start the run, do not audit it."
                             )
                             _terminate_deadline_wrapper(process, grace_seconds=5)
                             break
-                        motion_watch = False  # moved, or unknown: leave it alone
                     remaining = parent_deadline - time.monotonic()
                     if remaining <= 0:
                         raise subprocess.TimeoutExpired(wrapped_command, timeout + 15)

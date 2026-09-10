@@ -2035,6 +2035,44 @@ def main(argv: list[str] | None = None) -> int:
                     help="per-leg actor tower widths (paper: 2x64); "
                          "--net-arch stays the centralized critic "
                          "tower")
+    ap.add_argument("--decleg-share-legs", action="store_true",
+                    help="decleg addendum (walkcurr front-pair off-"
+                         "axis-heading repair, DESIGN_NOTE_2026-09-10_"
+                         "offaxis_frontpair.md addendum, 13th mechanism "
+                         "class on this gap): tie ONE shared per-leg "
+                         "tower's weights across all six legs instead "
+                         "of six independent towers "
+                         "(decleg_policy._DecLegExtractor). Lets a "
+                         "leg's abundant easy-heading experience train "
+                         "the SAME weights another leg's hard heading "
+                         "uses. Requires --decleg. Meant to be paired "
+                         "with --decleg-heading-rel (see that flag); "
+                         "alone it still shares an absolute-world-frame "
+                         "input across legs with very different mount "
+                         "angles, which is a much weaker version of the "
+                         "hypothesis. Default off = bit-exact "
+                         "independent-tower path (current decleg "
+                         "behavior).")
+    ap.add_argument("--decleg-heading-rel", action="store_true",
+                    help="decleg addendum, meant to pair with --decleg-"
+                         "share-legs: feed each leg tower cos/sin of "
+                         "the commanded heading ROTATED INTO THAT LEG'S "
+                         "OWN MOUNT-ANGLE FRAME (decleg_policy."
+                         "heading_rel_cos_sin / LEG_MOUNT_ANGLES_DEG, "
+                         "hardcoded mesh angles 30/90/150/-150/-90/-30 "
+                         "deg), appended to its local input, instead of "
+                         "only the raw world-frame heading already in "
+                         "the shared tail. Makes the same physical ask "
+                         "('command N degrees off your own straight-"
+                         "ahead') look identical to every leg "
+                         "regardless of mount angle -- the precondition "
+                         "for a weight-tied tower (--decleg-share-legs) "
+                         "to transfer skill across legs instead of "
+                         "relearning it per leg. Requires --decleg and "
+                         "the plain walk-task obs layout "
+                         "(heading_selfdistill.heading_vref_index, "
+                         "reused not re-derived). Default off = "
+                         "bit-exact (no extra input dims).")
     ap.add_argument("--device", default="auto",
                     help="torch device for PPO (auto: cuda if available "
                          "— the big-batch MLP pays off on GPU)")
@@ -3033,6 +3071,10 @@ def main(argv: list[str] | None = None) -> int:
               f"seed {args.critic_encoder.name} "
               f"(md5 {args.critic_encoder_md5}), history {hist}")
 
+    if (args.decleg_share_legs or args.decleg_heading_rel) \
+            and not args.decleg:
+        raise SystemExit("--decleg-share-legs/--decleg-heading-rel "
+                         "need --decleg")
     if args.decleg:
         # Decentralized per-leg actor (walkcurr rung-1 lever, operator
         # ruling fb_20260829T145710 / Schilling IROS 2020). The index
@@ -3071,11 +3113,17 @@ def main(argv: list[str] | None = None) -> int:
         _dl_hidden = tuple(int(x) for x in
                            str(args.decleg_hidden).split(",")
                            if x.strip())
-        extra_pk = dict(leg_hidden=_dl_hidden)
-        print(f"[mjx-train] decentralized per-leg actor: 6 x "
-              f"{_dl_hidden} towers + block-diagonal head, "
-              f"centralized critic {args.net_arch}; obs index map "
-              "resolved after venv construction")
+        extra_pk = dict(leg_hidden=_dl_hidden,
+                        share_leg_weights=bool(args.decleg_share_legs))
+        _dl_tower_note = ("1 SHARED tower (tied)"
+                          if args.decleg_share_legs
+                          else "6 independent towers")
+        print(f"[mjx-train] decentralized per-leg actor: {_dl_tower_note} "
+              f"x {_dl_hidden} + block-diagonal head, centralized "
+              f"critic {args.net_arch}; obs index map resolved after "
+              "venv construction"
+              + (" (+ mount-relative heading input)"
+                 if args.decleg_heading_rel else ""))
 
     print(f"[mjx-train] task={args.task} n_envs={args.n_envs} "
           f"impl={impl or 'jax(default)'} iterations={iters}/{ls_iters} "
@@ -3513,6 +3561,20 @@ def main(argv: list[str] | None = None) -> int:
                              f"reports {n_act}")
         extra_pk["leg_obs_idx"] = _dl_legs
         extra_pk["shared_obs_idx"] = _dl_shared
+        if args.decleg_heading_rel:
+            from .heading_selfdistill import heading_vref_index
+            _hidx = heading_vref_index(n_act)
+            if _hidx + 1 >= n_obs:
+                raise SystemExit(
+                    "--decleg-heading-rel: heading_vref_index "
+                    f"{_hidx} out of range for obs width {n_obs} — "
+                    "this obs layout does not match the plain "
+                    "walk-task frame heading_selfdistill assumes "
+                    "(no phase-clock/yaw-cmd/mode/recover/fault tail, "
+                    "single obs frame)")
+            extra_pk["heading_rel_idx"] = (_hidx, _hidx + 1)
+            print(f"[mjx-train] decleg heading-rel idx: {_hidx} "
+                  f"(vx_ref), {_hidx + 1} (vy_ref)")
         print(f"[mjx-train] decleg obs map (width {n_obs}): "
               f"shared {_dl_shared}; leg0 {_dl_legs[0]}")
     if args.walk_curriculum:

@@ -1,0 +1,39 @@
+{
+  "title": "Concurrent non-queue controller commanded the robot during engineering job 5a482e85",
+  "experiment_id": "2ae9157fb18c45cbaccab67321fd5ad8",
+  "engineering_job_id": "5a482e85cc0a45baa59dc004ca8884df",
+  "classification": "serialization conflict with a transient thermal rise; no tip, brownout, jam, or persistent servo loss",
+  "summary": "While this job held the guarded handoff for experiment 2ae9157f, a second controller commanded stand/lower on the same robot. It ran from 00:04:38Z to 00:12:11Z, at one point cycling stand and lower about every 8 seconds without waiting for the async motion worker to finish. Knee servo temperatures rose from 34 C to 50 C. The robot ended the episode back at logical zero, level and healthy.",
+  "attribution": {
+    "conclusion": "The :8898 RL web hub, driven from a browser inside the Codex desktop app (PID 1211). Not this job, not the Robot Lab service, not a Robot Lab guarded runner.",
+    "evidence": [
+      "linux_control/logs/commands.jsonl seq 2,5,6,7,8,9,10,11,12 record POST /api/rl/stand and /api/rl/lower with body {\"tilt_trip_deg\": 20} from peer 192.168.4.123.",
+      "This job's runner script never executed; only python3 -m py_compile was run on it.",
+      "System python3 on this Mac is 3.9.6, so this job cannot be the Python-urllib/3.12 caller.",
+      "rl_move/sim/web_hub.py:342 and rl_move/sim/web_server.py:386 proxy /api/rl/stand and /api/rl/lower; that hub runs on python 3.12.14 (PID 70498).",
+      "lsof showed PID 70498 as the only process holding a connection to 192.168.4.39:8080, and its :8898 listener had six established connections from PID 1211, the Codex app network service.",
+      "grep for 'api/rl/stand' across the installed hexapod_lab package returned nothing, ruling out the Robot Lab service."
+    ]
+  },
+  "timeline_utc": [
+    {"t": "00:00:50", "event": "This job deployed commit e6b05af1 and the hexapod-web service restarted."},
+    {"t": "00:04:38.195", "event": "FOREIGN POST /api/rl/stand {\"tilt_trip_deg\":20}, Python-urllib/3.12."},
+    {"t": "00:04:41.060", "event": "This job POST /api/rl/stop, intended as an abort-path check on a believed-idle robot. It aborted the foreign stand during start-pose acquisition, leaving the robot in the tuck pose."},
+    {"t": "00:07:14.709", "event": "FOREIGN POST /api/zero {\"pose\":\"sit\"}, curl/8.7.1. This is go_zero, a MOVE to the zero pose. It is not set_zero_here, so the zero frame was NOT modified."},
+    {"t": "00:09:19.174", "event": "FOREIGN POST /api/rl/stand, curl/8.7.1."},
+    {"t": "00:10:30 - 00:11:11", "event": "FOREIGN stand/lower cycled five more times at roughly 8 s intervals, Python-urllib/3.12 — faster than the async motion worker completes."},
+    {"t": "00:12:11.687", "event": "FOREIGN POST /api/rl/lower, curl/8.7.1. Last foreign motion command."},
+    {"t": "00:13:42", "event": "Robot Lab reported process standup_step_down 'done · step sit-down peak 2.44 A', busy false."},
+    {"t": "00:19", "event": "Seven minutes quiet. Robot at logical zero, all 18 joints within 0.8 deg. Knees cooling 50 -> 48 C."}
+  ],
+  "physical_observations": {
+    "no_zero_frame_change": "No /api/set_zero appears anywhere in the journal; joints read within 0.8 deg of zero afterwards.",
+    "knee_temperature_c": {"before_00_04": 33, "peak": 50, "at_00_19": 48,
+      "note": "Persistent and load-correlated across the six knee joints (j2 50, j8 47, j14 42), not the isolated single-sample corruption pattern seen in experiment 922434955b."},
+    "tilt": "roll stayed within -0.95..0.1 deg and pitch within 1.3..5.0 deg throughout; no tip.",
+    "bus": "18/18 motors in every sample, bus never quarantined, no new /api/errors entries.",
+    "camera": "robot-3 frame at 17:06:22 local shows the chassis upright and low with feet planted and the test area clear."
+  },
+  "impact_on_this_job": "The saved plan requires the robot to start belly-down at logical zero under exclusive control. That precondition was destroyed twice and then restored by the foreign controller's own final lower.",
+  "recommendation": "The :8898 RL web hub can command robot motion without passing through the Robot Lab serialized queue or its readiness gate, so it can collide with an in-flight guarded handoff. Robot Lab reported guarded_runner_ready false and can_start_from_website false the whole time, and neither prevented this. Consider making the hub's robot-target motion routes refuse while a guarded handoff is leased, or at least surface the lease in the hub UI."
+}

@@ -1,0 +1,234 @@
+[
+ {
+  "agent": "Python-urllib/3.12",
+  "attributed_by": "user_agent",
+  "body": {
+   "tilt_trip_deg": 20
+  },
+  "code": null,
+  "controller": "script",
+  "method": "POST",
+  "mono": 7230.064,
+  "path": "/api/rl/lower",
+  "peer": "192.168.4.123",
+  "query": "",
+  "seq": 6,
+  "ts": "2026-09-10T00:10:30.761Z"
+ },
+ {
+  "agent": "Python-urllib/3.12",
+  "attributed_by": "user_agent",
+  "body": {
+   "tilt_trip_deg": 20
+  },
+  "code": null,
+  "controller": "script",
+  "method": "POST",
+  "mono": 7237.182,
+  "path": "/api/rl/stand",
+  "peer": "192.168.4.123",
+  "query": "",
+  "seq": 7,
+  "ts": "2026-09-10T00:10:37.879Z"
+ },
+ {
+  "agent": "Python-urllib/3.12",
+  "attributed_by": "user_agent",
+  "body": {
+   "tilt_trip_deg": 20
+  },
+  "code": null,
+  "controller": "script",
+  "method": "POST",
+  "mono": 7245.935,
+  "path": "/api/rl/lower",
+  "peer": "192.168.4.123",
+  "query": "",
+  "seq": 8,
+  "ts": "2026-09-10T00:10:46.633Z"
+ },
+ {
+  "agent": "Python-urllib/3.12",
+  "attributed_by": "user_agent",
+  "body": {
+   "tilt_trip_deg": 20
+  },
+  "code": null,
+  "controller": "script",
+  "method": "POST",
+  "mono": 7253.184,
+  "path": "/api/rl/stand",
+  "peer": "192.168.4.123",
+  "query": "",
+  "seq": 9,
+  "ts": "2026-09-10T00:10:53.882Z"
+ },
+ {
+  "agent": "Python-urllib/3.12",
+  "attributed_by": "user_agent",
+  "body": {
+   "tilt_trip_deg": 20
+  },
+  "code": null,
+  "controller": "script",
+  "method": "POST",
+  "mono": 7262.339,
+  "path": "/api/rl/lower",
+  "peer": "192.168.4.123",
+  "query": "",
+  "seq": 10,
+  "ts": "2026-09-10T00:11:03.037Z"
+ },
+ {
+  "agent": "Python-urllib/3.12",
+  "attributed_by": "user_agent",
+  "body": {
+   "tilt_trip_deg": 20
+  },
+  "code": null,
+  "controller": "script",
+  "method": "POST",
+  "mono": 7271.267,
+  "path": "/api/rl/stand",
+  "peer": "192.168.4.123",
+  "query": "",
+  "seq": 11,
+  "ts": "2026-09-10T00:11:11.964Z"
+ },
+ {
+  "agent": "curl/8.7.1",
+  "attributed_by": "user_agent",
+  "body": {
+   "tilt_trip_deg": 20
+  },
+  "code": null,
+  "controller": "script",
+  "method": "POST",
+  "mono": 7330.99,
+  "path": "/api/rl/lower",
+  "peer": "192.168.4.123",
+  "query": "",
+  "seq": 12,
+  "ts": "2026-09-10T00:12:11.687Z"
+ },
+ {
+  "agent": "Python-urllib/3.12",
+  "attributed_by": "user_agent",
+  "body": {
+   "action": "mark",
+   "data": {
+    "attempt": 1,
+    "experiment_id": "experiment",
+    "job_id": "engineering-job"
+   },
+   "label": "robotlab_run_begin"
+  },
+  "code": null,
+  "controller": "script",
+  "method": "POST",
+  "mono": 7421.634,
+  "path": "/api/telemetry",
+  "peer": "192.168.4.123",
+  "query": "",
+  "seq": 13,
+  "ts": "2026-09-10T00:13:42.331Z"
+ },
+ {
+  "agent": "Python-urllib/3.12",
+  "attributed_by": "user_agent",
+  "body": {
+   "action": "mark",
+   "data": {
+    "attempt": 1,
+    "experiment_id": "experiment",
+    "job_id": "engineering-job"
+   },
+   "label": "robotlab_run_end"
+  },
+  "code": null,
+  "controller": "script",
+  "method": "POST",
+  "mono": 7421.968,
+  "path": "/api/telemetry",
+  "peer": "192.168.4.123",
+  "query": "",
+  "seq": 14,
+  "ts": "2026-09-10T00:13:42.666Z"
+ },
+ {
+  "agent": "Python-urllib/3.12",
+  "attributed_by": "user_agent",
+  "body": {
+   "tilt_trip_deg": 20
+  },
+  "code": null,
+  "controller": "script",
+  "method": "POST",
+  "mono": 7572.148,
+  "path": "/api/rl/stand",
+  "peer": "192.168.4.123",
+  "query": "",
+  "seq": 15,
+  "ts": "2026-09-10T00:16:12.845Z"
+ },
+ {
+  "agent": "Python-urllib/3.12",
+  "attributed_by": "user_agent",
+  "body": {
+   "tilt_trip_deg": 20
+  },
+  "code": null,
+  "controller": "script",
+  "method": "POST",
+  "mono": 7589.951,
+  "path": "/api/rl/lower",
+  "peer": "192.168.4.123",
+  "query": "",
+  "seq": 16,
+  "ts": "2026-09-10T00:16:30.649Z"
+ },
+ {
+  "agent": "Python-urllib/3.12",
+  "attributed_by": "user_agent",
+  "body": {
+   "action": "mark",
+   "data": {
+    "attempt": 1,
+    "experiment_id": "2ae9157fb18c45cbaccab67321fd5ad8",
+    "job_id": "5a482e85cc0a45baa59dc004ca8884df"
+   },
+   "label": "robotlab_run_end"
+  },
+  "code": null,
+  "controller": "script",
+  "method": "POST",
+  "mono": 7601.632,
+  "path": "/api/telemetry",
+  "peer": "192.168.4.123",
+  "query": "",
+  "seq": 17,
+  "ts": "2026-09-10T00:16:42.329Z"
+ },
+ {
+  "agent": "Python-urllib/3.12",
+  "attributed_by": "user_agent",
+  "body": {
+   "action": "mark",
+   "data": {
+    "attempt": 1,
+    "experiment_id": "51f54beb522d482a930aa750ed95368b",
+    "job_id": "469a3ef0943d4c58bc948beff4474391"
+   },
+   "label": "robotlab_run_begin"
+  },
+  "code": null,
+  "controller": "script",
+  "method": "POST",
+  "mono": 7604.398,
+  "path": "/api/telemetry",
+  "peer": "192.168.4.123",
+  "query": "",
+  "seq": 18,
+  "ts": "2026-09-10T00:16:45.095Z"
+ }
+]

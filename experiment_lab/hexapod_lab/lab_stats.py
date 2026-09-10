@@ -61,6 +61,7 @@ def scan_attempts(data_dir: Path) -> Dict[str, Any]:
     totals = _blank()
     by_provider: Dict[str, Dict[str, Any]] = {}
     by_role: Dict[str, Dict[str, Any]] = {}
+    by_role_24h: Dict[str, Dict[str, Any]] = {}
     by_model: Dict[str, Dict[str, Any]] = {}
     recent: List[Dict[str, Any]] = []
     day_cutoff = datetime.now(timezone.utc) - timedelta(days=1)
@@ -86,6 +87,7 @@ def scan_attempts(data_dir: Path) -> Dict[str, Any]:
             finished = _parse(meta.get("finished_at")) or _parse(meta.get("started_at"))
             if finished and finished >= day_cutoff:
                 _add(last_24h, meta)
+                _add(by_role_24h.setdefault(role, _blank()), meta)
             recent.append({
                 "job_id": meta.get("job_id"),
                 "attempt": meta.get("attempt"),
@@ -104,6 +106,7 @@ def scan_attempts(data_dir: Path) -> Dict[str, Any]:
         "last_24h": last_24h,
         "by_provider": by_provider,
         "by_role": by_role,
+        "by_role_24h": by_role_24h,
         "by_model": by_model,
         "recent_attempts": recent[:25],
         "attempts_scanned": scanned,

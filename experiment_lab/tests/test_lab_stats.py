@@ -91,3 +91,24 @@ def test_operator_pause_requires_a_reason(tmp_path):
     store = Store(settings.data_dir / "lab.sqlite3")
     with pytest.raises(ValueError):
         store.pause_codex_queue_for_operator("   ", created_by="alice")
+
+
+def test_per_lane_24h_cost_is_bucketed(tmp_path):
+    import datetime
+    settings = configured(tmp_path)
+    settings.data_dir.mkdir(parents=True, exist_ok=True)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    old = (now - datetime.timedelta(days=3)).isoformat()
+    fresh = (now - datetime.timedelta(hours=2)).isoformat()
+    attempt(settings.data_dir, "j1", 1, kind="analysis", finished_at=old,
+            usage={"cost_usd": 5.0})
+    attempt(settings.data_dir, "j2", 1, kind="analysis", finished_at=fresh,
+            usage={"cost_usd": 2.0})
+    attempt(settings.data_dir, "j3", 1, kind="engineering", finished_at=fresh,
+            usage={"cost_usd": 3.0})
+    lab_stats.invalidate()
+    d = lab_stats.collect(Store(settings.data_dir / "lab.sqlite3"), settings)
+    assert d["by_role"]["analysis"]["cost_usd"] == 7.0        # all-time
+    assert d["by_role_24h"]["analysis"]["cost_usd"] == 2.0    # last 24h only
+    assert d["by_role_24h"]["engineering"]["cost_usd"] == 3.0
+    assert "advance" not in d["by_role_24h"]

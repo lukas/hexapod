@@ -195,3 +195,24 @@ def test_restart_releases_builds_the_dead_thread_left_behind(settings, store, mo
     loop.main_loop(settings, store, log=lambda m: None, sleep=lambda s: None, max_iterations=1)
     assert store.plan(pid)["status_note"] == "builder interrupted by restart"
     assert "1 interrupted build(s) requeued" in store.events(1)[0]["text"]
+
+
+def test_restart_after_a_stop_gets_fresh_strikes(settings, store, monkeypatch):
+    pid = store.add_plan(title="p", why="w", kind="existing", protocol="steps_air_v1", build_spec=None)
+    for _ in range(3):
+        rid = store.start_run(pid)
+        store.finish_run(rid, status="failed", exit_code=1, run_dir=None, summary=None, log_tail="")
+    store.add_event("stop", "3 failed runs in a row")
+    # A real restart comes minutes later; the fixture runs land in the same second.
+    store.con.execute("UPDATE runs SET started_at='2026-01-01T00:00:00+00:00'")
+    store.con.commit()
+    assert store.consecutive_failed_runs() == 3
+    store.set_plan_status(pid, "queued")
+    monkeypatch.setattr(robot, "health", lambda url, budget: GOOD_FB)
+    monkeypatch.setattr(runner, "sync_checkout", lambda s: "synced")
+    monkeypatch.setattr(runner, "run_protocol", lambda s, p, rid, force=False: runner.RunResult(
+        status="ok", exit_code=0, run_dir=None, summary={}, log_tail="", motion_s=1.0))
+    monkeypatch.setattr(planner, "plan", lambda *a, **k: {"ok": True, "added": 0, "cost_usd": 0.0})
+    reason = loop.main_loop(settings, store, log=lambda m: None, sleep=lambda s: None, max_iterations=3)
+    assert reason != "3 failed runs in a row"
+    assert store.runs()[0]["status"] == "ok"

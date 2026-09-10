@@ -237,10 +237,14 @@ class Store:
             return []
         return sorted(p.name for p in root.iterdir() if not p.name.startswith("."))
 
-    def consecutive_failed_runs(self) -> int:
+    def consecutive_failed_runs(self, since: Optional[str] = None) -> int:
+        """Failed runs since the last success, optionally only those started
+        after `since` (the loop passes its own start time, so an operator
+        restart after a stop is a fresh three strikes, not an instant re-stop)."""
         n = 0
         for row in self.con.execute(
-            "SELECT status FROM runs WHERE status != 'running' ORDER BY started_at DESC, rowid DESC LIMIT 20"
+            "SELECT status FROM runs WHERE status != 'running' AND started_at >= ?"
+            " ORDER BY started_at DESC, rowid DESC LIMIT 20", (since or "",)
         ):
             if row["status"] in ("ok",):
                 break

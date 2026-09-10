@@ -48,7 +48,8 @@ class Settings:
     codex_workdir: Path = Path(".")
     codex_model: str = "gpt-5.6-sol"
     codex_reasoning_effort: str = "medium"
-    codex_analysis_timeout_seconds: int = 2700
+    # Planning is two minutes of thinking; five is the hard wall.
+    codex_analysis_timeout_seconds: int = 300
     codex_advance_timeout_seconds: int = 5400
     codex_poll_seconds: float = 2.0
     codex_evidence_settle_seconds: int = 60
@@ -64,7 +65,9 @@ class Settings:
     codex_engineering: bool = False
     codex_engineering_workdir: Optional[Path] = None
     codex_offline_engineering_workdir: Optional[Path] = None
-    codex_engineering_timeout_seconds: int = 7200
+    # Preflight is ten seconds and motion is minutes; thirty minutes covers
+    # the whole job including sealing. 7200 let ceremony expand to fill it.
+    codex_engineering_timeout_seconds: int = 1800
     codex_engineering_context_max_bytes: int = 256 * 1024
     codex_engineering_max_patch_bytes: int = 16 * 1024 * 1024
     codex_engineering_max_attempts: int = 3
@@ -179,7 +182,7 @@ class Settings:
                 "HEXAPOD_CODEX_REASONING_EFFORT", "medium"
             ),
             codex_analysis_timeout_seconds=int(os.getenv(
-                "HEXAPOD_CODEX_ANALYSIS_TIMEOUT_SECONDS", "2700"
+                "HEXAPOD_CODEX_ANALYSIS_TIMEOUT_SECONDS", "300"
             )),
             codex_advance_timeout_seconds=int(os.getenv(
                 "HEXAPOD_CODEX_ADVANCE_TIMEOUT_SECONDS", "5400"
@@ -224,7 +227,7 @@ class Settings:
                 "HEXAPOD_CODEX_OFFLINE_ENGINEERING_WORKDIR"
             ),
             codex_engineering_timeout_seconds=int(os.getenv(
-                "HEXAPOD_CODEX_ENGINEERING_TIMEOUT_SECONDS", "7200"
+                "HEXAPOD_CODEX_ENGINEERING_TIMEOUT_SECONDS", "1800"
             )),
             codex_engineering_context_max_bytes=int(os.getenv(
                 "HEXAPOD_CODEX_ENGINEERING_CONTEXT_MAX_BYTES", str(256 * 1024)

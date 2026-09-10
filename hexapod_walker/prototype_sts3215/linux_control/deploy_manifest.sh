@@ -20,7 +20,7 @@ LC_FILES=(
   motor_setup_api.py webui_config.py requirements-robot.txt
   joint_calibrate.py plant_calibrate.py geometry_plant.py imu_calibrate.py
   event_log.py telemetry_recorder.py async_bus_guard.py
-  command_journal.py deploy_record.py
+  command_journal.py command_lease.py deploy_record.py
   status_display.py deploy_status_display.py servo_watch.py
   mpu_probe.py rl_policy.py safe_zero.py pinned_tip.py
   sysid_protocol.py sysid_runner.py

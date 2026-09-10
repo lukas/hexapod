@@ -167,10 +167,17 @@ syncs, robot-side changes set `DEPLOY_NEEDED` and are pushed with
 the engineer's `verify_protocol` is queued, and its `followups` become new
 `needs_fix` plans. Fixes run ahead of builds in the single code slot.
 
-What the engineer cannot do, on purpose: move the robot (`--go`, POSTs),
-touch firmware, ssh to the robot, or edit the lab itself. The hexapod 2
-session that debugged the 100 Hz transport used firmware and ssh; those are
-outside this box until the operator widens it.
+Robot access (operator decision 2026-09-10 evening): a `needs_fix` plan
+with `needs_robot: true` hands the robot to the engineer exclusively. It
+waits for the gap between runs, writes `ROBOT_HELD`, and the loop runs
+nothing until the job ends. While holding it the engineer may move the robot
+(`--go`, `/api/zero`, `/api/standup`), ssh in, deploy with `deploy_ssh.sh`,
+and flash bridge firmware (`firmware/flash_feetech_bridge.sh`). When it
+finishes the loop checks the robot is healthy and at rest, runs the recovery
+ladder if not, and texts if that fails. Without `needs_robot` the engineer
+may not touch the robot at all. The only thing it can never edit is the lab
+itself (`experiment_lab/`). Guardrails are money and clock, the branch and
+merge gate, and the robot's own in-loop trips; nothing else.
 
 **Replies.** A stop pauses instead of exiting and texts the reason with
 `reply: resume | pause | raise cap [dollars] | status`. Reading replies needs

@@ -31,6 +31,17 @@ def protocol_exists(settings: Settings, name: str) -> bool:
     return protocol_path(settings, name).is_file()
 
 
+def _is_whole_body(doc: dict) -> bool:
+    return any(isinstance(s, dict) and "traj" in s for s in doc.get("segments") or [])
+
+
+def protocol_is_whole_body(settings: Settings, name: str) -> bool:
+    try:
+        return _is_whole_body(json.loads(protocol_path(settings, name).read_text()))
+    except (OSError, ValueError):
+        return False
+
+
 def list_protocols(settings: Settings) -> list[dict]:
     out = []
     for p in sorted(settings.protocols_dir.glob("*.json")):
@@ -38,21 +49,23 @@ def list_protocols(settings: Settings) -> list[dict]:
             doc = json.loads(p.read_text())
         except (OSError, ValueError):
             continue
-        whole_body = any(isinstance(s, dict) and "traj" in s for s in doc.get("segments") or [])
         out.append({
             "name": p.stem,
             "description": " ".join(str(doc.get("description") or "").split())[:240],
-            "whole_body": whole_body,
+            "whole_body": _is_whole_body(doc),
         })
     return out
 
 
-def command(settings: Settings, protocol: str, *, force: bool) -> list[str]:
+def command(settings: Settings, protocol: str, *, force: bool = False) -> list[str]:
+    protocol = protocol.removesuffix(".json")
     cmd = [str(settings.python), "-m", "sysid.run_hw",
-           "--protocol", f"sysid/protocols/{protocol.removesuffix('.json')}.json",
+           "--protocol", f"sysid/protocols/{protocol}.json",
            "--url", settings.robot_url, "--go",
-           "--capture-vision", "--capture-frames", "--vision-url", settings.vision_url]
-    if force:
+           "--capture-vision", "--capture-frames",
+           "--vision-url", settings.vision_url,
+           "--vision-frame-url", settings.vision_frame_url]
+    if settings.allow_force and (force or protocol_is_whole_body(settings, protocol)):
         cmd.append("--force")
     return cmd
 
@@ -71,7 +84,7 @@ def run_protocol(settings: Settings, protocol: str, run_id: str, *, force: bool 
                  log_path: Optional[Path] = None) -> RunResult:
     datasets = settings.prototype_dir / "sysid" / "datasets"
     before = {p.name for p in datasets.glob("*")} if datasets.exists() else set()
-    cmd = command(settings, protocol, force=force and settings.allow_force)
+    cmd = command(settings, protocol, force=force)
     started = time.monotonic()
     log_path = log_path or (settings.runs_dir / run_id / "runner.log")
     log_path.parent.mkdir(parents=True, exist_ok=True)

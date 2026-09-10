@@ -15,10 +15,14 @@ dev = ["httpx>=0.27,<1", "pytest>=8,<9"]
 hexapod-lab = "hexapod_lab.main:run"
 hexapod-blocker-monitor = "hexapod_lab.blocker_monitor:main"
 hexapod-codex-orchestrator = "hexapod_lab.codex_orchestrator:main"
+hexapod-lab2 = "hexapod_lab2.cli:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build.targets.wheel]
+packages = ["hexapod_lab", "hexapod_lab2"]
+
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "tests_lab2"]

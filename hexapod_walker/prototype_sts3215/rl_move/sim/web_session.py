@@ -287,12 +287,33 @@ class SimWebSession:
             cfg["goal"]["walk_phase_hz"] = self.cfg.phase_hz
             _ROLE_OBS[74] = "walk"
             self.walk_widths = (72, 74, 78, 1152)
+        # BUGFIX (2026-09-10, found via web_session_drivecapture.py on the
+        # any_means walk_allheading_mlp_singleframe_acq1_stdanneal champion,
+        # same investigation class as the joint_action_box/bias fix above):
+        # `_apply_vel_contract` (below) unconditionally derives
+        # `goal.walk_obs_body_vel` from a STEM NAMING heuristic
+        # (`_sim_only_obs`/`_ckpt_regime`) every time a walk policy is
+        # selected -- including at boot, AFTER this loop already applied an
+        # explicit `--cfg-set goal.walk_obs_body_vel=N`, silently discarding
+        # it. This champion trains at mode 2 but its stem carries no
+        # "_dep"/"noslip" token, so the heuristic guessed mode 1 and drove
+        # it under the wrong velocity-observation contract: body-frame
+        # velocity through the whole "human" script stayed at noise level
+        # (~0.01-0.06 m/s, no sustained direction-correct component) instead
+        # of the real ~0.08 m/s the champion was trained to produce. Record
+        # whether the caller explicitly pinned this key so `_apply_vel_
+        # contract` can leave it alone (explicit override wins, matching
+        # the joint_action_box/bias precedent) instead of clobbering it on
+        # every walk-model selection.
+        self._walk_obs_body_vel_explicit = False
         if self.cfg.cfg_overrides:
             from .train_ppo_sim import _parse_cfg_set
             for key, parsed in _parse_cfg_set(
                     list(self.cfg.cfg_overrides)).items():
                 sect, name = key.split(".", 1)
                 cfg.setdefault(sect, {})[name] = parsed
+                if key == "goal.walk_obs_body_vel":
+                    self._walk_obs_body_vel_explicit = True
         render_mode = "rgb_array" if self.cfg.web_frames else None
         self.env = _PlayEnv(params=SimServoParams.from_cfg(cfg),
                             randomize=False, episode_seconds=3600.0,
@@ -583,6 +604,15 @@ class SimWebSession:
         return {1152: "hist", 78: "gru"}.get(width, "plain")
 
     def _apply_vel_contract(self, stem: str) -> None:
+        # An explicit boot-time `--cfg-set goal.walk_obs_body_vel=N` always
+        # wins over the stem-naming heuristic below (2026-09-10 bugfix,
+        # see `SimWebConfig.cfg_overrides`/`_walk_obs_body_vel_explicit`
+        # docstring in `_load_runtime`): the heuristic only guesses right
+        # for checkpoints whose stem follows the "_dep"/"noslip"/regime-
+        # token naming convention, and silently mis-drives any champion
+        # trained with a non-default mode that doesn't happen to match.
+        if getattr(self, "_walk_obs_body_vel_explicit", False):
+            return
         if self._ckpt_regime(stem) is not None:
             mode = 3.0
         else:

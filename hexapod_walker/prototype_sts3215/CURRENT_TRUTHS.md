@@ -1,5 +1,34 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## AMP style-credit for acquisition REFUTED on the from-scratch mesh/50Hz walk recipe: a matched-budget no-style control walks BETTER than a discriminator kept alive by a health retune (2026-09-10 ~23:1x, amp track)
+
+One plain sentence: on `m2plain`-style scratch mesh/50Hz walking, an
+AMP run with the discriminator kept healthy for the full 15M steps
+(`cw-walk50hz-amp-mesh-m2plain-scratch-discretune-acq15m`: disc-steps
+4->2, gp 10->20, disc-batch 512->256, last-quarter d_real_mean
+0.80-0.87 well under the 0.95 saturation line, style_reward_mean mean
+0.051) still walks WORSE (det walk fwd med 0.43m, slip med 4.26/4.13)
+than the matched-budget `--amp-style-weight 0` control with no
+discriminator at all (`cw-walk50hz-amp-mesh-m2plain-scratch-styleoff-
+acq15m`: fwd med 0.57m, slip med 3.11) — and both beat the original
+saturated-disc parent (fwd 0.38m, slip 4.4-5.3). This directly settles
+the causal question the parent run's dig-in left open (task channel
+carried the reward gains there; here the same conclusion is confirmed
+by ablation, not just correlation). **Binding for future AMP arms on
+this recipe**: acquisition succeeding under AMP is not evidence the
+style term is doing anything — a plain task-reward-only control at
+matched budget is the required comparison before crediting AMP for
+either walking emergence or gait quality (slip/naturalness) on this
+recipe family; only a demonstrated quality delta over that control
+justifies continued style-weight tuning. Does not touch AMP's separate
+M5/M6 milestone track or other recipe families (e.g. the primitive-
+family `phasehz11-s29` champion) where AMP has already shown value.
+Evidence: `ops.sh entry cw-walk50hz-amp-mesh-m2plain-scratch-
+{discretune,styleoff}-acq15m`; `logs/ckpt_eval/cw_walk50hz_amp_mesh_
+m2plain_scratch_{discretune,styleoff}_acq15m_gate/report.json`;
+`rl_docs/SKILLS.md` new row; `rl_docs/tracks/amp/STATUS.md` 2026-09-10
+~23:1x; W&B `jvb5sszw`/`0ecp2kgt`.
+
 ## Stand/lower-role 50Hz retrain FAIL root-caused to a config bug, not a dynamics regression: `safety.max_delta_q_deg` deg/s-preservation math must use the ACTUAL parent contract, never an assumed legacy value (2026-09-10 ~22:4x, standwalk track)
 
 One plain sentence: `cw-stand50hz-stance-tuckclock-scratch6m` (stand/

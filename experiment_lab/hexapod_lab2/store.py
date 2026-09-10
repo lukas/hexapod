@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import sqlite3
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -21,7 +22,8 @@ CREATE TABLE IF NOT EXISTS plans (
   status TEXT NOT NULL,          -- queued | building | running | done | failed | skipped | cancelled
   status_note TEXT,
   source TEXT NOT NULL,          -- planner | operator
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  robot TEXT NOT NULL DEFAULT 'hexapod1'
 );
 CREATE TABLE IF NOT EXISTS runs (
   id TEXT PRIMARY KEY,
@@ -32,7 +34,8 @@ CREATE TABLE IF NOT EXISTS runs (
   exit_code INTEGER,
   run_dir TEXT,
   summary_json TEXT,
-  log_tail TEXT
+  log_tail TEXT,
+  robot TEXT NOT NULL DEFAULT 'hexapod1'
 );
 CREATE TABLE IF NOT EXISTS learnings (
   id TEXT PRIMARY KEY,
@@ -72,18 +75,29 @@ class Store:
         self.con = sqlite3.connect(str(self.path), check_same_thread=False)
         self.con.row_factory = sqlite3.Row
         self.con.executescript(SCHEMA)
+        self._migrate()
+
+    def _migrate(self) -> None:
+        # Databases created before the second robot lack the column.
+        for table in ("plans", "runs"):
+            cols = {r["name"] for r in self.con.execute(f"PRAGMA table_info({table})")}
+            if "robot" not in cols:
+                self.con.execute(
+                    f"ALTER TABLE {table} ADD COLUMN robot TEXT NOT NULL DEFAULT 'hexapod1'")
+        self.con.commit()
 
     # -- plans -------------------------------------------------------------
     def add_plan(self, *, title: str, why: str, kind: str, protocol: Optional[str],
                  build_spec: Optional[str], force: bool = False,
-                 source: str = "planner") -> str:
+                 source: str = "planner", robot: str = "hexapod1",
+                 status: Optional[str] = None) -> str:
         pid = new_id()
         now = now_iso()
         self.con.execute(
             "INSERT INTO plans (id, created_at, title, why, protocol, kind, build_spec,"
-            " force, status, source, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            " force, status, source, updated_at, robot) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
             (pid, now, title, why, protocol, kind, build_spec, int(force),
-             "queued" if kind == "existing" else "building", source, now),
+             status or ("queued" if kind == "existing" else "building"), source, now, robot),
         )
         self.con.commit()
         return pid
@@ -103,10 +117,10 @@ class Store:
         )
         self.con.commit()
 
-    def next_runnable(self) -> Optional[Dict[str, Any]]:
+    def next_runnable(self, robot: str = "hexapod1") -> Optional[Dict[str, Any]]:
         row = self.con.execute(
-            "SELECT * FROM plans WHERE status='queued' AND kind='existing'"
-            " ORDER BY created_at, rowid LIMIT 1"
+            "SELECT * FROM plans WHERE status='queued' AND kind='existing' AND robot=?"
+            " ORDER BY created_at, rowid LIMIT 1", (robot,)
         ).fetchone()
         return dict(row) if row else None
 
@@ -136,12 +150,51 @@ class Store:
     # -- runs --------------------------------------------------------------
     def start_run(self, plan_id: str) -> str:
         rid = new_id()
+        plan = self.plan(plan_id) or {}
         self.con.execute(
-            "INSERT INTO runs (id, plan_id, started_at, status) VALUES (?,?,?,?)",
-            (rid, plan_id, now_iso(), "running"),
+            "INSERT INTO runs (id, plan_id, started_at, status, robot) VALUES (?,?,?,?,?)",
+            (rid, plan_id, now_iso(), "running", plan.get("robot") or "hexapod1"),
         )
         self.set_plan_status(plan_id, "running")
         return rid
+
+    def import_run(self, *, robot: str, title: str, why: str, found: str,
+                   source_dir: Optional[Path], runs_dir: Path,
+                   status: str = "ok") -> str:
+        """Record a hand-run experiment: a folder of video/telemetry plus a paragraph.
+
+        Nothing is parsed. The folder is copied whole so a phone video or a
+        CSV is one link on the dashboard, and the paragraph joins the
+        learnings the planner reads.
+        """
+        pid = self.add_plan(title=title, why=why, kind="existing", protocol=None,
+                            build_spec=None, source="operator", robot=robot, status="done")
+        rid = new_id()
+        run_dir = runs_dir / rid
+        run_dir.mkdir(parents=True, exist_ok=True)
+        files = []
+        if source_dir is not None:
+            for src in sorted(Path(source_dir).iterdir()):
+                if src.name.startswith("."):
+                    continue
+                dest = run_dir / src.name
+                shutil.copytree(src, dest) if src.is_dir() else shutil.copy2(src, dest)
+                files.append(src.name)
+        now = now_iso()
+        self.con.execute(
+            "INSERT INTO runs (id, plan_id, started_at, finished_at, status, exit_code, run_dir,"
+            " summary_json, log_tail, robot) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (rid, pid, now, now, status, None, str(run_dir),
+             json.dumps({"imported": True, "files": files}), "", robot),
+        )
+        self.con.commit()
+        if found.strip():
+            self.add_learning(f"[{robot}] {found.strip()}", run_id=rid)
+        return rid
+
+    def robots(self) -> List[str]:
+        return [r[0] for r in self.con.execute(
+            "SELECT DISTINCT robot FROM runs UNION SELECT DISTINCT robot FROM plans ORDER BY 1")]
 
     def finish_run(self, run_id: str, *, status: str, exit_code: Optional[int],
                    run_dir: Optional[str], summary: Optional[dict], log_tail: str) -> None:
@@ -157,12 +210,23 @@ class Store:
         row = self.con.execute("SELECT * FROM runs WHERE id=?", (run_id,)).fetchone()
         return dict(row) if row else None
 
-    def runs(self, limit: int = 30) -> List[Dict[str, Any]]:
+    def runs(self, limit: int = 30, robot: Optional[str] = None) -> List[Dict[str, Any]]:
+        where = " WHERE runs.robot=?" if robot else ""
+        args = (robot, limit) if robot else (limit,)
         rows = self.con.execute(
             "SELECT runs.*, plans.title, plans.why, plans.protocol FROM runs"
-            " JOIN plans ON plans.id = runs.plan_id"
-            " ORDER BY runs.started_at DESC, runs.rowid DESC LIMIT ?", (limit,))
+            " JOIN plans ON plans.id = runs.plan_id" + where +
+            " ORDER BY runs.started_at DESC, runs.rowid DESC LIMIT ?", args)
         return [dict(r) for r in rows]
+
+    def run_files(self, run_id: str) -> List[str]:
+        run = self.run(run_id)
+        if not run or not run.get("run_dir"):
+            return []
+        root = Path(run["run_dir"])
+        if not root.is_dir():
+            return []
+        return sorted(p.name for p in root.iterdir() if not p.name.startswith("."))
 
     def consecutive_failed_runs(self) -> int:
         n = 0

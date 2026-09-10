@@ -69,14 +69,14 @@ article{background:#fff;border:1px solid #e7e5e4;border-radius:8px;padding:10px 
 article h2{font-size:1rem;margin:0 0 4px}
 .tag{display:inline-block;font-size:.75rem;padding:1px 7px;border-radius:10px;background:#e7e5e4;margin-right:6px;text-transform:uppercase}
 .tag.ok,.tag.done{background:#dcfce7}.tag.failed,.tag.timeout{background:#fee2e2}.tag.running{background:#dbeafe}
-.tag.queued{background:#fef9c3}.tag.building{background:#ede9fe}.tag.unreachable{background:#fde68a}
+.tag.queued{background:#fef9c3}.tag.robot{background:#cffafe}.tag.building{background:#ede9fe}.tag.unreachable{background:#fde68a}
 .point b{color:#57534e;margin-right:6px}p{margin:4px 0}small{color:#78716c}
 h3{font-size:.95rem;margin:18px 0 4px;color:#57534e;text-transform:uppercase;letter-spacing:.04em}
 details summary{cursor:pointer;color:#57534e}pre{white-space:pre-wrap;font-size:12px;background:#fafaf9;padding:8px;border-radius:6px}
 """
 
 
-def render(store: Store, settings: Settings) -> str:
+def render(store: Store, settings: Settings, robot: Optional[str] = None) -> str:
     stop = store.last_stop()
     started = next((e for e in store.events(50) if e["kind"] == "note" and e["text"] == "loop started"), None)
     loop_stopped = stop and (not started or stop["created_at"] > started["created_at"])
@@ -86,13 +86,15 @@ def render(store: Store, settings: Settings) -> str:
            f"<title>Robot Lab v2</title><style>{CSS}</style><main>"
            f"<div class=bar><h1>Robot Lab v2</h1><span>{escape(local_stamp(datetime.now(timezone.utc).isoformat(), relative=False))}</span>"
            f"<span>${spent:.2f} last 24 h of ${settings.daily_spend_cap_usd:.0f}</span>"
-           f"<a href='/'>old lab</a><a href='/v2/api/state'>json</a></div>"]
+           + "".join(f"<a href='/v2/?robot={escape(r)}'>{'<b>' if r == robot else ''}{escape(r)}{'</b>' if r == robot else ''}</a>" for r in store.robots())
+           + (f"<a href='/v2/'>all robots</a>" if robot else "")
+           + f"<a href='/'>old lab</a><a href='/v2/api/state'>json</a></div>"]
     if paused:
         out.append("<div class=pause>Paused: PAUSE file present. Remove it to continue.</div>")
     if loop_stopped:
         out.append(f"<div class=stop>Loop stopped {escape(local_stamp(stop['created_at']))}: {escape(stop['text'])}. Restart the service to continue.</div>")
-    running = store.plans(["running"])
-    queue = store.plans(["queued", "building"])
+    running = [p for p in store.plans(["running"]) if not robot or p["robot"] == robot]
+    queue = [p for p in store.plans(["queued", "building"]) if not robot or p["robot"] == robot]
     out.append("<h3>Now</h3>")
     if running:
         p = running[0]
@@ -110,15 +112,21 @@ def render(store: Store, settings: Settings) -> str:
     if not queue:
         out.append("<article><p>Empty. The loop will ask the planner next.</p></article>")
     out.append("<h3>Runs</h3>")
-    for r in store.runs(limit=20):
+    for r in store.runs(limit=20, robot=robot):
         found = store.learning_for_run(r["id"])
         point = (f"<p class=point><b>Found</b>{escape(first_sentences(found, 320))}</p>" if found
                  else f"<p class=point><b>Why</b>{escape(first_sentences(r['why'], 240))}</p>")
         tail = escape((r.get("log_tail") or "")[-1200:])
-        out.append(f"<article><span class='tag {r['status']}'>{r['status']}</span><h2>{escape(r['title'])}</h2>{point}"
-                   f"<small>{escape(r['protocol'] or '')} · {escape(local_stamp(r['started_at']))}"
-                   f"{' · exit ' + str(r['exit_code']) if r.get('exit_code') is not None else ''}</small>"
-                   f"<details><summary>runner log</summary><pre>{tail}</pre></details></article>")
+        robot_tag = f"<span class='tag robot'>{escape(r['robot'])}</span>" if r.get("robot") != "hexapod1" else ""
+        files = store.run_files(r["id"])
+        links = (" · " + " ".join(
+            f"<a href='/v2/runs/{r['id']}/{escape(f)}'>{escape(f)}</a>" for f in files if not f.startswith("runner.log"))
+            ) if files and not r.get("protocol") else ""
+        detail = (f"<details><summary>runner log</summary><pre>{tail}</pre></details>" if tail else "")
+        out.append(f"<article>{robot_tag}<span class='tag {r['status']}'>{r['status']}</span><h2>{escape(r['title'])}</h2>{point}"
+                   f"<small>{escape(r['protocol'] or 'hand-run')} · {escape(local_stamp(r['started_at']))}"
+                   f"{' · exit ' + str(r['exit_code']) if r.get('exit_code') is not None else ''}{links}</small>"
+                   f"{detail}</article>")
     events = store.events(12)
     if events:
         out.append("<h3>Events</h3><article>" + "".join(
@@ -137,8 +145,8 @@ def build_router(viewer_dependency: Callable, settings: Optional[Settings] = Non
 
     @router.get("", response_class=HTMLResponse, include_in_schema=False)
     @router.get("/", response_class=HTMLResponse)
-    def dashboard(_=Depends(viewer_dependency)):
-        return render(store(), settings)
+    def dashboard(robot: Optional[str] = None, _=Depends(viewer_dependency)):
+        return render(store(), settings, robot=robot or None)
 
     @router.get("/api/state")
     def state(_=Depends(viewer_dependency)):
@@ -164,6 +172,6 @@ def build_router(viewer_dependency: Callable, settings: Optional[Settings] = Non
         if root not in target.parents or not target.is_file():
             raise HTTPException(404)
         from fastapi.responses import FileResponse
-        return FileResponse(str(target))
+        return FileResponse(str(target), filename=None)
 
     return router

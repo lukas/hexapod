@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.lbiewald.hexapod-lab2</string>
+  <key>ProgramArguments</key>
+  <array><string>/Users/lukas/Library/Application Support/Hexapod Lab/run-lab2.sh</string></array>
+  <key>RunAtLoad</key><true/>
+  <!-- The loop stops itself for a reason (three failed runs, robot dark, spend
+       cap). Do not resurrect it automatically; the dashboard shows why. -->
+  <key>KeepAlive</key><false/>
+  <key>StandardOutPath</key><string>/Users/lukas/Library/Logs/hexapod-lab2.log</string>
+  <key>StandardErrorPath</key><string>/Users/lukas/Library/Logs/hexapod-lab2.log</string>
+</dict>
+</plist>

@@ -1670,6 +1670,14 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         return schema
 
     app.openapi = documented_openapi
+
+    # Robot Lab v2 is a separate, much smaller loop with its own database.
+    # Its dashboard rides on this site so it shares the tunnel and sign-in.
+    try:
+        from hexapod_lab2.web import build_router as build_v2_router
+        app.include_router(build_v2_router(viewer))
+    except Exception as exc:  # noqa: BLE001 - v2 must never take the old site down
+        app.state.v2_error = repr(exc)
     return app
 
 

@@ -1,0 +1,169 @@
+"""Read-only dashboard for v2, mounted into the existing Robot Lab site at /v2."""
+from __future__ import annotations
+
+import json
+import re
+from datetime import datetime, timezone
+from html import escape
+from pathlib import Path
+from typing import Any, Callable, Dict, Optional
+
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import HTMLResponse, JSONResponse
+
+from .config import Settings, load_settings
+from .store import Store
+
+
+def local_stamp(value, *, relative: bool = True) -> str:
+    """Stored UTC -> the operator's clock, with a relative age."""
+    if not value:
+        return "—"
+    try:
+        when = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return str(value)
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    local = when.astimezone()
+    now = datetime.now(timezone.utc)
+    clock = local.strftime("%-I:%M %p")
+    if local.date() != now.astimezone().date():
+        clock = f"{local.strftime('%b %-d')}, {clock}"
+    if not relative:
+        return clock
+    s = (now - when).total_seconds()
+    if s < 90:
+        age = "just now"
+    elif s < 3600:
+        age = f"{int(s // 60)} min ago"
+    elif s < 86400:
+        age = f"{s / 3600:.1f} h ago"
+    else:
+        age = f"{s / 86400:.1f} d ago"
+    return f"{clock} ({age})"
+
+
+def first_sentences(text, limit: int) -> str:
+    flat = " ".join(str(text or "").split())
+    if len(flat) <= limit:
+        return flat
+    kept, used = [], 0
+    for piece in re.split(r"(?<=[.!?])\s+", flat):
+        if kept and used + len(piece) + 1 > limit:
+            break
+        kept.append(piece)
+        used += len(piece) + 1
+    out = " ".join(kept) if kept else flat[:limit].rsplit(" ", 1)[0]
+    return out.rstrip() + " …"
+
+
+CSS = """
+body{font:15px/1.4 -apple-system,system-ui,sans-serif;margin:0;background:#f5f5f4;color:#1c1917}
+main{max-width:900px;margin:0 auto;padding:12px 16px}
+.bar{display:flex;gap:14px;align-items:baseline;flex-wrap:wrap;margin:0 0 10px}
+.bar h1{font-size:1.2rem;margin:0}.bar a{color:#2563eb}
+.stop{background:#fee2e2;border:1px solid #fca5a5;padding:8px 12px;border-radius:6px;margin:8px 0}
+.pause{background:#fef3c7;border:1px solid #fcd34d;padding:8px 12px;border-radius:6px;margin:8px 0}
+article{background:#fff;border:1px solid #e7e5e4;border-radius:8px;padding:10px 14px;margin:8px 0}
+article h2{font-size:1rem;margin:0 0 4px}
+.tag{display:inline-block;font-size:.75rem;padding:1px 7px;border-radius:10px;background:#e7e5e4;margin-right:6px;text-transform:uppercase}
+.tag.ok,.tag.done{background:#dcfce7}.tag.failed,.tag.timeout{background:#fee2e2}.tag.running{background:#dbeafe}
+.tag.queued{background:#fef9c3}.tag.building{background:#ede9fe}.tag.unreachable{background:#fde68a}
+.point b{color:#57534e;margin-right:6px}p{margin:4px 0}small{color:#78716c}
+h3{font-size:.95rem;margin:18px 0 4px;color:#57534e;text-transform:uppercase;letter-spacing:.04em}
+details summary{cursor:pointer;color:#57534e}pre{white-space:pre-wrap;font-size:12px;background:#fafaf9;padding:8px;border-radius:6px}
+"""
+
+
+def render(store: Store, settings: Settings) -> str:
+    stop = store.last_stop()
+    started = next((e for e in store.events(50) if e["kind"] == "note" and e["text"] == "loop started"), None)
+    loop_stopped = stop and (not started or stop["created_at"] > started["created_at"])
+    paused = settings.pause_file.exists()
+    spent = store.spend_last_24h()
+    out = [f"<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'>"
+           f"<title>Robot Lab v2</title><style>{CSS}</style><main>"
+           f"<div class=bar><h1>Robot Lab v2</h1><span>{escape(local_stamp(datetime.now(timezone.utc).isoformat(), relative=False))}</span>"
+           f"<span>${spent:.2f} last 24 h of ${settings.daily_spend_cap_usd:.0f}</span>"
+           f"<a href='/'>old lab</a><a href='/v2/api/state'>json</a></div>"]
+    if paused:
+        out.append("<div class=pause>Paused: PAUSE file present. Remove it to continue.</div>")
+    if loop_stopped:
+        out.append(f"<div class=stop>Loop stopped {escape(local_stamp(stop['created_at']))}: {escape(stop['text'])}. Restart the service to continue.</div>")
+    running = store.plans(["running"])
+    queue = store.plans(["queued", "building"])
+    out.append("<h3>Now</h3>")
+    if running:
+        p = running[0]
+        out.append(f"<article><span class='tag running'>running</span><h2>{escape(p['title'])}</h2>"
+                   f"<p class=point><b>Why</b>{escape(first_sentences(p['why'], 300))}</p>"
+                   f"<small>{escape(p['protocol'] or '')} · since {escape(local_stamp(p['updated_at']))}</small></article>")
+    else:
+        out.append("<article><p>Nothing running.</p></article>")
+    out.append(f"<h3>Queue · {len(queue)}</h3>")
+    for p in reversed(queue):
+        note = f" · {escape(p['status_note'])}" if p.get("status_note") else ""
+        out.append(f"<article><span class='tag {p['status']}'>{p['status']}</span><h2>{escape(p['title'])}</h2>"
+                   f"<p class=point><b>Why</b>{escape(first_sentences(p['why'], 300))}</p>"
+                   f"<small>{escape(p['protocol'] or 'needs code')}{note} · {escape(local_stamp(p['created_at']))}</small></article>")
+    if not queue:
+        out.append("<article><p>Empty. The loop will ask the planner next.</p></article>")
+    out.append("<h3>Runs</h3>")
+    for r in store.runs(limit=20):
+        found = store.learning_for_run(r["id"])
+        point = (f"<p class=point><b>Found</b>{escape(first_sentences(found, 320))}</p>" if found
+                 else f"<p class=point><b>Why</b>{escape(first_sentences(r['why'], 240))}</p>")
+        tail = escape((r.get("log_tail") or "")[-1200:])
+        out.append(f"<article><span class='tag {r['status']}'>{r['status']}</span><h2>{escape(r['title'])}</h2>{point}"
+                   f"<small>{escape(r['protocol'] or '')} · {escape(local_stamp(r['started_at']))}"
+                   f"{' · exit ' + str(r['exit_code']) if r.get('exit_code') is not None else ''}</small>"
+                   f"<details><summary>runner log</summary><pre>{tail}</pre></details></article>")
+    events = store.events(12)
+    if events:
+        out.append("<h3>Events</h3><article>" + "".join(
+            f"<p><small>{escape(local_stamp(e['created_at']))}</small> <b>{escape(e['kind'])}</b> {escape(e['text'])}</p>"
+            for e in events) + "</article>")
+    out.append("</main>")
+    return "".join(out)
+
+
+def build_router(viewer_dependency: Callable, settings: Optional[Settings] = None) -> APIRouter:
+    settings = settings or load_settings()
+    router = APIRouter(prefix="/v2")
+
+    def store() -> Store:
+        return Store(settings.db_path)
+
+    @router.get("", response_class=HTMLResponse, include_in_schema=False)
+    @router.get("/", response_class=HTMLResponse)
+    def dashboard(_=Depends(viewer_dependency)):
+        return render(store(), settings)
+
+    @router.get("/api/state")
+    def state(_=Depends(viewer_dependency)):
+        s = store()
+        return JSONResponse({
+            "paused": settings.pause_file.exists(),
+            "last_stop": s.last_stop(),
+            "spend_24h_usd": s.spend_last_24h(),
+            "plans": s.plans(limit=30),
+            "runs": s.runs(limit=20),
+            "learnings": s.learnings(limit=10),
+            "events": s.events(20),
+        })
+
+    @router.get("/runs/{run_id}/{filename}")
+    def artifact(run_id: str, filename: str, _=Depends(viewer_dependency)):
+        s = store()
+        run = s.run(run_id)
+        if not run or not run.get("run_dir"):
+            raise HTTPException(404)
+        root = Path(run["run_dir"]).resolve()
+        target = (root / filename).resolve()
+        if root not in target.parents or not target.is_file():
+            raise HTTPException(404)
+        from fastapi.responses import FileResponse
+        return FileResponse(str(target))
+
+    return router

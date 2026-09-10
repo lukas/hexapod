@@ -15,8 +15,8 @@ from unittest.mock import patch
 from feetech_bus import (N_JOINTS, count_to_deg, deg_to_count,
                          joint_to_servo_id, speed_counts_to_deg_s)
 from mcu_feetech_bus import (SNAP_AGE_INVALID, SNAP_HEAD_LEN, SNAP_REC_LEN,
-                             McuFeetechBus, encode_sync_frame,
-                             parse_snapshot_payload)
+                             McuFeetechBus, classify_bare_err_reply,
+                             encode_sync_frame, parse_snapshot_payload)
 
 
 # ---------------------------------------------------------------------------
@@ -457,6 +457,70 @@ def test_flush_sync_chunks_ascii_fallback_after_full_sw_fails():
     assert tx.count(b"SW 6 ") == 2
     assert b"WP " not in tx
 
+
+
+# ---------------------------------------------------------------------------
+# Bare-"ERR" reply attribution (2026-09-10 bus_timing rows)
+# ---------------------------------------------------------------------------
+
+# Every bare-ERR row recorded on this rig on 2026-09-10, as
+# (first_byte_wait_ms, cmd). All six carried pre_a5_hex "455252" and
+# ascii_drains 1. They fall in two tight bands set by firmware timers,
+# not in the broad spread a marginal cable would give.
+_RECORDED_ERR_WAITS_20260910 = [
+    (104.230, "F"), (104.209, "F"), (103.794, "S"),
+    (14.480, "P"), (13.351, "P"), (12.904, "P"),
+]
+
+
+def test_recorded_err_rows_all_attribute_to_a_torn_frame():
+    paths = set()
+    for wait, _cmd in _RECORDED_ERR_WAITS_20260910:
+        got = classify_bare_err_reply(wait, ["ERR"])
+        assert got["mcu_reply_err_bare"] is True
+        assert got["mcu_torn_frame_suspected"] is True, (wait, got)
+        paths.add(got["mcu_frame_reject_path"])
+    # All six are the 10 ms desync guard; the three slow ones sat
+    # behind a streaming feedback pass before loop() could run it.
+    assert paths == {"desync_guard"}
+    behind = [classify_bare_err_reply(w, ["ERR"])["mcu_desync_behind_stream_pass"]
+              for w, _ in _RECORDED_ERR_WAITS_20260910]
+    assert behind == [True, True, True, False, False, False]
+
+
+def test_immediate_err_is_the_checksum_reject_path():
+    got = classify_bare_err_reply(1.2, ["ERR"])
+    assert got["mcu_frame_reject_path"] == "checksum_or_bad_n"
+    assert got["mcu_torn_frame_suspected"] is True
+
+
+def test_err_outside_every_band_is_not_attributed():
+    got = classify_bare_err_reply(450.0, ["ERR"])
+    assert got["mcu_frame_reject_path"] == "unattributed"
+    assert got["mcu_torn_frame_suspected"] is False
+
+
+def test_ascii_command_err_with_suffix_is_not_a_frame_reject():
+    for line in ("ERR no_ack", "ERR wake", "ERR whoami 0x00"):
+        got = classify_bare_err_reply(12.9, [line])
+        assert got["mcu_reply_err_bare"] is False, line
+        assert "mcu_torn_frame_suspected" not in got
+
+
+def test_bare_err_still_fails_the_transaction_and_is_annotated():
+    """The row must keep failing exactly as before — annotation only."""
+    bus = _mk_bus(b"ERR\r\n")
+    assert bus._bin_txn(encode_sync_frame(ord("P"), []), ord("p"), 4,
+                        timeout=0.05) is None
+    trace, = bus.debug_events()
+    # Unchanged: what /api/errors keys on.
+    assert trace["ok"] is False
+    assert trace["reason"] == "ascii_err"
+    assert trace["pre_a5_hex"] == "455252"
+    assert trace["pre_a5_lines"] == ["ERR"]
+    # Added: the attribution.
+    assert trace["mcu_reply_err_bare"] is True
+    assert trace["mcu_torn_frame_suspected"] is True
 
 def _main() -> int:
     fails = 0

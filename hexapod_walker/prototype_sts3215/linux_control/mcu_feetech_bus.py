@@ -62,6 +62,61 @@ HELLO_TOKEN = "HELLO feetech_bridge"
 COMM_SUCCESS = 0
 COMM_FAIL = 1
 
+# The bridge answers a binary frame it could not accept with a bare
+# ASCII "ERR" (feetech_bridge.ino replyErr()). Two paths reach it, and
+# both mean the frame was torn on the way in — the documented host-UART
+# RX ring is smaller than one 'W'/'S' frame, so bytes are lost when a
+# frame lands mid-acquisition-pass:
+#   * binState 4 rejects a bad checksum / bad n and replies immediately;
+#   * loop()'s desync guard resets a dangling binState and replies
+#     HOST_BIN_DESYNC_MS after the last host byte — delayed a further
+#     FB_PERIOD_MS when it lands behind a streaming feedback pass.
+# Both are a protocol-level reject from a live, responding MCU. Line
+# noise does not produce a byte-exact 3-byte token on a deterministic
+# timer, so tagging the wait band lets a reader tell a torn frame from a
+# marginal cable without re-deriving the firmware timing by hand.
+MCU_DESYNC_GUARD_MS = 10.0    # feetech_bridge.ino HOST_BIN_DESYNC_MS
+MCU_FB_PERIOD_MS = 100.0      # feetech_bridge.ino FB_PERIOD_MS
+MCU_ERR_BAND_TOL_MS = 15.0
+
+
+def classify_bare_err_reply(first_byte_wait_ms: float | None,
+                            pre_a5_lines: list[str]) -> dict:
+    """Describe a bare-"ERR" reply seen inside a binary transaction.
+
+    Returns annotation fields for the transaction trace. ``ERR`` with a
+    suffix ("ERR no_ack", "ERR wake", ...) is an ASCII command reply, not
+    a binary-frame reject, so it is reported but not attributed.
+
+    The desync guard needs ``now - lastHostMs > HOST_BIN_DESYNC_MS`` and
+    is only tested once per ``loop()``, so its reply lands anywhere from
+    HOST_BIN_DESYNC_MS to roughly one streaming feedback period later.
+    Anything faster than the guard is the binState-4 checksum / bad-n
+    reject, which answers inline. Both mean a torn frame.
+    """
+    lines = [ln.strip() for ln in (pre_a5_lines or [])]
+    bare = [ln for ln in lines if ln == "ERR"]
+    out: dict = {"mcu_reply_err_bare": bool(bare)}
+    if not bare or first_byte_wait_ms is None:
+        return out
+    wait = float(first_byte_wait_ms)
+    guard_max = MCU_DESYNC_GUARD_MS + MCU_FB_PERIOD_MS + MCU_ERR_BAND_TOL_MS
+    if wait < MCU_DESYNC_GUARD_MS:
+        out["mcu_frame_reject_path"] = "checksum_or_bad_n"
+        out["mcu_torn_frame_suspected"] = True
+    elif wait <= guard_max:
+        out["mcu_frame_reject_path"] = "desync_guard"
+        out["mcu_torn_frame_suspected"] = True
+        # Above one feedback period the guard sat behind a streaming
+        # pass before loop() could run it.
+        out["mcu_desync_behind_stream_pass"] = wait > MCU_FB_PERIOD_MS
+    else:
+        # Too slow for either firmware path: not explained by a torn
+        # frame, so leave it for a human rather than mis-attributing it.
+        out["mcu_frame_reject_path"] = "unattributed"
+        out["mcu_torn_frame_suspected"] = False
+    return out
+
 # 's' snapshot reply: fixed header (seq u16, pos_age u16, imu_age u16,
 # imu 7×i16) then 6 bytes per servo (id, ok, pos i16, spd i16).
 SNAP_HEAD_LEN = 20
@@ -904,6 +959,12 @@ class McuFeetechBus:
                             trace["pre_a5_ascii"] = bytes(pre_a5).decode(
                                 "ascii", errors="backslashreplace")
                             trace["pre_a5_lines"] = pre_a5_lines[:4]
+                            # Annotate only; the reason, the error row
+                            # and every interlock keyed on it are
+                            # deliberately unchanged.
+                            trace.update(classify_bare_err_reply(
+                                trace["first_byte_wait_ms"],
+                                trace["pre_a5_lines"]))
                             return finish(
                                 None, ok=False, reason="ascii_err")
             else:

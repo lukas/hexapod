@@ -1,5 +1,58 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## `declegshare-headrel` (13th mechanism class, weight-shared mount-frame-relative per-leg actor) is ALSO refuted for the walkcurr front-pair off-axis-heading sacrifice (2026-09-10 ~21:1x) — closes at the SAME depth `decleg-base` closed, never reaching the multi-heading transfer test it was built for
+
+One plain sentence: tying all six `decleg` towers to one shared weight
+set and feeding each tower its own mount-frame-rotated heading (the
+actual precondition for a skill learned at one leg's easy heading to
+transfer to another leg's hard one) still fails to resolve the
+front-pair sacrifice at the matched 42M-cumulative budget where
+independent-tower `decleg-base` failed, and fails in almost the exact
+same shape.
+
+`cw-walkscratch-easy0905-declegshare-headrel-{s0,s1}-acq2` (both +20M
+matched continuations of the acq1 arms that showed `decleg-base-acq1`'s
+own LEGPARK-SKATE fingerprint) both FAIL on their own pre-registered
+aligned-FAIL bar: det-mode `gait_valid` 0/6 on both seeds, legs
+**[1,4]** sacrificed identically to `-acq1` (no progress toward 6/6
+despite more distance covered); sto mode regressed from acq1's clean
+6/6 to 5/6 on both seeds (milder than `decleg-base-acq2`'s full
+6/6->0/6 collapse, but the same direction); reward technically still
+rising but decelerating in nearly the identical shape `decleg-base-
+acq2` showed right before its own FAIL (+187%/+19%/+5% both variants,
+both seeds — s0 quarters 582.4/1672.8/1997.8/2099.4 vs decleg-base-s0's
+599.7/1721.2/2051.2/2147.1).
+
+This is a stronger negative result than a simple repeat: the pair of
+levers (weight-tying + mount-relative heading input) was specifically
+designed and unit-tested to give the tied tower an input where
+"leg0 asked for 180 degrees" and "leg3 asked for 0 degrees" are
+BIT-IDENTICAL vectors (`test_shared_heading_rel_leg0_at_180_matches_
+leg3_at_forward`) — the actual mechanical precondition for cross-leg
+skill transfer to be even possible. It never got to test that
+transfer hypothesis on the multi-heading `widen8`/`crutchoff` recipe,
+because it failed the cheaper fixed-forward walking-competence bar
+first, at the same depth `decleg-base` failed it.
+
+**Closes the 13th mechanism class for this question, 0/13 across the
+whole campaign** (independent-tower `decleg` x3 arms — base/sde/
+halfgrav, RND x3 variants — full-obs/heading-gated/per-leg-obs-masked,
+tied-tower `declegshare-headrel` x1 variant). No named structural
+lever remains untried for the off-axis-heading front-pair sacrifice;
+the only honest paths left are (a) accept it as a limitation of the
+easy0905 recipe/reward at this training depth, or (b) a genuinely new
+structural mechanism nobody has conceived yet. Do not re-fund any
+dose/seed/exploration-only variant of `decleg`, `declegshare`, or RND
+on this question without a new structural idea. The separate slip-
+floor question stays independently closed (09-10 ~00:0x, 3/3
+structural candidates refuted).
+
+Evidence: `ops.sh entry cw-walkscratch-easy0905-declegshare-headrel-
+{s0,s1}-acq2`; `logs/ckpt_eval/cw_walkscratch_easy0905_declegshare_
+headrel_{s0,s1}_acq2_gate/report.json`; `rl_docs/tracks/walkcurr/
+STATUS.md` 2026-09-10 ~21:1x; `rl_docs/tracks/walkcurr/DESIGN_NOTE_
+2026-09-10_offaxis_frontpair.md` Addendum 2; W&B `tnwhpa0s`/`2d4wxkbm`.
+
 ## 50Hz walk-role retrain GATE PASS, first try, from scratch (2026-09-10 ~21:0x, walkcurr/standwalk track) — walk leg of the op_20260910_50hz todaypolicy bundle is done
 
 One plain sentence: `cw-walk50hz-allheading-mlp-singleframe-scratch-acq20m` (from-scratch rerun of the operator-chosen all-heading singleframe recipe with only `control.hz` 100->50, `safety.max_delta_q_deg` 0.375->0.75) clears its own pre-registered 50Hz gate at 20M steps — own-cfg DR-0 (det prog med 0.41/slip 2.19/gait_valid 6/6/0 term; sto prog med 0.32/slip 3.13/gait_valid 6/6) and the 8-heading `eval_cmd_suite` (0/16 falls, completion 0.25-0.41 every heading, bar >=0.19) both pass every named bar; frame strips show genuine six-leg cycling with zero sacrificed legs. Exported (`export_policy_np.py --training-hz 50 --inner-hz 50`, obs-74 MLP, parity 1.85e-07) to `linux_control/policies/walk_allheading_mlp_singleframe_scratch_50hz.json`. The 60s randomized joygate stress read was still syncing on-pod at verdict time (informational rider, not gating per standing convention) — read `logs/ckpt_eval/cw_walk50hz_allheading_mlp_singleframe_scratch_acq20m_joygate/gate_verdict.json` when it lands. This is the WALK leg only of the operator's 50Hz stand+walk+turn bundle; turn (`cw-turn50hz-standwalk-cap29-stdwalklohi-warmadapt-canary2m`, finished, artifacts still syncing) and stand (`cw-stand50hz-stance-tuckclock-scratch6m`, finished, unverdicted) are each owned by a concurrent cycle this pass — see `rl_docs/tracks/standwalk/STATUS.md` for the assembly status. Evidence: `ops.sh entry cw-walk50hz-allheading-mlp-singleframe-scratch-acq20m`; `rl_docs/SKILLS.md` new row; W&B `ebxen0dx`.

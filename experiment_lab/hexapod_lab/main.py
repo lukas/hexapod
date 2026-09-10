@@ -2076,7 +2076,18 @@ def display_status(status):
 def experiment_card(item):
     status_label = escape(display_status(item["status"]))
     requirements = run_requirements(item)
-    waiting = f"<p><strong>{escape(requirements['headline'])}</strong> — {escape(requirements['detail'])}</p>" if requirements else ""
+    # The card is for scanning. The headline and the check count say the plan
+    # is gated and by how much; the full caveat and the checks themselves live
+    # on the experiment page, one click away, rather than above every row.
+    waiting = ""
+    if requirements:
+        checks = len(requirements["checks"])
+        waiting = (
+            f"<p class='waiting-note'><strong>"
+            f"{escape(requirements['headline'])}</strong>"
+            f" · {checks} check{'' if checks == 1 else 's'} rechecked live "
+            f"before it starts</p>"
+        )
     jobs = [
         *(item.get("codex_jobs") or []),
         *(item.get("codex_engineering_jobs") or []),

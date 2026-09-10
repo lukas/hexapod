@@ -1,5 +1,58 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## Heading-gated RND is ALSO refuted for the walkcurr front-pair off-axis-heading sacrifice (11th mechanism class, 2/2 seeds) -- the design note's ENTIRE named candidate list (plain RND + heading-gated RND) is now exhausted; the per-leg obs-masking variant (unbuilt) or a genuinely new structural idea is the only path left (2026-09-10, closed this cycle)
+
+One plain sentence: scoping the RND intrinsic bonus to fire only on
+the 5 chronically-broken off-axis headings (instead of the whole
+observation) still changed NOTHING -- both seeds' behavior came back
+byte-identical to the untouched parent at every single heading/mode
+cell tested, not just unhelpful but measurably inert.
+
+`cw-walkscratch-crutchoff-{s0,s1}-widen8-plusduty-rndheadgate-canary2m`
+(the design note's own named fallback for a clean full-obs FAIL,
+`rnd_vec.py heading_gate_idx/heading_gate_cos_max`, `--rnd-heading-
+gate-cos-max=0.5`, warm-started from each seed's own frozen cont10m
+champion): **mechanism health PASS both seeds** (`rnd/intrinsic_mean`
+decays cleanly 0.029->0.019 (s0) / 0.027->0.019 (s1) over the 2M
+steps, proving the predictor is live; `rnd/gate_off_axis_frac` holds
+steady 0.630-0.636 the whole run for both seeds, confirming the gate
+correctly discriminates on/off-axis ticks at the predicted ~5/8-
+heading rate; `ep_rew_mean` quarters in-band with every sibling
+canary in this family; zero new falls). **Efficacy: CLEAN FAIL, even
+starker than the plain full-obs variant** (`eval_checkpoint.py
+--pinned-heading-panel --baseline <frozen parent>`, n=3 det+3 sto/
+heading, dr-scale 0.0, both seeds): DET off-axis (+-90/+-135/180)
+`gait_valid` 0/15 (s0) + 0/15 (s1) = **0/30 pooled**; STO 1/15 (s0) +
+3/15 (s1) = **4/30 pooled** -- and unlike the plain variant (which had
+a 1-episode noise bump on one seed), EVERY cell here, including the
+exact sacrificed-leg sets per episode, is byte-identical to the
+frozen parent's own baseline read in the same eval run. On-axis
+(0/+-45) fully unregressed: 9/9 det, 9/9 sto, both seeds, matching
+the parent exactly.
+
+**This closes the heading-gated RND candidate and, with it, the
+design note's entire named list** (`DESIGN_NOTE_2026-09-10_
+offaxis_frontpair.md`): both of its two concrete RND variants (plain
+full-obs, heading-gated) are now refuted, 2/2 seeds each, 11
+independent mechanism classes total across the whole campaign for
+this specific gap (termination pricing, reward pricing, exposure,
+exploration-noise-widening, self-distillation, PPO-advantage
+normalization, critic calibration [inconclusive], kinematic
+reachability [ruled out], decentralized-actor architecture, full-obs
+RND, heading-gated RND), 0 passes. Per the note's own text, the only
+paths left are the harder **per-leg obs-masking RND variant** (mask
+RND's input to just the sacrificed legs' own obs channels -- new
+code, not yet built: per-leg obs-column enumeration) or a **genuinely
+different structural mechanism** not yet conceived -- not another
+RND dose/gate-width/seed variant of what's already closed.
+
+Evidence: `ops.sh entry cw-walkscratch-crutchoff-{s0,s1}-widen8-
+plusduty-rndheadgate-canary2m` (verdicts); `logs/ckpt_eval/
+cw_walkscratch_crutchoff_{s0,s1}_widen8_plusduty_rndheadgate_
+canary2m_headpanel/{report.json,baseline/report.json}`; W&B
+`g5tyn1be`/`xg3f2kgh`; `rl_docs/tracks/walkcurr/STATUS.md` 2026-09-10
+(this entry's own timestamp).
+
 ## Plain full-obs RND state-novelty exploration is REFUTED as a fix for the walkcurr front-pair off-axis-heading sacrifice (10th mechanism class, 2/2 seeds); a heading-gated RND variant is built, tested and launched same cycle as the design note's own next-named candidate (2026-09-10, closed this cycle)
 
 `DESIGN_NOTE_2026-09-10_offaxis_frontpair.md` (see the `decleg` closure

@@ -223,7 +223,7 @@ def test_builds_are_capped_and_prompt_flags_an_idle_robot(settings, store, monke
     for i in range(3):
         store.add_plan(title=f"b{i}", why="w", kind="needs_code", protocol=None, build_spec="spec")
     text = planner.build_prompt(settings, store, None)
-    assert "3 builds are already pending" in text and "robot is idle" in text
+    assert "3 code jobs are already pending" in text and "robot is idle" in text
     from hexapod_lab2 import claude_cli
     monkeypatch.setattr(claude_cli, "oneshot", lambda *a, **k: claude_cli.CliResult(True, {
         "learned": "", "plans": [
@@ -426,3 +426,120 @@ def test_inbox_reads_only_recipient_messages_after_start(tmp_path):
     assert inbox.poll() == []
     missing = commands.Inbox(recipient="+15555550100", db_path=tmp_path / "nope.db")
     assert missing.poll() == [] and missing.unavailable
+
+
+def test_merge_gate_rejects_out_of_scope_oversize_and_self_edits(settings):
+    from hexapod_lab2 import engineer
+    ok = ["hexapod_walker/prototype_sts3215/linux_control/sysid_runner.py"]
+    assert engineer.gate(settings, " 1 file changed, 8 insertions(+), 1 deletion(-)", ok) is None
+    assert "outside" in engineer.gate(settings, " 1 file changed, 2 insertions(+)", ["README.md"])
+    assert "forbidden" in engineer.gate(settings, " 1 file changed, 2 insertions(+)",
+                                        ["hexapod_walker/prototype_sts3215/firmware/bridge.ino"])
+    assert "forbidden" in engineer.gate(settings, " 1 file changed, 2 insertions(+)",
+                                        ["experiment_lab/hexapod_lab2/loop.py"]) or "outside" in engineer.gate(
+        settings, " 1 file changed, 2 insertions(+)", ["experiment_lab/hexapod_lab2/loop.py"])
+    assert "changed lines" in engineer.gate(settings, " 3 files changed, 180 insertions(+), 40 deletions(-)", ok)
+    assert engineer.gate(settings, "", []) == "no changes on the branch"
+
+
+def test_frame_sampler_spreads_and_keeps_the_last_four(tmp_path):
+    from hexapod_lab2 import eyes
+    frames = [tmp_path / f"{i:05d}.jpg" for i in range(100)]
+    picked = eyes.sample_frames(frames)
+    assert len(picked) == 12
+    assert picked[-4:] == frames[-4:]
+    assert picked[0] == frames[0] and picked[7] == frames[95]
+    assert eyes.sample_frames(frames[:5]) == frames[:5]
+
+
+def test_wide_capture_records_frames(tmp_path):
+    import time
+    from hexapod_lab2 import eyes
+    grabbed = []
+    with eyes.WideCapture("http://x/snap.jpg", tmp_path / "wide", hz=50.0, fetch=lambda u: grabbed.append(u) or b"jpg") as cap:
+        time.sleep(0.2)
+    assert cap.count >= 3 and len(list((tmp_path / "wide").glob("*.jpg"))) == cap.count
+
+
+def test_deploy_waits_for_the_gap_between_runs_and_clears_the_flag(settings, store, monkeypatch):
+    from hexapod_lab2 import deploy, robot
+    settings.data_dir.mkdir(parents=True, exist_ok=True)
+    settings.deploy_flag.write_text("lab2/fix-abc: raise GLIDE_TOL\n")
+    pid = store.add_plan(title="p", why="w", kind="existing", protocol="steps_air_v1", build_spec=None)
+    rid = store.start_run(pid)
+    calls = []
+    fake_run = lambda *a, **k: calls.append(k.get("env", {}).get("HEXAPOD_SSH")) or type("P", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+    assert deploy.deploy_if_needed(settings, store, log=lambda m: None, run=fake_run)["reason"] == "a run is in progress"
+    assert calls == []
+    store.finish_run(rid, status="ok", exit_code=0, run_dir=None, summary=None, log_tail="")
+    monkeypatch.setattr(robot, "health", lambda url, budget: GOOD_FB)
+    rep = deploy.deploy_if_needed(settings, store, log=lambda m: None, run=fake_run)
+    assert rep["deployed"] and calls == ["arduino@192.168.4.39"] and not settings.deploy_flag.exists()
+    assert store.events(1)[0]["kind"] == "deploy"
+
+
+def test_engineer_success_merges_queues_verify_and_followups(settings, store, monkeypatch):
+    from hexapod_lab2 import builder, claude_cli, engineer
+    monkeypatch.setattr(engineer, "_prepare_worktree", lambda s, pid, subdir="fix": settings.data_dir / "wt")
+    monkeypatch.setattr(engineer, "_cleanup_worktree", lambda s, wt: None)
+    monkeypatch.setattr(engineer.subprocess, "run", lambda *a, **k: type("P", (), {"returncode": 0, "stdout": "", "stderr": ""})())
+    monkeypatch.setattr(claude_cli, "build", lambda *a, **k: claude_cli.CliResult(True, {
+        "fixed": True, "summary": "Raised GLIDE_TOL_DEG 3 -> 8; tests pass.", "verify_protocol": "steps_air_v1",
+        "touched_robot_side": True,
+        "followups": [{"title": "Make the tolerance a protocol field", "why": "w", "fix_spec": "add start_tol to runner"}]},
+        2.5, "", ""))
+    monkeypatch.setattr(engineer, "merge_branch", lambda s, b: {"merged": True, "files": [
+        "hexapod_walker/prototype_sts3215/linux_control/sysid_runner.py"], "stat": "1 file changed, 8 insertions(+)", "robot_side": True})
+    pid = store.add_plan(title="Loosen the 3 deg glide gate", why="w", kind="needs_fix", protocol=None,
+                         build_spec="GLIDE_TOL_DEG=3 rejects 3.4 deg droop")
+    rep = engineer.fix_plan(settings, store, store.plan(pid))
+    assert rep["ok"] and rep["verify"] == "steps_air_v1" and rep["followups"] == 1
+    assert settings.deploy_flag.exists()
+    plans = store.plans(limit=10)
+    assert any(p["title"].startswith("Verify fix") and p["status"] == "queued" for p in plans)
+    assert any(p["kind"] == "needs_fix" and p["status"] == "building" and p["source"] == "engineer" for p in plans)
+    assert store.plan(pid)["status"] == "done"
+    assert store.spend_last_24h() == 2.5
+
+
+def test_engineer_unmerged_branch_is_left_for_review_and_texted(settings, store, monkeypatch):
+    from hexapod_lab2 import alerts, claude_cli, engineer
+    monkeypatch.setattr(engineer, "_prepare_worktree", lambda s, pid, subdir="fix": settings.data_dir / "wt")
+    monkeypatch.setattr(engineer, "_cleanup_worktree", lambda s, wt: None)
+    monkeypatch.setattr(engineer.subprocess, "run", lambda *a, **k: type("P", (), {"returncode": 0, "stdout": "", "stderr": ""})())
+    monkeypatch.setattr(claude_cli, "build", lambda *a, **k: claude_cli.CliResult(True, {"fixed": True, "summary": "rewrote everything"}, 9.0, "", ""))
+    monkeypatch.setattr(engineer, "merge_branch", lambda s, b: {"merged": False, "reason": "412 changed lines, limit 200"})
+    sent = []
+    monkeypatch.setattr(alerts, "send_messages_text", lambda r, m: sent.append(m))
+    monkeypatch.setenv("HEXAPOD_LAB2_ALERT_RECIPIENT", "+15555550100")
+    pid = store.add_plan(title="Big rewrite", why="w", kind="needs_fix", protocol=None, build_spec="x")
+    rep = engineer.fix_plan(settings, store, store.plan(pid))
+    assert not rep["ok"] and "left on lab2/fix-" in store.plan(pid)["status_note"]
+    assert sent and "not merged" in sent[0] and not settings.deploy_flag.exists()
+
+
+def test_code_slot_prefers_fixes_over_builds(settings, store, monkeypatch):
+    from hexapod_lab2 import builder
+    b = store.add_plan(title="build", why="w", kind="needs_code", protocol=None, build_spec="x")
+    f = store.add_plan(title="fix", why="w", kind="needs_fix", protocol=None, build_spec="y")
+    started = []
+    class FakeThread:
+        def __init__(self, target=None, args=(), name="", daemon=True): started.append((name, args[2]["id"]))
+        def start(self): pass
+        def is_alive(self): return False
+    monkeypatch.setattr(builder.threading, "Thread", FakeThread)
+    slot = builder.BuilderThread(settings, store)
+    assert slot.maybe_start() == f and started[0][0].startswith("engineer-")
+
+
+def test_seen_text_reaches_the_planner_digest(settings, store):
+    pid = store.add_plan(title="p", why="w", kind="existing", protocol="steps_air_v1", build_spec=None)
+    rid = store.start_run(pid)
+    store.finish_run(rid, status="failed", exit_code=1, run_dir=None, summary={"x": 1}, log_tail="joint 14 overcurrent")
+    store.update_run_summary(rid, seen="Leg 4 folded under the body from frame 6; chassis propped on the right side.")
+    text = planner.build_prompt(settings, store, store.runs(limit=1)[0])
+    assert "what the wide camera showed" in text and "Leg 4 folded" in text
+    assert "needs_fix" in text and "Do not work around a code blocker" in text
+    plans = planner.validate_plans(settings, [{"title": "Loosen gate", "why": "w.", "kind": "needs_fix",
+                                               "build_spec": "GLIDE_TOL_DEG 3 -> 8 in sysid_runner.py"}])
+    assert plans[0]["kind"] == "needs_fix"

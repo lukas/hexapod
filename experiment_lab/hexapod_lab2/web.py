@@ -111,9 +111,10 @@ def render(store: Store, settings: Settings, robot: Optional[str] = None) -> str
     out.append(f"<h3>Queue · {len(queue)}</h3>")
     for p in reversed(queue):
         note = f" · {escape(p['status_note'])}" if p.get("status_note") else ""
+        kind_label = p['protocol'] or ('needs fix (engineer)' if p.get('kind') == 'needs_fix' else 'needs code')
         out.append(f"<article><span class='tag {p['status']}'>{p['status']}</span><h2>{escape(p['title'])}</h2>"
                    f"<p class=point><b>Why</b>{escape(first_sentences(p['why'], 300))}</p>"
-                   f"<small>{escape(p['protocol'] or 'needs code')}{note} · {escape(local_stamp(p['created_at']))}</small></article>")
+                   f"<small>{escape(kind_label)}{note} · {escape(local_stamp(p['created_at']))}</small></article>")
     if not queue:
         out.append("<article><p>Empty. The loop will ask the planner next.</p></article>")
     out.append("<h3>Runs</h3>")
@@ -129,14 +130,17 @@ def render(store: Store, settings: Settings, robot: Optional[str] = None) -> str
             summary = {}
         if summary.get("recovery"):
             robot_tag += "<span class='tag recovery'>recovery</span>"
+        seen_html = (f"<p class=point><b>Seen</b>{escape(first_sentences(summary['seen'], 320))}</p>"
+                     if summary.get("seen") and not str(summary["seen"]).startswith("(") else "")
+        video_link = (f" · <a href='/v2/runs/{r['id']}/wide.mp4'>video</a>" if summary.get("video") else "")
         files = store.run_files(r["id"])
         links = (" · " + " ".join(
             f"<a href='/v2/runs/{r['id']}/{escape(f)}'>{escape(f)}</a>" for f in files if not f.startswith("runner.log"))
             ) if files and not r.get("protocol") else ""
         detail = (f"<details><summary>runner log</summary><pre>{tail}</pre></details>" if tail else "")
-        out.append(f"<article>{robot_tag}<span class='tag {r['status']}'>{r['status']}</span><h2>{escape(r['title'])}</h2>{point}"
+        out.append(f"<article>{robot_tag}<span class='tag {r['status']}'>{r['status']}</span><h2>{escape(r['title'])}</h2>{point}{seen_html}"
                    f"<small>{escape(r['protocol'] or ('unplanned' if summary.get('recovery') else 'hand-run'))} · {escape(local_stamp(r['started_at']))}"
-                   f"{' · exit ' + str(r['exit_code']) if r.get('exit_code') is not None else ''}{links}</small>"
+                   f"{' · exit ' + str(r['exit_code']) if r.get('exit_code') is not None else ''}{video_link}{links}</small>"
                    f"{detail}</article>")
     events = store.events(12)
     if events:

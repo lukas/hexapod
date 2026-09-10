@@ -30,9 +30,9 @@ PLAN_SCHEMA = {
                 "properties": {
                     "title": {"type": "string"},
                     "why": {"type": "string", "description": "Two sentences: the question this answers and how it moves the goal."},
-                    "kind": {"type": "string", "enum": ["existing", "needs_code"]},
+                    "kind": {"type": "string", "enum": ["existing", "needs_code", "needs_fix"]},
                     "protocol": {"type": "string", "description": "Protocol file name without .json when kind is existing."},
-                    "build_spec": {"type": "string", "description": "When kind is needs_code: exactly what file to create and how, in under 120 words."},
+                    "build_spec": {"type": "string", "description": "needs_code: exactly what protocol file to create and how, under 120 words. needs_fix: the diagnosis (which file/constant/behaviour, with the evidence), the smallest change that unblocks a run, and which existing protocol proves it; under 150 words."},
                     "force": {"type": "boolean", "description": "True only for whole-body protocols that need the runner's --force."},
                 },
                 "required": ["title", "why", "kind"],
@@ -74,6 +74,12 @@ def _run_digest(run: Optional[Dict[str, Any]]) -> str:
     tail = str(run.get("log_tail") or "")
     if tail:
         parts.append("runner log tail:\n" + tail[-1200:])
+    try:
+        seen = json.loads(summary or "{}").get("seen") if summary else None
+    except ValueError:
+        seen = None
+    if seen:
+        parts.append("what the wide camera showed:\n" + str(seen)[:900])
     return "\n".join(parts)
 
 
@@ -98,7 +104,7 @@ def build_prompt(settings: Settings, store: Store, last_run: Optional[Dict[str, 
     runnable = sum(1 for p in queue if p["status"] == "queued")
     queue_note = ""
     if building >= MAX_BUILDING:
-        queue_note += f"\n{building} builds are already pending; new needs_code plans will be dropped, so propose only existing protocols."
+        queue_note += f"\n{building} code jobs are already pending; new needs_code plans will be dropped (needs_fix still accepted), so prefer existing protocols."
     if runnable == 0:
         queue_note += "\nNothing runnable is queued: the robot is idle until you name at least one existing protocol worth running now."
     recent = store.runs(limit=6)
@@ -117,6 +123,8 @@ AVAILABLE PROTOCOLS (the runner executes these as-is; kind=existing):
 {force_note}
 
 If the right next experiment needs a protocol that does not exist, return kind=needs_code with a build_spec: a builder agent with repository access will create the file. Prefer remapping an existing protocol to another leg (there is `sysid/generate_leg_variant.py --leg N`) over inventing new motion.
+
+If runs are failing for a reason that lives in CODE rather than in the protocol (a runner constant, a gate that rejects the robot's measured behaviour, a robot-side bug), return kind=needs_fix with a build_spec that states the diagnosis and the smallest change. An engineer agent gets a 30-minute box, a branch, and the failed run's camera stills; the loop merges it through a scope/size gate, deploys robot-side code between runs, and runs the protocol you name to verify. Do not work around a code blocker by writing protocols that dodge it; ask for the fix. If the fix is bigger than 30 minutes, ask for the piece that unblocks a run; the engineer lists the rest as followups.
 
 WHAT WE HAVE LEARNED (newest first):
 {learn_lines}
@@ -164,11 +172,11 @@ def validate_plans(settings: Settings, plans: Any) -> List[Dict[str, Any]]:
                 continue
             out.append({"title": title, "why": why, "kind": "existing", "protocol": protocol,
                         "build_spec": None, "force": force})
-        elif kind == "needs_code":
+        elif kind in ("needs_code", "needs_fix"):
             spec = _trim(raw.get("build_spec"), 1200)
             if not spec:
                 continue
-            out.append({"title": title, "why": why, "kind": "needs_code", "protocol": None,
+            out.append({"title": title, "why": why, "kind": kind, "protocol": None,
                         "build_spec": spec, "force": force})
     return out
 
@@ -191,8 +199,8 @@ def plan(settings: Settings, store: Store, last_run: Optional[Dict[str, Any]],
     added = 0
     building = len(store.building_plans())
     for p in validate_plans(settings, res.output.get("plans")):
-        if p["kind"] == "needs_code":
-            if building >= MAX_BUILDING:
+        if p["kind"] in ("needs_code", "needs_fix"):
+            if building >= MAX_BUILDING and p["kind"] == "needs_code":
                 continue
             building += 1
         store.add_plan(title=p["title"], why=p["why"], kind=p["kind"], protocol=p["protocol"],

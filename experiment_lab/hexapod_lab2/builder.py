@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional
 
 from . import claude_cli
 from .config import Settings
+from .gitlock import GIT_LOCK
 from .runner import protocol_exists, sync_checkout
 from .store import Store
 
@@ -40,16 +41,17 @@ How:
 Do not add safety checks, preflight steps, audits or tests. Do not touch anything outside sysid/. Do not run the robot (never pass --go). If the spec does not make sense or would need new motion you cannot validate, report built=false and say why in one sentence."""
 
 
-def _prepare_worktree(settings: Settings, plan_id: str) -> Path:
-    wt = settings.data_dir / "build" / plan_id / "worktree"
-    if wt.exists():
-        subprocess.run(["git", "-C", str(settings.checkout), "worktree", "remove", "--force", str(wt)],
-                       capture_output=True, text=True)
-    wt.parent.mkdir(parents=True, exist_ok=True)
-    subprocess.run(["git", "-C", str(settings.checkout), "fetch", "-q", "origin", "main"],
-                   check=True, capture_output=True, text=True, timeout=120)
-    subprocess.run(["git", "-C", str(settings.checkout), "worktree", "add", "--detach", str(wt), "origin/main"],
-                   check=True, capture_output=True, text=True, timeout=120)
+def _prepare_worktree(settings: Settings, plan_id: str, *, subdir: str = "build") -> Path:
+    wt = settings.data_dir / subdir / plan_id / "worktree"
+    with GIT_LOCK:
+        if wt.exists():
+            subprocess.run(["git", "-C", str(settings.checkout), "worktree", "remove", "--force", str(wt)],
+                           capture_output=True, text=True)
+        wt.parent.mkdir(parents=True, exist_ok=True)
+        subprocess.run(["git", "-C", str(settings.checkout), "fetch", "-q", "origin", "main"],
+                       check=True, capture_output=True, text=True, timeout=120)
+        subprocess.run(["git", "-C", str(settings.checkout), "worktree", "add", "--detach", str(wt), "origin/main"],
+                       check=True, capture_output=True, text=True, timeout=120)
     # The dry run needs the repo venv; a worktree does not have one. Share it.
     venv = wt / ".venv"
     if not venv.exists():
@@ -58,8 +60,9 @@ def _prepare_worktree(settings: Settings, plan_id: str) -> Path:
 
 
 def _cleanup_worktree(settings: Settings, wt: Path) -> None:
-    subprocess.run(["git", "-C", str(settings.checkout), "worktree", "remove", "--force", str(wt)],
-                   capture_output=True, text=True)
+    with GIT_LOCK:
+        subprocess.run(["git", "-C", str(settings.checkout), "worktree", "remove", "--force", str(wt)],
+                       capture_output=True, text=True)
 
 
 def build_plan(settings: Settings, store: Store, plan: Dict[str, Any]) -> Dict[str, Any]:
@@ -112,18 +115,26 @@ class BuilderThread:
         return self._thread is not None and self._thread.is_alive()
 
     def maybe_start(self) -> Optional[str]:
+        """One code job at a time. Fixes (needs_fix) go ahead of builds: a fix
+        unblocks runs that are already queued, a build only adds one."""
         if self.busy():
             return None
         pending = [p for p in self.store.building_plans() if p.get("status_note") != "builder running"]
         if not pending:
             return None
-        plan = pending[-1]  # oldest first (plans() is newest-first)
+        fixes = [p for p in pending if p.get("kind") == "needs_fix"]
+        plan = (fixes or pending)[-1]  # oldest first (plans() is newest-first)
         self.store.set_plan_status(plan["id"], "building", "builder running")
         self.current = plan["id"]
         # A sqlite3 connection is not shareable across threads; the build
         # thread opens its own handle on the same database.
         thread_store = Store(self.store.path)
-        self._thread = threading.Thread(target=build_plan, args=(self.settings, thread_store, plan),
-                                        name=f"builder-{plan['id']}", daemon=True)
+        if plan.get("kind") == "needs_fix":
+            from .engineer import fix_plan
+            target, name = fix_plan, f"engineer-{plan['id']}"
+        else:
+            target, name = build_plan, f"builder-{plan['id']}"
+        self._thread = threading.Thread(target=target, args=(self.settings, thread_store, plan),
+                                        name=name, daemon=True)
         self._thread.start()
         return plan["id"]

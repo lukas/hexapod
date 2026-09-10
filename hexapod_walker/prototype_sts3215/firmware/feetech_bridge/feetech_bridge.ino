@@ -218,6 +218,8 @@ static uint32_t dbgStreamImuPasses = 0;
 static uint32_t dbgStreamImuReadFailures = 0;
 static uint32_t dbgStreamPosSlotFails = 0;
 static uint32_t dbgStreamFbSlotFails = 0;
+static uint32_t dbgStreamPosSlotHealed = 0;
+static uint32_t dbgPosSlotFailById[MAX_N];  // per burst slot (id = k + 2)
 static uint32_t dbgHostSnapshotRequests = 0;
 static uint32_t dbgHostSnapshotCacheHits = 0;
 static uint32_t dbgHostSnapshotSyncRefreshes = 0;
@@ -265,6 +267,8 @@ static void dbgResetCounters() {
   dbgStreamImuReadFailures = 0;
   dbgStreamPosSlotFails = 0;
   dbgStreamFbSlotFails = 0;
+  dbgStreamPosSlotHealed = 0;
+  for (uint8_t k = 0; k < MAX_N; k++) dbgPosSlotFailById[k] = 0;
   dbgHostSnapshotRequests = 0;
   dbgHostSnapshotCacheHits = 0;
   dbgHostSnapshotSyncRefreshes = 0;
@@ -324,6 +328,14 @@ static void cmdDbg(bool reset) {
   dbgPrintKV(F("stream_imu_read_failures"), dbgStreamImuReadFailures);
   dbgPrintKV(F("stream_pos_slot_fails"), dbgStreamPosSlotFails);
   dbgPrintKV(F("stream_fb_slot_fails"), dbgStreamFbSlotFails);
+  dbgPrintKV(F("stream_pos_slot_healed"), dbgStreamPosSlotHealed);
+  for (uint8_t k = 0; k < MAX_N; k++) {
+    if (!dbgPosSlotFailById[k]) continue;
+    Serial1.print(F(" pos_slot_fails_id"));
+    Serial1.print(k + 2);
+    Serial1.print('=');
+    Serial1.print(dbgPosSlotFailById[k]);
+  }
   dbgPrintKV(F("host_snapshot_requests"), dbgHostSnapshotRequests);
   dbgPrintKV(F("host_snapshot_cache_hits"), dbgHostSnapshotCacheHits);
   dbgPrintKV(F("host_snapshot_sync_refreshes"), dbgHostSnapshotSyncRefreshes);
@@ -1042,6 +1054,8 @@ static void streamFastPass() {
   fillDefaultIds(ids, n);
   ensureSyncRead(POS_SPD_MEM_LEN, streaming ? 5 : 20);
   sts.syncReadPacketTx(ids, n, SMS_STS_PRESENT_POSITION_L, POS_SPD_MEM_LEN);
+  uint8_t failed[MAX_N];
+  uint8_t nFailed = 0;
   for (uint8_t k = 0; k < n; k++) {
     hostPump();  // host RX ring < one command frame — keep draining
     uint8_t rx[POS_SPD_MEM_LEN];
@@ -1051,8 +1065,39 @@ static void streamFastPass() {
       posOk[k] = 1;
     } else {
       dbgStreamPosSlotFails++;
-      posOk[k] = 0;
+      if (k < MAX_N) dbgPosSlotFailById[k]++;
+      failed[nFailed++] = k;
     }
+  }
+  // Per-id direct-read fallback for failed burst slots — the same healing
+  // streamFullPass already has. Observed 2026-09-10 on hexapod2: IDs 4/5/6
+  // missed their syncRead slot on ~40% of fast passes (0 checksum/desync
+  // errors on the host link) while answering direct reads, which made
+  // every host snapshot incomplete and tripped the 100 Hz RL runner with
+  // "feedback lost". One bounded attempt per slot (3 ms IOTimeOut instead
+  // of the library's 100 ms default) so a truly dead servo cannot eat the
+  // control period; a slot that still fails stays posOk=0 for the host.
+  if (nFailed) {
+    unsigned long savedTimeout = sts.IOTimeOut;
+    sts.IOTimeOut = 3;
+    for (uint8_t f = 0; f < nFailed; f++) {
+      uint8_t k = failed[f];
+      hostPump();
+      int nLen = sts.FeedBack((int)ids[k]);
+      if (nLen > 0) {
+        int16_t pos = 0, spd = 0, cur = 0;
+        uint16_t load = 0;
+        uint8_t volt = 0, temp = 0, mov = 0;
+        decodeFbFromMem(pos, spd, load, volt, temp, mov, cur);
+        posCache[k] = pos;
+        spdCache[k] = spd;
+        posOk[k] = 1;
+        dbgStreamPosSlotHealed++;
+      } else {
+        posOk[k] = 0;
+      }
+    }
+    sts.IOTimeOut = savedTimeout;
   }
   hostPump();
   posSeq++;
@@ -1103,6 +1148,12 @@ static void streamFullPass() {
   // EVERY pass while answering direct reads perfectly, which made the
   // health watch report a healthy servo as missing. Direct reads are
   // the tiebreaker; only a servo that also fails these is really gone.
+  // Bounded like streamFastPass (2026-09-10): the library default
+  // IOTimeOut is 100 ms, so two attempts on a slot that never answers
+  // stalled the MCU for up to 200 ms while the host's 100 Hz step_all
+  // waited — seen as 60 ms host deadline misses on hexapod2.
+  unsigned long savedFbTimeout = sts.IOTimeOut;
+  sts.IOTimeOut = 3;
   for (uint8_t f = 0; f < nFailed; f++) {
     uint8_t k = failed[f];
     hostPump();
@@ -1128,6 +1179,7 @@ static void streamFullPass() {
       fbOk[k] = 0;
     }
   }
+  sts.IOTimeOut = savedFbTimeout;
   hostPump();
   posSeq++;
   posStampMs = millis();
@@ -1670,6 +1722,12 @@ void loop() {
   if (streaming && hostSRefreshPending
       && (long)(now - hostSRefreshAtMs) >= 0) {
     hostSRefreshPending = false;
+    // Let the 128-byte snapshot reply finish leaving the host UART before
+    // the servo-bus pass starts. Measured 2026-09-10 (hexapod2): with the
+    // pass starting 1 ms after the reply, host-paced 100 Hz snapshot-only
+    // polling lost ~44% of bursts (always the 3rd-5th slots, IDs 4-6) while
+    // free-run and write+snapshot control lost <1%.
+    Serial1.flush();
     // Frequent S requests otherwise keep taking this branch and the
     // 30 ms quiet branch below, starving current/load/voltage/temperature
     // acquisition indefinitely. A full pass also refreshes positions and

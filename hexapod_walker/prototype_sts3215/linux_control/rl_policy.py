@@ -2276,19 +2276,32 @@ def _drive_timing_trip_reason(active: str, hold_policy, tick: int,
                               timing: PolicyTiming, late_s: float,
                               consecutive_late: int, *,
                               uses_policy: bool | None = None,
-                              label: str = "drive") -> str | None:
+                              label: str = "drive",
+                              ticks_since_switch: int | None = None
+                              ) -> str | None:
     """Only persistent learned-policy timing misses make drive fatal.
 
     Hardware joystick drive shares one host UART with snapshot reads, so a
     single 10-20 ms scheduling bubble is observable but not an immediate
     reason to limp. State freshness/current/tilt gates cover safety; timing
     trips are reserved for sustained controller overload or a large stall.
+
+    ``ticks_since_switch`` counts ticks since the last hold<->walk model
+    switch. The startup grace applies to those ticks too: on hexapod2
+    (2026-09-10) the first engaged walk tick paid a one-time ~60 ms
+    setup cost (async snapshot reader start + first step_all after a
+    hold) and the following tick inherited the lateness, which tripped
+    "2 consecutive hard misses" on every engagement even though steady
+    state ran at 9.5 ms/tick.
     """
     if uses_policy is None:
         uses_policy = _drive_uses_learned_policy(active, hold_policy)
     if not uses_policy:
         return None
     if active == "walk" and tick < DRIVE_TIMING_STARTUP_GRACE_TICKS:
+        return None
+    if (active == "walk" and ticks_since_switch is not None
+            and 0 <= ticks_since_switch < DRIVE_TIMING_STARTUP_GRACE_TICKS):
         return None
     if late_s <= _timing_late_grace(timing.policy_dt):
         return None
@@ -4701,6 +4714,7 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
     dv_max = walk_speed_max * timing.policy_dt / WALK_RAMP_S
     active = "hold"
     walk_has_engaged = False
+    model_switch_tick: int | None = None
     walk_cmd_since: float | None = None
     walk_active_since: float | None = None
     walk_active_monotonic_s: float | None = None
@@ -4934,6 +4948,7 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
             if active != "walk":
                 prev_active = active
                 active = "walk"
+                model_switch_tick = i
                 walk_active_since = t
                 if walk_active_monotonic_s is None:
                     walk_active_monotonic_s = time.monotonic()
@@ -4960,6 +4975,7 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
             prev_active = active
             vx_r = vy_r = 0.0
             active = "hold"
+            model_switch_tick = i
             walk_active_since = None
             reanchor()
             last_hold_refresh_t = -DRIVE_HOLD_REFRESH_S
@@ -5256,7 +5272,9 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
         timing_stats.add(runner_timing)
         timing_error = _drive_timing_trip_reason(
             active, hold_policy, i, timing, late_s, consecutive_late,
-            uses_policy=uses_policy)
+            uses_policy=uses_policy,
+            ticks_since_switch=(None if model_switch_tick is None
+                                else i - model_switch_tick))
         # Hold-68 obs would misalign the fixed walk-wide obs columns —
         # blank them for those ticks (walk replay parity is what the
         # offline contract needs).

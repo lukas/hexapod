@@ -1,5 +1,45 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## Stand/lower 50Hz dqfix relaunch's hold/lower regression root-caused to a LATE-TRAINING PPO INSTABILITY EVENT, not a units/reward-pricing artifact — CONTINUE, not FAIL (2026-09-10 ~23:3x, standwalk track)
+
+One plain sentence: on `cw-stand50hz-stance-tuckclock-scratch6m-dqfix`
+(the slew-corrected 50Hz stand/lower relaunch whose rise-freeze fix was
+already confirmed — CURRENT_TRUTHS above), rise/hold/lower ALL degraded
+TOGETHER at the exact same final training eval (global_step ~6.02M,
+the last logged read) immediately after a healthy read at 5.02M (hold
+herr 4.2mm, survived_frac=1, `SCORE/hold_total_reward`=703, a local
+peak) — that "everything breaks at once" fingerprint is one bad
+training event, not a chronic per-task reward-pricing problem or a
+50Hz height-reference unit bug (the DIG-IN's three live hypotheses).
+`wandb_history.csv`: `train/approx_kl` spikes to 0.36 and
+`train/clip_fraction` stays 0.32-0.42 in that same final ~1M-step
+window, while `train/std` had already been annealed to its floor
+(0.0183 rad, `log_std_anneal/all/frac`=1 by step ~3.3M) for 3M steps
+beforehand — a near-deterministic policy taking large, volatile PPO
+updates with zero exploration noise left to buffer a bad step. No
+intermediate checkpoint survived to roll back to the good ~5M state
+(`--snapshot-every` was off; `--save-every` overwrites one file in
+place) — a real retention gap in this recipe family, independent of
+the finding itself. Per the 08-21 ruling (reward was rising to a fresh
+peak, not flat/dead, right up to the crash), verdicted CONTINUE, not
+FAIL: `cw-stand50hz-stance-tuckclock-scratch6m-dqfix-cont2m` (+2M
+steps, warm-start from the exact crashed checkpoint,
+`--snapshot-every=500000` added this time for retention, same
+flat-pinned-probe gate plus an explicit hold/lower height-recovery
+bar) is VERIFIED RUNNING train-5. **Binding for any future
+`tuckclock`-family or similarly log-std-annealed stand/lower retrain**:
+always pass `--snapshot-every` on multi-goal-mix runs so a late-tail
+regression can be rolled back to the last-good checkpoint instead of
+requiring a fresh continuation from the crashed one; if this
+continuation does NOT recover hold/lower, escalate to a genuine
+mechanism fix (raise the log-std anneal floor, or tighten the PPO
+clip range in the training tail) rather than a second blind
+continuation. Evidence: `ops.sh entry cw-stand50hz-stance-tuckclock-
+scratch6m-dqfix` (CONTINUE verdict); `rl_docs/tracks/standwalk/
+STATUS.md` 2026-09-10 ~23:3x; `logs/ckpt_eval/cw_stand50hz_stance_
+tuckclock_scratch6m_dqfix_{gate,owncfg,flatprobe}/report.json`; W&B
+`j4btm8f5`.
+
 ## `rl_only` 50Hz walk-role acquisition PASS, 2nd of 3 seeds exported, and the physical-delivery bundle re-cut to point at a deployable artifact (2026-09-10 ~23:2x, walkcurr track)
 
 One plain sentence: `cw-walk50hz-rlonly-crutchoff-s2-warmadapt-acq1` (18M-step

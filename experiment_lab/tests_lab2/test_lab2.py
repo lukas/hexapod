@@ -1,5 +1,5 @@
 """A dozen fast tests for the decisions; the runner and CLI are exercised live."""
-import json
+import dataclasses
 
 import pytest
 
@@ -31,13 +31,21 @@ def test_health_read_over_ten_seconds_counts_as_unreachable():
 
 
 def test_runner_command_uses_checkout_python_and_vision(settings):
-    cmd = runner.command(settings, "steps_air_v1", force=False)
+    cmd = runner.command(settings, "steps_air_v1")
     assert cmd[0] == str(settings.checkout / ".venv" / "bin" / "python")
     assert "--go" in cmd and "--capture-vision" in cmd and "--force" not in cmd
     assert cmd[cmd.index("--vision-url") + 1] == settings.vision_url
+    assert cmd[cmd.index("--vision-frame-url") + 1] == settings.vision_frame_url
+
+
+def test_runner_passes_force_for_whole_body_protocols_unless_disabled(settings):
+    assert "--force" in runner.command(settings, "champion_stand_ground_v1")
+    gated = dataclasses.replace(settings, allow_force=False)
+    assert "--force" not in runner.command(gated, "champion_stand_ground_v1")
 
 
 def test_validate_plans_checks_disk_and_force_gate(settings):
+    settings = dataclasses.replace(settings, allow_force=False)
     plans = planner.validate_plans(settings, [
         {"title": "L0 steps", "why": "Baseline. Cheap.", "kind": "existing", "protocol": "steps_air_v1"},
         {"title": "missing", "why": "Not on disk.", "kind": "existing", "protocol": "l9_nothing_v1"},
@@ -134,4 +142,6 @@ def test_planner_prompt_is_small_and_names_protocols(settings, store):
     assert len(text) < 20_000
     assert "steps_air_v1" in text and "champion_stand_ground_v1 [WHOLE-BODY]" in text
     assert "STEP BACK FIRST" in text and "Leg 5 knee hysteresis" in text
-    assert "cannot run in this loop" in text
+    assert "--force for them automatically" in text
+    gated = planner.build_prompt(dataclasses.replace(settings, allow_force=False), store, None)
+    assert "cannot run in this loop" in gated

@@ -24,6 +24,10 @@ class Settings:
     checkout: Path
     robot_url: str = "http://192.168.4.39:8080"
     vision_url: str = "http://127.0.0.1:8766/api/pose-state"
+    # The runner's default frame URL (<state dir>/frame.jpg) does not exist on
+    # the pose service; without a fetchable frame nothing ever counts as an
+    # advancing frame and admission fails before motion.
+    vision_frame_url: str = "http://127.0.0.1:8766/snapshot/1.jpg"
     claude_bin: str = "claude"
     planner_model: str = "claude-opus-5"
     builder_model: str = "claude-opus-5"
@@ -41,9 +45,12 @@ class Settings:
     max_consecutive_unreachable: int = 2
     max_consecutive_empty_plans: int = 2
     idle_sleep_s: float = 30.0
-    # Whole-body protocols need the runner's --force gate. Off unless the
-    # operator turns it on; the planner is told which protocols are gated.
-    allow_force: bool = False
+    # Trajectory protocols (every *_belly_rest_* and radial-shear replay, not
+    # just stands) need the runner's --force gate. The old lab passed it on
+    # every one of those runs and the operator asked for no new pre-run gates,
+    # so the loop passes it for whole-body protocols. HEXAPOD_LAB2_ALLOW_FORCE=0
+    # turns that off.
+    allow_force: bool = True
     goal: str = (
         "Get the hexapod walking smoothly: measured joint compliance and "
         "contact behaviour on every leg, then whole-body stands and gaits "
@@ -90,6 +97,7 @@ def load_settings() -> Settings:
         checkout=checkout,
         robot_url=os.getenv("HEXAPOD_LAB2_ROBOT_URL", Settings.robot_url),
         vision_url=os.getenv("HEXAPOD_LAB2_VISION_URL", Settings.vision_url),
+        vision_frame_url=os.getenv("HEXAPOD_LAB2_VISION_FRAME_URL", Settings.vision_frame_url),
         claude_bin=os.getenv("HEXAPOD_LAB2_CLAUDE_BIN", Settings.claude_bin),
         planner_model=os.getenv("HEXAPOD_LAB2_PLANNER_MODEL", Settings.planner_model),
         builder_model=os.getenv("HEXAPOD_LAB2_BUILDER_MODEL", Settings.builder_model),
@@ -102,6 +110,6 @@ def load_settings() -> Settings:
         builder_max_usd=_f("HEXAPOD_LAB2_BUILDER_MAX_USD", Settings.builder_max_usd),
         daily_spend_cap_usd=_f("HEXAPOD_LAB2_DAILY_SPEND_CAP_USD", Settings.daily_spend_cap_usd),
         max_consecutive_failed_runs=_i("HEXAPOD_LAB2_MAX_FAILED_RUNS", Settings.max_consecutive_failed_runs),
-        allow_force=os.getenv("HEXAPOD_LAB2_ALLOW_FORCE", "") == "1",
+        allow_force=os.getenv("HEXAPOD_LAB2_ALLOW_FORCE", "1") != "0",
         goal=os.getenv("HEXAPOD_LAB2_GOAL", Settings.goal),
     )

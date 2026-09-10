@@ -8,11 +8,12 @@ LAB="$HOME/Library/Application Support/Hexapod Lab"
 V2="$LAB/v2"
 mkdir -p "$V2/runs" "$HOME/Library/LaunchAgents" "$HOME/Library/Logs"
 if [ ! -d "$V2/checkout/.git" ]; then
-  git clone -q https://github.com/lukas/hexapod.git "$V2/checkout"
+  git clone -q --recurse-submodules https://github.com/lukas/hexapod.git "$V2/checkout"
 fi
 git -C "$V2/checkout" checkout -q main
 git -C "$V2/checkout" pull -q --ff-only
-(cd "$V2/checkout" && uv sync --frozen -q)
+git -C "$V2/checkout" submodule update -q --init --recursive
+(cd "$V2/checkout" && uv sync --frozen -q) || { echo "uv sync failed"; exit 1; }
 uv pip install -q --python "$LAB/venv/bin/python" --no-deps "$HERE/../.."
 install -m 700 "$HERE/run-lab2.sh" "$LAB/run-lab2.sh"
 install -m 600 "$HERE/com.lbiewald.hexapod-lab2.plist" "$HOME/Library/LaunchAgents/com.lbiewald.hexapod-lab2.plist"

@@ -63,7 +63,7 @@ def _run_digest(run: Optional[Dict[str, Any]]) -> str:
 
 def build_prompt(settings: Settings, store: Store, last_run: Optional[Dict[str, Any]]) -> str:
     protocols = list_protocols(settings)
-    force_note = ("Whole-body protocols run only when the plan sets force=true."
+    force_note = ("Protocols marked WHOLE-BODY are trajectory replays; the loop passes the runner's --force for them automatically."
                   if settings.allow_force else
                   "Whole-body protocols (marked WHOLE-BODY) cannot run in this loop right now; do not queue them.")
     proto_lines = "\n".join(

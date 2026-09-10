@@ -1,5 +1,30 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## The fresh contextualgate slip FAIL (9.52/m) is a REAL lineage-wide floor, not a metric artifact, and predates the leg-duty-fairness charges (2026-09-09 ~23:5x follow-up, zero spend)
+
+Checked the one cheap alternative explanation for the ~23:5x slip FAIL
+above before treating it as a genuine gap: `slip_per_m` divides by
+`along_dist_m`, so a couple of near-zero-progress episodes (e.g. the
+2/24 with `gait_valid=False`) could in principle dominate the median.
+They don't. Read every episode's `progress_ratio`/`slip_per_m`/
+`sacrificed_legs` directly from the already-collected report.json:
+slip is high (5-27/m) on essentially EVERY episode regardless of
+progress_ratio (0.23-1.64) or gait_valid (True or False), and the
+untouched no-leg-duty-charge baseline (`crutchoff-s0-widen8-acq1`,
+same lineage before any duty/swing-gap mechanism) shows the same
+~8.2/m median floor — the champion (9.52) is marginally worse, not
+better, so the leg-duty-fairness charges did not introduce this. Same
+order of magnitude as the already-CLOSED 9-arm direct-slip-pricing
+floor (~5-6/m, a different precursor lineage, 09-07 ~20:3x) — confirms
+that closure's own escalation ("a STRUCTURAL, non-reward lever, not
+another charge/dose") applies here too. No new mechanism licensed;
+this only removes a loose thread, it does not open one. Evidence:
+`logs/ckpt_eval/cw_walkscratch_crutchoff_s0_widen8_legdutyratio_
+swinggap_dose10_plusduty_acq1_cont10m_gate/report.json` vs
+`logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_
+allaxis_nokick_crutchoff_s0_widen8_acq1_gate/report.json`;
+`rl_docs/tracks/walkcurr/STATUS.md` 2026-09-09 ~23:5x follow-up entry.
+
 ## `rl_only` sim-demo champion FAILS the joystick track's own formal randomized DONE-gate arithmetic, dominated by slip (>3x band), not falls or gait validity (2026-09-09 ~23:5x, zero spend, re-read of an existing panel)
 
 The widen8/crutchoff `cont10m` champion (the `rl_only` sim-demo candidate

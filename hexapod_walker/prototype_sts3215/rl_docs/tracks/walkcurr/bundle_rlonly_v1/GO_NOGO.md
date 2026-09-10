@@ -59,9 +59,15 @@ bounded physical trial)
 - **Command range**: forward walk at the trained 0.06 m/s only, plus brief
   (<=5 s) diagonal/near-forward heading changes drawn from the trained 8-way
   set (0/+-45/+-90/+-135/180 deg); AVOID sustained (>10 s) off-forward
-  headings until the in-flight heading self-distillation fix lands (see
-  "Known behavioral limitation" in the manifest) — that is a labeled current
-  limitation, not a hidden one.
+  headings — a STANDING limitation, not a hidden one. **Correction 2026-09-10:**
+  this text originally said "until the in-flight heading self-distillation fix
+  lands"; self-distillation itself CLOSED as a repair (09-09 ~19:4x, 2/2 seeds,
+  same fingerprint as the untreated baseline) and, with it, all four named
+  mechanism classes (termination, price, exposure/PPO-loss, self-distillation/
+  critic) for this exact off-axis front-pair leg sacrifice are now closed —
+  no successor fix is in flight. Reopening needs a genuinely new structural
+  idea (none named as of 09-10); treat this as a standing avoidance rule for
+  the bounded trial, not a temporary caveat pending an imminent patch.
 - **Duration**: single trial <=30 s continuous per attempt (matches the sim
   demo's 26 s captures), stop/restart once observed clean.
 - **Acceptance criteria** (mirrors RL_GOALS.md's physical bar): smooth

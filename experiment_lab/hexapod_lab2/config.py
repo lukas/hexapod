@@ -28,6 +28,11 @@ class Settings:
     # the pose service; without a fetchable frame nothing ever counts as an
     # advancing frame and admission fails before motion.
     vision_frame_url: str = "http://127.0.0.1:8766/snapshot/1.jpg"
+    # The wide camera. The runner's own frames come from the floor-tag camera,
+    # which frames whole-body work as legs at the top edge; the loop records
+    # this one at 1 Hz for every run and that is what the eyes look at.
+    wide_frame_url: str = "http://127.0.0.1:8766/snapshot/0.jpg"
+    eyes_model: str = "claude-sonnet-5"
     claude_bin: str = "claude"
     planner_model: str = "claude-opus-5"
     builder_model: str = "claude-opus-5"
@@ -39,6 +44,16 @@ class Settings:
     run_timeout_s: float = 900.0
     planner_max_usd: float = 2.0
     builder_max_usd: float = 15.0
+    engineer_max_usd: float = 15.0
+    engineer_budget_s: float = 1800.0
+    # Merge gate for engineer branches: paths must be under fix_scope and not
+    # under any fix_forbidden prefix; total changed lines must stay under
+    # max_fix_lines. Anything else is left on its branch for a human.
+    fix_scope: str = "hexapod_walker/prototype_sts3215/"
+    fix_forbidden: tuple = ("hexapod_walker/prototype_sts3215/firmware/", "experiment_lab/")
+    max_fix_lines: int = 200
+    robot_ssh: str = "arduino@192.168.4.39"
+    deploy_timeout_s: float = 240.0
     daily_spend_cap_usd: float = 40.0
     # Loop stop rules.
     max_consecutive_failed_runs: int = 3
@@ -69,6 +84,12 @@ class Settings:
     @property
     def pause_file(self) -> Path:
         return self.data_dir / "PAUSE"
+
+    @property
+    def deploy_flag(self) -> Path:
+        """Present when main carries robot-side code the robot does not have yet.
+        The loop deploys between runs, never during one."""
+        return self.data_dir / "DEPLOY_NEEDED"
 
     @property
     def cap_file(self) -> Path:
@@ -115,6 +136,12 @@ def load_settings() -> Settings:
         robot_url=os.getenv("HEXAPOD_LAB2_ROBOT_URL", Settings.robot_url),
         vision_url=os.getenv("HEXAPOD_LAB2_VISION_URL", Settings.vision_url),
         vision_frame_url=os.getenv("HEXAPOD_LAB2_VISION_FRAME_URL", Settings.vision_frame_url),
+        wide_frame_url=os.getenv("HEXAPOD_LAB2_WIDE_FRAME_URL", Settings.wide_frame_url),
+        eyes_model=os.getenv("HEXAPOD_LAB2_EYES_MODEL", Settings.eyes_model),
+        engineer_max_usd=_f("HEXAPOD_LAB2_ENGINEER_MAX_USD", Settings.engineer_max_usd),
+        engineer_budget_s=_f("HEXAPOD_LAB2_ENGINEER_BUDGET_S", Settings.engineer_budget_s),
+        max_fix_lines=_i("HEXAPOD_LAB2_MAX_FIX_LINES", Settings.max_fix_lines),
+        robot_ssh=os.getenv("HEXAPOD_LAB2_ROBOT_SSH", Settings.robot_ssh),
         claude_bin=os.getenv("HEXAPOD_LAB2_CLAUDE_BIN", Settings.claude_bin),
         planner_model=os.getenv("HEXAPOD_LAB2_PLANNER_MODEL", Settings.planner_model),
         builder_model=os.getenv("HEXAPOD_LAB2_BUILDER_MODEL", Settings.builder_model),

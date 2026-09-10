@@ -144,3 +144,37 @@ binary and models, the budgets (health 10 s, post-run 60 s, planner 120 s,
 builder 1800 s, run timeout 900 s), per-call dollar caps, the daily cap, the
 stop thresholds, and `ALLOW_FORCE`. Defaults are the operator's rules; change
 them in the launcher, not in code.
+
+## Eyes, engineer, and replies (added 2026-09-10 evening)
+
+**Eyes.** The loop records the wide camera (`snapshot/0.jpg`) at 1 Hz for
+every run and recovery into `runs/<id>/wide/`, assembles `wide.mp4`, and
+sends twelve frames (eight spread, the last four dense) to a vision model
+with the protocol and trip line as context. The description is stored as
+`seen` in the run summary, shown on the card, and fed to the planner. About
+$0.03 per run. The runner's own frame dump is the floor-tag camera and is
+kept for tag tracking only.
+
+**Engineer.** The planner may return `kind: needs_fix` when runs fail for a
+reason that lives in code. One tool-using Claude gets a worktree, the
+diagnosis, the failed run's stills, 30 minutes and $15, and pushes a branch
+`lab2/fix-<id>`. The loop merges it only if the diff is confined to
+`hexapod_walker/prototype_sts3215/`, avoids `firmware/` and
+`experiment_lab/`, and is under 200 changed lines; otherwise the branch is
+left for a human and the operator is texted. On merge: the runner checkout
+syncs, robot-side changes set `DEPLOY_NEEDED` and are pushed with
+`deploy_ssh.sh` between runs (never during one; robot named explicitly),
+the engineer's `verify_protocol` is queued, and its `followups` become new
+`needs_fix` plans. Fixes run ahead of builds in the single code slot.
+
+What the engineer cannot do, on purpose: move the robot (`--go`, POSTs),
+touch firmware, ssh to the robot, or edit the lab itself. The hexapod 2
+session that debugged the 100 Hz transport used firmware and ssh; those are
+outside this box until the operator widens it.
+
+**Replies.** A stop pauses instead of exiting and texts the reason with
+`reply: resume | pause | raise cap [dollars] | status`. Reading replies needs
+Full Disk Access for the loop's python
+(`~/.local/share/uv/python/cpython-3.12.*/bin/python3.12`); without it the
+loop logs "text commands unavailable" once and the CLI does the same jobs.
+The cap is `CAP_USD` in the data dir, `hexapod-lab2 cap N`.

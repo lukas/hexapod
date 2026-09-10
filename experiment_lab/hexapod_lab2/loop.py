@@ -6,7 +6,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
-from . import alerts, commands, planner, recovery, robot, runner
+from . import alerts, commands, deploy, eyes, planner, recovery, robot, runner
 from .builder import BuilderThread
 from .config import Settings
 from .store import Store, now_iso
@@ -55,13 +55,19 @@ def run_once(settings: Settings, store: Store, plan: Dict[str, Any], log=print) 
     log(f"robot ok: {fb.get('live')}/18 servos, roll {fb.get('roll_deg')} pitch {fb.get('pitch_deg')}")
     log(f"sync: {runner.sync_checkout(settings)}")
     log(f"run {plan['protocol']} ({plan['title']})")
-    result = runner.run_protocol(settings, plan["protocol"], run_id, force=bool(plan.get("force")))
+    run_dir = settings.runs_dir / run_id
+    with eyes.WideCapture(settings.wide_frame_url, run_dir / "wide"):
+        result = runner.run_protocol(settings, plan["protocol"], run_id, force=bool(plan.get("force")))
     store.finish_run(run_id, status=result.status, exit_code=result.exit_code,
-                     run_dir=str(result.run_dir) if result.run_dir else None,
+                     run_dir=str(result.run_dir or run_dir),
                      summary=result.summary, log_tail=result.log_tail)
     store.set_plan_status(plan["id"], "done" if result.status == "ok" else "failed",
                           f"exit {result.exit_code}, {result.motion_s:.0f} s")
     log(f"run {result.status} (exit {result.exit_code}) in {result.motion_s:.0f} s")
+    tail = (result.log_tail or "").strip().splitlines()
+    eyes.see_run(settings, store, run_id,
+                 f"protocol {plan['protocol']}: {plan['why'][:300]}\nresult: {result.status}, exit {result.exit_code}\n"
+                 f"last runner lines: {' | '.join(tail[-3:])}", log=log)
     return store.run(run_id)
 
 
@@ -76,7 +82,8 @@ def record_recovery(settings: Settings, store: Store, plan: Dict[str, Any], trip
         status="running")
     rid = store.start_run(pid)
     run_dir = settings.runs_dir / rid
-    rep = (recover or recovery.recover)(settings, log=log, sleep=sleep, run_dir=run_dir)
+    with eyes.WideCapture(settings.wide_frame_url, run_dir / "wide"):
+        rep = (recover or recovery.recover)(settings, log=log, sleep=sleep, run_dir=run_dir)
     lines = [f"trip: {trip}", f"before: {rep.get('before')}"]
     lines += [f"{r['rung']} ({r['seconds']} s): {r['status']} -> {'free' if r['ok'] else 'still stuck'}" for r in rep["rungs"]]
     lines.append(f"after: {rep.get('after')}")
@@ -87,6 +94,8 @@ def record_recovery(settings: Settings, store: Store, plan: Dict[str, Any], trip
                           f"freed by {next((r['rung'] for r in rep['rungs'] if r['ok']), 'nothing')}")
     store.add_event("recovery", ("recovered: " if rep["ok"] else "FAILED: ")
                     + "; ".join(f"{r['rung']}={r['status'][:60]}" for r in rep["rungs"]))
+    eyes.see_run(settings, store, rid, f"recovery after {plan['protocol']} tripped ({trip}); rungs: "
+                 + "; ".join(f"{r['rung']}={r['status'][:60]}" for r in rep["rungs"]), log=log)
     return store.run(rid)
 
 
@@ -128,9 +137,12 @@ def main_loop(settings: Settings, store: Store, *, log=print, sleep=time.sleep,
             settings.pause_file.write_text(f"stopped: {reason}\n")
             alerts.text(store, "stop", f"stopped: {reason}. {commands.HELP}")
             continue
+        dep = deploy.deploy_if_needed(settings, store, log=log)
+        if dep.get("deployed"):
+            log("deployed robot-side code")
         started = builder.maybe_start()
         if started:
-            log(f"builder started for plan {started}")
+            log(f"code job started for plan {started}")
         plan = store.next_runnable()
         if plan is None:
             # A queue of nothing but builds must not leave the robot idle for

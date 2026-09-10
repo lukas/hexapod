@@ -215,6 +215,25 @@ class Store:
         )
         self.con.commit()
 
+    def update_run_summary(self, run_id: str, **fields) -> None:
+        """Merge fields into the run's summary JSON (eyes, deploy, gate results)."""
+        row = self.run(run_id)
+        if not row:
+            return
+        try:
+            summary = json.loads(row.get("summary_json") or "{}")
+        except ValueError:
+            summary = {}
+        if not isinstance(summary, dict):
+            summary = {"runner": summary}
+        summary.update(fields)
+        self.con.execute("UPDATE runs SET summary_json=? WHERE id=?", (json.dumps(summary), run_id))
+        self.con.commit()
+
+    def running_run(self) -> Optional[Dict[str, Any]]:
+        row = self.con.execute("SELECT * FROM runs WHERE status='running' LIMIT 1").fetchone()
+        return dict(row) if row else None
+
     def run(self, run_id: str) -> Optional[Dict[str, Any]]:
         row = self.con.execute("SELECT * FROM runs WHERE id=?", (run_id,)).fetchone()
         return dict(row) if row else None

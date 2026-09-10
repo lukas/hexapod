@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Optional
 
 from .config import Settings
+from .gitlock import GIT_LOCK
 
 
 @dataclass
@@ -101,10 +102,11 @@ def sync_checkout(settings: Settings) -> str:
     fast-forward to multiple branches".
     """
     try:
-        subprocess.run(["git", "-C", str(settings.checkout), "fetch", "-q", "origin", "main"],
-                       check=True, capture_output=True, text=True, timeout=120)
-        subprocess.run(["git", "-C", str(settings.checkout), "merge", "-q", "--ff-only", "origin/main"],
-                       check=True, capture_output=True, text=True, timeout=60)
+        with GIT_LOCK:
+            subprocess.run(["git", "-C", str(settings.checkout), "fetch", "-q", "origin", "main"],
+                           check=True, capture_output=True, text=True, timeout=120)
+            subprocess.run(["git", "-C", str(settings.checkout), "merge", "-q", "--ff-only", "origin/main"],
+                           check=True, capture_output=True, text=True, timeout=60)
         return "synced"
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
         return f"sync failed: {getattr(exc, 'stderr', '') or exc}".strip()[:300]

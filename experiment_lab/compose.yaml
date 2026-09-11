@@ -9,6 +9,6 @@ services:
       - ./lab-data:/data
       # Add device mappings only after validating the real robot and camera adapters.
     environment:
-      HEXAPOD_DATA_DIR: /data
+      HEXAPOD_LAB2_DATA_DIR: /data
       HEXAPOD_BIND: 0.0.0.0
     init: true

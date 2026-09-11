@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv pip install --python \"$HOME/Library/Application Support/Hexapod Lab/venv/bin/python\" --no-deps /Users/lukas/hexapod/experiment_lab:*)",
+      "Bash(launchctl kickstart -k gui/$(id -u)/com.lbiewald.hexapod-lab:*)",
+      "Bash(launchctl kickstart -k gui/$(id -u)/com.lbiewald.hexapod-lab2:*)",
+      "Bash(\"$HOME/Library/Application Support/Hexapod Lab/venv/bin/hexapod-lab2\":*)"
+    ]
+  }
+}

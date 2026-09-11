@@ -1,15 +1,11 @@
 {
   "_comment": [
-    "MCP servers attached to the Claude engineering lane, and only that lane.",
-    "The analysis and advance lanes run with --safe-mode, which disables every",
-    "MCP server regardless of this file.",
-    "",
-    "Bearer values are written as ${VAR} and expanded by Claude Code from the",
-    "orchestrator's environment at connect time, so no token is stored in this",
-    "file or in the child's argv. The launcher loads them from the Keychain.",
-    "",
-    "The orchestrator passes --strict-mcp-config, so these are the only MCP",
-    "servers reachable no matter what ~/.claude.json contains."
+    "MCP servers for assistants that talk to the hexapod services.",
+    "Bearer values are ${VAR} references resolved from the caller's environment at",
+    "connect time; the launcher loads them from the Keychain. No token lives here.",
+    "robot_lab is Robot Lab v2 (hexapod_lab2.server): tools lab_status, list_runs,",
+    "get_run, list_learnings, list_plans, queue_protocol, import_experiment, plus",
+    "list_experiments/get_experiment aliases that also accept old lab experiment ids."
   ],
   "mcpServers": {
     "rl_orchestrator": {

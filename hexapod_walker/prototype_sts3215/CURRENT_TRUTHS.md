@@ -1,5 +1,48 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## Speed track: `TripodGait.SCALE_PERIOD_MAX=2.00` is the real open-loop speed optimum for the stride/lift mechanism, not an arbitrary clip — raising it would make achieved speed WORSE (2026-09-11 ~08:5x, speed track, refill cycle, zero-training)
+
+One plain sentence: extending the step-0b teacher-feasibility sweep past
+its existing `period_scale<=2.0` clip (via `probe_teacher_headings.py`,
+which passes `period_scale` straight to `TripodGait.__init__` unclipped —
+no code change, no shared-default touch) shows achieved forward speed
+PEAKS at ps=2.0 (0.0514 m/s, slip 0.98/m, mesh/50Hz, 0.75deg/tick,
+speed_cmd=0.10, forward heading) and then falls monotonically through
+ps=2.25/2.5/2.75/3.0/3.5 (0.0502/0.0500/0.0481/0.0455/0.0423 m/s) while
+slip/m rises the whole way (0.98->1.54) and course tracking degrades at
+the top end (net_course_err_deg 0.12->4.18 by ps=3.5). Zero falls at any
+setting. This closes the speed track's own named candidate (a) ("raise
+`SCALE_PERIOD_MAX` past 2.0, needs its own scoped-change check since the
+constant is shared with turn-track consumers") without ever touching the
+shared constant: the answer is decisively no, don't fund a PPO arm on a
+longer-period dose, and don't raise the class bound for speed's sake (it
+would only invite turn-track consumers into the same regime this sweep
+shows degrades). Remaining named paths for the speed ceiling: (b) a
+non-TripodGait stride primitive, (c) fix the achieved-speed command-
+invariance itself (0.045-0.052 m/s regardless of the 0.06-0.12 command
+pin) — neither has a mechanism designed yet. Evidence:
+`logs/ckpt_eval/speed_teacher_sweep_20260911_periodext/
+ps{2.0,2.25,2.5,2.75,3.0,3.5}_ls1.4_v0.10.json`; `rl_docs/tracks/speed/
+STATUS.md` same date.
+
+## `exploreresettle-budget6m-cont6m2-rampslow8` FAIL (pacing lever refuted on its own merits) — CORRECTED to remove a stale claim that pricing was also closed; `curhot-b23k12` already resolves the current residual at the right dose (2026-09-11 ~08:3x/08:4x, standwalk track, triage cycle)
+
+One plain sentence: the ramp-slowdown arm (`goal.rise_ramp_s` 6.0->8.0,
+pricing untouched) made `over_current` WORSE, not better (1/12 floor ->
+4/12 DR-0 / 3/12 own-DR, rise valid_plant down to 8/12 and 9/12, plus a
+new own-DR hold/lower `tilt_roll` termination the pricing arms never
+showed) — pacing is refuted as an independent lever, verdicted FAIL. This
+run was launched off a since-corrected ~08:2x cross-read claiming the
+WHOLE curhot dose bracket was stuck at 1/12 over_current; the next entry
+down (~08:3x correction) shows `curhot-b23k12`/`-k6` actually PASS
+cleanly (0/12 over_current) at the right dose, so pricing was never
+closed. The verdict text was corrected in place (`FORCE=1 ops.sh
+verdict`) to stop reading as "pricing AND pacing both closed" — only
+pacing is refuted here; no structural per-leg torque-headroom redesign is
+needed, the standing adoption path is `curhot-b23k12`. Evidence:
+`ops.sh entry cw-stand50hz-stance-tuckclock-scratch6m-dqfix-retention-s1-
+exploreresettle-budget6m-cont6m2-rampslow8`.
+
 ## Current-hot reprice bracket RESOLVES the over_current DIG-IN: `curhot-b23k12` and `curhot-k6` both PASS the flat-pinned gate cleanly; `curhot-b23k36` overdoses into a DIFFERENT (footprint, not current) failure; a same-window FAIL verdict on b23k36 used the wrong (mixed-start) report and is CORRECTED here (2026-09-11 ~08:3x, standwalk track, triage cycle)
 
 One plain sentence: pricing the last 0.34A before the real torque-saturation trip (guard-band `hot_a=2.3/k=12` on `curhot-b23k12`, and a plain 6x dose bump `hot_a=2.0/k=6` on `curhot-k6`) makes the flat-start rise policy stop fighting through the stall and BOTH arms fully clear the pre-registered PASS bar — zero `over_current` terminations in 12/12 rise episodes (parent `exploreresettle-budget6m-cont6m2` had 3/12), rise `valid_plant` 12/12 (parent 9/12), `footprint_err_end_mm` combined-12 median **30.75mm** (b23k12, range 28.2-34.5mm) / **33.7mm** (k6, range 32.0-38.3mm, one 38.3mm outlier over the bar but the median clears it), `height_err_end_mm` fully in-band (0.7-6.5mm across all 24 hold/rise/lower episodes for both), hold/lower zero terminations. Own flat-pinned probes on-pod (train-1/train-2, DR-0, det+sto n=6/mode, literal flat start `goal.rise_flat_frac=1.0`/`rise_partial_frac=0`/`rise_rsi_frac=0`, `mesh_mjx_twin` matching training). This RESOLVES the DIG-IN this same cycle-window opened (root cause: discrete single-servo stall-fight at the real 2.2 N·m/1.2 A/N·m torque rail, priced too cheaply by the existing default-off `k_current_hot=1.0`/`current_hot_a=2.0` knob) — the fix is a pricing-dose correction, not new code, not a pacing redesign.

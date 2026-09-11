@@ -67,6 +67,19 @@ def main() -> None:
     ap.add_argument("--stride-scale", type=float, default=1.0,
                     help="TripodGait stride_scale (foot stroke x this "
                          "at the same commanded speed/cadence)")
+    ap.add_argument("--stance-radius-scale", type=float, default=1.0,
+                    help="TripodGait stance_radius_scale (home foot "
+                         "radial distance x this, clipped to "
+                         "[0.55, 1.05] same as the turn-track knob) "
+                         "-- untested for pure-forward speed before "
+                         "2026-09-11: a wider stance increases the "
+                         "moment arm the yaw joint's atan2 conversion "
+                         "uses, so the SAME commanded yaw angle (same "
+                         "slew budget) maps to a larger tangential foot "
+                         "excursion. Only plumbed for turn authority "
+                         "so far (probe_turn_authority.py); this wires "
+                         "it into the same forward-heading harness step "
+                         "0b/0c already used for period/lift/stride.")
     ap.add_argument("--json-out", default=None)
     args = ap.parse_args()
 
@@ -105,7 +118,8 @@ def main() -> None:
         gait = TripodGait(vx=0.0, lift=0.025,
                           period_scale=args.period_scale,
                           lift_scale=args.lift_scale,
-                          stride_scale=args.stride_scale)
+                          stride_scale=args.stride_scale,
+                          stance_radius_scale=args.stance_radius_scale)
         gait.sync_plant_stance(*WALK_PLANT)
         gait.set_velocity(vx=vx_c, vy=vy_c, omega=0.0)
         gait.reset_phase()

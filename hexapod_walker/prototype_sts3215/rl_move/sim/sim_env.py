@@ -188,6 +188,22 @@ PLANT_SPEC = {
 }
 
 
+def footprint_fade(fp_mm: float, full_mm: float, zero_mm: float) -> float:
+    """Full pay (1.0) at/below ``full_mm``, zero pay at/above ``zero_mm``,
+    linear between. Legacy defaults (full=PLANT_SPEC['footprint_err_mm']=40,
+    zero=2x that=80) reproduce the original rise-plant-factor footprint
+    term bit-exact. Pulled out as a pure function (2026-09-11 stand50hz
+    footprint-splay dig-in) so the fade band is directly unit-testable
+    without stepping a sim: the legacy band pays FULL income at the exact
+    40mm eval cliff and only starts fading OUTSIDE it, so nothing stops
+    the reward optimum sitting just past the gate. cfg
+    reward.rise_footprint_full_mm / rise_footprint_zero_mm move
+    ``full_mm``/``zero_mm``; e.g. 25/40 makes the fade end exactly AT the
+    gate cliff instead of starting there."""
+    return min(max((zero_mm - fp_mm) / max(zero_mm - full_mm, 1e-9),
+                    0.0), 1.0)
+
+
 def valid_plant(*, pad_clear_m, feet_xy, com_xy,
                 roll_rad, pitch_rad, height_err_m=None,
                 footprint_err_m=None, max_current_a=None,
@@ -4295,10 +4311,19 @@ class SimHexapodBalanceEnv(_GymBase):
                                  - att_deg)
                                 / PLANT_SPEC["attitude_deg"], 0.0), 1.0)
                 fp_mm = self._curl_dist() * 1000.0
-                fp_f = min(max((2.0 * PLANT_SPEC["footprint_err_mm"]
-                                - fp_mm)
-                               / PLANT_SPEC["footprint_err_mm"],
-                               0.0), 1.0)
+                # Footprint fade band (cfg reward.rise_footprint_full_mm /
+                # rise_footprint_zero_mm; defaults reproduce the legacy
+                # full-pay-at-40/zero-at-80mm fade bit-exact -- see
+                # footprint_fade() above for the 2026-09-11 dig-in
+                # finding this generalizes). Opt-in only; unset = old
+                # numbers.
+                fp_full_mm = float(cfg_get(
+                    self.cfg, "reward", "rise_footprint_full_mm",
+                    default=PLANT_SPEC["footprint_err_mm"]))
+                fp_zero_mm = float(cfg_get(
+                    self.cfg, "reward", "rise_footprint_zero_mm",
+                    default=2.0 * PLANT_SPEC["footprint_err_mm"]))
+                fp_f = footprint_fade(fp_mm, fp_full_mm, fp_zero_mm)
                 plant_f = margin_f * att_f * fp_f
                 if g_poly > 0.0:
                     pf *= (1.0 - g_poly) + g_poly * plant_f

@@ -16,6 +16,17 @@ The robot's own in-loop trips (current, temperature, load, tilt, servo loss,
 tracking error) are the safety system and they cost nothing. If you believe a
 check is needed, it belongs in those trips or it does not belong.
 
+The one exception, asked for by the operator on 2026-09-11 after the loop
+started a run while a leg was off and they were fixing it: before every run
+the loop takes one wide-camera frame and asks the eyes an open question,
+"can you see the robot and does it look ready to move?" (`eyes.ready_to_move`,
+inside the 10 s health budget, a few cents). Telemetry said 18/18 servos and
+level that day; only the camera could have seen the person on the floor.
+A no, or no frame, or no answer, means the robot does not move: the plan
+stays queued, the run is filed as `held` (not a strike), the loop pauses
+and texts. The frame it looked at is `…/v2/look.jpg`; every verdict is a
+`look` event on the dashboard. `HEXAPOD_LAB2_LOOK=0` disables it.
+
 ## What runs where
 
 | Piece | Location |

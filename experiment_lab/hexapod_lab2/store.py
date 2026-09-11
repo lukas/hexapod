@@ -302,7 +302,7 @@ class Store:
         ):
             if row["status"] in ("ok",):
                 break
-            if row["status"] == "unreachable":
+            if row["status"] in ("unreachable", "held"):
                 continue
             n += 1
         return n

@@ -1,0 +1,15 @@
+{
+ "walk_protocol": 1,
+ "name": "walk_turn04_oab10_v1",
+ "created": "2026-09-11",
+ "description": "Whole-body WALK on the floor with the scripted no-slip tripod gait (gait 1), measured by the overhead camera (chassis tag position and heading on the floor grid): mean speed, straight-line travel against the command, heading drift, tilt, total current. The loop stands the robot up itself, streams the gait command, stops, and sits it down. Turn in place clockwise at 0.4 rad/s for 10 s, then counter-clockwise. Commanded 229 deg each way; measures turn ratio and how much the body drifts while turning.",
+ "gait": 1,
+ "out_and_back": true,
+ "legs": [
+  {
+   "name": "turn04",
+   "omega_rad_s": 0.4,
+   "seconds": 10
+  }
+ ]
+}

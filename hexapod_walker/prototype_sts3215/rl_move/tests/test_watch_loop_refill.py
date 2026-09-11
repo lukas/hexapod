@@ -458,3 +458,70 @@ def test_reap_cycles_arms_idle_gate_only_for_idle_refills(tmp_path, monkeypatch)
         still, n_ok, n_failed = watch.reap_cycles([_cycle(label, tail)], set())
         assert (still, n_ok, n_failed) == ([], 1, 0)
         assert bool(watch.IDLE_REFILL_REAPED) is expect, (label, tail)
+
+
+def test_digin_escalation_not_limited_to_cycles_own_runs(tmp_path, monkeypatch):
+    """09-11 bug: an idle-kick/(partial-)refill cycle is spawned with
+    `runs=set()` (nothing "finished" triggered it) but routinely finds
+    and flags a DIFFERENT, incidentally-discovered run. The old
+    `r in c["runs"]` intersection silently dropped every such flag —
+    `cw-walk...-rampacq15m-r2` sat DIG-IN-flagged and un-escalated for
+    hours on 09-11 because the flagging cycle was a speed-run triage
+    (`c["runs"] == {"cw-speed..."}`), not an amp one. The escalation
+    must trigger off ANY flagged run that exists in the ledger,
+    independent of which run(s) spawned the flagging cycle."""
+    monkeypatch.setattr(watch, "registry_update", lambda *a, **k: None)
+    spawned = []
+    monkeypatch.setattr(watch, "spawn_cycle",
+                         lambda *a, **k: spawned.append((a, k)) or
+                         {"label": "digin", "runs": a[0], "t0": 0.0,
+                          "stamp": "s2", "model": k.get("model"),
+                          "proc": SimpleNamespace(poll=lambda: None),
+                          "out": tmp_path / "digin.log", "render": None})
+    ledger = tmp_path / "experiments.json"
+    ledger.write_text(json.dumps([
+        {"run": "cw-unrelated-flagged-run", "status": "FINISHED"}]))
+    monkeypatch.setattr(watch, "LEDGER", ledger)
+    watch._digin_spawned.clear()
+
+    out = tmp_path / "triage.log"
+    out.write_text(
+        "some narration\n"
+        "DIG-IN: cw-unrelated-flagged-run — new pathology, root-cause first\n")
+    cycle = {"label": "cw-speed-something", "runs": {"cw-speed-something"},
+             "t0": 0.0, "stamp": "s1", "model": watch.AGENT_MODEL_TRIAGE,
+             "proc": SimpleNamespace(poll=lambda: 0),
+             "out": out, "render": None}
+
+    still, n_ok, n_failed = watch.reap_cycles([cycle], set())
+
+    assert (n_ok, n_failed) == (1, 0)
+    assert len(spawned) == 1, "flagged run outside c['runs'] must still escalate"
+    (dig_runs_arg, *_rest), kwargs = spawned[0]
+    assert dig_runs_arg == {"cw-unrelated-flagged-run"}
+    assert kwargs["model"] == watch.AGENT_MODEL_DEEP
+    assert "cw-unrelated-flagged-run" in watch._digin_spawned
+
+
+def test_digin_escalation_ignores_names_not_in_ledger():
+    """A forged/hallucinated run name (not present in the ledger) must
+    not spawn a deep cycle — the ledger-membership check is the only
+    guard now that the intersection-with-`c["runs"]` restriction is
+    gone."""
+    import unittest.mock as mock
+    with mock.patch.object(watch, "registry_update", lambda *a, **k: None), \
+         mock.patch.object(watch, "spawn_cycle") as spy, \
+         mock.patch.object(watch, "LEDGER") as ledger_mock:
+        ledger_mock.read_text.return_value = json.dumps(
+            [{"run": "cw-real-run", "status": "FINISHED"}])
+        watch._digin_spawned.clear()
+        cycle = {"label": "kick", "runs": set(), "t0": 0.0, "stamp": "s3",
+                 "model": watch.AGENT_MODEL_TRIAGE,
+                 "proc": SimpleNamespace(poll=lambda: 0),
+                 "out": None, "render": None}
+        # patch tail reading via a temp file substitute
+        cycle["out"] = mock.Mock()
+        cycle["out"].read_text.return_value = (
+            "DIG-IN: cw-totally-made-up-run — bogus\n")
+        watch.reap_cycles([cycle], set())
+        spy.assert_not_called()

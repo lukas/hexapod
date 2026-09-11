@@ -75,7 +75,8 @@ def list_protocols(settings: Settings) -> list[dict]:
             "name": p.stem,
             "description": " ".join(str(doc.get("description") or "").split())[:240],
             "whole_body": _is_whole_body(doc),
-            "needs_stand": _needs_stand(doc),
+            "needs_stand": _needs_stand(doc) and not doc.get("walk_protocol"),
+            "walk": bool(doc.get("walk_protocol")),
         })
     return out
 
@@ -112,8 +113,30 @@ def sync_checkout(settings: Settings) -> str:
         return f"sync failed: {getattr(exc, 'stderr', '') or exc}".strip()[:300]
 
 
+def walk_document(settings: Settings, protocol: str) -> Optional[dict]:
+    """The protocol file if it is a walk protocol (see walk.py), else None."""
+    try:
+        doc = json.loads(protocol_path(settings, protocol.removesuffix(".json")).read_text())
+    except (OSError, ValueError):
+        return None
+    from . import walk
+    return doc if walk.is_walk_protocol(doc) else None
+
+
 def run_protocol(settings: Settings, protocol: str, run_id: str, *, force: bool = False,
                  log_path: Optional[Path] = None) -> RunResult:
+    doc = walk_document(settings, protocol)
+    if doc is not None:
+        # Whole-body walking measured by the camera runs in-process.
+        from . import walk
+        run_dir = (log_path.parent if log_path else settings.runs_dir / run_id)
+        run_dir.mkdir(parents=True, exist_ok=True)
+        started = time.monotonic()
+        lines: list[str] = []
+        res = walk.run_walk(settings, doc, run_dir, log=lambda m: lines.append(m))
+        (run_dir / "runner.log").write_text("\n".join(lines) + "\n")
+        return RunResult(status=res["status"], exit_code=res["exit_code"], run_dir=run_dir,
+                         summary=res["summary"], log_tail=res["log_tail"], motion_s=time.monotonic() - started)
     datasets = settings.prototype_dir / "sysid" / "datasets"
     before = {p.name for p in datasets.glob("*")} if datasets.exists() else set()
     cmd = command(settings, protocol, force=force)

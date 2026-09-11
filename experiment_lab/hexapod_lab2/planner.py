@@ -13,7 +13,9 @@ from .store import Store
 
 # Builds cost $1-2 and 5-10 minutes each and run one at a time; past this
 # many pending, more proposals are just a backlog.
-MAX_BUILDING = 3
+MAX_BUILDING = 1
+
+FIX_PARAGRAPH = "If runs are failing for a reason that lives in CODE rather than in the protocol (a runner constant, a gate that rejects the robot's measured behaviour, a robot-side bug), return kind=needs_fix with a build_spec that states the diagnosis and the smallest change. An engineer agent gets a 30-minute box, a branch, and the failed run's camera stills; the loop merges it through a scope/size gate, deploys robot-side code between runs, and runs the protocol you name to verify. Set needs_robot=true when the fix has to touch the robot itself (ssh, firmware, moving it to reproduce); the loop hands the robot over exclusively for that job. Prefer needs_robot=false when a code read and unit tests suffice. Do not work around a code blocker by writing protocols that dodge it; ask for the fix. If the fix is bigger than 30 minutes, ask for the piece that unblocks a run; the engineer lists the rest as followups."
 
 PLAN_SCHEMA = {
     "type": "object",
@@ -94,10 +96,18 @@ def build_prompt(settings: Settings, store: Store, last_run: Optional[Dict[str, 
     force_note = ("Protocols marked [traj] are trajectory replays; the loop passes the runner's --force for them automatically. Read the description for the physical setup (belly-rest ones need no stand)."
                   if settings.allow_force else
                   "Trajectory protocols (marked [traj]) cannot run in this loop right now; do not queue them.")
+    # Whole-body work is what the goal is about. The sixty-odd single-leg
+    # ladders are listed by name only, so the planner can still reach one when
+    # a walk result points at it, without being steered back to them.
+    featured = [p for p in protocols if p.get("walk") or p["needs_stand"]
+                or p["name"].startswith(("whole_body_", "champion_stand_", "tripod_"))]
+    others = [p for p in protocols if p not in featured]
     proto_lines = "\n".join(
-        f"- {p['name']}{' [traj]' if p['whole_body'] else ''}"
-        f"{' [NEEDS STAND: not runnable]' if p['needs_stand'] else ''}: {_trim(p['description'], 160)}"
-        for p in protocols)
+        f"- {p['name']}{' [walk: camera-measured]' if p.get('walk') else (' [traj]' if p['whole_body'] else '')}"
+        f"{' [NEEDS STAND: not runnable]' if p['needs_stand'] else ''}: {_trim(p['description'], 200)}"
+        for p in featured)
+    proto_lines += ("\n- single-leg sysid ladders, done in the first two days and not to be queued unless a walk "
+                    "result names the gap one fills: " + ", ".join(p["name"] for p in others))
     learnings = store.learnings(limit=8)
     learn_lines = "\n".join(f"- {_local(l['created_at'])}: {_trim(l['text'], 700)}" for l in learnings) or "- none yet"
     queue = store.plans(["queued", "building"])
@@ -106,17 +116,23 @@ def build_prompt(settings: Settings, store: Store, last_run: Optional[Dict[str, 
     runnable = sum(1 for p in queue if p["status"] == "queued")
     queue_note = ""
     if building >= MAX_BUILDING:
-        queue_note += f"\n{building} code jobs are already pending; new needs_code plans will be dropped (needs_fix still accepted), so prefer existing protocols."
+        queue_note += f"\n{building} code job(s) already pending; new needs_code plans will be dropped, so name existing protocols."
     if runnable == 0:
         queue_note += "\nNothing runnable is queued: the robot is idle until you name at least one existing protocol worth running now."
     recent = store.runs(limit=6)
     recent_lines = "\n".join(
         f"- {_local(r['started_at'])} {r['protocol']}: {r['status']}" for r in recent) or "- none"
+    fix_note = (FIX_PARAGRAPH if settings.allow_fix else
+                "If a protocol fails for a reason that lives in CODE (a runner constant, a gate, a robot-side bug), do not ask "
+                "for a fix and do not work around it: say so in `learned` and pick a different experiment. Fix requests "
+                "(kind=needs_fix) are switched off in this loop unless the operator turns them on.")
     return f"""You plan the next physical experiments for a cheap 18-servo hexapod. You have two minutes and no tools. Times below are the operator's local clock; use that clock, never UTC, when you mention a time.
 
 GOAL: {settings.goal}
 
 PHYSICAL SETUP: the robot sits on the floor on its own legs. There is no stand and nobody will suspend it or move it between runs. Protocols marked [NEEDS STAND] were written for a suspended robot and must not be queued; the loop rejects them. Anything "supported-chassis", "belly-rest" or "on the ground" is fine.
+
+WALKS FIRST. The experiments that count are whole-body walks on the floor measured by the camera (protocols marked [walk]): speed, travel ratio, drift, tilt, current. Sweep a command, compare gaits, chase the worst number; mark these intent=explore. Read the hexapod2 learnings as instructions: what a person measured there is what to test here.
 
 STEP BACK FIRST. Before proposing anything, ask: what do we actually not know that blocks smooth walking, and what is the cheapest run that answers it? Do not propose runs that repeat what the learnings already say. Do not propose safety checks, preflight rituals, audits or verification steps: the robot has its own in-loop trips (current, temperature, load, tilt, servo loss) and the runner enforces them. If the queue already has good plans, return zero new plans.
 
@@ -126,7 +142,7 @@ AVAILABLE PROTOCOLS (the runner executes these as-is; kind=existing):
 
 If the right next experiment needs a protocol that does not exist, return kind=needs_code with a build_spec: a builder agent with repository access will create the file. Prefer remapping an existing protocol to another leg (there is `sysid/generate_leg_variant.py --leg N`) over inventing new motion.
 
-If runs are failing for a reason that lives in CODE rather than in the protocol (a runner constant, a gate that rejects the robot's measured behaviour, a robot-side bug), return kind=needs_fix with a build_spec that states the diagnosis and the smallest change. An engineer agent gets a 30-minute box, a branch, and the failed run's camera stills; the loop merges it through a scope/size gate, deploys robot-side code between runs, and runs the protocol you name to verify. Set needs_robot=true when the fix has to touch the robot itself (ssh, firmware, moving it to reproduce); the loop hands the robot over exclusively for that job. Prefer needs_robot=false when a code read and unit tests suffice. Do not work around a code blocker by writing protocols that dodge it; ask for the fix. If the fix is bigger than 30 minutes, ask for the piece that unblocks a run; the engineer lists the rest as followups.
+{fix_note}
 
 WHAT WE HAVE LEARNED (newest first):
 {learn_lines}
@@ -178,6 +194,8 @@ def validate_plans(settings: Settings, plans: Any) -> List[Dict[str, Any]]:
             out.append({"title": title, "why": why, "kind": "existing", "protocol": protocol,
                         "build_spec": None, "force": force, "intent": intent})
         elif kind in ("needs_code", "needs_fix"):
+            if kind == "needs_fix" and not settings.allow_fix:
+                continue                       # fixes are off: skip the blocked protocol instead
             spec = _trim(raw.get("build_spec"), 1200)
             if not spec:
                 continue

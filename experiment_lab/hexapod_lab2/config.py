@@ -75,10 +75,15 @@ class Settings:
     # open question, "can you see the robot and does it look ready to move?"
     # Inside the 10 s health budget. HEXAPOD_LAB2_LOOK=0 turns it off.
     look_before_moving: bool = True
+    # Code-fix plans (an engineer agent on a branch) ate most of the first two
+    # days' budget while the robot learned little. Off unless
+    # HEXAPOD_LAB2_ALLOW_FIX=1; a code-blocked protocol is skipped and noted.
+    allow_fix: bool = False
     goal: str = (
-        "Get the hexapod walking smoothly: measured joint compliance and "
-        "contact behaviour on every leg, then whole-body stands and gaits "
-        "that stay inside the robot's own current/temperature/tilt trips."
+        "Get the hexapod walking smoothly on the floor: faster, straighter, "
+        "less tilt and less current per metre, measured by the overhead camera. "
+        "Whole-body walks are the unit of work; single-leg system identification "
+        "is done unless a walk result names a gap only it can fill."
     )
     extra_env: dict = field(default_factory=dict)
 
@@ -172,5 +177,6 @@ def load_settings() -> Settings:
         max_consecutive_failed_runs=_i("HEXAPOD_LAB2_MAX_FAILED_RUNS", Settings.max_consecutive_failed_runs),
         allow_force=os.getenv("HEXAPOD_LAB2_ALLOW_FORCE", "1") != "0",
         look_before_moving=os.getenv("HEXAPOD_LAB2_LOOK", "1") != "0",
+        allow_fix=os.getenv("HEXAPOD_LAB2_ALLOW_FIX", "0") == "1",
         goal=os.getenv("HEXAPOD_LAB2_GOAL", Settings.goal),
     )

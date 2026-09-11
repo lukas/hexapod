@@ -102,7 +102,12 @@ GLIDE_SETTLE_S = 1.0
 # in the l4_vertical_ground_load_ladder_v1 pre-roll), and safe_zero's own
 # arrival tolerance moved to GROUND_DROOP_TOL_DEG = 15 for it. A start pose
 # safe_zero accepts must not then fail here one step downstream. Still under
-# the 20-30 deg a real jam shows.
+# the 20-30 deg a real jam shows. Confirmed by the l4 re-run at 00:06 UTC
+# 09-11 (430/430 ticks): its glide came down from knees at 80-93 deg and
+# ARRIVED 0.8 deg short (worst joint, L5 hip) — the number this gate
+# actually reads — peaking at 3.6 deg in transit, so it now passes on
+# real margin, not on the widening. Keep it equal to
+# safe_zero.GROUND_DROOP_TOL_DEG; move both together or not at all.
 GLIDE_TOL_DEG = 15.0
 DEFAULT_MIN_VOLTAGE_V = 10.8
 DEFAULT_MAX_VOLTAGE_V = 13.0

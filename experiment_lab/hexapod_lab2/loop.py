@@ -37,7 +37,8 @@ def stop_reason(settings: Settings, store: Store, c: Counters) -> Optional[str]:
     return None
 
 
-def run_once(settings: Settings, store: Store, plan: Dict[str, Any], log=print) -> Dict[str, Any]:
+def run_once(settings: Settings, store: Store, plan: Dict[str, Any], log=print,
+             sleep_fn=time.sleep) -> Dict[str, Any]:
     """Health read, run, record. Returns the stored run row."""
     run_id = store.start_run(plan["id"])
     try:
@@ -62,6 +63,17 @@ def run_once(settings: Settings, store: Store, plan: Dict[str, Any], log=print) 
             store.add_spend("eyes", cost, run_id)
         store.add_event("look", f"{'ready' if ready else 'NOT READY'}: {saw[:400]}")
         log(f"look: {saw[:160]}")
+        if not ready:
+            # The same resting robot got YES and NO a minute apart on 2026-09-11.
+            # One more look, a few seconds later, before holding the whole loop;
+            # two independent noes are a hold, one is a wobble.
+            sleep_fn(8.0)
+            ready, saw2, cost2 = eyes.ready_to_move(settings)
+            if cost2:
+                store.add_spend("eyes", cost2, run_id)
+            store.add_event("look", f"second look {'ready' if ready else 'NOT READY'}: {saw2[:400]}")
+            log(f"second look: {saw2[:160]}")
+            saw = saw2 if ready else f"{saw[:200]} / again: {saw2[:200]}"
         if not ready:
             store.finish_run(run_id, status="held", exit_code=None, run_dir=None,
                              summary={"look": saw[:400]}, log_tail=f"not moved; eyes: {saw}")
@@ -189,7 +201,7 @@ def main_loop(settings: Settings, store: Store, *, log=print, sleep=time.sleep,
             store.set_plan_status(plan["id"], "skipped", "protocol needs a stand; robot is on the floor")
             log(f"skip {plan['protocol']}: needs a stand")
             continue
-        run = run_once(settings, store, plan, log=log)
+        run = run_once(settings, store, plan, log=log, sleep_fn=sleep)
         c.planned_while_waiting = False
         if run["status"] == "unreachable":
             c.unreachable += 1

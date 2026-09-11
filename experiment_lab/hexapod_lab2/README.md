@@ -24,13 +24,37 @@ check is needed, it belongs in those trips or it does not belong.
 | Data | `~/Library/Application Support/Hexapod Lab/v2/` — `lab2.sqlite3`, `runs/<id>/`, `build/`, `PAUSE` |
 | Runner checkout | `…/v2/checkout` — a dedicated clone of `origin/main` with its own `.venv`. Never the operator's working tree. |
 | Loop service | LaunchAgent `com.lbiewald.hexapod-lab2`, launcher `…/Hexapod Lab/run-lab2.sh`, log `~/Library/Logs/hexapod-lab2.log` |
-| Dashboard | `/v2` on the existing Robot Lab site (`https://robot-lab.cwd1f0-new-cluster.coreweave.app/v2`), same sign-in and tunnel |
+| Web service | LaunchAgent `com.lbiewald.hexapod-lab` runs `hexapod_lab2.server` on 127.0.0.1:8767 (launcher `…/Hexapod Lab/run-hexapod-lab.sh`, repo copy `experiment_lab/scripts/`), behind the Caddy tunnel at `https://robot-lab.cwd1f0-new-cluster.coreweave.app`. Dashboard at `/` and `/v2`, JSON at `/api/state`, `/api/runs`, `/api/learnings`, `/api/plans`, artifacts at `/runs/<id>/<file>`, MCP at `/mcp` |
 | CLI | `~/Library/Application Support/Hexapod Lab/venv/bin/hexapod-lab2` |
 
-The old lab's web service stays up for history. Its job runner
-(`com.lbiewald.hexapod-codex-orchestrator`) was booted out so two
-controllers never share the servo bus; its plist is still in
-`~/Library/LaunchAgents` and would return on reboot.
+### The original lab is gone (2026-09-11)
+
+The original Robot Lab package, its 17,000 lines of tests, the codex
+orchestrator and the blocker monitor were deleted from the repository. Its
+web service label (`com.lbiewald.hexapod-lab`) now runs the v2 server, with
+the same bearer tokens (`HEXAPOD_API_KEYS`), browser sign-in and controller
+SSO cookie, ported into `auth.py`, `sso.py` and `browser_auth.py` here.
+
+Its findings live on in v2: `python -m hexapod_lab2.import_old_lab` filed
+every experiment that actually ran (76 of 103; 55 succeeded, 21 failed;
+the 27 cancelled ones measured nothing) as a hexapod1 run dated when it
+happened, with its last learning paragraph tagged `[old-lab]` and its
+video/stills/CSV/notes copied next to the run (794 MB; the .gz/.jsonl bulk
+telemetry was left behind). The old data directory
+`~/Library/Application Support/Hexapod Lab/data/` is untouched on disk.
+Imported runs carry `{"old_lab": true, "old_id": …}` in their summary, are
+excluded from the failed-run strike count, and `get_run`/`get_experiment`
+resolve old ids.
+
+### MCP
+
+`POST /mcp` speaks the same JSON-RPC the original lab did (`initialize` →
+protocol `2025-03-26`, `ping`, `notifications/initialized`, `tools/list`,
+`tools/call`), with a bearer from `HEXAPOD_API_KEYS`. Tools: `lab_status`,
+`list_runs`, `get_run`, `list_learnings`, `list_plans` (viewer), and
+`queue_protocol`, `import_experiment` (operator). `list_experiments` and
+`get_experiment` are aliases for assistants that learned the old names.
+Assistants' MCP config: `deploy/claude-mcp.json` entry `robot_lab`.
 
 ## The loop
 
@@ -133,8 +157,8 @@ Dashboard times are the operator's local clock. Stored times are UTC.
     launchctl kickstart -k gui/$(id -u)/com.lbiewald.hexapod-lab2   # loop picks it up (between runs)
 
 First-time setup is `deploy/install.sh` (clone, submodules, `uv sync`,
-launcher, plist). Tests: `.venv/bin/python -m pytest tests_lab2` — 18 tests,
-a fraction of a second, decision logic only.
+launcher, plist). Tests: `.venv/bin/python -m pytest tests_lab2` — about 50
+tests in under a second, decision logic and the web server only.
 
 ## Settings
 

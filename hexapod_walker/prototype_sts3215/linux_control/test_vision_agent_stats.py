@@ -13,8 +13,6 @@ HERE = Path(__file__).resolve().parent
 import vision_agent_stats as stats
 
 REPO_ROOT = HERE.parents[2]
-LAB_STATS_PATH = (REPO_ROOT / "experiment_lab" / "hexapod_lab"
-                  / "lab_stats.py")
 
 
 def _attempt(root: Path, job: str, attempt: int, **meta) -> Path:
@@ -104,24 +102,3 @@ def test_snapshot_cache_serves_repeat_reads(runs: Path) -> None:
     assert view.snapshot()["totals"] == first["totals"]
     assert view.snapshot(force=True)["totals"]["attempts"] == 3
 
-
-@pytest.mark.skipif(not LAB_STATS_PATH.is_file(),
-                    reason="lab_stats.py is not in this checkout")
-def test_reconciles_with_the_lab_rollup(runs: Path) -> None:
-    """The same fixture must produce the same vision bucket in both modules.
-
-    ``lab_stats`` is the source of truth; this module only exists so the
-    vision service can read the numbers without importing the lab package.
-    """
-    spec = importlib.util.spec_from_file_location(
-        "_lab_stats_under_test", LAB_STATS_PATH)
-    assert spec and spec.loader
-    lab_stats = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(lab_stats)
-
-    lab = lab_stats.scan_attempts(runs)
-    mine = stats.scan_vision_attempts(runs)["totals"]
-    lab_vision = lab["by_role"]["vision"]
-    for key in ("attempts", "failed", "input_tokens", "output_tokens"):
-        assert mine[key] == lab_vision[key], key
-    assert mine["cost_usd"] == pytest.approx(lab_vision["cost_usd"])

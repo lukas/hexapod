@@ -7,11 +7,10 @@ module reads those files and rolls up only the vision role, so the numbers on
 the vision page reconcile with the whole-lab totals instead of being a second,
 divergent tally.
 
-``experiment_lab/hexapod_lab/lab_stats.py`` is the source of truth for the
-bucket shape; ``_parse``, ``_blank`` and ``_add`` below are deliberately
-identical to it and ``test_vision_agent_stats.py`` asserts the two agree on the
-same fixture.  The duplication is intentional: the vision service runs from the
-tracker virtualenv and must not import the lab package.
+The bucket shape (``_parse``, ``_blank``, ``_add``) was copied from the
+original Robot Lab's ``lab_stats.py`` so the two tallies reconciled. That lab
+was retired on 2026-09-11 (Robot Lab v2 keeps spend in its own ``spend``
+table), so this module is now the only reader of these attempt files.
 """
 
 from __future__ import annotations

@@ -484,6 +484,21 @@ report.json, and the W&B API for exactly these questions.
     `_owncfg`. Never verdict a flat-probe gate off the mixed-start
     `_gate` report (2 wrong verdicts + 1 mispremised launch on 09-11).
 
+19. **`eval_checkpoint --task joint_walk` with no `--modes` does NOT
+    default to just "walk"** — `SimHexapodJointWalkEnv.EVAL_MODES`
+    (`walk_task.py`) is `("hold", "track", "unload", "raise", "rise",
+    "walk")`, six modes, because that class inherits the joint-goal
+    env's full skill panel. A hand-rolled speed/behavior panel that
+    forgets `--modes walk` silently runs ~5x too many episodes (hold/
+    track/unload/raise/rise, all irrelevant to a walk-only question)
+    and takes correspondingly longer — cost ~20 min before the mode
+    list on disk gave it away, 09-11. `evalcmd`'s own modes-derivation
+    (from the run's `--goal-mix` train arg) already gets this right;
+    any NEW hand-rolled or ops.sh-built eval invocation for a
+    walk-only checkpoint must do the same (see `ops.sh speedpanel`/
+    `speedretention`, which now derive `--modes` from the ledger's
+    `--goal-mix` the same way).
+
 ## Operator status page (web) — setup & restart runbook
 
 One auto-refreshing HTML page for the human operator: a first-screen

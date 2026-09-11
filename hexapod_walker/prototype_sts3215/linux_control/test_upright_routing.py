@@ -125,3 +125,12 @@ def test_level_plant_stand_unrecognised_glides():
     # hip 19 / knee 28 is a real (low) stand: feet ~60 mm below the belly
     # plane. If the classifier ever rejects it, it must glide, not blend.
     assert _route(_pose(hip=19.0, knee=28.0)) == "glide"
+
+
+def test_low_post_walk_crouch_glides_instead_of_dropping():
+    # 2026-09-11 20:18:50Z: median foot 53 mm below the hip pivot after the
+    # RL-only walk; the old rule routed it to safe_zero (drop) + STEP (10x rise).
+    crouch = _pose(hip=19.0, knee=10.0)      # foot z ~ -55 mm
+    assert _route(crouch, tilt_deg=3.0) == "glide"
+    # Belly-down (feet on the plane) still goes to the planner.
+    assert _route(_pose(hip=0.0, knee=7.0)) == "safe_zero"

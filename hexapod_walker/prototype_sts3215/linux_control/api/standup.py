@@ -405,12 +405,29 @@ class StandupApi:
                 # of times"). Travel-based pacing keeps the target
                 # moving at a rate the hardware actually tracks.
                 RATE_DPS = 90.0
+                # 2026-09-11 (hexapod2, 16 rises on video + telemetry):
+                # the segments where ALL SIX hips move together are the
+                # loaded push (belly -> standing, or the reverse on the
+                # way down). At 90 deg/s that 86 deg hip travel took
+                # ~1 s with knee load pinned at the 70 % cap and 1.3-1.8 A
+                # peaks -- the "pops up / crashes down" the operator
+                # flagged. Tuck segments move one tripod through the air
+                # and keep the fast rate; the six-leg segments are paced
+                # at LOADED_RATE_DPS (~3 s for the push).
+                LOADED_RATE_DPS = 30.0
                 ts, qs = [0.0], [q0]
+                loaded_seg = [False]     # loaded_seg[s]: segment s-1 -> s moves all six hips
                 for q_deg, kf_s in kf_path[1:]:
                     d_seg = max(abs(b - a) for a, b in
                                 zip(qs[-1], q_deg))
+                    hips_moving = sum(
+                        1 for lg in range(6)
+                        if abs(q_deg[3 * lg + 1] - qs[-1][3 * lg + 1]) > 2.0)
+                    is_loaded = hips_moving >= 5
+                    loaded_seg.append(is_loaded)
+                    seg_rate = LOADED_RATE_DPS if is_loaded else RATE_DPS
                     ts.append(ts[-1] + max(0.02, kf_s / speed,
-                                           d_seg / RATE_DPS))
+                                           d_seg / seg_rate))
                     qs.append(q_deg)
                 streamer = PoseStreamer()
                 # Prime: we are already at q0 (aligned / guarded), so
@@ -467,6 +484,8 @@ class StandupApi:
                         seg += 1
                     if seg >= len(qs):
                         break
+                    if loaded_seg[min(seg, len(loaded_seg) - 1)] and rate > 1.0:
+                        rate = 1.0
                     q = _q_at(t + LOOKAHEAD_S * rate)
                     w0 = time.monotonic()
                     # dt*0.75: cancels _speed_for_delta's 0.9
@@ -501,6 +520,13 @@ class StandupApi:
                             rate = min(rate * 1.35, 2.8)
                         elif err > 28.0:
                             rate = max(rate * 0.6, 0.6)
+                        # The adaptive speed-up is for air phases. On the
+                        # six-leg loaded segments the servos track well
+                        # (small err) precisely because they are slow,
+                        # and a 2.7x tempo there is the pop-up/crash the
+                        # LOADED_RATE_DPS schedule exists to prevent.
+                        if loaded_seg[min(seg, len(loaded_seg) - 1)]:
+                            rate = min(rate, 1.0)
                         with self._lock:
                             self._cal_progress = {
                                 "msg": (f"{mode} {verb}: "

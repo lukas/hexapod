@@ -838,6 +838,11 @@ class DemosApi:
         mid = n // 2
         return vals[mid] if n % 2 else (vals[mid - 1] + vals[mid]) / 2.0
 
+    # Walk-ready settle: blend directly when every joint is within this of
+    # the sim start pose; beyond it, re-plant tripods (see
+    # _step_to_rl_walk_ready_start_sync).
+    DIRECT_SETTLE_MAX_DEG = 20.0
+
     # Upright classifier limits (see _normal_standing_pose).
     UPRIGHT_MAX_DELTA_DEG = 60.0
     UPRIGHT_FOLDED_KNEE_DEG = 105.0
@@ -993,7 +998,12 @@ class DemosApi:
         try:
             target = [float(v) for v in walk_start_pose_degrees()]
             delta = self._pose_delta(present, target)
-            frames = ([] if delta is not None and delta <= 5.0
+            # <= DIRECT_SETTLE_MAX_DEG off: one blended settle (the same
+            # motion the walk policies command every tick) instead of a
+            # full tripod re-plant. 09-11: 40 re-plants in one session,
+            # most for a single hip 25-35 deg off after a scripted turn.
+            frames = ([] if delta is not None
+                      and delta <= self.DIRECT_SETTLE_MAX_DEG
                       else build_tripod_plant_transition(present, target))
         except Exception as e:
             return {"ok": False,
@@ -1024,7 +1034,8 @@ class DemosApi:
             except Exception as e:
                 return {"ok": False,
                         "error": f"walk-ready start write failed: {e}"}
-            deadline = time.monotonic() + 1.0
+            # 180 counts/s ~ 16 deg/s: give a 20 deg blend its time.
+            deadline = time.monotonic() + max(1.0, float(delta or 0.0) / 12.0)
             while time.monotonic() < deadline:
                 if abort_check():
                     return {"ok": False, "aborted": True,

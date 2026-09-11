@@ -2,13 +2,14 @@
 
 Two mechanisms, both default-off/bit-exact:
 
-1. ``TripodGait(period_scale=, lift_scale=, stride_scale=)`` ctor knobs
-   (pre-existing) drive the scripted teacher's cycle time, swing apex
-   and foot stroke — the speed track's feasibility-sweep axes
-   (``probe_teacher_headings --period-scale/--lift-scale/--stride-scale``).
+1. ``TripodGait(period_scale=, lift_scale=, stride_scale=,
+   stance_radius_scale=)`` ctor knobs (pre-existing) drive the scripted
+   teacher's cycle time, swing apex, foot stroke and home stance radius
+   — the speed track's feasibility-sweep axes (``probe_teacher_headings
+   --period-scale/--lift-scale/--stride-scale/--stance-radius-scale``).
 2. ``sim_env._make_walk_bc_gait`` reads
-   ``train.bc_anchor_teacher_{period,lift,stride}_scale`` (default 1.0)
-   so a discovery arm can anchor to the retuned geometry.
+   ``train.bc_anchor_teacher_{period,lift,stride,stance_radius}_scale``
+   (default 1.0) so a discovery arm can anchor to the retuned geometry.
 
 Pure stdlib for the gait half (same pattern as
 test_tripod_gait_yaw_arm_scale.py); the cfg-plumb half calls the
@@ -77,6 +78,21 @@ def test_lift_scale_changes_swing_apex():
     assert max(diffs) > 0.1, "lift_scale=1.6 must raise the swing"
 
 
+def test_stance_radius_scale_changes_walk_targets():
+    # Unlike stride/period/lift (pure walk-cycle shaping), stance_radius
+    # is a STATIC home-position parameter (home foot radial distance),
+    # so it legitimately moves the standing pose too -- only assert the
+    # walking-target delta here.
+    plain = _make()
+    dosed = _make(stance_radius_scale=1.05)
+    _walk(plain)
+    _walk(dosed)
+    diffs = [max(abs(a - b) for a, b in
+                 zip(plain.desired_deg(t), dosed.desired_deg(t)))
+             for t in (0.1, 0.3, 0.5, 0.7)]
+    assert max(diffs) > 0.01, "stance_radius_scale=1.05 must move walk targets"
+
+
 def _stub_gait(cfg):
     """Call the real _make_walk_bc_gait against a cfg stub (no env)."""
     from rl_move.sim.sim_env import SimHexapodBalanceEnv
@@ -90,6 +106,7 @@ def test_cfg_default_is_identity_teacher():
     assert g.period_scale == 1.0
     assert g.stride_scale == 1.0
     assert g.lift_scale == [1.0] * 6
+    assert g.stance_radius_scale == 1.0
 
 
 def test_cfg_doses_reach_the_teacher():
@@ -97,7 +114,9 @@ def test_cfg_doses_reach_the_teacher():
         "bc_anchor_teacher_period_scale": 1.5,
         "bc_anchor_teacher_lift_scale": 1.3,
         "bc_anchor_teacher_stride_scale": 1.4,
+        "bc_anchor_teacher_stance_radius_scale": 1.05,
     }})
     assert g.period_scale == 1.5
     assert g.stride_scale == 1.4
     assert g.lift_scale == [1.3] * 6
+    assert g.stance_radius_scale == 1.05

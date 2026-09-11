@@ -3287,7 +3287,19 @@ class SimHexapodBalanceEnv(_GymBase):
         chosen from the zero-training feasibility sweep
         (``probe_teacher_headings --period-scale/--lift-scale/
         --stride-scale``), never guessed. Defaults 1.0 = legacy
-        identity (bit-exact off) like every other dose knob here."""
+        identity (bit-exact off) like every other dose knob here.
+
+        ``train.bc_anchor_teacher_stance_radius_scale`` (speed track,
+        2026-09-11 ~11:2x): maps 1:1 onto TripodGait's existing
+        ``stance_radius_scale`` ctor knob (home foot radial distance
+        x this, clipped to [0.55, 1.05] same as the turn-track's
+        ``probe_turn_authority.py`` usage). Zero-training sweep
+        (``probe_teacher_headings --stance-radius-scale``) found a
+        real, small, already-capped speed gain at the class's own
+        legal ceiling (1.05: +2.5% speed, improved slip) -- free money
+        to fold into a speed-track dose alongside period/lift/stride,
+        never a standalone lever. Default 1.0 = legacy identity
+        (bit-exact off)."""
         from hexapod_core.tripod_gait import TripodGait
         _g = TripodGait(
             vx=0.0,
@@ -3299,6 +3311,9 @@ class SimHexapodBalanceEnv(_GymBase):
                 default=1.0)),
             stride_scale=float(cfg_get(
                 self.cfg, "train", "bc_anchor_teacher_stride_scale",
+                default=1.0)),
+            stance_radius_scale=float(cfg_get(
+                self.cfg, "train", "bc_anchor_teacher_stance_radius_scale",
                 default=1.0)),
             combined_yaw_arm_scale=float(cfg_get(
                 self.cfg, "train", "bc_anchor_teacher_yaw_arm_scale",

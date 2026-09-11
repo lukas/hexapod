@@ -67,6 +67,21 @@ MAX_TEMP_C = 55.0
 TEMP_TRIP_POLLS = 3
 DEFAULT_CURRENT_TRIP_POLLS = 1
 DEFAULT_HARD_CURRENT_A = 3.0
+# Above this a reading is not a measurement — same line safe_zero.py draws
+# (IMPLAUSIBLE_CURRENT_A), same failure mode: a corrupted current byte on the
+# shared bus. On 2026-09-10 the L2 ground radial shear ladder died on "joint 0
+# overcurrent 126.46 A" while the same poll cycle's segment snapshots read
+# 0.0 / 0.013 A peak and a flat 38 C. The bus cannot deliver 126 A and the
+# servo would not survive it. Not lowered to ~5 A on purpose: a REAL
+# overcurrent lives between the hard cap and here (the 08-06 incident held
+# about 7 A), so a tighter bound would silently disarm the guard.
+IMPLAUSIBLE_CURRENT_A = 12.0
+# Consecutive FRESH polls at/over ``hard_current_a`` before the hard ceiling
+# latches. Was effectively 1 — and not even fresh-gated, so one glitched byte
+# (cached ~3 ticks at 10 Hz) ended a 1740-tick ladder. A real jam holds, so
+# confirming costs ~0.1 s of exposure; the soft limit already confirms x3 and
+# the temp guard x3 (TEMP_TRIP_POLLS) for exactly this reason.
+HARD_CURRENT_TRIP_POLLS = 2
 # Tracking trip compares present against a reference that slews toward
 # the command at the commanded profile speed — NOT the raw target: a step
 # larger than the limit (e.g. the ±40 deg ladder rungs) would trip on its
@@ -85,8 +100,9 @@ GLIDE_RATE_DEG_S = 12.0        # slow start-pose glide (air)
 # 0.73 -> 1.38 A extending the loaded knee, over the protocol's 0.75 A, and
 # limped at tick -88 with 0/430 protocol ticks run. That is honest lifting
 # work, not a jam. 2.0 A is the house "loaded current budget" the ground
-# protocols use; ``hard_current_a`` (3.0) still trips on the first reading,
-# as do the temp and MAX_TRACK_ERR_DEG guards.
+# protocols use; ``hard_current_a`` (3.0) still trips on two
+# consecutive in-range polls (HARD_CURRENT_TRIP_POLLS), as do the temp and
+# MAX_TRACK_ERR_DEG guards.
 GLIDE_CURRENT_A = 2.0
 GLIDE_TIMEOUT_S = 45.0
 GLIDE_SETTLE_S = 1.0
@@ -382,6 +398,8 @@ def run_sysid_protocol(
     clamped = 0
     missed: dict[int, int] = {j: 0 for j in live_joints}
     overcurrent_polls: dict[int, int] = {j: 0 for j in live_joints}
+    hard_current_polls: dict[int, int] = {j: 0 for j in live_joints}
+    wild_current_reads = 0   # implausible decodes discarded, for the report
     tripped_error: str | None = None
     aborted = False
     last_fb: dict[int, dict] = {}
@@ -431,7 +449,7 @@ def run_sysid_protocol(
             callers whose motion is not the measured one (the glide).
             """
             soft_cur = max_cur if soft_a is None else soft_a
-            nonlocal last_fb, last_fb_t, tripped_error
+            nonlocal last_fb, last_fb_t, tripped_error, wild_current_reads
             t_now = time.monotonic()
             fresh = False
             if t_now - last_fb_t >= 1.0 / FEEDBACK_HZ:
@@ -454,6 +472,19 @@ def run_sysid_protocol(
                     continue
                 cur_a = abs(float(rec.get("current_a") or 0.0))
                 temp = float(rec.get("temp_c") or 0.0)
+                if cur_a > IMPLAUSIBLE_CURRENT_A:
+                    # Not a measurement — a corrupted byte. It gets no vote:
+                    # no trip, no peak_current_a, and it neither advances nor
+                    # RESETS a counter (a glitch landing inside a real
+                    # overcurrent must not erase the evidence either way).
+                    if fresh:
+                        wild_current_reads += 1
+                        _progress(f"joint {j} read {cur_a:.1f} A — "
+                                  f"implausible above "
+                                  f"{IMPLAUSIBLE_CURRENT_A:.0f} A, discarded "
+                                  f"(suspect the bus, not the joint); "
+                                  f"{wild_current_reads} so far")
+                    continue
                 if seg_stats:
                     seg_stats[-1]["peak_current_a"] = max(
                         seg_stats[-1]["peak_current_a"], cur_a)
@@ -461,9 +492,20 @@ def run_sysid_protocol(
                     overcurrent_polls[j] = overcurrent_polls.get(j, 0) + 1
                 elif fresh:
                     overcurrent_polls[j] = 0
-                if cur_a >= hard_current_a:
+                if fresh:
+                    # Only FRESH polls advance the hard counter: last_fb is
+                    # cached for ~3 ticks between 10 Hz polls, so counting
+                    # ticks would let one bad byte satisfy "consecutive".
+                    if cur_a >= hard_current_a:
+                        hard_current_polls[j] = (
+                            hard_current_polls.get(j, 0) + 1)
+                    else:
+                        hard_current_polls[j] = 0
+                if hard_current_polls.get(j, 0) >= HARD_CURRENT_TRIP_POLLS:
                     tripped_error = (f"joint {j} overcurrent {cur_a:.2f} A "
-                                     f"(hard limit {hard_current_a:.2f}) — "
+                                     f"(hard limit {hard_current_a:.2f}, "
+                                     f"{hard_current_polls[j]} consecutive "
+                                     f"polls) — "
                                      f"possible jam or wrong logical zero; "
                                      f"limped")
                 elif overcurrent_polls.get(j, 0) >= current_trip_polls:
@@ -729,6 +771,7 @@ def run_sysid_protocol(
         "ticks_done": done,
         "overruns": overruns,
         "clamped_cmds": clamped,
+        "wild_current_reads": wild_current_reads,
         "aborted": aborted,
         "error": tripped_error,
         "csv": str(csv_path),

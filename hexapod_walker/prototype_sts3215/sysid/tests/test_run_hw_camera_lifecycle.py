@@ -149,3 +149,35 @@ def test_main_cannot_report_success_after_camera_abort(monkeypatch, tmp_path):
     assert summary["ok"] is False
     assert summary["hardware_result"]["ok"] is True
     assert summary["camera_guard_failed"] == "camera coverage lost"
+
+
+def test_ok_result_without_ticks_is_a_named_failure():
+    # 2026-09-10 17:02: the L1 ladder's result was the stale calibration
+    # checkup (ok=True, no ticks). Only the pulled summary distinguishes it
+    # from a real run, so a missing pull must not read back as success.
+    failed = run_hw._ticked_result({"ok": True, "mode": "calibrate_checkup"})
+
+    assert failed["ok"] is False
+    assert "ticks_done=None" in failed["error"]
+    assert failed["hardware_result"]["ok"] is True
+
+
+def test_zero_ticks_is_a_failure_and_keeps_the_planned_count():
+    failed = run_hw._ticked_result(
+        {"ok": True, "ticks_done": 0, "ticks_planned": 1740})
+
+    assert failed["ok"] is False
+    assert "ticks_done=0/1740" in failed["error"]
+
+
+def test_a_run_that_ticked_is_left_alone():
+    ran = {"ok": True, "ticks_done": 1740, "ticks_planned": 1740}
+
+    assert run_hw._ticked_result(ran) == ran
+
+
+def test_an_existing_failure_keeps_its_own_error():
+    tripped = {"ok": False, "ticks_done": 0,
+               "error": "joint 4 tracking error 31 deg"}
+
+    assert run_hw._ticked_result(tripped) == tripped

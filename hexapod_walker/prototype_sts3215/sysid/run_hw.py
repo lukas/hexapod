@@ -169,6 +169,33 @@ def _guarded_result(result: dict, guard: VisionGuard | CameraGuard | None) -> di
     }
 
 
+def _ticked_result(result: dict) -> dict:
+    """An ok=True result that ticked nothing is not a measurement.
+
+    ``/api/rl/state`` still substitutes the latest calibration checkup for a
+    finished sysid job's result (``result: ok=True ticks None/None`` in every
+    runner.log), so the only thing separating a real run from that stale
+    ok=True is the pulled sidecar summary.  When the pull fails, the stale
+    report used to be returned as this run's success.  A run that reports no
+    ticks did not move the robot: fail it, and put the counts in the error so
+    the terminal status carries the reason.
+    """
+    if not result.get("ok"):
+        return result
+    done = result.get("ticks_done")
+    if isinstance(done, (int, float)) and done > 0:
+        return result
+    return {
+        **result,
+        "ok": False,
+        "error": (f"runner reported ok with ticks_done={done!r}/"
+                  f"{result.get('ticks_planned')!r}: the trajectory never "
+                  f"ticked, or the robot's result was replaced by a stale "
+                  f"report — no motion was measured"),
+        "hardware_result": result,
+    }
+
+
 def _capture_vision_sidecar(
     state_url: str,
     out_dir: Path,
@@ -616,6 +643,11 @@ def main(argv: list[str] | None = None) -> int:
         result, camera_guard if camera_guard is not None and camera_guard.failure
         else vision_guard,
     )
+    # Only now, with the authoritative summary in hand, is a missing tick
+    # count this run's own answer rather than the pre-pull placeholder. A
+    # camera stop already names a more specific failure, so this runs last
+    # and only speaks when the run is still claiming success.
+    result = _ticked_result(result)
     print(f"runner: ok={result.get('ok')} error={result.get('error')}")
     (out_dir / "runner_summary.json").write_text(
         json.dumps(result, indent=2, sort_keys=True) + "\n"

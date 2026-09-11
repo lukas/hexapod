@@ -826,6 +826,60 @@ def test_obs_pad_transplant_preserves_parent_behavior():
     assert torch.allclose(v_old, v_new)
 
 
+def test_obs_pad_transplant_insert_at_mid_layout():
+    """pad_obs_transplant(insert_at=k): new dims INSERTED mid-layout are
+    invisible, and the parent's post-insertion columns (e.g. an existing
+    fault_health tail block) stay wired to their shifted positions."""
+    torch = pytest.importorskip("torch")
+    import gymnasium as gym
+    from stable_baselines3 import PPO
+    from rl_move.sim.train_ppo_sim import pad_obs_transplant
+
+    class _Tiny(gym.Env):
+        def __init__(self, n):
+            self.observation_space = gym.spaces.Box(
+                -np.inf, np.inf, (n,), dtype=np.float32)
+            self.action_space = gym.spaces.Box(
+                -1.0, 1.0, (3,), dtype=np.float32)
+            self._n = n
+
+        def reset(self, *, seed=None, options=None):
+            return np.zeros(self._n, dtype=np.float32), {}
+
+        def step(self, action):
+            return (np.zeros(self._n, dtype=np.float32),
+                    0.0, False, False, {})
+
+    old = PPO("MlpPolicy", _Tiny(8), n_steps=32, seed=0, device="cpu",
+              policy_kwargs=dict(net_arch=[128, 128], log_std_init=-1.0))
+    new = PPO("MlpPolicy", _Tiny(9), n_steps=32, seed=1, device="cpu",
+              policy_kwargs=dict(net_arch=[128, 128], log_std_init=-1.0))
+    pad_obs_transplant(old, new, 1, insert_at=5)
+    obs8 = np.random.RandomState(3).randn(5, 8).astype(np.float32)
+    ins = np.random.RandomState(4).randn(5, 1).astype(np.float32) * 10
+    obs9 = np.concatenate([obs8[:, :5], ins, obs8[:, 5:]], axis=1)
+    a_old, _ = old.predict(obs8, deterministic=True)
+    a_new, _ = new.predict(obs9, deterministic=True)
+    assert np.allclose(a_old, a_new, atol=0), \
+        "inserted dim must be invisible; shifted tail must stay wired"
+    v_old = old.policy.predict_values(torch.as_tensor(obs8))
+    v_new = new.policy.predict_values(torch.as_tensor(obs9))
+    assert torch.allclose(v_old, v_new)
+    # sanity: perturbing a SHIFTED (post-insertion) column must change
+    # the action — proves the tail block is not zeroed/misaligned.
+    obs9b = obs9.copy()
+    obs9b[:, 6] += 1.0  # parent col 5, shifted right by the insertion
+    a_new_b, _ = new.predict(obs9b, deterministic=True)
+    assert not np.allclose(a_new, a_new_b), \
+        "shifted parent columns must remain live"
+    # out-of-range insert index must be rejected
+    new2 = PPO("MlpPolicy", _Tiny(9), n_steps=32, seed=2, device="cpu",
+               policy_kwargs=dict(net_arch=[128, 128],
+                                  log_std_init=-1.0))
+    with pytest.raises(SystemExit):
+        pad_obs_transplant(old, new2, 1, insert_at=9)
+
+
 # ---------------------------------------------------------------------------
 # First-principles posture terms (operator directive 2026-08-08 ~20:45Z)
 

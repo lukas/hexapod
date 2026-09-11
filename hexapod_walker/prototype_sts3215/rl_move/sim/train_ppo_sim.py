@@ -244,15 +244,25 @@ def _parent_record(init_from: Path | None) -> dict | None:
     return None
 
 
-def pad_obs_transplant(old_model, new_model, n_pad: int) -> None:
+def pad_obs_transplant(old_model, new_model, n_pad: int,
+                       insert_at: int = -1) -> None:
     """Transplant policy weights across an obs WIDENING of ``n_pad`` dims.
 
-    The new dims must be appended at the END of the obs vector (walk
-    phase clock, +2). Every tensor whose shape matches copies exactly;
-    the first-layer weights of the policy/value MLPs gain ``n_pad``
-    zero columns, so the transplanted policy's outputs are bit-identical
-    to the parent for ANY value of the new dims until training moves
-    the zero columns. Optimizer state is fresh (architecture changed).
+    By default (``insert_at=-1``) the new dims must be appended at the
+    END of the obs vector (walk phase clock, +2). With ``insert_at>=0``
+    the ``n_pad`` new dims are INSERTED at that column index instead —
+    needed when the widening dim sits mid-layout (e.g. the wz_ref yaw
+    command appends before an existing fault_health tail block, so the
+    old tail columns must shift right, not stay in place). Either way
+    every tensor whose shape matches copies exactly; the first-layer
+    weights of the policy/value MLPs gain ``n_pad`` zero columns, so
+    the transplanted policy's outputs are bit-identical to the parent
+    for ANY value of the new dims until training moves the zero
+    columns. Optimizer state is fresh (architecture changed).
+    NOTE: ``insert_at`` is a raw column index into the FLATTENED obs;
+    with obs-history stacking (obs.history_frames>1) a mid-layout
+    insertion applies per frame and is NOT expressible here — do not
+    use ``insert_at`` on stacked-history lineages.
     """
     import torch
     n_new = int(new_model.observation_space.shape[0])
@@ -261,6 +271,10 @@ def pad_obs_transplant(old_model, new_model, n_pad: int) -> None:
         raise SystemExit(
             f"--obs-pad-transplant {n_pad} but obs widened by "
             f"{n_new - n_old} ({n_old} -> {n_new}); check cfg-sets")
+    if insert_at >= 0 and insert_at > n_old:
+        raise SystemExit(
+            f"--obs-pad-insert-at {insert_at} out of range for parent "
+            f"obs width {n_old}")
     sd_old = old_model.policy.state_dict()
     sd_new = new_model.policy.state_dict()
     if set(sd_old) != set(sd_new):
@@ -276,15 +290,22 @@ def pad_obs_transplant(old_model, new_model, n_pad: int) -> None:
                   and v_new.shape[1] == n_new
                   and v_old.shape[1] == n_old):
                 v_new.zero_()
-                v_new[:, :n_old].copy_(v_old)
+                if insert_at < 0:
+                    v_new[:, :n_old].copy_(v_old)
+                else:
+                    v_new[:, :insert_at].copy_(v_old[:, :insert_at])
+                    v_new[:, insert_at + n_pad:].copy_(
+                        v_old[:, insert_at:])
                 widened.append(k)
             else:
                 raise SystemExit(f"unexpected shape change for {k}: "
                                  f"{tuple(v_old.shape)} -> "
                                  f"{tuple(v_new.shape)}")
     new_model.policy.load_state_dict(sd_new, strict=True)
-    print(f"[train] obs-pad transplant: {n_old} -> {n_new} dims; "
-          f"zero-padded first-layer columns in {widened}")
+    where = ("appended at tail" if insert_at < 0
+             else f"inserted at col {insert_at}")
+    print(f"[train] obs-pad transplant: {n_old} -> {n_new} dims "
+          f"({where}); zero-padded first-layer columns in {widened}")
 
 
 def hist_stride_transplant(old_model, new_model, stride: int,

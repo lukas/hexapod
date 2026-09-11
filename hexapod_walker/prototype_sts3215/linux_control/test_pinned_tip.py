@@ -247,6 +247,19 @@ def test_untrap_accepts_weight_shoved_hip():
     assert res["ok"], res
 
 
+def test_untrap_flat_on_clutter_is_success_not_reposition():
+    # Live regression (09-11 00:57, run 9cbefa822ce1): the fold took the
+    # body from 14.7° to 8.58° with L1/L4 knees stalled short, and the
+    # old 8.0° success line called that "still tipped 9° — reposition by
+    # hand" and limped, even though the classifier does not call 8.58°
+    # tipped and the next safe-zero straightened out of the fold fine.
+    bus = TipBus(PLANT, roll_deg=8.6)
+    res = run_untrap_tuck(bus)
+    assert res["ok"], res
+    assert res["tilt_deg"] == 8.6
+    assert not bus.torque_off, "success holds the fold at the low limit"
+
+
 def test_untrap_never_levels_no_stall_still_limps():
     bus = TipBus(PLANT, roll_deg=25.0)     # folds fine, stays tipped
     res = run_untrap_tuck(bus)

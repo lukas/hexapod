@@ -83,14 +83,45 @@ TIP_DEG = 12.0          # body tilt that counts as tipped. Calibrated
                         # missed every one of them. 12° matches the
                         # rl preflight's "not startable" line; IMU
                         # mounting bias measures ~3-4°.
-LEVEL_DEG = 8.0         # untrap success: tilt back under this
-                        # (must sit below TIP_DEG with margin)
+LEVEL_DEG = 10.0        # untrap success: tilt back under this
+                        # (must sit below TIP_DEG with margin).
+                        # 8.0 was one degree too tight to be consistent
+                        # with TIP_DEG (live, 09-11 00:57, run
+                        # 9cbefa822ce1): the fold collapsed the prop
+                        # from 14.7° to 8.58° and untrap still called it
+                        # "still tipped 9° — reposition by hand" and
+                        # limped, while this module's own detector says
+                        # 8.58° is NOT tipped at all. The following
+                        # safe-zero then straightened every joint to
+                        # ~0.2° and reported "at zero (safe)" from that
+                        # fold, so the fold HAD done its job. A body on
+                        # carpet clutter rests at 8-9° (clean flat rest
+                        # measures 3-5°), which is why the success line
+                        # belongs just under TIP_DEG, not 4° under it.
+                        # 2° of hysteresis is kept so a pose untrap
+                        # calls level cannot immediately re-classify as
+                        # tipped.
 PIN_KNEE_DEG = 45.0     # knee flexion that can prop/trap under the body
 SETTLE_S = 1.2          # between the two tipped-confirmation reads
 
 # Escape (fold) targets: inside the sim-validated scripted-tuck ball
 # (hip −78 / knee +148) with margin to the axis limits, so a fully
 # tracking fold is never a limit crash.
+#
+# DO NOT SHALLOW THESE (checked 09-11 against run 9cbefa822ce1, where
+# the fold reached hips -49.5 / knees 117-138). Two reasons, both
+# measured:
+#   * the straighten blend gets out of this fold. That run's next
+#     safe-zero glided all 18 joints to ~0.2° and reported "at zero
+#     (safe)" at LOADED_TORQUE_LIMIT — the 700-torque timeout that
+#     motivated shallowing is gone.
+#   * a shallower knee ENDS IN THE PROPPING BAND. With the belly plane
+#     40 mm below the hip pivot, foot_z_mm(-50, 140) = -27.5 (foot
+#     12 mm clear of the floor, body flat) while foot_z_mm(-40, 120) =
+#     -72 and foot_z_mm(-50, 117) = -65: 25-32 mm INTO the floor and
+#     radially under the chassis. That is exactly where L1/L4 stalled
+#     at 20 % torque, feet jacking the body to the 8.6° residual tilt.
+#     Aiming every leg there would make the prop the target.
 FOLD_HIP_DEG = -50.0
 FOLD_KNEE_DEG = 140.0
 TUCK_TORQUE = 200       # /1000 — the heat bound; NEVER raise to "help"

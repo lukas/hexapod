@@ -137,12 +137,62 @@ def describe(frames: List[Path], context: str, *, model: str, api_key: str,
     return text, cost
 
 
-def _post_messages(body: dict, api_key: str) -> dict:
+def _post_messages(body: dict, api_key: str, timeout: float = 90.0) -> dict:
     req = Request("https://api.anthropic.com/v1/messages", data=json.dumps(body).encode(),
                   headers={"x-api-key": api_key, "anthropic-version": "2023-06-01",
                            "content-type": "application/json"}, method="POST")
-    with urlopen(req, timeout=90) as resp:
+    with urlopen(req, timeout=timeout) as resp:
         return json.loads(resp.read().decode())
+
+
+LOOK_QUESTION = (
+    "This is the wide camera over a cheap 18-servo hexapod that lives on the floor of a home lab. "
+    "The first image is the whole frame, the second is the part of it where the robot usually sits. "
+    "Can you see the robot, and does it look ready to move right now? Use your judgement: a person, "
+    "hands or tools near it, a leg detached, propped or missing, the robot lifted, tipped, tangled or "
+    "out of view all mean no. Answer YES or NO on the first line, then one short sentence on what you see."
+)
+
+
+def ready_to_move(settings: Settings, *, post: Optional[Callable] = None, fetch: Optional[Callable] = None,
+                  budget_s: Optional[float] = None) -> tuple[bool, str, float]:
+    """One look at the wide camera before the robot moves.
+
+    Returns (ready, what the eyes said, cost). Anything that stops the look
+    from happening (no camera frame, no key, the model not answering in
+    time) is a no: if we cannot see the robot we do not move it. The frame
+    is kept at <data_dir>/look.jpg.
+    """
+    budget = float(budget_s or settings.health_budget_s)
+    t0 = time.monotonic()
+    api_key = os.getenv("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        return False, "no ANTHROPIC_API_KEY for the eyes", 0.0
+    try:
+        data = (fetch or WideCapture._fetch)(settings.wide_frame_url)
+    except Exception as exc:  # noqa: BLE001
+        return False, f"no camera frame ({type(exc).__name__}: {exc})"[:200], 0.0
+    settings.data_dir.mkdir(parents=True, exist_ok=True)
+    frame = settings.data_dir / "look.jpg"
+    frame.write_bytes(data)
+    content = []
+    for label, jpeg in (("whole frame", _scaled_jpeg(frame, width=1024)),
+                        ("robot area", _scaled_jpeg(frame, width=768, crop=settings.wide_crop))):
+        content.append({"type": "text", "text": label})
+        content.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
+                                                    "data": base64.b64encode(jpeg).decode()}})
+    content.append({"type": "text", "text": LOOK_QUESTION})
+    body = {"model": settings.eyes_model, "max_tokens": 120, "messages": [{"role": "user", "content": content}]}
+    remaining = max(3.0, budget - (time.monotonic() - t0))
+    try:
+        doc = (post or _post_messages)(body, api_key, timeout=remaining)
+    except Exception as exc:  # noqa: BLE001
+        return False, f"eyes did not answer ({type(exc).__name__}: {exc})"[:200], 0.0
+    text = " ".join(part.get("text", "") for part in doc.get("content", []) if part.get("type") == "text").strip()
+    usage = doc.get("usage", {})
+    cost = usage.get("input_tokens", 0) * 3e-6 + usage.get("output_tokens", 0) * 15e-6
+    first = text.split("\n", 1)[0].strip().upper()
+    return first.startswith("YES"), text or "(no answer)", cost
 
 
 def see_run(settings: Settings, store: Store, run_id: str, context: str, *, log=print,

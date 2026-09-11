@@ -71,7 +71,7 @@ article{background:#fff;border:1px solid #e7e5e4;border-radius:8px;padding:10px 
 article h2{font-size:1rem;margin:0 0 4px}
 .tag{display:inline-block;font-size:.75rem;padding:1px 7px;border-radius:10px;background:#e7e5e4;margin-right:6px;text-transform:uppercase}
 .tag.ok,.tag.done{background:#dcfce7}.tag.failed,.tag.timeout{background:#fee2e2}.tag.running{background:#dbeafe}
-.tag.queued{background:#fef9c3}.tag.robot{background:#cffafe}.tag.recovery{background:#fde68a}.tag.building{background:#ede9fe}.tag.unreachable{background:#fde68a}
+.tag.queued{background:#fef9c3}.tag.robot{background:#cffafe}.tag.recovery{background:#fde68a}.tag.building{background:#ede9fe}.tag.unreachable{background:#fde68a}.tag.held{background:#fde68a}
 .point b{color:#57534e;margin-right:6px}p{margin:4px 0}small{color:#78716c}
 h3{font-size:.95rem;margin:18px 0 4px;color:#57534e;text-transform:uppercase;letter-spacing:.04em}
 details summary{cursor:pointer;color:#57534e}pre{white-space:pre-wrap;font-size:12px;background:#fafaf9;padding:8px;border-radius:6px}

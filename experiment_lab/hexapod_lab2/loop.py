@@ -53,6 +53,20 @@ def run_once(settings: Settings, store: Store, plan: Dict[str, Any], log=print) 
         store.set_plan_status(plan["id"], "queued", f"robot not ready: {exc}")
         return store.run(run_id)
     log(f"robot ok: {fb.get('live')}/18 servos, roll {fb.get('roll_deg')} pitch {fb.get('pitch_deg')}")
+    if settings.look_before_moving:
+        # The one look before motion: can the eyes see the robot, and does
+        # it look ready? Telemetry cannot tell that a leg is off and someone
+        # is holding it. A no leaves the plan queued and holds the loop.
+        ready, saw, cost = eyes.ready_to_move(settings)
+        if cost:
+            store.add_spend("eyes", cost, run_id)
+        store.add_event("look", f"{'ready' if ready else 'NOT READY'}: {saw[:400]}")
+        log(f"look: {saw[:160]}")
+        if not ready:
+            store.finish_run(run_id, status="held", exit_code=None, run_dir=None,
+                             summary={"look": saw[:400]}, log_tail=f"not moved; eyes: {saw}")
+            store.set_plan_status(plan["id"], "queued", f"eyes: {saw[:120]}")
+            return store.run(run_id)
     log(f"sync: {runner.sync_checkout(settings)}")
     log(f"run {plan['protocol']} ({plan['title']})")
     run_dir = settings.runs_dir / run_id
@@ -178,6 +192,14 @@ def main_loop(settings: Settings, store: Store, *, log=print, sleep=time.sleep,
             sleep(settings.idle_sleep_s)
             continue
         c.unreachable = 0
+        if run["status"] == "held":
+            saw = (run.get("log_tail") or "").replace("not moved; eyes: ", "", 1)
+            settings.pause_file.write_text(f"paused: not moving, the camera look said: {saw[:200]}\n")
+            store.add_event("needs_hand", f"held before {plan['protocol']}: {saw[:300]}")
+            alerts.text(store, "not_ready",
+                        f"not moving. Looked at the camera before {plan['protocol']} and it said: "
+                        f"{saw[:220]} Paused; reply resume when the robot is ready.")
+            continue
         if run["status"] == "failed" and recovery.looks_like_jam(run.get("log_tail") or ""):
             # A tripped joint usually means a leg ended up somewhere the next
             # glide cannot start from. Let the robot free itself before the

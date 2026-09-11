@@ -69,6 +69,12 @@ class Settings:
     # so the loop passes it for whole-body protocols. HEXAPOD_LAB2_ALLOW_FORCE=0
     # turns that off.
     allow_force: bool = True
+    # The one exception to "no pre-run checks", asked for by the operator on
+    # 2026-09-11 after the loop started a run while a leg was off and they
+    # were fixing it: before moving, look at the wide camera once and ask an
+    # open question, "can you see the robot and does it look ready to move?"
+    # Inside the 10 s health budget. HEXAPOD_LAB2_LOOK=0 turns it off.
+    look_before_moving: bool = True
     goal: str = (
         "Get the hexapod walking smoothly: measured joint compliance and "
         "contact behaviour on every leg, then whole-body stands and gaits "
@@ -165,5 +171,6 @@ def load_settings() -> Settings:
         daily_spend_cap_usd=_f("HEXAPOD_LAB2_DAILY_SPEND_CAP_USD", Settings.daily_spend_cap_usd),
         max_consecutive_failed_runs=_i("HEXAPOD_LAB2_MAX_FAILED_RUNS", Settings.max_consecutive_failed_runs),
         allow_force=os.getenv("HEXAPOD_LAB2_ALLOW_FORCE", "1") != "0",
+        look_before_moving=os.getenv("HEXAPOD_LAB2_LOOK", "1") != "0",
         goal=os.getenv("HEXAPOD_LAB2_GOAL", Settings.goal),
     )

@@ -446,6 +446,29 @@ report.json, and the W&B API for exactly these questions.
     trusting ANY ad-hoc pod probe that depends on recent code; `bash
     snapshot.sh --sync <pod>` first if it's behind (safe on an idle
     pod, never on one with a live trainer).
+17. **A `mesh`-source eval run LOCALLY on the controller silently
+    picks up a DIFFERENT, LIGHTER model than every GPU-pod
+    eval/training run** (2026-09-11, standwalk fprent/exploreresettle
+    triage): the controller has the gitignored full-STL mesh assets
+    checked out, so `resolve_model_source`'s default (`mesh`) loads
+    `variant=full_mesh` (**3.494 kg**) there — but every GPU pod (no
+    STL assets, where ALL training runs) transparently falls back to
+    `variant=mesh_mjx_twin` (**4.806 kg**, +37.5%). The two are
+    documented as "same kinematics/masses/inertia" (`servo_model.py`
+    docstring) but empirically are NOT — a real, still-open mass-audit
+    bug. Evaluating a checkpoint's OWN training-time behavior (any
+    flat-pinned probe, footprint/current/height gate, etc.) locally on
+    the controller without `--cfg-set env.model_source=mesh_mjx`
+    silently evaluates OFF the training distribution and can flip a
+    verdict (measured: one checkpoint read `footprint_err_end_mm`
+    ~23mm full_mesh vs ~83mm mesh_mjx_twin — PASS-looking vs clean
+    FAIL, same checkpoint, same seed, same cfg otherwise). Always add
+    `--cfg-set env.model_source=mesh_mjx` to any controller-run custom
+    eval of a pod-trained checkpoint, or run it via `kubectl exec`/
+    `ops.sh podeval` on a pod instead — per the standing rule, extra
+    evals belong on the run's own pod anyway. Evidence: `ops.sh entry
+    cw-stand50hz-stance-tuckclock-scratch6m-dqfix-retention-s1-fprent-
+    k0ctl-gentlestd` (verdict); CURRENT_TRUTHS.md 2026-09-11 ~06:5x.
 
 ## Operator status page (web) — setup & restart runbook
 

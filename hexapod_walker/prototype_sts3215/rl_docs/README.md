@@ -7,9 +7,10 @@ it is for; keep them SHORT when you edit them.
 The two walking goals, each demonstrated in sim and physically, are defined
 in `../RL_GOALS.md`: progress
 by any effective means, alongside walking learned entirely through RL with
-no demonstrations. Seven method tracks live in
+no demonstrations. Eight method tracks live in
 `../rl_move/orchestrator/tracks.json`: `joystick`, `amp`, `cpg`, `standwalk`,
-`assistfade`, `todaypolicy` serve `any_means`; `walkcurr` serves `rl_only`.
+`assistfade`, `todaypolicy`, `speed` serve `any_means`; `walkcurr` serves
+`rl_only`.
 Method PASS is not parent-goal completion. Superseded docs live in `../archive/`.
 
 | File | What it answers | When to read |
@@ -25,6 +26,7 @@ Method PASS is not parent-goal completion. Superseded docs live in `../archive/`
 | `tracks/assistfade/STATUS.md` | Method milestones for assistance removal (any_means; prior assistance still counts) | Working that track |
 | `tracks/standwalk/STATUS.md` | Goal/Now/Next for mesh-era stance plus one-policy stand/walk/lower distillation | Working that track |
 | `tracks/todaypolicy/STATUS.md` | Goal/Now/Next for composing policy+state into a usable demo bundle today | Packaging or comparing deployable MuJoCo/controller bundles |
+| `tracks/speed/STATUS.md` | Goal/Now/Next for the maximum-sustainable-speed frontier | Designing or triaging speed-first gait experiments |
 | `AMP_LOCOMOTION.md` | The AMP method charter within any_means (incl. repo adaptations — no Isaac Lab) | Before any amp-track design decision |
 | `DOWNLOAD_ANSWER.md` | The current deployable answer + gate evidence | When a verdict might change what we'd put on the robot |
 | `SKILLS.md` | What the robot can DO today: passed skills + checkpoints | On any PASS (update it!) |

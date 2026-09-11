@@ -149,6 +149,22 @@ NO_PROGRESS_DEG = 2.0
 # widening the same day for the same reason; 15 deg clears the measured
 # loaded residual and still catches what these guards exist for (a jam
 # or a wrong logical zero shows up at 20-30+ deg).
+#
+# CONFIRMED IN SERVICE, same day, and NOT marginal — do not widen this
+# again without a measured residual. After the 15 deg deploy the zero
+# pre-roll reported "zero=done - at zero (safe)" on three consecutive
+# recoveries, and the l4_vertical_ground_load_ladder_v1 re-run
+# (00:06 UTC 09-11) finished 430/430 ticks with no trip. That run's own
+# trace answers the open question the widening left — whether some other
+# knee just becomes the new worst joint at the timeout. It does not: the
+# runner glided the robot from knees at 80-93 deg (L4 93.4, L5 80.0) down
+# to zero belly-loaded at torque 600, and over all 540 logged ticks the
+# worst |present - cmd| was 3.6 deg (L1 knee, mid-glide transient) with
+# 3.4 deg (L4 hip) the worst on the loaded ladder itself; the glide
+# ARRIVED 0.8 deg short (L5 hip). The loaded residual these guards must
+# tolerate is ones of degrees, not tens, so 15 clears the worst measured
+# trip (11 deg) by 4 deg and the rest of the margin is spent on jams, not
+# on droop.
 GROUND_DROOP_TOL_DEG = 15.0
 NO_PROGRESS_MIN_ERR = GROUND_DROOP_TOL_DEG
 # A joint only counts as "not turning" if it is actually FIGHTING

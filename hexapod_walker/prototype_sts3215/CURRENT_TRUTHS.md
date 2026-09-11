@@ -1,5 +1,33 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## `curhot-b23k12-acq6m` FAIL — plain budget (2M->8M) regresses the guard-band's own over_current fix; budget-continuation escalation now closed on this residual, next lever is a structural torque-headroom/DR-robustness mechanism (2026-09-11 ~09:1x, standwalk track, refill cycle)
+
+One plain sentence: giving the PASSing 2M `curhot-b23k12` guard-band-price
+checkpoint 6M more training steps on the identical recipe makes the exact
+stall-fight over_current failure it was built to suppress come BACK, not
+disappear — a real overfit/drift, not noise. Own flat-pinned probe on-pod
+(train-1, DR-0, det+sto n=6/mode, literal flat rise start, same harness as
+b23k12's own PASS): over_current 7/12 rise episodes (parent 0/12), valid_plant
+5/12 (parent 12/12, bar >=10/12), every failure still pinned at the same
+`cur_max_a=2.64A` servo ceiling; footprint stayed fine where episodes
+completed (median 30.45mm, under the 35mm bar) and hold/lower stayed clean at
+DR-0 — a current/stability regression specifically, not a footprint one. The
+auto-prestaged mixed-start gate+owncfg corroborate rather than clear: gate
+picked up 2/12 rise over_current, owncfg added 2/12 over_current plus NEW
+hold/sto and lower/sto `tilt_roll` falls the 2M parent never showed. Binding:
+`curhot-b23k12` (2M) stays the adopted stance-retrain checkpoint; the 8M
+continuation is not preferred, not to be warm-started from. With pricing-dose
+(bracket, closed ~08:3x), pacing (`rampslow8`, closed ~08:4x) and now plain
+budget-continuation all tested and closed on this exact residual, the track's
+own pre-registered next escalation is a structural per-leg torque-headroom or
+DR-robustness mechanism (explicit torque-margin reward term, or widening
+training-time DR on servo current/torque so a guard-band price generalizes
+past its own training window) — no further continuation of any tried lever.
+No mechanism design started this cycle. Evidence: `ops.sh entry cw-stand50hz-
+stance-tuckclock-scratch6m-dqfix-retention-s1-exploreresettle-budget6m-cont6m2-
+curhot-b23k12-acq6m`; `logs/ckpt_eval/..._acq6m_flatprobe/report.json`;
+`rl_docs/tracks/standwalk/STATUS.md` same date.
+
 ## Speed track: `TripodGait.SCALE_PERIOD_MAX=2.00` is the real open-loop speed optimum for the stride/lift mechanism, not an arbitrary clip — raising it would make achieved speed WORSE (2026-09-11 ~08:5x, speed track, refill cycle, zero-training)
 
 One plain sentence: extending the step-0b teacher-feasibility sweep past

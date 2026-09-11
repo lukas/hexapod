@@ -2192,6 +2192,14 @@ def main(argv: list[str] | None = None) -> int:
                          "the parent policy is bit-identical until "
                          "training moves them (port of the "
                          "train_ppo_sim mechanism)")
+    ap.add_argument("--obs-pad-insert-at", type=int, default=-1,
+                    help="with --obs-pad-transplant: INSERT the new "
+                         "zero columns at this obs column index instead "
+                         "of appending at the tail (default -1 = append,"
+                         " legacy behavior). Use when the widening dim "
+                         "sits mid-layout, e.g. wz_ref (yaw cmd) lands "
+                         "BEFORE an existing fault_health tail block. "
+                         "Not valid on stacked-history lineages")
     ap.add_argument("--hist-stride-transplant", type=int, default=0,
                     help="warm-start across a history-stack "
                          "DENSIFICATION: the control rate rose by this "
@@ -3929,9 +3937,20 @@ def main(argv: list[str] | None = None) -> int:
                 seed=args.seed, verbose=1, device=args.device,
                 tensorboard_log=tb_dir)
             if args.obs_pad_transplant:
-                pad_obs_transplant(old, model, args.obs_pad_transplant)
+                if args.obs_pad_insert_at >= 0:
+                    _hf = int(float(_parse_cfg_set(args.cfg_set).get(
+                        "obs.history_frames", 1)))
+                    if _hf > 1:
+                        raise SystemExit(
+                            "--obs-pad-insert-at is not supported with "
+                            "obs.history_frames>1 (mid-layout insertion "
+                            "applies per stacked frame)")
+                pad_obs_transplant(old, model, args.obs_pad_transplant,
+                                   insert_at=args.obs_pad_insert_at)
                 _tp_note = (f"+{args.obs_pad_transplant} obs-pad "
-                            "transplant")
+                            "transplant"
+                            + (f" @col{args.obs_pad_insert_at}"
+                               if args.obs_pad_insert_at >= 0 else ""))
             else:
                 _tp_hist = int(float(_parse_cfg_set(args.cfg_set).get(
                     "obs.history_frames", 1)))

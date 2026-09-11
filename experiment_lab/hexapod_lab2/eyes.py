@@ -150,7 +150,9 @@ LOOK_QUESTION = (
     "The first image is the whole frame, the second is the part of it where the robot usually sits. "
     "Can you see the robot, and does it look ready to move right now? Use your judgement: a person, "
     "hands or tools near it, a leg detached, propped or missing, the robot lifted, tipped, tangled or "
-    "out of view all mean no. Answer YES or NO on the first line, then one short sentence on what you see."
+    "out of view all mean no. Its normal rest is lying flat on its belly with all six legs straight out "
+    "and loose wiring showing; that is ready, not a fault. "
+    "Answer YES or NO on the first line, then one short sentence on what you see."
 )
 
 

@@ -614,3 +614,54 @@ def test_merge_gate_rebases_when_main_moved(settings, monkeypatch):
     calls.clear()
     rep = engineer.merge_branch(settings, "lab2/fix-x")
     assert not rep["merged"] and "rebase failed" in rep["reason"]
+
+
+def test_explore_plans_are_recorded_as_explored_not_ok_or_failed(settings, store, monkeypatch):
+    """Operator, 2026-09-11: not every experiment is a pass/fail; sometimes it is exploring."""
+    plans = planner.validate_plans(settings, [
+        {"title": "Sweep hip amplitude", "why": "See how the knee tracks.", "kind": "existing",
+         "protocol": "steps_air_v1", "intent": "explore"},
+        {"title": "Stand test", "why": "Stand stays level 30 s.", "kind": "existing", "protocol": "steps_air_v1"},
+    ])
+    assert [p["intent"] for p in plans] == ["explore", "test"]
+    pid = store.add_plan(title="Sweep", why="w", kind="existing", protocol="steps_air_v1", build_spec=None,
+                         intent="explore")
+    assert store.plan(pid)["intent"] == "explore"
+    monkeypatch.setattr(robot, "health", lambda url, budget: GOOD_FB)
+    monkeypatch.setattr(runner, "sync_checkout", lambda s: "synced")
+    monkeypatch.setattr(runner, "run_protocol", lambda s, p, rid, force=False: runner.RunResult(
+        status="ok", exit_code=0, run_dir=None, summary={"frames": 10}, log_tail="", motion_s=5.0))
+    run = loop.run_once(settings, store, store.plan(pid), log=lambda m: None)
+    assert run["status"] == "explored"
+    assert store.plan(pid)["status"] == "done"
+    # explored is not a strike and, like ok, ends a streak of failures
+    other = store.add_plan(title="t", why="w", kind="existing", protocol="p", build_spec=None)
+    for status in ("failed", "failed"):
+        rid = store.start_run(other)
+        store.finish_run(rid, status=status, exit_code=1, run_dir=None, summary=None, log_tail="")
+    assert store.consecutive_failed_runs() == 2
+    rid = store.start_run(pid)
+    store.finish_run(rid, status="explored", exit_code=0, run_dir=None, summary=None, log_tail="")
+    assert store.consecutive_failed_runs() == 0
+    # a protocol that did not run as asked is still a failure, whatever the intent
+    monkeypatch.setattr(runner, "run_protocol", lambda s, p, rid, force=False: runner.RunResult(
+        status="failed", exit_code=2, run_dir=None, summary=None, log_tail="boom", motion_s=1.0))
+    assert loop.run_once(settings, store, store.plan(pid), log=lambda m: None)["status"] == "failed"
+
+
+def test_imports_default_to_explored(settings, store):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from hexapod_lab2.web import build_router
+    app = FastAPI()
+    app.include_router(build_router(lambda: None, lambda: None, settings=settings))
+    c = TestClient(app)
+    r = c.post("/v2/api/import", json={"title": "Hex2 wander", "why": "Watch it walk.", "found": "Drifts left.",
+                                       "robot": "hexapod2"})
+    assert r.status_code == 201, r.text
+    assert Store(settings.db_path).run(r.json()["run_id"])["status"] == "explored"
+    r = c.post("/v2/api/import", json={"title": "x", "why": "y", "status": "ok"})
+    assert Store(settings.db_path).run(r.json()["run_id"])["status"] == "ok"
+    assert c.post("/v2/api/import", json={"title": "x", "why": "y", "status": "meh"}).status_code == 422
+    page = c.get("/v2/?robot=hexapod2").text
+    assert "class='tag explored'" in page

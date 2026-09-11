@@ -77,3 +77,20 @@ def test_look_can_be_switched_off(settings, store, monkeypatch):
     monkeypatch.setattr(planner, "plan", lambda *a, **k: {"ok": True, "added": 0, "cost_usd": 0.0})
     loop.main_loop(settings, store, log=lambda m: None, sleep=lambda s: None, max_iterations=2)
     assert store.runs()[0]["status"] == "ok"
+
+
+def test_one_wobbly_no_gets_a_second_look_before_the_loop_holds(settings, store, monkeypatch):
+    from hexapod_lab2 import loop, planner, robot, runner
+    from tests_lab2.test_lab2 import GOOD_FB
+    answers = iter([(False, "NO legs look bunched", 0.01), (True, "YES flat, legs out", 0.01)])
+    monkeypatch.setattr(eyes, "ready_to_move", lambda s, **k: next(answers))
+    monkeypatch.setattr(robot, "health", lambda url, budget: GOOD_FB)
+    monkeypatch.setattr(runner, "sync_checkout", lambda s: "synced")
+    monkeypatch.setattr(runner, "run_protocol", lambda s, p, rid, force=False: runner.RunResult(
+        status="ok", exit_code=0, run_dir=None, summary={}, log_tail="", motion_s=2.0))
+    pid = store.add_plan(title="p", why="w", kind="existing", protocol="steps_air_v1", build_spec=None)
+    naps = []
+    run = loop.run_once(settings, store, store.plan(pid), log=lambda m: None, sleep_fn=naps.append)
+    assert run["status"] == "ok" and naps == [8.0]
+    kinds = [e["text"][:11] for e in store.events(5) if e["kind"] == "look"]
+    assert any(k.startswith("second look") for k in kinds)

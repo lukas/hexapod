@@ -1109,6 +1109,69 @@ def _parse_log_std_anneal_specs(log_std_final, log_std_anneal_core,
     return list(zip(cores, finals, fracs))
 
 
+def _parse_clip_range_anneal(clip_range_final, clip_range_anneal_frac,
+                             clip_range_init: float):
+    """Validates --clip-range-final/--clip-range-anneal-frac.
+
+    Pure function (unit-testable without mujoco/GPU, like
+    _parse_log_std_anneal_specs above). Returns None when
+    clip_range_final is None — the anneal is OFF, no callback is
+    constructed, bit-exact legacy behavior. Otherwise returns
+    (final, tail_frac) after refusing nonsensical requests: a
+    non-positive final clip range (would zero every PPO gradient), a
+    final ABOVE the constructor value (this is a tail TIGHTENING
+    schedule — widening the clip late is the instability we are
+    trying to prevent, never a fix), or a tail fraction outside
+    (0, 1].
+
+    Born from the stand50hz dqfix/cont2m/stdfloor2 dig-in (09-11): the
+    dqfix stance recipe learns rise+hold+lower by ~5M steps, then a
+    single late PPO update event (train/approx_kl 0.36 with
+    clip_fraction 0.32-0.42, std annealed to its -4.0 floor 3M steps
+    earlier) scrambles a clause. target_kl=0.02 was already ON and did
+    not prevent it — SB3's KL check fires per-minibatch AFTER the
+    damaging optimizer.step(). Shrinking the clip range across the
+    training tail bounds the per-minibatch movement itself.
+    """
+    if clip_range_final is None:
+        return None
+    final = float(clip_range_final)
+    frac = float(clip_range_anneal_frac)
+    init = float(clip_range_init)
+    if final <= 0.0:
+        raise SystemExit(
+            f"--clip-range-final {final}: must be > 0 (a zero/negative "
+            "clip range zeroes every PPO policy gradient)")
+    if final > init:
+        raise SystemExit(
+            f"--clip-range-final {final}: must be <= the launch clip "
+            f"range {init} — this is a tail TIGHTENING schedule only")
+    if not (0.0 < frac <= 1.0):
+        raise SystemExit(
+            f"--clip-range-anneal-frac {frac}: must be in (0, 1] "
+            "(fraction of --steps forming the annealed TAIL)")
+    return final, frac
+
+
+def _clip_range_anneal_value(num_timesteps: int, steps: int,
+                             init: float, final: float,
+                             tail_frac: float) -> float:
+    """Clip-range value at ``num_timesteps`` under the TAIL schedule.
+
+    Holds ``init`` for the first (1 - tail_frac) of ``steps``, then
+    anneals linearly to ``final`` over the last ``tail_frac`` of
+    ``steps``, then holds ``final``. TAIL semantics (unlike the
+    log-std anneal, which starts at step 0): early acquisition keeps
+    the full clip range for fast learning; only the
+    late, low-exploration refinement window gets tightened.
+    """
+    start = max(0, int(round((1.0 - float(tail_frac)) * int(steps))))
+    denom = max(1, int(steps) - start)
+    p = (int(num_timesteps) - start) / float(denom)
+    p = min(1.0, max(0.0, p))
+    return float(init) + p * (float(final) - float(init))
+
+
 def _resolve_training_episode_seconds(training_episode_seconds,
                                        episode_seconds: float) -> float:
     """Normalizes --training-episode-seconds vs --episode-seconds.
@@ -1897,6 +1960,28 @@ def main(argv: list[str] | None = None) -> int:
                          "combined with another core, duplicate "
                          "cores, or a length mismatch rather than "
                          "guessing (_parse_log_std_anneal_specs).")
+    ap.add_argument("--clip-range-final", type=float, default=None,
+                    help="tail clip-range schedule: hold the "
+                         "constructor clip range (0.2) for the first "
+                         "(1 - --clip-range-anneal-frac) of --steps, "
+                         "then anneal linearly to this value over the "
+                         "remaining TAIL and hold. Default None = OFF, "
+                         "bit-exact legacy (no callback constructed). "
+                         "Built for the stand50hz dqfix late-tail "
+                         "instability (approx_kl 0.36 while log_std "
+                         "sat pinned at its annealed floor): "
+                         "target_kl's per-minibatch early-stop fires "
+                         "AFTER the damaging update; a tightened tail "
+                         "clip bounds the update itself. PPO-family "
+                         "only (refuses on SAC). Must be <= the "
+                         "launch clip range (_parse_clip_range_anneal).")
+    ap.add_argument("--clip-range-anneal-frac", type=float, default=0.5,
+                    help="fraction of --steps forming the annealed "
+                         "TAIL for --clip-range-final (only read when "
+                         "that is set). Default 0.5 matches the "
+                         "stance recipe's --log-std-anneal-frac 0.5: "
+                         "the clip starts tightening exactly when the "
+                         "log-std anneal reaches its floor.")
     ap.add_argument("--activation-fn", type=str, default="",
                     choices=["", "tanh", "relu", "elu"],
                     help="MLP activation for from-scratch/transplant "
@@ -5234,6 +5319,73 @@ def main(argv: list[str] | None = None) -> int:
                                f"log_std_anneal/{core}/frac": frac})
 
         callbacks.append(_LogStdAnnealCb())
+    if args.clip_range_final is not None:
+        if not hasattr(model, "clip_range"):
+            raise SystemExit(
+                f"--clip-range-final: {type(model).__name__} has no "
+                "clip_range (PPO-family only) — refusing to launch a "
+                "run whose requested mechanism cannot exist")
+        try:  # SB3 >= 2.4 deprecation-clean path; older fallback
+            from stable_baselines3.common.utils import (
+                FloatSchedule as _clip_const_schedule)
+        except ImportError:  # pragma: no cover - older SB3 only
+            from stable_baselines3.common.utils import (
+                get_schedule_fn as _clip_const_schedule)
+        # Constructor value at progress_remaining=1.0 (start of
+        # training) — 0.2 at every algo_cls construction site today,
+        # read live so a future constructor change cannot silently
+        # desynchronize this schedule's start point.
+        _clip_init = float(model.clip_range(1.0))
+        _clip_spec = _parse_clip_range_anneal(
+            args.clip_range_final, args.clip_range_anneal_frac,
+            _clip_init)
+
+        class _ClipRangeAnnealCb(BaseCallback):
+            """Tail clip-range schedule (stand50hz dig-in, 09-11):
+            hold the constructor clip range through acquisition, then
+            anneal to --clip-range-final over the last
+            --clip-range-anneal-frac of --steps
+            (_clip_range_anneal_value) and hold. Set at rollout START
+            like the log-std anneal (one value per rollout+train
+            pair; clip_range does not touch stored log_probs, so
+            there is no stored-ratio skew either way, but the timing
+            is kept consistent with the proven callback). The value
+            is installed by REPLACING model.clip_range with a
+            constant schedule (FloatSchedule) — PPO.train()
+            resolves self.clip_range(progress) fresh each update, and
+            cloudpickle serializes the constant closure in
+            checkpoints exactly as it does SB3's own. Default OFF
+            (--clip-range-final unset): never constructed, bit-exact
+            legacy."""
+
+            def __init__(self):
+                super().__init__()
+                self._init = _clip_init
+                self._final, self._tail_frac = _clip_spec
+                self._finished = False
+
+            def _on_step(self) -> bool:
+                return True
+
+            def _on_rollout_start(self) -> None:
+                val = _clip_range_anneal_value(
+                    self.num_timesteps, args.steps, self._init,
+                    self._final, self._tail_frac)
+                self.model.clip_range = _clip_const_schedule(float(val))
+                if val <= self._final and not self._finished:
+                    self._finished = True
+                    print("[clip-range-anneal] complete @ "
+                          f"{self.num_timesteps:,} steps — holding "
+                          f"clip_range={val:.4f}")
+                if run is not None:
+                    import wandb
+                    wandb.log({"global_step": self.num_timesteps,
+                               "clip_range_anneal/value": float(val)})
+
+        callbacks.append(_ClipRangeAnnealCb())
+        print("[clip-range-anneal] tail schedule registered: "
+              f"{_clip_init} -> {_clip_spec[0]} over final "
+              f"{_clip_spec[1]:.0%} of {args.steps:,} steps")
     if amp_wrap is not None:
         class _AMPDiscCb(BaseCallback):
             """Online AMP discriminator update, once per PPO rollout

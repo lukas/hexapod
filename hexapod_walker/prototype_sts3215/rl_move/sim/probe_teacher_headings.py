@@ -51,6 +51,22 @@ def main() -> None:
                          "forward, +90 = crab left, 180 = reverse) — "
                          "the balanced 8-set the all-heading walker "
                          "curriculum trains on")
+    # Speed-track feasibility knobs (2026-09-11, speed track step 0b):
+    # sweep the scripted teacher's OWN gait geometry — stride length,
+    # swing lift, cycle period — under the conservative transfer slew,
+    # to find whether any open-loop setting moves the BODY faster
+    # before spending GPU on it. Defaults 1.0 = bit-identical to the
+    # pre-09-11 probe (plain TripodGait). Purely additive; the extra
+    # report fields (achieved speed, slew saturation, roll/pitch
+    # motion) are appended keys on the same rows.
+    ap.add_argument("--period-scale", type=float, default=1.0,
+                    help="TripodGait period_scale (cycle time x this; "
+                         "stride grows with period at fixed speed)")
+    ap.add_argument("--lift-scale", type=float, default=1.0,
+                    help="TripodGait lift_scale (swing apex x this)")
+    ap.add_argument("--stride-scale", type=float, default=1.0,
+                    help="TripodGait stride_scale (foot stroke x this "
+                         "at the same commanded speed/cadence)")
     ap.add_argument("--json-out", default=None)
     args = ap.parse_args()
 
@@ -86,7 +102,10 @@ def main() -> None:
             if hasattr(gen, f"p_{m}"):
                 setattr(gen, f"p_{m}", 1.0 if m == "walk" else 0.0)
         env.reset()
-        gait = TripodGait(vx=0.0, lift=0.025)
+        gait = TripodGait(vx=0.0, lift=0.025,
+                          period_scale=args.period_scale,
+                          lift_scale=args.lift_scale,
+                          stride_scale=args.stride_scale)
         gait.sync_plant_stance(*WALK_PLANT)
         gait.set_velocity(vx=vx_c, vy=vy_c, omega=0.0)
         gait.reset_phase()
@@ -96,6 +115,7 @@ def main() -> None:
         win_ticks = max(int(round(args.window_s / dt)), 1)
         hist: deque = deque(maxlen=win_ticks + 1)
         tick_errs, win_errs, along = [], [], []
+        cmd_hist, rolls, pitches = [], [], []
         fell = False
         xy0 = env.data.xpos[env._chassis_bid, :2].copy()
         prev_on = [False] * 6
@@ -118,6 +138,13 @@ def main() -> None:
                     slip_m += float(np.linalg.norm(xy_w - prev_xy[f]))
                 prev_xy[f] = xy_w
                 prev_on[f] = on
+            st = env._state
+            if st.commanded_position is not None:
+                cmd_hist.append(
+                    np.asarray(st.commanded_position, dtype=np.float64)
+                    .copy())
+            rolls.append(abs(float(st.imu_roll)))
+            pitches.append(abs(float(st.imu_pitch)))
             v = env._body_vel_xy()
             err = walk_direction_error_deg(
                 float(v[0]), float(v[1]), vx_c, vy_c,
@@ -146,8 +173,34 @@ def main() -> None:
             1.0, float(np.dot(net, u)) / net_d))))
             if net_d > 1e-6 else float("nan"))
         env.close()
+        elapsed_s = (step + 1) * dt
+        # Achieved body speed = displacement / elapsed time (the speed
+        # track's only admissible speed number): along-command signed,
+        # plus net-path magnitude.
+        ach_along = float(np.dot(net, u)) / max(elapsed_s, 1e-9)
+        # Actuator-limit proxy: dwell at >=98% of the SafetyLayer slew
+        # cap on the post-safety commanded targets (same definition as
+        # eval_checkpoint._smoothness_fields).
+        slew_sat = None
+        cmd_rate_p95 = None
+        if len(cmd_hist) >= 3:
+            cmd_deg = np.degrees(np.asarray(cmd_hist))
+            d1 = np.abs(np.diff(cmd_deg, axis=0)).max(axis=1)
+            slew_sat = round(float((d1 >= 0.98 * max_dq).mean()), 3)
+            cmd_rate_p95 = round(float(np.percentile(d1, 95)) / dt, 2)
         rows.append({
             "heading_deg": h_deg, "fell": fell,
+            "elapsed_s": round(elapsed_s, 2),
+            "achieved_speed_m_s": round(ach_along, 4),
+            "achieved_speed_net_m_s": round(
+                net_d / max(elapsed_s, 1e-9), 4),
+            "slew_sat_frac": slew_sat,
+            "cmd_rate_p95_deg_s": cmd_rate_p95,
+            "roll_mean_abs_deg": round(
+                math.degrees(float(np.mean(rolls))), 2) if rolls else None,
+            "pitch_mean_abs_deg": round(
+                math.degrees(float(np.mean(pitches))), 2)
+                if pitches else None,
             "net_course_err_deg": round(net_err, 2),
             "net_disp_m": round(net_d, 4),
             "completion": round(float(np.mean(along)) / args.speed, 3),

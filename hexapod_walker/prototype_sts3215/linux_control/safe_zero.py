@@ -137,6 +137,20 @@ IMPLAUSIBLE_CURRENT_READS = GUARD_CONFIRM_READS
 LOAD_MAX_PCT = 70.0
 DRAG_LOAD_MAX_PCT = 85.0
 SLOW_DPS = 8.0              # below this the joint counts as "not moving"
+# Same question on a drag_ok stage, answered lower (09-10, preventive). The
+# belly-down straighten blend commands ~12 deg/s (its seconds are d1/12.0)
+# and a knee that is lifting the body tracks it at maybe 5-7 — under the
+# 8.0 air threshold, so at the LOADED_TORQUE_LIMIT that made the load guard
+# reachable at all (load_pct can now pass DRAG_LOAD_MAX_PCT) a knee doing
+# exactly its job would read as "not moving" and limp as unexpected force.
+# 4.0 is not arbitrary: the STS present-speed register quantises to 50
+# counts/s = 4.39 deg/s (the 08-10 motor_dyn trace holds 0, 4.39, 8.79,
+# 13.18 ... and nothing between), so this threshold means "the servo
+# reported a flat zero" — which a jam still does, and a moving joint
+# cannot. The timeout does not need the same widening: it already falls
+# through when worst_err is inside GROUND_DROOP_TOL_DEG, while a guard trip
+# is final.
+DRAG_SLOW_DPS = 4.0
 NO_PROGRESS_S = 2.0
 NO_PROGRESS_DEG = 2.0
 # How far short of a stage goal a joint may finish and still count as
@@ -1038,6 +1052,7 @@ def run_safe_zero(bus, stages: list[dict], *,
             label = str(st.get("label") or f"stage {si + 1}")
             cur_lim = DRAG_CURRENT_A if drag else STALL_CURRENT_A
             load_lim = DRAG_LOAD_MAX_PCT if drag else LOAD_MAX_PCT
+            slow_dps = DRAG_SLOW_DPS if drag else SLOW_DPS
 
             if check():
                 _hold_here(bus, live)
@@ -1115,7 +1130,11 @@ def run_safe_zero(bus, stages: list[dict], *,
 
                     def _slow(fb) -> bool:
                         return abs(float(fb.get("speed_deg_s") or 0.0)
-                                   ) < SLOW_DPS
+                                   ) < slow_dps
+
+                    def _dps(j: int) -> float:
+                        return abs(float(
+                            fb_map[j].get("speed_deg_s") or 0.0))
 
                     now_wild: set[int] = set()
                     now_hard: set[int] = set()
@@ -1188,8 +1207,9 @@ def run_safe_zero(bus, stages: list[dict], *,
                     if bad is not None:
                         return _trip(
                             f"stall-fight: {joint_name(bad)} over "
-                            f"{cur_lim:.1f} A while not moving "
-                            f"({errs[bad]:.0f}° from target) on "
+                            f"{cur_lim:.1f} A at {_dps(bad):.1f} deg/s "
+                            f"(under {slow_dps:.1f}, "
+                            f"{errs[bad]:.0f}° from target) on "
                             f"{GUARD_CONFIRM_READS} consecutive sweeps"
                             f"{FORCE_HINT}", label)
 
@@ -1201,8 +1221,9 @@ def run_safe_zero(bus, stages: list[dict], *,
                     if bad is not None:
                         return _trip(
                             f"unexpected force: {joint_name(bad)} load "
-                            f"{float(fb_map[bad]['load_pct']):.0f}% while "
-                            f"not moving on {GUARD_CONFIRM_READS} "
+                            f"{float(fb_map[bad]['load_pct']):.0f}% at "
+                            f"{_dps(bad):.1f} deg/s (under "
+                            f"{slow_dps:.1f}) on {GUARD_CONFIRM_READS} "
                             f"consecutive sweeps{FORCE_HINT}", label)
 
                     el = last_fb - t0

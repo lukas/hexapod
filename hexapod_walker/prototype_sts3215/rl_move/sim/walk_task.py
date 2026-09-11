@@ -4466,6 +4466,59 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 factor = min(max(wz_k / goal.wz_ref, 0.0), 1.0)
                 r_walk *= (1.0 - g_ykernel) + g_ykernel * factor
                 info["walk_yaw_kernel_factor"] = factor
+            # Explicit minimum-motion tie-break CHARGE for turn-in-
+            # place ticks (09-11, `term_penalty_ramp{0,100}-canary2m`
+            # FAIL-MECHANISM pair; the escalation both that pair's own
+            # gate and the parent `turnramp-cont6m`/`canary2m` verdicts
+            # named as the next and last remaining single-lever
+            # mechanism after FOUR prior canaries -- yawprice3x
+            # (price), turnramp (dose), turnramp-cont6m (budget),
+            # termramp{0,100} (risk-curriculum ramp) -- all reproduced
+            # the identical static splayed freeze-crouch. Root cause:
+            # the kernel gates immediately above
+            # (walk_kernel_yaw_gate/walk_yaw_kernel_gate) already make
+            # a frozen body earn ~0 income on these ticks, but ~0 is
+            # only REWARD-NEUTRAL, and PPO is comparing it against a
+            # real -400 term_penalty risk if a clumsy turn attempt
+            # trips over_current/tilt -- a risk-averse policy's optimal
+            # response to "0 income, 0 risk" beating "~0 income,
+            # nonzero risk" is exactly the observed freeze. No income
+            # fix on the reward side can repair a risk-side asymmetry,
+            # which is why all four income/price/budget/ramp levers
+            # failed identically. This charges freeze directly instead
+            # of pricing income: on turn-in-place ticks (s_ref ~ 0,
+            # wz_ref != 0 -- the IDENTICAL gating condition as
+            # walk_kernel_yaw_gate/walk_yaw_kernel_gate above) with
+            # achieved |wz| below reward.walk_turn_freeze_wz_thresh
+            # rad/s (default 0.05, well under any commanded
+            # goal.walk_yaw_max_rad_s in this recipe and above gyro
+            # noise), charge a flat -reward.walk_turn_freeze_charge
+            # per tick. Additive (never multiplies r_walk/r_prog/
+            # r_cmd_track, matching every other per-tick charge in
+            # this file) and STATELESS (instantaneous wz vs a fixed
+            # threshold -- no EMA, no MJX_SNAPSHOT_EXTRA plumbing
+            # needed). Makes freeze strictly reward-NEGATIVE relative
+            # to any attempted motion above the noise floor, on top of
+            # (not instead of) the existing achieved-yaw kernel gates;
+            # an honestly-turning gait's wz oscillates well above
+            # 0.05 rad/s and pays nothing extra, only a genuinely
+            # still body is charged. Default 0.0 = off, bit-exact
+            # legacy (no state read, no info key written). See
+            # test_walk_turn_freeze_charge.py.
+            g_freeze = float(cfg_get(self.cfg, "reward",
+                                     "walk_turn_freeze_charge",
+                                     default=0.0))
+            r_freeze = 0.0
+            if (g_freeze > 0.0 and self._yaw_cmd and s_ref <= 1e-3
+                    and abs(goal.wz_ref) > 1e-3):
+                wz_freeze_thresh = float(cfg_get(
+                    self.cfg, "reward", "walk_turn_freeze_wz_thresh",
+                    default=0.05))
+                wz_freeze_now = self._body_wz()
+                info["walk_turn_freeze_wz"] = wz_freeze_now
+                if abs(wz_freeze_now) < wz_freeze_thresh:
+                    r_freeze = -g_freeze
+                info["reward_walk_turn_freeze"] = r_freeze
             # Anchored-stance income gate (cycle 30; the dense-
             # decomposition rung's stance-no-slip component, implemented
             # as INCOME GATING per operator 0-c.2 / step0 "worth less by
@@ -5233,7 +5286,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                      "walk_leg_swing_initiation_income",
                                      default=0.0))
             reward = float(reward) + r_walk + r_prog + r_cmd_track \
-                + r_free_pen + r_ratio + r_lsratio + r_gap
+                + r_free_pen + r_ratio + r_lsratio + r_gap + r_freeze
             if r_free_pen != 0.0:
                 info["reward_walk_freeprog_pen"] = r_free_pen
             info["reward_walk"] = r_walk

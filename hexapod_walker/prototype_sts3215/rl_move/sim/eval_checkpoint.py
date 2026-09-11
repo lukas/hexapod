@@ -1028,6 +1028,14 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
             ep["plant_fail"] = [k[:-3] for k, v in det.items()
                                 if k.endswith("_ok") and not v]
             ep["plant_margin_mm"] = det["com_margin_mm"]
+            # 09-11: store the footprint error itself (PLANT_SPEC band is
+            # 40 mm). Added during the stand50hz footprint-basin dig-in:
+            # 'footprint' plant_fails were being root-caused off
+            # end_clear_mm, which is a lineage CONSTANT shared by passing
+            # episodes — the discriminating variable was not in the
+            # report at all.
+            ep["footprint_err_end_mm"] = round(
+                float(env._curl_dist()) * 1000.0, 1)
     ep["success"] = _success(mode, term, ep, end_posture_gate,
                              valid_plant_gate)
     if video_timing is not None:

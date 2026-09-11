@@ -79,3 +79,26 @@ def test_mcp_operator_tools_are_gated(client, settings):
     missing = rpc(c, "tools/call", {"name": "queue_protocol",
                                     "arguments": {"protocol": "nope", "title": "t", "why": "w"}}).json()
     assert missing["result"]["isError"]
+
+
+def test_runs_take_later_findings_and_files(client, settings):
+    c, rid = client
+    # A paragraph of later analysis joins the run's findings and the planner's learnings.
+    r = c.post(f"/v2/api/runs/{rid}/findings", json={"text": "Sim comparison: hardware stride 1.1 Hz vs 1.4 Hz in MuJoCo."},
+               headers=OP)
+    assert r.status_code == 201 and r.json()["findings"] == 2
+    assert c.post(f"/v2/api/runs/{rid}/findings", json={"text": "x"}, headers=VIEW).status_code in (401, 403)
+    assert c.post("/v2/api/runs/nope/findings", json={"text": "x"}, headers=OP).status_code == 404
+    doc = c.get(f"/api/runs/{rid}", headers=VIEW).json()
+    assert [f["text"][:4] for f in doc["findings"]] == ["[old", "Sim "]
+    page = c.get("/", headers=VIEW).text
+    assert "Analysis" in page and "MuJoCo" in page
+    # Files can be attached to any run, even one that never had a folder; nothing is overwritten.
+    up = c.put(f"/v2/api/runs/{rid}/files/stride_plot.png", content=b"\x89PNG", headers=OP)
+    assert up.status_code == 201
+    assert c.put(f"/v2/api/runs/{rid}/files/stride_plot.png", content=b"other", headers=OP).status_code == 409
+    assert c.get(f"/v2/runs/{rid}/stride_plot.png", headers=VIEW).content == b"\x89PNG"
+    # Same through MCP, by old id.
+    res = rpc(c, "tools/call", {"name": "add_finding", "arguments": {"id": "exp-old-123", "text": "Third note."}}).json()["result"]
+    assert json.loads(res["content"][0]["text"])["findings"] == 3
+    assert rpc(c, "tools/call", {"name": "add_finding", "arguments": {"id": rid, "text": "no"}}, headers=VIEW).json()["result"]["isError"]

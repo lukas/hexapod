@@ -134,6 +134,7 @@ def run_document(store: Store, r: Dict[str, Any]) -> Dict[str, Any]:
         "protocol": r.get("protocol"), "status": r["status"], "exit_code": r.get("exit_code"),
         "started_at": r["started_at"], "finished_at": r.get("finished_at"),
         "found": store.learning_for_run(r["id"]),
+        "findings": store.learnings_for_run(r["id"]),
         "seen": summary.get("seen"),
         "recovery": bool(summary.get("recovery")), "old_lab": bool(summary.get("old_lab")),
         "old_id": summary.get("old_id"),
@@ -192,6 +193,8 @@ def mcp_tools() -> list:
         {"name": "list_plans", "description": "Queued, building (code jobs) and running plans.", "inputSchema": obj},
         {"name": "queue_protocol", "description": "Queue an existing sysid protocol for hexapod 1 with a title and why (operator role).",
          "inputSchema": {"type": "object", "properties": {"protocol": {"type": "string"}, "title": {"type": "string"}, "why": {"type": "string"}}, "required": ["protocol", "title", "why"]}},
+        {"name": "add_finding", "description": "File further analysis against an existing run (operator role): a paragraph that joins the run's findings and the learnings the planner reads. Accepts a v2 run id or an old lab experiment id. Files can be added with PUT /v2/api/runs/<id>/files/<name>.",
+         "inputSchema": {"type": "object", "properties": {"id": {"type": "string"}, "text": {"type": "string"}}, "required": ["id", "text"]}},
         {"name": "import_experiment", "description": "Record a hand-run experiment on any robot (operator role): title, why, found, robot, status. Files can be added with PUT /v2/api/runs/<id>/files/<name>.",
          "inputSchema": {"type": "object", "properties": {"title": {"type": "string"}, "why": {"type": "string"}, "found": {"type": "string"}, "robot": {"type": "string"}, "status": {"type": "string"}}, "required": ["title", "why"]}},
         # Names the outside assistants learned from the original lab.
@@ -221,8 +224,17 @@ def call_tool(settings: Settings, store: Store, principal: Principal, name: str,
         return _text({"learnings": store.learnings(limit=min(int(args.get("limit") or 30), 200))})
     if name == "list_plans":
         return _text({"plans": store.plans(["queued", "building", "running"])})
-    if name in ("queue_protocol", "import_experiment") and principal.role not in ("operator", "admin"):
+    if name in ("queue_protocol", "import_experiment", "add_finding") and principal.role not in ("operator", "admin"):
         raise HTTPException(403, "operator role required")
+    if name == "add_finding":
+        joined = store.run_joined(str(args.get("id") or ""))
+        if not joined:
+            raise ValueError(f"unknown run {args.get('id')}")
+        text = str(args.get("text") or "").strip()
+        if not text:
+            raise ValueError("text is required")
+        lid = store.add_learning(text[:6000], run_id=joined["id"])
+        return _text({"run_id": joined["id"], "learning_id": lid, "findings": len(store.learnings_for_run(joined["id"]))})
     if name == "queue_protocol":
         from .runner import protocol_exists
         protocol = str(args.get("protocol") or "").removesuffix(".json")

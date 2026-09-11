@@ -1,9 +1,11 @@
-"""hexapod-lab2: loop | run <protocol> | plan | add <protocol> "title" "why" | status | pause | resume"""
+"""hexapod-lab2: loop | run <protocol> | plan | add <protocol> "title" "why" | note <run> "text" | attach <run> <file> | status | pause | resume"""
 from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import sys
+from pathlib import Path
 
 from . import loop, planner
 from .config import load_settings
@@ -28,6 +30,10 @@ def main(argv=None) -> int:
     imp.add_argument("--why", required=True)
     imp.add_argument("--found", default="", help="one paragraph: what it showed. Joins the learnings the planner reads.")
     imp.add_argument("--status", default="ok", choices=["ok", "failed"])
+    note = sub.add_parser("note", help="file further analysis against a run (v2 id or old lab id); joins its findings")
+    note.add_argument("run"); note.add_argument("text")
+    att = sub.add_parser("attach", help="attach a file (plot, clip, CSV) to a run; never overwrites")
+    att.add_argument("run"); att.add_argument("file")
     sub.add_parser("recover", help="run the robot's own recovery ladder now (safe-zero, untrap, safe-zero)")
     at = sub.add_parser("alert-test", help="send one test text to the configured recipient")
     at.add_argument("--message", default="test from Robot Lab v2")
@@ -51,6 +57,25 @@ def main(argv=None) -> int:
         row = loop.run_once(settings, store, store.plan(pid), log=lambda m: print(m, flush=True))
         print(json.dumps({k: row[k] for k in ("id", "status", "exit_code", "run_dir")}, indent=1))
         return 0 if row["status"] == "ok" else 1
+    if args.cmd in ("note", "attach"):
+        joined = store.run_joined(args.run)
+        if not joined:
+            print(f"unknown run {args.run}", file=sys.stderr)
+            return 2
+        if args.cmd == "note":
+            lid = store.add_learning(args.text.strip(), run_id=joined["id"])
+            print(json.dumps({"run_id": joined["id"], "learning_id": lid,
+                              "findings": len(store.learnings_for_run(joined["id"]))}))
+            return 0
+        src = Path(args.file)
+        root = store.ensure_run_dir(joined["id"], settings.runs_dir)
+        dest = root / src.name
+        if dest.exists():
+            print(f"{src.name} already exists on run {joined['id']}", file=sys.stderr)
+            return 3
+        shutil.copy2(src, dest)
+        print(json.dumps({"run_id": joined["id"], "file": src.name, "url": f"/v2/runs/{joined['id']}/{src.name}"}))
+        return 0
     if args.cmd == "plan":
         last = store.runs(limit=1)
         print(json.dumps(planner.plan(settings, store, last[0] if last else None,

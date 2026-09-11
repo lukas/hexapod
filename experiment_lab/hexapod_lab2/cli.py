@@ -86,7 +86,6 @@ def main(argv=None) -> int:
                              build_spec=None, source="operator"))
         return 0
     if args.cmd == "import":
-        from pathlib import Path
         folder = Path(args.folder).expanduser() if args.folder else None
         if folder is not None and not folder.is_dir():
             print(f"not a folder: {folder}"); return 2

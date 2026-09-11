@@ -615,3 +615,47 @@ def test_success_callback_tracks_only_targets_written_to_bus():
     assert len(written) == 1
     np.testing.assert_allclose(written[0], target)
     np.testing.assert_allclose(bus.commands[0][0], target * rl_policy.RAD2DEG)
+
+
+def test_stale_imu_with_fresh_positions_confirms_imu_blind_hold(monkeypatch):
+    # 2026-09-10 hexapod2: an I2C dropout froze the IMU cache (age 561-665 ms)
+    # while all 18 servos kept answering; refusing the hold for that alone
+    # limped a standing robot. Positions, pose envelope and servo health are
+    # still verified; only the relative-tilt check is skipped.
+    run = _run(monkeypatch, [
+        _state(sequence=i, imu_age_ms=600.0)
+        for i in range(1, rl_policy.DRIVE_STREAM_HOLD_CONFIRMATIONS + 2)
+    ])
+
+    assert run.held is True
+    assert "limp" not in run.order
+    sampled = [fields for name, fields in run.debug.events
+               if name == "hold_after_stream_loss_sampled"]
+    assert any(fields.get("imu_blind") for fields in sampled)
+    assert "IMU blind" in run.drive.status
+
+
+def test_stale_imu_does_not_excuse_stale_positions(monkeypatch):
+    run = _run(monkeypatch, [
+        _state(sequence=i, pos_age_ms=151.0, imu_age_ms=600.0)
+        for i in range(1, rl_policy.DRIVE_STREAM_HOLD_MAX_ATTEMPTS + 1)
+    ])
+
+    assert run.held is False
+    sampled = [fields for name, fields in run.debug.events
+               if name == "hold_after_stream_loss_sampled"]
+    assert all(fields["reason"] == "pos_age_ms_stale" for fields in sampled)
+
+
+def test_stale_imu_still_rejects_pose_and_health_envelopes(monkeypatch):
+    bad_pose = _fallback() + 0.5
+    run = _run(monkeypatch, [
+        _state(sequence=i, imu_age_ms=600.0, pose=bad_pose)
+        for i in range(1, rl_policy.DRIVE_STREAM_HOLD_MAX_ATTEMPTS + 1)
+    ])
+    assert run.held is False
+    run = _run(monkeypatch, [
+        _state(sequence=i, imu_age_ms=600.0, current=3.0)
+        for i in range(1, rl_policy.DRIVE_STREAM_HOLD_MAX_ATTEMPTS + 1)
+    ])
+    assert run.held is False

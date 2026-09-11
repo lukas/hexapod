@@ -181,16 +181,34 @@ def pull_teacher_run(run: str) -> dict:
 def merge_teacher_cfgs(stance_pulled: dict | None, walk_pulled: dict | None,
                        explicit: dict, structural: dict
                        ) -> tuple[dict, dict]:
-    """Namespace-merge each side's own pulled teacher cfg with the
-    user's explicit ``--cfg-set`` overrides (always win -- an explicit
-    override IS the user resolving a fork on purpose) and the tool's
-    structural requirements (e.g. ``obs.mode_onehot`` for ``--dual``/
-    ``--experts``, which must apply identically to every env this tool
-    builds regardless of teacher pairing). Precedence, low to high:
-    pulled cfg < structural < explicit -- matches the legacy single-
-    cfg call's own ``structural | cfg_overrides`` order exactly, so
-    behavior is bit-identical when neither ``--*-teacher-run`` pulls
-    anything (both pulled dicts empty).
+    """Namespace-merge BOTH sides' pulled teacher cfg into one shared
+    dict, then layer the tool's structural requirements (e.g.
+    ``obs.mode_onehot`` for ``--dual``/``--experts``) and the user's
+    explicit ``--cfg-set`` overrides (always win -- an explicit
+    override IS the user resolving a fork on purpose) on top.
+    Precedence, low to high: pulled cfg < structural < explicit --
+    matches the legacy single-cfg call's own ``structural |
+    cfg_overrides`` order exactly, so behavior is bit-identical when
+    neither ``--*-teacher-run`` pulls anything (both pulled dicts
+    empty).
+
+    Both returned dicts carry the SAME union of non-conflicting keys
+    from EITHER side (not just their own) -- standwalk STATUS
+    2026-09-11 ~21:5x finding: every env this tool builds (`_make_env`)
+    is unconditionally the walk-subclass env, which appends its own
+    obs-WIDTH-changing blocks (``goal.walk_phase_obs``, ``obs.
+    mode_onehot``, ``obs.fault_health``, ...) regardless of which
+    demo mode is being collected. Handing the stance env ONLY the
+    stance side's pulled keys silently drops any width-changing flag
+    that happened to live on the walk side's ledger entry, so a
+    genuinely non-conflicting pairing (no raised collision) could
+    still build a stance env narrower than the walk env -- exactly
+    the `stance env obs N != walk env obs M` guard downstream exists
+    to catch, but the FIX is to never let the two sides diverge on
+    non-conflicting keys in the first place, not to special-case the
+    guard. Reward/task keys that are semantically inert outside their
+    own mode (e.g. stance's ``reward.rise_*`` terms landing in the
+    walk-mode env, or vice versa) are harmless no-ops there.
 
     RAISES loudly on any key BOTH teacher runs set to a DIFFERENT
     value that the user has not explicitly resolved via ``--cfg-set``
@@ -216,9 +234,8 @@ def merge_teacher_cfgs(stance_pulled: dict | None, walk_pulled: dict | None,
             "\nResolve on purpose with --cfg-set <key>=<value> (forces "
             "that value on BOTH sides), or pick a different teacher "
             "pairing that actually agrees on these axes.")
-    merged_stance = {**stance_pulled, **structural, **explicit}
-    merged_walk = {**walk_pulled, **structural, **explicit}
-    return merged_stance, merged_walk
+    union = {**stance_pulled, **walk_pulled, **structural, **explicit}
+    return dict(union), dict(union)
 
 
 def _make_env(args, cfg: dict, params) -> SimHexapodJointWalkEnv:

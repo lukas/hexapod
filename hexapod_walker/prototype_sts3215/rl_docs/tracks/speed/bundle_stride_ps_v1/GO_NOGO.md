@@ -1,5 +1,15 @@
 # speed-stride-ps-v1 — GO/NO-GO (2026-09-11)
 
+**SUPERSEDED, 2026-09-11 ~23:5x (later same day):** the actuator-envelope
+ladder (`env50dps`) plus a stacked `stride_scale=1.4` dose
+(`cw-speed50hz-env50dps-ps200-ss14-sr105-disc2m`/`-acq10m`) clears the
+track's own 0.08 m/s milestone this bundle's pair (0.045-0.052 m/s)
+never reached, and is now the track's frontier pick — see
+`../bundle_speed_envelope_v1/GO_NOGO.md`. This bundle's own evidence
+stays valid and it remains the right choice if Robot Lab rejects the
+wider (50 deg/s) actuator envelope for hardware reasons (this bundle
+needs no slew-contract change from the legacy 37.5 deg/s default).
+
 ## Verdict: GO for sim-demo readiness (both candidates). NOT a physical-acceptance verdict; no actuator envelope change proposed.
 
 One plain sentence: the speed track's own PASSing +20%-speed acquisition pair

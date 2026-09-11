@@ -20,6 +20,7 @@ from safe_zero import (BELLY_GROUND_Z_MM, GROUND_TOL_MM,
                        LOADED_TORQUE_LIMIT,
                        SLIDE_DEV_TOL_MM, TEMP_MAX_C, foot_r_mm, foot_z_mm,
                        ik_hip_knee, ik_leg_angles, knee_for_foot_z,
+                       fold_family, median_foot_z_mm,
                        plan_ik_pose_transition, plan_safe_zero,
                        run_safe_zero, seg_dist_2d)
 
@@ -653,3 +654,67 @@ if __name__ == "__main__":
             print(f"  FAIL  {name}: {e}")
     print(f"{len(fns) - failed}/{len(fns)} passed")
     sys.exit(1 if failed else 0)
+
+
+# ---------------------------------------------------------------------------
+# 2026-09-11: standing robots are never lowered by the loaded straighten
+# blend (video: chassis lifted on six loaded legs, then dropped). See
+# plan_safe_zero(allow_loaded_blend=...).
+# ---------------------------------------------------------------------------
+
+def _one_knee_folded_belly_pose() -> list[float]:
+    """Belly-down at zero except L4's knee left at 55° (the 09-11 jam)."""
+    q = _pose()
+    q[4 * 3 + 2] = 55.0
+    return q
+
+
+def test_belly_with_one_folded_knee_is_not_a_stand():
+    q = _one_knee_folded_belly_pose()
+    assert median_foot_z_mm(q) > BELLY_GROUND_Z_MM - 5.0
+    p = plan_safe_zero(q)
+    assert p["ok"], p
+    # Not routed through the standing branch: no descent, no refusal. (The
+    # modelled foot of the folded leg sits "under the floor", so the IK
+    # helper declines and the chassis-on-floor blend fallback is used — one
+    # leg cannot lift a belly-down robot.)
+    assert "descent" not in p
+    assert p.get("code") is None
+    assert p["stages"][0]["label"].startswith("straighten")
+    assert max(abs(v) for v in p["stages"][-1]["goal"]) < 1e-6
+
+
+def test_standing_without_descent_is_refused(monkeypatch):
+    import safe_zero as sz
+    monkeypatch.setattr(sz, "_plan_descent",
+                        lambda *a, **k: {"ok": False, "why": "test: no path"})
+    stand = _pose(hip=19.0, knee=28.0)          # plant stand, legs loaded
+    p = plan_safe_zero(stand)
+    assert p["ok"] is False
+    assert p["code"] == "standing_no_descent"
+    assert "STEP-down" in p["error"]
+
+
+def test_force_allows_loaded_blend_from_stand(monkeypatch):
+    import safe_zero as sz
+    monkeypatch.setattr(sz, "_plan_descent",
+                        lambda *a, **k: {"ok": False, "why": "test: no path"})
+    stand = _pose(hip=19.0, knee=28.0)
+    p = plan_safe_zero(stand, allow_loaded_blend=True)
+    assert p["ok"], p
+    assert p["stages"][0]["torque_limit"] == LOADED_TORQUE_LIMIT
+
+
+def test_fold_family_keeps_loaded_blend_without_force(monkeypatch):
+    """The tuck after an untrap (chassis on the floor) still unfolds with
+    the blend when no descent plans — that is the documented recovery."""
+    import safe_zero as sz
+    monkeypatch.setattr(sz, "_plan_descent",
+                        lambda *a, **k: {"ok": False, "why": "test: no path"})
+    tuck = _pose(hip=-25.0, knee=115.0)         # 09-11 tuck: modelled as a stand
+    assert fold_family(tuck)
+    assert median_foot_z_mm(tuck) < BELLY_GROUND_Z_MM - 25.0
+    p = plan_safe_zero(tuck)
+    assert p["ok"], p
+    assert p["stages"][0]["torque_limit"] == LOADED_TORQUE_LIMIT
+    assert not fold_family(_pose(hip=19.0, knee=28.0))

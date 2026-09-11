@@ -98,7 +98,13 @@ DONE_TOL_DEG = 4.0
 PATH_SAMPLES = 9
 
 # Low-drag descent (standing starts only).
-STAND_DETECT_MM = 25.0      # lowest foot this far below belly plane = stand
+STAND_DETECT_MM = 25.0      # median foot this far below belly plane = stand
+# Fold family (untrap fold / tuck): femurs swung up, tibias folded back down.
+# The hip-frame ground model is NOT trustworthy here (the 09-11 tuck read
+# -98 mm foot z while the chassis was visibly on the floor), so this shape is
+# classified by joint medians, never by modelled foot height.
+FOLD_FAMILY_HIP_DEG = 0.0
+FOLD_FAMILY_KNEE_DEG = 90.0
 KNEE_FOLD_MAX_DEG = 135.0   # crouch fold ceiling (margin off the 150° stop)
 KNEE_CONTACT_MAX_DEG = 130.0  # deepest fold allowed at belly touchdown
 SKIM_CLEAR_MM = 6.0         # unloaded unfold sweeps this far over the floor
@@ -242,6 +248,29 @@ def foot_z_mm(hip_deg: float, knee_deg: float) -> float:
     p = math.radians(hip_deg)
     k = math.radians(knee_deg)
     return -FEMUR_MM * math.sin(p) - TIBIA_MM * math.sin(k)
+
+
+def _median6(vals: list[float]) -> float:
+    v = sorted(float(x) for x in vals)
+    return (v[2] + v[3]) / 2.0
+
+
+def fold_family(present: list[float]) -> bool:
+    """Median hip negative AND median knee deep: the untrap fold / tuck
+    shape. Same rule as ``ZeroApi._folded_under_signature``."""
+    try:
+        hips = [present[leg * 3 + 1] for leg in range(6)]
+        knees = [present[leg * 3 + 2] for leg in range(6)]
+    except (TypeError, IndexError):
+        return False
+    return (_median6(hips) < FOLD_FAMILY_HIP_DEG
+            and _median6(knees) > FOLD_FAMILY_KNEE_DEG)
+
+
+def median_foot_z_mm(present: list[float]) -> float:
+    """Modelled foot z of the median leg (mm, relative to the hip pivot)."""
+    return _median6([foot_z_mm(present[leg * 3 + 1], present[leg * 3 + 2])
+                     for leg in range(6)])
 
 
 def knee_for_foot_z(hip_deg: float, z_mm: float) -> float | None:
@@ -782,12 +811,25 @@ def _plan_descent(present: list[float], yaw_now: list[float],
 def plan_safe_zero(present: list[float], *,
                    ground_z_mm: float = BELLY_GROUND_Z_MM,
                    lift_clear_mm: float = LIFT_CLEAR_MM,
-                   done_tol_deg: float = DONE_TOL_DEG) -> dict:
+                   done_tol_deg: float = DONE_TOL_DEG,
+                   allow_loaded_blend: bool = False) -> dict:
     """Plan staged waypoints from ``present`` (18 joint deg) to all-0°.
 
     Returns ``{"ok": True, "stages": [...]}`` or
     ``{"ok": False, "error": ...}`` when no safe path exists.
     Pure geometry — never touches hardware.
+
+    ``allow_loaded_blend``: a robot standing on loaded legs whose
+    low-drag descent cannot be planned is REFUSED (``code``
+    ``standing_no_descent``) unless this is set. The old fallback — one
+    full-torque straighten blend of all six loaded legs — lifted the
+    chassis and dropped it on its belly on video (2026-09-10 ×9,
+    2026-09-11 ×2). Standing robots lower through STEP-down / the
+    walk-ready glide, not through this planner. The fold family
+    (``fold_family``: femurs up, tibias folded, chassis on the floor
+    after an untrap) keeps the blend: unfolding a 150 mm tibia from
+    there cannot avoid pressing the floor, and the body is already
+    down.
     """
     if (not isinstance(present, (list, tuple)) or len(present) != N_JOINTS
             or any(v is None or not math.isfinite(float(v))
@@ -845,10 +887,11 @@ def plan_safe_zero(present: list[float], *,
     descent_used = None
     d1 = _max_delta(present, q_lift)
     if d1 > 1.0:
-        lowest_z = min(foot_z_mm(present[leg * 3 + 1],
-                                 present[leg * 3 + 2])
-                       for leg in range(6))
-        is_standing = lowest_z < ground_z_mm - STAND_DETECT_MM
+        # Median leg, not the lowest: a belly-down robot with ONE knee
+        # left folded (09-11, L4 at 55° after a jam) is not standing, and
+        # must take the unloaded IK transition below, not a loaded blend.
+        median_z = median_foot_z_mm(present)
+        is_standing = median_z < ground_z_mm - STAND_DETECT_MM
         stage1_done = False
         if is_standing:
             desc = _plan_descent(present, yaw_now, ground_z_mm,
@@ -872,10 +915,13 @@ def plan_safe_zero(present: list[float], *,
                     f"slide <= {desc['loaded_slide_mm']:.0f} mm "
                     f"(legacy blend ~= {desc['legacy_slide_mm']:.0f} mm)")
                 stage1_done = True
-            else:
+            elif fold_family(present) or allow_loaded_blend:
                 notes.append(f"low-drag descent unavailable "
                              f"({desc.get('why')}); using monitored "
-                             "straighten blend")
+                             "straighten blend"
+                             + (" (fold family: chassis already down)"
+                                if fold_family(present) else
+                                " (allow_loaded_blend forced)"))
                 v = _path_violation(present, q_lift, ground_z_mm=None)
                 if v:
                     return {"ok": False,
@@ -887,6 +933,22 @@ def plan_safe_zero(present: list[float], *,
                     q_lift, min(12.0, max(3.0, d1 / 12.0)), True,
                     torque_limit=LOADED_TORQUE_LIMIT))
                 stage1_done = True
+            else:
+                return {
+                    "ok": False, "code": "standing_no_descent",
+                    "median_foot_z_mm": round(median_z, 1),
+                    "descent_why": desc.get("why"),
+                    "error": (
+                        "robot is standing on loaded legs (median foot "
+                        f"{-median_z:.0f} mm below the hip pivot) and no "
+                        f"low-drag descent exists ({desc.get('why')}). "
+                        "Refusing the full-torque straighten blend: it "
+                        "lifts the chassis on six loaded legs and drops "
+                        "it (2026-09-11 video). Lower with STEP-down "
+                        "(/api/standup direction=down) or the stand "
+                        "routine's walk-ready glide; force=true only "
+                        "while watching."),
+                }
         if not stage1_done:
             trans = plan_ik_pose_transition(
                 present, q_lift, label="straighten hips/knees",

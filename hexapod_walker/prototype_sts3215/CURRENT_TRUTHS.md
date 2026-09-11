@@ -1,5 +1,18 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## TAG CALIBRATION PROGRAM + LEG NUMBERING RULING (2026-09-11 ~13:40, hexapod 1, hexapod-tracker): `hexapod-calibrate-tags` replaces the iPhone survey; the legs are numbered CLOCKWISE seen from above and a positive yaw command turns a leg clockwise
+
+One plain sentence: re-deriving the tag layout is now a program (`hexapod-tracker/src/hexapod_tracker/tag_calibration.py`, console `hexapod-calibrate-tags`) that checks the robot is resting flat, lifts each leg in turn to learn which tag rides on which link, does the geometry in the top camera's lid plane, and writes a report that says what changed and which mounts have no tag; along the way it measured that the tracker's old assumption of counter-clockwise legs at (i+0.5)*60 was wrong.
+
+**Rulings:**
+- Legs 0..5 run clockwise seen from above. In the tracker's body frame (z up, x forward between legs 0 and 5) leg i points at about -(i+0.5)*60 deg; the measured zero-pose azimuths on hexapod 1 are `{0: -18.5, 1: -95.7, 2: -158.9, 3: 141.1, 4: 94.4, 5: 37.6}` (residuals from nominal up to 11.5 deg are the yaw servos' zero offsets, now absorbed into the layout).
+- A positive yaw command turns a leg clockwise seen from above (hand check on legs 2 and 3 at +20: lids turned +14..+23 deg clockwise; the program measured the same on leg 3). The gait code's frame is therefore right-handed with z DOWN, i.e. the tracker frame rotated 180 deg about x, not a reflection. Pitch (hip/knee) signs are untouched.
+- The layout now carries `leg_zero_azimuth_body_deg`, `joint_conventions.yaw_sign_in_body_frame = -1` and `unresolved_mounts` (4 declared gaps: faces no camera has seen); `planar_pose.py` reads the first two and falls back to the old formula only for layouts without them. Chassis tag 0 euler z is +10.6 (the -35.6 installed earlier today was a circular mean over estimates that disagreed by 170 deg because of the CCW assumption).
+- Retired (import warning, no console scripts): `tag_survey`, `zero_pose_survey` (`hexapod-zero-survey`), `zero_survey_web`, `zero_pose_refinement`, `lab_camera_calibration`, `web_server`, `vision_web` (`hexapod-vision-web`). See `hexapod-tracker/DEPRECATED.md`. Their four tests were already failing before the change.
+- Camera server publishes raw corners at `/api/detections.json` (pixels of `/snapshot/{i}.jpg`, with `detect_seq`); restarted 13:40, camera 0 hold lease re-created (expires ~14:40).
+
+**Still open:** yaw tracking stays `not_visible` until tag 0 is in a floor-calibrated camera; hip/knee stay `calibration_unavailable` (no intrinsics); 14 yoke faces are carried `verified: false`; turn the robot and run `hexapod-calibrate-tags --assign-from <earlier report.json>` to confirm them. Reports: `~/Library/Application Support/Hexapod Lab/v2/tag-calibration-20260911-*/report.md`; Robot Lab run 199460d899f6.
+
 ## GAIT SIM-vs-HARDWARE AUDIT, both robots (2026-09-11 ~10:2x, Robot Lab / hardware): stride clock and the allheading policy's speed transfer exactly; tracking error, tilt, open-loop travel and AMP do not — and the pod twin's 4.81 kg mass bug taints every 09-03..09-11 sim number in the comparison
 
 One plain sentence: measured against the CSVs both robots already save, the 100 Hz policies walk on hardware at exactly their configured 1.33 Hz phase clock and `walk_allheading_mlp_singleframe_acq1_stdanneal` covers ~0.032 m/s on camera vs 0.031 m/s sim median — but every RL gait lags command by 3–9 deg mean / 12–32 deg peak where the sim servo fit is sub-degree, tilts 3–10 deg where scripted-gait sim tilts 0.2–0.5 deg, and the open-loop no-slip gaits deliver 0.3–0.7 of their sim travel.

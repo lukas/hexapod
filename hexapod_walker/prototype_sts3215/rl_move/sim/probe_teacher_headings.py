@@ -80,6 +80,20 @@ def main() -> None:
                          "so far (probe_turn_authority.py); this wires "
                          "it into the same forward-heading harness step "
                          "0b/0c already used for period/lift/stride.")
+    ap.add_argument("--write-speed", type=float, default=None,
+                    help="optional bus.write_speed (counts/s) for the "
+                         "actuator-envelope ladder (speed track, "
+                         "2026-09-11): also sets "
+                         "bus.servo_vel_max_counts_s='write_speed' and "
+                         "re-resolves SimServoParams from cfg so the "
+                         "profile velocity ceiling actually follows the "
+                         "dose (the fitted sets carry the ~350 counts/s "
+                         "sys-ID ceiling; raising write_speed alone is a "
+                         "silent no-op — same rationale as the 08-19 "
+                         "servo_vel_max_counts_s override). Default "
+                         "None = bit-identical legacy behavior "
+                         "(SimServoParams.from_cfg(None), stock 400 "
+                         "counts/s write profile).")
     ap.add_argument("--json-out", default=None)
     args = ap.parse_args()
 
@@ -99,6 +113,16 @@ def main() -> None:
               else 37.5 / args.hz)
     cfg = load_config()
     cfg.setdefault("safety", {})["max_delta_q_deg"] = float(max_dq)
+    if args.write_speed is not None:
+        if not args.write_speed > 0:
+            raise SystemExit("--write-speed must be > 0 (counts/s)")
+        cfg.setdefault("bus", {})["write_speed"] = float(args.write_speed)
+        # Mirror the ceiling onto the profile (fail-closed override,
+        # servo_model.SimServoParams.from_cfg) so the dose is real.
+        cfg["bus"]["servo_vel_max_counts_s"] = "write_speed"
+    _params = (SimServoParams.from_cfg(cfg)
+               if args.write_speed is not None
+               else SimServoParams.from_cfg(None))
 
     rows = []
     for h_deg in [float(x) for x in args.headings_deg.split(",") if x]:
@@ -106,7 +130,7 @@ def main() -> None:
         vx_c = args.speed * math.cos(h)
         vy_c = args.speed * math.sin(h)
         env = SimHexapodJointWalkEnv(
-            params=SimServoParams.from_cfg(None), randomize=False,
+            params=_params, randomize=False,
             dr_scale=0.0, episode_seconds=args.seconds + 2.0,
             seed=args.seed, cfg=cfg)
         gen = env._goal_gen
@@ -232,6 +256,7 @@ def main() -> None:
 
     out = {"model_source": args.model_source, "hz": args.hz,
            "max_delta_q_deg": max_dq, "speed_cmd": args.speed,
+           "write_speed_counts_s": args.write_speed,
            "seconds": args.seconds, "seed": args.seed,
            "window_s": args.window_s, "rows": rows}
     print(json.dumps(out, indent=1))

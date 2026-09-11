@@ -499,6 +499,23 @@ report.json, and the W&B API for exactly these questions.
     `speedretention`, which now derive `--modes` from the ledger's
     `--goal-mix` the same way).
 
+20. **`respec --init-from-source` used to inherit `--obs-pad-transplant`/
+    `--hist-stride-transplant` verbatim from the source run's own extra_args**
+    — those flags record the ONE-SHOT widening the source used to warm-start
+    from ITS OWN parent, not a property of the source's checkpoint itself.
+    Respeccing again onto that already-widened checkpoint (same obs width in,
+    same obs width out) re-ran the identical transplant against a same-shaped
+    pair and hit `pad_obs_transplant`'s own width-mismatch guard: `SystemExit`,
+    zero training steps, no traceback (just the guard's plain message on
+    stderr) — cost a dead pod + a 240s launcher timeout on
+    `cw-walk50hz-amp-mesh-m2plain-styleoff-pushfaultcurr-rampacq15m` (09-11),
+    the third instance of this exact respec-inheritance footgun class after
+    `--activation-fn` (08-1x) and `--use-sde` (09-10, `decleg-sde-s0-acq1`).
+    **FIXED** same day: `launch_run.py`'s `_respec_plain_warm_obs_pad_transplant`
+    now drops an inherited transplant flag on a plain `--init-from-source`
+    warm start; pass `--arg='--obs-pad-transplant=N'` explicitly if a NEW
+    widening is actually wanted in that respec.
+
 ## Operator status page (web) — setup & restart runbook
 
 One auto-refreshing HTML page for the human operator: a first-screen

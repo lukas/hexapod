@@ -151,6 +151,28 @@ def support_margin_m(feet_xy: np.ndarray, com_xy: np.ndarray) -> float:
     return float(d if inside else -d)
 
 
+def torque_headroom_debt_step(prev_debt: np.ndarray, current_abs: np.ndarray,
+                               cap_a: float, margin_a: float,
+                               alpha_d: float) -> np.ndarray:
+    """One leaky-integrator update of the per-actuator torque-headroom
+    "debt" (`reward.k_torque_headroom`, standwalk track 2026-09-11).
+
+    ``redness`` is 0 outside a red zone that starts ``margin_a`` below the
+    physical torque-saturation current ``cap_a`` and reaches 1 exactly at
+    the rail. ``debt`` is an EMA of ``redness`` with time constant implied
+    by ``alpha_d`` (``dt / tau_s``, pre-clipped to [0, 1] by the caller):
+    it grows toward 1 only while the actuator dwells in the red zone and
+    decays back toward 0 once it unloads, so a brief transient spike
+    barely moves it while a SUSTAINED stall compounds. Pure/stateless
+    (caller owns persistence + reset) so it can be unit-tested without a
+    live physics/reward pipeline.
+    """
+    redness = np.clip(
+        (np.abs(current_abs) - (cap_a - margin_a)) / max(margin_a, 1e-6),
+        0.0, 1.0)
+    return prev_debt + alpha_d * (redness - prev_debt)
+
+
 # --------------------------------------------------------------------------
 # Valid-plant specification (operator, 2026-08-10). "Standing" is a
 # GEOMETRIC condition, not a torso height: every rise arm before this
@@ -2436,6 +2458,7 @@ class SimHexapodBalanceEnv(_GymBase):
         )
         self.safety.set_nominal(self._q_nom)
         self._cur_filt = None
+        self._torque_debt = None
         self._imu_prev_v = None
         self._imu_f_accum[:] = 0.0
         self._imu_f_n = 0
@@ -4728,6 +4751,59 @@ class SimHexapodBalanceEnv(_GymBase):
                 r_even = -k_even * (hhi - 1.0 / len(forces))
                 parts["reward_load_even"] = r_even
                 reward += r_even
+        # Per-actuator torque-HEADROOM debt (standwalk track, 2026-09-11 —
+        # the structural mechanism named after both `k_current_hot` (dose
+        # bracket b23k12/k6/b23k36) and `k_load_even` (dose bracket 2/8/
+        # 16/32) closed short of a clean PASS on the b23k12 flat-start
+        # rise stall-fight). Root-cause chain (09-11 ~08:0x DIG-IN,
+        # CURRENT_TRUTHS.md): a SINGLE femur-row servo pins at torque
+        # saturation (raw_current's own 2.2 N-m x 1.2 A/N-m = 2.64 A rail,
+        # see the raw_current comment above) for up to 23% of the episode
+        # while the existing per-tick current_hot price stays a flat,
+        # MEMORYLESS quadratic on instantaneous current (~1.4/tick at
+        # this lineage's dose) — cheaper than the ~3.4/tick rise/hold/
+        # finish income, so fighting through isometrically instead of
+        # momentarily unloading is the reward optimum. Raising the FLAT
+        # per-tick price alone (b23k36, ~4.2/tick, ABOVE that income) did
+        # NOT move the residual at all (over_current pinned at 1/12
+        # across a 3.5x price range) — so the missing axis is DURATION,
+        # not magnitude: this term is a per-actuator leaky integrator
+        # ("debt") that only grows while a servo dwells inside a red zone
+        # just below the physical torque-saturation current, decaying
+        # back to 0 once it unloads, then prices the debt QUADRATICALLY.
+        # A brief transient spike (a few ticks) barely moves the debt and
+        # costs almost nothing (no new tax on ordinary current use
+        # anywhere else in the episode); a SUSTAINED stall-fight compounds
+        # every tick it continues, so the charge escalates past whatever
+        # a flat per-tick price could reach for the exact pathology named
+        # above, without needing a heavier tax on brief/harmless spikes.
+        # Dense, mode-independent (declared routing: GLOBAL, same as
+        # k_current_hot/k_load_even — "don't let any one actuator stall
+        # near its ceiling", not gait morphology). Bit-exact OFF by
+        # default: the debt array is only allocated/updated when enabled.
+        # Enable: --cfg-set reward.k_torque_headroom=<k>.
+        k_headroom = float(cfg_get(self.cfg, "reward", "k_torque_headroom",
+                                    default=0.0))
+        if k_headroom > 0.0 and self._state.servo_current is not None:
+            cap_a = float(cfg_get(self.cfg, "reward",
+                                  "torque_headroom_cap_a", default=2.64))
+            margin_a = float(cfg_get(self.cfg, "reward",
+                                     "torque_headroom_margin_a",
+                                     default=0.3))
+            tau_s = float(cfg_get(self.cfg, "reward",
+                                  "torque_headroom_tau_s", default=1.0))
+            cur = np.abs(self._state.servo_current)
+            if (getattr(self, "_torque_debt", None) is None
+                    or self._torque_debt.shape != cur.shape):
+                self._torque_debt = np.zeros_like(cur)
+            alpha_d = min(max(self.dt / max(tau_s, 1e-6), 0.0), 1.0)
+            self._torque_debt = torque_headroom_debt_step(
+                self._torque_debt, cur, cap_a, margin_a, alpha_d)
+            r_headroom = -k_headroom * float(np.sum(self._torque_debt ** 2))
+            parts["reward_torque_headroom"] = r_headroom
+            parts["torque_headroom_debt_max"] = float(
+                np.max(self._torque_debt))
+            reward += r_headroom
         # Stance-contact shaping (default OFF): during stance modes the
         # kernel is blind to how many feet carry the body, so a 3-leg
         # tripod scores like a 6-leg stance (and cooks servos). Pay a

@@ -34,6 +34,7 @@ Method PASS is not parent-goal completion. Superseded docs live in `../archive/`
 | `HYBRID_DEMO.md` | How to compose stand/walk/lower controllers with explicit states and compare transfer-shaped MuJoCo demos | When judging policy+state bundles for robot transfer |
 | `DEPLOYABLE_POLICY_EXPORT.md` | W&B/SB3 checkpoint to portable MLP or persistent dual-GRU JSON; exact obs-75/81 layouts and parity checks | Exporting or reviewing a model for MuJoCo/robot runtime |
 | `HARDWARE.md` | Real-robot evidence, sim2real findings | When a decision hinges on real-world data |
+| `../docs/GAIT_SIM_VS_HARDWARE_2026-09-11.md` | Every gait run on hexapod 1 and 2 vs its MuJoCo version: speed, stride Hz, amplitude, tracking, tilt; per-row sim model family | Before claiming anything about sim-to-real transfer of a gait; pair with `sysid/gait_metrics.py` |
 | `SIM.md` | What the physics sim models, actuator numbers, DR coverage | Before touching sim params/DR or judging sim-vs-real gaps |
 | `REWARD.md` | Every reward term: cfg key, default, what it pays/charges, income-gate design rules | Before adding/changing any reward term |
 | `EVALS.md` | Every eval metric: `SCORE/*` names, `eval/*` details, harnesses, caveats | Reading a W&B page or wiring a new metric |

@@ -1054,19 +1054,36 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
 STRIP_FRAMES = 10
 
 
+def _with_ext(path: Path, ext: str) -> Path:
+    """Append ``ext`` to ``path``'s bare name (NEVER ``Path.with_suffix``).
+
+    Found 2026-09-11 (speed track pinned-speed-panel triage): every
+    caller here passes an EXTENSIONLESS name built from an f-string
+    (e.g. ``f"{label}_{tag}_{k}"`` where ``label`` is ``f"walk@{s:.3f}"``
+    for the pinned-speed/heading panels). ``Path.with_suffix`` treats
+    everything after the LAST '.' as the suffix to replace, so a label
+    like ``walk@0.060_det_0`` silently collapses to ``walk@0.mp4`` --
+    every speed/heading/tag/k combination in one panel call overwrites
+    the SAME file, losing all but the last-written video/png. Plain
+    string append has no such ambiguity and is safe for the dot-free
+    standard-mode names too.
+    """
+    return path.parent / f"{path.name}{ext}"
+
+
 def _save_video(frames: list, path: Path, *, timing: dict | None = None) -> None:
     if not frames:
         return
     import imageio
     fps = timing["fps"] if timing is not None else FPS
-    imageio.mimsave(path.with_suffix(".mp4"), frames, fps=fps,
+    imageio.mimsave(_with_ext(path, ".mp4"), frames, fps=fps,
                     macro_block_size=1)
     if timing is not None:
-        path.with_suffix(".video.json").write_text(json.dumps(timing, indent=2))
+        _with_ext(path, ".video.json").write_text(json.dumps(timing, indent=2))
     # Film strip for quick embedding in reports/chat.
     idx = np.linspace(0, len(frames) - 1, STRIP_FRAMES).astype(int)
     strip = np.concatenate([frames[i] for i in idx], axis=1)
-    imageio.imwrite(path.with_suffix(".png"), strip)
+    imageio.imwrite(_with_ext(path, ".png"), strip)
 
 
 def _save_rollout_trace(trace: list[dict], out_path: Path,
@@ -1758,9 +1775,8 @@ def main() -> None:
                         _save_video(frames, out / f"{mode}_{tag}_{k}",
                                     timing=video_timing)
                         if det and k == 0:
-                            sheet_strips.append(
-                                (out / f"{mode}_{tag}_{k}")
-                                .with_suffix(".png"))
+                            sheet_strips.append(_with_ext(
+                                out / f"{mode}_{tag}_{k}", ".png"))
                 report["episodes"][f"{mode}/{tag}"] = eps
                 n_ok = sum(e["success"] for e in eps)
                 hot = max(e["cur_max_a"] for e in eps)

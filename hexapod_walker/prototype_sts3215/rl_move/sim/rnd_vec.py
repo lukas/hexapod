@@ -90,6 +90,29 @@ slices`` (already built/tested for the decentralized-actor track,
 09-10 CURRENT_TRUTHS closure) restricted to the target legs — this
 module does not re-derive the per-leg obs-column enumeration, it
 reuses the one that already exists and is unit-tested.
+
+INFO-DICT GATE VARIANT (amp track, 2026-09-11, turn-in-place freeze
+escalation): the `freezecharge{,5,10}-canary2m` dose sweep closed the
+FIFTH consecutive single-lever REWARD-side fix for the turn-in-place
+freeze (after price/dose/budget/ramp) with the identical static
+splayed freeze-crouch on video at every dose — see
+`rl_docs/tracks/amp/STATUS.md` and `walk_task.py`'s
+`walk_turn_in_place_tick` info-key docstring for the full chain. Every
+one of those five levers manipulates the SAME per-tick task-reward
+ledger PPO's value function already weighs against the `term_penalty`
+risk; the standing gate's own next-named class is a mechanism
+ORTHOGONAL to that ledger. `info_gate_key` generalizes the heading
+gate above from "read a fixed obs-column pair" to "read an arbitrary
+key the wrapped env's info dict already carries this tick" — no new
+obs-index math per condition, works for any boolean/float the task can
+express (here, `walk_task.py`'s `walk_turn_in_place_tick`, lit exactly
+on live turn-in-place ticks). `info_gate_key=None` (default) is
+BIT-EXACT identical to the pre-09-11 wrapper. A MISSING key on a given
+tick fails CLOSED (gate value 0.0, no bonus) rather than passing
+through — an env/lineage that never lights the flag (e.g.
+`walk_yaw_cmd=0`) gets no bonus from this gate rather than an
+unintentional always-on one. Independent of and combinable with
+`heading_gate_idx`/`obs_mask_idx` (gates multiply).
 """
 from __future__ import annotations
 
@@ -188,7 +211,8 @@ class RNDVecWrapper(VecEnvWrapper):
                  clip_obs: float = 5.0,
                  heading_gate_idx: int | None = None,
                  heading_gate_cos_max: float | None = None,
-                 obs_mask_idx: list[int] | None = None):
+                 obs_mask_idx: list[int] | None = None,
+                 info_gate_key: str | None = None):
         super().__init__(venv)
         if rnd_coef <= 0.0:
             raise ValueError("RNDVecWrapper needs rnd_coef > 0; for RND "
@@ -207,6 +231,26 @@ class RNDVecWrapper(VecEnvWrapper):
             raise ValueError(
                 "RNDVecWrapper: heading_gate_idx and heading_gate_cos_max "
                 "must both be set or both be None")
+        # info-dict gate (2026-09-11, amp track turn-in-place freeze
+        # escalation — see walk_task.py's `walk_turn_in_place_tick` info
+        # key and its docstring for the full root-cause chain: five
+        # single-lever REWARD-side fixes on the turn-in-place freeze
+        # all failed identically because they all price the SAME ledger
+        # PPO already weighs against `term_penalty`). Unlike the
+        # heading gate (which reads a fixed obs-column pair present on
+        # every walk-task tick), this gates on an arbitrary boolean/
+        # float key the wrapped env's `info` dict already carries for
+        # that tick — no obs-index math, works for any condition the
+        # task can express as an info key. `info_gate_key=None`
+        # (default) is the ORIGINAL bit-exact path (no gate multiply at
+        # all). When set, a MISSING key on a given tick's info dict
+        # gates the bonus to 0.0 for that env/tick (fail-closed: an env
+        # that never lights the flag — e.g. `walk_yaw_cmd=0` lineages —
+        # gets no bonus from this gate, not an unintentional pass-
+        # through). Mutually independent of heading_gate_idx/
+        # obs_mask_idx; may be combined (gates multiply).
+        self.info_gate_key = (
+            None if info_gate_key is None else str(info_gate_key))
         obs_dim = int(obs_dim if obs_dim is not None
                       else np.prod(venv.observation_space.shape))
         # Per-leg obs-masking (2026-09-10, off by default): None is the
@@ -245,6 +289,8 @@ class RNDVecWrapper(VecEnvWrapper):
         self._stat_intrinsic_n = 0
         self._stat_gate_off_axis_sum = 0.0
         self._stat_gate_n = 0
+        self._stat_info_gate_sum = 0.0
+        self._stat_info_gate_n = 0
         del g
 
     def _select(self, flat: np.ndarray) -> np.ndarray:
@@ -290,6 +336,14 @@ class RNDVecWrapper(VecEnvWrapper):
             bonus = bonus * off_axis
             self._stat_gate_off_axis_sum += float(off_axis.sum())
             self._stat_gate_n += len(off_axis)
+        if self.info_gate_key is not None:
+            key = self.info_gate_key
+            gate = np.asarray(
+                [float(infos[i].get(key, 0.0)) for i in range(len(infos))],
+                dtype=np.float32)
+            bonus = bonus * gate
+            self._stat_info_gate_sum += float(gate.sum())
+            self._stat_info_gate_n += len(gate)
         blended = np.asarray(rews, dtype=np.float32) + bonus
         self.ring.push(flat)
         self._stat_intrinsic_sum += float(intrinsic.sum())
@@ -334,6 +388,11 @@ class RNDVecWrapper(VecEnvWrapper):
             out["gate_off_axis_frac"] = self._stat_gate_off_axis_sum / gn
             self._stat_gate_off_axis_sum = 0.0
             self._stat_gate_n = 0
+        if self.info_gate_key is not None:
+            ign = max(self._stat_info_gate_n, 1)
+            out["info_gate_on_frac"] = self._stat_info_gate_sum / ign
+            self._stat_info_gate_sum = 0.0
+            self._stat_info_gate_n = 0
         return out
 
     # --------------------------------------------------------- persist

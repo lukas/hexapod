@@ -4519,6 +4519,37 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 if abs(wz_freeze_now) < wz_freeze_thresh:
                     r_freeze = -g_freeze
                 info["reward_walk_turn_freeze"] = r_freeze
+            # Turn-in-place tick flag (09-11, escalation after FIVE
+            # single-lever reward-side fixes on the turn-in-place
+            # freeze all failed identically -- yawprice3x (price),
+            # turnramp (dose), turnramp-cont6m (budget), termramp{0,100}
+            # (risk-curriculum ramp), walk_turn_freeze_charge (direct
+            # charge, this cycle's freezecharge{,5,10}-canary2m triple,
+            # all three CANARY FAIL-MECHANISM: same static splayed
+            # freeze-crouch on video regardless of dose). Every one of
+            # those levers moves the SAME per-tick task-reward ledger
+            # PPO's value function already prices identically to the
+            # `term_penalty` risk it's weighed against -- the standing
+            # gate's own next-named class is a mechanism ORTHOGONAL to
+            # that ledger: a state-novelty (RND) exploration bonus
+            # gated onto these exact ticks (rnd_vec.RNDVecWrapper's new
+            # `info_gate_key`), which pays for visiting new states
+            # regardless of task outcome and decays as a pose is
+            # repeatedly revisited -- unlike a fixed charge/price, it
+            # cannot be "outbid" by a fixed term_penalty at high
+            # magnitude the way the charge dose sweep just was. This
+            # flag is the READ-ONLY hook that lets the vec-env-level
+            # RND wrapper see which ticks are live turn-in-place
+            # (identical gating condition as the kernel gates/freeze
+            # charge above: s_ref ~ 0, wz_ref != 0, walk_yaw_cmd=1) --
+            # it carries no reward of its own and is written whenever
+            # walk_yaw_cmd=1 (an already-opt-in new-lineage flag), so
+            # every pre-09-11 lineage (walk_yaw_cmd=0) never sees this
+            # key at all. See test_walk_turn_freeze_charge.py.
+            if self._yaw_cmd:
+                info["walk_turn_in_place_tick"] = (
+                    1.0 if (s_ref <= 1e-3 and abs(goal.wz_ref) > 1e-3)
+                    else 0.0)
             # Anchored-stance income gate (cycle 30; the dense-
             # decomposition rung's stance-no-slip component, implemented
             # as INCOME GATING per operator 0-c.2 / step0 "worth less by

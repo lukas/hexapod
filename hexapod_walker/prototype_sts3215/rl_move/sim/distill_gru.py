@@ -101,6 +101,126 @@ def _build_cfg(extra: dict | None = None) -> dict:
     return cfg
 
 
+def _extract_cfg_set_pairs(extra_args: list) -> list[str]:
+    """Pull every ``--cfg-set K=V`` VALUE out of a ledger entry's flat
+    ``extra_args`` token list (flag and value are adjacent items, same
+    convention argparse's own ``action="append"`` collects them in)."""
+    out: list[str] = []
+    it = iter(extra_args or [])
+    for tok in it:
+        if tok == "--cfg-set":
+            try:
+                out.append(next(it))
+            except StopIteration:
+                break
+        elif isinstance(tok, str) and tok.startswith("--cfg-set="):
+            out.append(tok.split("=", 1)[1])
+    return out
+
+
+def _extract_flag_value(extra_args: list, flag: str) -> str | None:
+    """Pull a single ``--flag value`` (or ``--flag=value``) out of a
+    ledger entry's flat ``extra_args`` token list. First match wins
+    (the launcher never repeats a non-append flag)."""
+    it = iter(extra_args or [])
+    for tok in it:
+        if tok == flag:
+            return next(it, None)
+        if isinstance(tok, str) and tok.startswith(flag + "="):
+            return tok.split("=", 1)[1]
+    return None
+
+
+def pull_teacher_run(run: str) -> dict:
+    """Resolve a ledger run name into what this tool needs to treat it
+    as a teacher: its OWN ``--cfg-set`` overrides (parsed the same way
+    ``train_ppo_sim._parse_cfg_set`` would), its checkpoint path, and
+    its ``--dr-scale`` (informational only, not applied automatically).
+
+    Standwalk STATUS 2026-09-11 ~20:1x binding: hand-transcribing a
+    teacher's cfg list is error-prone -- a careful by-hand attempt
+    still missed ``bus.write_speed``/``bus.write_acc`` and produced a
+    fully misleading probe (falls at dr_scale=0 that contradicted the
+    checkpoint's own documented 0/24-falls gate). Pull it from the
+    run's own ledger entry instead of retyping it.
+    """
+    import json
+
+    from rl_move.orchestrator import state_dir
+    from rl_move.orchestrator.ledger_view import current_entries
+
+    from .train_ppo_sim import _parse_cfg_set
+
+    if not state_dir.LEDGER.exists():
+        raise SystemExit(
+            f"--*-teacher-run: no ledger at {state_dir.LEDGER} -- "
+            "run `make -C hexapod_walker/prototype_sts3215 state` first")
+    entries = json.loads(state_dir.LEDGER.read_text())
+    entry = current_entries(entries).get(run)
+    if entry is None:
+        raise SystemExit(f"--*-teacher-run: no ledger entry for {run!r}")
+    extra_args = entry.get("extra_args") or []
+    out_name = _extract_flag_value(extra_args, "--out-name")
+    if not out_name:
+        raise SystemExit(
+            f"--*-teacher-run: {run!r}'s ledger entry has no --out-name, "
+            "cannot resolve its checkpoint file")
+    ckpt = POLICY_DIR / f"{out_name}.zip"
+    if not ckpt.exists():
+        raise SystemExit(
+            f"--*-teacher-run: resolved checkpoint {ckpt} does not "
+            "exist on this pod (wrong pod, or the run's artifacts "
+            "were never pulled here)")
+    dr_scale_s = _extract_flag_value(extra_args, "--dr-scale")
+    cfg = _parse_cfg_set(_extract_cfg_set_pairs(extra_args))
+    return {"run": run, "checkpoint": ckpt, "cfg": cfg,
+            "dr_scale": float(dr_scale_s) if dr_scale_s is not None else None,
+            "status": entry.get("status")}
+
+
+def merge_teacher_cfgs(stance_pulled: dict | None, walk_pulled: dict | None,
+                       explicit: dict, structural: dict
+                       ) -> tuple[dict, dict]:
+    """Namespace-merge each side's own pulled teacher cfg with the
+    user's explicit ``--cfg-set`` overrides (always win -- an explicit
+    override IS the user resolving a fork on purpose) and the tool's
+    structural requirements (e.g. ``obs.mode_onehot`` for ``--dual``/
+    ``--experts``, which must apply identically to every env this tool
+    builds regardless of teacher pairing). Precedence, low to high:
+    pulled cfg < structural < explicit -- matches the legacy single-
+    cfg call's own ``structural | cfg_overrides`` order exactly, so
+    behavior is bit-identical when neither ``--*-teacher-run`` pulls
+    anything (both pulled dicts empty).
+
+    RAISES loudly on any key BOTH teacher runs set to a DIFFERENT
+    value that the user has not explicitly resolved via ``--cfg-set``
+    -- standwalk STATUS 2026-09-11 binding: a stance/walk action-
+    scheme or actuator-bus mismatch (e.g. ``safety.max_delta_q_deg``,
+    ``bus.write_speed``) must be a hard stop, never a silently-picked
+    winner (that is exactly the "two different action-decoding
+    conventions sharing the same cfg keys" trap this page's
+    ``bundle_rlonly_v2`` probe hit).
+    """
+    stance_pulled = dict(stance_pulled or {})
+    walk_pulled = dict(walk_pulled or {})
+    conflicts = [(k, stance_pulled[k], walk_pulled[k])
+                for k in sorted(set(stance_pulled) & set(walk_pulled))
+                if stance_pulled[k] != walk_pulled[k] and k not in explicit]
+    if conflicts:
+        lines = "\n".join(f"  {k}: stance={sv!r} vs walk={wv!r}"
+                          for k, sv, wv in conflicts)
+        raise SystemExit(
+            "--stance-teacher-run/--walk-teacher-run cfg conflict -- the "
+            "two teachers were trained with different values for the "
+            "same key(s), do not silently pick one:\n" + lines +
+            "\nResolve on purpose with --cfg-set <key>=<value> (forces "
+            "that value on BOTH sides), or pick a different teacher "
+            "pairing that actually agrees on these axes.")
+    merged_stance = {**stance_pulled, **structural, **explicit}
+    merged_walk = {**walk_pulled, **structural, **explicit}
+    return merged_stance, merged_walk
+
+
 def _make_env(args, cfg: dict, params) -> SimHexapodJointWalkEnv:
     return SimHexapodJointWalkEnv(
         params=params, randomize=True, dr_scale=args.dr_scale,
@@ -573,6 +693,22 @@ def main(argv: list[str] | None = None) -> int:
                     default=POLICY_DIR / "ppo_goal_cw_walk_longdist_r2.zip")
     ap.add_argument("--stance-teacher", type=Path,
                     default=POLICY_DIR / "ppo_goal_cw_stance_dr10.zip")
+    ap.add_argument("--walk-teacher-run", type=str, default=None,
+                    help="resolve --walk-teacher's checkpoint AND its "
+                         "own --cfg-set overrides straight from this "
+                         "run's ledger entry (standwalk STATUS "
+                         "2026-09-11 ~20:1x binding: hand-transcribing "
+                         "a teacher's cfg is error-prone). Overrides "
+                         "--walk-teacher's default if that flag is not "
+                         "also given explicitly. See "
+                         "--stance-teacher-run for cfg-conflict rules.")
+    ap.add_argument("--stance-teacher-run", type=str, default=None,
+                    help="same as --walk-teacher-run for --stance-"
+                         "teacher. When BOTH are given, any --cfg-set "
+                         "key the two teachers' own training runs set "
+                         "to DIFFERENT values raises loudly (never "
+                         "silently picked) unless resolved explicitly "
+                         "via this tool's own --cfg-set.")
     ap.add_argument("--out", type=Path,
                     default=POLICY_DIR / "ppo_goal_cw_gru_bc.zip")
     ap.add_argument("--episodes", type=int, default=400,
@@ -766,8 +902,43 @@ def main(argv: list[str] | None = None) -> int:
 
     rng = np.random.default_rng(args.seed)
     params = SimServoParams.load()
-    cfg = _build_cfg(({"obs.mode_onehot": 1.0} if mode_gated else {})
-                     | cfg_overrides)
+
+    # --walk-teacher-run/--stance-teacher-run (standwalk STATUS
+    # 2026-09-11 ~20:1x binding): pull each teacher's OWN --cfg-set
+    # overrides + checkpoint from its ledger entry instead of hand-
+    # transcribing them. Absent (default) = both pulled dicts empty =
+    # bit-exact legacy cfg below.
+    stance_pulled = walk_pulled = None
+    if args.stance_teacher_run:
+        stance_pulled = pull_teacher_run(args.stance_teacher_run)
+        if args.stance_teacher == ap.get_default("stance_teacher"):
+            args.stance_teacher = stance_pulled["checkpoint"]
+        print(f"[distill-gru] stance-teacher-run {args.stance_teacher_run}: "
+             f"ckpt={stance_pulled['checkpoint'].name} "
+             f"dr_scale={stance_pulled['dr_scale']} "
+             f"cfg={stance_pulled['cfg']}")
+    if args.walk_teacher_run:
+        walk_pulled = pull_teacher_run(args.walk_teacher_run)
+        if args.walk_teacher == ap.get_default("walk_teacher"):
+            args.walk_teacher = walk_pulled["checkpoint"]
+        print(f"[distill-gru] walk-teacher-run {args.walk_teacher_run}: "
+             f"ckpt={walk_pulled['checkpoint'].name} "
+             f"dr_scale={walk_pulled['dr_scale']} "
+             f"cfg={walk_pulled['cfg']}")
+
+    structural = {"obs.mode_onehot": 1.0} if mode_gated else {}
+    stance_extra, walk_extra = merge_teacher_cfgs(
+        stance_pulled["cfg"] if stance_pulled else None,
+        walk_pulled["cfg"] if walk_pulled else None,
+        cfg_overrides, structural)
+    cfg = _build_cfg(walk_extra)
+    stance_cfg = cfg if stance_extra == walk_extra else _build_cfg(stance_extra)
+    if args.transitions > 0 and stance_extra != walk_extra:
+        raise SystemExit(
+            "--transitions needs ONE shared cfg (sequence demos chain "
+            "both teachers in the SAME env) but --stance-teacher-run/"
+            "--walk-teacher-run pulled different cfg values that "
+            "--cfg-set did not unify -- not supported yet")
     if args.mirror_augment:
         from rl_move.config import cfg_get
         if float(cfg_get(cfg, "goal", "walk_yaw_cmd", default=0.0)) != 1.0:
@@ -796,7 +967,16 @@ def main(argv: list[str] | None = None) -> int:
     import copy as _copy
     stance_args = _copy.copy(args)
     stance_args.episode_seconds = args.stance_episode_seconds
-    stance_env = _make_env(stance_args, cfg, params)
+    stance_env = _make_env(stance_args, stance_cfg, params)
+    if int(stance_env.observation_space.shape[0]) != n_env_obs:
+        raise SystemExit(
+            "stance env obs "
+            f"{stance_env.observation_space.shape[0]} != walk env obs "
+            f"{n_env_obs} -- --stance-teacher-run/--walk-teacher-run "
+            "pulled cfg that changes obs LAYOUT between the two sides "
+            "(e.g. a phase/body-vel toggle), which this tool cannot "
+            "collect into one fixed-width student obs; unify with "
+            "--cfg-set or pick a compatible teacher pairing")
     envs = {"walk": env, "rise": stance_env, "lower": stance_env,
             "hold": stance_env}
 

@@ -188,6 +188,34 @@ PLANT_SPEC = {
 }
 
 
+def footprint_rent_m(fp_mm: float, free_mm: float) -> float:
+    """Linear, UNBOUNDED per-tick rent (in metres) for footprint
+    distance beyond ``free_mm``: 0 inside the free zone, growing
+    1 mm-for-1 mm outside it with no upper saturation.
+
+    Built 2026-09-11 as the "standalone anchor-distance penalty term
+    outside the multiplicative plant_f product" the footprint-reprice-
+    via-fade-shape DIG-IN asked for (CURRENT_TRUTHS "CLOSED: the
+    footprint-reprice-via-fade-shape saga is dead", 2026-09-11 ~03:4x).
+    That saga tried 4 reward-shape configs (legacy 40/80 fade, tightened
+    25/40, widened 12/100, all with and without frozen exploration) and
+    all 3-seed grids converged to the SAME 66-107mm footprint splay —
+    because BOTH existing footprint terms stop charging the instant a
+    policy settles at a steady, non-improving distance:
+      - ``footprint_fade`` (a multiplicative INCOME gate) saturates to
+        a constant <1.0 multiplier the policy can simply tolerate
+        forever once other income streams outweigh the discount, and
+      - ``k_curl_progress`` is POTENTIAL-based (pays only while
+        distance is actively shrinking), so it is worth exactly 0 at
+        any stable equilibrium, however far from the anchors.
+    This function is additive and never saturates: a policy parked at a
+    constant 90mm keeps paying the SAME rent every single tick for as
+    long as it stays there, so unlike the fade/progress terms above,
+    there is no distance at which "stop closing the gap" becomes free.
+    """
+    return max(0.0, fp_mm - free_mm) * 0.001
+
+
 def footprint_fade(fp_mm: float, full_mm: float, zero_mm: float) -> float:
     """Full pay (1.0) at/below ``full_mm``, zero pay at/above ``zero_mm``,
     linear between. Legacy defaults (full=PLANT_SPEC['footprint_err_mm']=40,
@@ -4507,6 +4535,26 @@ class SimHexapodBalanceEnv(_GymBase):
                     if r_task > 0.0:
                         reward += r_task * (pf - 1.0)
                         parts["reward_task"] = r_task * pf
+            # Standalone anchor-distance RENT (2026-09-11 DIG-IN
+            # follow-on to the footprint-reprice-via-fade-shape saga —
+            # see footprint_rent_m() docstring above for the full
+            # reasoning). Deliberately OUTSIDE every multiplicative
+            # income chain in this block (pf, plant_f, score s_now) so
+            # no other reward stream can buy it off, and deliberately
+            # NOT potential-based (unlike k_curl_progress below) so it
+            # keeps charging even once the policy stops closing the
+            # gap. Opt-in only (default k=0 => identical to every
+            # checkpoint already trained — bit-exact old behavior).
+            k_fp_pen = float(cfg_get(self.cfg, "reward",
+                                     "k_rise_footprint_pen", default=0.0))
+            if k_fp_pen > 0.0:
+                free_mm = float(cfg_get(
+                    self.cfg, "reward", "rise_footprint_pen_free_mm",
+                    default=PLANT_SPEC["footprint_err_mm"]))
+                r_fp_pen = -k_fp_pen * footprint_rent_m(
+                    self._curl_dist() * 1000.0, free_mm)
+                parts["reward_rise_footprint_pen"] = r_fp_pen
+                reward += r_fp_pen
         # Curl scores (rise only): pay pulling the feet in toward the
         # plant footprint. Potential-based, so crouch starts (dist ~0)
         # and foot-parking exploits earn nothing net.

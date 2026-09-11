@@ -470,6 +470,17 @@ report.json, and the W&B API for exactly these questions.
     cw-stand50hz-stance-tuckclock-scratch6m-dqfix-retention-s1-fprent-
     k0ctl-gentlestd` (verdict); CURRENT_TRUTHS.md 2026-09-11 ~06:5x.
 
+18. **Pre-registered non-default probes: set `probe_args`, stop
+    hand-running them.** If a run's registered gate is NOT the standard
+    mixed-start panel (e.g. the stand50hz flat-pinned probe), set
+    `launch_run.py update --run <run> --set probe_args='--cfg-set
+    goal.rise_flat_frac=1.0 ...'` (raw `eval_checkpoint` args, appended
+    last, override the defaults) right after launch — the watcher's
+    prestage then runs it on-pod as a third DR-0 pass and triage finds
+    it at `logs/ckpt_eval/<run>_probe/report.json` alongside `_gate`/
+    `_owncfg`. Never verdict a flat-probe gate off the mixed-start
+    `_gate` report (2 wrong verdicts + 1 mispremised launch on 09-11).
+
 ## Operator status page (web) — setup & restart runbook
 
 One auto-refreshing HTML page for the human operator: a first-screen

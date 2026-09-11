@@ -519,7 +519,12 @@ class ZeroApi:
             mz = median_foot_z_mm(present)
         except (TypeError, ValueError):
             return "safe_zero", "pose unreadable"
-        modelled_stand = mz < gz - STAND_DETECT_MM
+        # Any median foot below the belly plane means the chassis is off the
+        # floor. 09-11: the post-walk crouch (median foot 50-60 mm below the
+        # hip pivot) failed the old STAND_DETECT test and was dropped onto
+        # its belly by safe_zero, then stood up again at 10x -- the
+        # sit/crash cycle before the leg 3 clamp broke.
+        modelled_stand = mz < gz - 5.0
         if folded and (pinned or fold_recent):
             return "fold", ("folded-under shape with "
                             + ("tip-detector" if pinned else "recent untrap")

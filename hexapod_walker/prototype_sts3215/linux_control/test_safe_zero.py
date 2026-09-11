@@ -574,12 +574,34 @@ def test_unreachable_knee_still_trips_but_not_as_a_jam():
     assert "not turning" not in res["error"], res
 
 
+@pytest.mark.slow  # >5 s: the loaded stage runs to its timeout
+def test_measured_ground_load_band_does_not_limp():
+    """The 09-10 tripod_weight_shift_static_v2 numbers: a hip carrying
+    body weight peaked at 1.07 A / 52 % load while merely compliant.
+    The no-progress floors must sit above that whole band."""
+    res = _loaded_knee_run(11.0, load_pct=52.0, current_a=1.07)
+    assert res["ok"], res
+    assert "not turning" not in str(res.get("error") or "")
+
+
 @pytest.mark.slow  # >5 s: the loaded stage runs until the guard confirms
 def test_stuck_knee_with_force_behind_it_still_limps():
-    """The quiet-stall case: under the other guards' limits, still a jam."""
-    res = _loaded_knee_run(60.0, load_pct=50.0, current_a=0.4)
+    """The quiet-stall case: a servo giving up AT its torque limit
+    reports that limit as load (70 % at 700) with no current spike —
+    above the compliant band, so still a jam."""
+    res = _loaded_knee_run(60.0, load_pct=70.0, current_a=0.4)
     assert not res["ok"] and res.get("limp"), res
     assert "L0 knee not turning" in res["error"], res
+
+
+@pytest.mark.slow  # >5 s: the loaded stage runs to its timeout
+def test_timeout_names_the_worst_joints_force():
+    """The lab records a zero job's terminal status, not the per-sweep
+    progress line, so the backstop message carries the numbers the
+    floors get re-tuned from."""
+    res = _loaded_knee_run(60.0, load_pct=52.0, current_a=1.07)
+    assert not res["ok"] and "timed out" in res["error"], res
+    assert "L0 knee 1.07 A / 52% load" in res["error"], res
 
 
 if __name__ == "__main__":

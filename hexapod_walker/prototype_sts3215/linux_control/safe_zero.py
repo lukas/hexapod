@@ -158,16 +158,32 @@ NO_PROGRESS_MIN_ERR = GROUND_DROOP_TOL_DEG
 # quiet-stall case (servos giving up under the torque limit without a
 # current spike, measured on the blend standup) still reports load, so it
 # stays armed. load_pct is the primary signal because current reads low on
-# this bus for light work (the 09-10 untrap left loaded knees at 0.1-0.3 A
-# and 20 % load); current is the second chance. The floors below are one
-# measurement wide -- that untrap snapshot is the only loaded reading we
-# have, and neither LIMP recorded its own load/current -- so treat them as
-# provisional and re-tune from the next run's per-sweep numbers. Above
-# them, no-progress limps as before; below them the stage timeout is the
-# backstop and its message ("timed out N deg short of target — joints not
-# tracking") is the honest diagnosis.
-NO_PROGRESS_MIN_LOAD_PCT = 35.0   # < LOAD_MAX_PCT (70); loaded knees ~20
-NO_PROGRESS_MIN_CURRENT_A = 0.5   # < STALL_CURRENT_A (2.5)
+# this bus for light work; current is the second chance.
+#
+# MEASURED COMPLIANT BAND (09-10, tripod_weight_shift_static_v2, run
+# 3507cdaff223). The floors used to be one resting snapshot wide (35 % /
+# 0.5 A from the untrap's 0.1-0.3 A / 20 % knees). That run is the first
+# real sample of a GROUND-LOADED-BUT-COMPLIANT joint under motion: the
+# robot standing unsupported at soft torque 700, hips carrying body
+# weight a few degrees short of command, 149 ticks of per-joint current.
+# The three weight-bearing hips (L0/L2/L5) read median 0.33-0.35 A, p90
+# 0.40-0.64 A, peak 1.07 A, and the worst joint's load_pct ran median
+# 27 % with a 52 % peak. Both old floors sit INSIDE that band, so ground
+# contact alone still had force evidence and would still have limped.
+# The floors now sit above it: 52 % -> 60, 1.07 A -> 1.5 A.
+#
+# The quiet-stall side is still unmeasured (the 09-09 blend standup was
+# never logged per sweep), but it is bounded from below: a servo giving
+# up AT its torque limit reports load ~= that limit's fraction -- 70 % at
+# 700, 100 % at LOADED_TORQUE_LIMIT -- so 60 stays under it. Above these
+# floors no-progress limps as before; below them the stage timeout is the
+# backstop ("timed out N deg short of target — joints not tracking"),
+# which now also names the worst joint's amps and load, because the lab
+# records a zero job's terminal status and not the per-sweep progress
+# line. Re-tune the quiet-stall end from the first stall that message
+# catches.
+NO_PROGRESS_MIN_LOAD_PCT = 60.0   # < LOAD_MAX_PCT (70); compliant peak 52
+NO_PROGRESS_MIN_CURRENT_A = 1.5   # < STALL_CURRENT_A (2.5); peak 1.07
 TEMP_MAX_C = 63
 SETTLE_DEG = 3.5
 FB_MISS_LIMIT = 3
@@ -1034,6 +1050,7 @@ def run_safe_zero(bus, stages: list[dict], *,
             sweep_misses = 0
             progress_ref: dict[int, tuple[float, float]] = {}
             worst_err = float("inf")
+            worst_force = ""
             settled = 0
 
             while True:
@@ -1045,7 +1062,9 @@ def run_safe_zero(bus, stages: list[dict], *,
                     if worst_err > GROUND_DROOP_TOL_DEG:
                         return _trip(
                             f"timed out {worst_err:.0f}° short of target "
-                            f"— joints not tracking", label)
+                            f"— joints not tracking"
+                            + (f" ({worst_force})" if worst_force else ""),
+                            label)
                     break
                 if now - last_fb >= fb_interval:
                     fb_map = _sweep()
@@ -1104,6 +1123,20 @@ def run_safe_zero(bus, stages: list[dict], *,
                             # 08-09 phantoms). Real heat survives.
                             now_temp.add(j)
                             hot_c[j] = int(t_c)
+
+                    # The worst-error joint's own force. Every trip
+                    # message already names the amps and load it fired
+                    # on; the joint that is merely BEHIND — a knee on
+                    # the floor — reported nothing, which is what left
+                    # the no-progress floors above tuned off a resting
+                    # snapshot. Recorded on the progress line and in the
+                    # timeout message.
+                    worst_j = max(errs, key=lambda j: errs[j], default=None)
+                    worst_force = "" if worst_j is None else (
+                        f"{joint_name(worst_j)} "
+                        f"{amps.get(worst_j, 0.0):.2f} A / "
+                        f"{float(fb_map[worst_j].get('load_pct') or 0.0):.0f}"
+                        f"% load")
 
                     bad = _confirm(wild_count, now_wild)
                     if bad is not None:
@@ -1188,7 +1221,7 @@ def run_safe_zero(bus, stages: list[dict], *,
                     else:
                         settled = 0
                     prog({"msg": (f"safe_zero {si + 1}/{n}: {label} · "
-                                  f"err {worst_err:.1f}° · "
+                                  f"err {worst_err:.1f}° ({worst_force}) · "
                                   f"peak {peak_a:.2f} A"),
                           "stage": si + 1, "of": n})
                 time.sleep(0.08)

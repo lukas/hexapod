@@ -223,7 +223,7 @@ def test_builds_are_capped_and_prompt_flags_an_idle_robot(settings, store, monke
     for i in range(3):
         store.add_plan(title=f"b{i}", why="w", kind="needs_code", protocol=None, build_spec="spec")
     text = planner.build_prompt(settings, store, None)
-    assert "3 code jobs are already pending" in text and "robot is idle" in text
+    assert "3 code job(s) already pending" in text and "robot is idle" in text
     from hexapod_lab2 import claude_cli
     monkeypatch.setattr(claude_cli, "oneshot", lambda *a, **k: claude_cli.CliResult(True, {
         "learned": "", "plans": [
@@ -542,9 +542,12 @@ def test_seen_text_reaches_the_planner_digest(settings, store):
     store.update_run_summary(rid, seen="Leg 4 folded under the body from frame 6; chassis propped on the right side.")
     text = planner.build_prompt(settings, store, store.runs(limit=1)[0])
     assert "what the wide camera showed" in text and "Leg 4 folded" in text
-    assert "needs_fix" in text and "Do not work around a code blocker" in text
-    plans = planner.validate_plans(settings, [{"title": "Loosen gate", "why": "w.", "kind": "needs_fix",
-                                               "build_spec": "GLIDE_TOL_DEG 3 -> 8 in sysid_runner.py"}])
+    assert "switched off" in text and "needs_fix" in text   # fixes are off by default
+    import dataclasses as _dc
+    assert "Do not work around a code blocker" in planner.build_prompt(_dc.replace(settings, allow_fix=True), store, None)
+    fix = [{"title": "Loosen gate", "why": "w.", "kind": "needs_fix", "build_spec": "GLIDE_TOL_DEG 3 -> 8 in sysid_runner.py"}]
+    assert planner.validate_plans(settings, fix) == []                       # fixes are off by default
+    plans = planner.validate_plans(_dc.replace(settings, allow_fix=True), fix)
     assert plans[0]["kind"] == "needs_fix"
 
 

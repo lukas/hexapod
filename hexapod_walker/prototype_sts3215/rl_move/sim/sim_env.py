@@ -3251,10 +3251,32 @@ class SimHexapodBalanceEnv(_GymBase):
         scripted --scripted-selective-omega-boost``): dose 3.0 beats
         the uniform lever's own best dose on real body wz_med, both
         signs, with a comparable vx cost. Default 1.0 = legacy
-        identity (bit-exact off)."""
+        identity (bit-exact off).
+
+        ``train.bc_anchor_teacher_period_scale`` /
+        ``train.bc_anchor_teacher_lift_scale`` /
+        ``train.bc_anchor_teacher_stride_scale`` (speed track step 1,
+        2026-09-11): gait-geometry doses for the SAME teacher, mapped
+        1:1 onto TripodGait's existing ``period_scale`` /
+        ``lift_scale`` / ``stride_scale`` ctor knobs, so a speed-track
+        arm can anchor to a longer-stride / higher-lift / retuned-
+        cadence target instead of the stock 0.75 s geometry. Doses are
+        chosen from the zero-training feasibility sweep
+        (``probe_teacher_headings --period-scale/--lift-scale/
+        --stride-scale``), never guessed. Defaults 1.0 = legacy
+        identity (bit-exact off) like every other dose knob here."""
         from hexapod_core.tripod_gait import TripodGait
         _g = TripodGait(
             vx=0.0,
+            period_scale=float(cfg_get(
+                self.cfg, "train", "bc_anchor_teacher_period_scale",
+                default=1.0)),
+            lift_scale=float(cfg_get(
+                self.cfg, "train", "bc_anchor_teacher_lift_scale",
+                default=1.0)),
+            stride_scale=float(cfg_get(
+                self.cfg, "train", "bc_anchor_teacher_stride_scale",
+                default=1.0)),
             combined_yaw_arm_scale=float(cfg_get(
                 self.cfg, "train", "bc_anchor_teacher_yaw_arm_scale",
                 default=1.0)),

@@ -1833,6 +1833,20 @@ def main(argv: list[str] | None = None) -> int:
                          "(joint_walk_leg_slices' >=59-dim contract). "
                          "Default None = OFF, bit-exact original "
                          "full-obs RND path (no column selection).")
+    ap.add_argument("--rnd-info-gate-key", type=str, default=None,
+                    help="amp track turn-in-place freeze escalation "
+                         "(09-11, after 5 single-lever REWARD-side "
+                         "fixes — price/dose/budget/ramp/charge — all "
+                         "failed identically, see rnd_vec.py's "
+                         "info-dict-gate docstring): zero the RND bonus "
+                         "on any tick where infos[i].get(key, 0.0) is "
+                         "falsy, e.g. 'walk_turn_in_place_tick' "
+                         "(walk_task.py, lit exactly on live turn-in-"
+                         "place ticks when goal.walk_yaw_cmd=1). A "
+                         "MISSING key fails CLOSED (no bonus), not "
+                         "pass-through. Needs --rnd-coef>0. Default "
+                         "None = OFF, bit-exact original ungated RND "
+                         "path (no gate multiply at all).")
     ap.add_argument("--use-sde", action="store_true",
                     help="SB3 generalized State-Dependent Exploration "
                          "(gSDE): sample ONE noise matrix per rollout "
@@ -3311,7 +3325,8 @@ def main(argv: list[str] | None = None) -> int:
             buffer_size=args.rnd_buffer, seed=args.seed,
             heading_gate_idx=heading_gate_idx,
             heading_gate_cos_max=args.rnd_heading_gate_cos_max,
-            obs_mask_idx=obs_mask_idx)
+            obs_mask_idx=obs_mask_idx,
+            info_gate_key=args.rnd_info_gate_key)
         venv = rnd_wrap
     venv = VecMonitor(venv)
     print(f"[mjx-train] vec env up in {time.monotonic() - t0:.1f}s "
@@ -5456,6 +5471,9 @@ def main(argv: list[str] | None = None) -> int:
                     if "gate_off_axis_frac" in roll:
                         payload["rnd/gate_off_axis_frac"] = roll[
                             "gate_off_axis_frac"]
+                    if "info_gate_on_frac" in roll:
+                        payload["rnd/info_gate_on_frac"] = roll[
+                            "info_gate_on_frac"]
                     if stats is not None:
                         payload.update({f"rnd/{k}": v
                                         for k, v in stats.items()})
@@ -5469,6 +5487,10 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[rnd] heading gate ON: bonus zeroed for "
                   f"cos_heading > {rnd_wrap.heading_gate_cos_max} "
                   f"(obs idx {rnd_wrap.heading_gate_idx})")
+        if rnd_wrap.info_gate_key is not None:
+            print(f"[rnd] info gate ON: bonus zeroed unless "
+                  f"infos[i]['{rnd_wrap.info_gate_key}'] is truthy "
+                  "(missing key fails closed)")
     if args.predictive_live:
         class _LivePredictorCapture(BaseCallback):
             """Harvest a bounded MJX subset into CUDA live replay."""

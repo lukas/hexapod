@@ -432,3 +432,114 @@ def test_obs_mask_intrinsic_depends_only_on_masked_columns():
     bonus_c = _probe(rows_c)
     assert bonus_a == pytest.approx(bonus_b, rel=1e-6)
     assert bonus_a != pytest.approx(bonus_c, rel=1e-3)
+
+
+# ------------------------------------------------------------ info gate
+# (amp track, 2026-09-11: turn-in-place freeze escalation after five
+# single-lever REWARD-side fixes — price/dose/budget/ramp/charge — all
+# failed identically; see rnd_vec.py's info-dict-gate docstring.)
+
+class _InfoGateStubVecEnv(_StubVecEnv):
+    """Like _StubVecEnv, but each env's info dict carries a caller-
+    supplied per-tick gate value (or omits the key entirely) so the
+    fail-closed-on-missing-key contract can be exercised directly."""
+
+    def __init__(self, gate_key, per_env_gate, obs_dim=6):
+        super().__init__(n_envs=len(per_env_gate), obs_dim=obs_dim)
+        self.gate_key = gate_key
+        self.per_env_gate = list(per_env_gate)
+
+    def step_wait(self):
+        obs, rews, dones, infos = super().step_wait()
+        for i, g in enumerate(self.per_env_gate):
+            if g is not None:
+                infos[i][self.gate_key] = g
+        return obs, rews, dones, infos
+
+
+def test_info_gate_none_is_bit_exact_original_path():
+    stub_a = _InfoGateStubVecEnv("flag", [1.0, 0.0, 1.0])
+    stub_b = _InfoGateStubVecEnv("flag", [1.0, 0.0, 1.0])
+    w_gateless = _wrap(stub_a, rnd_coef=0.4, seed=3)
+    w_explicit_none = _wrap(stub_b, rnd_coef=0.4, seed=3,
+                             info_gate_key=None)
+    w_gateless.reset()
+    w_explicit_none.reset()
+    for _ in range(4):
+        w_gateless.step_async(None)
+        _, r1, _, _ = w_gateless.step_wait()
+        w_explicit_none.step_async(None)
+        _, r2, _, _ = w_explicit_none.step_wait()
+        np.testing.assert_array_equal(r1, r2)
+
+
+def test_info_gate_zeroes_bonus_when_flag_falsy_or_missing():
+    # env0: flag=1.0 (bonus should pass through); env1: flag=0.0
+    # (explicit falsy, bonus zeroed); env2: key entirely absent
+    # (fail-closed, bonus zeroed, same as an explicit 0.0).
+    stub = _InfoGateStubVecEnv("walk_turn_in_place_tick",
+                                [1.0, 0.0, None])
+    w = _wrap(stub, rnd_coef=0.6, seed=1,
+              info_gate_key="walk_turn_in_place_tick")
+    w.reset()
+    w.step_async(None)
+    obs, rews, dones, infos = w.step_wait()
+    bonus = rews - 1.0  # stub's constant env reward is 1.0/tick
+    assert bonus[0] > 0.0
+    assert bonus[1] == pytest.approx(0.0, abs=1e-9)
+    assert bonus[2] == pytest.approx(0.0, abs=1e-9)
+    assert infos[0]["reward_rnd_intrinsic"] == pytest.approx(
+        float(bonus[0]), rel=1e-6)
+    for i in (1, 2):
+        assert infos[i]["reward_rnd_intrinsic"] == pytest.approx(
+            0.0, abs=1e-9)
+
+
+def test_info_gate_on_frac_stat_reported_only_when_gated():
+    stub_gated = _InfoGateStubVecEnv("t", [1.0, 0.0, 1.0, None])
+    w = _wrap(stub_gated, rnd_coef=0.5, seed=2, info_gate_key="t")
+    w.reset()
+    for _ in range(3):
+        w.step_async(None)
+        w.step_wait()
+    stats = w.pop_rollout_stats()
+    # 2/4 envs light the flag every tick.
+    assert stats["info_gate_on_frac"] == pytest.approx(0.5)
+    w.step_async(None)
+    w.step_wait()
+    stats2 = w.pop_rollout_stats()
+    assert "info_gate_on_frac" in stats2
+
+    stub_ungated = _InfoGateStubVecEnv("t", [1.0, 0.0, 1.0, None])
+    w2 = _wrap(stub_ungated, rnd_coef=0.5, seed=2)
+    w2.reset()
+    w2.step_async(None)
+    w2.step_wait()
+    assert "info_gate_on_frac" not in w2.pop_rollout_stats()
+
+
+def test_info_gate_combines_with_heading_gate():
+    """Both gates armed together must multiply (AND-like): a tick only
+    earns bonus if it is off-axis AND lights the info flag."""
+    class _Combo(_HeadingStubVecEnv):
+        def __init__(self):
+            super().__init__(4, [[1.0, 0.0], [0.0, 1.0], [0.0, 1.0]])
+
+        def step_wait(self):
+            obs, rews, dones, infos = super().step_wait()
+            # env0 on-axis + flagged; env1 off-axis + flagged;
+            # env2 off-axis + NOT flagged.
+            infos[1]["t"] = 1.0
+            return obs, rews, dones, infos
+
+    stub = _Combo()
+    w = _wrap(stub, rnd_coef=0.6, seed=1,
+              heading_gate_idx=4, heading_gate_cos_max=0.5,
+              info_gate_key="t")
+    w.reset()
+    w.step_async(None)
+    _, rews, _, infos = w.step_wait()
+    bonus = rews - 1.0
+    assert bonus[0] == pytest.approx(0.0, abs=1e-9)  # on-axis: zeroed
+    assert bonus[1] > 0.0                              # off-axis+flag
+    assert bonus[2] == pytest.approx(0.0, abs=1e-9)  # off-axis, no flag

@@ -227,8 +227,16 @@ def test_nonadvancing_state_timestamp_during_trajectory_aborts_before_further_mo
 
 
 def _glide_current_run(monkeypatch, tmp_path, *, hot_joint: int,
-                       amps: float = 1.4):
-    """Glide + one segment tick on joint 0, with ``hot_joint`` at ``amps``."""
+                       amps: float | list[float] = 1.4,
+                       n_ticks: int = 1,
+                       protocol_overrides: dict | None = None):
+    """``n_ticks`` segment ticks on joint 0, with ``hot_joint`` at ``amps``.
+
+    ``amps`` may be a list, read one value per POST-ADMISSION feedback poll
+    (the last value repeats) — that is how a single glitched decode is placed
+    on a known poll.  Telemetry admission burns its own samples first and
+    always sees 0 A, so a spike aimed at the guard cannot land there instead.
+    """
     import sysid_runner
 
     calls = []
@@ -250,7 +258,8 @@ def _glide_current_run(monkeypatch, tmp_path, *, hot_joint: int,
         lambda protocol: {
             "hz": 10.0,
             "ticks": [{"active": [0], "cmd": [0.0] * 18,
-                       "mode": "rel", "seg": 0, "phase": "test"}],
+                       "mode": "rel", "seg": 0, "phase": "test"}
+                      for _ in range(n_ticks)],
             "seg_labels": ["test"],
         },
     )
@@ -259,9 +268,27 @@ def _glide_current_run(monkeypatch, tmp_path, *, hot_joint: int,
     # time the test does not spend.
     monkeypatch.setattr(sysid_runner, "FEEDBACK_HZ", 1e6)
 
+    real_admit = sysid_runner._telemetry_admission
+    admitted = []
+
+    def _admit_then_arm(*args, **kwargs):
+        out = real_admit(*args, **kwargs)
+        admitted.append(True)
+        return out
+
+    monkeypatch.setattr(sysid_runner, "_telemetry_admission", _admit_then_arm)
+
+    series = [float(amps)] if isinstance(amps, (int, float)) else list(amps)
+    polls = []
+
     def _feedback():
+        if not admitted:
+            return {joint: {"volt": 12.0, "temp_c": 33.0, "current_a": 0.0}
+                    for joint in range(18)}
+        a = series[min(len(polls), len(series) - 1)]
+        polls.append(a)
         return {joint: {"volt": 12.0, "temp_c": 33.0,
-                        "current_a": amps if joint == hot_joint else 0.0}
+                        "current_a": a if joint == hot_joint else 0.0}
                 for joint in range(18)}
 
     bus = _Bus([])
@@ -278,7 +305,8 @@ def _glide_current_run(monkeypatch, tmp_path, *, hot_joint: int,
         bus,
         {"name": "glide_current_guard", "max_current_a": 0.75,
          "current_trip_polls": 1, "hard_current_a": 3.0,
-         "segments": [{"kind": "step"}]},
+         "segments": [{"kind": "step"}],
+         **(protocol_overrides or {})},
         log_dir=tmp_path,
     )
 
@@ -302,3 +330,65 @@ def test_protocol_current_budget_still_trips_once_the_segments_run(
 
     assert result["ok"] is False
     assert "overcurrent 1.40 A (limit 0.75" in result["error"]
+
+
+def test_single_implausible_current_decode_does_not_trip(
+        monkeypatch, tmp_path):
+    # 2026-09-10 16:59: the l2_ground_radial_shear_amplitude_ladder_v1 ladder
+    # died on "joint 0 overcurrent 126.46 A (hard limit 3.00)" while the same
+    # poll cycle's snapshots read 0.0/0.013 A peak and a flat 38 C.  The bus
+    # cannot deliver 126 A: that is a corrupted decode on the known-flaky
+    # servo ID 2, and it must be discarded, not latched.
+    result = _glide_current_run(
+        monkeypatch, tmp_path, hot_joint=0,
+        amps=[126.46, 0.0, 0.0, 0.0, 0.0], n_ticks=5,
+        protocol_overrides={"max_current_a": 0.75,
+                            "current_trip_polls": 3})
+
+    assert result["error"] is None, result["error"]
+    assert result["ok"] is True
+    assert result["wild_current_reads"] >= 1
+
+
+def test_implausible_decode_is_kept_out_of_peak_current(
+        monkeypatch, tmp_path):
+    # One bad byte must not poison the segment's reported peak either.
+    result = _glide_current_run(
+        monkeypatch, tmp_path, hot_joint=0,
+        amps=[126.46, 0.2, 0.2, 0.2, 0.2], n_ticks=5,
+        protocol_overrides={"max_current_a": 0.75,
+                            "current_trip_polls": 3})
+
+    import sysid_runner
+
+    assert result["ok"] is True
+    for seg in result["segments"]:
+        assert seg["peak_current_a"] < sysid_runner.IMPLAUSIBLE_CURRENT_A
+
+
+def test_sustained_genuine_overcurrent_still_trips_the_hard_ceiling(
+        monkeypatch, tmp_path):
+    # The plausibility bound must not disarm the ceiling: 3.5 A is in range
+    # and holding, which is what the hard limit exists for.
+    result = _glide_current_run(
+        monkeypatch, tmp_path, hot_joint=0, amps=3.5, n_ticks=5,
+        protocol_overrides={"max_current_a": 0.75,
+                            "current_trip_polls": 3})
+
+    assert result["ok"] is False
+    assert "hard limit 3.00" in result["error"], result["error"]
+
+
+def test_one_in_range_poll_over_the_hard_ceiling_does_not_trip(
+        monkeypatch, tmp_path):
+    # A lone 3.5 A read is still one read.  The hard ceiling now confirms on
+    # HARD_CURRENT_TRIP_POLLS consecutive fresh polls, like the soft limit and
+    # the temp guard already did.
+    result = _glide_current_run(
+        monkeypatch, tmp_path, hot_joint=0,
+        amps=[3.5, 0.0, 0.0, 0.0, 0.0], n_ticks=5,
+        protocol_overrides={"max_current_a": 0.75,
+                            "current_trip_polls": 3})
+
+    assert result["error"] is None, result["error"]
+    assert result["ok"] is True

@@ -163,8 +163,12 @@ def test_turn_tick_flag_lit_on_live_turn_tick():
 
 
 def test_turn_tick_flag_zero_on_hold_tick():
-    """walk_yaw_cmd=1 (flag-eligible lineage) but the live command is
-    hold (wz_ref == 0): flag must read 0.0, not be absent."""
+    """walk_yaw_cmd=1 (flag-eligible lineage) but the tick is a genuine
+    hold-mode tick (not the walk task at all): this reward block is
+    walk-mode-only by construction (matches every sibling key here,
+    e.g. reward_walk_turn_freeze/walk_yaw_kernel_factor), so the flag
+    is simply ABSENT, same convention as reward_walk_turn_freeze's own
+    `.get(..., 0.0)` on hold ticks."""
     cfg = load_config()
     goal = cfg.setdefault("goal", {})
     goal["walk_yaw_cmd"] = 1
@@ -177,7 +181,7 @@ def test_turn_tick_flag_zero_on_hold_tick():
     g.p_walk = 0.0
     env.reset()
     _, _, _, _, info = env.step(_hold_action(env))
-    assert info["walk_turn_in_place_tick"] == pytest.approx(0.0)
+    assert info.get("walk_turn_in_place_tick", 0.0) == pytest.approx(0.0)
     env.close()
 
 

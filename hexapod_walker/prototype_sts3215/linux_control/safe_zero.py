@@ -167,10 +167,15 @@ NO_PROGRESS_MIN_ERR = GROUND_DROOP_TOL_DEG
 # robot standing unsupported at soft torque 700, hips carrying body
 # weight a few degrees short of command, 149 ticks of per-joint current.
 # The three weight-bearing hips (L0/L2/L5) read median 0.33-0.35 A, p90
-# 0.40-0.64 A, peak 1.07 A, and the worst joint's load_pct ran median
-# 27 % with a 52 % peak. Both old floors sit INSIDE that band, so ground
-# contact alone still had force evidence and would still have limped.
-# The floors now sit above it: 52 % -> 60, 1.07 A -> 1.5 A.
+# 0.40-0.64 A, peak 1.07 A. The runner logs one load_pct per tick — the
+# LOADED JOINT'S OWN load, sampled on the joint drawing the most current
+# that tick, which is the same pairing this guard evaluates — and it ran
+# median 27 % with a 52 % peak. Both old floors sit INSIDE that band, so
+# ground contact alone still had force evidence and would still have
+# limped. The floors now sit above it: 52 % -> 60, 1.07 A -> 1.5 A. The
+# load figure is one joint's, not a max over 18, so the true compliant
+# load peak may be higher than 52 — but it cannot exceed the ~70 % a
+# 700 torque limit allows, which is where LOAD_MAX_PCT already sits.
 #
 # The quiet-stall side is still unmeasured (the 09-09 blend standup was
 # never logged per sweep), but it is bounded from below: a servo giving

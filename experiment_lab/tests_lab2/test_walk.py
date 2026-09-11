@@ -126,7 +126,8 @@ def test_frame_edge_and_lost_tag_end_the_leg_but_not_the_run(settings, tmp_path)
     assert len(res["summary"]["legs"]) == 2
     state, post, get, sleep, clock = _rig(tag_visible=False)
     res = walk.run_walk(settings, _doc(), tmp_path, post=post, get=get, sleep=sleep, clock=clock, log=lambda m: None)
-    assert res["status"] == "ok" and res["summary"]["legs"][0]["stopped"] == "tag_lost"
+    # the detector still sees the tag, so this is an uncalibrated view, not a hidden tag
+    assert res["status"] == "ok" and res["summary"]["legs"][0]["stopped"] == "uncalibrated"
     assert res["summary"]["legs"][0]["measured"] is False
 
 

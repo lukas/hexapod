@@ -139,3 +139,26 @@ def test_merge_teacher_cfgs_explicit_resolves_conflict():
     stance, walk = merge_teacher_cfgs(stance_pulled, walk_pulled, explicit, {})
     assert stance["safety.max_delta_q_deg"] == 0.75
     assert walk["safety.max_delta_q_deg"] == 0.75
+
+
+def test_merge_teacher_cfgs_unions_non_conflicting_keys_both_ways():
+    """standwalk STATUS 2026-09-11 ~21:5x: a stance-only teacher and a
+    walk-only teacher whose pulled cfgs share NO conflicting keys must
+    still end up with the IDENTICAL merged dict on both sides -- a
+    width-changing walk-side flag (e.g. goal.walk_phase_obs) silently
+    absent from the stance side's own build previously let the two
+    envs this tool builds diverge in observation width even though
+    `merge_teacher_cfgs` raised no conflict (real bug: a stance env
+    built from stance-only keys read 72 obs dims against a walk env's
+    74, both nominally "compatible" per the old per-side merge)."""
+    stance_pulled = {"reward.rise_score_income": 1.0,
+                     "safety.max_delta_q_deg": 0.75}
+    walk_pulled = {"goal.walk_phase_obs": 1.0,
+                   "safety.max_delta_q_deg": 0.75}
+    stance, walk = merge_teacher_cfgs(stance_pulled, walk_pulled, {}, {})
+    # each side gets the OTHER side's non-conflicting keys too
+    assert stance["goal.walk_phase_obs"] == 1.0
+    assert walk["reward.rise_score_income"] == 1.0
+    # and the two merged dicts are now identical (guarantees any env
+    # this tool builds from either dict has the same obs width)
+    assert stance == walk

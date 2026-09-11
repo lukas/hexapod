@@ -102,3 +102,17 @@ def test_runs_take_later_findings_and_files(client, settings):
     res = rpc(c, "tools/call", {"name": "add_finding", "arguments": {"id": "exp-old-123", "text": "Third note."}}).json()["result"]
     assert json.loads(res["content"][0]["text"])["findings"] == 3
     assert rpc(c, "tools/call", {"name": "add_finding", "arguments": {"id": rid, "text": "no"}}, headers=VIEW).json()["result"]["isError"]
+
+
+def test_cli_note_and_attach(settings, store, tmp_path, monkeypatch):
+    from hexapod_lab2 import cli
+    monkeypatch.setattr(cli, "load_settings", lambda: settings)
+    rid = store.record_historic(robot="hexapod2", title="t", why="w", found="", started_at="2026-09-01T00:00:00",
+                                finished_at=None, status="ok", run_dir=None, summary={"old_lab": True, "old_id": "old-9"})
+    plot = tmp_path / "plot.png"; plot.write_bytes(b"\x89PNG")
+    assert cli.main(["note", "old-9", "[analysis] stride 1.3 Hz"]) == 0
+    assert cli.main(["attach", rid, str(plot)]) == 0
+    assert cli.main(["attach", rid, str(plot)]) == 3          # never overwrites
+    assert cli.main(["note", "nope", "x"]) == 2
+    assert store.learnings_for_run(rid)[0]["text"].startswith("[analysis]")
+    assert store.run_files(rid) == ["plot.png"]

@@ -61,7 +61,7 @@ def test_a_no_holds_the_run_pauses_and_texts(settings, store, monkeypatch):
     assert settings.pause_file.read_text().startswith("paused: not moving, the camera look said: NO")
     assert len(sent) == 1 and "hands are on the robot" in sent[0] and "reply resume" in sent[0]
     assert store.consecutive_failed_runs() == 0
-    assert store.spend_last_24h() == 0.01
+    assert store.spend_last_24h() == 0.02  # two looks: a no gets a second look before the hold
     assert any(e["kind"] == "look" and e["text"].startswith("NOT READY") for e in store.events(5))
 
 

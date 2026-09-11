@@ -98,6 +98,30 @@ The physical actuator envelope may be widened only from measured step-response
 and loaded-walk evidence. A fast simulation profile is not permission to copy
 its settings to the robot.
 
+## Actuator-envelope research path (operator order, 2026-09-11 — sim only)
+
+The stride-geometry program above saturated: period/stride/lift/stance-radius
+all plateau at ~0.052 m/s because the 0.75 deg/tick slew contract clips the
+teacher every tick (slew_sat_frac = 1.00). On operator order the track now
+varies the realizable actuator/slew contract itself, in simulation, as a
+causally matched dose ladder off the strongest corrected-mass (3.490 kg) PASS
+checkpoint, changing ONLY `safety.max_delta_q_deg`, `bus.write_speed` and the
+`bus.servo_vel_max_counts_s=write_speed` ceiling per rung; `bus.write_acc=20`
+is held in the first rungs so acceleration is unconfounded. Every rung ramps
+the live profile in from the parent contract (400/20/0.75) with bounded
+`bus.profile_ramp_steps` leaving majority full-target exposure, is judged at
+the full target contract on the pinned-speed panel (real gain outside the
+parent's noise floor — never reward), carries falls/gait/slip/current/tilt
+and slew-saturation gates plus a retention eval at the parent contract, and
+never uses the retired 1500/80 / 2000/80 profiles. First rungs (09-11):
+50 deg/s (`cw-speed50hz-env50dps-ps200-sr105-disc2m`) and 65 deg/s
+(`cw-speed50hz-env65dps-ps200-sr105-disc2m`); open-loop teacher feasibility
+0.0608 / 0.0706 m/s @0.10 cmd (`speed_teacher_sweep_20260911_envelope/`).
+Exported envelope checkpoints must carry `bus_write_speed`, `bus_write_acc`
+and `safety_max_delta_q_deg` in policy meta (exporter + `rl_policy.py`
+already support all three). The transfer rule below is unchanged: the
+PHYSICAL envelope is widened only from measured hardware evidence.
+
 ## Stop/change rules
 
 - Reward up while achieved speed or video is flat/down: audit alignment; no

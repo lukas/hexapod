@@ -195,8 +195,8 @@ def mcp_tools() -> list:
          "inputSchema": {"type": "object", "properties": {"protocol": {"type": "string"}, "title": {"type": "string"}, "why": {"type": "string"}}, "required": ["protocol", "title", "why"]}},
         {"name": "add_finding", "description": "File further analysis against an existing run (operator role): a paragraph that joins the run's findings and the learnings the planner reads. Accepts a v2 run id or an old lab experiment id. Files can be added with PUT /v2/api/runs/<id>/files/<name>.",
          "inputSchema": {"type": "object", "properties": {"id": {"type": "string"}, "text": {"type": "string"}}, "required": ["id", "text"]}},
-        {"name": "import_experiment", "description": "Record a hand-run experiment on any robot (operator role): title, why, found, robot, status. Files can be added with PUT /v2/api/runs/<id>/files/<name>.",
-         "inputSchema": {"type": "object", "properties": {"title": {"type": "string"}, "why": {"type": "string"}, "found": {"type": "string"}, "robot": {"type": "string"}, "status": {"type": "string"}}, "required": ["title", "why"]}},
+        {"name": "import_experiment", "description": "Record a hand-run experiment on any robot (operator role): title, why, found, robot, status. status is optional: explored (default) for a run done to learn with no pass/fail, ok if the robot did what was asked and met the criterion, failed if it did not run as asked. Files can be added with PUT /v2/api/runs/<id>/files/<name>.",
+         "inputSchema": {"type": "object", "properties": {"title": {"type": "string"}, "why": {"type": "string"}, "found": {"type": "string"}, "robot": {"type": "string"}, "status": {"type": "string", "enum": ["explored", "ok", "failed"]}}, "required": ["title", "why"]}},
         # Names the outside assistants learned from the original lab.
         {"name": "list_experiments", "description": "Alias of list_runs.", "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer"}, "robot": {"type": "string"}}}},
         {"name": "get_experiment", "description": "Alias of get_run; accepts old Robot Lab experiment ids.",

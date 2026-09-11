@@ -70,7 +70,7 @@ main{max-width:900px;margin:0 auto;padding:12px 16px}
 article{background:#fff;border:1px solid #e7e5e4;border-radius:8px;padding:10px 14px;margin:8px 0}
 article h2{font-size:1rem;margin:0 0 4px}
 .tag{display:inline-block;font-size:.75rem;padding:1px 7px;border-radius:10px;background:#e7e5e4;margin-right:6px;text-transform:uppercase}
-.tag.ok,.tag.done{background:#dcfce7}.tag.failed,.tag.timeout{background:#fee2e2}.tag.running{background:#dbeafe}
+.tag.ok,.tag.done{background:#dcfce7}.tag.explored{background:#e0f2fe}.tag.explore{background:#e0f2fe}.tag.failed,.tag.timeout{background:#fee2e2}.tag.running{background:#dbeafe}
 .tag.queued{background:#fef9c3}.tag.robot{background:#cffafe}.tag.recovery{background:#fde68a}.tag.building{background:#ede9fe}.tag.unreachable{background:#fde68a}.tag.held{background:#fde68a}
 .point b{color:#57534e;margin-right:6px}p{margin:4px 0}small{color:#78716c}
 h3{font-size:.95rem;margin:18px 0 4px;color:#57534e;text-transform:uppercase;letter-spacing:.04em}
@@ -114,7 +114,8 @@ def render(store: Store, settings: Settings, robot: Optional[str] = None) -> str
     for p in reversed(queue):
         note = f" · {escape(p['status_note'])}" if p.get("status_note") else ""
         kind_label = p['protocol'] or ('needs fix (engineer)' if p.get('kind') == 'needs_fix' else 'needs code')
-        out.append(f"<article><span class='tag {p['status']}'>{p['status']}</span><h2>{escape(p['title'])}</h2>"
+        intent_tag = "<span class='tag explore'>explore</span>" if p.get("intent") == "explore" else ""
+        out.append(f"<article><span class='tag {p['status']}'>{p['status']}</span>{intent_tag}<h2>{escape(p['title'])}</h2>"
                    f"<p class=point><b>Why</b>{escape(first_sentences(p['why'], 300))}</p>"
                    f"<small>{escape(kind_label)}{note} · {escape(local_stamp(p['created_at']))}</small></article>")
     if not queue:
@@ -171,7 +172,10 @@ class ImportIn(BaseModel):
     why: str = Field(min_length=1, max_length=2000)
     found: str = Field(default="", max_length=4000)
     robot: str = Field(default="hexapod2", pattern=r"^[a-z0-9_-]{1,32}$")
-    status: str = Field(default="ok", pattern=r"^(ok|failed)$")
+    # ok: it did what was asked and met its criterion; failed: it did not run
+    # as asked; explored: run to learn, no pass/fail. An unmarked import is
+    # exploration, not a success.
+    status: str = Field(default="explored", pattern=r"^(ok|failed|explored)$")
 
 
 def build_router(viewer_dependency: Callable, operator_dependency: Optional[Callable] = None,

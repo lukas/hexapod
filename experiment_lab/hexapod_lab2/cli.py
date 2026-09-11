@@ -29,7 +29,8 @@ def main(argv=None) -> int:
     imp.add_argument("--title", required=True)
     imp.add_argument("--why", required=True)
     imp.add_argument("--found", default="", help="one paragraph: what it showed. Joins the learnings the planner reads.")
-    imp.add_argument("--status", default="ok", choices=["ok", "failed"])
+    imp.add_argument("--status", default="explored", choices=["ok", "failed", "explored"],
+                     help="ok/failed: did the robot do what was asked; explored (default): run to learn, no pass/fail")
     note = sub.add_parser("note", help="file further analysis against a run (v2 id or old lab id); joins its findings")
     note.add_argument("run"); note.add_argument("text")
     att = sub.add_parser("attach", help="attach a file (plot, clip, CSV) to a run; never overwrites")

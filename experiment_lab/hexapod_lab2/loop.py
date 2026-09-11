@@ -72,12 +72,16 @@ def run_once(settings: Settings, store: Store, plan: Dict[str, Any], log=print) 
     run_dir = settings.runs_dir / run_id
     with eyes.WideCapture(settings.wide_frame_url, run_dir / "wide"):
         result = runner.run_protocol(settings, plan["protocol"], run_id, force=bool(plan.get("force")))
-    store.finish_run(run_id, status=result.status, exit_code=result.exit_code,
+    # ok/failed say whether the robot did what the protocol asked. A plan whose
+    # intent is to explore has no pass/fail on top of that: a run that completed
+    # is "explored", and what it showed goes in the planner's learned paragraph.
+    status = "explored" if (result.status == "ok" and plan.get("intent") == "explore") else result.status
+    store.finish_run(run_id, status=status, exit_code=result.exit_code,
                      run_dir=str(result.run_dir or run_dir),
                      summary=result.summary, log_tail=result.log_tail)
-    store.set_plan_status(plan["id"], "done" if result.status == "ok" else "failed",
+    store.set_plan_status(plan["id"], "done" if status in ("ok", "explored") else "failed",
                           f"exit {result.exit_code}, {result.motion_s:.0f} s")
-    log(f"run {result.status} (exit {result.exit_code}) in {result.motion_s:.0f} s")
+    log(f"run {status} (exit {result.exit_code}) in {result.motion_s:.0f} s")
     tail = (result.log_tail or "").strip().splitlines()
     eyes.see_run(settings, store, run_id,
                  f"protocol {plan['protocol']}: {plan['why'][:300]}\nresult: {result.status}, exit {result.exit_code}\n"

@@ -220,3 +220,13 @@ Full Disk Access for the loop's python
 (`~/.local/share/uv/python/cpython-3.12.*/bin/python3.12`); without it the
 loop logs "text commands unavailable" once and the CLI does the same jobs.
 The cap is `CAP_USD` in the data dir, `hexapod-lab2 cap N`.
+
+## Run outcomes
+
+`ok` and `failed` say whether the robot did what the protocol asked. They are
+not a verdict on the experiment. A plan whose `intent` is `explore` (the
+planner sets it when a run is there to look and learn) is recorded as
+`explored` when it completes: no pass, no fail, and the planner's `learned`
+paragraph is its result. Hand-run imports default to `explored` unless the
+caller marks them `ok` or `failed`. Only `failed` counts toward the loop's
+three strikes; `ok` and `explored` both reset them.

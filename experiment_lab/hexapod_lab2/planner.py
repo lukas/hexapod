@@ -35,6 +35,7 @@ PLAN_SCHEMA = {
                     "build_spec": {"type": "string", "description": "needs_code: exactly what protocol file to create and how, under 120 words. needs_fix: the diagnosis (which file/constant/behaviour, with the evidence), the smallest change that unblocks a run, and which existing protocol proves it; under 150 words."},
                     "force": {"type": "boolean", "description": "True only for whole-body protocols that need the runner's --force."},
                     "needs_robot": {"type": "boolean", "description": "needs_fix only: true if the engineer must move the robot, ssh in, flash firmware or deploy to diagnose or verify. The loop stops running while it holds the robot (up to 30 min)."},
+                    "intent": {"type": "string", "enum": ["test", "explore"], "description": "test: the why states what result would count as success. explore: run it to look and learn; the run is recorded as explored, not passed or failed."},
                 },
                 "required": ["title", "why", "kind"],
             },
@@ -139,7 +140,9 @@ CURRENT QUEUE:
 MOST RECENT RUN, IN FULL:
 {_run_digest(last_run)}
 
-Write `learned` as one plain paragraph about that most recent run: the measured result with numbers, and what it means for the goal. If the run failed, say what failed and whether it is worth retrying. Then give at most three plans, each with a title, a two-sentence why, and either an existing protocol name or a build_spec. Cheapest informative run first."""
+Write `learned` as one plain paragraph about that most recent run: the measured result with numbers, and what it means for the goal. If the run failed, say what failed and whether it is worth retrying. Then give at most three plans, each with a title, a two-sentence why, and either an existing protocol name or a build_spec. Cheapest informative run first.
+
+Not every experiment is a pass/fail test. When a plan is there to look and learn (map a behaviour, sweep a parameter, see what the robot does), set intent=explore: the run is recorded as `explored`, not as a success or failure, and your `learned` paragraph is its result. Use intent=test only when the why states what result would count as success. A run marked failed means the robot or the code did not do what was asked, never that the answer was disappointing."""
 
 
 def validate_plans(settings: Settings, plans: Any) -> List[Dict[str, Any]]:
@@ -158,6 +161,7 @@ def validate_plans(settings: Settings, plans: Any) -> List[Dict[str, Any]]:
         kind = raw.get("kind")
         protocol = str(raw.get("protocol") or "").strip().removesuffix(".json")
         force = bool(raw.get("force"))
+        intent = "explore" if raw.get("intent") == "explore" else "test"
         if kind == "existing":
             if not protocol or not re.fullmatch(r"[A-Za-z0-9_.-]+", protocol):
                 continue
@@ -167,18 +171,18 @@ def validate_plans(settings: Settings, plans: Any) -> List[Dict[str, Any]]:
                 # The model named a file that is not on disk: that is a build.
                 kind, spec = "needs_code", f"Create sysid/protocols/{protocol}.json. {why}"
                 out.append({"title": title, "why": why, "kind": kind, "protocol": None,
-                            "build_spec": spec, "force": force})
+                            "build_spec": spec, "force": force, "intent": intent})
                 continue
             if force and not settings.allow_force:
                 continue
             out.append({"title": title, "why": why, "kind": "existing", "protocol": protocol,
-                        "build_spec": None, "force": force})
+                        "build_spec": None, "force": force, "intent": intent})
         elif kind in ("needs_code", "needs_fix"):
             spec = _trim(raw.get("build_spec"), 1200)
             if not spec:
                 continue
             out.append({"title": title, "why": why, "kind": kind, "protocol": None,
-                        "build_spec": spec, "force": force,
+                        "build_spec": spec, "force": force, "intent": intent,
                         "needs_robot": bool(raw.get("needs_robot")) and kind == "needs_fix"})
     return out
 
@@ -206,6 +210,7 @@ def plan(settings: Settings, store: Store, last_run: Optional[Dict[str, Any]],
                 continue
             building += 1
         store.add_plan(title=p["title"], why=p["why"], kind=p["kind"], protocol=p["protocol"],
-                       build_spec=p["build_spec"], force=p["force"], needs_robot=p.get("needs_robot", False))
+                       build_spec=p["build_spec"], force=p["force"], needs_robot=p.get("needs_robot", False),
+                       intent=p.get("intent", "test"))
         added += 1
     return {"ok": True, "added": added, "learned": learned, "cost_usd": res.cost_usd}

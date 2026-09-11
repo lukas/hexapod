@@ -13,3 +13,13 @@ directory still sits.
 
     uv sync --extra dev
     .venv/bin/python -m pytest tests_lab2
+
+## Run outcomes
+
+`ok` and `failed` say whether the robot did what the protocol asked. They are
+not a verdict on the experiment. A plan whose `intent` is `explore` (the
+planner sets it when a run is there to look and learn) is recorded as
+`explored` when it completes: no pass, no fail, and the planner's `learned`
+paragraph is its result. Hand-run imports default to `explored` unless the
+caller marks them `ok` or `failed`. Only `failed` counts toward the loop's
+three strikes; `ok` and `explored` both reset them.

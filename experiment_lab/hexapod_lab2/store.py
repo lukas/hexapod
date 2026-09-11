@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS runs (
   plan_id TEXT NOT NULL REFERENCES plans(id),
   started_at TEXT NOT NULL,
   finished_at TEXT,
-  status TEXT NOT NULL,          -- running | ok | failed | timeout | unreachable
+  status TEXT NOT NULL,          -- running | ok | explored | failed | timeout | unreachable | held
   exit_code INTEGER,
   run_dir TEXT,
   summary_json TEXT,
@@ -85,6 +85,10 @@ class Store:
                 self.con.execute(
                     f"ALTER TABLE {table} ADD COLUMN robot TEXT NOT NULL DEFAULT 'hexapod1'")
         cols = {r["name"] for r in self.con.execute("PRAGMA table_info(plans)")}
+        if "intent" not in cols:
+            # test: the why says what result counts; explore: run it and learn,
+            # no pass/fail (2026-09-11, operator: "sometimes it's just exploring").
+            self.con.execute("ALTER TABLE plans ADD COLUMN intent TEXT NOT NULL DEFAULT 'test'")
         if "needs_robot" not in cols:
             self.con.execute("ALTER TABLE plans ADD COLUMN needs_robot INTEGER NOT NULL DEFAULT 0")
         self.con.commit()
@@ -93,14 +97,16 @@ class Store:
     def add_plan(self, *, title: str, why: str, kind: str, protocol: Optional[str],
                  build_spec: Optional[str], force: bool = False,
                  source: str = "planner", robot: str = "hexapod1",
-                 status: Optional[str] = None, needs_robot: bool = False) -> str:
+                 status: Optional[str] = None, needs_robot: bool = False,
+                 intent: str = "test") -> str:
         pid = new_id()
         now = now_iso()
         self.con.execute(
             "INSERT INTO plans (id, created_at, title, why, protocol, kind, build_spec,"
-            " force, status, source, updated_at, robot, needs_robot) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            " force, status, source, updated_at, robot, needs_robot, intent) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (pid, now, title, why, protocol, kind, build_spec, int(force),
-             status or ("queued" if kind == "existing" else "building"), source, now, robot, int(needs_robot)),
+             status or ("queued" if kind == "existing" else "building"), source, now, robot, int(needs_robot),
+             intent if intent in ("test", "explore") else "test"),
         )
         self.con.commit()
         return pid
@@ -300,8 +306,8 @@ class Store:
             " AND COALESCE(json_extract(summary_json, '$.old_lab'), 0) = 0"
             " ORDER BY started_at DESC, rowid DESC LIMIT 20", (since or "",)
         ):
-            if row["status"] in ("ok",):
-                break
+            if row["status"] in ("ok", "explored"):
+                break                      # the robot did what was asked; explored runs have no pass/fail
             if row["status"] in ("unreachable", "held"):
                 continue
             n += 1

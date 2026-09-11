@@ -879,6 +879,87 @@ def test_posture_reward_terms_smoke():
 
 
 # ---------------------------------------------------------------------------
+# Per-actuator torque-headroom debt (standwalk track, 2026-09-11 — the
+# structural mechanism named after k_current_hot/k_load_even both closed
+# short of a clean PASS on the b23k12 flat-start rise stall-fight).
+
+
+def test_torque_headroom_debt_step_math():
+    """Pure leaky-integrator math: a sustained red-zone dwell ramps the
+    debt toward 1 (never past it), a brief spike barely moves it, and
+    unloading decays it back down — the exact duration-vs-magnitude shape
+    the mechanism is built to price."""
+    from rl_move.sim.sim_env import torque_headroom_debt_step
+
+    cap_a, margin_a = 2.64, 0.3
+    debt = np.zeros(3)
+    # actuator 0 pinned AT the rail every tick, 1 sits comfortably below
+    # the red zone, 2 sits exactly at the red-zone edge (redness == 0).
+    cur = np.array([2.64, 1.0, cap_a - margin_a])
+    alpha_d = 0.02 / 1.0  # dt=0.02s (50 Hz), tau_s=1.0s
+    for _ in range(50):  # 1 full tau_s of sustained dwell
+        debt = torque_headroom_debt_step(debt, cur, cap_a, margin_a, alpha_d)
+    assert 0.55 < debt[0] < 0.70, "1 tau of full-redness dwell ~ 1-1/e"
+    assert debt[1] == 0.0, "current well under the red zone: no debt"
+    assert debt[2] == 0.0, "exactly at the red-zone edge: redness 0"
+    assert debt[0] <= 1.0 + 1e-9, "debt must not exceed the redness ceiling"
+
+    # A single-tick transient spike barely moves the debt...
+    brief = torque_headroom_debt_step(np.zeros(3), cur, cap_a, margin_a,
+                                       alpha_d)
+    assert brief[0] < 0.03
+    # ...and unloading decays a saturated debt back toward 0.
+    unloaded = np.array([0.0, 0.0, 0.0])
+    decayed = debt.copy()
+    for _ in range(50):
+        decayed = torque_headroom_debt_step(decayed, unloaded, cap_a,
+                                             margin_a, alpha_d)
+    assert decayed[0] < 0.30, "debt must decay once the actuator unloads"
+
+
+def test_torque_headroom_reward_default_off_and_wired():
+    """`reward.k_torque_headroom` is bit-exact OFF by default (no info
+    key, no state array ever allocated) and produces a finite,
+    non-positive reward part with an in-range debt when enabled."""
+    from rl_move.config import load_config
+    from rl_move.sim.servo_model import SimServoParams
+    from rl_move.sim.joint_task import SimHexapodJointGoalEnv, q_rad_to_action
+
+    cfg_off = load_config()
+    env_off = SimHexapodJointGoalEnv(params=SimServoParams.load(),
+                                      cfg=cfg_off, randomize=False,
+                                      episode_seconds=2.0, seed=0)
+    obs, _ = env_off.reset()
+    a = q_rad_to_action(env_off._cmd.copy())
+    for _ in range(5):
+        obs, r, term, trunc, info = env_off.step(a)
+        assert "reward_torque_headroom" not in info
+    assert getattr(env_off, "_torque_debt", None) is None
+    env_off.close()
+
+    cfg_on = load_config()
+    cfg_on.setdefault("reward", {})
+    cfg_on["reward"]["k_torque_headroom"] = 5.0
+    env_on = SimHexapodJointGoalEnv(params=SimServoParams.load(),
+                                     cfg=cfg_on, randomize=False,
+                                     episode_seconds=2.0, seed=0)
+    obs, _ = env_on.reset()
+    a = q_rad_to_action(env_on._cmd.copy())
+    seen = {}
+    for _ in range(10):
+        obs, r, term, trunc, info = env_on.step(a)
+        if "reward_torque_headroom" in info:
+            seen["reward_torque_headroom"] = info["reward_torque_headroom"]
+            seen["torque_headroom_debt_max"] = info[
+                "torque_headroom_debt_max"]
+    assert "reward_torque_headroom" in seen, "headroom term never fired"
+    assert seen["reward_torque_headroom"] <= 0.0
+    assert np.isfinite(seen["reward_torque_headroom"])
+    assert 0.0 <= seen["torque_headroom_debt_max"] <= 1.0 + 1e-9
+    env_on.close()
+
+
+# ---------------------------------------------------------------------------
 # Temporal actor: env-side obs history (plan §Architecture, cycle 13)
 
 

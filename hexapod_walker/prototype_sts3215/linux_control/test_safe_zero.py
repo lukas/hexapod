@@ -433,12 +433,16 @@ class _GuardBus(FakeBus):
     consecutive bad reads pass and three limp.
     """
 
-    def __init__(self, start_deg, *, joint, pattern, field, value):
+    def __init__(self, start_deg, *, joint, pattern, field, value,
+                 speed_deg_s=None):
         super().__init__(start_deg)
         self.joint = joint
         self.pattern = list(pattern)
         self.field = field
         self.value = value
+        # None = the classic "stopped dead" fault. A number simulates a
+        # joint that is still turning while it shows the force.
+        self.speed_deg_s = speed_deg_s
         self.sweeps = 0
 
     def read_all_feedback(self):
@@ -450,7 +454,8 @@ class _GuardBus(FakeBus):
             fb[self.field] = self.value
             if self.field in ("current_a", "load_pct"):
                 # stall/load guards only fire on a joint that is stuck
-                fb["speed_deg_s"] = 0.0
+                fb["speed_deg_s"] = (0.0 if self.speed_deg_s is None
+                                     else self.speed_deg_s)
                 fb["deg"] = fb["deg"] + 30.0
         return out
 
@@ -516,6 +521,37 @@ def test_three_overload_reads_trip():
                      field="load_pct", value=95.0)
     assert not res["ok"] and res.get("limp"), res
     assert "load" in res["error"] or "stall" in res["error"], res
+
+
+def test_loaded_knee_turning_slowly_does_not_trip_drag_stage():
+    """The belly-down straighten blend, at full torque.
+
+    A knee lifting the body reports a big load and the smallest non-zero
+    speed the STS register can express (50 counts/s = 4.39 deg/s). That is
+    tracking, not a jam, and 4.39 sits under the 8.0 air threshold — the
+    drag stage has to judge it by DRAG_SLOW_DPS instead.
+    """
+    start = _pose(hip=10.0, knee=25.0)
+    plan = plan_safe_zero(start)
+    assert plan["ok"] and plan["stages"][0]["drag_ok"], plan
+    bus = _GuardBus(start, joint=2, pattern=[True] * 6,
+                    field="load_pct", value=92.0, speed_deg_s=4.39)
+    res = run_safe_zero(bus, plan["stages"])
+    assert res["ok"], res
+
+
+def test_loaded_knee_at_a_dead_stop_still_trips_drag_stage():
+    """Same load, zero speed: still the jam the guard exists for, and the
+    trip names the speed it fired on so the next run can be judged."""
+    start = _pose(hip=10.0, knee=25.0)
+    plan = plan_safe_zero(start)
+    assert plan["ok"] and plan["stages"][0]["drag_ok"], plan
+    bus = _GuardBus(start, joint=2, pattern=[True] * 4,
+                    field="load_pct", value=92.0, speed_deg_s=0.0)
+    res = run_safe_zero(bus, plan["stages"])
+    assert not res["ok"] and res.get("limp"), res
+    assert "unexpected force" in res["error"], res
+    assert "0.0 deg/s" in res["error"], res
 
 
 class _GroundLoadedKneeBus(FakeBus):

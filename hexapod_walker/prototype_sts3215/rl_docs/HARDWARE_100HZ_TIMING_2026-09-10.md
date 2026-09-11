@@ -159,3 +159,22 @@ allows ~1 s (40 attempts) to confirm a hold after a stream loss before it
 limps. A pinned/leaning robot after such a limp is recovered safely with
 `POST /api/untrap {"force":true}` then `POST /api/safe_zero {}` (20% torque
 fold first; do not call stand or safe_zero directly from a pinned pose).
+
+## Addendum 2 (23:40 UTC): fail policy on IMU dropout while standing/walking
+
+Before: any snapshot with IMU age > 150 ms was rejected; after 2 such ticks
+the drive loop declared "feedback stale during stream", re-wrote the last
+target and tried to CONFIRM the hold, but the confirmation also demanded a
+fresh IMU, so an IMU-only dropout always ended in a limp -- a walking or
+standing robot collapsed onto its belly (bad_walkteach_imu_limp clip in the
+Robot Lab). A stale stream while in the HOLD model (learned hold policy)
+skipped confirmation entirely and limped at once.
+
+Now (rl_policy.py): the hold confirmation requires fresh, advancing servo
+positions plus the pose/current/temperature/load envelopes; a stale IMU only
+skips the relative-tilt check and the hold is reported as "IMU blind"
+(`hold_after_stream_loss_sampled` carries `imu_blind`). The hold-model path
+takes the same confirm-then-hold route as walking. A robot whose positions
+cannot be confirmed still limps. Tests:
+`rl_move/tests/test_rl_policy_stop_ordering.py` (IMU-blind hold, stale
+positions still refuse, envelopes still enforced).

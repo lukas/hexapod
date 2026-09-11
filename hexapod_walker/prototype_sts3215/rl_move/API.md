@@ -104,6 +104,15 @@ rl_move.scripts.summarize_scripted_gait_reliability --runs
 rl_move/hardware_traces --output
 rl_move/hardware_traces/gait_reliability.json`.
 
+## Stream-loss fail policy (2026-09-10 fix)
+
+A drive session that loses fresh feedback re-writes the last target and
+confirms the hold on fresh servo positions + pose/current/temp/load
+envelopes; an IMU-only dropout no longer limps the robot (the hold is marked
+"IMU blind" and the relative-tilt check is skipped until the IMU returns).
+Stale POSITIONS still limp after ~1 s of failed confirmation. Applies to
+both the walk and hold models.
+
 ## Stand / lower routing after a walk (2026-09-10 fix)
 
 `POST /api/rl/stand`, `/api/zero {"pose":"stand"}` and `/api/standup`

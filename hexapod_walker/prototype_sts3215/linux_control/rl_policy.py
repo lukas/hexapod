@@ -256,6 +256,7 @@ def _stream_loss_hold_sample_ok(
         return False, detail
 
     max_age_ms = float(max_state_age_s) * 1000.0
+    imu_blind = False
     for key in ("pos_age_ms", "imu_age_ms"):
         try:
             age_ms = float(timing[key])
@@ -265,8 +266,18 @@ def _stream_loss_hold_sample_ok(
         detail[key] = age_ms
         if (not math.isfinite(age_ms) or age_ms < 0.0
                 or age_ms > max_age_ms):
+            if key == "imu_age_ms":
+                # 2026-09-10 hexapod2: an I2C dropout froze the IMU cache for
+                # ~0.6 s while every servo kept answering. Refusing the hold
+                # for that alone limped a standing robot onto its belly.
+                # Positions, pose envelope, current, temperature and load are
+                # still verified below; only the relative-tilt check is
+                # skipped, and the hold is reported as IMU-blind.
+                imu_blind = True
+                continue
             detail["reason"] = f"{key}_stale"
             return False, detail
+    detail["imu_blind"] = imu_blind
 
     try:
         feedback_seq = int(timing["feedback_sample_seq"])
@@ -318,26 +329,30 @@ def _stream_loss_hold_sample_ok(
         detail["reason"] = "pose_not_converged"
         return False, detail
 
-    try:
-        tilt_ref = np.asarray(tilt_reference, dtype=float).reshape(2)
-        roll = float(sampled.imu_roll)
-        pitch = float(sampled.imu_pitch)
-    except (AttributeError, TypeError, ValueError):
-        detail["reason"] = "tilt_invalid"
-        return False, detail
-    if (not np.all(np.isfinite(tilt_ref))
-            or not math.isfinite(roll) or not math.isfinite(pitch)):
-        detail["reason"] = "tilt_invalid"
-        return False, detail
-    tilt_deg = max(abs(roll - float(tilt_ref[0])) * RAD2DEG,
-                   abs(pitch - float(tilt_ref[1])) * RAD2DEG)
-    detail.update({
-        "tilt_relative_deg": round(tilt_deg, 3),
-        "tilt_within_envelope": tilt_deg <= float(max_tilt_deg),
-    })
-    if tilt_deg > float(max_tilt_deg):
-        detail["reason"] = "relative_tilt_outside_envelope"
-        return False, detail
+    if imu_blind:
+        detail.update({"tilt_relative_deg": None,
+                       "tilt_within_envelope": None})
+    else:
+        try:
+            tilt_ref = np.asarray(tilt_reference, dtype=float).reshape(2)
+            roll = float(sampled.imu_roll)
+            pitch = float(sampled.imu_pitch)
+        except (AttributeError, TypeError, ValueError):
+            detail["reason"] = "tilt_invalid"
+            return False, detail
+        if (not np.all(np.isfinite(tilt_ref))
+                or not math.isfinite(roll) or not math.isfinite(pitch)):
+            detail["reason"] = "tilt_invalid"
+            return False, detail
+        tilt_deg = max(abs(roll - float(tilt_ref[0])) * RAD2DEG,
+                       abs(pitch - float(tilt_ref[1])) * RAD2DEG)
+        detail.update({
+            "tilt_relative_deg": round(tilt_deg, 3),
+            "tilt_within_envelope": tilt_deg <= float(max_tilt_deg),
+        })
+        if tilt_deg > float(max_tilt_deg):
+            detail["reason"] = "relative_tilt_outside_envelope"
+            return False, detail
 
     health_limits = (
         ("servo_current", abs, float(max_current_a), "current"),
@@ -476,7 +491,9 @@ def _hold_after_stream_loss(bus, drive, est, fallback_robot: np.ndarray, *,
         )
         if confirmed >= needed:
             with drive._lock:
-                drive.status = "rl drive holding after stream loss"
+                drive.status = ("rl drive holding after stream loss"
+                                + (" (IMU blind)"
+                                   if sample_detail.get("imu_blind") else ""))
             debug.event(
                 "hold_after_stream_loss_ok",
                 pose_deg=[round(float(x) * RAD2DEG, 2) for x in fallback],
@@ -5226,8 +5243,13 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
                   and not uses_policy):
                 result.update(ok=False, error=stream_err,
                               held_pose=True, ticks=i)
-            elif (stream_err == "feedback stale during stream"
-                  and active == "walk"):
+            elif stream_err in ("feedback stale during stream",
+                                "feedback lost during hold"):
+                # Walking OR holding: a transport/IMU freshness stop is not
+                # evidence of a tip or jam. Re-write the last target and
+                # confirm the hold on fresh positions; limp only when that
+                # confirmation fails (2026-09-10: the old walk-only branch
+                # limped a standing robot in the hold model).
                 held, recovery_limped = resolve_stream_loss_hold(
                     last_written_q_robot_cmd)
                 result.update(

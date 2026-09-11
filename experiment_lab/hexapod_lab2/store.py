@@ -204,6 +204,26 @@ class Store:
             self.add_learning(f"[{robot}] {found.strip()}", run_id=rid)
         return rid
 
+    def record_historic(self, *, robot: str, title: str, why: str, found: str,
+                        started_at: str, finished_at: Optional[str], status: str,
+                        run_dir: Optional[Path], summary: dict, log_tail: str = "",
+                        protocol: Optional[str] = None, source: str = "old-lab") -> str:
+        """File a run that already happened elsewhere, keeping its own dates so
+        it sorts into history and does not crowd today's learnings."""
+        pid = self.add_plan(title=title, why=why, kind="existing", protocol=protocol,
+                            build_spec=None, source=source, robot=robot, status="done")
+        rid = new_id()
+        self.con.execute(
+            "INSERT INTO runs (id, plan_id, started_at, finished_at, status, exit_code, run_dir,"
+            " summary_json, log_tail, robot) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (rid, pid, started_at, finished_at or started_at, status, None,
+             str(run_dir) if run_dir else None, json.dumps(summary), log_tail[-4000:], robot),
+        )
+        self.con.commit()
+        if found.strip():
+            self.add_learning(found.strip(), run_id=rid, created_at=finished_at or started_at)
+        return rid
+
     def robots(self) -> List[str]:
         return [r[0] for r in self.con.execute(
             "SELECT DISTINCT robot FROM runs UNION SELECT DISTINCT robot FROM plans ORDER BY 1")]
@@ -241,6 +261,16 @@ class Store:
         row = self.con.execute("SELECT * FROM runs WHERE id=?", (run_id,)).fetchone()
         return dict(row) if row else None
 
+    def run_joined(self, run_id: str) -> Optional[Dict[str, Any]]:
+        """One run with its plan's title/why/protocol. Accepts an old Robot Lab
+        experiment id too, resolved through the import's old_id summary field."""
+        row = self.con.execute(
+            "SELECT runs.*, plans.title, plans.why, plans.protocol FROM runs"
+            " JOIN plans ON plans.id = runs.plan_id"
+            " WHERE runs.id=? OR json_extract(runs.summary_json, '$.old_id')=? LIMIT 1",
+            (run_id, run_id)).fetchone()
+        return dict(row) if row else None
+
     def runs(self, limit: int = 30, robot: Optional[str] = None) -> List[Dict[str, Any]]:
         where = " WHERE runs.robot=?" if robot else ""
         args = (robot, limit) if robot else (limit,)
@@ -267,6 +297,7 @@ class Store:
         for row in self.con.execute(
             "SELECT status FROM runs WHERE status != 'running' AND started_at >= ?"
             " AND COALESCE(json_extract(summary_json, '$.recovery'), 0) = 0"
+            " AND COALESCE(json_extract(summary_json, '$.old_lab'), 0) = 0"
             " ORDER BY started_at DESC, rowid DESC LIMIT 20", (since or "",)
         ):
             if row["status"] in ("ok",):
@@ -277,11 +308,11 @@ class Store:
         return n
 
     # -- learnings / spend / events ---------------------------------------
-    def add_learning(self, text: str, run_id: Optional[str] = None) -> str:
+    def add_learning(self, text: str, run_id: Optional[str] = None, *, created_at: Optional[str] = None) -> str:
         lid = new_id()
         self.con.execute(
             "INSERT INTO learnings (id, created_at, run_id, text) VALUES (?,?,?,?)",
-            (lid, now_iso(), run_id, text),
+            (lid, created_at or now_iso(), run_id, text),
         )
         self.con.commit()
         return lid

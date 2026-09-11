@@ -59,7 +59,8 @@ def first_sentences(text, limit: int) -> str:
     return out.rstrip() + " …"
 
 
-CSS = """
+CSS = """button.link{background:none;border:0;padding:0;color:inherit;text-decoration:underline;cursor:pointer;font:inherit}
+
 body{font:15px/1.4 -apple-system,system-ui,sans-serif;margin:0;background:#f5f5f4;color:#1c1917}
 main{max-width:900px;margin:0 auto;padding:12px 16px}
 .bar{display:flex;gap:14px;align-items:baseline;flex-wrap:wrap;margin:0 0 10px}
@@ -89,7 +90,8 @@ def render(store: Store, settings: Settings, robot: Optional[str] = None) -> str
            f"<span>${spent:.2f} last 24 h of ${settings.current_cap():.0f}</span>"
            + "".join(f"<a href='/v2/?robot={escape(r)}'>{'<b>' if r == robot else ''}{escape(r)}{'</b>' if r == robot else ''}</a>" for r in store.robots())
            + (f"<a href='/v2/'>all robots</a>" if robot else "")
-           + f"<a href='/'>old lab</a><a href='/v2/api/state'>json</a></div>"]
+           + f"<a href='/v2/api/state'>json</a>"
+           + "<form method=post action='/logout' style='display:inline'><button class=link>Sign out</button></form></div>"]
     if paused:
         try:
             why = settings.pause_file.read_text().strip()

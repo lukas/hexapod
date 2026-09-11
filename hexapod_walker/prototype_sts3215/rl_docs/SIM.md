@@ -11,6 +11,14 @@ modeling them "perfectly", and never present an uncertain fit as an
 exact nominal.** The confidence table below is the implementation of
 that ruling; keep it honest when refitting.
 
+**Sim-vs-real gap, measured (2026-09-11):** `docs/GAIT_SIM_VS_HARDWARE_2026-09-11.md`
+compares every gait run on both robots with its sim. Stride clock transfers
+exactly; tracking error, tilt and open-loop travel ratio do not, and the
+loaded-joint droop on hexapod1 (2–4 deg) has no counterpart here. Read it
+before judging a gap from sim numbers alone, and check which of the three
+model families (full mesh 3.49 kg / twin, 4.81 kg from 09-03 to 09-11 /
+legacy primitive) a number came from.
+
 ## The simulation chain (one control tick, 25 Hz)
 
 policy action → SafetyLayer (same rate clamp/limits as the robot,

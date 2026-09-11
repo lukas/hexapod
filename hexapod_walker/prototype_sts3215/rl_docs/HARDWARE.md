@@ -7,6 +7,17 @@ training decisions. **The orchestrator NEVER touches the robot**
 robot gets copied into `rl_move/hardware_traces/` so the pods can see
 it after a repo sync.
 
+## Finding — gait sim-vs-hardware audit, both robots (2026-09-11)
+
+Full report `docs/GAIT_SIM_VS_HARDWARE_2026-09-11.md`; summary in
+`CURRENT_TRUTHS.md` (top entry of 09-11 ~10:2x). Stride clock and the
+allheading policy's ~0.03 m/s transfer exactly; tracking error (3–9 deg
+mean), tilt (3–10 deg), open-loop travel ratio (0.3–0.7 of sim) and AMP's
+big-swing gait do not. hexapod2's 09-10 runs (allheading 100 Hz, walkteach,
+AMP, dep_tip1, scripted GAIT 1, cap29/stotight45 attempts) live in Robot
+Lab v2, not in this repo; `sysid/gait_metrics.py` reproduces the numbers
+from any run CSV.
+
 ## Data that exists (2026-08-09)
 
 - **RL episode traces** — every stand/lower/walk run on the robot

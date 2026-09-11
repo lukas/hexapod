@@ -317,3 +317,26 @@ curl -X POST --data 'X' http://hexapod.local:8080/cmd
 
 SSH is only for necessary deploy/restart work within the active task — never
 for routine motion, which stays on the HTTP control path.
+
+
+### Stand routing addendum (2026-09-11, hexapod2)
+
+Two more belly drops on video (`safezero_attempt1_1201.mkv`, `safezero_attempt2_1206.mkv`):
+a level robot standing tall on vertical tibias (hips negative, knees > 90 after a
+hand reposition) has the same joint medians as the untrap tuck. The stand routine
+folded it (chassis onto the floor), then `safe_zero`'s full-torque "monitored straighten
+blend" lifted the chassis on six loaded legs and dropped it. Load/current readings
+cannot separate the two cases (knee load 0–14 % while standing), and the hip-frame foot
+model reads the tuck as a 98 mm stand, so the routing is now evidence-based:
+
+* `plan_safe_zero(..., allow_loaded_blend=False)` refuses a standing pose with no
+  low-drag descent (`code: standing_no_descent`) instead of blending; `force=true`
+  on `/api/safe_zero` re-enables the blend. The fold family (untrap tuck) keeps it.
+  Stand detection uses the median foot, so one folded knee on a belly-down robot
+  is an air move, not a "stand".
+* `ZeroApi._stand_route_decision`: the fold path (untrap → safe_zero) needs the tip
+  detector or an untrap fold we ran within 15 min. A level robot whose feet are
+  below the belly plane, or with the fold shape and no evidence, is stepped to
+  walk-ready with the tripod glide; if the glide fails it holds — no fallback into
+  the fold/blend path. Every decision is logged as a `stand_route` event with the
+  18 present angles, tilt, and the reason.

@@ -93,7 +93,8 @@ class ZeroApi:
                 else:
                     result = self._safe_zero_sync(
                         abort_check=self._demo_abort.is_set,
-                        on_progress=_prog)
+                        on_progress=_prog,
+                        allow_loaded_blend=bool(force))
                 if gen != self._demo_gen:
                     return
                 with self._lock:
@@ -229,7 +230,8 @@ class ZeroApi:
                 vals[j] = None if v is None else float(v)
         return vals, [j for j, v in enumerate(vals) if v is None]
 
-    def _safe_zero_sync(self, *, abort_check, on_progress=None) -> dict:
+    def _safe_zero_sync(self, *, abort_check, on_progress=None,
+                        allow_loaded_blend: bool = False) -> dict:
         """Plan + execute the collision-aware go-to-zero SYNCHRONOUSLY.
 
         Runs in the caller's worker thread; claims no job slot and
@@ -266,9 +268,11 @@ class ZeroApi:
             if on_progress:
                 on_progress({"msg": "tipped on a trapped leg — "
                                     "low-torque untrap fold first"})
+            self._untrap_fold_mono = time.monotonic()
             untrap = run_untrap_tuck(self.drive.bus,
                                      abort_check=abort_check,
                                      on_progress=on_progress)
+            allow_loaded_blend = True   # our own fold: chassis is down
             if not untrap.get("ok"):
                 return {"ok": False, "limp": bool(untrap.get("limp")),
                         "untrap": untrap, "pinned_tip": verdict,
@@ -279,7 +283,8 @@ class ZeroApi:
             return {"ok": False,
                     "error": ("no encoder reading from " + ", ".join(
                         joint_label(j, self.names) for j in missing))}
-        plan = plan_safe_zero(present, ground_z_mm=belly_ground_z_mm())
+        plan = plan_safe_zero(present, ground_z_mm=belly_ground_z_mm(),
+                              allow_loaded_blend=allow_loaded_blend)
         if not plan.get("ok"):
             if untrap is not None:
                 plan["untrap"] = untrap
@@ -352,7 +357,62 @@ class ZeroApi:
         # tibias twice on 2026-09-10; the 20 % torque untrap fold first
         # lets the pinned tibias slide out, then safe_zero is routine.
         present, missing = self._present_pose18()
-        if not missing and self._folded_under_signature(present):
+        # 2026-09-11: the fold signature alone is NOT enough. A level robot
+        # standing tall on vertical tibias (hips negative, knees > 90 after a
+        # hand reposition / RL hold) has the same joint medians as the tuck,
+        # and folding it dropped the chassis, after which safe_zero's loaded
+        # blend lifted and dropped it again (on video, twice). The fold path
+        # now needs evidence that the robot is actually down on folded legs:
+        # the read-only tip detector, or an untrap fold we ran ourselves.
+        tilt_deg = None
+        pinned = False
+        verdict: dict = {}
+        try:
+            from pinned_tip import check_pinned_tip
+            verdict = check_pinned_tip(d.bus) or {}
+            if verdict.get("tilt_deg") is not None:
+                tilt_deg = float(verdict["tilt_deg"])
+            pinned = bool(verdict.get("pinned") or verdict.get("tipped"))
+        except Exception:
+            verdict = {}
+        route, why = ("safe_zero", "pose unreadable")
+        if not missing:
+            route, why = self._stand_route_decision(
+                present, tilt_deg=tilt_deg, pinned=pinned,
+                fold_recent=self._fold_recent())
+            if kind != "stand" and route == "glide":
+                route, why = "safe_zero", why + " (zero requested)"
+        try:
+            from event_log import emit
+            emit("stand_route", f"{kind}: {route} — {why}", data={
+                "kind": kind, "route": route, "why": why,
+                "present_deg": [None if v is None else round(v, 1)
+                                for v in present],
+                "tilt_deg": tilt_deg, "pinned": pinned,
+                "fold_recent": self._fold_recent(),
+                "standing": bool(kind == "stand" and standing)},
+                level="info")
+        except Exception:
+            pass
+        _prog({"msg": f"acquiring start: route {route} ({why})"})
+        if route == "glide":
+            res = self._step_to_rl_walk_ready_start_sync(
+                abort_check=self._demo_abort.is_set,
+                on_progress=on_progress)
+            if not res.get("ok"):
+                # No fallback into the fold / loaded-blend path: a glide
+                # that fails on an upright robot leaves it holding, which
+                # beats a planner that drops it.
+                return {"ok": False, "acquired": acquired,
+                        "limp": bool(res.get("limp")),
+                        "error": ("upright but unrecognised stance; the "
+                                  "walk-ready glide failed: "
+                                  + str(res.get("error") or "failed")
+                                  + ". Not folding a standing robot — "
+                                  "check the legs / lower with STEP-down.")}
+            return {"ok": True, "acquired": ["glide_unclassified_upright"],
+                    "route_why": why, **res}
+        if route == "fold":
             try:
                 from pinned_tip import run_untrap_tuck
             except ImportError:
@@ -360,6 +420,7 @@ class ZeroApi:
             if run_untrap_tuck is not None:
                 _prog({"msg": "acquiring start: legs folded under — "
                               "low-torque untrap fold first…"})
+                self._untrap_fold_mono = time.monotonic()
                 ru = run_untrap_tuck(d.bus,
                                      abort_check=self._demo_abort.is_set,
                                      on_progress=_prog)
@@ -374,7 +435,8 @@ class ZeroApi:
         # on stall or unexpected force).
         _prog({"msg": "acquiring start: safe zero…"})
         rz = self._safe_zero_sync(abort_check=self._demo_abort.is_set,
-                                  on_progress=_prog)
+                                  on_progress=_prog,
+                                  allow_loaded_blend=("untrap" in acquired))
         if not rz.get("ok"):
             why = (rz.get("error")
                    or ("aborted" if rz.get("aborted") else "failed"))
@@ -413,6 +475,66 @@ class ZeroApi:
                         "error": f"could not reach walk-ready start: {why}"}
             acquired.append("sim_walk_start")
         return {"ok": True, "acquired": acquired}
+
+    FOLD_EVIDENCE_S = 900.0     # an untrap fold we ran counts this long
+
+    def _fold_recent(self) -> bool:
+        t = getattr(self, "_untrap_fold_mono", None)
+        return t is not None and (time.monotonic() - t) < self.FOLD_EVIDENCE_S
+
+    @staticmethod
+    def _stand_route_decision(present: list, *, tilt_deg: float | None,
+                              pinned: bool, fold_recent: bool,
+                              ground_z_mm: float | None = None
+                              ) -> tuple[str, str]:
+        """Pure routing for a pose the upright classifier rejected.
+
+        Returns ``(route, why)`` with route one of:
+
+        * ``fold``      — low-torque untrap fold, then safe_zero (loaded
+                          blend allowed). Only with EVIDENCE the robot is
+                          down on folded legs: tip detector, or an untrap
+                          fold we ran within ``FOLD_EVIDENCE_S``.
+        * ``glide``     — level robot whose modelled feet are well below
+                          the belly plane: it is standing on its legs in a
+                          stance we do not recognise. Step it to walk-ready
+                          (tripod glide) — never fold, never blend.
+        * ``safe_zero`` — belly-ish / unknown: collision-aware planner
+                          (which itself refuses loaded blends now).
+
+        The joint model cannot tell a tall high-knee stance from the tuck
+        (both: hips negative, knees deep), so the fold shape without
+        evidence and with a level IMU is treated as STANDING. Without an
+        IMU reading the legacy fold route is kept for the fold shape.
+        """
+        try:
+            from safe_zero import (BELLY_GROUND_Z_MM, STAND_DETECT_MM,
+                                   fold_family, median_foot_z_mm)
+        except ImportError:
+            return "safe_zero", "safe_zero planner unavailable"
+        gz = BELLY_GROUND_Z_MM if ground_z_mm is None else ground_z_mm
+        folded = fold_family(present)
+        level = tilt_deg is not None and abs(float(tilt_deg)) < 12.0
+        try:
+            mz = median_foot_z_mm(present)
+        except (TypeError, ValueError):
+            return "safe_zero", "pose unreadable"
+        modelled_stand = mz < gz - STAND_DETECT_MM
+        if folded and (pinned or fold_recent):
+            return "fold", ("folded-under shape with "
+                            + ("tip-detector" if pinned else "recent untrap")
+                            + " evidence")
+        if folded and tilt_deg is None:
+            return "fold", "folded-under shape, no IMU to rule out a tuck"
+        if level and (modelled_stand or folded):
+            return "glide", (f"level ({tilt_deg:.0f}°), median foot "
+                             f"{-mz:.0f} mm below hip pivot, no tip/untrap "
+                             "evidence: standing in an unrecognised stance")
+        if folded:
+            return "fold", f"folded-under shape, tilted {tilt_deg:.0f}°"
+        return "safe_zero", (f"median foot {-mz:.0f} mm below hip pivot"
+                             + ("" if tilt_deg is None else
+                                f", tilt {tilt_deg:.0f}°"))
 
     @staticmethod
     def _folded_under_signature(present: list) -> bool:
@@ -487,6 +609,7 @@ class ZeroApi:
             self._cal_result = None
             self._cal_progress = {"msg": "untrap: starting"}
         self._set_activity("zeroing", "untrap (low-torque fold)")
+        self._untrap_fold_mono = time.monotonic()
 
         def _worker():
             d = self.drive
@@ -571,8 +694,10 @@ class ZeroApi:
         (``run_safe_zero``).
 
         ``dry_run=True`` returns the plan without any motion.
-        ``force`` bypasses only the IMU tilt gate — never the
-        geometric feasibility or wrong-zero refusals.
+        ``force`` bypasses the IMU tilt gate and (09-11) permits the
+        planner's full-torque straighten blend from a standing pose,
+        which is otherwise refused (``code: standing_no_descent``) —
+        never the geometric feasibility or wrong-zero refusals.
         """
         try:
             import math as _math
@@ -654,7 +779,8 @@ class ZeroApi:
             res["standing"] = standing
             return res
 
-        plan = plan_safe_zero(present, ground_z_mm=belly_ground_z_mm())
+        plan = plan_safe_zero(present, ground_z_mm=belly_ground_z_mm(),
+                              allow_loaded_blend=bool(force))
         plan["present_deg"] = [round(v, 2) for v in present]
         if tilt is not None:
             plan["tilt_deg"] = round(tilt, 1)

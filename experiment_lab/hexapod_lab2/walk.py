@@ -167,6 +167,7 @@ class Session:
     notes: List[str] = field(default_factory=list)
     camera_index: Optional[int] = None
     frame_size: Optional[tuple] = None
+    seen_camera: Optional[int] = None
 
     @property
     def robot(self) -> str:
@@ -251,22 +252,28 @@ class Session:
         return PoseSample(t, leg_name, pos.get("x"), pos.get("y"), yaw, tracked=True)
 
     def pixel(self) -> Optional[tuple]:
-        """Tag 0's pixel centre as a fraction of the frame, from the tracking camera."""
-        if self.camera_index is None:
-            return None
+        """Tag 0's pixel centre as a fraction of the frame.
+
+        From the tracking camera when a marker has told us which one; before
+        that, from whichever streaming camera decodes tag 0 (the top camera).
+        Works whether or not the view is floor-calibrated, so the frame-edge
+        stop and the 'seen but not tracked' distinction do not depend on
+        calibration."""
         try:
             doc = self.get(f"{self.camera}/api/detections.json")
         except Exception:  # noqa: BLE001
             return None
-        for c in (doc or {}).get("cameras") or []:
-            if int(c.get("index", -1)) != self.camera_index:
-                continue
+        cams = (doc or {}).get("cameras") or []
+        if self.camera_index is not None:
+            cams = [c for c in cams if int(c.get("index", -1)) == self.camera_index]
+        for c in cams:
             corners = (c.get("tags") or {}).get("0")
             if not corners or not c.get("width") or not c.get("height"):
-                return None
+                continue
             cx = sum(p[0] for p in corners) / 4.0 / float(c["width"])
             cy = sum(p[1] for p in corners) / 4.0 / float(c["height"])
             self.frame_size = (int(c["width"]), int(c["height"]))
+            self.seen_camera = int(c.get("index", -1))
             return cx, cy
         return None
 
@@ -343,27 +350,34 @@ def _stream(s: Session, leg: Leg, writers: dict, st: Dict[str, Any], t0: float) 
         if now - last_pose_at >= POSE_EVERY_S:
             last_pose_at = now
             p = s.pose(leg.name)
-            frac = s.pixel() if p.tracked else None
+            frac = s.pixel()
             if frac:
                 p.px, p.py = round(frac[0], 3), round(frac[1], 3)
             st["poses"].append(p)
             writers["pose"].writerow([round(p.t, 3), leg.name, p.x, p.y, p.yaw, p.px, p.py])
+            if s.near_edge(frac):
+                st["reason"] = "frame_edge"
+                s.notes.append(f"{leg.name}: stopped early, robot near the edge of the camera's view")
+                return
             if p.tracked:
                 if st["lost_since"] is not None:
                     st["tag_lost_s"] += now - st["lost_since"]
                     st["lost_since"] = None
-                if s.near_edge(frac):
-                    st["reason"] = "frame_edge"
-                    s.notes.append(f"{leg.name}: stopped early, robot near the edge of the camera's view")
-                    return
             else:
                 if st["lost_since"] is None:
                     st["lost_since"] = now
                 elif now - st["lost_since"] > TAG_LOST_S:
                     st["tag_lost_s"] += now - st["lost_since"]
                     st["lost_since"] = None
-                    st["reason"] = "tag_lost"
-                    s.notes.append(f"{leg.name}: stopped early, chassis tag hidden for {TAG_LOST_S:.0f} s")
+                    if frac:
+                        # The tag is in the picture but the view has no floor calibration:
+                        # the robot is standing on the floor tags, or none is in frame.
+                        st["reason"] = "uncalibrated"
+                        s.notes.append(f"{leg.name}: stopped early, chassis tag seen by camera {s.seen_camera} "
+                                       f"but the view has no floor calibration (floor tags covered or out of frame)")
+                    else:
+                        st["reason"] = "tag_lost"
+                        s.notes.append(f"{leg.name}: stopped early, chassis tag hidden for {TAG_LOST_S:.0f} s")
                     return
         if now - last_fb_at >= FEEDBACK_EVERY_S:
             last_fb_at = now

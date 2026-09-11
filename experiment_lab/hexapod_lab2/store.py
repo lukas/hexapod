@@ -322,6 +322,26 @@ class Store:
             "SELECT * FROM learnings ORDER BY created_at DESC, rowid DESC LIMIT ?", (limit,))
         return [dict(r) for r in rows]
 
+    def learnings_for_run(self, run_id: str) -> List[Dict[str, Any]]:
+        """Every paragraph filed against a run, oldest first: the loop's own
+        finding, then whatever analysis was added later (by hand, by an
+        outside assistant through /mcp, by a later session)."""
+        return [dict(r) for r in self.con.execute(
+            "SELECT id, created_at, text FROM learnings WHERE run_id=? ORDER BY created_at, rowid", (run_id,))]
+
+    def ensure_run_dir(self, run_id: str, runs_dir: Path) -> Optional[Path]:
+        """A run's folder, created if the run never had one (held, unreachable,
+        imported without files) so analysis files can be attached."""
+        run = self.run(run_id)
+        if not run:
+            return None
+        root = Path(run["run_dir"]) if run.get("run_dir") else runs_dir / run_id
+        root.mkdir(parents=True, exist_ok=True)
+        if not run.get("run_dir"):
+            self.con.execute("UPDATE runs SET run_dir=? WHERE id=?", (str(root), run_id))
+            self.con.commit()
+        return root
+
     def learning_for_run(self, run_id: str) -> Optional[str]:
         row = self.con.execute(
             "SELECT text FROM learnings WHERE run_id=? ORDER BY created_at DESC LIMIT 1",

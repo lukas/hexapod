@@ -121,9 +121,12 @@ def render(store: Store, settings: Settings, robot: Optional[str] = None) -> str
         out.append("<article><p>Empty. The loop will ask the planner next.</p></article>")
     out.append("<h3>Runs</h3>")
     for r in store.runs(limit=20, robot=robot):
-        found = store.learning_for_run(r["id"])
-        point = (f"<p class=point><b>Found</b>{escape(first_sentences(found, 320))}</p>" if found
+        notes = store.learnings_for_run(r["id"])
+        point = (f"<p class=point><b>Found</b>{escape(first_sentences(notes[0]['text'], 320))}</p>" if notes
                  else f"<p class=point><b>Why</b>{escape(first_sentences(r['why'], 240))}</p>")
+        for n in notes[1:]:
+            point += (f"<p class=point><b>Analysis</b><small>{escape(local_stamp(n['created_at']))}</small> "
+                      f"{escape(first_sentences(n['text'], 400))}</p>")
         tail = escape((r.get("log_tail") or "")[-1200:])
         robot_tag = f"<span class='tag robot'>{escape(r['robot'])}</span>" if r.get("robot") != "hexapod1" else ""
         try:
@@ -136,9 +139,12 @@ def render(store: Store, settings: Settings, robot: Optional[str] = None) -> str
                      if summary.get("seen") and not str(summary["seen"]).startswith("(") else "")
         video_link = (f" · <a href='/v2/runs/{r['id']}/wide.mp4'>video</a>" if summary.get("video") else "")
         files = store.run_files(r["id"])
+        # Hand-run experiments list every file; protocol runs list only what
+        # was attached afterwards (the runner's dataset folder is one link).
+        shown = [f for f in files if not f.startswith("runner.log")
+                 and (not r.get("protocol") or not f.startswith(("wide", r["protocol"])))]
         links = (" · " + " ".join(
-            f"<a href='/v2/runs/{r['id']}/{escape(f)}'>{escape(f)}</a>" for f in files if not f.startswith("runner.log"))
-            ) if files and not r.get("protocol") else ""
+            f"<a href='/v2/runs/{r['id']}/{escape(f)}'>{escape(f)}</a>" for f in shown)) if shown else ""
         detail = (f"<details><summary>runner log</summary><pre>{tail}</pre></details>" if tail else "")
         out.append(f"<article>{robot_tag}<span class='tag {r['status']}'>{r['status']}</span><h2>{escape(r['title'])}</h2>{point}{seen_html}"
                    f"<small>{escape(r['protocol'] or ('unplanned' if summary.get('recovery') else 'hand-run'))} · {escape(local_stamp(r['started_at']))}"
@@ -151,6 +157,12 @@ def render(store: Store, settings: Settings, robot: Optional[str] = None) -> str
             for e in events) + "</article>")
     out.append("</main>")
     return "".join(out)
+
+
+class FindingIn(BaseModel):
+    """Further analysis of a run that already happened: a paragraph, filed
+    with the run and read by the planner like any other learning."""
+    text: str = Field(min_length=1, max_length=6000)
 
 
 class ImportIn(BaseModel):
@@ -178,18 +190,29 @@ def build_router(viewer_dependency: Callable, operator_dependency: Optional[Call
                            source_dir=None, runs_dir=settings.runs_dir, status=spec.status)
         return {"run_id": rid, "files_url": f"/v2/api/runs/{rid}/files/", "page": f"/v2/?robot={spec.robot}"}
 
+    @router.post("/api/runs/{run_id}/findings", status_code=201)
+    def add_finding(run_id: str, spec: FindingIn, _=Depends(operator_dependency)):
+        s = store()
+        if not s.run(run_id):
+            raise HTTPException(404, "unknown run")
+        lid = s.add_learning(spec.text.strip(), run_id=run_id)
+        return {"run_id": run_id, "learning_id": lid, "findings": len(s.learnings_for_run(run_id))}
+
     @router.put("/api/runs/{run_id}/files/{filename}", status_code=201)
     async def upload_file(run_id: str, filename: str, request: Request, _=Depends(operator_dependency)):
+        # Any run can take more files after the fact (an analysis plot, a
+        # phone clip, a CSV somebody derived). Existing files are never
+        # overwritten: the runner's own artifacts stay as recorded.
         s = store()
-        run = s.run(run_id)
-        if not run or not json.loads(run.get("summary_json") or "{}").get("imported"):
-            raise HTTPException(404, "not an imported run")
-        # Body streams to disk in chunks; a phone video should not sit in RAM.
-        root = Path(run["run_dir"])
+        root = s.ensure_run_dir(run_id, settings.runs_dir)
+        if root is None:
+            raise HTTPException(404, "unknown run")
         name = Path(filename).name
         if not name or name.startswith(".") or name == "runner.log":
             raise HTTPException(400, "bad filename")
-        root.mkdir(parents=True, exist_ok=True)
+        if (root / name).exists():
+            raise HTTPException(409, f"{name} already exists on this run")
+        # Body streams to disk in chunks; a phone video should not sit in RAM.
         size = 0
         with (root / name).open("wb") as out:
             async for chunk in request.stream():

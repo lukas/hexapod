@@ -1,4 +1,8 @@
 #!/bin/sh
+# Launcher for the Robot Lab web service (com.lbiewald.hexapod-lab): the v2
+# dashboard, JSON API, artifacts and /mcp on 127.0.0.1:8767, fronted by the
+# Caddy tunnel at https://robot-lab.cwd1f0-new-cluster.coreweave.app. The
+# loop itself is the separate com.lbiewald.hexapod-lab2 service (run-lab2.sh).
 set -eu
 umask 077
 
@@ -9,9 +13,11 @@ ASSISTANTS_TOKEN="$(/usr/bin/security find-generic-password -a assistants -s 'He
 MOBILE_TOKEN="$(/usr/bin/security find-generic-password -a viewer -s 'Hexapod Research Mobile' -w)"
 export HEXAPOD_API_KEYS="operator:operator:${LAB_TOKEN},operator:assistants:${ASSISTANTS_TOKEN},viewer:iphone:${MOBILE_TOKEN}"
 unset LAB_TOKEN ASSISTANTS_TOKEN MOBILE_TOKEN
-# Keep the existing shared Basic credential for clients that use it.
-# Browser SSO is verified separately below; forward_auth supplies no password.
-# ~/.hexapod/web-login holds "user" then "password", mode 0600.
+# The public site is fronted by Caddy with the one shared lab login. Caddy
+# forwards that Basic header unchanged, and the Lab accepts
+# Basic <name>:<token>, so registering the same credential as an operator key
+# makes it sign in here too -- no second form. ~/.hexapod/web-login holds
+# "user" then "password" on two lines, mode 0600.
 WEB_LOGIN_FILE="/Users/lukas/.hexapod/web-login"
 if [ -s "$WEB_LOGIN_FILE" ]; then
   WEB_LOGIN_USER="$(sed -n 1p "$WEB_LOGIN_FILE")"
@@ -22,9 +28,9 @@ if [ -s "$WEB_LOGIN_FILE" ]; then
   unset WEB_LOGIN_USER WEB_LOGIN_PASS
 fi
 export HEXAPOD_API_KEYS
-# The controller signs hexapod_sso; verify it in the Lab rather than trusting
-# client-spoofable X-Hexapod-User headers. Provision the existing signing secret
-# as described in README.md. Without it, existing local/API login still works.
+
+# Browser single sign-on: verify the controller-signed hexapod_sso cookie
+# directly (see hexapod_lab2/sso.py). Same secret as the controller pod.
 SSO_SECRET_FILE="${HEXAPOD_SSO_SECRET_FILE:-/Users/lukas/.hexapod/sso-secret}"
 if [ -s "$SSO_SECRET_FILE" ]; then
   export HEXAPOD_SSO_SECRET_FILE="$SSO_SECRET_FILE"
@@ -32,29 +38,9 @@ if [ -s "$SSO_SECRET_FILE" ]; then
   export HEXAPOD_SSO_COOKIE_DOMAIN="${HEXAPOD_SSO_COOKIE_DOMAIN:-.cwd1f0-new-cluster.coreweave.app}"
 fi
 unset SSO_SECRET_FILE
-# The Lab renders the active backend on its pages and in /api/stats, so it
-# must read the same switch the orchestrator does. Without this the UI claims
-# Codex while Claude is doing the work.
-AGENT_PROVIDER="codex"
-PROVIDER_FILE="/Users/lukas/Library/Application Support/Hexapod Lab/agent-provider"
-if [ -f "$PROVIDER_FILE" ]; then
-  AGENT_PROVIDER="$(tr -d '[:space:]' < "$PROVIDER_FILE")"
-fi
-export HEXAPOD_AGENT_PROVIDER="$AGENT_PROVIDER"
-export HEXAPOD_CLAUDE_MODEL="${HEXAPOD_CLAUDE_MODEL:-claude-opus-5}"
-export HEXAPOD_CLAUDE_EFFORT="${HEXAPOD_CLAUDE_EFFORT:-high}"
 
-export HEXAPOD_DATA_DIR="/Users/lukas/Library/Application Support/Hexapod Lab/data"
 export HEXAPOD_BIND="127.0.0.1"
 export HEXAPOD_PORT="8767"
 export HEXAPOD_PUBLIC_BASE_URL="https://robot-lab.cwd1f0-new-cluster.coreweave.app"
-export HEXAPOD_DRIVER="simulated"
-# This setting is parsed as an argv; keep the executable path shell-quoted
-# inside the value because the Application Support path contains spaces.
-export HEXAPOD_TAG_AUDIT_COMMAND="'/Users/lukas/Library/Application Support/Hexapod Lab/venv/bin/hexapod-audit-layout'"
-export HEXAPOD_TAG_LAYOUT="/Users/lukas/Library/Application Support/Hexapod Lab/tag-scan-config/hexapod-1-apriltag-layout.json"
-export HEXAPOD_TAG_POSE_TEMPLATE="/Users/lukas/Library/Application Support/Hexapod Lab/tag-scan-config/apriltag_pose_config_20260831.json"
-export HEXAPOD_TAG_FLOOR_MAP="/Users/lukas/Library/Application Support/Hexapod Lab/tag-scan-config/floor_tag_map.json"
-export HEXAPOD_TAG_PART_MAP="/Users/lukas/Library/Application Support/Hexapod Lab/tag-scan-config/hexapod_tag_map.json"
-
+# Same data as the loop: ~/Library/Application Support/Hexapod Lab/v2 (default).
 exec "/Users/lukas/Library/Application Support/Hexapod Lab/venv/bin/hexapod-lab"

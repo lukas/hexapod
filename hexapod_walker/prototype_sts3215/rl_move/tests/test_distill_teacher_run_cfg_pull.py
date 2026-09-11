@@ -141,6 +141,32 @@ def test_merge_teacher_cfgs_explicit_resolves_conflict():
     assert walk["safety.max_delta_q_deg"] == 0.75
 
 
+def test_merge_teacher_cfgs_raises_on_one_sided_global_reward_key():
+    """standwalk STATUS 2026-09-11 ~22:1x: a GLOBAL (mode-agnostic)
+    reward key set by only ONE teacher (e.g. the stance teacher's own
+    `k_current_hot` fix) must not silently leak into the other
+    teacher's collection env -- that changes a reward function the
+    other teacher never trained with, without raising anything, since
+    the key isn't a genuine two-sided conflict."""
+    stance_pulled = {"reward.k_current_hot": 12.0,
+                     "reward.current_hot_a": 2.3}
+    walk_pulled = {"goal.walk_phase_obs": 1.0}
+    with pytest.raises(SystemExit, match="GLOBAL"):
+        merge_teacher_cfgs(stance_pulled, walk_pulled, {}, {})
+
+
+def test_merge_teacher_cfgs_explicit_resolves_one_sided_global_reward_key():
+    stance_pulled = {"reward.k_current_hot": 12.0,
+                     "reward.current_hot_a": 2.3}
+    walk_pulled = {"goal.walk_phase_obs": 1.0}
+    explicit = {"reward.k_current_hot": 0.0, "reward.current_hot_a": 0.0}
+    stance, walk = merge_teacher_cfgs(stance_pulled, walk_pulled, explicit,
+                                      {})
+    assert stance["reward.k_current_hot"] == 0.0
+    assert walk["reward.k_current_hot"] == 0.0
+    assert stance["goal.walk_phase_obs"] == 1.0
+
+
 def test_merge_teacher_cfgs_unions_non_conflicting_keys_both_ways():
     """standwalk STATUS 2026-09-11 ~21:5x: a stance-only teacher and a
     walk-only teacher whose pulled cfgs share NO conflicting keys must

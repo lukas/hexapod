@@ -178,6 +178,26 @@ def pull_teacher_run(run: str) -> dict:
             "status": entry.get("status")}
 
 
+# standwalk STATUS 2026-09-11 ~22:1x binding: these reward keys live on
+# the SHARED base env class (sim_env.py), fire in EVERY goal mode
+# regardless of which teacher's ledger entry set them, and all default
+# to 0.0 (off) when absent. A teacher that never set one trained at
+# 0.0; silently inheriting the OTHER teacher's nonzero value through
+# the union (no raised conflict, because only one side even has the
+# key) changes that teacher's own reward function post-hoc for BC
+# collection -- exactly the `k_current_hot=12.0` leak this entry's own
+# diag tool run measured swinging replay return by several hundred
+# points. Treat "present on exactly one side" as a conflict against
+# that key's implicit default (0.0) requiring the same explicit
+# --cfg-set resolution as a genuine value disagreement.
+GLOBAL_MODE_AGNOSTIC_REWARD_KEYS = (
+    "reward.k_current_hot", "reward.current_hot_a",
+    "reward.k_support_margin", "reward.k_load_even",
+    "reward.k_torque_headroom", "reward.term_cost_per_remaining_s",
+    "reward.term_cost_max",
+)
+
+
 def merge_teacher_cfgs(stance_pulled: dict | None, walk_pulled: dict | None,
                        explicit: dict, structural: dict
                        ) -> tuple[dict, dict]:
@@ -234,6 +254,26 @@ def merge_teacher_cfgs(stance_pulled: dict | None, walk_pulled: dict | None,
             "\nResolve on purpose with --cfg-set <key>=<value> (forces "
             "that value on BOTH sides), or pick a different teacher "
             "pairing that actually agrees on these axes.")
+    one_sided = [
+        (k, stance_pulled[k] if k in stance_pulled else walk_pulled[k],
+         "stance" if k in stance_pulled else "walk")
+        for k in GLOBAL_MODE_AGNOSTIC_REWARD_KEYS
+        if k not in explicit
+        and (k in stance_pulled) != (k in walk_pulled)]
+    if one_sided:
+        lines = "\n".join(
+            f"  {k}: only {side} set it (={v!r}); the other teacher "
+            f"trained at the implicit default (usually 0.0/off)"
+            for k, v, side in one_sided)
+        raise SystemExit(
+            "--stance-teacher-run/--walk-teacher-run cfg conflict -- "
+            "these keys are GLOBAL (fire in every goal mode, sim_env.py "
+            "base class), so inheriting one teacher's value would "
+            "silently change the OTHER teacher's own reward function "
+            "for BC collection:\n" + lines +
+            "\nResolve on purpose with --cfg-set <key>=<value> (e.g. ="
+            "0.0 to keep both sides at the teacher that never used it, "
+            "or the shared nonzero value if both should carry it).")
     union = {**stance_pulled, **walk_pulled, **structural, **explicit}
     return dict(union), dict(union)
 

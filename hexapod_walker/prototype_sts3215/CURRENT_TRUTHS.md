@@ -1,5 +1,44 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## `cont2m` continuation recovered hold/lower but rise clause still fails — a DIFFERENT signature (footprint-mismatch, zero over-current), not the original freeze; mechanism-fix rebuild launched (2026-09-10 ~23:5x, standwalk track)
+
+One plain sentence: the +2M continuation below (`cw-stand50hz-stance-
+tuckclock-scratch6m-dqfix-cont2m`) genuinely recovered hold/lower
+(det+sto 6/6+6/6 zero-term, herr back to 0.6-4.0mm, all in-band) but
+its rise clause on the literal flat-pinned probe (`goal.rise_flat_
+frac=1.0/partial=0/rsi=0`, on-pod, det+sto n=6 each) came back 0/12
+valid_plant — WORSE than the pre-crash checkpoint's own 11/12 on the
+identical probe, and with a different failure signature than the
+config-bug freeze this whole lineage started from: zero over-current
+pinning (satisfies that sub-clause) but a clean, near-variance-free
+`footprint` miss in all 12/12 episodes (every foot lands ~-25.5mm off
+clearance, XY footprint outside the 40mm walkable band, every single
+episode) while height (7-10mm) and roll (<=0.5deg) are both fine — a
+converged-but-wrong stance geometry, not a fall/freeze. Verdicted FAIL
+per the run's own pre-registered gate text ("any clause still failing
+=> flag for a std-floor/clip-range mechanism fix, do not re-launch a
+third blind continuation") — this is the gate's own named
+prediction-if-false branch, not a fresh ambiguous result. Launched a
+**from-scratch** rebuild (never another continuation of the crashed
+checkpoint), `cw-stand50hz-stance-tuckclock-scratch6m-stdfloor2`:
+identical corrected-slew recipe, single lever changed
+(`--log-std-final -4.0 -> -2.0` — the original floor was more
+aggressive than both the launcher's own -3.0 acquisition-phase default
+and the -2.0 several successful walkcurr recipes use, and is the most
+direct candidate lever given the crash coincided exactly with std
+sitting pinned at that floor for 3M steps) plus `--snapshot-every=
+500000` (retention safeguard). Same flat-pinned-probe gate as the
+whole lineage. VERIFIED RUNNING `hexapod-mjx-train-5`. If this ALSO
+fails the rise clause, the std floor is refuted as the causal lever —
+next candidates are a tail clip-range schedule (new code, not yet
+built) or a repriced footprint/current reward term, not a further
+single-lever guess. Recorded as an assume-and-go decision:
+`q_20260910T2350Z` in `OPERATOR_QUESTIONS.md`. Evidence: `ops.sh entry
+cw-stand50hz-stance-tuckclock-scratch6m-dqfix-cont2m` (FAIL verdict);
+`logs/ckpt_eval/ppo_goal_cw_stand50hz_stance_tuckclock_scratch6m_
+dqfix_cont2m_flatprobe/report.json` vs `logs/ckpt_eval/cw_stand50hz_
+stance_tuckclock_scratch6m_dqfix_flatprobe/report.json`; W&B `8bbxpk8e`.
+
 ## Stand/lower 50Hz dqfix relaunch's hold/lower regression root-caused to a LATE-TRAINING PPO INSTABILITY EVENT, not a units/reward-pricing artifact — CONTINUE, not FAIL (2026-09-10 ~23:3x, standwalk track)
 
 One plain sentence: on `cw-stand50hz-stance-tuckclock-scratch6m-dqfix`

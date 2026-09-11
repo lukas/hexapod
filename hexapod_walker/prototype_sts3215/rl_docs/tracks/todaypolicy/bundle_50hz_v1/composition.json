@@ -1,0 +1,57 @@
+{
+  "schema": "hexapod.todaypolicy_bundle.v1",
+  "name": "todaypolicy-50hz-v1",
+  "order": "op_20260910_50hz",
+  "control_hz": 50,
+  "roles": {
+    "stand_lower": {
+      "default": {
+        "run": "cw-stand50hz-stance-tuckclock-scratch6m-dqfix-retention-s1-exploreresettle-budget6m-cont6m2-curhot-b23k12",
+        "export": "linux_control/policies/stand50hz_stance_tuckclock_scratch6m_curhot_b23k12.json",
+        "obs_dim": 68,
+        "type": "learned",
+        "known_limit": "1/12 rise over_current (mixed-start DR-0); 2/12 tilt_roll falls (own-DR 0.2 hold/sto + lower/sto)"
+      },
+      "fallback": {
+        "type": "scripted",
+        "controller": "standup_modes.json tuck (fwd/reverse)"
+      }
+    },
+    "walk_straight": {
+      "default": {
+        "run": "cw-walk50hz-allheading-mlp-singleframe-scratch-acq20m",
+        "export": "linux_control/policies/walk_allheading_mlp_singleframe_scratch_50hz.json",
+        "obs_dim": 74,
+        "det_progress_ratio_med": 0.41,
+        "det_slip_med": 2.19
+      },
+      "alternate": {
+        "run": "cw-walk50hz-teach-scripted-allhead-scratch-acq10m-cont15m",
+        "export": "linux_control/policies/walkteach_scripted_allhead_scratch_50hz.json",
+        "det_progress_ratio_med": 0.38,
+        "det_slip_med": 2.57
+      }
+    },
+    "walk_turn_capable": {
+      "default": {
+        "run": "cw-turn50hz-standwalk-cap29-stdwalklohi-warmadapt-canary2m-acq1",
+        "export": "linux_control/policies/turn50hz_standwalk_cap29_stdwalklohi_warmadapt_canary2m_acq1.json",
+        "wz_med_rad_s": [0.191, -0.191],
+        "det_progress_ratio_med": 0.27,
+        "det_slip_med": 3.87,
+        "known_limit": "2/6 det + 1/6 sto hold_min_load falls"
+      },
+      "alternate_seed": {
+        "run": "cw-turn50hz-standwalk-cap29-stdwalklohi-warmadapt-canary2m-s1-acq1",
+        "export": "linux_control/policies/turn50hz_standwalk_cap29_stdwalklohi_warmadapt_canary2m_s1_acq1.json"
+      },
+      "note": "not the bundle default walk role -- loads into the same rl_walk_weights.json slot as walk_straight; pick this one only when joystick turning is required."
+    }
+  },
+  "demo": {
+    "command": "ops.sh hybriddemo cw-walk50hz-allheading-mlp-singleframe-scratch-acq20m --stand-controller learned --lower-controller learned --stance-policy linux_control/policies/stand50hz_stance_tuckclock_scratch6m_curhot_b23k12.json --script human --policy-mode deterministic",
+    "artifacts": "logs/manual_drive/todaypolicy_bundle50hz_v1_stand_b23k12_walk_singleframe/",
+    "result": "terminated=false, sacrificed_legs=[], walk_gait_valid=true, walk_progress_ratio=0.402, cur_max_a=2.64A, roll_peak_abs_deg=3.62"
+  },
+  "hardware_acceptance": "NOT performed; Robot Lab guarded-runner lane per RL_GOALS.md"
+}

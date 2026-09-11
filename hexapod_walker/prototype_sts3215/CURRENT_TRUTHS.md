@@ -1,5 +1,46 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## `todaypolicy-50hz-v1` bundle assembled — op_20260910_50hz's 5-arm 50 Hz retrain fill (walk x2, turn x2, stand/sit x1) is now composed into one demoed sim bundle with an ALL-LEARNED stand/lower (2026-09-11 ~09:5x, todaypolicy/standwalk tracks, refill cycle)
+
+One plain sentence: every one of the 5 arms the operator's 50 Hz order named
+had already individually PASSED+exported by 09-11 ~09:2x, but nobody had
+exported the stand/lower role or composed the pieces into one reproducible
+demo — this cycle exported `curhot-b23k12` (the standwalk track's adopted 2M
+stance-retrain checkpoint, PASS with a documented residual) at 50 Hz and ran
+the first full learned-stand->walk->learned-lower composition at the
+deployable control rate.
+
+Evidence: `ops.sh hybriddemo cw-walk50hz-allheading-mlp-singleframe-scratch-
+acq20m --stand-controller learned --lower-controller learned --stance-policy
+linux_control/policies/stand50hz_stance_tuckclock_scratch6m_curhot_b23k12.json
+--script human --policy-mode deterministic` ->
+`logs/manual_drive/todaypolicy_bundle50hz_v1_stand_b23k12_walk_singleframe/`:
+`terminated=false`, `truncated=false`, `sacrificed_legs=[]`,
+`walk_gait_valid=true`, `walk_progress_ratio=0.402`, `cur_max_a=2.64A`
+(inside the resolved 50 Hz motor contract, `slew_limit_deg_s=37.5`
+preserved), `roll_peak_abs_deg=3.62`, `course_err_1s_med_deg=3.68`. Model
+`mesh`/`full_mesh`, 3.494 kg. Default walk role stays the straight-only
+singleframe recipe (matches the 100 Hz bundle precedent: better
+progress/slip, zero new falls vs the turn-capable alternate — see the
+matched-gate comparison table in the bundle's own GO_NOGO). The turn-capable
+`cap29-stdwalklohi-acq1` export (real, bar-clearing wz authority) is
+registered as a named alternate, not the default — the first time
+`todaypolicy`'s long-open "Arc/turn remains open" gap has a validated
+candidate at all, even though the quality/robustness tradeoff keeps it out
+of the default slot.
+
+Binding: this does NOT change the standwalk track's own open item — the
+structural per-leg torque-headroom/DR-robustness mechanism named by the
+entry immediately below is still unbuilt and still the track's next real
+lever; the bundle ships `curhot-b23k12` with its documented residual (1/12
+rise over_current mixed-start DR-0; 2/12 tilt_roll own-DR 0.2) rather than
+waiting for a perfect checkpoint, consistent with how every other exported
+candidate on this board (AMP, walkcurr rl_only) already ships with named
+known-limits. No physical robot contact; sim-only, Robot Lab's guarded
+runner owns hardware acceptance. Full writeup:
+`rl_docs/tracks/todaypolicy/bundle_50hz_v1/GO_NOGO.md`;
+`rl_docs/tracks/todaypolicy/bundle_50hz_v1/composition.json`.
+
 ## `curhot-b23k12-acq6m` FAIL — plain budget (2M->8M) regresses the guard-band's own over_current fix; budget-continuation escalation now closed on this residual, next lever is a structural torque-headroom/DR-robustness mechanism (2026-09-11 ~09:1x, standwalk track, refill cycle)
 
 One plain sentence: giving the PASSing 2M `curhot-b23k12` guard-band-price

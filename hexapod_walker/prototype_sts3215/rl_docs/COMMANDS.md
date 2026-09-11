@@ -446,29 +446,32 @@ report.json, and the W&B API for exactly these questions.
     trusting ANY ad-hoc pod probe that depends on recent code; `bash
     snapshot.sh --sync <pod>` first if it's behind (safe on an idle
     pod, never on one with a live trainer).
-17. **A `mesh`-source eval run LOCALLY on the controller silently
-    picks up a DIFFERENT, LIGHTER model than every GPU-pod
-    eval/training run** (2026-09-11, standwalk fprent/exploreresettle
-    triage): the controller has the gitignored full-STL mesh assets
-    checked out, so `resolve_model_source`'s default (`mesh`) loads
-    `variant=full_mesh` (**3.494 kg**) there — but every GPU pod (no
-    STL assets, where ALL training runs) transparently falls back to
-    `variant=mesh_mjx_twin` (**4.806 kg**, +37.5%). The two are
-    documented as "same kinematics/masses/inertia" (`servo_model.py`
-    docstring) but empirically are NOT — a real, still-open mass-audit
-    bug. Evaluating a checkpoint's OWN training-time behavior (any
-    flat-pinned probe, footprint/current/height gate, etc.) locally on
-    the controller without `--cfg-set env.model_source=mesh_mjx`
-    silently evaluates OFF the training distribution and can flip a
-    verdict (measured: one checkpoint read `footprint_err_end_mm`
-    ~23mm full_mesh vs ~83mm mesh_mjx_twin — PASS-looking vs clean
-    FAIL, same checkpoint, same seed, same cfg otherwise). Always add
-    `--cfg-set env.model_source=mesh_mjx` to any controller-run custom
-    eval of a pod-trained checkpoint, or run it via `kubectl exec`/
-    `ops.sh podeval` on a pod instead — per the standing rule, extra
-    evals belong on the run's own pod anyway. Evidence: `ops.sh entry
-    cw-stand50hz-stance-tuckclock-scratch6m-dqfix-retention-s1-fprent-
-    k0ctl-gentlestd` (verdict); CURRENT_TRUTHS.md 2026-09-11 ~06:5x.
+17. **FIXED 2026-09-11 (was: real, open mass-audit bug 09-11 06:5x..12:1x).**
+    A `mesh`-source eval run LOCALLY on the controller used to silently
+    pick up a DIFFERENT, LIGHTER model than every GPU-pod eval/training
+    run: the controller has the gitignored full-STL mesh assets checked
+    out, so `resolve_model_source`'s default (`mesh`) loaded
+    `variant=full_mesh` (3.494 kg) there — but every GPU pod (no STL
+    assets, where ALL training runs) transparently fell back to
+    `variant=mesh_mjx_twin`, which had drifted to **4.806 kg (+37.5%)**
+    since a stale regeneration committed 2026-09-03 (`a55173ab`, no
+    matching `build_mesh_model.py` change). ROOT-CAUSED + FIXED this
+    cycle: regenerated the checked-in twin via the (unmodified) checked-in
+    `mesh_mujoco/build_mesh_model.py` — both variants now compile to the
+    identical **3.490 kg**, matching the documented "same kinematics/
+    masses/inertia" contract again. `--cfg-set env.model_source=mesh_mjx`
+    is no longer required for MASS parity on a controller eval (contact
+    geometry — convex-hull vs fitted-primitive — still legitimately
+    differs by design, per the docstring, so still prefer `ops.sh podeval`/
+    `kubectl exec` for anything contact-sensitive). Full derivation, the
+    zero-training re-verification (the standwalk over_current saga very
+    likely was fighting this bug, not a real ceiling), and the regression
+    test hardened to catch any future re-drift
+    (`test_mesh_mjx_twin_builds_and_plants`, was `3.0<m<6.0`, now
+    `3.3<m<3.7`): `CURRENT_TRUTHS.md` 2026-09-11 ~12:1x (top entry).
+    Evidence: `ops.sh entry cw-stand50hz-stance-tuckclock-scratch6m-dqfix-
+    retention-s1-fprent-k0ctl-gentlestd` (verdict, original discovery);
+    `logs/ckpt_eval/massfix_verify/` (fix verification).
 
 18. **Pre-registered non-default probes: set `probe_args`, stop
     hand-running them.** If a run's registered gate is NOT the standard

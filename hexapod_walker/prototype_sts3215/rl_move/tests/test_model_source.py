@@ -72,11 +72,19 @@ def test_resolver_cfg_and_default(monkeypatch):
 
 def test_mesh_mjx_twin_builds_and_plants(monkeypatch):
     model = SM.build_model(source="mesh_mjx")
-    # the as-built mass correction rides with the mesh family
-    # as-built mass rides with the mesh family (legacy primitive is 2.1 kg);
-    # the exact value moves with CAD/BOM updates (3.5 kg Aug, 4.8 kg Sep), so
-    # only pin the family-level bound.
-    assert 3.0 < _total_mass(model) < 6.0, _total_mass(model)
+    # As-built mass is ~3.49 kg (legacy primitive is 2.104 kg) — pinned
+    # tighter than the old "3.0 < m < 6.0" family-level bound on purpose:
+    # that loose bound is exactly what let the checked-in twin drift to a
+    # stale 4.806 kg (+37.6%) for weeks (2026-09-03..09-11) without any
+    # CPU-only test failing, since `test_mesh_full_matches_twin_masses`
+    # below only runs on a machine with full-mesh STL assets generated
+    # (never true on a GPU pod / fresh checkout, i.e. never true for an
+    # actual training run). Re-widen only for a real, deliberate CAD/BOM
+    # mass change — and regenerate via `mesh_mujoco/build_mesh_model.py`
+    # in the SAME commit so this bound and the checked-in twin never
+    # diverge again (`CURRENT_TRUTHS.md` 2026-09-11 mass-audit-bug entry).
+    m = _total_mass(model)
+    assert 3.3 < m < 3.7, m
     data = mujoco.MjData(model)
     key = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_KEY, "plant")
     assert key >= 0, "plant keyframe missing from mesh_mjx twin"

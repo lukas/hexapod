@@ -128,7 +128,7 @@ def describe(frames: List[Path], context: str, *, model: str, api_key: str,
         "\n\nIn under 120 words: describe what the robot did over the run as a timeline, then anything that looks "
         "wrong (a leg folded under the body, the chassis tilted or propped, a foot slipping, a cable snag, a person "
         "in frame, the robot not where it started). Be concrete about which leg or side. If nothing moved, say so.")})
-    body = {"model": model, "max_tokens": 300, "messages": [{"role": "user", "content": content}]}
+    body = {"model": model, "max_tokens": 1200, "messages": [{"role": "user", "content": content}]}
     post = post or _post_messages
     doc = post(body, api_key)
     text = " ".join(part.get("text", "") for part in doc.get("content", []) if part.get("type") == "text").strip()
@@ -182,7 +182,9 @@ def ready_to_move(settings: Settings, *, post: Optional[Callable] = None, fetch:
         content.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
                                                     "data": base64.b64encode(jpeg).decode()}})
     content.append({"type": "text", "text": LOOK_QUESTION})
-    body = {"model": settings.eyes_model, "max_tokens": 120, "messages": [{"role": "user", "content": content}]}
+    # The model reasons before answering and that counts against max_tokens;
+    # 120 left "NO" and nothing else on 2026-09-11. Leave room for the sentence.
+    body = {"model": settings.eyes_model, "max_tokens": 600, "messages": [{"role": "user", "content": content}]}
     remaining = max(3.0, budget - (time.monotonic() - t0))
     try:
         doc = (post or _post_messages)(body, api_key, timeout=remaining)

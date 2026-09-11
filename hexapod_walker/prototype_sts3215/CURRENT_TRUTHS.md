@@ -1,5 +1,43 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## `curhot-b23k12-drwiden35` FAIL — widening training DR 0.2->0.35 makes the guard-band residual WORSE and adds a new fall class; DR-widening lever refuted, `k_load_even` remains the surviving structural candidate (2026-09-11 ~10:3x, standwalk track, refill cycle)
+
+One plain sentence: this run tested the OTHER named structural candidate from
+the 09-11 09:1x entry (widening training DR so the guard-band current price
+generalizes past its own 0.2 training window) as the cheapest version —
+`--dr-scale 0.2->0.35`, guard-band pricing/everything else unchanged — and it
+made things worse, not better. Own DR-0 `_gate` is unchanged vs parent
+b23k12 (1/12 rise `over_current`, fp 54.2mm vs parent's 55.6mm), but the
+own-DR `_owncfg` (re-run at this checkpoint's own training DR=0.35, per
+standing convention) goes from parent's 3 terminations/1 `over_current`
+(DR=0.2: rise/det over_current, hold/sto + lower/sto tilt_roll) to 5
+terminations/2 over_current at DR=0.35 (rise/det AND rise/sto both
+over_current, one fp blowing out to 82.4mm; lower/det tilt_roll x2) PLUS a
+brand-new failure class this lineage has never shown — `hold/sto`
+terminates on `hold_min_load`. Pooled `over_current` across gate+owncfg is
+3/24, over this run's own pre-registered <=1/24 PASS bar, and the new
+`hold_min_load` class alone trips the gate's "no new/worse fall class"
+clause — both explicit FAIL branches fire on the mixed-start read alone (the
+gate is an OR of failure conditions; the separately-mandatory flat-pinned
+probe wasn't needed to reach a verdict). Verdicted FAIL (`ops.sh entry
+cw-stand50hz-stance-tuckclock-scratch6m-dqfix-retention-s1-exploreresettle-
+budget6m-cont6m2-curhot-b23k12-drwiden35`).
+
+**Binding for the next read**: DR-widening (as tested — a flat 0.2->0.35
+raise with no other change) is refuted as an independent lever for this
+residual; do not retry it on this lineage without a genuinely different
+angle (e.g. widening only non-current-adjacent DR axes, or annealing DR up
+mid-training rather than training under the wider band from scratch). The
+sole surviving structural candidate is `reward.k_load_even` (Herfindahl
+foot-load-evenness pricing) — already showing a real monotonic dose-response
+in an active bracket on this same lineage (`loadeven2` FAIL, `loadeven8`
+PARTIAL, `loadeven16`/`loadeven32` escalating; see the standwalk STATUS
+~10:2x entry, owned by a concurrent cycle this same window). Evidence:
+`ops.sh entry cw-stand50hz-stance-tuckclock-scratch6m-dqfix-retention-s1-
+exploreresettle-budget6m-cont6m2-curhot-b23k12-drwiden35`; `logs/ckpt_eval/
+cw_stand50hz_stance_tuckclock_scratch6m_dqfix_retention_s1_exploreresettle_
+budget6m_cont6m2_curhot_b23k12_drwiden35_{gate,owncfg}/report.json`.
+
 ## `todaypolicy-50hz-v1` bundle assembled — op_20260910_50hz's 5-arm 50 Hz retrain fill (walk x2, turn x2, stand/sit x1) is now composed into one demoed sim bundle with an ALL-LEARNED stand/lower (2026-09-11 ~09:5x, todaypolicy/standwalk tracks, refill cycle)
 
 One plain sentence: every one of the 5 arms the operator's 50 Hz order named

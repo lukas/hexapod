@@ -1,6 +1,7 @@
 """The loop. Read top to bottom; it is the whole design."""
 from __future__ import annotations
 
+import math
 import os
 import time
 from pathlib import Path
@@ -108,7 +109,8 @@ def run_once(settings: Settings, store: Store, plan: Dict[str, Any], log=print,
         # it look ready? Telemetry cannot tell that a leg is off and someone
         # is holding it. A no leaves the plan queued and holds the loop. For
         # a walk the same look is asked what sits in the robot's way.
-        ready, saw, cost = eyes.ready_to_move(settings, about_to=about_to)
+        flat = zero_check.encoders(fb)["at_zero"] and math.hypot(float(fb.get("roll_deg") or 0), float(fb.get("pitch_deg") or 0)) < 8.0
+        ready, saw, cost = eyes.ready_to_move(settings, about_to=about_to, pose_known=flat)
         if cost:
             store.add_spend("eyes", cost, run_id)
         store.add_event("look", f"{'ready' if ready else 'NOT READY'}: {saw[:400]}")
@@ -118,7 +120,7 @@ def run_once(settings: Settings, store: Store, plan: Dict[str, Any], log=print,
             # One more look, a few seconds later, before holding the whole loop;
             # two independent noes are a hold, one is a wobble.
             sleep_fn(8.0)
-            ready, saw2, cost2 = eyes.ready_to_move(settings)
+            ready, saw2, cost2 = eyes.ready_to_move(settings, about_to=about_to, pose_known=flat)
             if cost2:
                 store.add_spend("eyes", cost2, run_id)
             store.add_event("look", f"second look {'ready' if ready else 'NOT READY'}: {saw2[:400]}")

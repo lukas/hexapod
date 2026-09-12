@@ -162,8 +162,10 @@ def _rl_rig(**kw):
             if url.endswith("/api/rl/stand"):
                 rl["ready"] = True; state["knee"] = 80.0; state["mode"] = "stand"; return {"ok": True}
             if url.endswith("/api/rl/drive/start"):
-                rl["drive"] = True; rl["starts"] += 1; return {"ok": True}
+                rl["starts"] += 1; rl["drive_live_at"] = state["t"] + 0.6; return {"ok": True}   # async: live 0.6 s later
             if url.endswith("/api/rl/drive/cmd"):
+                if rl.get("drive_live_at") is not None and state["t"] >= rl["drive_live_at"]:
+                    rl["drive"] = True
                 rl["cmds"].append(body)
                 if rl["drive"]:
                     state["vx"], state["vy"], state["om"] = body["vx"] * 1000.0, body["vy"] * 1000.0, body["wz"]
@@ -177,6 +179,8 @@ def _rl_rig(**kw):
         if url.endswith("/api/rl/preflight?mode=walk"):
             return {"ok": rl["ready"], "error": None if rl["ready"] else "pose is not the sim walk-ready start"}
         if url.endswith("/api/rl/drive"):
+            if rl.get("drive_live_at") is not None and state["t"] >= rl["drive_live_at"]:
+                rl["drive"] = True
             return {"ok": True, "active": rl["drive"]}
         if url.endswith("/api/rl/state"):
             return {"pose": {"mode": state["mode"]},
@@ -192,7 +196,8 @@ def test_rl_walk_selects_policy_stands_ready_drives_in_m_per_s_and_reports_drive
     res = walk.run_walk(settings, doc, tmp_path, post=post, get=get, sleep=sleep, clock=clock, log=lambda m: None)
     assert res["status"] == "ok", res["log_tail"]
     rl = state["rl"]
-    assert rl["policy"] == "walkteach_allhead_acq12m_100hz.json" and ("walk", rl["policy"]) in rl["roles"]
+    assert rl["policy"] == "walkteach_allhead_acq12m_100hz.json"
+    assert ("walk", rl["policy"]) in rl["roles"] and ("hold", rl["policy"]) in rl["roles"]
     assert rl["starts"] == 2 and rl["stops"] == 2                       # out and back: one session per leg
     moving = [c for c in rl["cmds"] if c["vx"]]
     assert moving and abs(moving[0]["vx"] - 0.08) < 1e-6 and moving[-1]["vx"] == -0.08   # m/s, not mm/s

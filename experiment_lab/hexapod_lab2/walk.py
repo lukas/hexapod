@@ -54,6 +54,8 @@ MAX_VX, MAX_VY, MAX_OMEGA, MAX_SECONDS = 60.0, 40.0, 0.5, 40.0
 RL_KEY = "rl_policy"               # protocol field: drive with this RL policy file instead of the J gait
 RL_MAX_VX, RL_MAX_VY = 120.0, 80.0  # mm/s; the policies' command band is about 0.06-0.12 m/s
 RL_READY_WAIT_S = 45.0
+RL_START_WAIT_S = 12.0     # drive/start is async; wait for /api/rl/drive active
+RL_NO_SESSION_TICKS = 10   # a second of 'no drive session' answers means the session ended
 GARBAGE_TEMP_C = 100.0     # no servo is this hot; a corrupted byte is
 HOT_POLLS = 3              # consecutive feedback samples at or above warn_c before the walk stops
 RL_STOP_WAIT_S = 25.0
@@ -290,7 +292,10 @@ class Session:
         if not (sel or {}).get("ok"):
             self.notes.append(f"policy_select {policy} refused: {(sel or {}).get('error')}")
             return False
+        # hexapod 2's floorkeeper gave the same policy the hold role as well: a drive
+        # session refuses to open without a learned hold policy.
         self.rl_json("/api/rl/roles", {"role": "walk", "file": policy})
+        self.rl_json("/api/rl/roles", {"role": "hold", "file": policy})
         if self.rl_json("/api/rl/preflight?mode=walk").get("ok"):
             return True
         self.log("not walk-ready; asking the robot to stand into the walk-ready stance")
@@ -311,11 +316,24 @@ class Session:
         return True
 
     def rl_start(self) -> bool:
+        """Open the drive session and wait until it is live: drive/start is asynchronous,
+        and a command sent before the loop is up answers 'no drive session'."""
         r = self.rl_json("/api/rl/drive/start", {})
         if not r.get("ok"):
             self.notes.append(f"drive/start refused: {r.get('error')}")
             return False
-        return True
+        t0 = self.clock()
+        while self.clock() - t0 < RL_START_WAIT_S:
+            st = self.rl_json("/api/rl/drive")
+            if st.get("active"):
+                return True
+            res = st.get("result") or {}
+            if res and res.get("mode") == "drive" and not res.get("ok", True):
+                self.notes.append(f"drive session did not open: {res.get('error')}")
+                return False
+            self.sleep(0.25)
+        self.notes.append(f"drive session not live after {RL_START_WAIT_S:.0f} s")
+        return False
 
     def rl_stop(self) -> None:
         for _ in range(6):
@@ -470,8 +488,12 @@ def _stream(s: Session, leg: Leg, writers: dict, st: Dict[str, Any], t0: float) 
                 if leg.rl:
                     r = s.post(f"{s.robot}/api/rl/drive/cmd", leg.drive_body())
                     if isinstance(r, dict) and r.get("ok") is False and not r.get("active", True):
-                        st["fatal"], st["reason"] = f"drive session ended: {r.get('error')}", "refused"
-                        return
+                        st["no_session"] = st.get("no_session", 0) + 1
+                        if st["no_session"] >= RL_NO_SESSION_TICKS:      # the session really ended (trip, cap, fall)
+                            st["fatal"], st["reason"] = f"drive session ended: {r.get('error')}", "refused"
+                            return
+                    else:
+                        st["no_session"] = 0
                 else:
                     r = s.post(f"{s.robot}/cmd", raw=leg.command().encode())
                 if isinstance(r, str) and "refused" in r.lower():

@@ -44,10 +44,11 @@ def encoders(fb: Optional[Dict[str, Any]], *, tol_deg: float = ENCODER_ZERO_TOL_
 
 
 def camera(settings: Settings, out_dir: Optional[Path], *, run: Callable = subprocess.run,
-           top_camera: int = 2) -> Dict[str, Any]:
+           top_camera: Optional[int] = None) -> Dict[str, Any]:
     """Run hexapod-zero-check once; its JSON, or {"error": ...}."""
     u = urlsplit(settings.wide_frame_url)
-    cmd = ["uv", "run", "hexapod-zero-check", "--json", "--top-camera", str(top_camera),
+    top = settings.top_camera if top_camera is None else top_camera
+    cmd = ["uv", "run", "hexapod-zero-check", "--json", "--top-camera", str(top),
            "--camera-url", f"{u.scheme}://{u.netloc}"]
     if out_dir is not None:
         cmd += ["--out", str(out_dir)]

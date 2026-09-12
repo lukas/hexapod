@@ -94,9 +94,18 @@ wrapper (`rl_move/sim/gru_policy.py`), additive-only, covered by
 ## Open follow-ups
 
 1. **DONE 2026-09-12** — `hybrid_demo.py` wiring above.
-2. H1 (any sustained substitution helps) vs H2 (turn-specific) is not
-   isolated on this exact lineage's own matched pair (a separate wrong-
-   substitute control on a different lineage found H1 — see `todaypolicy/
-   STATUS.md` 2026-09-12 ~13:5x); doesn't change the recommendation.
+2. **DONE 2026-09-12 ~21:3x** — H1 (any sustained substitution helps) vs
+   H2 (turn-specific) now isolated on THIS exact lineage's own matched
+   pair (`--wrong-substitute-vx 0.05`, batch-A construction: same
+   checkpoint, cfg-set, `walk_turn_in_place_frac=1.0`, 15s@50Hz, seeds
+   0-3): wrong-substitute COMPOSED is `gait_valid=True` 4/4,
+   `sacrificed_legs=[]` every seed (matches the correct-substitute
+   rescue rate exactly), while `mean|wz|_turn` stays at the noise floor
+   (0.045-0.046 rad/s vs the correct substitution's 0.145-0.159) —
+   confirms the rescue is generic sustained-action unsticking (H1), not
+   turn-skill transfer (H2). Recommendation unchanged (compose when
+   sustained turning is expected); see `transfer_manifest.json`'s
+   `why_composed_not_raw` field and `logs/probe_turn_compose/
+   todaypolicy_cap29_acq1_wrongsub_tip1_matched/report.json`.
 3. Physical acceptance is Robot Lab's serialized guarded runner per
    `RL_GOALS.md`, independent of this manifest — not scoped here.

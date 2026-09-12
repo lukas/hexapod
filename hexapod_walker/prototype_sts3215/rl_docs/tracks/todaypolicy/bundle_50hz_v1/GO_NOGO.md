@@ -151,15 +151,43 @@ substitutions, not a wrapping/reset artifact. **Net verdict: the
 composition is CONFIRMED to prevent this checkpoint's known
 continuous-duration freeze specifically on sessions that hold sustained
 turn-in-place** (a real, practically load-bearing property for real
-joystick sessions with sustained turning) — **whether the deeper mechanism
-is turn-specific or "any sustained action substitution would also work" is
-NOT isolated by this evidence** and is flagged as an open question, not
-asserted either way; it does not change the practical recommendation.
+joystick sessions with sustained turning).
 Evidence: `logs/probe_turn_compose/cap29_acq1_tip1/{report.json,raw_*.png,
 composed_*.png}` (batch A); `logs/probe_turn_compose/
 cap29_acq1_purewalk_control/report.json` (batch B); full detail in
 `composition.json`'s `walk_turn_capable.turn_composition_2026_09_12.
 matched_raw_vs_composed_pair_2026_09_12` field.
+
+**H1-vs-H2 mechanism question — CLOSED 2026-09-12 ~13:5x (refill cycle):**
+whether the deeper mechanism is turn-specific (H2) or "any sustained
+action substitution would also work" (H1) is now answered: **H1, generic
+substitution.** Ran the exact control this doc's own gap named —
+`probe_turn_compose.py --wrong-substitute-vx 0.05` injects a deliberately
+WRONG action (straight walk, omega=0) on the same live turn ticks the real
+composition substitutes on, natural `walk_turn_in_place_frac=0.30` mix, 10
+seeds, matched 15s/50Hz. Of 5 episodes that drew turn ticks, the 4 with
+substantial tick counts (263-699/750) ALL recover `gait_valid=True`,
+`sacrificed_legs=[]` under the WRONG substitute — moving forward
+(`forward_dist_m` 0.116-0.320) rather than turning, yet still unfreezing —
+matching batch (A)'s correct-substitute recovery essentially 1:1. The one
+episode with only 10/750 turn ticks shows partial-only recovery
+(`sacrificed_legs` `[1,4]`->`[1]`), consistent with a dose/duration-
+dependent unstick effect, not a contradiction. **Conclusion: the composed
+action's turn-correctness is not what prevents the freeze — any sustained,
+actively-commanded action for enough consecutive ticks is sufficient.**
+The practical recommendation below is UNCHANGED (this composition remains
+the right, already-built fix and is a true no-op elsewhere); what changes
+is the causal story: "unstick a known continuous-single-mode-duration
+freeze," not "supply a missing turn skill." Flagging, not building this
+cycle: since batch (B) above already shows this composition gives ZERO
+protection when there are no turn ticks to substitute, a genuinely new
+general mechanism ("detect sustained single-mode duration, periodically
+substitute/perturb the action regardless of mode") could plausibly extend
+freeze protection to plain long straight-walk sessions too — a real Next
+idea for whoever picks this track up, not a quick follow-up. Evidence:
+`logs/probe_turn_compose/todaypolicy_cap29_acq1_wrongsub_tip1_frac30/
+report.json`; `composition.json`'s `walk_turn_capable.
+wrong_substitute_control_2026_09_12` field.
 
 **Practical recommendation**: when a physical/sim session needs joystick
 turning, load the `walk_turn_capable` export through

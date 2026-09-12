@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Optional
 
 
 def _f(name: str, default: float) -> float:
@@ -75,6 +76,18 @@ class Settings:
     # open question, "can you see the robot and does it look ready to move?"
     # Inside the 10 s health budget. HEXAPOD_LAB2_LOOK=0 turns it off.
     look_before_moving: bool = True
+    # The other exception, also the operator's (2026-09-11): "if the robot is
+    # supposedly in zero pose and it looks wildly off, double check what's
+    # going on". Before a protocol that starts from zero, hexapod-zero-check
+    # compares the leg lids in the top camera with the installed layout. The
+    # encoders cannot see a slipped horn; the camera can. Only when the
+    # encoders say zero and the camera says a leg is off does the loop hold.
+    # HEXAPOD_LAB2_ZERO_CHECK=0 turns it off.
+    zero_check: bool = True
+    zero_check_budget_s: float = 60.0
+    # Where hexapod-zero-check runs from (uv run in the tracker checkout, the
+    # same one the camera server serves from). None -> the runner checkout's.
+    tracker_dir: Optional[Path] = None
     # Code-fix plans (an engineer agent on a branch) ate most of the first two
     # days' budget while the robot learned little. Off unless
     # HEXAPOD_LAB2_ALLOW_FIX=1; a code-blocked protocol is skipped and noted.
@@ -137,6 +150,16 @@ class Settings:
         return self.prototype_dir / "sysid" / "protocols"
 
     @property
+    def tracker_checkout(self) -> Path:
+        """The hexapod-tracker checkout hexapod-zero-check runs from. Prefers
+        the operator's repo checkout (the camera server's LaunchAgent runs from
+        it, so its uv venv already exists), then the runner checkout's copy."""
+        if self.tracker_dir is not None:
+            return self.tracker_dir
+        repo = Path.home() / "hexapod" / "hexapod_walker" / "prototype_sts3215" / "hexapod-tracker"
+        return repo if (repo / "pyproject.toml").exists() else self.prototype_dir / "hexapod-tracker"
+
+    @property
     def python(self) -> Path:
         return self.checkout / ".venv" / "bin" / "python"
 
@@ -177,6 +200,8 @@ def load_settings() -> Settings:
         max_consecutive_failed_runs=_i("HEXAPOD_LAB2_MAX_FAILED_RUNS", Settings.max_consecutive_failed_runs),
         allow_force=os.getenv("HEXAPOD_LAB2_ALLOW_FORCE", "1") != "0",
         look_before_moving=os.getenv("HEXAPOD_LAB2_LOOK", "1") != "0",
+        zero_check=os.getenv("HEXAPOD_LAB2_ZERO_CHECK", "1") != "0",
+        tracker_dir=Path(os.getenv("HEXAPOD_LAB2_TRACKER_DIR")).expanduser() if os.getenv("HEXAPOD_LAB2_TRACKER_DIR") else None,
         allow_fix=os.getenv("HEXAPOD_LAB2_ALLOW_FIX", "0") == "1",
         goal=os.getenv("HEXAPOD_LAB2_GOAL", Settings.goal),
     )

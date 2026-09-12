@@ -6,7 +6,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
-from . import alerts, commands, deploy, eyes, planner, recovery, robot, runner
+from . import alerts, commands, deploy, eyes, planner, recovery, robot, runner, zero_check
 from .builder import BuilderThread
 from .config import Settings
 from .store import Store, now_iso
@@ -79,18 +79,37 @@ def run_once(settings: Settings, store: Store, plan: Dict[str, Any], log=print,
                              summary={"look": saw[:400]}, log_tail=f"not moved; eyes: {saw}")
             store.set_plan_status(plan["id"], "queued", f"eyes: {saw[:120]}")
             return store.run(run_id)
+    run_dir = settings.runs_dir / run_id
+    zc: Optional[Dict[str, Any]] = None
+    if settings.zero_check and runner.walk_document(settings, plan["protocol"]) is None:
+        # Protocols other than walks start from the zero pose. The encoders
+        # cannot see a slipped horn; the camera can. This holds only when the
+        # encoders say zero and the camera says a leg points elsewhere.
+        zc = zero_check.double_check(settings, fb, run_dir / "zero_check", log=log)
+        store.add_event("zero_check", f"{zc['verdict']}: {zc['text'][:300]}")
+        if zc["verdict"] == "camera_disagrees":
+            store.finish_run(run_id, status="held", exit_code=None, run_dir=str(run_dir),
+                             summary={"zero_check": zc}, log_tail=f"not moved; zero check: {zc['text']}")
+            store.set_plan_status(plan["id"], "queued", f"zero check: {zc['text'][:120]}")
+            settings.pause_file.write_text(f"paused: {zc['text']}\n")
+            store.add_event("needs_hand", f"zero pose looks wrong on camera: {zc['text'][:300]}")
+            alerts.text(store, "zero_check", f"legs {zc['legs_off']} do not point where the layout says zero is while "
+                                             f"the encoders read zero (slipped horn?). Paused; frame on run {run_id}.")
+            return store.run(run_id)
     log(f"sync: {runner.sync_checkout(settings)}")
     log(f"run {plan['protocol']} ({plan['title']})")
-    run_dir = settings.runs_dir / run_id
     with eyes.WideCapture(settings.wide_frame_url, run_dir / "wide"):
         result = runner.run_protocol(settings, plan["protocol"], run_id, force=bool(plan.get("force")))
     # ok/failed say whether the robot did what the protocol asked. A plan whose
     # intent is to explore has no pass/fail on top of that: a run that completed
     # is "explored", and what it showed goes in the planner's learned paragraph.
     status = "explored" if (result.status == "ok" and plan.get("intent") == "explore") else result.status
+    summary = dict(result.summary or {})
+    if zc is not None:
+        summary["zero_check"] = {k: zc.get(k) for k in ("verdict", "text", "legs_off", "frame")}
     store.finish_run(run_id, status=status, exit_code=result.exit_code,
                      run_dir=str(result.run_dir or run_dir),
-                     summary=result.summary, log_tail=result.log_tail)
+                     summary=summary or None, log_tail=result.log_tail)
     store.set_plan_status(plan["id"], "done" if status in ("ok", "explored") else "failed",
                           f"exit {result.exit_code}, {result.motion_s:.0f} s")
     log(f"run {status} (exit {result.exit_code}) in {result.motion_s:.0f} s")

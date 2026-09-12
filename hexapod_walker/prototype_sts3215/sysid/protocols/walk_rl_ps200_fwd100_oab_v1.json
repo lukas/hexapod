@@ -1,0 +1,15 @@
+{
+ "name": "walk_rl_ps200_fwd100_oab_v1",
+ "walk_protocol": 1,
+ "rl_policy": "speed50hz_stride_ps200_lift14_massfix_sr105_acq10m.json",
+ "out_and_back": true,
+ "description": "RL gait speed50hz_stride_ps200_lift14_massfix_sr105_acq10m.json on the floor, measured by the camera: forward 100 mm/s for 12 s, then the same back. Same command hexapod 2 used on its tag grid on 2026-09-11 (see run 43a6a88a90f9), so the two robots' speed, drift and tilt can be compared. NEEDS STAND: the runner stands the robot and puts it in the sim walk-ready stance itself.",
+ "legs": [
+  {
+   "name": "ps200_fwd",
+   "vx_mm_s": 100,
+   "seconds": 12
+  }
+ ],
+ "created": "2026-09-12"
+}

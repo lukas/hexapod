@@ -144,3 +144,76 @@ def test_runner_dispatches_walk_protocols_in_process(settings, tmp_path, monkeyp
     res = runner.run_protocol(settings, "walk_unit_v1", "run1")
     assert res.status == "ok" and res.summary["walk"] and (res.run_dir / "runner.log").exists()
     assert "fwd30" in res.log_tail
+
+
+def _rl_rig(**kw):
+    """The scripted rig plus the RL drive API: policy_select, roles, preflight, stand, drive start/cmd/stop."""
+    state, post, get, sleep, clock = _rig(**kw)
+    rl = {"policy": None, "roles": [], "ready": False, "drive": False, "cmds": [], "starts": 0, "stops": 0, "standing_job": False}
+    state["rl"] = rl
+
+    def post2(url, body=None, raw=None):
+        if "/api/rl/" in url:
+            state["posts"].append((url.rsplit("/", 1)[-1], body, raw))
+            if url.endswith("/api/rl/policy_select"):
+                rl["policy"] = body["file"]; return {"ok": True}
+            if url.endswith("/api/rl/roles"):
+                rl["roles"].append((body["role"], body["file"])); return {"ok": True}
+            if url.endswith("/api/rl/stand"):
+                rl["ready"] = True; state["knee"] = 80.0; state["mode"] = "stand"; return {"ok": True}
+            if url.endswith("/api/rl/drive/start"):
+                rl["drive"] = True; rl["starts"] += 1; return {"ok": True}
+            if url.endswith("/api/rl/drive/cmd"):
+                rl["cmds"].append(body)
+                if rl["drive"]:
+                    state["vx"], state["vy"], state["om"] = body["vx"] * 1000.0, body["vy"] * 1000.0, body["wz"]
+                return {"ok": rl["drive"], "active": rl["drive"]}
+            if url.endswith("/api/rl/drive/stop"):
+                rl["drive"] = False; rl["stops"] += 1; state["vx"] = state["vy"] = state["om"] = 0.0; return {"ok": True}
+            raise AssertionError(url)
+        return post(url, body, raw)
+
+    def get2(url):
+        if url.endswith("/api/rl/preflight?mode=walk"):
+            return {"ok": rl["ready"], "error": None if rl["ready"] else "pose is not the sim walk-ready start"}
+        if url.endswith("/api/rl/drive"):
+            return {"ok": True, "active": rl["drive"]}
+        if url.endswith("/api/rl/state"):
+            return {"pose": {"mode": state["mode"]},
+                    "calibrate": {"running": False, "result": {"mode": "drive", "ok": True, "ticks": 1400, "overruns": 3,
+                                                               "fell": False, "timing": {"mean_service_ms": 9.6, "max_service_ms": 28.0}}}}
+        return get(url)
+    return state, post2, get2, sleep, clock
+
+
+def test_rl_walk_selects_policy_stands_ready_drives_in_m_per_s_and_reports_drive_stats(settings, tmp_path):
+    state, post, get, sleep, clock = _rl_rig(speed_ratio=0.5)
+    doc = _doc(legs=[{"name": "fwd80", "vx_mm_s": 80, "seconds": 6}], rl_policy="walkteach_allhead_acq12m_100hz.json")
+    res = walk.run_walk(settings, doc, tmp_path, post=post, get=get, sleep=sleep, clock=clock, log=lambda m: None)
+    assert res["status"] == "ok", res["log_tail"]
+    rl = state["rl"]
+    assert rl["policy"] == "walkteach_allhead_acq12m_100hz.json" and ("walk", rl["policy"]) in rl["roles"]
+    assert rl["starts"] == 2 and rl["stops"] == 2                       # out and back: one session per leg
+    moving = [c for c in rl["cmds"] if c["vx"]]
+    assert moving and abs(moving[0]["vx"] - 0.08) < 1e-6 and moving[-1]["vx"] == -0.08   # m/s, not mm/s
+    assert not any(c[0] == "cmd" and c[2] for c in state["posts"])        # never the raw J gait line
+    legs = res["summary"]["legs"]
+    assert legs[0]["drive"]["ticks"] == 1400 and legs[0]["drive"]["mean_service_ms"] == 9.6
+    assert legs[0]["mean_speed_mm_s"] and legs[0]["mean_speed_mm_s"] > 20
+    assert res["summary"]["rl_policy"] == "walkteach_allhead_acq12m_100hz.json"
+    assert state["posts"][-1][0] == "standup"                            # still sits at the end
+
+
+def test_rl_caps_are_wider_and_a_refused_policy_fails_cleanly(settings, tmp_path):
+    legs = walk.legs_of(_doc(legs=[{"name": "fast", "vx_mm_s": 500, "vy_mm_s": 500}], rl_policy="x.json"))
+    assert legs[0].vx == walk.RL_MAX_VX and legs[0].vy == walk.RL_MAX_VY and legs[0].rl
+    assert walk.legs_of(_doc(legs=[{"name": "fast", "vx_mm_s": 500}]))[0].vx == walk.MAX_VX
+    state, post, get, sleep, clock = _rl_rig()
+
+    def refuse(url, body=None, raw=None):
+        if url.endswith("/api/rl/policy_select"):
+            return {"ok": False, "error": "no such policy"}
+        return post(url, body, raw)
+    res = walk.run_walk(settings, _doc(rl_policy="missing.json"), tmp_path, post=refuse, get=get, sleep=sleep, clock=clock, log=lambda m: None)
+    assert res["status"] == "failed" and res["summary"]["aborted"] == "rl_prepare"
+    assert state["rl"]["starts"] == 0

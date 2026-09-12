@@ -241,6 +241,24 @@ def test_pixel_prefers_the_top_camera_when_several_see_the_tag(settings, tmp_pat
     assert s2.seen_camera == 0                                          # top camera absent: first camera that decodes it
 
 
+def test_pixel_stays_on_the_top_camera_and_falls_back_to_leg_tags(settings, tmp_path):
+    import dataclasses
+    def get(url):
+        if url.endswith("/api/detections.json"):
+            c0 = [[600, 20], [620, 20], [620, 40], [600, 40]]
+            leg = {"7": [[100, 600], [120, 600], [120, 620], [100, 620]], "109": [[300, 700], [320, 700], [320, 720], [300, 720]],
+                   "100": [[900, 100], [920, 100], [920, 120], [900, 120]]}        # 100 is a floor tag
+            return {"cameras": [{"index": 0, "width": 1280, "height": 720, "tags": {"0": c0}},
+                                {"index": 1, "width": 1280, "height": 720, "tags": leg}]}
+        if url.endswith("/api/poses"):
+            return {"parts": {"leg0_knee": {"configured_tag_ids": [7, 52]}, "leg1_hip": {"configured_tag_ids": [109]}}}
+        raise AssertionError(url)
+    s = walk.Session(dataclasses.replace(settings, top_camera=1), tmp_path, get=get, log=lambda m: None)
+    fx, fy = s.pixel()
+    assert s.seen_camera == 1 and s.proxy is True                        # never camera 0's tag 0
+    assert abs(fx - ((110 + 310) / 2) / 1280) < 1e-6 and abs(fy - ((610 + 710) / 2) / 720) < 1e-6
+
+
 def test_tracking_camera_is_the_top_camera_when_it_tracks_the_marker(settings, tmp_path):
     import dataclasses
     def get(url):

@@ -343,9 +343,21 @@ class RlApi:
                     return
                 torque_state = "unverified"
                 torque_error = None
+                settle: dict | None = None
                 try:
-                    d._torque_all(False)
-                    torque_state = "off"
+                    with self._lock:
+                        left_on = bool((self._cal_result or {}).get(
+                            "torque_left_on"))
+                    if left_on:
+                        settle = self._settle_after_sysid(gen)
+                    if settle and settle.get("standing") \
+                            and not settle.get("lowered"):
+                        # Standing and not brought down (step-down failed
+                        # or the operator aborted): holding beats falling.
+                        torque_state = "on"
+                    else:
+                        d._torque_all(False)
+                        torque_state = "off"
                 except Exception as e:
                     torque_error = str(e)
                 with self._lock:
@@ -357,6 +369,8 @@ class RlApi:
                         "limped": torque_state == "off",
                         "torque_state": torque_state,
                     })
+                    if settle is not None:
+                        result["settle"] = settle
                     if torque_error is not None:
                         result["ok"] = False
                         prior = str(result.get("error") or "").strip()
@@ -367,23 +381,56 @@ class RlApi:
                             "error: torque disable unverified: " + torque_error)
                     self._cal_result = result
                 with d._lock:
-                    d.armed = False
+                    d.armed = torque_state == "on"
                     d.status = (
                         "sysid complete; disarmed (limp)"
                         if torque_state == "off" else
+                        "sysid stopped; standing, torque held (send "
+                        "standup down or limp)"
+                        if torque_state == "on" else
                         "sysid stopped; torque unverified")
                     if d.mode == "demo":
                         d.mode = "idle"
                 with self._lock:
                     st = self._demo_status
                 self._set_activity(
-                    "limp" if torque_state == "off" else "error",
+                    "limp" if torque_state == "off" else
+                    "armed" if torque_state == "on" else "error",
                     st or "sysid done")
 
         self._demo_thread = threading.Thread(target=_worker, daemon=True)
         self._demo_thread.start()
         return {"ok": True, "name": name, "duration_s": round(secs, 1),
                 "calibrate": self.calibrate_state()}
+
+    def _settle_after_sysid(self, gen: int) -> dict:
+        """What to do with a robot the sysid runner left holding torque.
+
+        On its belly or in an unrecognised pose: nothing, the caller limps
+        as before. Standing (the demos classifier that hexapod 2 tuned for
+        its stand router): play the STEP sit-down inline, so the run ends
+        with the robot stepping down instead of falling. After an operator
+        abort a standing robot is left holding, not moved: they asked it
+        to stop.
+        """
+        present, missing = self._present_pose18()
+        standing = None if missing else self._normal_standing_pose(present)
+        if not standing:
+            return {"standing": False, "lowered": False, "route": "limp",
+                    "missing_joints": missing}
+        out = {"standing": True, "kind": standing.get("kind"),
+               "max_delta_deg": standing.get("max_delta_deg")}
+        if self._demo_abort.is_set():
+            out.update(lowered=False, route="hold_after_abort")
+            return out
+        try:
+            res = self.standup(mode="step", direction="down", sync_gen=gen)
+        except Exception as e:  # noqa: BLE001 - never lose the hold to a bug here
+            res = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+        out.update(lowered=bool(res.get("ok")),
+                   route=str(res.get("via") or "step_down"),
+                   error=res.get("error"))
+        return out
 
     def rl_preflight(self, *, mode: str = "stand") -> dict:
         """Read-only readiness check for the RL stand/lower/walk buttons."""

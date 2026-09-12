@@ -15,27 +15,32 @@ pod under `/data/results/`; a local mirror under `~/hexapod-vision-data/report/`
   does NOT beat the repo's 0.55M CNN retrained on the same 50k frames (3.8 /
   5.0 deg). Data, not model size, is the bottleneck; and the labelled set has
   no tips at all (|roll| max 21 deg), so nothing here validates tip detection.
+  Only a ridge probe was tried (no MLP head, no fine-tuning), so "frozen
+  features + linear" is the limit of what was tested, not a ceiling.
 - **Behaviour classification (E2)**: Qwen3-VL-32B given the whole clip as video
   is a decent narrator: it names the right robot, times stand-ups and lowers
   to within a second (checked against frame-difference motion bursts), sees
   operator handling, robot-leaves-frame and in-place stepping. It is weak on
   slow locomotion: of 14 clips where the lab camera measured >= 90 mm of
-  travel it called only 3 "walking" (the ones faster than ~28 mm/s, side
-  camera only). Qwen3-VL-8B answered "stand_hold" for 92% of clips in both
-  video and stills mode; it is not usable here.
+  travel it called only 3 "walking" (15, 28 and 38 mm/s, side camera only);
+  it missed every 7-11 mm/s walk and a 21 mm/s turning gait, with one false
+  alarm at 1.5 mm/s. Qwen3-VL-8B answered "stand_hold" for 92% of clips in
+  both video and stills mode; it is not usable here.
 - **Safety timeline (E3)**: 8 s windows over 31 min of the event-rich clips
-  ran at 0.39x realtime sequentially. It reliably reports human contact and
-  robot-at-frame-edge, but produced 46 low-severity "leg folded under body"
-  events (mostly normal stance changes) and rated every clip risk=none,
-  including the drop-through-safe_zero clips. No evidence it would catch a
-  tip in time; the incumbent IMU trip is still the safety path.
+  ran at 0.39x realtime sequentially. Its operator-contact events check out,
+  but it produced 46 low-severity "leg folded under body" events (mostly
+  normal stance changes), no frame-exit events, and rated every clip
+  risk=none, including the drop-through-safe_zero clips. No evidence it would
+  catch a tip in time; the incumbent IMU trip is still the safety path.
 - **Latency (E4)**: with the GPU idle, an 8-frame safety question answers in
   0.61 s on the 32B and 0.18 s on the 8B; DINOv2-g is 21 ms/frame. A 32B
   windowed spotter at ~1.5 Hz on one H200 is feasible; whether it is worth it
   depends on fixing the recall problems above first.
 - **Versus the incumbent** (Claude Sonnet 5 on 12 timelapse frames, eyes.py):
-  on the 53 wide-camera runs the two narrations agree on the gist in nearly
-  every case; the local model is not better, just free per call (~8 s/clip).
+  I compared 13 of the 53 wide-camera pairs by reading them; mostly
+  consistent (static robot), two disagree on whether the body rose or dropped
+  (3507cdaff223, 35d88e1cb7c3) and there is no ground truth for either. The
+  local model is not better; it has no per-call API cost but holds an H200.
 
 ## E1: pose estimation from the floor camera (50k labelled frames)
 
@@ -67,9 +72,11 @@ Reading:
   deg, max 21 deg, no tips anywhere), so a 1 deg MAE there is not evidence of
   tip detection; it is evidence the set has no tips. The old bench numbers in
   the video_state README (6.7 deg roll) are not comparable (different camera).
-- The big frozen backbone did NOT beat the small CNN trained on the same
-  frames; the CNN is 20% better overall and far cheaper. Data (one camera,
-  static sysid protocols) is the limit, not model capacity.
+- The big frozen backbone with a ridge probe (alpha 10, untuned; sklearn
+  warned about ill-conditioning) did NOT beat the small CNN trained on the
+  same frames; the CNN is 20% better overall and far cheaper. An MLP head or
+  fine-tuning was not tried. Data (one camera, static sysid protocols) looks
+  like the limit, but that is only established for what was tested.
 - Cost: DINOv2-g runs ~95 frames/s batched and 21 ms per frame at batch 1 on
   the H200, i.e. live-rate. The CNN trains in ~6 min for 5 folds.
 
@@ -100,9 +107,10 @@ wrong about the video. Where the lab camera measured travel (22 clips):
 | >= 90 mm (14 clips, 7-38 mm/s) | 3 | 1 |
 | < 90 mm (8 clips, 1.5-7 mm/s) | 1 (false alarm) | 0 |
 
-The three hits are the 28-38 mm/s walks seen from the 30 fps side camera; the
-same walks from the 1 fps overhead camera were called in-place stepping.
-Anything at <= 21 mm/s reads as standing or weight-shifting to the model.
+The three hits (15, 28, 38 mm/s) are all from the 30 fps side camera; the same
+walks from the 1 fps overhead camera were called in-place stepping. Every
+7-11 mm/s walk and the 21 mm/s / 60-degree turning gait (8b33c3a239e3) read as
+standing or weight-shifting; the one false alarm is a 1.5 mm/s clip.
 
 What the 32B gets right (spot-checked against contact sheets / motion energy):
 - Stand-up timing: "rises 10.4-13.5 s" on d0166033c807/183420Z matches the
@@ -121,10 +129,12 @@ What it gets wrong: the drop-through-safe_zero "sit/crash" clips
 model is blind to motion at this scale in either input mode.
 
 Incumbent comparison: for the 53 `wide.mp4` runs the manifest carries the lab's
-own Claude 'seen' text. Both narrations agree the sysid robot is essentially
-static; Claude's text is more specific about which legs twitched (it gets the
-protocol description in its prompt); Qwen's is generic. Full side-by-side in
-`~/hexapod-vision-data/report/e2_report.txt`.
+own Claude 'seen' text. I read 13 pairs: both usually say the sysid robot is
+essentially static; Claude's text is more specific about which legs twitched
+(it gets the protocol description in its prompt); Qwen's is generic; on
+3507cdaff223 Claude says the body drops and Qwen says it rises, on
+35d88e1cb7c3 Claude sees it settle lower and Qwen sees nothing. Neither is
+verified. Full side-by-side in `~/hexapod-vision-data/report/e2_report.txt`.
 
 ## E3: dense safety timeline on the event-rich clips
 
@@ -145,8 +155,9 @@ realtime sequential; p50 1.5 s, p90 2.7 s per window on a shared GPU).
   runs as anything but standing_stable. Windowed stills lose the slow drop
   that whole-clip video mode sometimes catches.
 
-Verdict: usable today as an "is a person touching / is the robot still in
-frame / is it upright or on its belly" annotator; not as a tip detector.
+Verdict: usable today as an "is a person touching the robot / is it upright
+or on its belly" annotator (frame-exit was only caught by whole-clip E2, not
+by the windows); not as a tip detector.
 
 ## E4: how close to live
 

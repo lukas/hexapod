@@ -1,5 +1,17 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## RE-TAPED TAGS CALIBRATED, ROBOT RE-ZEROED, L0 KNEE HORN SLIPS (2026-09-12 ~16:50, hexapod 1): new layout installed (leg 5 lids 114/117, no tibia mounts), stand sag gone, scripted walk 4.7 fwd / 22.6 back mm/s, RL comparison blocked by the L0 knee and the robot's position in camera 1
+
+One plain sentence: after the operator re-taped tags and replaced leg 5's servos, the six-leg calibration on camera 1 (now the top view) installed a layout the zero check agrees with to 0.6 deg on every leg; the encoders were re-zeroed at the flat rest pose (L5 yaw had read -175, L0/L3 knees +32/+28 with straight legs), the two-minute stand sag fell from 2-6 deg to under 0.8 deg, and the first valid camera walk on the scripted gait gave 4.7 mm/s forward and 22.6 back at a 30 mm/s command; the RL gaits could not be measured because the robot walked to the edge of camera 1's frame and because the L0 knee horn slips 30 deg under the gait's load.
+
+**Rulings:**
+- Cameras moved: index 1 looks down on the robot and the floor grid (top camera), index 0 is an oblique colour view, index 2 points at the room. Lab: `HEXAPOD_LAB2_TOP_CAMERA=1`, wide frame = snapshot/1. The lab's walk runner reads pose from the top camera's own observation (the fused marker mixed camera 0's one-anchor calibration and read 250 mm/s for a 30 mm/s walk) and reports net start-to-end speed with median endpoints; fix-to-fix path speed is kept separately as a jitter measure.
+- Layout 2026-09-12 (`configs/hexapod-1-apriltag-layout.json`): leg 5 hip lid 114, knee lid 117, hip yoke face 62; tags 4, 14, 21 gone; leg 5's tibia has no tag mounts (declared gaps); 61 is on L2's tibia (-y), 27 on L3's tibia (-y). Hand-checked links (`tag-calibration-20260912-full1/hand_links_20260912.json`) outvoted the 2026-09-11 report because the operator moved tags; azimuths {0:-18.7, 1:-94.7, 2:-160.8, 3:151.0, 4:88.0, 5:35.2}, chassis euler z 14.2.
+- hexapod 2's extra floor tags (106/110/111/118) do not fit camera 1's view (20 px rms) and are not in the floor map; camera 1 calibrates from 100/103/105/112 (1.5 px rms, leave-one-out up to 68 mm).
+- L0 knee horn slips: encoder +32 deg at rest before the re-zero, 48-49 deg after every 8 s of gait (hip to 39), gait then refuses "not at walk-ready pose (max dq=32 on j2)". Tighten the L0 knee horn before any gait comparison. The stand hold does not show it (0.8 deg sag): it needs the gait's load.
+- All ten of hexapod 2's uploaded RL policies are on hexapod 1 (`~/.hexapod_policies`) and runnable; the lab's walk runner drives RL sessions (`rl_policy` in the protocol; waits for the session to go live; hold role = walk policy). Eight `walk_rl_*` protocols are queued; they need the robot mid-frame under camera 1.
+- Comparison so far: `docs/RL_GAITS_HEXAPOD1_VS_HEXAPOD2_2026-09-12.md` (regenerate with `sysid/rl_gait_compare.py`).
+
 ## NEVER DROP A STANDING ROBOT + ZERO CHECK + RECENTRE (2026-09-11 ~18:30, hexapod 1, linux_control + Robot Lab v2 + hexapod-tracker): the sysid runner no longer limps at the end; a standing robot steps down; the camera double-checks a zero pose; the lab recentres instead of holding
 
 One plain sentence: the runner limped every servo at the end of every run, clean or tripped, so every stand protocol this week ended by dropping the robot onto its belly; it now holds the present pose and the API steps a standing robot down (accepted live on run 80795488b94b: 15 s stand, 15 s STEP sit-down, 2.66 A peak, then limp on the belly).

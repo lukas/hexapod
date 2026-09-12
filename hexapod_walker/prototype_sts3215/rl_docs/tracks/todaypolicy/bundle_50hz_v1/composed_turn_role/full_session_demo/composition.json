@@ -1,0 +1,139 @@
+{
+  "schema": "hexapod.hybrid_demo.v1",
+  "name": "cw-turn50hz-standwalk-cap29-stdwalklohi-warmadapt-canary2m-acq1 hybrid",
+  "model_source": "mesh",
+  "states": {
+    "belly_zero": {
+      "bookkeeping_start_at": "zero",
+      "pose_family": "logical_zero_belly_down"
+    },
+    "step_stand": {
+      "pose_family": "standup_modes.step.final"
+    },
+    "walk_ready": {
+      "pose_family": "sim_walk_start",
+      "q_deg": [
+        0.0,
+        20.0,
+        80.0,
+        0.0,
+        20.0,
+        80.0,
+        0.0,
+        20.0,
+        80.0,
+        0.0,
+        20.0,
+        80.0,
+        0.0,
+        20.0,
+        80.0,
+        0.0,
+        20.0,
+        80.0
+      ]
+    },
+    "walk_done": {
+      "pose_family": "post_policy_runtime_state"
+    },
+    "grounded": {
+      "pose_family": "scripted_lower_limp_settled"
+    }
+  },
+  "controllers": {
+    "align_walk_ready": {
+      "type": "pose_blend",
+      "target": "sim_walk_start",
+      "seconds": 0.75
+    },
+    "bookkeeping_walk_frame": {
+      "type": "bookkeeping_reanchor",
+      "start_at": "plant",
+      "mode": "hold"
+    },
+    "rl_walk": {
+      "type": "sb3_walk_policy",
+      "checkpoint": "rl_move/sim/policies/ppo_goal_cw_turn50hz_standwalk_cap29_stdwalklohi_warmadapt_canary2m_acq1.zip",
+      "policy_mode": "deterministic",
+      "script": "human_turn",
+      "seconds": 20.0,
+      "speed_m_s": 0.08,
+      "wz_max_rad_s": 0.3,
+      "blend_s": 0.5,
+      "compose_turn_blend_s": 0.15,
+      "stall_substitute_every_s": 0.0,
+      "stall_substitute_dur_s": 0.0
+    },
+    "align_before_lower": {
+      "type": "pose_blend",
+      "target": "sim_walk_start",
+      "seconds": 0.75
+    },
+    "limp_settle": {
+      "type": "limp_settle",
+      "seconds": 2.0
+    },
+    "learned_stand": {
+      "type": "learned_stance_policy",
+      "checkpoint": "linux_control/policies/stand50hz_stance_tuckclock_scratch6m_curhot_b23k12.json",
+      "role": "stand",
+      "start_at": "zero",
+      "release": "stable",
+      "handoff_stable_s": 0.75,
+      "handoff_settle_s": 0.25,
+      "handoff_min_z_m": 0.1,
+      "handoff_max_tilt_deg": 7.0,
+      "handoff_max_current_a": 2.2
+    },
+    "learned_lower": {
+      "type": "learned_stance_policy",
+      "checkpoint": "linux_control/policies/stand50hz_stance_tuckclock_scratch6m_curhot_b23k12.json",
+      "role": "lower",
+      "start_at": "plant"
+    }
+  },
+  "sequence": [
+    {
+      "phase": "stand",
+      "controller": "learned_stand",
+      "from_state": "belly_zero",
+      "to_state": "step_stand"
+    },
+    {
+      "phase": "walk_ready_align",
+      "controller": "align_walk_ready",
+      "from_state": "step_stand",
+      "to_state": "walk_ready"
+    },
+    {
+      "phase": "walk_reanchor",
+      "controller": "bookkeeping_walk_frame",
+      "from_state": "walk_ready",
+      "to_state": "walk_ready"
+    },
+    {
+      "phase": "walk",
+      "controller": "rl_walk",
+      "from_state": "walk_ready",
+      "to_state": "walk_done"
+    },
+    {
+      "phase": "pre_lower_align",
+      "controller": "align_before_lower",
+      "from_state": "walk_done",
+      "to_state": "walk_ready"
+    },
+    {
+      "phase": "lower",
+      "controller": "learned_lower",
+      "from_state": "walk_ready",
+      "to_state": "grounded"
+    },
+    {
+      "phase": "limp",
+      "controller": "limp_settle",
+      "from_state": "grounded",
+      "to_state": "grounded"
+    }
+  ]
+}

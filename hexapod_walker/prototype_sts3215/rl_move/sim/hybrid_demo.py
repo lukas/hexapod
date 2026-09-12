@@ -762,6 +762,22 @@ def _write_transfer_manifest(path: Path, plan: dict[str, Any],
                     "demo_speed_m_s": walk.get("speed_m_s"),
                     "demo_wz_max_rad_s": walk.get("wz_max_rad_s"),
                 },
+                "composed_turn_in_place": (
+                    {
+                        "compose_turn_blend_s": walk.get(
+                            "compose_turn_blend_s"),
+                        "stall_substitute_every_s": walk.get(
+                            "stall_substitute_every_s", 0.0),
+                        "stall_substitute_dur_s": walk.get(
+                            "stall_substitute_dur_s", 0.0),
+                        "note": "walk-phase action substituted with the "
+                                "scripted TripodGait teacher on live "
+                                "turn-in-place ticks (and/or the periodic "
+                                "schedule) per rl_move/sim/"
+                                "probe_turn_compose.py; not a raw single-"
+                                "network policy on those ticks.",
+                    } if walk.get("compose_turn_blend_s") is not None
+                    else None),
             },
             stance_component(lower, state="walk_ready -> grounded",
                              role="lower"),
@@ -856,7 +872,35 @@ def main() -> int:
                     help="allow env.model_source=mesh to fall back to the "
                          "checked-in mesh_mjx twin when full STL assets are "
                          "missing")
+    # todaypolicy/amp turn-in-place composition (probe_turn_compose.py),
+    # wired here the same way eval_checkpoint.py/drive_video.py already
+    # wrap it (STATUS 2026-09-12 ~19:4x GO_NOGO open item 1: this demo
+    # had no single-command stand->walk(composed)->lower session). Only
+    # wraps the WALK-phase policy (the only place `model` is used below);
+    # default None/0.0 = no wrap, bit-exact with pre-existing behavior.
+    ap.add_argument("--compose-turn-blend-s", type=float, default=None,
+                    help="wrap the walk-phase policy in probe_turn_"
+                         "compose's _ComposedPolicy (non-RL scripted-"
+                         "teacher substitution on live turn-in-place "
+                         "ticks) with this blend window in seconds (0.0 "
+                         "= hard switch); default None = no wrap.")
+    ap.add_argument("--stall-substitute-every-s", type=float, default=0.0,
+                    help="probe_turn_compose _ComposedPolicy: every this "
+                         "many seconds of elapsed walk-phase time, the "
+                         "scripted teacher takes over for "
+                         "--stall-substitute-dur-s seconds (mode-"
+                         "independent); 0.0 = disabled (default). "
+                         "Requires --compose-turn-blend-s to be set.")
+    ap.add_argument("--stall-substitute-dur-s", type=float, default=0.0,
+                    help="duration of each periodic teacher takeover "
+                         "window started by --stall-substitute-every-s; "
+                         "0.0 = disabled (default).")
     args = ap.parse_args()
+    if (args.stall_substitute_every_s > 0.0 or args.stall_substitute_dur_s > 0.0) \
+            and args.compose_turn_blend_s is None:
+        ap.error("--stall-substitute-every-s/--stall-substitute-dur-s "
+                 "require --compose-turn-blend-s to be set (they wrap "
+                 "the same _ComposedPolicy)")
 
     plan = _load_composition(args)
     if args.write_composition_template is not None:
@@ -931,6 +975,21 @@ def main() -> int:
             f"obs mismatch: policy {model.observation_space.shape} vs env "
             f"{env.observation_space.shape}; pass the run's cfg stack via "
             "--cfg-set or use ops.sh hybriddemo <run>")
+    if args.compose_turn_blend_s is not None:
+        # Same wrap eval_checkpoint.py/drive_video.py already use;
+        # applies only to the walk-phase controller (`model` here is
+        # unused by stand/lower, which load their own stance_models).
+        from .probe_turn_compose import _ComposedPolicy
+        model = _ComposedPolicy(
+            model, env, compose=True,
+            blend_s=float(args.compose_turn_blend_s),
+            stall_substitute_every_s=float(args.stall_substitute_every_s),
+            stall_substitute_dur_s=float(args.stall_substitute_dur_s))
+        walk_ctrl = dict(walk_ctrl)
+        walk_ctrl["compose_turn_blend_s"] = args.compose_turn_blend_s
+        walk_ctrl["stall_substitute_every_s"] = args.stall_substitute_every_s
+        walk_ctrl["stall_substitute_dur_s"] = args.stall_substitute_dur_s
+        plan.setdefault("controllers", {})["rl_walk"] = walk_ctrl
     traj = env.traj
     traj.start_at = "plant"
     traj.goal = TaskGoal()
@@ -1027,6 +1086,8 @@ def main() -> int:
     summary = rec.summary(
         identity=identity, reset_info=reset_info,
         motor_contract=motor_contract(cfg, backend="servo_profile_np"))
+    if hasattr(model, "summary"):
+        summary["compose_summary"] = model.summary()
     (out / "composition.json").write_text(json.dumps(plan, indent=2) + "\n")
     (out / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     (out / "ticks.json").write_text(json.dumps(rec.rows, indent=1) + "\n")

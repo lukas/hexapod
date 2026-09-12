@@ -1223,6 +1223,13 @@ class RecurrentPredictor:
 
     def __init__(self, model):
         self.policy = model.policy
+        # Forward these so callers that load-then-check-then-wrap in one
+        # step (e.g. hybrid_demo.py's `_load_any_policy`) can still do an
+        # obs-space sanity check on the wrapped object; every OTHER
+        # caller already checks before wrapping, so this is additive
+        # only, never read by them.
+        self.observation_space = getattr(model, "observation_space", None)
+        self.action_space = getattr(model, "action_space", None)
         self.reset()
 
     def reset(self) -> None:

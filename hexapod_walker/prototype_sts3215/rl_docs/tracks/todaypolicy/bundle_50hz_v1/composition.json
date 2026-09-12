@@ -1,87 +1,118 @@
 {
-  "schema": "hexapod.todaypolicy_bundle.v1",
-  "name": "todaypolicy-50hz-v1",
-  "order": "op_20260910_50hz",
-  "control_hz": 50,
-  "roles": {
-    "stand_lower": {
-      "default": {
-        "run": "cw-stand50hz-stance-tuckclock-scratch6m-dqfix-retention-s1-exploreresettle-budget6m-cont6m2-curhot-b23k12",
-        "export": "linux_control/policies/stand50hz_stance_tuckclock_scratch6m_curhot_b23k12.json",
-        "obs_dim": 68,
-        "type": "learned",
-        "known_limit": "1/12 rise over_current (mixed-start DR-0); 2/12 tilt_roll falls (own-DR 0.2 hold/sto + lower/sto)"
-      },
-      "fallback": {
-        "type": "scripted",
-        "controller": "standup_modes.json tuck (fwd/reverse)"
-      }
-    },
-    "walk_straight": {
-      "default": {
-        "run": "cw-walk50hz-allheading-mlp-singleframe-scratch-acq20m",
-        "export": "linux_control/policies/walk_allheading_mlp_singleframe_scratch_50hz.json",
-        "obs_dim": 74,
-        "det_progress_ratio_med": 0.41,
-        "det_slip_med": 2.19
-      },
-      "alternate": {
-        "run": "cw-walk50hz-teach-scripted-allhead-scratch-acq10m-cont15m",
-        "export": "linux_control/policies/walkteach_scripted_allhead_scratch_50hz.json",
-        "det_progress_ratio_med": 0.38,
-        "det_slip_med": 2.57
-      }
-    },
-    "walk_turn_capable": {
-      "default": {
-        "run": "cw-turn50hz-standwalk-cap29-stdwalklohi-warmadapt-canary2m-acq1",
-        "export": "linux_control/policies/turn50hz_standwalk_cap29_stdwalklohi_warmadapt_canary2m_acq1.json",
-        "wz_med_rad_s": [
-          0.191,
-          -0.191
-        ],
-        "det_progress_ratio_med": 0.27,
-        "det_slip_med": 3.87,
-        "known_limit": "2/6 det + 1/6 sto hold_min_load falls",
-        "generalized_stall_substitution_2026_09_12": {
-          "status": "CONFIRMED: the mode-independent generalization flagged as open_generalization_not_built (see wrong_substitute_control_2026_09_12) DOES rescue plain straight-line walking, not just turn-in-place -- built and validated this cycle, NOT yet wired into the shipped bundle (turn-composition above stays the only thing actually deployed).",
-          "mechanism": "rl_move/sim/probe_turn_compose.py:_ComposedPolicy stall_substitute_every_s/_dur_s (both default 0.0 = disabled/bit-exact). When both positive and compose=True, every every_s seconds of elapsed episode time the teacher takes over for dur_s seconds, tracking the REAL ambient command (not a wrong-substitute control), regardless of turn/walk/hold mode; ORs with the existing turn-tick gate.",
-          "method": "cap29-acq1, full training cfg-set replayed verbatim, goal.walk_turn_in_place_frac=0.0 forced so every tick is plain straight-walk (turn_ticks=0 confirmed all 5 seeds -- isolates this mechanism from the turn-tick one entirely). --stall-substitute-every-s 4.0 --stall-substitute-dur-s 1.0 (25% duty), 5 seeds x 20s@50Hz.",
-          "result": "RAW gait_valid=False 5/5 (sacrificed_legs [1,4]x4/[1]x1, forward_dist_m 0.004-0.046, progress_ratio -0.016..+0.032 -- the same freeze signature already on record). COMPOSED gait_valid=True 5/5, sacrificed_legs=[] every seed, forward_dist_m 0.006-0.114, progress_ratio 0.025-0.114 (every seed improves over its own raw pair). Frame strips confirm: raw shows the same static leg pose repeated through the back half of the episode; composed shows genuine per-frame leg reconfiguration.",
-          "honest_caveat": "net forward progress stays modest even composed (~0.0003-0.006 m/s at this 25% duty) -- confirmed to prevent leg-sacrifice/lock-in, not yet shown to restore sustained good-speed walking. A duty-cycle dose sweep and integration into eval_checkpoint.py/drive_video.py are the open next steps, not run this cycle.",
-          "evidence": "logs/probe_turn_compose/todaypolicy_cap29_acq1_stallsub_straightonly_every4_dur1/{report.json,raw_{0,3}.png,composed_{0,3}.png}; rl_move/sim/probe_turn_compose.py (stall_substitute_every_s/_dur_s, snapshot 61e32954)."
+    "schema": "hexapod.todaypolicy_bundle.v1",
+    "name": "todaypolicy-50hz-v1",
+    "order": "op_20260910_50hz",
+    "control_hz": 50,
+    "roles": {
+        "stand_lower": {
+            "default": {
+                "run": "cw-stand50hz-stance-tuckclock-scratch6m-dqfix-retention-s1-exploreresettle-budget6m-cont6m2-curhot-b23k12",
+                "export": "linux_control/policies/stand50hz_stance_tuckclock_scratch6m_curhot_b23k12.json",
+                "obs_dim": 68,
+                "type": "learned",
+                "known_limit": "1/12 rise over_current (mixed-start DR-0); 2/12 tilt_roll falls (own-DR 0.2 hold/sto + lower/sto)"
+            },
+            "fallback": {
+                "type": "scripted",
+                "controller": "standup_modes.json tuck (fwd/reverse)"
+            }
+        },
+        "walk_straight": {
+            "default": {
+                "run": "cw-walk50hz-allheading-mlp-singleframe-scratch-acq20m",
+                "export": "linux_control/policies/walk_allheading_mlp_singleframe_scratch_50hz.json",
+                "obs_dim": 74,
+                "det_progress_ratio_med": 0.41,
+                "det_slip_med": 2.19
+            },
+            "alternate": {
+                "run": "cw-walk50hz-teach-scripted-allhead-scratch-acq10m-cont15m",
+                "export": "linux_control/policies/walkteach_scripted_allhead_scratch_50hz.json",
+                "det_progress_ratio_med": 0.38,
+                "det_slip_med": 2.57
+            }
+        },
+        "walk_turn_capable": {
+            "default": {
+                "run": "cw-turn50hz-standwalk-cap29-stdwalklohi-warmadapt-canary2m-acq1",
+                "export": "linux_control/policies/turn50hz_standwalk_cap29_stdwalklohi_warmadapt_canary2m_acq1.json",
+                "wz_med_rad_s": [
+                    0.191,
+                    -0.191
+                ],
+                "det_progress_ratio_med": 0.27,
+                "det_slip_med": 3.87,
+                "known_limit": "2/6 det + 1/6 sto hold_min_load falls",
+                "generalized_stall_substitution_2026_09_12": {
+                    "status": "CONFIRMED: the mode-independent generalization flagged as open_generalization_not_built (see wrong_substitute_control_2026_09_12) DOES rescue plain straight-line walking, not just turn-in-place -- built and validated this cycle, NOT yet wired into the shipped bundle (turn-composition above stays the only thing actually deployed).",
+                    "mechanism": "rl_move/sim/probe_turn_compose.py:_ComposedPolicy stall_substitute_every_s/_dur_s (both default 0.0 = disabled/bit-exact). When both positive and compose=True, every every_s seconds of elapsed episode time the teacher takes over for dur_s seconds, tracking the REAL ambient command (not a wrong-substitute control), regardless of turn/walk/hold mode; ORs with the existing turn-tick gate.",
+                    "method": "cap29-acq1, full training cfg-set replayed verbatim, goal.walk_turn_in_place_frac=0.0 forced so every tick is plain straight-walk (turn_ticks=0 confirmed all 5 seeds -- isolates this mechanism from the turn-tick one entirely). --stall-substitute-every-s 4.0 --stall-substitute-dur-s 1.0 (25% duty), 5 seeds x 20s@50Hz.",
+                    "result": "RAW gait_valid=False 5/5 (sacrificed_legs [1,4]x4/[1]x1, forward_dist_m 0.004-0.046, progress_ratio -0.016..+0.032 -- the same freeze signature already on record). COMPOSED gait_valid=True 5/5, sacrificed_legs=[] every seed, forward_dist_m 0.006-0.114, progress_ratio 0.025-0.114 (every seed improves over its own raw pair). Frame strips confirm: raw shows the same static leg pose repeated through the back half of the episode; composed shows genuine per-frame leg reconfiguration.",
+                    "honest_caveat": "net forward progress stays modest even composed (~0.0003-0.006 m/s at this 25% duty) -- confirmed to prevent leg-sacrifice/lock-in, not yet shown to restore sustained good-speed walking. A duty-cycle dose sweep and integration into eval_checkpoint.py/drive_video.py are the open next steps, not run this cycle.",
+                    "evidence": "logs/probe_turn_compose/todaypolicy_cap29_acq1_stallsub_straightonly_every4_dur1/{report.json,raw_{0,3}.png,composed_{0,3}.png}; rl_move/sim/probe_turn_compose.py (stall_substitute_every_s/_dur_s, snapshot 61e32954).",
+                    "duty_cycle_dose_sweep_2026_09_12": {
+                        "status": "DONE (closes both open next-steps named above: eval_checkpoint.py/drive_video.py wiring landed same day, snapshot 4ab06c46; this is the duty sweep). Clean dose-response, not a step function: full gait_valid rescue needs >=25% duty, and sustained forward progress keeps scaling well past the minimum-rescue dose.",
+                        "method": "Same cap29-acq1 straight-only isolation (goal.walk_turn_in_place_frac=0.0, turn_ticks=0 confirmed every seed) as the entry above, 5 seeds x 20s@50Hz, 4 duty points via --stall-substitute-every-s/-dur-s: 12.5% (every_s=4,dur_s=0.5), 25% two ways (every_s=2,dur_s=0.5 and every_s=4,dur_s=1.0), 50% (every_s=4,dur_s=2.0). RAW is identical across all 4 arms (same base checkpoint/seeds/no-substitution baseline): gait_valid 0/5 every arm, sacrificed_legs [1,4] (4/5 seeds) or [1] (1/5).",
+                        "result_table": {
+                            "12.5%_duty": {
+                                "composed_gait_valid": "3/5",
+                                "mean_forward_dist_m": 0.0252,
+                                "mean_slip_per_m": 11.907,
+                                "note": "PARTIAL rescue -- 2/5 seeds still sacrifice leg 4 (down from [1,4], genuinely improved but not clean)"
+                            },
+                            "25%_duty_every2_dur05": {
+                                "composed_gait_valid": "5/5",
+                                "mean_forward_dist_m": 0.026,
+                                "mean_slip_per_m": 10.835
+                            },
+                            "25%_duty_every4_dur1": {
+                                "composed_gait_valid": "5/5",
+                                "mean_forward_dist_m": 0.0296,
+                                "mean_slip_per_m": 8.741
+                            },
+                            "50%_duty_every4_dur2": {
+                                "composed_gait_valid": "5/5",
+                                "mean_forward_dist_m": 0.0648,
+                                "mean_slip_per_m": 5.896,
+                                "note": "best of the 4 -- ~2.3x the 25% arms' forward progress and best slip, at 2x the teacher-authority cost"
+                            }
+                        },
+                        "interpretation": "matches the wrong-substitute control's causal story (any sustained non-degenerate action unsticks the freeze, not turn-specific content): the effect is dose-graded, not a discrete reset. gait_valid alone (a late-episode snapshot check) saturates at 5/5 by 25% duty, but mean forward_dist_m keeps climbing through 50% duty -- 25% duty prevents leg-lock-in/classifies as valid but the robot is still spending most of its time barely moving between substitution windows; 50% duty is closer to genuinely-restored locomotion, not merely non-frozen.",
+                        "recommendation": "if this mechanism is ever wired into the shipped bundle (not done yet -- still probe-only machinery, turn-composition remains the only deployed fix), use 25% duty (--stall-substitute-every-s 4.0 --stall-substitute-dur-s 1.0) as the minimum dose that reliably clears gait_valid on this checkpoint; use 50% duty if sustained forward speed matters more than minimizing teacher-authority time. Neither is deployed by default (bit-exact off).",
+                        "evidence": "logs/probe_turn_compose/todaypolicy_cap29_acq1_stallsub_straightonly_{every4_dur05,every2_dur05,every4_dur1,every4_dur2}/report.json."
+                    }
+                }
+            },
+            "alternate_seed": {
+                "run": "cw-turn50hz-standwalk-cap29-stdwalklohi-warmadapt-canary2m-s1-acq1",
+                "export": "linux_control/policies/turn50hz_standwalk_cap29_stdwalklohi_warmadapt_canary2m_s1_acq1.json"
+            },
+            "note": "not the bundle default walk role -- loads into the same rl_walk_weights.json slot as walk_straight; pick this one only when joystick turning is required.",
+            "known_limit_massfix_2026_09_11": "corrected-mass (3.490kg) re-check IMPROVES the pre-fix numbers above: hold/det terms 2->0, hold/sto terms 3->2 (pooled panel terms 5->2); walk/det gait_valid unchanged 6/6. Evidence: logs/ckpt_eval/cw_turn50hz_standwalk_cap29_stdwalklohi_warmadapt_canary2m_acq1_gate_massfix/report.json.",
+            "turn_composition_2026_09_12": {
+                "status": "CONFIRMED to prevent a real freeze on this exact bundle checkpoint when a session holds sustained turn-in-place long enough to reach its known continuous-single-mode degeneration point (see matched_raw_vs_composed_pair_2026_09_12 below for the controlled evidence and its honest caveat) -- REQUIRED for any sustained joystick turn-in-place command; leaving it off costs nothing on straight-walk/mixed-natural-mix ticks (bit-exact at blend_s=0.0 default, and empirically near-identical on the core gate panel -- see gate_delta below).",
+                "why": "this checkpoint's own real wz-authority training does track short/moderate turn commands (probe_turn_authority wz_med +-0.19 rad/s), but amp track's independent turncurr lineage found sustained turn-in-place freezes 6/6 mechanisms; rather than assume this is/isn't the same gap, todaypolicy/amp built a non-RL composition (any_means: explicit controller composition) as a safety net: on ticks the env itself classifies as live turn-in-place (s_ref<=1e-3 and |wz_ref|>1e-3 -- the same flag walk_task.py already computes), the action is swapped to hexapod_core.tripod_gait.TripodGait (the same scripted teacher this codebase's own BC-anchor/reward machinery already treats as ground truth turn behavior elsewhere), blended over blend_s seconds; straight-walk ticks are untouched, the real policy drives them exactly as trained.",
+                "mechanism": "rl_move/sim/probe_turn_compose.py:_ComposedPolicy, wired into rl_move/sim/eval_checkpoint.py and rl_move/sim/drive_video.py via --compose-turn-blend-s (float seconds, default None = no wrap/bit-exact old behavior)",
+                "validated_blend_s": 0.15,
+                "cli_addition": "--compose-turn-blend-s 0.15 (append to any eval_checkpoint.py/drive_video.py invocation against turn50hz_standwalk_cap29_stdwalklohi_warmadapt_canary2m_acq1.zip or its s1 twin)",
+                "gate_delta": "full walk/rise/lower/hold det+sto panel (+ auto walk_startjitter) at blend_s=0.15 vs the SAME corrected-mass uncomposed gate (gate_massfix, apples-to-apples -- amp's own STATUS entry this same day diffed against the pre-massfix '_gate' instead, an avoidable mass confound; this composition.json entry uses the correct massfix comparator): walk/det, rise/det, lower/det, hold/det, walk/sto, rise/sto, lower/sto, hold/sto are ALL numerically identical panel-level (gait_valid/terms unchanged on every one); only walk_startjitter (the one sub-panel whose natural goal draw occasionally includes a turn-in-place tick) shows small per-episode deltas (e.g. det ep0 fwd 0.06->0.01m, ep4 ok False->True), consistent with the composition engaging on a handful of ticks and otherwise being a true no-op elsewhere in this panel. Net: composing costs nothing on the core modes.",
+                "positive_evidence": "logs/manual_drive/cap29_acq1_composed_humanturn/summary.json (20s human_turn script, blend_s=0.15): terminated=false, gait_valid=true, sacrificed_legs=[], turn_wz_err_med_rad_s=0.0747 (real tracking, course_err_2s_med_deg=10.14 on motion-valid windows), cur_max_a=2.573A (inside the 50Hz motor contract). Frame strip (logs/manual_drive/cap29_acq1_composed_humanturn/drive_sheet.png) shows genuine per-frame leg reconfiguration through curved turn-in-place arcs, not the static splayed freeze-crouch amp's own turncurr lineage showed at every RL-side lever.",
+                "matched_raw_vs_composed_pair_2026_09_12": "CLOSED the gap flagged above, WITH the confound this track's own 06:0x entry already found controlled for (not re-litigated as new). Ran rl_move/sim/probe_turn_compose.py directly on THIS checkpoint (ppo_goal_cw_turn50hz_standwalk_cap29_stdwalklohi_warmadapt_canary2m_acq1.zip), full training cfg-set replayed verbatim, dr_scale=0, 15s@50Hz (matched to the official gate's own episode length per the 06:0x root-cause). Two batches: (A) goal.walk_turn_in_place_frac=1.0, 4 seeds: RAW gait_valid=False 4/4 (sacrificed_legs [1,4] on 3, [1,4,5] on 1, forward_dist_m 0.010-0.017, mean|wz|_turn 0.026-0.035 rad/s noise-floor); COMPOSED gait_valid=True 4/4, sacrificed_legs=[] every seed, mean|wz|_turn 0.145-0.159 rad/s (5-6x raw, in probe_turn_authority's own passing band). (B) control, goal.walk_turn_in_place_frac=0.0, 3 seeds (turn_ticks=0 confirmed every seed): RAW and COMPOSED are BYTE-IDENTICAL (mp4 files match exactly) and BOTH freeze the same way (sacrificed_legs [1] or [1,5], forward_dist_m 0.011-0.028) -- this replicates, not discovers, the track's own already-documented continuous-single-mode-duration artifact (STATUS.md 06:0x `..._tip_matched15s` entry: pure forced walk past ~7-8s degrades on this checkpoint regardless of turn content). READ TOGETHER: batch (B) proves RAW's freeze in batch (A) is NOT itself evidence of a turn-specific defect (continuous single-mode duration alone is sufficient to cause it) -- but batch (B) also proves the composed wrapper provides ZERO protection when there are no turn ticks to substitute (composed=raw exactly), so batch (A)'s fix is causally tied to the actual turn-tick action substitutions, not an artifact of wrapping/resetting the model. Net, honest verdict: the composition is CONFIRMED to prevent this checkpoint's continuous-duration freeze specifically on sessions that include sustained turn-in-place segments long enough to reach the degeneration point -- a real, practically load-bearing safety property for real joystick sessions with sustained turning -- but whether the deeper mechanism is turn-action-specific (H2) versus any-sustained-action-substitution-would-also-work (H1) is NOT isolated by this evidence (would need a further control substituting non-turn actions on the same tick pattern) and does not change the practical recommendation either way. Evidence: logs/probe_turn_compose/cap29_acq1_tip1/{report.json,raw_*.png,composed_*.png} (batch A); logs/probe_turn_compose/cap29_acq1_purewalk_control/report.json (batch B control, byte-identical raw/composed mp4s)."
+            },
+            "wrong_substitute_control_2026_09_12": {
+                "status": "CLOSES the H1-vs-H2 question matched_raw_vs_composed_pair_2026_09_12 left open. ANSWER: H1 (generic sustained-substitution unsticks the freeze) -- NOT H2 (turn-specific content required).",
+                "method": "probe_turn_compose.py --wrong-substitute-vx 0.05 on the SAME live turn ticks the real composition substitutes on, but injecting a deliberately WRONG action (straight walk, omega=0, vx=0.05 m/s) instead of the correct TripodGait turn action. Natural walk_turn_in_place_frac=0.30 mix (not forced to 1.0), 10 seeds, matched 15s/50Hz construction.",
+                "result": "of 5 episodes that drew turn ticks, the 4 with substantial tick counts (263-699/750) all recover gait_valid=True with sacrificed_legs=[] under the WRONG substitute (forward_dist_m 0.116-0.320, i.e. moving forward per the wrong command, not turning) -- matching (A)'s correct-substitute recovery (4/4 True) essentially 1:1. The one episode with only 10/750 turn ticks shows partial-only recovery (sacrificed_legs [1,4]->[1]), consistent with a dose/duration-dependent unstick effect, not a contradiction.",
+                "interpretation": "the composed action's turn-CORRECTNESS is not what prevents the freeze; having ANY sustained, actively-commanded (non-degenerate) action running for enough consecutive ticks is sufficient. The turn-in-place composition remains the right practical fix (it is the only built mechanism, costs nothing elsewhere, and the env already flags exactly the ticks it needs) -- but the causal story is 'unstick a known continuous-single-mode-duration freeze' (STATUS 06:0x root cause), not 'supply a missing turn skill'. Practical recommendation UNCHANGED.",
+                "open_generalization_not_built": "batch (B) of matched_raw_vs_composed_pair_2026_09_12 already showed this composition gives ZERO protection when turn_ticks=0 (composed=raw byte-identical); combined with this control's generic-mechanism finding, a general 'detect sustained single-mode duration, periodically substitute/perturb the action' mechanism could plausibly extend freeze protection to plain long straight-walk sessions too -- flagged as a real Next idea, not launched this cycle (new mechanism, not a quick follow-up).",
+                "evidence": "logs/probe_turn_compose/todaypolicy_cap29_acq1_wrongsub_tip1_frac30/report.json; rl_move/sim/probe_turn_compose.py (wrong_substitute_vx, snapshot 1e09f379)."
+            }
         }
-      },
-      "alternate_seed": {
-        "run": "cw-turn50hz-standwalk-cap29-stdwalklohi-warmadapt-canary2m-s1-acq1",
-        "export": "linux_control/policies/turn50hz_standwalk_cap29_stdwalklohi_warmadapt_canary2m_s1_acq1.json"
-      },
-      "note": "not the bundle default walk role -- loads into the same rl_walk_weights.json slot as walk_straight; pick this one only when joystick turning is required.",
-      "known_limit_massfix_2026_09_11": "corrected-mass (3.490kg) re-check IMPROVES the pre-fix numbers above: hold/det terms 2->0, hold/sto terms 3->2 (pooled panel terms 5->2); walk/det gait_valid unchanged 6/6. Evidence: logs/ckpt_eval/cw_turn50hz_standwalk_cap29_stdwalklohi_warmadapt_canary2m_acq1_gate_massfix/report.json.",
-      "turn_composition_2026_09_12": {
-        "status": "CONFIRMED to prevent a real freeze on this exact bundle checkpoint when a session holds sustained turn-in-place long enough to reach its known continuous-single-mode degeneration point (see matched_raw_vs_composed_pair_2026_09_12 below for the controlled evidence and its honest caveat) -- REQUIRED for any sustained joystick turn-in-place command; leaving it off costs nothing on straight-walk/mixed-natural-mix ticks (bit-exact at blend_s=0.0 default, and empirically near-identical on the core gate panel -- see gate_delta below).",
-        "why": "this checkpoint's own real wz-authority training does track short/moderate turn commands (probe_turn_authority wz_med +-0.19 rad/s), but amp track's independent turncurr lineage found sustained turn-in-place freezes 6/6 mechanisms; rather than assume this is/isn't the same gap, todaypolicy/amp built a non-RL composition (any_means: explicit controller composition) as a safety net: on ticks the env itself classifies as live turn-in-place (s_ref<=1e-3 and |wz_ref|>1e-3 -- the same flag walk_task.py already computes), the action is swapped to hexapod_core.tripod_gait.TripodGait (the same scripted teacher this codebase's own BC-anchor/reward machinery already treats as ground truth turn behavior elsewhere), blended over blend_s seconds; straight-walk ticks are untouched, the real policy drives them exactly as trained.",
-        "mechanism": "rl_move/sim/probe_turn_compose.py:_ComposedPolicy, wired into rl_move/sim/eval_checkpoint.py and rl_move/sim/drive_video.py via --compose-turn-blend-s (float seconds, default None = no wrap/bit-exact old behavior)",
-        "validated_blend_s": 0.15,
-        "cli_addition": "--compose-turn-blend-s 0.15 (append to any eval_checkpoint.py/drive_video.py invocation against turn50hz_standwalk_cap29_stdwalklohi_warmadapt_canary2m_acq1.zip or its s1 twin)",
-        "gate_delta": "full walk/rise/lower/hold det+sto panel (+ auto walk_startjitter) at blend_s=0.15 vs the SAME corrected-mass uncomposed gate (gate_massfix, apples-to-apples -- amp's own STATUS entry this same day diffed against the pre-massfix '_gate' instead, an avoidable mass confound; this composition.json entry uses the correct massfix comparator): walk/det, rise/det, lower/det, hold/det, walk/sto, rise/sto, lower/sto, hold/sto are ALL numerically identical panel-level (gait_valid/terms unchanged on every one); only walk_startjitter (the one sub-panel whose natural goal draw occasionally includes a turn-in-place tick) shows small per-episode deltas (e.g. det ep0 fwd 0.06->0.01m, ep4 ok False->True), consistent with the composition engaging on a handful of ticks and otherwise being a true no-op elsewhere in this panel. Net: composing costs nothing on the core modes.",
-        "positive_evidence": "logs/manual_drive/cap29_acq1_composed_humanturn/summary.json (20s human_turn script, blend_s=0.15): terminated=false, gait_valid=true, sacrificed_legs=[], turn_wz_err_med_rad_s=0.0747 (real tracking, course_err_2s_med_deg=10.14 on motion-valid windows), cur_max_a=2.573A (inside the 50Hz motor contract). Frame strip (logs/manual_drive/cap29_acq1_composed_humanturn/drive_sheet.png) shows genuine per-frame leg reconfiguration through curved turn-in-place arcs, not the static splayed freeze-crouch amp's own turncurr lineage showed at every RL-side lever.",
-        "matched_raw_vs_composed_pair_2026_09_12": "CLOSED the gap flagged above, WITH the confound this track's own 06:0x entry already found controlled for (not re-litigated as new). Ran rl_move/sim/probe_turn_compose.py directly on THIS checkpoint (ppo_goal_cw_turn50hz_standwalk_cap29_stdwalklohi_warmadapt_canary2m_acq1.zip), full training cfg-set replayed verbatim, dr_scale=0, 15s@50Hz (matched to the official gate's own episode length per the 06:0x root-cause). Two batches: (A) goal.walk_turn_in_place_frac=1.0, 4 seeds: RAW gait_valid=False 4/4 (sacrificed_legs [1,4] on 3, [1,4,5] on 1, forward_dist_m 0.010-0.017, mean|wz|_turn 0.026-0.035 rad/s noise-floor); COMPOSED gait_valid=True 4/4, sacrificed_legs=[] every seed, mean|wz|_turn 0.145-0.159 rad/s (5-6x raw, in probe_turn_authority's own passing band). (B) control, goal.walk_turn_in_place_frac=0.0, 3 seeds (turn_ticks=0 confirmed every seed): RAW and COMPOSED are BYTE-IDENTICAL (mp4 files match exactly) and BOTH freeze the same way (sacrificed_legs [1] or [1,5], forward_dist_m 0.011-0.028) -- this replicates, not discovers, the track's own already-documented continuous-single-mode-duration artifact (STATUS.md 06:0x `..._tip_matched15s` entry: pure forced walk past ~7-8s degrades on this checkpoint regardless of turn content). READ TOGETHER: batch (B) proves RAW's freeze in batch (A) is NOT itself evidence of a turn-specific defect (continuous single-mode duration alone is sufficient to cause it) -- but batch (B) also proves the composed wrapper provides ZERO protection when there are no turn ticks to substitute (composed=raw exactly), so batch (A)'s fix is causally tied to the actual turn-tick action substitutions, not an artifact of wrapping/resetting the model. Net, honest verdict: the composition is CONFIRMED to prevent this checkpoint's continuous-duration freeze specifically on sessions that include sustained turn-in-place segments long enough to reach the degeneration point -- a real, practically load-bearing safety property for real joystick sessions with sustained turning -- but whether the deeper mechanism is turn-action-specific (H2) versus any-sustained-action-substitution-would-also-work (H1) is NOT isolated by this evidence (would need a further control substituting non-turn actions on the same tick pattern) and does not change the practical recommendation either way. Evidence: logs/probe_turn_compose/cap29_acq1_tip1/{report.json,raw_*.png,composed_*.png} (batch A); logs/probe_turn_compose/cap29_acq1_purewalk_control/report.json (batch B control, byte-identical raw/composed mp4s)."
-      },
-      "wrong_substitute_control_2026_09_12": {
-        "status": "CLOSES the H1-vs-H2 question matched_raw_vs_composed_pair_2026_09_12 left open. ANSWER: H1 (generic sustained-substitution unsticks the freeze) -- NOT H2 (turn-specific content required).",
-        "method": "probe_turn_compose.py --wrong-substitute-vx 0.05 on the SAME live turn ticks the real composition substitutes on, but injecting a deliberately WRONG action (straight walk, omega=0, vx=0.05 m/s) instead of the correct TripodGait turn action. Natural walk_turn_in_place_frac=0.30 mix (not forced to 1.0), 10 seeds, matched 15s/50Hz construction.",
-        "result": "of 5 episodes that drew turn ticks, the 4 with substantial tick counts (263-699/750) all recover gait_valid=True with sacrificed_legs=[] under the WRONG substitute (forward_dist_m 0.116-0.320, i.e. moving forward per the wrong command, not turning) -- matching (A)'s correct-substitute recovery (4/4 True) essentially 1:1. The one episode with only 10/750 turn ticks shows partial-only recovery (sacrificed_legs [1,4]->[1]), consistent with a dose/duration-dependent unstick effect, not a contradiction.",
-        "interpretation": "the composed action's turn-CORRECTNESS is not what prevents the freeze; having ANY sustained, actively-commanded (non-degenerate) action running for enough consecutive ticks is sufficient. The turn-in-place composition remains the right practical fix (it is the only built mechanism, costs nothing elsewhere, and the env already flags exactly the ticks it needs) -- but the causal story is 'unstick a known continuous-single-mode-duration freeze' (STATUS 06:0x root cause), not 'supply a missing turn skill'. Practical recommendation UNCHANGED.",
-        "open_generalization_not_built": "batch (B) of matched_raw_vs_composed_pair_2026_09_12 already showed this composition gives ZERO protection when turn_ticks=0 (composed=raw byte-identical); combined with this control's generic-mechanism finding, a general 'detect sustained single-mode duration, periodically substitute/perturb the action' mechanism could plausibly extend freeze protection to plain long straight-walk sessions too -- flagged as a real Next idea, not launched this cycle (new mechanism, not a quick follow-up).",
-        "evidence": "logs/probe_turn_compose/todaypolicy_cap29_acq1_wrongsub_tip1_frac30/report.json; rl_move/sim/probe_turn_compose.py (wrong_substitute_vx, snapshot 1e09f379)."
-      }
-    }
-  },
-  "demo": {
-    "command": "ops.sh hybriddemo cw-walk50hz-allheading-mlp-singleframe-scratch-acq20m --stand-controller learned --lower-controller learned --stance-policy linux_control/policies/stand50hz_stance_tuckclock_scratch6m_curhot_b23k12.json --script human --policy-mode deterministic",
-    "artifacts": "logs/manual_drive/todaypolicy_bundle50hz_v1_stand_b23k12_walk_singleframe/",
-    "result": "terminated=false, sacrificed_legs=[], walk_gait_valid=true, walk_progress_ratio=0.402, cur_max_a=2.64A, roll_peak_abs_deg=3.62"
-  },
-  "hardware_acceptance": "NOT performed; Robot Lab guarded-runner lane per RL_GOALS.md"
+    },
+    "demo": {
+        "command": "ops.sh hybriddemo cw-walk50hz-allheading-mlp-singleframe-scratch-acq20m --stand-controller learned --lower-controller learned --stance-policy linux_control/policies/stand50hz_stance_tuckclock_scratch6m_curhot_b23k12.json --script human --policy-mode deterministic",
+        "artifacts": "logs/manual_drive/todaypolicy_bundle50hz_v1_stand_b23k12_walk_singleframe/",
+        "result": "terminated=false, sacrificed_legs=[], walk_gait_valid=true, walk_progress_ratio=0.402, cur_max_a=2.64A, roll_peak_abs_deg=3.62"
+    },
+    "hardware_acceptance": "NOT performed; Robot Lab guarded-runner lane per RL_GOALS.md"
 }

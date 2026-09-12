@@ -156,9 +156,28 @@ LOOK_QUESTION = (
 )
 
 
+PATH_QUESTION = (
+    " It is about to {about_to}. If anything it could walk into (a cable, a wall, an object, a foot, "
+    "another robot) is within about one body length of it, add a second line starting OBSTACLE: and say what."
+)
+
+
+def obstacle_in(text: str) -> Optional[str]:
+    """What the eyes flagged after OBSTACLE:, or None."""
+    for line in (text or "").splitlines():
+        if line.strip().upper().startswith("OBSTACLE:"):
+            what = line.split(":", 1)[1].strip()
+            return what or None
+    return None
+
+
 def ready_to_move(settings: Settings, *, post: Optional[Callable] = None, fetch: Optional[Callable] = None,
-                  budget_s: Optional[float] = None) -> tuple[bool, str, float]:
+                  budget_s: Optional[float] = None, about_to: Optional[str] = None) -> tuple[bool, str, float]:
     """One look at the wide camera before the robot moves.
+
+    ``about_to`` ("walk about 30 cm forward and back") adds the path question:
+    the answer may carry an OBSTACLE: line, which the caller reads with
+    ``obstacle_in``; it never turns a yes into a no.
 
     Returns (ready, what the eyes said, cost). Anything that stops the look
     from happening (no camera frame, no key, the model not answering in
@@ -183,7 +202,7 @@ def ready_to_move(settings: Settings, *, post: Optional[Callable] = None, fetch:
         content.append({"type": "text", "text": label})
         content.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
                                                     "data": base64.b64encode(jpeg).decode()}})
-    content.append({"type": "text", "text": LOOK_QUESTION})
+    content.append({"type": "text", "text": LOOK_QUESTION + (PATH_QUESTION.format(about_to=about_to) if about_to else "")})
     # The model reasons before answering and that counts against max_tokens;
     # 120 left "NO" and nothing else on 2026-09-11. Leave room for the sentence.
     body = {"model": settings.eyes_model, "max_tokens": 600, "messages": [{"role": "user", "content": content}]}

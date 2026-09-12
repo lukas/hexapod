@@ -3,10 +3,11 @@ from __future__ import annotations
 
 import os
 import time
+from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
-from . import alerts, commands, deploy, eyes, planner, recovery, robot, runner, zero_check
+from . import alerts, commands, deploy, eyes, planner, recentre, recovery, robot, runner, zero_check
 from .builder import BuilderThread
 from .config import Settings
 from .store import Store, now_iso
@@ -37,6 +38,51 @@ def stop_reason(settings: Settings, store: Store, c: Counters) -> Optional[str]:
     return None
 
 
+CAMERA_MEASURED_PREFIXES = ("whole_body", "champion_stand", "tripod", "walk")
+
+
+def camera_measured(protocol: str) -> bool:
+    """Protocols whose result is read off the camera: worth starting in frame.
+    Single-leg belly ladders are not; standing the robot up for them is wear
+    for nothing (hexapod 2's clamp snapped after six re-steps in six minutes)."""
+    return (protocol or "").lower().startswith(CAMERA_MEASURED_PREFIXES)
+
+
+def walk_intent(doc: Optional[dict]) -> Optional[str]:
+    """One phrase for the eyes: what the first leg of a walk protocol will do."""
+    from . import walk
+    legs = walk.legs_of(doc or {})
+    if not legs:
+        return None
+    leg = legs[0]
+    if leg.speed < 1.0 and leg.omega:
+        return f"turn in place for about {leg.seconds:.0f} s"
+    dist_cm = leg.speed * leg.seconds / 10.0
+    if abs(leg.vx) >= abs(leg.vy):
+        way = "forward" if leg.vx > 0 else "backward"
+    else:
+        way = "to its right" if leg.vy > 0 else "to its left"
+    back = " and then back" if len(legs) > 1 and legs[1].name.endswith("_back") else ""
+    return f"walk about {dist_cm:.0f} cm {way}{back}"
+
+
+def recentre_before(settings: Settings, run_dir: Path, *, walk: bool, log=print) -> Optional[Dict[str, Any]]:
+    """Recentre if the chassis tag is far from the middle; sit again unless a walk follows."""
+    from . import walk as walk_mod
+    s = walk_mod.Session(settings, run_dir, log=log)
+    frac = s.pixel()
+    if frac is None:
+        log("recentre: chassis tag not in any camera; running where it is")
+        return {"moved": False, "done": False, "reason": "tag not visible", "start": None, "end": None, "seconds": 0.0}
+    if not recentre.needs_recentre(frac):
+        return None
+    rc = recentre.recentre(s, budget_s=settings.recentre_budget_s)
+    log(f"recentre: {rc['reason']} ({rc['start']} -> {rc['end']})")
+    if rc["moved"] and not walk:
+        s.sit(wait=True)
+    return rc
+
+
 def run_once(settings: Settings, store: Store, plan: Dict[str, Any], log=print,
              sleep_fn=time.sleep) -> Dict[str, Any]:
     """Health read, run, record. Returns the stored run row."""
@@ -54,11 +100,15 @@ def run_once(settings: Settings, store: Store, plan: Dict[str, Any], log=print,
         store.set_plan_status(plan["id"], "queued", f"robot not ready: {exc}")
         return store.run(run_id)
     log(f"robot ok: {fb.get('live')}/18 servos, roll {fb.get('roll_deg')} pitch {fb.get('pitch_deg')}")
+    walk_doc = runner.walk_document(settings, plan["protocol"])
+    about_to = walk_intent(walk_doc) if walk_doc else None
+    obstacle: Optional[str] = None
     if settings.look_before_moving:
         # The one look before motion: can the eyes see the robot, and does
         # it look ready? Telemetry cannot tell that a leg is off and someone
-        # is holding it. A no leaves the plan queued and holds the loop.
-        ready, saw, cost = eyes.ready_to_move(settings)
+        # is holding it. A no leaves the plan queued and holds the loop. For
+        # a walk the same look is asked what sits in the robot's way.
+        ready, saw, cost = eyes.ready_to_move(settings, about_to=about_to)
         if cost:
             store.add_spend("eyes", cost, run_id)
         store.add_event("look", f"{'ready' if ready else 'NOT READY'}: {saw[:400]}")
@@ -79,6 +129,9 @@ def run_once(settings: Settings, store: Store, plan: Dict[str, Any], log=print,
                              summary={"look": saw[:400]}, log_tail=f"not moved; eyes: {saw}")
             store.set_plan_status(plan["id"], "queued", f"eyes: {saw[:120]}")
             return store.run(run_id)
+        obstacle = eyes.obstacle_in(saw) if about_to else None
+        if obstacle:
+            store.add_event("look", f"obstacle near the robot: {obstacle[:200]}")
     run_dir = settings.runs_dir / run_id
     zc: Optional[Dict[str, Any]] = None
     if settings.zero_check and runner.walk_document(settings, plan["protocol"]) is None:
@@ -96,10 +149,17 @@ def run_once(settings: Settings, store: Store, plan: Dict[str, Any], log=print,
             alerts.text(store, "zero_check", f"legs {zc['legs_off']} do not point where the layout says zero is while "
                                              f"the encoders read zero (slipped horn?). Paused; frame on run {run_id}.")
             return store.run(run_id)
+    rc: Optional[Dict[str, Any]] = None
+    if settings.recentre and (walk_doc is not None or camera_measured(plan["protocol"])):
+        # Where the camera is the measurement, start in the middle of its frame.
+        rc = recentre_before(settings, run_dir, walk=walk_doc is not None, log=log)
+        if rc is not None:
+            store.add_event("recentre", f"{'moved' if rc['moved'] else 'left'}: {rc['reason'][:200]}")
     log(f"sync: {runner.sync_checkout(settings)}")
     log(f"run {plan['protocol']} ({plan['title']})")
     with eyes.WideCapture(settings.wide_frame_url, run_dir / "wide"):
-        result = runner.run_protocol(settings, plan["protocol"], run_id, force=bool(plan.get("force")))
+        extra = {"obstacle": obstacle} if obstacle else {}
+        result = runner.run_protocol(settings, plan["protocol"], run_id, force=bool(plan.get("force")), **extra)
     # ok/failed say whether the robot did what the protocol asked. A plan whose
     # intent is to explore has no pass/fail on top of that: a run that completed
     # is "explored", and what it showed goes in the planner's learned paragraph.
@@ -107,6 +167,8 @@ def run_once(settings: Settings, store: Store, plan: Dict[str, Any], log=print,
     summary = dict(result.summary or {})
     if zc is not None:
         summary["zero_check"] = {k: zc.get(k) for k in ("verdict", "text", "legs_off", "frame")}
+    if rc is not None:
+        summary["recentre_before"] = {k: rc.get(k) for k in ("moved", "done", "reason", "start", "end", "seconds")}
     store.finish_run(run_id, status=status, exit_code=result.exit_code,
                      run_dir=str(result.run_dir or run_dir),
                      summary=summary or None, log_tail=result.log_tail)

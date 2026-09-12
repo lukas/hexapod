@@ -124,7 +124,7 @@ def walk_document(settings: Settings, protocol: str) -> Optional[dict]:
 
 
 def run_protocol(settings: Settings, protocol: str, run_id: str, *, force: bool = False,
-                 log_path: Optional[Path] = None) -> RunResult:
+                 log_path: Optional[Path] = None, obstacle: Optional[str] = None) -> RunResult:
     doc = walk_document(settings, protocol)
     if doc is not None:
         # Whole-body walking measured by the camera runs in-process.
@@ -133,7 +133,7 @@ def run_protocol(settings: Settings, protocol: str, run_id: str, *, force: bool 
         run_dir.mkdir(parents=True, exist_ok=True)
         started = time.monotonic()
         lines: list[str] = []
-        res = walk.run_walk(settings, doc, run_dir, log=lambda m: lines.append(m))
+        res = walk.run_walk(settings, doc, run_dir, log=lambda m: lines.append(m), obstacle=obstacle)
         (run_dir / "runner.log").write_text("\n".join(lines) + "\n")
         return RunResult(status=res["status"], exit_code=res["exit_code"], run_dir=run_dir,
                          summary=res["summary"], log_tail=res["log_tail"], motion_s=time.monotonic() - started)

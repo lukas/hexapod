@@ -209,6 +209,21 @@ def main() -> int:
                     help="allow env.model_source=mesh to fall back to the "
                          "checked-in mesh_mjx twin when full STL assets are "
                          "missing")
+    # todaypolicy/amp item (c), 2026-09-12: same composed-controller wrap
+    # as eval_checkpoint.py's --compose-turn-blend-s (probe_turn_compose's
+    # already-validated non-RL turn-in-place fix, blend_s=0.15 costs zero
+    # efficacy vs the hard switch). Default OFF (None) is bit-exact; the
+    # script's own vx/vy/wz trajectory already lands in env._goal_traj
+    # (see _install_script), which is exactly what _ComposedPolicy reads
+    # via env._current_goal() to detect live turn-in-place ticks -- a
+    # "human_turn"/"turn" script segment with near-zero forward speed and
+    # nonzero wz composes exactly like the probe/gate panel do.
+    ap.add_argument("--compose-turn-blend-s", type=float, default=None,
+                    help="wrap the policy in probe_turn_compose's "
+                         "_ComposedPolicy (scripted-teacher substitution "
+                         "on live turn-in-place ticks only), this many "
+                         "seconds of blend (0.0 = hard switch); default "
+                         "None = no wrap, bit-exact.")
     args = ap.parse_args()
 
     from rl_move.config import load_config
@@ -255,6 +270,13 @@ def main() -> int:
         f"obs mismatch: policy {model.observation_space.shape} vs env "
         f"{env.observation_space.shape} -- pass the run's cfg stack")
     model = wrap_recurrent_predictor(model)
+    if args.compose_turn_blend_s is not None:
+        # Local import: probe_turn_compose imports FROM eval_checkpoint
+        # (not this module), so no circular-import risk here, but kept
+        # deferred to match the identical wiring in eval_checkpoint.py.
+        from .probe_turn_compose import _ComposedPolicy
+        model = _ComposedPolicy(model, env, compose=True,
+                                blend_s=float(args.compose_turn_blend_s))
 
     obs, reset_info = env.reset()
     del obs

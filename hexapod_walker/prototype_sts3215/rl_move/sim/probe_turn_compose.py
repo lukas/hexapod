@@ -96,18 +96,36 @@ class _ComposedPolicy:
     is symmetric: it climbs toward the teacher on turn-entry and decays
     back toward the policy on turn-exit at the same per-tick rate
     (``dt / blend_s`` per tick), so a rapid re-toggle can never overshoot
-    past [0, 1] or jump discontinuously in either direction."""
+    past [0, 1] or jump discontinuously in either direction.
+
+    ``wrong_substitute_vx`` (default 0.0 = disabled, bit-exact with the
+    original behavior) is the mechanism-generality CONTROL the
+    todaypolicy/amp tracks flagged as open on 2026-09-12: "would need a
+    further control substituting non-turn actions on the same tick
+    pattern" to tell apart "the fix works because it supplies the
+    CORRECT turn skill the frozen policy lacks" (turn-specific) from
+    "the fix works because ANY active, non-frozen substituted action on
+    those exact ticks breaks the continuous-single-mode freeze"
+    (generic-substitution). When set > 0.0 and ``compose`` is True, the
+    teacher action synthesized on a live turn-in-place tick commands
+    STRAIGHT FORWARD walking at this vx (omega forced to 0.0, ignoring
+    the real ``wz_ref``) instead of the correct turn -- same exact tick
+    pattern substituted, deliberately WRONG content. If this still
+    rescues gait_valid, the mechanism is generic; if the freeze returns,
+    turn-correctness specifically matters."""
 
     use_sde = False  # tells eval_checkpoint._maybe_reset_gsde_noise to skip
 
     def __init__(self, model, env, *, compose: bool,
                  omega_gain: float = TURN_OMEGA_GAIN,
-                 blend_s: float = 0.0):
+                 blend_s: float = 0.0,
+                 wrong_substitute_vx: float = 0.0):
         self.model = model
         self.env = env
         self.compose = compose
         self.omega_gain = omega_gain
         self.blend_s = float(blend_s)
+        self.wrong_substitute_vx = float(wrong_substitute_vx)
         self.gait = TripodGait(vx=0.0)
         self.gait.sync_plant_stance(*WALK_PLANT)
         self.gait.reset_phase()
@@ -154,9 +172,15 @@ class _ComposedPolicy:
             self.walk_ticks += 1
             self.wz_walk_abs_sum += abs(wz_body)
         if goal is not None:
-            self.gait.set_velocity(vx=float(goal.vx_ref),
-                                    vy=float(goal.vy_ref),
-                                    omega=wz_ref * self.omega_gain)
+            if self.wrong_substitute_vx > 0.0 and self.compose and turn_tick:
+                # Mechanism-generality control: same tick, deliberately
+                # WRONG substituted content (straight walk, no turn).
+                self.gait.set_velocity(vx=self.wrong_substitute_vx,
+                                        vy=0.0, omega=0.0)
+            else:
+                self.gait.set_velocity(vx=float(goal.vx_ref),
+                                        vy=float(goal.vy_ref),
+                                        omega=wz_ref * self.omega_gain)
         target_w = 1.0 if (self.compose and turn_tick) else 0.0
         if self.blend_s > 0.0:
             dt = float(getattr(self.env, "dt", 0.02))
@@ -193,6 +217,7 @@ class _ComposedPolicy:
                                  if self.walk_ticks else None),
             "blend_s": self.blend_s,
             "final_blend_w": self._blend_w,
+            "wrong_substitute_vx": self.wrong_substitute_vx,
         }
 
 
@@ -230,6 +255,12 @@ def main() -> None:
     ap.add_argument("--blend-s", type=float, default=0.0,
                     help="mode-transition blend window in seconds "
                          "(0.0 = original hard switch, bit-exact default)")
+    ap.add_argument("--wrong-substitute-vx", type=float, default=0.0,
+                    help="mechanism-generality control (default 0.0 = "
+                         "disabled/bit-exact): when >0 and compose=True, "
+                         "substitute straight-forward-walk teacher action "
+                         "at this vx (omega=0, deliberately WRONG) on "
+                         "turn ticks instead of the correct turn action")
     args = ap.parse_args()
 
     from stable_baselines3 import PPO
@@ -247,7 +278,8 @@ def main() -> None:
             env = _build_env(args.cfg_set or [], episode_seconds=args.episode_seconds,
                              seed=seed, dr_scale=args.dr_scale)
             wrapped = _ComposedPolicy(model, env, compose=compose,
-                                      blend_s=args.blend_s)
+                                      blend_s=args.blend_s,
+                                      wrong_substitute_vx=args.wrong_substitute_vx)
             ep, frames = run_episode(env, wrapped, deterministic=args.deterministic,
                                      video=True, annotate=_annotate_frame)
             _save_video(frames, out_dir / f"{tag}_{k}")

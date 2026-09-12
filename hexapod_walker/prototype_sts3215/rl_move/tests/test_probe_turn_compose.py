@@ -250,6 +250,124 @@ def test_wrong_substitute_default_off_is_bit_exact_with_original():
     np.testing.assert_array_equal(act_a, act_b)
 
 
+# --- stall_substitute_every_s / stall_substitute_dur_s: the generic,
+# mode-independent periodic-substitution mechanism flagged as an open
+# Next item (todaypolicy STATUS 2026-09-12 ~13:5x): "detect sustained
+# single-mode duration, periodically substitute/perturb the action
+# regardless of mode". Both default to 0.0 (disabled, bit-exact with
+# every prior recorded probe run).
+
+def test_stall_defaults_off_is_bit_exact_on_straight_walk_tick():
+    env_a = _FakeEnv(vx_ref=0.08, vy_ref=0.0, wz_ref=0.0)
+    env_b = _FakeEnv(vx_ref=0.08, vy_ref=0.0, wz_ref=0.0)
+    model_a, model_b = _FakeModel(), _FakeModel()
+    pol_a = _ComposedPolicy(model_a, env_a, compose=True)
+    pol_b = _ComposedPolicy(model_b, env_b, compose=True,
+                            stall_substitute_every_s=0.0,
+                            stall_substitute_dur_s=0.0)
+    act_a, _ = pol_a.predict(np.zeros(4))
+    act_b, _ = pol_b.predict(np.zeros(4))
+    np.testing.assert_array_equal(act_a, act_b)
+    np.testing.assert_array_equal(act_b, model_b.action)
+
+
+def test_stall_every_positive_dur_zero_stays_off():
+    # a period with a zero-length window is still a no-op -- both knobs
+    # must be positive for the mechanism to engage.
+    env = _FakeEnv(vx_ref=0.08, vy_ref=0.0, wz_ref=0.0)
+    model = _FakeModel()
+    pol = _ComposedPolicy(model, env, compose=True,
+                          stall_substitute_every_s=0.1,
+                          stall_substitute_dur_s=0.0)
+    act, _ = pol.predict(np.zeros(4))
+    np.testing.assert_array_equal(act, model.action)
+    assert pol.stall_ticks == 0
+
+
+def test_stall_every_zero_dur_positive_stays_off():
+    env = _FakeEnv(vx_ref=0.08, vy_ref=0.0, wz_ref=0.0)
+    model = _FakeModel()
+    pol = _ComposedPolicy(model, env, compose=True,
+                          stall_substitute_every_s=0.0,
+                          stall_substitute_dur_s=0.1)
+    act, _ = pol.predict(np.zeros(4))
+    np.testing.assert_array_equal(act, model.action)
+    assert pol.stall_ticks == 0
+
+
+def test_stall_fires_periodically_on_a_pure_straight_walk_tick():
+    # dt=0.02, every_s=0.1 -> period_ticks=5; dur_s=0.04 -> dur_ticks=2.
+    # Substituted ticks (1-indexed): phase=(tick-1)%5<2 -> ticks 1,2,6,7.
+    env = _FakeEnv(vx_ref=0.08, vy_ref=0.0, wz_ref=0.0)  # straight walk,
+    # never a turn tick -- isolates the stall mechanism from turn logic.
+    model = _FakeModel()
+    pol = _ComposedPolicy(model, env, compose=True,
+                          stall_substitute_every_s=0.1,
+                          stall_substitute_dur_s=0.04)
+    substituted = []
+    for _ in range(7):
+        act, _ = pol.predict(np.zeros(4))
+        substituted.append(not np.array_equal(act, model.action))
+    assert substituted == [True, True, False, False, False, True, True]
+    assert pol.stall_ticks == 4
+    assert pol.turn_ticks == 0  # confirms this isn't turn-tick-driven
+
+
+def test_stall_requires_compose_true():
+    # RAW baseline (compose=False) must stay a pure passthrough even
+    # with the stall schedule configured -- it's the comparison arm.
+    env = _FakeEnv(vx_ref=0.08, vy_ref=0.0, wz_ref=0.0)
+    model = _FakeModel()
+    pol = _ComposedPolicy(model, env, compose=False,
+                          stall_substitute_every_s=0.1,
+                          stall_substitute_dur_s=0.04)
+    act, _ = pol.predict(np.zeros(4))
+    np.testing.assert_array_equal(act, model.action)
+
+
+def test_stall_and_turn_tick_combine_via_or_not_double_counted_oddly():
+    # A tick that is BOTH a turn tick and a scheduled stall tick must
+    # still substitute (OR, not conflicting) -- and turn_ticks/stall_ticks
+    # are independent counters (a tick can increment both).
+    env = _FakeEnv(vx_ref=0.0, vy_ref=0.0, wz_ref=0.25)  # turn-in-place
+    model = _FakeModel()
+    pol = _ComposedPolicy(model, env, compose=True,
+                          stall_substitute_every_s=0.1,
+                          stall_substitute_dur_s=0.04)
+    act, _ = pol.predict(np.zeros(4))  # tick 1: turn AND stall
+    assert not np.array_equal(act, model.action)
+    assert pol.turn_ticks == 1
+    assert pol.stall_ticks == 1
+
+
+def test_stall_reset_clears_counter():
+    env = _FakeEnv(vx_ref=0.08, vy_ref=0.0, wz_ref=0.0)
+    model = _FakeModel()
+    pol = _ComposedPolicy(model, env, compose=True,
+                          stall_substitute_every_s=0.1,
+                          stall_substitute_dur_s=0.04)
+    pol.predict(np.zeros(4))
+    assert pol.stall_ticks == 1
+    pol.reset()
+    assert pol.stall_ticks == 0
+    # schedule is phase-based on total_ticks, so it also restarts clean:
+    act, _ = pol.predict(np.zeros(4))
+    assert not np.array_equal(act, model.action)  # tick 1 again -> phase 0
+
+
+def test_summary_reports_stall_fields():
+    env = _FakeEnv(vx_ref=0.08, vy_ref=0.0, wz_ref=0.0)
+    model = _FakeModel()
+    pol = _ComposedPolicy(model, env, compose=True,
+                          stall_substitute_every_s=0.1,
+                          stall_substitute_dur_s=0.04)
+    pol.predict(np.zeros(4))
+    s = pol.summary()
+    assert s["stall_substitute_every_s"] == 0.1
+    assert s["stall_substitute_dur_s"] == 0.04
+    assert s["stall_ticks"] == 1
+
+
 def test_wrong_substitute_vx_produces_different_action_than_correct_turn():
     env_correct = _FakeEnv(vx_ref=0.0, vy_ref=0.0, wz_ref=0.25)
     env_wrong = _FakeEnv(vx_ref=0.0, vy_ref=0.0, wz_ref=0.25)

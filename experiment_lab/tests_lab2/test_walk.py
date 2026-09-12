@@ -249,3 +249,18 @@ def test_tracking_camera_is_the_top_camera_when_it_tracks_the_marker(settings, t
     s = walk.Session(dataclasses.replace(settings, top_camera=2), tmp_path, get=get, log=lambda m: None)
     s.pose("x")
     assert s.camera_index == 0
+
+
+def test_pose_uses_the_top_cameras_own_observation_not_the_fused_marker(settings, tmp_path):
+    import dataclasses
+    def get(url):
+        if url.endswith("/api/poses"):
+            return {"markers": {"0": {"status": "tracked", "position_mm": {"x": 999.0, "y": 999.0},
+                                       "rotation_degrees": {"yaw": 5.0}, "camera_indices": [0, 1],
+                                       "observations": [
+                                           {"camera_index": 0, "position_mm": {"x": 10.0, "y": 10.0}, "rotation_degrees": {"yaw": 1.0}},
+                                           {"camera_index": 1, "position_mm": {"x": 20.0, "y": 30.0}, "rotation_degrees": {"yaw": 2.0}}]}}}
+        raise AssertionError(url)
+    s = walk.Session(dataclasses.replace(settings, top_camera=1), tmp_path, get=get, log=lambda m: None)
+    p = s.pose("x")
+    assert (p.x, p.y, p.yaw) == (20.0, 30.0, 2.0)

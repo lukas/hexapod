@@ -51,6 +51,10 @@ STAND_WAIT_S = 25.0
 SETTLE_S = 1.5
 # Teleop caps; the robot's drive controller clips harder.
 MAX_VX, MAX_VY, MAX_OMEGA, MAX_SECONDS = 60.0, 40.0, 0.5, 40.0
+RL_KEY = "rl_policy"               # protocol field: drive with this RL policy file instead of the J gait
+RL_MAX_VX, RL_MAX_VY = 120.0, 80.0  # mm/s; the policies' command band is about 0.06-0.12 m/s
+RL_READY_WAIT_S = 45.0
+RL_STOP_WAIT_S = 25.0
 OBSTACLE_LEG_S = 3.0     # leg length when the look saw something within a body length
 
 
@@ -62,6 +66,7 @@ class Leg:
     omega: float = 0.0
     seconds: float = 10.0
     gait: int = 1
+    rl: bool = False          # RL drive session (body-frame m/s, rad/s) instead of the scripted J gait
 
     @property
     def speed(self) -> float:
@@ -70,28 +75,41 @@ class Leg:
     def command(self) -> str:
         return f"J {self.vx:.1f} {self.vy:.1f} {self.omega:.3f} {self.gait}"
 
+    def drive_body(self) -> dict:
+        """/api/rl/drive/cmd body: the RL runner takes m/s and rad/s (hexapod 2's floorkeeper did the same)."""
+        return {"vx": round(self.vx / 1000.0, 4), "vy": round(self.vy / 1000.0, 4), "wz": round(self.omega, 4), "dh": 0}
+
     def stop_command(self) -> str:
         return f"J 0 0 0 {self.gait}"
 
     def reversed(self) -> "Leg":
         neg = lambda v: -v if v else 0.0          # keep zeros as 0.0, not -0.0, in the command text
-        return Leg(self.name + "_back", neg(self.vx), neg(self.vy), neg(self.omega), self.seconds, self.gait)
+        return Leg(self.name + "_back", neg(self.vx), neg(self.vy), neg(self.omega), self.seconds, self.gait, self.rl)
 
 
 def is_walk_protocol(doc: dict) -> bool:
     return bool(isinstance(doc, dict) and doc.get(WALK_KEY))
 
 
+def rl_policy_of(doc: dict) -> Optional[str]:
+    """The RL policy file a walk protocol drives with, or None for the scripted gait."""
+    v = (doc or {}).get(RL_KEY)
+    return str(v) if v else None
+
+
 def legs_of(doc: dict) -> List[Leg]:
-    """Legs from a protocol document, expanded for out-and-back, clipped to the caps."""
+    """Legs from a protocol document, expanded for out-and-back, clipped to the caps.
+    RL walks get the RL caps: the 100 Hz policies were trained around 0.08 m/s."""
     out: List[Leg] = []
+    rl = rl_policy_of(doc) is not None
+    cap_vx, cap_vy = (RL_MAX_VX, RL_MAX_VY) if rl else (MAX_VX, MAX_VY)
     for raw in doc.get("legs") or []:
         leg = Leg(name=str(raw.get("name") or f"leg{len(out)}"),
-                  vx=max(-MAX_VX, min(MAX_VX, float(raw.get("vx_mm_s", 0.0)))),
-                  vy=max(-MAX_VY, min(MAX_VY, float(raw.get("vy_mm_s", 0.0)))),
+                  vx=max(-cap_vx, min(cap_vx, float(raw.get("vx_mm_s", 0.0)))),
+                  vy=max(-cap_vy, min(cap_vy, float(raw.get("vy_mm_s", 0.0)))),
                   omega=max(-MAX_OMEGA, min(MAX_OMEGA, float(raw.get("omega_rad_s", 0.0)))),
                   seconds=max(2.0, min(MAX_SECONDS, float(raw.get("seconds", 10.0)))),
-                  gait=int(raw.get("gait", doc.get("gait", 1))))
+                  gait=int(raw.get("gait", doc.get("gait", 1))), rl=rl)
         out.append(leg)
         if raw.get("out_and_back", doc.get("out_and_back", False)):
             out.append(leg.reversed())
@@ -242,10 +260,87 @@ class Session:
         return False
 
     def stop(self, leg: Leg) -> None:
+        if leg.rl:
+            self.rl_stop()
+            return
         try:
             self.post(f"{self.robot}/cmd", raw=leg.stop_command().encode())
         except Exception as exc:  # noqa: BLE001
             self.notes.append(f"stop command failed: {exc}")
+
+    # -- RL drive (the policies hexapod 2 ran on its grid) ------------
+    def rl_json(self, path: str, body: Optional[dict] = None) -> dict:
+        try:
+            r = self.post(f"{self.robot}{path}", body if body is not None else {}) if body is not None \
+                else self.get(f"{self.robot}{path}")
+        except Exception as exc:  # noqa: BLE001
+            return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+        return r if isinstance(r, dict) else {"ok": False, "error": str(r)[:120]}
+
+    def rl_prepare(self, policy: str) -> bool:
+        """Select the walk policy, keep the hold role, and get to the sim walk-ready stance."""
+        sel = None
+        for _ in range(20):                      # refused while a job is still winding down
+            sel = self.rl_json("/api/rl/policy_select", {"file": policy})
+            if sel.get("ok"):
+                break
+            self.sleep(1.0)
+        if not (sel or {}).get("ok"):
+            self.notes.append(f"policy_select {policy} refused: {(sel or {}).get('error')}")
+            return False
+        self.rl_json("/api/rl/roles", {"role": "walk", "file": policy})
+        if self.rl_json("/api/rl/preflight?mode=walk").get("ok"):
+            return True
+        self.log("not walk-ready; asking the robot to stand into the walk-ready stance")
+        st = self.rl_json("/api/rl/stand", {})
+        if not st.get("ok"):
+            self.notes.append(f"rl stand refused: {st.get('error')}")
+            return False
+        t0 = self.clock()
+        while self.clock() - t0 < RL_READY_WAIT_S:
+            self.sleep(1.5)
+            cal = self.rl_json("/api/rl/state").get("calibrate") or {}
+            if not cal.get("running"):
+                break
+        pre = self.rl_json("/api/rl/preflight?mode=walk")
+        if not pre.get("ok"):
+            self.notes.append(f"not walk-ready after stand: {pre.get('error')}")
+            return False
+        return True
+
+    def rl_start(self) -> bool:
+        r = self.rl_json("/api/rl/drive/start", {})
+        if not r.get("ok"):
+            self.notes.append(f"drive/start refused: {r.get('error')}")
+            return False
+        return True
+
+    def rl_stop(self) -> None:
+        for _ in range(6):
+            self.rl_json("/api/rl/drive/cmd", {"vx": 0, "vy": 0, "wz": 0, "dh": 0})
+            self.sleep(0.2)
+        self.rl_json("/api/rl/drive/stop", {})
+        t0 = self.clock()
+        while self.clock() - t0 < RL_STOP_WAIT_S:    # the session decelerates and hands off to the hold policy
+            self.sleep(0.5)
+            if not self.rl_json("/api/rl/drive").get("active"):
+                break
+
+    def rl_result(self) -> Optional[dict]:
+        """The runner's own drive statistics once the session has ended."""
+        t0 = self.clock()
+        while self.clock() - t0 < 15.0:
+            cal = self.rl_json("/api/rl/state").get("calibrate") or {}
+            if not cal.get("running"):
+                res = cal.get("result") or {}
+                if res.get("mode") == "drive":
+                    t = res.get("timing") or {}
+                    return {k: res.get(k) for k in ("ok", "error", "ended", "ticks", "overruns", "fell",
+                                                    "tilt_rel_max_deg", "stale_stream_ticks")} | {
+                        "mean_service_ms": t.get("mean_service_ms"), "max_service_ms": t.get("max_service_ms")}
+                return None
+            self.sleep(1.0)
+        return None
 
     # -- camera -------------------------------------------------------
     def pose(self, leg_name: str) -> PoseSample:
@@ -312,12 +407,17 @@ def run_leg(s: Session, leg: Leg, writers: dict) -> Dict[str, Any]:
     writers["pose"].writerow([round(start_pose.t, 3), leg.name, start_pose.x, start_pose.y, start_pose.yaw, "", ""])
     t0 = s.clock()
     try:
-        _stream(s, leg, writers, st, t0)
+        if leg.rl and not s.rl_start():
+            st["fatal"], st["reason"] = "drive session refused: " + "; ".join(s.notes[-1:]), "refused"
+        else:
+            _stream(s, leg, writers, st, t0)
     except Exception as exc:  # noqa: BLE001
         st["fatal"], st["reason"] = f"runner error: {type(exc).__name__}: {exc}", "error"
     finally:
         seconds = s.clock() - t0
         s.stop(leg)
+    if leg.rl:
+        st["drive"] = s.rl_result()
     s.sleep(SETTLE_S)
     end_pose = s.pose(leg.name)
     st["poses"].append(end_pose)
@@ -335,6 +435,9 @@ def run_leg(s: Session, leg: Leg, writers: dict) -> Dict[str, Any]:
         "hottest_c": round(st["hottest"], 1) if st["hottest"] else None,
         "tag_lost_s": round(st["tag_lost_s"], 1),
     })
+    if leg.rl:
+        m["drive"] = st.get("drive")
+        m["command"] = json.dumps(leg.drive_body())
     return m
 
 
@@ -350,7 +453,13 @@ def _stream(s: Session, leg: Leg, writers: dict, st: Dict[str, Any], t0: float) 
             return
         if now >= next_tick:
             try:
-                r = s.post(f"{s.robot}/cmd", raw=leg.command().encode())
+                if leg.rl:
+                    r = s.post(f"{s.robot}/api/rl/drive/cmd", leg.drive_body())
+                    if isinstance(r, dict) and r.get("ok") is False and not r.get("active", True):
+                        st["fatal"], st["reason"] = f"drive session ended: {r.get('error')}", "refused"
+                        return
+                else:
+                    r = s.post(f"{s.robot}/cmd", raw=leg.command().encode())
                 if isinstance(r, str) and "refused" in r.lower():
                     st["fatal"], st["reason"] = f"gait refused: {r[:120]}", "refused"
                     return
@@ -510,7 +619,17 @@ def run_walk(settings: Settings, doc: dict, run_dir: Path, *, post: Optional[Cal
         summary["aborted"] = "stand"
         summary["notes"] = s.notes
         return {"status": "failed", "exit_code": 3, "summary": summary, "log_tail": "\n".join(lines)}
-    say(f"standing; {len(legs)} legs: " + ", ".join(f"{l.name} {l.command()} x{l.seconds:.0f}s" for l in legs))
+    policy = rl_policy_of(doc)
+    summary["rl_policy"] = policy
+    if policy and not s.rl_prepare(policy):
+        say("could not get the RL policy walk-ready: " + "; ".join(s.notes[-2:]))
+        summary["aborted"] = "rl_prepare"
+        summary["notes"] = s.notes
+        s.sit()
+        return {"status": "failed", "exit_code": 3, "summary": summary, "log_tail": "\n".join(lines)}
+    say(f"standing; {len(legs)} legs: " + ", ".join(
+        f"{l.name} {json.dumps(l.drive_body()) if l.rl else l.command()} x{l.seconds:.0f}s" for l in legs)
+        + (f"; RL policy {policy}" if policy else ""))
     status, code = "ok", 0
     with (run_dir / "walk_pose.csv").open("w", newline="") as fp, \
             (run_dir / "walk_imu.csv").open("w", newline="") as fi, \

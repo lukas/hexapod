@@ -1,0 +1,15 @@
+{
+ "name": "walk_rl_rlonly_s0_fwd80_oab_v1",
+ "walk_protocol": 1,
+ "rl_policy": "walkscratch_rlonly_widen8_crutchoff_s0_warmadapt_50hz_acq1.json",
+ "out_and_back": true,
+ "description": "RL gait walkscratch_rlonly_widen8_crutchoff_s0_warmadapt_50hz_acq1.json on the floor, measured by the camera: forward 80 mm/s for 14 s, then the same back. Same command hexapod 2 used on its tag grid on 2026-09-11 (see run 43a6a88a90f9), so the two robots' speed, drift and tilt can be compared. NEEDS STAND: the runner stands the robot and puts it in the sim walk-ready stance itself.",
+ "legs": [
+  {
+   "name": "rlonly_s0_fwd",
+   "vx_mm_s": 80,
+   "seconds": 14
+  }
+ ],
+ "created": "2026-09-12"
+}

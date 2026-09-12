@@ -247,6 +247,26 @@ class Session:
         self.notes.append("stand-up did not finish in time")
         return False
 
+    def stand_adjust(self) -> bool:
+        """Re-hold the walk-ready stance on a robot that is already standing (the STEP
+        route's stand_adjust): the scripted gait's stop leaves the swing tripod
+        mid-stride and the drive refuses the next command until this is done."""
+        try:
+            res = self.post(f"{self.robot}/api/standup", {"mode": "step", "direction": "up"})
+        except Exception as exc:  # noqa: BLE001
+            self.notes.append(f"stand adjust refused: {exc}")
+            return False
+        if isinstance(res, dict) and not res.get("ok", True):
+            self.notes.append(f"stand adjust refused: {res}")
+            return False
+        t0 = self.clock()
+        while self.clock() - t0 < STAND_WAIT_S:
+            self.sleep(1.0)
+            if self.mode() != "demo":
+                break
+        self.sleep(SETTLE_S)
+        return True
+
     def sit(self, wait: bool = False) -> bool:
         """STEP down. With ``wait`` poll until the knees are straight (or 25 s)."""
         try:
@@ -472,6 +492,14 @@ def run_leg(s: Session, leg: Leg, writers: dict) -> Dict[str, Any]:
             st["fatal"], st["reason"] = "drive session refused: " + "; ".join(s.notes[-1:]), "refused"
         else:
             _stream(s, leg, writers, st, t0)
+            if (not leg.rl and st["reason"] == "refused" and "walk-ready" in str(st["fatal"]) and st["ticks"] <= 2):
+                # The previous leg's stop left the swing tripod mid-stride; re-hold the stance and go again.
+                s.log("gait refused for walk-ready; re-standing once and retrying")
+                s.notes.append(f"{leg.name}: re-stood once after 'not at walk-ready'")
+                if s.stand_adjust():
+                    st.update(fatal=None, reason="duration", ticks=0)
+                    t0 = s.clock()
+                    _stream(s, leg, writers, st, t0)
     except Exception as exc:  # noqa: BLE001
         st["fatal"], st["reason"] = f"runner error: {type(exc).__name__}: {exc}", "error"
     finally:
@@ -529,6 +557,16 @@ def _stream(s: Session, leg: Leg, writers: dict, st: Dict[str, Any], t0: float) 
                     st["fatal"], st["reason"] = f"gait refused: {r[:120]}", "refused"
                     return
             except Exception as exc:  # noqa: BLE001
+                text = getattr(exc, "reason", None) or str(exc)
+                body = ""
+                if hasattr(exc, "read"):
+                    try:
+                        body = exc.read().decode(errors="ignore")   # HTTPError carries the robot's sentence
+                    except Exception:  # noqa: BLE001
+                        body = ""
+                if "refused" in (body + str(text)).lower():
+                    st["fatal"], st["reason"] = f"gait refused: {(body or text)[:120]}", "refused"
+                    return
                 if now - last_fb_ok > FEEDBACK_LOST_S:
                     st["fatal"], st["reason"] = f"robot not answering: {exc}", "unreachable"
                     return

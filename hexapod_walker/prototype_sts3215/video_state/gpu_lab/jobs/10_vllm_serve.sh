@@ -4,7 +4,7 @@ set -u
 which=${1:-32b}
 case "$which" in
   32b) MODEL=Qwen/Qwen3-VL-32B-Instruct-FP8; NAME=qwen3vl-32b; PORT=8000; UTIL=0.50 ;;
-  8b)  MODEL=Qwen/Qwen3-VL-8B-Instruct;      NAME=qwen3vl-8b;  PORT=8001; UTIL=0.22 ;;
+  8b)  MODEL=Qwen/Qwen3-VL-8B-Instruct;      NAME=qwen3vl-8b;  PORT=8001; UTIL=0.30 ;;
   *) echo "unknown $which"; exit 1 ;;
 esac
 mkdir -p /data/logs

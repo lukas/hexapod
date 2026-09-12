@@ -89,17 +89,19 @@ WIDE_CROP = (0.02, 0.0, 0.62, 0.75)  # x0,y0,x1,y1 fractions; same framing the l
 
 
 def sample_frames(path: Path, n: int, max_side: int, crop: tuple | None = None) -> tuple[list[tuple[float, Image.Image]], dict]:
+    """Decode once, keep only ~n evenly spaced frames (never hold a whole clip in memory: a 41 min clip OOM-killed the pod)."""
     with av.open(str(path)) as c:
         s = c.streams.video[0]
         fps = float(s.average_rate or s.guessed_rate or 4)
-        frames = []
-        for f in c.decode(s):
-            frames.append((float(f.pts * s.time_base) if f.pts is not None else len(frames) / fps, f))
-        total = len(frames)
-        idx = np.unique(np.linspace(0, total - 1, min(n, total)).round().astype(int)) if total else []
+        total = s.frames or int(float(s.duration * s.time_base) * fps) if s.duration else 0
+        if total <= 0:  # unknown length: count in a cheap pass
+            total = sum(1 for _ in c.decode(s)); c.seek(0)
+        want = set(np.unique(np.linspace(0, max(total - 1, 0), min(n, max(total, 1))).round().astype(int)).tolist())
         out = []
-        for i in idx:
-            t, f = frames[i]
+        for i, f in enumerate(c.decode(s)):
+            if i not in want:
+                continue
+            t = float(f.pts * s.time_base) if f.pts is not None else i / fps
             im = f.to_image()
             if crop:
                 im = im.crop((round(crop[0] * im.width), round(crop[1] * im.height),
@@ -108,6 +110,8 @@ def sample_frames(path: Path, n: int, max_side: int, crop: tuple | None = None) 
             if sc != 1:
                 im = im.resize((round(im.width * sc), round(im.height * sc)), Image.BICUBIC if sc > 1 else Image.BILINEAR)
             out.append((t, im))
+            if len(out) >= n:
+                break
     return out, {"src_frames": total, "src_fps": fps, "sent_frames": len(out)}
 
 

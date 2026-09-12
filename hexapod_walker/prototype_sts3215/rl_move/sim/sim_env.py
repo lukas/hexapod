@@ -214,6 +214,33 @@ def current_income_ema_step(prev_ema: float, income_tick: float,
     return prev_ema + alpha_i * (income_tick - prev_ema)
 
 
+def action_rate_penalty(prev_action: np.ndarray,
+                         action: np.ndarray) -> float:
+    """Sum of squared per-joint normalized-action deltas between two
+    consecutive ticks (``reward.k_action_rate``, standwalk track,
+    2026-09-12 -- the "genuinely different structural mechanism" named
+    after all 9 reward-pricing/schedule single-lever guesses on the
+    dualbc7-...-termcost3 late-tail ``over_current`` collapse shared the
+    same shape: a flat OR income-relative price on INSTANTANEOUS current
+    never bounded it. ``safety.max_delta_q_deg`` already hard-clamps the
+    per-tick joint-angle change, but does not forbid a policy from
+    dithering right up against that clamp every tick (rapid direction
+    reversal costs more RMS current for the same net displacement than a
+    smooth hold/move, and is invisible to a pure instantaneous-current
+    price) -- this charges the OUTPUT the policy actually chooses, not
+    the clamp boundary, so a network that settles into micro-oscillating
+    near a stall point pays for it directly regardless of whether that
+    dithering happens to cross the over_current safety threshold.
+
+    Both arguments are the already-clipped [-1, 1] normalized actions
+    (same convention as ``self._prev_action``/``clipped`` in
+    ``_step_finish``). Pure/stateless (caller owns persistence) so it is
+    unit-testable without a live physics/reward pipeline.
+    """
+    return float(np.sum((np.asarray(action, dtype=np.float64)
+                          - np.asarray(prev_action, dtype=np.float64)) ** 2))
+
+
 # --------------------------------------------------------------------------
 # Valid-plant specification (operator, 2026-08-10). "Standing" is a
 # GEOMETRIC condition, not a torso height: every rise arm before this
@@ -5053,6 +5080,27 @@ class SimHexapodBalanceEnv(_GymBase):
             parts["torque_headroom_debt_max"] = float(
                 np.max(self._torque_debt))
             reward += r_headroom
+        # Action-rate/smoothness repricing (standwalk track, 2026-09-12 --
+        # see action_rate_penalty's docstring for the full root-cause
+        # chain: the 9th-and-last flat/income-relative CURRENT price still
+        # collapsed on the same late-tail over_current tail, so this
+        # prices the policy's own commanded-action dithering directly
+        # instead of another guess at the current-price axis. Dense,
+        # GLOBAL, mode-independent (same routing convention as
+        # k_current_hot/k_torque_headroom above) -- a smooth hold or a
+        # smooth move both pay ~0; only rapid direction reversal in the
+        # normalized action space is charged. Bit-exact OFF by default
+        # (reward.k_action_rate=0): reads self._prev_action, which is
+        # ALREADY always tracked (obs needs it) so this term allocates no
+        # new per-episode state at all. Enable: --cfg-set
+        # reward.k_action_rate=<k>.
+        k_act_rate = float(cfg_get(self.cfg, "reward", "k_action_rate",
+                                    default=0.0))
+        if k_act_rate > 0.0:
+            r_act_rate = -k_act_rate * action_rate_penalty(
+                self._prev_action, clipped)
+            parts["reward_action_rate"] = r_act_rate
+            reward += r_act_rate
         # Stance-contact shaping (default OFF): during stance modes the
         # kernel is blind to how many feet carry the body, so a 3-leg
         # tripod scores like a 6-leg stance (and cooks servos). Pay a

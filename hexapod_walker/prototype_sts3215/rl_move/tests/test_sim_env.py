@@ -1102,6 +1102,95 @@ def test_current_income_reward_default_off_and_wired():
 
 
 # ---------------------------------------------------------------------------
+# Action-rate/smoothness repricing (standwalk track, 2026-09-12 -- the
+# structurally-different lever named after all 9 reward-pricing/schedule
+# single-lever guesses (flat dose 3/6/12, k_current_hot, ramped
+# bootstrap, clip-range-anneal, log-std-anneal, income-relative x2) failed
+# on the dualbc7-...-termcost3 late-tail over_current collapse: this
+# prices commanded-action dithering directly instead of instantaneous
+# current.
+
+
+def test_action_rate_penalty_math():
+    """Pure math: identical consecutive actions charge exactly 0; a
+    per-joint delta of d charges n_joints * d**2; order doesn't matter
+    (it's a squared distance, so penalty(a, b) == penalty(b, a))."""
+    from rl_move.sim.sim_env import action_rate_penalty
+
+    same = np.full(18, 0.37)
+    assert action_rate_penalty(same, same) == 0.0
+
+    a = np.zeros(18)
+    b = np.full(18, 0.1)
+    got = action_rate_penalty(a, b)
+    assert abs(got - 18 * 0.1 ** 2) < 1e-9
+    assert action_rate_penalty(b, a) == got
+
+
+def test_action_rate_reward_default_off_and_wired():
+    """`reward.k_action_rate` is bit-exact OFF by default (no info key,
+    and — unlike every other pricing term on this lineage — allocates NO
+    new per-episode state at all, since it reads the already-tracked
+    `self._prev_action`) and produces a finite, non-positive reward part
+    when enabled and the commanded action actually changes tick to
+    tick."""
+    from rl_move.config import load_config
+    from rl_move.sim.servo_model import SimServoParams
+    from rl_move.sim.joint_task import SimHexapodJointGoalEnv, q_rad_to_action
+
+    cfg_off = load_config()
+    env_off = SimHexapodJointGoalEnv(params=SimServoParams.load(),
+                                      cfg=cfg_off, randomize=False,
+                                      episode_seconds=2.0, seed=0)
+    obs, _ = env_off.reset()
+    a0 = q_rad_to_action(env_off._cmd.copy())
+    rng = np.random.default_rng(0)
+    for _ in range(5):
+        a = np.clip(a0 + rng.normal(0.0, 0.2, a0.shape), -1.0, 1.0)
+        obs, r, term, trunc, info = env_off.step(a)
+        assert "reward_action_rate" not in info
+    env_off.close()
+
+    cfg_on = load_config()
+    cfg_on.setdefault("reward", {})
+    cfg_on["reward"]["k_action_rate"] = 2.0
+    env_on = SimHexapodJointGoalEnv(params=SimServoParams.load(),
+                                     cfg=cfg_on, randomize=False,
+                                     episode_seconds=2.0, seed=0)
+    obs, _ = env_on.reset()
+    a0 = q_rad_to_action(env_on._cmd.copy())
+    rng = np.random.default_rng(0)
+    seen = {}
+    for _ in range(10):
+        a = np.clip(a0 + rng.normal(0.0, 0.2, a0.shape), -1.0, 1.0)
+        obs, r, term, trunc, info = env_on.step(a)
+        if "reward_action_rate" in info:
+            seen["reward_action_rate"] = info["reward_action_rate"]
+    assert "reward_action_rate" in seen, "action-rate term never fired"
+    assert seen["reward_action_rate"] <= 0.0
+    assert np.isfinite(seen["reward_action_rate"])
+    env_on.close()
+
+    # A perfectly-held action (repeat the last commanded action every
+    # tick) charges exactly 0 even with k_action_rate on — this term
+    # only prices CHANGE, not the action's own magnitude.
+    env_hold = SimHexapodJointGoalEnv(params=SimServoParams.load(),
+                                       cfg=cfg_on, randomize=False,
+                                       episode_seconds=2.0, seed=0)
+    obs, _ = env_hold.reset()
+    a_hold = q_rad_to_action(env_hold._cmd.copy())
+    for i in range(5):
+        obs, r, term, trunc, info = env_hold.step(a_hold)
+        # Skip the very first tick: `_prev_action` starts at 0 on reset,
+        # which may not equal `a_hold` itself, so only ticks 2+ (holding
+        # the SAME action `_prev_action` already reflects) are
+        # guaranteed zero-delta.
+        if i > 0 and "reward_action_rate" in info:
+            assert info["reward_action_rate"] == 0.0
+    env_hold.close()
+
+
+# ---------------------------------------------------------------------------
 # Temporal actor: env-side obs history (plan §Architecture, cycle 13)
 
 

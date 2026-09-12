@@ -431,3 +431,29 @@ pre-existing); `ops.sh entry cw-walkscratch-crutchoff-s0-widen8-
 plusduty-walkcurr9-canary2m` (r0, LAUNCH_CRASH) and `...-r1` (VERIFIED
 RUNNING train-0); `ops.sh entry cw-walkscratch-crutchoff-s0-widen8-
 legdutyratio-swinggap-dose10-plusduty-acq1-cont10m` (champion/source).
+
+**Verdict, 2026-09-12 ~23:2x (triage cycle): `...-r1` CANARY FAIL -
+MECHANISM, closing the 14th class 0/14.** Frontier never left bucket 0:
+`walkcurr/active_n`/`frontier`/`frontier_pass` pinned at 0/0/0 and
+`b0_bridge_10s/pass=0` identically at cert_round 1/2/3/4 for the whole
+2M budget (`wandb_history.csv`) -- the run never certified even the
+first rung, the "stuck at bucket 0/1" FAIL clause. It also independently
+hits the "OR on-axis regresses" clause: this checkpoint's own DR-0 gate
+walk/det+walk/sto `gait_valid` fell to 4/6+4/6 (varying sacrificed legs
+across episodes) vs the frozen champion's matched DR-0 read at 6/6+6/6,
+confirmed visually as a fresh on-axis leg-drag
+(`walk_det_1.png`), not the champion's usual off-axis-only fingerprint.
+Training reward rose the whole run (quarters 70/171/256/360) but per
+this gate's own pre-registered text that does not license a continue
+here -- the defect is the curriculum mechanism itself never advancing,
+not a reward/eval misalignment. Root-cause candidate (untested): V9's
+bucket-0 cert thresholds were tuned on the joystick track's own
+different champion and are miscalibrated for this one. Two honest
+follow-ups remain unattempted: (a) recalibrate bucket-0 thresholds to
+this champion's own baseline band, or (b) accept the residual closed
+pending a genuinely new mechanism. Evidence:
+`logs/experiments/cw-walkscratch-crutchoff-s0-widen8-plusduty-
+walkcurr9-canary2m-r1/wandb_history.csv`; `logs/ckpt_eval/
+cw_walkscratch_crutchoff_s0_widen8_plusduty_walkcurr9_canary2m_r1_gate/
+{report.json,walk_det_1.png}`; matched-parent
+`..._cont10m_gate/report.json`; W&B `ohgv56y4`.

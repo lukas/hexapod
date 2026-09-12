@@ -224,7 +224,23 @@ def main() -> int:
                          "on live turn-in-place ticks only), this many "
                          "seconds of blend (0.0 = hard switch); default "
                          "None = no wrap, bit-exact.")
+    # todaypolicy STATUS 2026-09-12 ~15:2x: mode-independent periodic
+    # substitution, same wiring/defaults as eval_checkpoint.py.
+    ap.add_argument("--stall-substitute-every-s", type=float, default=0.0,
+                    help="probe_turn_compose _ComposedPolicy: periodic "
+                         "teacher takeover every this many seconds "
+                         "(mode-independent); 0.0 = disabled (default). "
+                         "Requires --compose-turn-blend-s to be set.")
+    ap.add_argument("--stall-substitute-dur-s", type=float, default=0.0,
+                    help="duration of each periodic takeover window "
+                         "started by --stall-substitute-every-s; "
+                         "0.0 = disabled (default).")
     args = ap.parse_args()
+    if (args.stall_substitute_every_s > 0.0 or args.stall_substitute_dur_s > 0.0) \
+            and args.compose_turn_blend_s is None:
+        ap.error("--stall-substitute-every-s/--stall-substitute-dur-s "
+                 "require --compose-turn-blend-s to be set (they wrap "
+                 "the same _ComposedPolicy)")
 
     from rl_move.config import load_config
     from .eval_checkpoint import (_course_window_ep_keys, _save_video,
@@ -275,8 +291,11 @@ def main() -> int:
         # (not this module), so no circular-import risk here, but kept
         # deferred to match the identical wiring in eval_checkpoint.py.
         from .probe_turn_compose import _ComposedPolicy
-        model = _ComposedPolicy(model, env, compose=True,
-                                blend_s=float(args.compose_turn_blend_s))
+        model = _ComposedPolicy(
+            model, env, compose=True,
+            blend_s=float(args.compose_turn_blend_s),
+            stall_substitute_every_s=float(args.stall_substitute_every_s),
+            stall_substitute_dur_s=float(args.stall_substitute_dur_s))
 
     obs, reset_info = env.reset()
     del obs

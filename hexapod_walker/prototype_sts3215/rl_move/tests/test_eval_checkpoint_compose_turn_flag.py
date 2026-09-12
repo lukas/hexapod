@@ -66,6 +66,40 @@ class _ZeroModel:
         return np.zeros(N_ACT), None
 
 
+def test_stall_substitute_flags_registered_default_zero(capsys):
+    """todaypolicy STATUS 2026-09-12 ~15:2x: the mode-independent
+    periodic-substitution generalization gets the same wiring; both
+    flags exist and default to 0.0 (disabled/bit-exact)."""
+    old_argv = sys.argv
+    sys.argv = ["eval_checkpoint", "--help"]
+    try:
+        with pytest.raises(SystemExit):
+            eval_checkpoint.main()
+    finally:
+        sys.argv = old_argv
+    out = capsys.readouterr().out
+    assert "--stall-substitute-every-s" in out
+    assert "--stall-substitute-dur-s" in out
+
+
+def test_stall_substitute_requires_compose_flag(tmp_path, capsys):
+    """Passing a stall-substitute knob without --compose-turn-blend-s
+    is a usage error, not a silent no-op (both wrap the same
+    _ComposedPolicy, which needs compose=True to do anything)."""
+    old_argv = sys.argv
+    sys.argv = ["eval_checkpoint", "--checkpoint", str(tmp_path / "x.zip"),
+                "--stall-substitute-every-s", "4.0",
+                "--stall-substitute-dur-s", "1.0"]
+    try:
+        with pytest.raises(SystemExit) as exc:
+            eval_checkpoint.main()
+    finally:
+        sys.argv = old_argv
+    assert exc.value.code != 0
+    err = capsys.readouterr().err
+    assert "--stall-substitute-every-s" in err
+
+
 def test_evaluate_wrap_logic_matches_probe_class():
     """Reproduces the exact wrap the new ``evaluate()`` block performs
     (``_ComposedPolicy(model, env, compose=True, blend_s=...)`` applied
@@ -82,3 +116,20 @@ def test_evaluate_wrap_logic_matches_probe_class():
     env.close()
     assert "success" in ep
     assert wrapped.total_ticks > 0
+
+
+def test_evaluate_wrap_logic_with_stall_substitute():
+    """Same wrap as above but with the stall-substitute knobs also
+    threaded through (mirrors the new evaluate() call site exactly) --
+    confirms the periodic mode-independent substitution engages via
+    this entry point too, not just via probe_turn_compose.py directly."""
+    env = _walk_env()
+    env.reset(seed=0)
+    wrapped = _ComposedPolicy(_ZeroModel(), env, compose=True, blend_s=0.0,
+                              stall_substitute_every_s=0.5,
+                              stall_substitute_dur_s=0.2)
+    ep, _ = eval_checkpoint.run_episode(
+        env, wrapped, deterministic=True, video=False, annotate=None)
+    env.close()
+    assert "success" in ep
+    assert wrapped.stall_ticks > 0

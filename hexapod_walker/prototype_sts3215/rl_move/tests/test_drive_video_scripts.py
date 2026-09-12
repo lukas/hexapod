@@ -1,7 +1,40 @@
-import numpy as np
+import sys
 
+import numpy as np
+import pytest
+
+from rl_move.sim import drive_video
 from rl_move.sim.drive_video import _script
 from rl_move.sim.play_core import _PlayTraj
+
+
+def test_stall_substitute_flags_registered_and_gated(capsys):
+    """todaypolicy STATUS 2026-09-12 ~15:2x: drive_video.py gets the
+    same --stall-substitute-every-s/-dur-s wiring as eval_checkpoint.py
+    (both default 0.0/disabled, both require --compose-turn-blend-s)."""
+    old_argv = sys.argv
+    sys.argv = ["drive_video", "--help"]
+    try:
+        with pytest.raises(SystemExit):
+            drive_video.main()
+    finally:
+        sys.argv = old_argv
+    out = capsys.readouterr().out
+    assert "--stall-substitute-every-s" in out
+    assert "--stall-substitute-dur-s" in out
+
+    old_argv = sys.argv
+    sys.argv = ["drive_video", "--checkpoint", "/nonexistent.zip",
+                "--stall-substitute-every-s", "4.0",
+                "--stall-substitute-dur-s", "1.0"]
+    try:
+        with pytest.raises(SystemExit) as exc:
+            drive_video.main()
+    finally:
+        sys.argv = old_argv
+    assert exc.value.code != 0
+    err = capsys.readouterr().err
+    assert "--stall-substitute-every-s" in err
 
 
 def test_existing_drive_scripts_keep_zero_wz() -> None:

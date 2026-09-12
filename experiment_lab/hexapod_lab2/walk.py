@@ -191,6 +191,8 @@ class Session:
     camera_index: Optional[int] = None
     frame_size: Optional[tuple] = None
     seen_camera: Optional[int] = None
+    proxy: bool = False                   # last pixel() came from leg tags, not the chassis tag
+    _robot_ids: Optional[set] = None
 
     @property
     def robot(self) -> str:
@@ -385,33 +387,54 @@ class Session:
         yaw = (obs.get("rotation_degrees") or {}).get("yaw")
         return PoseSample(t, leg_name, pos.get("x"), pos.get("y"), yaw, tracked=True)
 
-    def pixel(self) -> Optional[tuple]:
-        """Tag 0's pixel centre as a fraction of the frame.
+    def robot_tag_ids(self) -> set:
+        """Every tag id the tracker's layout puts on the robot (parts + chassis tag)."""
+        if self._robot_ids is None:
+            ids = {0}
+            try:
+                doc = self.get(f"{self.camera}/api/poses")
+                for part in ((doc or {}).get("parts") or {}).values():
+                    ids.update(int(t) for t in (part.get("configured_tag_ids") or []))
+            except Exception:  # noqa: BLE001
+                pass
+            self._robot_ids = ids
+        return self._robot_ids
 
-        From the tracking camera when a marker has told us which one; before
-        that, from whichever streaming camera decodes tag 0 (the top camera).
-        Works whether or not the view is floor-calibrated, so the frame-edge
-        stop and the 'seen but not tracked' distinction do not depend on
-        calibration."""
+    def pixel(self) -> Optional[tuple]:
+        """Where the robot is in the frame, as fractions: tag 0's centre, or the centroid
+        of whatever robot tags are visible when the chassis tag is not.
+
+        Always the top camera (settings.top_camera) when it is streaming: the
+        frame-edge stop and the recentre steer inside that picture and must not
+        silently switch to another camera when the tag leaves it (2026-09-12: the
+        robot walked out of the bottom of camera 1 and a recentre then chased
+        camera 0's pixels). Only when no camera is designated, or the designated
+        one is absent, the first camera that decodes tag 0 is used. Works whether
+        or not the view is floor-calibrated."""
         try:
             doc = self.get(f"{self.camera}/api/detections.json")
         except Exception:  # noqa: BLE001
             return None
         cams = (doc or {}).get("cameras") or []
-        if self.camera_index is not None:
-            cams = [c for c in cams if int(c.get("index", -1)) == self.camera_index]
-        else:
-            # Several cameras may decode the chassis tag; the one looking down on the
-            # robot (settings.top_camera) is the one whose frame we want to stay inside.
-            # On 2026-09-12 camera 0 saw tag 0 at its top edge and a recentre chased that.
-            top = int(getattr(self.settings, "top_camera", -1))
-            cams = sorted(cams, key=lambda c: 0 if int(c.get("index", -1)) == top else 1)
-        for c in cams:
-            corners = (c.get("tags") or {}).get("0")
-            if not corners or not c.get("width") or not c.get("height"):
+        want = self.camera_index if self.camera_index is not None else int(getattr(self.settings, "top_camera", -1))
+        chosen = [c for c in cams if int(c.get("index", -1)) == want]
+        if not chosen:
+            chosen = [c for c in cams if (c.get("tags") or {}).get("0")][:1]
+        for c in chosen:
+            tags = c.get("tags") or {}
+            if not c.get("width") or not c.get("height"):
                 continue
-            cx = sum(p[0] for p in corners) / 4.0 / float(c["width"])
-            cy = sum(p[1] for p in corners) / 4.0 / float(c["height"])
+            corners = tags.get("0")
+            self.proxy = False
+            if not corners:
+                robot = [crn for tid, crn in tags.items() if int(tid) in self.robot_tag_ids() and crn]
+                if not robot:
+                    return None
+                corners = [[sum(p[0] for p in crn) / 4.0, sum(p[1] for p in crn) / 4.0] for crn in robot]
+                self.proxy = True
+            n = float(len(corners))
+            cx = sum(p[0] for p in corners) / n / float(c["width"])
+            cy = sum(p[1] for p in corners) / n / float(c["height"])
             self.frame_size = (int(c["width"]), int(c["height"]))
             self.seen_camera = int(c.get("index", -1))
             return cx, cy

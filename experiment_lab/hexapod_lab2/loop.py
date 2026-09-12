@@ -67,6 +67,20 @@ def walk_intent(doc: Optional[dict]) -> Optional[str]:
     return f"walk about {dist_cm:.0f} cm {way}{back}"
 
 
+def pixel_of(settings: Settings, run_dir: Path):
+    """Where the chassis tag sits in the frame (fractions), or None."""
+    from . import walk as walk_mod
+    try:
+        return walk_mod.Session(settings, run_dir, log=lambda m: None).pixel()
+    except Exception:  # noqa: BLE001 - no camera is "not visible"
+        return None
+
+
+def recentre_distance_cm(frac, frame_width_cm: float = 120.0) -> float:
+    """Rough distance to the middle for the eyes; the top camera sees about 1.2 m across."""
+    return recentre.distance_frac(frac) * frame_width_cm
+
+
 def recentre_before(settings: Settings, run_dir: Path, *, walk: bool, log=print) -> Optional[Dict[str, Any]]:
     """Recentre if the chassis tag is far from the middle; sit again unless a walk follows."""
     from . import walk as walk_mod
@@ -104,6 +118,15 @@ def run_once(settings: Settings, store: Store, plan: Dict[str, Any], log=print,
     walk_doc = runner.walk_document(settings, plan["protocol"])
     about_to = walk_intent(walk_doc) if walk_doc else None
     obstacle: Optional[str] = None
+    run_dir = settings.runs_dir / run_id
+    # A recentre is a move too: if one is coming, the look is told about it.
+    recentre_pending = False
+    if settings.recentre and (walk_doc is not None or camera_measured(plan["protocol"])):
+        frac = pixel_of(settings, run_dir)
+        recentre_pending = recentre.needs_recentre(frac)
+        if recentre_pending:
+            towards = f"walk about {recentre_distance_cm(frac):.0f} cm toward the middle of this picture first"
+            about_to = f"{towards}, then {about_to}" if about_to else towards
     if settings.look_before_moving:
         # The one look before motion: can the eyes see the robot, and does
         # it look ready? Telemetry cannot tell that a leg is off and someone
@@ -134,7 +157,6 @@ def run_once(settings: Settings, store: Store, plan: Dict[str, Any], log=print,
         obstacle = eyes.obstacle_in(saw) if about_to else None
         if obstacle:
             store.add_event("look", f"obstacle near the robot: {obstacle[:200]}")
-    run_dir = settings.runs_dir / run_id
     zc: Optional[Dict[str, Any]] = None
     if settings.zero_check and runner.walk_document(settings, plan["protocol"]) is None:
         # Protocols other than walks start from the zero pose. The encoders
@@ -152,7 +174,13 @@ def run_once(settings: Settings, store: Store, plan: Dict[str, Any], log=print,
                                              f"the encoders read zero (slipped horn?). Paused; frame on run {run_id}.")
             return store.run(run_id)
     rc: Optional[Dict[str, Any]] = None
-    if settings.recentre and (walk_doc is not None or camera_measured(plan["protocol"])):
+    if recentre_pending and obstacle:
+        # Something is in the way of the move to the middle: run where it is.
+        rc = {"moved": False, "done": False, "reason": f"not moved, the look saw {obstacle[:120]} in the way",
+              "start": None, "end": None, "seconds": 0.0}
+        store.add_event("recentre", rc["reason"][:300])
+        log("recentre: " + rc["reason"])
+    elif settings.recentre and (walk_doc is not None or camera_measured(plan["protocol"])):
         # Where the camera is the measurement, start in the middle of its frame.
         rc = recentre_before(settings, run_dir, walk=walk_doc is not None, log=log)
         if rc is not None:

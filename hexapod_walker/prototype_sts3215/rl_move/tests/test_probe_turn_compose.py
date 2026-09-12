@@ -229,3 +229,64 @@ def test_summary_reports_blend_fields():
     s = pol.summary()
     assert s["blend_s"] == 0.15
     assert 0.0 < s["final_blend_w"] <= 1.0
+
+
+# --- wrong_substitute_vx: the mechanism-generality control the
+# todaypolicy/amp tracks flagged 2026-09-12 ("would need a further
+# control substituting non-turn actions on the same tick pattern").
+# Default 0.0 must be bit-exact with the pre-existing (correct-turn)
+# substitution; >0.0 substitutes deliberately WRONG (straight-walk,
+# omega=0) content on the same turn ticks instead.
+
+def test_wrong_substitute_default_off_is_bit_exact_with_original():
+    env_a = _FakeEnv(vx_ref=0.0, vy_ref=0.0, wz_ref=0.25)
+    env_b = _FakeEnv(vx_ref=0.0, vy_ref=0.0, wz_ref=0.25)
+    model_a, model_b = _FakeModel(), _FakeModel()
+    pol_a = _ComposedPolicy(model_a, env_a, compose=True)
+    pol_b = _ComposedPolicy(model_b, env_b, compose=True,
+                            wrong_substitute_vx=0.0)
+    act_a, _ = pol_a.predict(np.zeros(4))
+    act_b, _ = pol_b.predict(np.zeros(4))
+    np.testing.assert_array_equal(act_a, act_b)
+
+
+def test_wrong_substitute_vx_produces_different_action_than_correct_turn():
+    env_correct = _FakeEnv(vx_ref=0.0, vy_ref=0.0, wz_ref=0.25)
+    env_wrong = _FakeEnv(vx_ref=0.0, vy_ref=0.0, wz_ref=0.25)
+    model_correct, model_wrong = _FakeModel(), _FakeModel()
+    pol_correct = _ComposedPolicy(model_correct, env_correct, compose=True)
+    pol_wrong = _ComposedPolicy(model_wrong, env_wrong, compose=True,
+                                wrong_substitute_vx=0.05)
+    act_correct, _ = pol_correct.predict(np.zeros(4))
+    act_wrong, _ = pol_wrong.predict(np.zeros(4))
+    # Both substitute (neither passes through the raw policy action)...
+    assert not np.array_equal(act_correct, model_correct.action)
+    assert not np.array_equal(act_wrong, model_wrong.action)
+    # ...but with genuinely different (turn vs straight-walk) content.
+    assert not np.array_equal(act_correct, act_wrong)
+    assert pol_wrong.turn_ticks == 1  # still counted as a turn tick
+
+
+def test_wrong_substitute_vx_inert_when_compose_false():
+    env = _FakeEnv(vx_ref=0.0, vy_ref=0.0, wz_ref=0.25)
+    model = _FakeModel()
+    pol = _ComposedPolicy(model, env, compose=False, wrong_substitute_vx=0.05)
+    act, _ = pol.predict(np.zeros(4))
+    np.testing.assert_array_equal(act, model.action)
+
+
+def test_wrong_substitute_vx_inert_on_non_turn_tick():
+    env = _FakeEnv(vx_ref=0.08, vy_ref=0.0, wz_ref=0.0)  # straight walk
+    model = _FakeModel()
+    pol = _ComposedPolicy(model, env, compose=True, wrong_substitute_vx=0.05)
+    act, _ = pol.predict(np.zeros(4))
+    np.testing.assert_array_equal(act, model.action)
+    assert pol.turn_ticks == 0
+
+
+def test_summary_reports_wrong_substitute_vx_field():
+    env = _FakeEnv(vx_ref=0.0, vy_ref=0.0, wz_ref=0.25)
+    model = _FakeModel()
+    pol = _ComposedPolicy(model, env, compose=True, wrong_substitute_vx=0.05)
+    pol.predict(np.zeros(4))
+    assert pol.summary()["wrong_substitute_vx"] == 0.05

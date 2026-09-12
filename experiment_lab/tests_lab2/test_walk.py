@@ -329,3 +329,23 @@ def test_robot_tag_ids_come_from_the_installed_layout_when_present(settings, tmp
         {"robot_tags": [{"id": 0}, {"id": 1}, {"id": 7}, {"id": 114}, {"id": 117}]}))
     s = walk.Session(dataclasses.replace(settings, tracker_dir=tracker), tmp_path, get=lambda url: (_ for _ in ()).throw(AssertionError(url)), log=lambda m: None)
     assert s.robot_tag_ids() == {0, 1, 7, 114, 117}
+
+
+def test_a_walk_ready_refusal_re_stands_once_and_retries(settings, tmp_path):
+    state, post, get, sleep, clock = _rig(speed_ratio=0.8, standing=True)
+    seen = {"refusals": 0, "adjusts": 0}
+
+    def post2(url, body=None, raw=None):
+        if url.endswith("/cmd") and raw and not raw.decode().startswith("J 0 0 0") and seen["adjusts"] == 0:
+            seen["refusals"] += 1
+            return "refused walk: not at walk-ready pose (max dq=32 deg on j2; press Stand first)"
+        if url.endswith("/api/standup") and body["direction"] == "up":
+            seen["adjusts"] += 1
+        return post(url, body, raw)
+    res = walk.run_walk(settings, _doc(legs=[{"name": "fwd30", "vx_mm_s": 30, "seconds": 5}], out_and_back=False), tmp_path,
+                        post=post2, get=get, sleep=sleep, clock=clock, log=lambda m: None)
+    assert res["status"] == "ok", res["log_tail"]
+    assert seen["refusals"] == 1 and seen["adjusts"] == 1
+    leg = res["summary"]["legs"][0]
+    assert leg["stopped"] == "duration" and leg["ticks_sent"] > 30
+    assert any("re-stood once" in n for n in res["summary"]["notes"])

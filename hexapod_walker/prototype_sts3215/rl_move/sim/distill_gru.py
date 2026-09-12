@@ -634,6 +634,34 @@ def train_student(student, episodes, epochs: int, batch_eps: int = 8,
     return last_a
 
 
+def _stamp_and_save(student, out_path) -> None:
+    """Stamp the joint-frame contract before saving, then save.
+
+    train_ppo_mjx.py stamps every checkpoint it constructs
+    (``model.joint_frame``/``model.joint_contract``, see its ~4084-4086)
+    and ``hexapod_core.joint_frame.require_checkpoint_joint_contract``
+    REFUSES to warm-start (``--init-from``/respec) any SB3 zip missing
+    this pair (landed 08-31 in b7e7ea05, the "Unify hexapod vision and
+    joint coordinates" migration). This module's own ``student.save()``
+    call was never updated to match, so every distill_gru-produced
+    checkpoint since then has been silently unusable as an RL fine-tune
+    ``--init-from`` (caught 2026-09-11 when
+    ``cw-standwalk-stage2-dualbc7-massfix-anchor14coef1-canary`` crashed
+    on-pod with "checkpoint frame/contract is None/None"). Safe per
+    ``stamp_legacy_checkpoint.py``'s own documented rationale: this
+    tool's collection/BC/DAgger pipeline uses the same
+    ``SimHexapodJoint*Env`` action<->q mapping as train_ppo_mjx.py
+    (never touched by the 08-31 migration), so every student checkpoint
+    this file has ever produced was always ``robot_abs`` -- this stamps
+    a fact the file never wrote down, not a reinterpretation. Sets no
+    other attribute and changes no weight (bit-exact policy/optimizer
+    state; only the saved ``data`` JSON gains two keys)."""
+    from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT
+    student.joint_frame = FRAME_ROBOT_ABS
+    student.joint_contract = JOINT_CONTRACT
+    student.save(out_path)
+
+
 def probe_seq(student, env, n_ep: int = 2) -> None:
     """Stateful deterministic sequence sanity rollouts (mode_seq env)."""
     for _ in range(n_ep):
@@ -1155,8 +1183,9 @@ def main(argv: list[str] | None = None) -> int:
     # BC never trains log_std (default 0.0 = full-range noise, which
     # wrecks both the sto harness pass and early RL fine-tune rollouts).
     student.policy.log_std.data.fill_(-1.5)
-    student.save(args.out)
-    print(f"[distill-gru] saved {args.out} (log_std -1.5)")
+    _stamp_and_save(student, args.out)
+    print(f"[distill-gru] saved {args.out} (log_std -1.5, "
+          f"joint_contract stamped)")
     return 0
 
 

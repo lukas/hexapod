@@ -223,7 +223,7 @@ def test_builds_are_capped_and_prompt_flags_an_idle_robot(settings, store, monke
     for i in range(3):
         store.add_plan(title=f"b{i}", why="w", kind="needs_code", protocol=None, build_spec="spec")
     text = planner.build_prompt(settings, store, None)
-    assert "3 code jobs are already pending" in text and "robot is idle" in text
+    assert "3 code job(s) already pending" in text and "robot is idle" in text
     from hexapod_lab2 import claude_cli
     monkeypatch.setattr(claude_cli, "oneshot", lambda *a, **k: claude_cli.CliResult(True, {
         "learned": "", "plans": [
@@ -542,9 +542,12 @@ def test_seen_text_reaches_the_planner_digest(settings, store):
     store.update_run_summary(rid, seen="Leg 4 folded under the body from frame 6; chassis propped on the right side.")
     text = planner.build_prompt(settings, store, store.runs(limit=1)[0])
     assert "what the wide camera showed" in text and "Leg 4 folded" in text
-    assert "needs_fix" in text and "Do not work around a code blocker" in text
-    plans = planner.validate_plans(settings, [{"title": "Loosen gate", "why": "w.", "kind": "needs_fix",
-                                               "build_spec": "GLIDE_TOL_DEG 3 -> 8 in sysid_runner.py"}])
+    assert "switched off" in text and "needs_fix" in text   # fixes are off by default
+    import dataclasses as _dc
+    assert "Do not work around a code blocker" in planner.build_prompt(_dc.replace(settings, allow_fix=True), store, None)
+    fix = [{"title": "Loosen gate", "why": "w.", "kind": "needs_fix", "build_spec": "GLIDE_TOL_DEG 3 -> 8 in sysid_runner.py"}]
+    assert planner.validate_plans(settings, fix) == []                       # fixes are off by default
+    plans = planner.validate_plans(_dc.replace(settings, allow_fix=True), fix)
     assert plans[0]["kind"] == "needs_fix"
 
 
@@ -665,3 +668,45 @@ def test_imports_default_to_explored(settings, store):
     assert c.post("/v2/api/import", json={"title": "x", "why": "y", "status": "meh"}).status_code == 422
     page = c.get("/v2/?robot=hexapod2").text
     assert "class='tag explored'" in page
+
+
+def test_recovery_steps_a_standing_robot_down_before_the_zero_blend(settings):
+    """Operator 2026-09-11: 'if the robot's standing it should try to step to sit'.
+    The zero blend straightens loaded legs and drops a standing chassis."""
+    from hexapod_lab2 import recovery
+    calls = []
+    state = {"standing": True}
+
+    def post(url, body):
+        calls.append((url.rsplit("/", 1)[-1], body))
+        if url.endswith("/api/standup"):
+            state["standing"] = False
+        return {"ok": True}
+
+    def get(url):
+        if url.endswith("/api/rl/state"):
+            return {"pose": {"demo": {"running": False, "status": "done"}}}
+        joints = [{"deg": 0.0} for _ in range(18)]
+        if state["standing"]:
+            for j in range(1, 18, 3):
+                joints[j]["deg"] = 20.0
+            for j in range(2, 18, 3):
+                joints[j]["deg"] = 75.0
+        return {"ok": True, "roll_deg": 0.5, "pitch_deg": 1.0, "joints": joints}
+
+    slept = []
+    rep = recovery.recover(settings, log=lambda m: None, post=post, get=get, sleep=slept.append)
+    assert rep["ok"]
+    assert calls == [("standup", {"mode": "step", "direction": "down"})]
+    assert rep["rungs"][0]["rung"] == "step_down"
+
+
+def test_upright_gate_reads_feedback_shape():
+    from hexapod_lab2 import recovery
+    flat = {"roll_deg": 0.3, "pitch_deg": 3.0, "joints": [{"deg": 0.0} for _ in range(18)]}
+    assert not recovery.upright(flat)
+    stand = {"roll_deg": 0.3, "pitch_deg": 1.0, "joints": [{"deg": [0.0, 18.0, 70.0][j % 3]} for j in range(18)]}
+    assert recovery.upright(stand)
+    tipped = dict(stand, roll_deg=25.0)
+    assert not recovery.upright(tipped)
+    assert not recovery.upright(None) and not recovery.upright({"joints": []})

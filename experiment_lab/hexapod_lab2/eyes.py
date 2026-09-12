@@ -156,9 +156,39 @@ LOOK_QUESTION = (
 )
 
 
+PATH_QUESTION = (
+    " It is about to {about_to}. If anything it could walk into (a cable, a wall, an object, a foot, "
+    "another robot) is within about one body length of it, add a second line starting OBSTACLE: and say what."
+)
+
+
+POSE_KNOWN = (
+    " The robot's own sensors say it is lying flat at its rest pose, all 18 servos answering, body level; take that as "
+    "given and do not answer NO because of how the legs look from this angle or because part of it is out of frame. "
+    "NO is for a person, hands or tools near it, something lying on it, or a leg that is clearly detached or propped."
+)
+
+
+def obstacle_in(text: str) -> Optional[str]:
+    """What the eyes flagged after OBSTACLE:, or None."""
+    for line in (text or "").splitlines():
+        if line.strip().upper().startswith("OBSTACLE:"):
+            what = line.split(":", 1)[1].strip()
+            return what or None
+    return None
+
+
 def ready_to_move(settings: Settings, *, post: Optional[Callable] = None, fetch: Optional[Callable] = None,
-                  budget_s: Optional[float] = None) -> tuple[bool, str, float]:
+                  budget_s: Optional[float] = None, about_to: Optional[str] = None,
+                  pose_known: bool = False) -> tuple[bool, str, float]:
     """One look at the wide camera before the robot moves.
+
+    ``about_to`` ("walk about 30 cm forward and back") adds the path question:
+    the answer may carry an OBSTACLE: line, which the caller reads with
+    ``obstacle_in``; it never turns a yes into a no. ``pose_known`` says the
+    encoders read the flat rest pose: the eyes then judge hazards, not the
+    pose (the same flat robot at the frame edge got "legs bunched, NO" twice
+    on 2026-09-11 while every encoder read zero).
 
     Returns (ready, what the eyes said, cost). Anything that stops the look
     from happening (no camera frame, no key, the model not answering in
@@ -183,7 +213,8 @@ def ready_to_move(settings: Settings, *, post: Optional[Callable] = None, fetch:
         content.append({"type": "text", "text": label})
         content.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
                                                     "data": base64.b64encode(jpeg).decode()}})
-    content.append({"type": "text", "text": LOOK_QUESTION})
+    content.append({"type": "text", "text": LOOK_QUESTION + (POSE_KNOWN if pose_known else "")
+                    + (PATH_QUESTION.format(about_to=about_to) if about_to else "")})
     # The model reasons before answering and that counts against max_tokens;
     # 120 left "NO" and nothing else on 2026-09-11. Leave room for the sentence.
     body = {"model": settings.eyes_model, "max_tokens": 600, "messages": [{"role": "user", "content": content}]}

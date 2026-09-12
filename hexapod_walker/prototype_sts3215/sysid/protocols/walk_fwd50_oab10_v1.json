@@ -1,0 +1,15 @@
+{
+ "walk_protocol": 1,
+ "name": "walk_fwd50_oab10_v1",
+ "created": "2026-09-11",
+ "description": "Whole-body WALK on the floor with the scripted no-slip tripod gait (gait 1), measured by the overhead camera (chassis tag position and heading on the floor grid): mean speed, straight-line travel against the command, heading drift, tilt, total current. The loop stands the robot up itself, streams the gait command, stops, and sits it down. Forward 50 mm/s for 10 s, then the same back. Commanded one-way distance 500 mm.",
+ "gait": 1,
+ "out_and_back": true,
+ "legs": [
+  {
+   "name": "fwd50",
+   "vx_mm_s": 50,
+   "seconds": 10
+  }
+ ]
+}

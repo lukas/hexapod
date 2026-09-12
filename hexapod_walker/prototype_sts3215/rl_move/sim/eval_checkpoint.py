@@ -1515,6 +1515,24 @@ def main() -> None:
                          "rot-60 canonicalizer (rot60.Rot60Policy) — "
                          "full-circle walk evals of wedge-trained "
                          "policies. Walk obs frame (72) only.")
+    # todaypolicy/amp item (c), 2026-09-12: run the STANDARD multi-mode
+    # gate panel (walk/rise/lower/hold, ...) through the SAME non-RL
+    # turn-in-place composition validated stand-alone by
+    # probe_turn_compose.py (amp's capsevprob70-canary2m freeze fix),
+    # instead of a bespoke single-mode harness. Default OFF (None) is
+    # bit-exact with pre-existing behavior; passing a value (0.0 = the
+    # original hard switch, >0 = the validated smooth ramp) wraps the
+    # loaded model (post rot60/recurrent) in probe_turn_compose's own
+    # `_ComposedPolicy` before the per-mode loop, unmodified/reused, so
+    # every mode (not just walk) sees the exact same composition the
+    # probe already validated has zero efficacy cost at blend_s=0.15.
+    ap.add_argument("--compose-turn-blend-s", type=float, default=None,
+                    help="wrap the policy in probe_turn_compose's "
+                         "_ComposedPolicy (non-RL scripted-teacher "
+                         "substitution on live turn-in-place ticks only) "
+                         "with this blend window in seconds (0.0 = hard "
+                         "switch); default None = no wrap, bit-exact. "
+                         "Applies to the WHOLE mode panel, not just walk.")
     ap.add_argument("--baseline", type=Path, default=None,
                     help="frozen parent checkpoint, evaluated under the "
                          "IDENTICAL config (required for any injected-"
@@ -1650,6 +1668,16 @@ def main() -> None:
             from .rot60 import Rot60Policy
             model = Rot60Policy(model, tilt_scale=float(
                 _cg(env.cfg, "obs", "tilt_scale", default=0.2)))
+        if args.compose_turn_blend_s is not None:
+            # Local import: probe_turn_compose imports FROM this module
+            # (run_episode/_save_video/ENV_CLASSES), so a top-level
+            # import would be circular; deferred here (same pattern as
+            # the rot60/RecurrentPredictor imports just above) is safe
+            # because this module is already fully loaded by main().
+            from .probe_turn_compose import _ComposedPolicy
+            model = _ComposedPolicy(
+                model, env, compose=True,
+                blend_s=float(args.compose_turn_blend_s))
         modes = args.modes or list(getattr(env_cls, "EVAL_MODES",
                                            ("hold", "track", "rise")))
         gen = env._goal_gen

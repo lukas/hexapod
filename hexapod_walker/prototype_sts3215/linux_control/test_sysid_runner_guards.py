@@ -114,7 +114,10 @@ def test_relative_multi_joint_trajectory_retains_force_guard():
     assert "require force=true" in result["error"]
 
 
-def test_remote_abort_reaches_final_limp(monkeypatch, tmp_path):
+def test_remote_abort_ends_holding_the_present_pose_not_limp(monkeypatch, tmp_path):
+    """Since 2026-09-11 the runner never limps at the end: it holds the present
+    pose and the API layer decides (step a standing robot down, limp a belly
+    one). Limping here used to drop every stand protocol onto its belly."""
     import sysid_runner
 
     calls = []
@@ -152,7 +155,9 @@ def test_remote_abort_reaches_final_limp(monkeypatch, tmp_path):
 
     assert result["ok"] is False
     assert result["aborted"] is True
-    assert "limp" in calls
+    assert "limp" not in calls
+    assert calls[-1] == "hold" and result["torque_left_on"] is True
+    assert len(result["hold_pose_deg"]) == 18
 
 
 def _runtime_stream_run(monkeypatch, tmp_path, *, glide: bool):
@@ -212,7 +217,7 @@ def test_nonadvancing_state_timestamp_during_glide_aborts_before_further_motion(
     assert result["ok"] is False
     assert "runtime state timestamp did not advance" in result["error"]
     assert len(bus.writes) == 1
-    assert "limp" in calls
+    assert "limp" not in calls and calls[-1] == "hold"   # held, API layer decides
 
 
 def test_nonadvancing_state_timestamp_during_trajectory_aborts_before_further_motion(
@@ -223,7 +228,7 @@ def test_nonadvancing_state_timestamp_during_trajectory_aborts_before_further_mo
     assert result["ok"] is False
     assert "runtime state timestamp did not advance" in result["error"]
     assert len(bus.writes) == 1
-    assert "limp" in calls
+    assert "limp" not in calls and calls[-1] == "hold"   # held, API layer decides
 
 
 def _glide_current_run(monkeypatch, tmp_path, *, hot_joint: int,
@@ -392,3 +397,44 @@ def test_one_in_range_poll_over_the_hard_ceiling_does_not_trip(
 
     assert result["error"] is None, result["error"]
     assert result["ok"] is True
+
+
+def test_hold_write_failure_falls_back_to_limp(monkeypatch, tmp_path):
+    """Torque on with an unknown goal is worse than a drop: if the end-of-run
+    hold write fails the runner limps as it always did."""
+    import sysid_runner
+
+    calls = []
+    holds = {"n": 0}
+
+    def write_pose(*args, **kwargs):
+        holds["n"] += 1
+        if holds["n"] > 1:            # the first hold (run start) succeeds
+            raise OSError("bus gone")
+        calls.append("hold")
+
+    fake_demos = types.SimpleNamespace(
+        _enable_torque=lambda bus, ids: calls.append("enable"),
+        _live_robot_ids=lambda bus: {
+            sysid_runner.joint_to_servo_id(joint) for joint in range(18)
+        },
+        _limp_all=lambda bus, ids: calls.append("limp"),
+        _set_torque_limit=lambda bus, ids, value: calls.append(("limit", value)),
+        _write_pose=write_pose,
+    )
+    monkeypatch.setitem(sys.modules, "inplace_demos", fake_demos)
+    monkeypatch.setattr(sysid_runner, "validate", lambda protocol: [])
+    monkeypatch.setattr(sysid_runner, "start_pose", lambda protocol: None)
+    monkeypatch.setattr(
+        sysid_runner, "materialize",
+        lambda protocol: {"hz": 10.0, "seg_labels": ["test"],
+                          "ticks": [{"active": [0], "cmd": [0.0] * 18,
+                                     "mode": "rel", "seg": 0, "phase": "test"}]})
+    bus = _Bus([_sample(), _sample(), _sample()])
+    bus.read_all_positions = lambda: {joint: 0.0 for joint in range(18)}
+    result = run_sysid_protocol(
+        bus, {"name": "hold_fail", "segments": [{"kind": "step"}]},
+        abort_check=lambda: True, log_dir=tmp_path)
+    assert result["torque_left_on"] is False
+    assert result["hold_pose_deg"] is None
+    assert calls[-1] == "limp"

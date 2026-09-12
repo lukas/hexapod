@@ -1,0 +1,15 @@
+{
+ "walk_protocol": 1,
+ "name": "walk_crab30_oab10_v1",
+ "created": "2026-09-11",
+ "description": "Whole-body WALK on the floor with the scripted no-slip tripod gait (gait 1), measured by the overhead camera (chassis tag position and heading on the floor grid): mean speed, straight-line travel against the command, heading drift, tilt, total current. The loop stands the robot up itself, streams the gait command, stops, and sits it down. Sideways (robot's right, vy +30 mm/s) for 10 s, then back left. Tests the crab direction of the same gait.",
+ "gait": 1,
+ "out_and_back": true,
+ "legs": [
+  {
+   "name": "crab30",
+   "vy_mm_s": 30,
+   "seconds": 10
+  }
+ ]
+}

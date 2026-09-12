@@ -221,6 +221,41 @@ Full Disk Access for the loop's python
 loop logs "text commands unavailable" once and the CLI does the same jobs.
 The cap is `CAP_USD` in the data dir, `hexapod-lab2 cap N`.
 
+## Judgment, not process (2026-09-11 evening)
+
+The operator's rule: "I just don't want to add a ton of safety process."
+What the lab does instead, each one a check plus a corrective action, none of
+them a new pre-run checklist:
+
+- **Never drop a standing robot.** The on-robot sysid runner used to limp
+  every servo at the end of every run, so every stand protocol ended with the
+  robot falling onto its belly. It now holds the present pose; the API worker
+  classifies the pose and plays the STEP sit-down for a standing robot, limps
+  a belly one, and keeps holding if the sit-down failed or the operator
+  aborted. The lab's recovery ladder steps a standing robot down before the
+  zero blend. Accepted live on run `80795488b94b` (15 s stand, then a 15 s
+  step-down at 2.66 A peak).
+- **Double-check a zero pose the camera disagrees with.** Before a non-walk
+  protocol, `hexapod-zero-check` (tracker) compares the leg lids in the top
+  camera with the installed layout while the encoders are read. Only
+  "encoders at zero, camera says a leg points elsewhere" holds and pauses,
+  with the frame on the run; "not at zero" and "camera blind" are noted.
+  `hexapod-lab2 zero-check` runs it by hand. `HEXAPOD_LAB2_ZERO_CHECK=0`.
+- **Recentre when it helps.** Before walks, stands, tripod and whole-body
+  protocols (not belly ladders), if the chassis tag sits more than a quarter
+  of the frame off the middle, `recentre.py` walks it back: a forward probe
+  learns the body heading in pixels, pushes re-aim every 6 s, the camera's
+  handedness is learned from the pushes, the walk runner's guards stop it.
+  After a walk the runner recentres for up to 20 s before sitting. Never a
+  hold. `HEXAPOD_LAB2_RECENTRE=0`.
+- **Ask what is in the way.** For a walk the one pre-run look is told what
+  the robot is about to do and may answer `OBSTACLE: ...`; the legs are then
+  cut to 3 s each instead of refused. When the encoders read the flat rest
+  pose the look is told so and judges hazards, not the pose.
+- **Righting after a fall onto one leg** is not coded: try it by hand first
+  (plant the free legs at low torque to widen the base, then glide up on
+  tripods, camera on it). See CURRENT_TRUTHS.
+
 ## Run outcomes
 
 `ok` and `failed` say whether the robot did what the protocol asked. They are

@@ -1,4 +1,4 @@
-"""hexapod-lab2: loop | run <protocol> | plan | add <protocol> "title" "why" | note <run> "text" | attach <run> <file> | status | pause | resume"""
+"""hexapod-lab2: loop | run <protocol> | plan | add <protocol> "title" "why" | note <run> "text" | attach <run> <file> | zero-check | status | pause | resume"""
 from __future__ import annotations
 
 import argparse
@@ -41,6 +41,7 @@ def main(argv=None) -> int:
     cap = sub.add_parser("cap", help="set the rolling 24 h spend cap in dollars (applies immediately)")
     cap.add_argument("usd", type=float)
     sub.add_parser("status")
+    sub.add_parser("zero-check", help="camera vs encoders at the zero pose (hexapod-zero-check in the tracker checkout)")
     sub.add_parser("pause"); sub.add_parser("resume")
     args = ap.parse_args(argv)
 
@@ -111,6 +112,17 @@ def main(argv=None) -> int:
                           "queue": [(p["status"], p["title"], p["protocol"]) for p in store.plans(["queued", "building", "running"])],
                           "runs": [(r["started_at"], r["protocol"], r["status"]) for r in store.runs(limit=5)]}, indent=1))
         return 0
+    if args.cmd == "zero-check":
+        from . import robot, zero_check
+        try:
+            fb = robot.health(settings.robot_url, settings.health_budget_s)
+        except Exception as exc:  # noqa: BLE001
+            fb = None
+            print(f"robot: {exc}")
+        out_dir = settings.data_dir / "zero-check"
+        res = zero_check.double_check(settings, fb, out_dir, log=lambda m: None)
+        print(json.dumps({k: res.get(k) for k in ("verdict", "text", "legs_off", "frame", "camera")}, indent=1))
+        return 0 if res["verdict"] in ("agree", "not_at_zero") else 1
     if args.cmd == "pause":
         settings.pause_file.write_text("paused by operator\n"); print("paused"); return 0
     if args.cmd == "resume":

@@ -49,17 +49,26 @@ SYSTEM = ("You are reviewing lab footage of a small six-legged walking robot (he
           "six legs is a chain of three servo modules (boxes ~3 cm) with small square AprilTag fiducials glued on, ending "
           "in a thin stick-like foot; the round body hub also carries tags and a cable bundle. In colour cameras the parts "
           "are red and blue; the wide overview camera is grayscale infrared, where the robot looks like a cluster of "
-          "tagged boxes on the carpet. Loose AprilTags also lie flat on the floor as markers, and other robot chassis or "
-          "parts may sit nearby - only the six-legged tagged robot counts. A human operator may be nearby. You first get "
-          "two reference images of the robot, then frames sampled from one clip with their timestamps. Answer only with "
-          "the JSON object requested.")
-REFS = [("/data/ref/robot_colour.jpg", "Reference 1: the robot seen by a colour camera (here in a low, splayed pose)."),
-        ("/data/ref/robot_ir_wide.jpg", "Reference 2: the same robot seen by the grayscale wide camera, standing.")]
+          "tagged boxes on the carpet. There are TWO different hexapods in this lab: hexapod1 (tag-covered red/blue servo "
+          "boxes) and hexapod2 (flat purple hexagonal top plate, red/white leg servos). Each clip names its subject; the "
+          "other robot may sit idle in view and must be ignored. Loose AprilTags lie flat on the floor as markers. A human "
+          "operator may be nearby. You first get reference images of the subject robot, then frames sampled from one clip "
+          "with their timestamps. Answer only with the JSON object requested.")
+REFS = {
+    "hexapod1": [("/data/ref/robot_colour.jpg", "Reference: THE SUBJECT ROBOT (hexapod1) seen by a colour camera - red/blue servo "
+                  "boxes with small square AprilTags glued on, thin stick feet; here in a low, splayed pose."),
+                 ("/data/ref/robot_ir_wide.jpg", "Reference: the same subject robot seen by the grayscale wide camera, standing.")],
+    "hexapod2": [("/data/ref/robot2_colour.jpg", "Reference: THE SUBJECT ROBOT (hexapod2) - a flat PURPLE hexagonal top plate with one "
+                  "tag, red and white leg servos, black stick feet, no tags on the legs.")],
+}
+OTHER = {"hexapod1": "A second robot with a purple hexagonal top plate may also be in view; it is NOT the subject, ignore it.",
+         "hexapod2": "A second robot covered in small square AprilTags (red/blue servo boxes) may also be in view, usually "
+                     "idle at the edge of the frame; it is NOT the subject, ignore it."}
 
 
-def ref_content():
-    out = []
-    for path, text in REFS:
+def ref_content(robot: str):
+    out = [{"type": "text", "text": f"The subject robot in this clip is {robot}. {OTHER.get(robot, '')}"}]
+    for path, text in REFS.get(robot, REFS["hexapod1"]):
         out.append({"type": "text", "text": text})
         out.append({"type": "image_url", "image_url": {"url": b64(Image.open(path).convert("RGB"))}})
     return out
@@ -141,6 +150,9 @@ def main():
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--only", default="", help="substring filter on clip path")
     ap.add_argument("--tag", default="")
+    ap.add_argument("--mode", default="video", choices=["video", "images"],
+                    help="video = hand the whole clip to the model as a video (native temporal sampling); "
+                         "images = sample --frames stills with timestamps")
     a = ap.parse_args()
     client = OpenAI(base_url=f"http://127.0.0.1:{a.port}/v1", api_key="x", timeout=600)
     man = [json.loads(l) for l in open("/data/manifest.jsonl")]
@@ -156,38 +168,58 @@ def main():
     for k, m in enumerate(man):
         if m["clip"] in done:
             continue
-        p = Path("/data/clips") / m["clip"]
+        is_wide = m["clip"].endswith("wide.mp4")
+        p = Path("/data/clips_widecrop" if is_wide else "/data/clips") / m["clip"]
+        if not p.exists():
+            p = Path("/data/clips") / m["clip"]
         t0 = time.time()
-        try:
-            is_wide = m["clip"].endswith("wide.mp4")
-            frames, info = sample_frames(p, a.frames, a.max_side, WIDE_CROP if is_wide else None)
-        except Exception as e:
-            print("decode failed", m["clip"], e, flush=True); continue
-        if not frames:
-            continue
-        content = ref_content() + [{"type": "text", "text": f"Now the clip. Clip length {m['duration_s']:.1f} s, recorded at {m['fps']:.1f} fps"
-                    + (" (timelapse: 1 frame per second of real time, played at 4 fps; frames are cropped to the working area)" if is_wide else "")
-                    + f". {len(frames)} frames follow."}]
-        for t, im in frames:
-            content.append({"type": "text", "text": f"t={t:.1f}s"})
-            content.append({"type": "image_url", "image_url": {"url": b64(im)}})
-        content.append({"type": "text", "text": PROMPT})
+        clip_note = (f"Clip length {m['duration_s']:.1f} s, recorded at {m['fps']:.1f} fps"
+                     + (" (timelapse: 1 frame per second of real time, played at 4 fps; cropped to the working area)" if is_wide else "") + ".")
+        refs = ref_content(m.get("robot") or "hexapod1")
+        verdict, usage, err, mode, info = None, None, None, a.mode, {}
         t1 = time.time()
-        try:
-            r = client.chat.completions.create(
-                model=a.model, temperature=0, max_tokens=900,
-                messages=[{"role": "system", "content": SYSTEM}, {"role": "user", "content": content}],
-                response_format={"type": "json_schema", "json_schema": {"name": "verdict", "schema": SCHEMA}})
-            verdict = json.loads(r.choices[0].message.content)
-            usage = {"prompt_tokens": r.usage.prompt_tokens, "completion_tokens": r.usage.completion_tokens}
-            err = None
-        except Exception as e:
-            verdict, usage, err = None, None, str(e)[:400]
+        if a.mode == "video":
+            content = refs + [{"type": "text", "text": "Now the clip. " + clip_note},
+                              {"type": "video_url", "video_url": {"url": "file://" + str(p)}},
+                              {"type": "text", "text": PROMPT}]
+            try:
+                r = client.chat.completions.create(
+                    model=a.model, temperature=0, max_tokens=900,
+                    messages=[{"role": "system", "content": SYSTEM}, {"role": "user", "content": content}],
+                    response_format={"type": "json_schema", "json_schema": {"name": "verdict", "schema": SCHEMA}})
+                verdict = json.loads(r.choices[0].message.content)
+                usage = {"prompt_tokens": r.usage.prompt_tokens, "completion_tokens": r.usage.completion_tokens}
+                info = {"src_frames": m.get("frames"), "src_fps": m.get("fps"), "sent_frames": None}
+            except Exception as e:
+                err = str(e)[:300]; mode = "images"  # e.g. clip too long for the context: fall back to stills
+        if verdict is None:
+            try:
+                frames, info = sample_frames(p, a.frames, a.max_side, None)
+            except Exception as e:
+                print("decode failed", m["clip"], e, flush=True); continue
+            if not frames:
+                continue
+            content = refs + [{"type": "text", "text": f"Now the clip. {clip_note} {len(frames)} frames follow."}]
+            for t, im in frames:
+                content.append({"type": "text", "text": f"t={t:.1f}s"})
+                content.append({"type": "image_url", "image_url": {"url": b64(im)}})
+            content.append({"type": "text", "text": PROMPT})
+            t1 = time.time()
+            try:
+                r = client.chat.completions.create(
+                    model=a.model, temperature=0, max_tokens=900,
+                    messages=[{"role": "system", "content": SYSTEM}, {"role": "user", "content": content}],
+                    response_format={"type": "json_schema", "json_schema": {"name": "verdict", "schema": SCHEMA}})
+                verdict = json.loads(r.choices[0].message.content)
+                usage = {"prompt_tokens": r.usage.prompt_tokens, "completion_tokens": r.usage.completion_tokens}
+                err = None
+            except Exception as e:
+                verdict, usage, err = None, None, (err or "") + " | " + str(e)[:300]
         t2 = time.time()
         row = {"clip": m["clip"], "run": m["run"], "title": m.get("title"), "status": m.get("status"),
                "review_cls": (m.get("review") or {}).get("cls"), "expected": expected_label(m),
                "seen_incumbent": m.get("seen") if m["clip"].endswith("wide.mp4") else None,
-               "model": a.model, "decode_s": round(t1 - t0, 2), "infer_s": round(t2 - t1, 2), **info,
+               "model": a.model, "mode": mode, "decode_s": round(t1 - t0, 2), "infer_s": round(t2 - t1, 2), **info,
                "usage": usage, "verdict": verdict, "error": err}
         fo.write(json.dumps(row) + "\n"); fo.flush()
         print(f"[{k+1}/{len(man)}] {m['clip']} exp={row['expected']} got={(verdict or {}).get('primary_activity')} "

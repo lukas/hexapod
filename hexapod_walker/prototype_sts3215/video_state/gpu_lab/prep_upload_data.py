@@ -111,7 +111,8 @@ def build_manifest() -> list[dict]:
             except Exception:
                 sidecar = {"error": "unreadable"}
         meta = ffprobe(src)
-        clips.append(dict(clip=f"{rid}/{src.stem}.mp4", source=str(rel), **meta,
+        stem = "__".join(rel.parts[1:])  # keep nested dirs unique (several runs have attempt*/camera_raw.mp4)
+        clips.append(dict(clip=f"{rid}/{Path(stem).stem}.mp4", source=str(rel), **meta,
                           **runs.get(rid, {"run": rid}), review=review.get(rid),
                           learnings=learnings.get(rid, [])[:6], sidecar=sidecar))
     return clips
@@ -167,6 +168,7 @@ def build_labels() -> tuple[list[dict], list[tuple[Path, Path]]]:
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
+    clips_only = "--clips-only" in sys.argv
     print("building manifest…", flush=True)
     clips = build_manifest()
     with open(OUT / "manifest.jsonl", "w") as f:
@@ -184,6 +186,8 @@ def main():
             if i % 50 == 0:
                 print(f"  {i}/{len(jobs)}", flush=True)
     print(f"clips done, {bad} failures", flush=True)
+    if clips_only:
+        return
 
     print("building frame labels…", flush=True)
     rows, fjobs = build_labels()

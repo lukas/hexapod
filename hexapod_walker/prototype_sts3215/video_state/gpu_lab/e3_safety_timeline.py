@@ -32,17 +32,27 @@ SCHEMA = {"type": "object", "properties": {
     "note": {"type": "string"}}, "required": ["robot_state_end", "risk", "events", "note"]}
 SYSTEM = ("You are a safety spotter watching a small six-legged robot (hexapod, about 40 cm across; each leg is three "
           "servo boxes with small square AprilTags glued on and a thin stick foot; red/blue parts in colour cameras, a "
-          "cluster of tagged boxes in the grayscale infrared wide camera) on a floor with loose AprilTag markers. Other "
-          "robot chassis may sit nearby; only the six-legged tagged robot counts. A human operator may stand by. You first "
-          "get two reference images of the robot, then consecutive frames from one short window of video with timestamps. "
-          "Report only what is visible in these frames. Answer with the JSON object requested.")
-REFS = [("/data/ref/robot_colour.jpg", "Reference 1: the robot seen by a colour camera (low, splayed pose)."),
-        ("/data/ref/robot_ir_wide.jpg", "Reference 2: the robot seen by the grayscale wide camera, standing.")]
+          "cluster of tagged boxes in the grayscale infrared wide camera) on a floor with loose AprilTag markers. There are "
+          "TWO hexapods in this lab: hexapod1 (tag-covered red/blue servo boxes) and hexapod2 (flat purple hexagonal top "
+          "plate, red/white leg servos). Each clip names its subject; the other robot may sit idle in view and must be "
+          "ignored. A human operator may stand by. You first get reference images of the subject robot, then consecutive "
+          "frames from one short window of video with timestamps. Report only what is visible in these frames. Answer "
+          "with the JSON object requested.")
+REFS = {
+    "hexapod1": [("/data/ref/robot_colour.jpg", "Reference: THE SUBJECT ROBOT (hexapod1) seen by a colour camera - red/blue servo "
+                  "boxes with small square AprilTags glued on, thin stick feet; here in a low, splayed pose."),
+                 ("/data/ref/robot_ir_wide.jpg", "Reference: the same subject robot seen by the grayscale wide camera, standing.")],
+    "hexapod2": [("/data/ref/robot2_colour.jpg", "Reference: THE SUBJECT ROBOT (hexapod2) - a flat PURPLE hexagonal top plate with one "
+                  "tag, red and white leg servos, black stick feet, no tags on the legs.")],
+}
+OTHER = {"hexapod1": "A second robot with a purple hexagonal top plate may also be in view; it is NOT the subject, ignore it.",
+         "hexapod2": "A second robot covered in small square AprilTags (red/blue servo boxes) may also be in view, usually "
+                     "idle at the edge of the frame; it is NOT the subject, ignore it."}
 
 
-def ref_content():
-    out = []
-    for path, text in REFS:
+def ref_content(robot: str):
+    out = [{"type": "text", "text": f"The subject robot in this clip is {robot}. {OTHER.get(robot, '')}"}]
+    for path, text in REFS.get(robot, REFS["hexapod1"]):
         out += [{"type": "text", "text": text}, {"type": "image_url", "image_url": {"url": b64(Image.open(path).convert("RGB"))}}]
     return out
 PROMPT = ("For this window: what state is the robot in at the end, would a human spotter need to intervene (risk), and "
@@ -99,7 +109,7 @@ def main():
             sel = [(t, im) for t, im in frames if ws <= t < ws + a.window]
             if len(sel) > a.per_window:
                 sel = [sel[i] for i in np.linspace(0, len(sel) - 1, a.per_window).round().astype(int)]
-            content = ref_content() + [{"type": "text", "text": f"Now the clip. Window {ws:.1f}-{ws + a.window:.1f} s of a {T:.1f} s clip."}]
+            content = ref_content(m.get("robot") or "hexapod1") + [{"type": "text", "text": f"Now the clip. Window {ws:.1f}-{ws + a.window:.1f} s of a {T:.1f} s clip."}]
             for t, im in sel:
                 content += [{"type": "text", "text": f"t={t:.1f}s"}, {"type": "image_url", "image_url": {"url": b64(im)}}]
             content.append({"type": "text", "text": PROMPT})

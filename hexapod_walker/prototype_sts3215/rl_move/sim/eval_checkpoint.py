@@ -1533,6 +1533,26 @@ def main() -> None:
                          "with this blend window in seconds (0.0 = hard "
                          "switch); default None = no wrap, bit-exact. "
                          "Applies to the WHOLE mode panel, not just walk.")
+    # todaypolicy STATUS 2026-09-12 ~15:2x: the mode-independent
+    # generalization of the same composition -- periodic (wall-clock)
+    # teacher substitution regardless of turn/walk/hold mode, validated
+    # to rescue plain forced-straight-walk freezes too (not just
+    # turn-in-place). Both default 0.0 = disabled/bit-exact; only takes
+    # effect when --compose-turn-blend-s is also passed (composition
+    # must be enabled for either substitution path to engage -- see
+    # _ComposedPolicy's own compose flag).
+    ap.add_argument("--stall-substitute-every-s", type=float, default=0.0,
+                    help="probe_turn_compose _ComposedPolicy: every this "
+                         "many seconds of elapsed episode time, the "
+                         "scripted teacher takes over for "
+                         "--stall-substitute-dur-s seconds (mode-"
+                         "independent, tracks the real ambient command); "
+                         "0.0 = disabled (default). Requires "
+                         "--compose-turn-blend-s to be set.")
+    ap.add_argument("--stall-substitute-dur-s", type=float, default=0.0,
+                    help="duration of each periodic teacher takeover "
+                         "window started by --stall-substitute-every-s; "
+                         "0.0 = disabled (default).")
     ap.add_argument("--baseline", type=Path, default=None,
                     help="frozen parent checkpoint, evaluated under the "
                          "IDENTICAL config (required for any injected-"
@@ -1575,6 +1595,11 @@ def main() -> None:
     if args.video_fps is not None and (not math.isfinite(args.video_fps)
                                        or args.video_fps <= 0):
         ap.error("--video-fps must be finite and positive")
+    if (args.stall_substitute_every_s > 0.0 or args.stall_substitute_dur_s > 0.0) \
+            and args.compose_turn_blend_s is None:
+        ap.error("--stall-substitute-every-s/--stall-substitute-dur-s "
+                 "require --compose-turn-blend-s to be set (they wrap "
+                 "the same _ComposedPolicy)")
     course_trace_fh = (open(args.course_trace, "a")
                        if args.course_trace else None)
 
@@ -1677,7 +1702,9 @@ def main() -> None:
             from .probe_turn_compose import _ComposedPolicy
             model = _ComposedPolicy(
                 model, env, compose=True,
-                blend_s=float(args.compose_turn_blend_s))
+                blend_s=float(args.compose_turn_blend_s),
+                stall_substitute_every_s=float(args.stall_substitute_every_s),
+                stall_substitute_dur_s=float(args.stall_substitute_dur_s))
         modes = args.modes or list(getattr(env_cls, "EVAL_MODES",
                                            ("hold", "track", "rise")))
         gen = env._goal_gen

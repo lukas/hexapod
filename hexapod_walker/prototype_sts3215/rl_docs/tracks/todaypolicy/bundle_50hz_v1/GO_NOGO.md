@@ -130,28 +130,50 @@ engaging on a handful of ticks and being a true no-op elsewhere. A fresh 20 s
 `cur_max_a=2.573A` (inside the 50 Hz motor contract). Frame strip shows
 genuine per-frame leg reconfiguration through curved turn-in-place arcs.
 
-**Honest gap**: no matched RAW-vs-composed `human_turn` pair exists on THIS
-checkpoint yet (the earlier `probe_turn_compose.py` forced-single-mode probe
-that could have shown one drew `turn_ticks=0` in all 4 episodes — see
-`todaypolicy/STATUS.md` 2026-09-12 for that saga — so whether `cap29` itself
-would freeze without the composition is still unconfirmed; amp's own
-turncurr lineage is the one with the confirmed freeze). Treat this as
-"validated safe + demonstrably good", not "proven necessary", until that
-matched pair is run. Full detail: `composition.json`'s
-`walk_turn_capable.turn_composition_2026_09_12` block.
+**Honest gap — CLOSED 2026-09-12 ~11:5x/~12:0x (refill cycle), WITH the
+known duration confound controlled for:** the matched RAW-vs-composed pair
+is now on record for THIS checkpoint, in two batches. (A) Replayed the
+training cfg-set verbatim on `probe_turn_compose.py`, forced
+`goal.walk_turn_in_place_frac=1.0`, 4 seeds x 15 s @ 50 Hz (matched to the
+official gate's episode length per this doc's own 06:0x root-cause entry):
+RAW `gait_valid=False` 4/4 seeds (`sacrificed_legs` `[1,4]` on 3, `[1,4,5]`
+on 1), `forward_dist_m` 0.010-0.017 (frozen), `mean|wz|_turn` 0.026-0.035
+rad/s (noise floor). COMPOSED clears `gait_valid=True` 4/4, `sacrificed_
+legs=[]` every seed, `mean|wz|_turn` 0.145-0.159 rad/s (5-6x the raw
+reading). (B) Control at `goal.walk_turn_in_place_frac=0.0` (0 turn ticks,
+confirmed), same construction, 3 seeds: RAW and COMPOSED are BYTE-IDENTICAL
+and BOTH freeze the same way — this reproduces (does not newly discover)
+this doc's own already-documented continuous-single-mode-duration artifact,
+so (A)'s raw freeze is NOT by itself proof of a turn-specific defect. (B)
+also shows the composed wrapper gives ZERO protection with no turn ticks to
+substitute, so (A)'s fix is causally tied to the real turn-tick action
+substitutions, not a wrapping/reset artifact. **Net verdict: the
+composition is CONFIRMED to prevent this checkpoint's known
+continuous-duration freeze specifically on sessions that hold sustained
+turn-in-place** (a real, practically load-bearing property for real
+joystick sessions with sustained turning) — **whether the deeper mechanism
+is turn-specific or "any sustained action substitution would also work" is
+NOT isolated by this evidence** and is flagged as an open question, not
+asserted either way; it does not change the practical recommendation.
+Evidence: `logs/probe_turn_compose/cap29_acq1_tip1/{report.json,raw_*.png,
+composed_*.png}` (batch A); `logs/probe_turn_compose/
+cap29_acq1_purewalk_control/report.json` (batch B); full detail in
+`composition.json`'s `walk_turn_capable.turn_composition_2026_09_12.
+matched_raw_vs_composed_pair_2026_09_12` field.
 
 **Practical recommendation**: when a physical/sim session needs joystick
 turning, load the `walk_turn_capable` export through
 `--compose-turn-blend-s 0.15` rather than raw — it costs nothing on the
-modes measured and is the only turn-capable path with a real, video-verified
-tracking number on record.
+modes measured, and for any SUSTAINED turn-in-place command it is now the
+only path confirmed not to freeze (raw freezes 4/4 seeds under the matched
+pair above).
 
 ## Next
 
 1. ~~A same-harness demo of the turn-capable composition...~~ DONE this
-   update (see above). Remaining sub-item: capture the matched raw-vs-
-   composed `human_turn` pair on `cap29` itself to settle whether the
-   composition is load-bearing or purely precautionary on this checkpoint.
+   update (see above). ~~Remaining sub-item: capture the matched raw-vs-
+   composed `human_turn` pair on `cap29` itself~~ DONE 2026-09-12 ~11:5x —
+   composition confirmed load-bearing, not merely precautionary.
 2. If the structural torque-headroom mechanism for the stand/lower residual
    is ever built, re-run this exact demo command to confirm no regression
    before superseding this bundle.

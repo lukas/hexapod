@@ -391,12 +391,18 @@ class Session:
         """Every tag id the tracker's layout puts on the robot (parts + chassis tag)."""
         if self._robot_ids is None:
             ids = {0}
+            layout = Path(getattr(self.settings, "tracker_checkout", Path("/nonexistent"))) / "configs" / "hexapod-1-apriltag-layout.json"
             try:
-                doc = self.get(f"{self.camera}/api/poses")
-                for part in ((doc or {}).get("parts") or {}).values():
-                    ids.update(int(t) for t in (part.get("configured_tag_ids") or []))
-            except Exception:  # noqa: BLE001
+                ids.update(int(t["id"]) for t in json.loads(layout.read_text()).get("robot_tags", []))
+            except (OSError, ValueError, KeyError, TypeError):
                 pass
+            if len(ids) == 1:                   # no layout file: the tracker's parts (yoke faces) will do
+                try:
+                    doc = self.get(f"{self.camera}/api/poses")
+                    for part in ((doc or {}).get("parts") or {}).values():
+                        ids.update(int(t) for t in (part.get("configured_tag_ids") or []))
+                except Exception:  # noqa: BLE001
+                    pass
             self._robot_ids = ids
         return self._robot_ids
 

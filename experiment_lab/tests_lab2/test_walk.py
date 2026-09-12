@@ -217,3 +217,20 @@ def test_rl_caps_are_wider_and_a_refused_policy_fails_cleanly(settings, tmp_path
     res = walk.run_walk(settings, _doc(rl_policy="missing.json"), tmp_path, post=refuse, get=get, sleep=sleep, clock=clock, log=lambda m: None)
     assert res["status"] == "failed" and res["summary"]["aborted"] == "rl_prepare"
     assert state["rl"]["starts"] == 0
+
+
+def test_pixel_prefers_the_top_camera_when_several_see_the_tag(settings, tmp_path):
+    import dataclasses
+    def get(url):
+        if url.endswith("/api/detections.json"):
+            c0 = [[600, 20], [620, 20], [620, 40], [600, 40]]          # camera 0: tag at its top edge
+            c1 = [[400, 300], [420, 300], [420, 320], [400, 320]]      # camera 1: tag mid-frame
+            return {"cameras": [{"index": 0, "width": 1280, "height": 720, "tags": {"0": c0}},
+                                {"index": 1, "width": 1280, "height": 720, "tags": {"0": c1}}]}
+        raise AssertionError(url)
+    s = walk.Session(dataclasses.replace(settings, top_camera=1), tmp_path, get=get, log=lambda m: None)
+    fx, fy = s.pixel()
+    assert s.seen_camera == 1 and abs(fx - 410 / 1280) < 1e-6 and abs(fy - 310 / 720) < 1e-6
+    s2 = walk.Session(dataclasses.replace(settings, top_camera=2), tmp_path, get=get, log=lambda m: None)
+    s2.pixel()
+    assert s2.seen_camera == 0                                          # top camera absent: first camera that decodes it

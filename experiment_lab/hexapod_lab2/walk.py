@@ -374,6 +374,12 @@ class Session:
         cams = (doc or {}).get("cameras") or []
         if self.camera_index is not None:
             cams = [c for c in cams if int(c.get("index", -1)) == self.camera_index]
+        else:
+            # Several cameras may decode the chassis tag; the one looking down on the
+            # robot (settings.top_camera) is the one whose frame we want to stay inside.
+            # On 2026-09-12 camera 0 saw tag 0 at its top edge and a recentre chased that.
+            top = int(getattr(self.settings, "top_camera", -1))
+            cams = sorted(cams, key=lambda c: 0 if int(c.get("index", -1)) == top else 1)
         for c in cams:
             corners = (c.get("tags") or {}).get("0")
             if not corners or not c.get("width") or not c.get("height"):

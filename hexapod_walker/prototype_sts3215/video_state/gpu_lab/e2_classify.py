@@ -150,6 +150,7 @@ def main():
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--only", default="", help="substring filter on clip path")
     ap.add_argument("--tag", default="")
+    ap.add_argument("--max-video-s", type=float, default=200.0, help="longer clips go through images mode")
     ap.add_argument("--mode", default="video", choices=["video", "images"],
                     help="video = hand the whole clip to the model as a video (native temporal sampling); "
                          "images = sample --frames stills with timestamps")
@@ -178,7 +179,9 @@ def main():
         refs = ref_content(m.get("robot") or "hexapod1")
         verdict, usage, err, mode, info = None, None, None, a.mode, {}
         t1 = time.time()
-        if a.mode == "video":
+        if a.mode == "video" and m["duration_s"] > a.max_video_s:
+            mode = "images"  # a 41 min clip decoded whole by the video processor OOM-killed the pod once
+        if mode == "video":
             content = refs + [{"type": "text", "text": "Now the clip. " + clip_note},
                               {"type": "video_url", "video_url": {"url": "file://" + str(p)}},
                               {"type": "text", "text": PROMPT}]

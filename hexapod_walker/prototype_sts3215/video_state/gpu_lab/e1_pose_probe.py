@@ -46,7 +46,8 @@ def family(proto: str) -> str:
 def load_labels():
     rows = [json.loads(l) for l in open("/data/labels.jsonl")]
     rows = [r for r in rows if all(k in r["joints"] for k in JOINTS)]
-    Y = np.array([[r["roll"], r["pitch"]] + [r["joints"][j] for j in JOINTS] for r in rows], dtype=np.float32)
+    Y = np.array([[r["roll"], r["pitch"]] + [(r["joints"][j] if r["joints"][j] is not None else np.nan) for j in JOINTS]
+                  for r in rows], dtype=np.float32)
     runs = np.array([r["run"] for r in rows]); fams = np.array([family(r["protocol"]) for r in rows])
     paths = [Path("/data") / r["frame"] for r in rows]
     return rows, paths, Y, runs, fams
@@ -163,8 +164,11 @@ def cnn_cv(paths, Y, splits, size=160, epochs=12, bs=128):
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--skip-cnn", action="store_true"); a = ap.parse_args()
     rows, paths, Y, runs, fams = load_labels()
-    print(f"{len(rows)} frames, {len(set(runs))} runs, families: {dict(zip(*np.unique(fams, return_counts=True)))}", flush=True)
-    F, fps = dino_features(paths)
+    F, fps = dino_features(paths)  # cached over ALL frames; filter afterwards
+    ok = np.isfinite(Y).all(1)
+    print(f"{len(rows)} frames, dropping {int((~ok).sum())} with missing labels", flush=True)
+    F, Y, runs, fams = F[ok], Y[ok], runs[ok], fams[ok]; paths = [p for p, k in zip(paths, ok) if k]
+    print(f"{len(Y)} frames, {len(set(runs))} runs, families: {dict(zip(*np.unique(fams, return_counts=True)))}", flush=True)
     print(f"features {F.shape}, backbone throughput {fps} fps", flush=True)
     by_run = list(GroupKFold(5).split(F, Y, runs))
     fam_names = sorted(set(fams))

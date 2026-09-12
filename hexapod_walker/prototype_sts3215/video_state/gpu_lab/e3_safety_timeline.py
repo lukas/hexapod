@@ -87,10 +87,14 @@ def main():
     ap.add_argument("--per-window", type=int, default=16); ap.add_argument("--max-side", type=int, default=640)
     ap.add_argument("--min-fps", type=float, default=9.0); ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--only", default="")
+    ap.add_argument("--runs", default="", help="comma-separated run-id prefixes to include")
     a = ap.parse_args()
     client = OpenAI(base_url=f"http://127.0.0.1:{a.port}/v1", api_key="x", timeout=600)
     man = [json.loads(l) for l in open("/data/manifest.jsonl")]
     man = [m for m in man if m["fps"] >= a.min_fps and (not a.only or a.only in m["clip"])]
+    if a.runs:
+        pre = tuple(a.runs.split(","))
+        man = [m for m in man if m["run"].startswith(pre)]
     man.sort(key=lambda m: m["duration_s"])
     if a.limit:
         man = man[: a.limit]

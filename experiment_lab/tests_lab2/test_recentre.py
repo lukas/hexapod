@@ -225,3 +225,21 @@ def test_recentre_before_sits_again_unless_a_walk_follows(settings, tmp_path, mo
         settings_, run_dir, post=st2[1], get=st2[2], sleep=st2[3], clock=st2[4], log=lambda m: None))
     rc = loop.recentre_before(settings, tmp_path, walk=True, log=lambda m: None)
     assert rc["done"] and st2[0]["knee"] == 80.0                              # left standing for the walk
+
+
+def test_look_is_told_the_pose_when_the_encoders_read_flat_zero(settings, store, monkeypatch):
+    asked = {}
+    monkeypatch.setattr(eyes, "ready_to_move", lambda s, **k: asked.update(k) or (True, "YES", 0.0))
+    monkeypatch.setattr(runner, "sync_checkout", lambda s: "synced")
+    monkeypatch.setattr(runner, "run_protocol", lambda s, p, rid, force=False, **kw: runner.RunResult(
+        status="ok", exit_code=0, run_dir=None, summary={}, log_tail="", motion_s=1.0))
+    flat_fb = {"ok": True, "live": 18, "roll_deg": 0.3, "pitch_deg": 3.0, "joints": [{"deg": 0.4, "temp_c": 31.0} for _ in range(18)]}
+    monkeypatch.setattr(robot, "health", lambda url, budget: flat_fb)
+    pid = store.add_plan(title="p", why="w", kind="existing", protocol="steps_air_v1", build_spec=None)
+    loop.run_once(settings, store, store.plan(pid), log=lambda m: None)
+    assert asked["pose_known"] is True
+    monkeypatch.setattr(robot, "health", lambda url, budget: GOOD_FB)      # no joint angles: pose not known
+    pid = store.add_plan(title="p", why="w", kind="existing", protocol="steps_air_v1", build_spec=None)
+    loop.run_once(settings, store, store.plan(pid), log=lambda m: None)
+    assert asked["pose_known"] is False
+    assert "do not answer NO because of how the legs look" in eyes.POSE_KNOWN

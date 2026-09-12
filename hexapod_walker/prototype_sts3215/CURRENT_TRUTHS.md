@@ -1,5 +1,16 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## STATE OF THE ROBOT REVIEW (2026-09-11 ~17:30, hexapod 1 archive + hexapod 2 walks): 18% of lab runs are the robot failing, half the failures are the harness, standing knees sag ~5 deg (L2/L4 worst), L0 hip drifts, RL walks deliver 10–45% of commanded speed
+
+One plain sentence: `sysid/archive_review.py` read every run the two labs recorded back from the CSVs, logs and frames and wrote `docs/STATE_OF_THE_ROBOT_2026-09-11.md`: ten measured facts, three failure modes with contact sheets, six hypotheses each with its cheapest killing test.
+
+**Rulings:**
+- Failure classes come from the runner's error text, not exit codes: of 107 v2 hexapod 1 runs, 76 clean, 10 plumbing (never ran a tick), 4 bus comms, 2 "overcurrent" trips on 124.8/126.5 A garbage reads, 5 start-pose verify misses (4 on L0 hip), 7 real overcurrent (L4 knee x4, L2 hip x3), 3 tracking (L2 knee x2, L0 hip x1).
+- Unloaded tracking is 0.3 deg median; standing knee sag is 2–6 deg on every knee in all seven hold-90 stands (L2 3.6–6.4, L4 3.3–6.1); belly droop is under 1 deg. The hold-90 knee sag is the before/after metric for any mechanical fix (horn screws first).
+- Horn slop is invisible to every CSV (encoders sit on the output shaft); only a camera lid-vs-encoder sweep can measure it. Nothing in the archive confirms or refutes it.
+- The trace's cmd column lags q at segment boundaries (the 52/60 deg "hip errors" in steps_loaded are the log); runner_summary timestamps are naive UTC; most 09-10 tracker frames show floor without the robot.
+- Review artifacts: `~/Library/Application Support/Hexapod Lab/v2/review-20260911/{REVIEW.md,index.csv,events.csv,sheets,plots}`; filed on Robot Lab run 199460d899f6.
+
 ## TAG CALIBRATION PROGRAM + LEG NUMBERING RULING (2026-09-11 ~13:40, hexapod 1, hexapod-tracker): `hexapod-calibrate-tags` replaces the iPhone survey; the legs are numbered CLOCKWISE seen from above and a positive yaw command turns a leg clockwise
 
 One plain sentence: re-deriving the tag layout is now a program (`hexapod-tracker/src/hexapod_tracker/tag_calibration.py`, console `hexapod-calibrate-tags`) that checks the robot is resting flat, lifts each leg in turn to learn which tag rides on which link, does the geometry in the top camera's lid plane, and writes a report that says what changed and which mounts have no tag; along the way it measured that the tracker's old assumption of counter-clockwise legs at (i+0.5)*60 was wrong.

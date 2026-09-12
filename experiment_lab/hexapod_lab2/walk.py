@@ -54,6 +54,8 @@ MAX_VX, MAX_VY, MAX_OMEGA, MAX_SECONDS = 60.0, 40.0, 0.5, 40.0
 RL_KEY = "rl_policy"               # protocol field: drive with this RL policy file instead of the J gait
 RL_MAX_VX, RL_MAX_VY = 120.0, 80.0  # mm/s; the policies' command band is about 0.06-0.12 m/s
 RL_READY_WAIT_S = 45.0
+GARBAGE_TEMP_C = 100.0     # no servo is this hot; a corrupted byte is
+HOT_POLLS = 3              # consecutive feedback samples at or above warn_c before the walk stops
 RL_STOP_WAIT_S = 25.0
 OBSTACLE_LEG_S = 3.0     # leg length when the look saw something within a body length
 
@@ -534,7 +536,11 @@ def _stream(s: Session, leg: Leg, writers: dict, st: Dict[str, Any], t0: float) 
                 joints = fb.get("joints") or []
                 total = sum(abs(float((j or {}).get("cur_a") or 0.0)) for j in joints)
                 st["currents"].append(total)
+                # A temperature byte can arrive corrupted (150 C on a 31 C servo in the archive);
+                # readings at or above GARBAGE_TEMP_C are dropped, and the hot stop needs
+                # HOT_POLLS consecutive samples, like the on-robot runner's temp guard.
                 temps = [float((j or {}).get("temp_c") or 0.0) for j in joints]
+                temps = [t for t in temps if t < GARBAGE_TEMP_C]
                 st["hottest"] = max([st["hottest"]] + temps)
                 writers["servo"].writerow([round(now, 3), leg.name, round(total, 3)]
                                           + [(j or {}).get("deg") for j in joints]
@@ -545,9 +551,13 @@ def _stream(s: Session, leg: Leg, writers: dict, st: Dict[str, Any], t0: float) 
                 if tripped:
                     st["fatal"], st["reason"] = f"servo tripped: {servo.get('tripped_names') or tripped}", "tripped"
                     return
-                if st["hottest"] >= warn_c:
-                    st["fatal"], st["reason"] = f"servo at {st['hottest']:.0f} C", "hot"
-                    return
+                if temps and max(temps) >= warn_c:
+                    st["hot_polls"] = st.get("hot_polls", 0) + 1
+                    if st["hot_polls"] >= HOT_POLLS:
+                        st["fatal"], st["reason"] = f"servo at {max(temps):.0f} C for {HOT_POLLS} samples", "hot"
+                        return
+                else:
+                    st["hot_polls"] = 0
         s.sleep(0.01)
 
 

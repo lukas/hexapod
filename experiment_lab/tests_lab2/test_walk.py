@@ -253,7 +253,7 @@ def test_pixel_stays_on_the_top_camera_and_falls_back_to_leg_tags(settings, tmp_
         if url.endswith("/api/poses"):
             return {"parts": {"leg0_knee": {"configured_tag_ids": [7, 52]}, "leg1_hip": {"configured_tag_ids": [109]}}}
         raise AssertionError(url)
-    s = walk.Session(dataclasses.replace(settings, top_camera=1), tmp_path, get=get, log=lambda m: None)
+    s = walk.Session(dataclasses.replace(settings, top_camera=1, tracker_dir=tmp_path / "no-tracker"), tmp_path, get=get, log=lambda m: None)
     fx, fy = s.pixel()
     assert s.seen_camera == 1 and s.proxy is True                        # never camera 0's tag 0
     assert abs(fx - ((110 + 310) / 2) / 1280) < 1e-6 and abs(fy - ((610 + 710) / 2) / 720) < 1e-6
@@ -320,3 +320,12 @@ def test_three_hot_samples_in_a_row_stop_the_walk(settings, tmp_path):
     res = walk.run_walk(settings, _doc(legs=[{"name": "fwd30", "vx_mm_s": 30, "seconds": 6}]), tmp_path,
                         post=post, get=get2, sleep=sleep, clock=clock, log=lambda m: None)
     assert res["status"] == "failed" and res["summary"]["legs"][0]["stopped"] == "hot"
+
+
+def test_robot_tag_ids_come_from_the_installed_layout_when_present(settings, tmp_path):
+    import dataclasses
+    tracker = tmp_path / "tracker"; (tracker / "configs").mkdir(parents=True)
+    (tracker / "configs" / "hexapod-1-apriltag-layout.json").write_text(json.dumps(
+        {"robot_tags": [{"id": 0}, {"id": 1}, {"id": 7}, {"id": 114}, {"id": 117}]}))
+    s = walk.Session(dataclasses.replace(settings, tracker_dir=tracker), tmp_path, get=lambda url: (_ for _ in ()).throw(AssertionError(url)), log=lambda m: None)
+    assert s.robot_tag_ids() == {0, 1, 7, 114, 117}

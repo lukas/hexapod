@@ -38,6 +38,20 @@ def _tiny_recurrent(seed=0):
         device="cpu")
 
 
+def test_wrapper_forwards_observation_and_action_space():
+    """hybrid_demo.py's `_load_any_policy` loads-then-wraps a recurrent
+    checkpoint in one step, so its obs-mismatch sanity check runs
+    against the WRAPPED object -- the wrapper must forward these
+    attributes rather than hide them (found live 2026-09-12 running
+    the composed-turn checkpoint through hybrid_demo.py: AttributeError
+    before this fix)."""
+    from rl_move.sim.gru_policy import wrap_recurrent_predictor
+    m = _tiny_recurrent()
+    wrapped = wrap_recurrent_predictor(m)
+    assert wrapped.observation_space == m.observation_space
+    assert wrapped.action_space == m.action_space
+
+
 def test_plain_ppo_passthrough():
     from stable_baselines3 import PPO
     from rl_move.sim.gru_policy import wrap_recurrent_predictor

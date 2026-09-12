@@ -143,3 +143,59 @@ def test_hold_tick_never_charged_even_if_frozen():
     _, _, _, _, info = env.step(_hold_action(env))
     assert info.get("reward_walk_turn_freeze", 0.0) == 0.0
     env.close()
+
+
+# ---------------------------------------------------- turn-tick info key
+# (09-11: the freezecharge{,5,10}-canary2m dose sweep closed the FIFTH
+# consecutive single-lever REWARD-side fix on the turn-in-place freeze,
+# all identical static splayed freeze-crouch on video. This read-only
+# info key is the hook for the next-named, ORTHOGONAL mechanism (an
+# RND state-novelty bonus gated on these exact ticks, rnd_vec.py's
+# `info_gate_key`) — it carries no reward of its own, unlike every
+# mechanism above in this file.
+
+def test_turn_tick_flag_lit_on_live_turn_tick():
+    env = _turn_env(charge=0.0)  # charge OFF: flag must not depend on it
+    _advance_to_turn_tick(env)
+    _, _, _, _, info = env.step(_hold_action(env))
+    assert info["walk_turn_in_place_tick"] == pytest.approx(1.0)
+    env.close()
+
+
+def test_turn_tick_flag_zero_on_hold_tick():
+    """walk_yaw_cmd=1 (flag-eligible lineage) but the tick is a genuine
+    hold-mode tick (not the walk task at all): this reward block is
+    walk-mode-only by construction (matches every sibling key here,
+    e.g. reward_walk_turn_freeze/walk_yaw_kernel_factor), so the flag
+    is simply ABSENT, same convention as reward_walk_turn_freeze's own
+    `.get(..., 0.0)` on hold ticks."""
+    cfg = load_config()
+    goal = cfg.setdefault("goal", {})
+    goal["walk_yaw_cmd"] = 1
+    env = SimHexapodJointWalkEnv(cfg, seed=0)
+    g = env._goal_gen
+    for m in ("lean", "track", "unload", "raise", "rise", "lower"):
+        if hasattr(g, f"p_{m}"):
+            setattr(g, f"p_{m}", 0.0)
+    g.p_hold = 1.0
+    g.p_walk = 0.0
+    env.reset()
+    _, _, _, _, info = env.step(_hold_action(env))
+    assert info.get("walk_turn_in_place_tick", 0.0) == pytest.approx(0.0)
+    env.close()
+
+
+def test_turn_tick_flag_absent_when_yaw_cmd_off():
+    """Pre-09-11 lineages (walk_yaw_cmd=0, the default) must never see
+    this key at all -- bit-exact info dict for every existing lineage."""
+    cfg = load_config()
+    env = SimHexapodJointWalkEnv(cfg, seed=0)
+    g = env._goal_gen
+    for m in ("hold", "lean", "track", "unload", "raise", "rise", "lower"):
+        if hasattr(g, f"p_{m}"):
+            setattr(g, f"p_{m}", 0.0)
+    g.p_walk = 1.0
+    env.reset()
+    _, _, _, _, info = env.step(_hold_action(env))
+    assert "walk_turn_in_place_tick" not in info
+    env.close()

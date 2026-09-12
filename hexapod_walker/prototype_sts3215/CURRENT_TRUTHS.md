@@ -1,5 +1,29 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## NEVER DROP A STANDING ROBOT + ZERO CHECK + RECENTRE (2026-09-11 ~18:30, hexapod 1, linux_control + Robot Lab v2 + hexapod-tracker): the sysid runner no longer limps at the end; a standing robot steps down; the camera double-checks a zero pose; the lab recentres instead of holding
+
+One plain sentence: the runner limped every servo at the end of every run, clean or tripped, so every stand protocol this week ended by dropping the robot onto its belly; it now holds the present pose and the API steps a standing robot down (accepted live on run 80795488b94b: 15 s stand, 15 s STEP sit-down, 2.66 A peak, then limp on the belly).
+
+**Rulings (operator: "I just don't want to add a ton of safety process"):**
+- Runner end-of-run: torque limit restored, present pose re-written, torque left on, `torque_left_on` in the result. The API worker (`_settle_after_sysid`) uses the demos stand classifier: standing -> STEP down inline -> limp; belly -> limp; standing but step-down failed or operator aborted -> keep holding (torque_state "on", status says so). The lab recovery ladder gets rung 0: standing -> `standup down` before the zero blend.
+- Zero check: `hexapod-zero-check` (tracker) derives each leg's azimuth from its lids in the top camera with derive_layout and compares with `leg_zero_azimuth_body_deg`; only servo lids count, lids further than 12 chassis-tag edges from tag 0 are ignored (a spare copy of tag 4 in a bag on the floor made three legs look 30-76 deg off tonight), a leg seen only by its hip lid is not judged, the body-frame shift is the median over two-lid legs. The lab holds and pauses only when encoders read zero and the camera says a leg is off; blind or not-at-zero are noted.
+- Recentre (`hexapod_lab2/recentre.py`): pixel-space, calibration-free goto-centre for whichever camera decodes tag 0; before camera-measured protocols (walk/whole_body/champion_stand/tripod) and after walks; never for belly ladders (hexapod 2's clamp snapped after six re-steps in six minutes). Edge guard fires only when moving outward.
+- The look: for walks it is told what the robot will do and may answer OBSTACLE (legs cut to 3 s); when encoders read the flat zero it is told the pose is known and judges hazards only (a flat robot at the frame edge got "legs bunched, NO" twice tonight).
+- Deployed: robot via deploy_ssh.sh (hexapod 1 only; hexapod 2 runs the same linux_control and needs the same deploy), lab venv reinstalled and both services restarted; loop still PAUSED.
+
+**Righting a robot that has fallen onto one leg is NOT coded** (operator wants it tried by hand first). Procedure to try with camera 2 on it: (1) limp nothing; (2) plant the legs that are in the air at 20-30% torque until each reads contact (current rise), widening the base; (3) glide up on tripods, never a six-leg push; (4) if tilt does not fall below 12 deg after two tries, STEP-down from wherever it is. Untrap (20% fold) stays the last resort. File the result as an explore run.
+
+## STATE OF THE ROBOT REVIEW (2026-09-11 ~17:30, hexapod 1 archive + hexapod 2 walks): 14% of lab runs are the robot failing, half the failures are the harness, standing knees sag ~5 deg (L2/L4 worst), L0 hip drifts, RL walks deliver 10–45% of commanded speed
+
+One plain sentence: `sysid/archive_review.py` read every run the two labs recorded back from the CSVs, logs and frames and wrote `docs/STATE_OF_THE_ROBOT_2026-09-11.md`: ten measured facts, three failure modes with contact sheets, six hypotheses each with its cheapest killing test.
+
+**Rulings:**
+- Failure classes come from the runner's error text, not exit codes: of 107 v2 hexapod 1 runs, 76 clean, 10 plumbing (never ran a tick), 4 bus comms, 2 "overcurrent" trips on 124.8/126.5 A garbage reads, 5 start-pose verify misses (4 on L0 hip), 7 real overcurrent (L4 knee x4, L2 hip x3), 3 tracking (L2 knee x2, L0 hip x1).
+- Unloaded tracking is 0.3 deg median; standing knee sag is 2–6 deg on every knee in all five 120 s hold-90 stands (L2 3.6–6.4, L4 3.3–6.1) but under 1.6 deg in the two 15 s stands, so it builds over the hold; belly droop is under 1 deg. The hold-90 knee sag is the before/after metric for any mechanical fix (horn screws first).
+- Horn slop is invisible to every CSV (encoders sit on the output shaft); only a camera lid-vs-encoder sweep can measure it. Nothing in the archive confirms or refutes it.
+- The trace's cmd column lags q at segment boundaries (the 52/60 deg "hip errors" in steps_loaded are the log); runner_summary timestamps are naive UTC; camera 2's tracker frames have the robot at the top edge early on 09-10 and out of frame from 23:09; only 4 of the 15 robot trips have wide-camera frames.
+- Review artifacts: `~/Library/Application Support/Hexapod Lab/v2/review-20260911/{REVIEW.md,index.csv,events.csv,sheets,plots}`; filed on Robot Lab run 199460d899f6.
+
 ## TAG CALIBRATION PROGRAM + LEG NUMBERING RULING (2026-09-11 ~13:40, hexapod 1, hexapod-tracker): `hexapod-calibrate-tags` replaces the iPhone survey; the legs are numbered CLOCKWISE seen from above and a positive yaw command turns a leg clockwise
 
 One plain sentence: re-deriving the tag layout is now a program (`hexapod-tracker/src/hexapod_tracker/tag_calibration.py`, console `hexapod-calibrate-tags`) that checks the robot is resting flat, lifts each leg in turn to learn which tag rides on which link, does the geometry in the top camera's lid plane, and writes a report that says what changed and which mounts have no tag; along the way it measured that the tracker's old assumption of counter-clockwise legs at (i+0.5)*60 was wrong.

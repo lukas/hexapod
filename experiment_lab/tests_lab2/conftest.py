@@ -28,7 +28,7 @@ def settings(tmp_path):
          "segments": [{"kind": "step"}]}))
     # Never touch the live camera or the paid eyes from a test.
     return Settings(data_dir=tmp_path / "data", checkout=checkout, idle_sleep_s=0,
-                    wide_frame_url="http://127.0.0.1:9/none.jpg")
+                    wide_frame_url="http://127.0.0.1:9/none.jpg", recentre=False)
 
 
 @pytest.fixture(autouse=True)
@@ -36,6 +36,10 @@ def _no_paid_calls(monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     # The pre-run look says yes unless a test is about the look itself.
     monkeypatch.setattr(eyes, "ready_to_move", lambda settings, **k: (True, "YES robot on the floor, legs in place", 0.0))
+    # No tracker subprocess from a test: the camera half of the zero check is blind
+    # unless a test replaces it.
+    from hexapod_lab2 import zero_check
+    monkeypatch.setattr(zero_check, "camera", lambda settings, out_dir, **k: {"ok": False, "error": "no camera in tests"})
 
 
 @pytest.fixture

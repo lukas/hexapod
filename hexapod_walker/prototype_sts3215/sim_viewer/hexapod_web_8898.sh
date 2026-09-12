@@ -17,7 +17,6 @@ TARGET="${SIM_WEB_TARGET:-robot}"
 PHASE="${SIM_WEB_PHASE:-1}"
 LOG="${HEXAPOD_WEB8898_LOG:-/tmp/hexapod_web_8898.log}"
 POLICY_DIR="${POLICY_DIR:-$ROOT/rl_move/sim/policies}"
-VISION_PROXY="${SIM_WEB_VISION_PROXY:-}"
 TLS_CERT="${SIM_WEB_TLS_CERT_FILE:-}"
 TLS_KEY="${SIM_WEB_TLS_KEY_FILE:-}"
 UV_BIN="${UV:-$(command -v uv || true)}"
@@ -49,17 +48,12 @@ Environment:
   SIM_WEB_PORT=${PORT}                          local port
   SIM_WEB_HTTPS_PORT=${HTTPS_PORT}              secure gamepad port
   SIM_WEB_TARGET=${TARGET}                      sim, robot, or both
-  SIM_WEB_VISION_PROXY=http://127.0.0.1:8766    serve /vision from the
-                                                standalone vision service
-                                                instead of this process
   POLICY_DIR=${POLICY_DIR}                      policy cache
   SIM_WEB_TLS_CERT_FILE=/path/to/cert.pem       optional trusted cert
   SIM_WEB_TLS_KEY_FILE=/path/to/key.pem         optional trusted key
 
-https://localhost:${HTTPS_PORT}/vision is served either by this process or,
-with SIM_WEB_VISION_PROXY set, by the standalone service on :8766. Prefer the
-proxy: a camera fault then cannot take the robot bridge down with it. Camera
-capture is off until Start camera is pressed on that page.
+Cameras and vision are served by the tracker camera server on :8766
+(hexapod-tracker/tools/camera_service.sh), not by this hub.
 EOF
 }
 
@@ -148,7 +142,6 @@ stop_port_if_ours() {
 serve() {
   local bind="$1" port="$2" https_port="$3" policy_dir="$4" url="$5"
   local target="$6" phase="$7" log="$8" tls_cert="$9" tls_key="${10}"
-  local vision_proxy="${11:-}"
   cd "$ROOT"
   exec >>"$log" 2>&1
   echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] starting hexapod web hub on HTTP ${bind}:${port}, HTTPS ${bind}:${https_port}"
@@ -162,10 +155,6 @@ serve() {
     --robot-url "$url"
     --target "$target"
   )
-  if [[ -n "$vision_proxy" ]]; then
-    args+=(--vision-proxy "$vision_proxy")
-    echo "vision: proxied to ${vision_proxy}"
-  fi
   if [[ -n "$tls_cert" || -n "$tls_key" ]]; then
     if [[ -z "$tls_cert" || -z "$tls_key" ]]; then
       echo "SIM_WEB_TLS_CERT_FILE and SIM_WEB_TLS_KEY_FILE must be set together" >&2
@@ -216,7 +205,7 @@ start() {
   echo "starting $LABEL with uv run..."
   launchctl submit -l "$LABEL" -- /bin/bash "$SELF" serve \
     "$BIND" "$PORT" "$HTTPS_PORT" "$POLICY_DIR" "$url" "$TARGET" "$PHASE" "$LOG" \
-    "$TLS_CERT" "$TLS_KEY" "$VISION_PROXY"
+    "$TLS_CERT" "$TLS_KEY"
   wait_ready
 }
 
@@ -243,9 +232,6 @@ status() {
     curl -fsS -m 3 "http://localhost:${PORT}/api/ping" || true
     echo
     echo "url: http://localhost:${PORT}/rl"
-    curl -fsS -m 2 "http://localhost:${PORT}/api/vision/health" >/dev/null \
-      && echo "vision: ready (camera off until requested)" || true
-    echo "vision url: http://localhost:${PORT}/vision"
   else
     echo "port ${PORT}: not listening"
   fi
@@ -258,7 +244,6 @@ status() {
       >/dev/null && echo "secure sim: ready" || true
     echo
     echo "gamepad url: https://localhost:${HTTPS_PORT}/rl"
-    echo "secure vision url: https://localhost:${HTTPS_PORT}/vision"
   else
     echo "HTTPS port ${HTTPS_PORT}: not listening"
   fi
@@ -281,9 +266,6 @@ foreground() {
     --robot-url "$url"
     --target "$TARGET"
   )
-  if [[ -n "$VISION_PROXY" ]]; then
-    args+=(--vision-proxy "$VISION_PROXY")
-  fi
   if [[ -n "$TLS_CERT" || -n "$TLS_KEY" ]]; then
     if [[ -z "$TLS_CERT" || -z "$TLS_KEY" ]]; then
       echo "SIM_WEB_TLS_CERT_FILE and SIM_WEB_TLS_KEY_FILE must be set together" >&2

@@ -1952,9 +1952,9 @@ $('setup-assign').onclick = async ()=>{
 };
 
 // --- tab switching ----------------------------------------------------------
-const VIEWS = ['vision','setup','drive','motors','demos','dance','rock','quad','rl',
+const VIEWS = ['setup','drive','motors','demos','dance','rock','quad','rl',
                'experiments','measure','calibrate','touchdown','debug'];
-const TAB_TITLES = {vision:'Vision', setup:'Motor setup', drive:'Drive', motors:'Motors', demos:'Demos',
+const TAB_TITLES = {setup:'Motor setup', drive:'Drive', motors:'Motors', demos:'Demos',
                     dance:'Dance', rock:'Rock', quad:'Quad', rl:'RL',
                     experiments:'Experiments', measure:'Measure',
                     calibrate:'Calibrate', touchdown:'Touchdown',
@@ -5439,11 +5439,11 @@ function updateSetupGate(){
   const label = motorSetupError ? 'Setup check unavailable' : motorSetupCount === null ? 'Checking setup' : 'Motor setup required';
   $('setup-notice-title').textContent = label;
   $('setup-notice-detail').textContent = detail+' Robot control pages are unavailable until setup is complete.';
-  const pageBlocked = blocked && !['setup','vision'].includes(activeView);
+  const pageBlocked = blocked && activeView !== 'setup';
   $('setup-required-page').hidden = !pageBlocked;
   $('setup-required-detail').textContent = detail;
   document.querySelectorAll('.view').forEach(view=>{
-    const gated = blocked && !['view-setup','view-vision'].includes(view.id);
+    const gated = blocked && view.id !== 'view-setup';
     view.classList.toggle('setup-locked', gated);
     view.inert = gated;
   });
@@ -5460,8 +5460,6 @@ function updateSetupGate(){
       else if(el.dataset.setupDisabled){el.disabled = false; delete el.dataset.setupDisabled;}
     }
   }
-  const vision = $('nav-vision');
-  if(vision) vision.title = hubMode ? 'Open the central Vision service' : 'Vision is available on the central server';
 }
 async function refreshSetupReadiness(){
   if(motorSetupRefreshing) return;
@@ -5480,9 +5478,6 @@ async function refreshSetupReadiness(){
   finally {motorSetupRefreshing = false; updateSetupGate();}
 }
 $('setup-notice-open').onclick = $('setup-required-open').onclick = ()=> showView('setup');
-$('nav-vision').onclick = event=>{
-  if(!hubMode){event.preventDefault(); showView('vision');}
-};
 // Capture prevents controls being re-enabled by unrelated telemetry updates.
 document.addEventListener('click', event=>{
   if(motorSetupBlocked() && event.target.closest('#armbtn,#armzero,#topsetzero')){

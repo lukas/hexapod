@@ -2,7 +2,7 @@
 from pathlib import Path
 
 WEBUI_DIR = Path(__file__).resolve().parent / "webui"
-PAGE_PATHS = ("/", "/index.html", "/debug", "/motors", "/setup", "/vision", "/demos",
+PAGE_PATHS = ("/", "/index.html", "/debug", "/motors", "/setup", "/demos",
               "/dance", "/rock", "/quad", "/rl", "/experiments", "/measure",
               "/calibrate", "/touchdown")
 STATIC_FILES = {

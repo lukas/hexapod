@@ -9,7 +9,9 @@ plan, Phases 1-2).
 
 Safety (same posture as motor_dynamics.py — air battery rules):
 
-- Soft torque limit for the whole run; limp immediately on any trip.
+- Soft torque limit for the whole run; on a trip the run stops and the
+  present pose is held; the API layer steps a standing robot down before
+  limping (never drop a standing robot, 2026-09-11).
 - The runner POSITIONS THE LEGS ITSELF: before the first segment it
   glides slowly (``GLIDE_RATE_DEG_S``) to the protocol's start pose
   (``home_deg`` / a leading traj's first row) — no hand-posing. The
@@ -750,15 +752,36 @@ def run_sysid_protocol(
             if (k + 1) % int(hz) == 0:
                 fh.flush()
 
-    # Always limp at the end — never leave torque on a sysid pose.
+    # End of run (clean, tripped or aborted): stop pushing and keep torque
+    # on at the present pose. Whether the robot is then limped or stepped
+    # down is the API layer's call, which can see the whole pose: a
+    # standing robot must step down, not fall. Until 2026-09-11 this block
+    # limped unconditionally, so every stand protocol ended by dropping the
+    # robot onto its belly (operator: "it just dropped the robot in unsafe
+    # looking ways"). If the hold write itself fails we fall back to limp,
+    # because torque on with an unknown goal is worse than a drop.
+    hold_pose = [0.0] * N_JOINTS
+    hold_servo_ids: set[int] = set()
+    for j, deg in last_pose.items():
+        if deg is not None:
+            hold_pose[j] = float(deg)
+            hold_servo_ids.add(joint_to_servo_id(j))
+    torque_left_on = False
     try:
         _set_torque_limit(bus, live_ids, 1000)
     except Exception:
         pass
-    try:
-        _limp_all(bus, live_ids)
-    except Exception:
-        pass
+    if hold_servo_ids:
+        try:
+            _write_pose(bus, hold_pose, hold_servo_ids, speed=HOLD_SPEED, acc=25)
+            torque_left_on = True
+        except Exception:
+            torque_left_on = False
+    if not torque_left_on:
+        try:
+            _limp_all(bus, live_ids)
+        except Exception:
+            pass
 
     done = sum(s["ticks"] for s in seg_stats)
     result = {
@@ -774,6 +797,8 @@ def run_sysid_protocol(
         "wild_current_reads": wild_current_reads,
         "aborted": aborted,
         "error": tripped_error,
+        "torque_left_on": torque_left_on,
+        "hold_pose_deg": [round(v, 2) for v in hold_pose] if torque_left_on else None,
         "csv": str(csv_path),
         "segments": seg_stats,
         "started": started_iso,
@@ -784,5 +809,6 @@ def run_sysid_protocol(
     result["summary_json"] = str(sum_path)
     _progress("aborted" if aborted else
               (f"TRIP: {tripped_error}" if tripped_error else
-               f"done · {done}/{len(ticks)} ticks · limp"))
+               f"done · {done}/{len(ticks)} ticks · "
+               + ("holding" if torque_left_on else "limp")))
     return result

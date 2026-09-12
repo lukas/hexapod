@@ -2,6 +2,12 @@
 
 The robot already contains the recovery moves; the lab only orders them:
 
+  0. POST /api/standup {"mode":"step","direction":"down"} if the robot is
+                                     standing (median hip > 5, knee > 12,
+                                     tilt < 20): step down first. The zero
+                                     blend below straightens loaded legs and
+                                     drops a standing chassis onto its belly
+                                     (nine times on hexapod 2, 2026-09-11).
   1. POST /api/zero {"pose":"sit"}   collision-aware safe-zero glide back to
                                      belly-down, legs straight out. Limps
                                      itself on any stall or surprise force.
@@ -129,6 +135,23 @@ class Recorder:
         return fb
 
 
+def upright(fb: Optional[Dict[str, Any]], *, hip_deg: float = 5.0, knee_deg: float = 12.0,
+            tilt_deg: float = 20.0) -> bool:
+    """The demos classifier's shape gate, read from /api/feedback: a robot with its
+    hips and knees bent and the body level is standing on its legs."""
+    joints = (fb or {}).get("joints") or []
+    if len(joints) != 18:
+        return False
+    try:
+        hips = sorted(float(joints[j]["deg"]) for j in range(1, 18, 3))
+        knees = sorted(float(joints[j]["deg"]) for j in range(2, 18, 3))
+        roll, pitch = float(fb.get("roll_deg") or 0.0), float(fb.get("pitch_deg") or 0.0)
+    except (KeyError, TypeError, ValueError):
+        return False
+    med = lambda v: 0.5 * (v[2] + v[3])  # noqa: E731
+    return med(hips) > hip_deg and med(knees) > knee_deg and (roll ** 2 + pitch ** 2) ** 0.5 < tilt_deg
+
+
 def at_rest(fb: Dict[str, Any], *, knee_tol_deg: float = 20.0, tilt_deg: float = 8.0) -> bool:
     joints = fb.get("joints") or []
     if len(joints) < 18 or not fb.get("ok"):
@@ -146,8 +169,13 @@ def recover(settings: Settings, *, log: Callable[[str], None] = print, post=_pos
     rungs = [("zero", "/api/zero", {"pose": "sit"}),
              ("untrap", "/api/untrap", {"force": True}),
              ("zero", "/api/zero", {"pose": "sit"})]
+    before = rec.snapshot(url, "00_before")
+    if upright(before):
+        # Standing: step down before anything straightens a loaded leg.
+        rungs.insert(0, ("step_down", "/api/standup", {"mode": "step", "direction": "down"}))
+        log("recovery: robot is standing; stepping down before the zero blend")
     report: Dict[str, Any] = {"ok": False, "rungs": [], "final": "",
-                              "before": pose_digest(rec.snapshot(url, "00_before")), "after": None}
+                              "before": pose_digest(before), "after": None}
     for i, (name, path, body) in enumerate(rungs):
         if i:
             sleep(SETTLE_S)

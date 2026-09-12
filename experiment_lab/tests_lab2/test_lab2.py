@@ -668,3 +668,45 @@ def test_imports_default_to_explored(settings, store):
     assert c.post("/v2/api/import", json={"title": "x", "why": "y", "status": "meh"}).status_code == 422
     page = c.get("/v2/?robot=hexapod2").text
     assert "class='tag explored'" in page
+
+
+def test_recovery_steps_a_standing_robot_down_before_the_zero_blend(settings):
+    """Operator 2026-09-11: 'if the robot's standing it should try to step to sit'.
+    The zero blend straightens loaded legs and drops a standing chassis."""
+    from hexapod_lab2 import recovery
+    calls = []
+    state = {"standing": True}
+
+    def post(url, body):
+        calls.append((url.rsplit("/", 1)[-1], body))
+        if url.endswith("/api/standup"):
+            state["standing"] = False
+        return {"ok": True}
+
+    def get(url):
+        if url.endswith("/api/rl/state"):
+            return {"pose": {"demo": {"running": False, "status": "done"}}}
+        joints = [{"deg": 0.0} for _ in range(18)]
+        if state["standing"]:
+            for j in range(1, 18, 3):
+                joints[j]["deg"] = 20.0
+            for j in range(2, 18, 3):
+                joints[j]["deg"] = 75.0
+        return {"ok": True, "roll_deg": 0.5, "pitch_deg": 1.0, "joints": joints}
+
+    slept = []
+    rep = recovery.recover(settings, log=lambda m: None, post=post, get=get, sleep=slept.append)
+    assert rep["ok"]
+    assert calls == [("standup", {"mode": "step", "direction": "down"})]
+    assert rep["rungs"][0]["rung"] == "step_down"
+
+
+def test_upright_gate_reads_feedback_shape():
+    from hexapod_lab2 import recovery
+    flat = {"roll_deg": 0.3, "pitch_deg": 3.0, "joints": [{"deg": 0.0} for _ in range(18)]}
+    assert not recovery.upright(flat)
+    stand = {"roll_deg": 0.3, "pitch_deg": 1.0, "joints": [{"deg": [0.0, 18.0, 70.0][j % 3]} for j in range(18)]}
+    assert recovery.upright(stand)
+    tipped = dict(stand, roll_deg=25.0)
+    assert not recovery.upright(tipped)
+    assert not recovery.upright(None) and not recovery.upright({"joints": []})

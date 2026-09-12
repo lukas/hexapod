@@ -564,14 +564,28 @@ def metrics(leg: Leg, poses: List[PoseSample], seconds: float, ticks: int) -> Di
     if len(tracked) < 2:
         out["measured"] = False
         return out
-    a, b = tracked[0], tracked[-1]
+    # Start and end as the median of the first and last few fixes: a single camera
+    # fix of the small chassis tag jitters by tens of mm, and summing that jitter
+    # along the path made a 3 s walk read 250 mm/s on 2026-09-12. Speed is the
+    # straight-line displacement over the leg, as hexapod 2's grid speed was.
+    def _median_pose(samples):
+        xs = sorted(q.x for q in samples); ys = sorted(q.y for q in samples)
+        yaws = [q.yaw for q in samples if q.yaw is not None]
+        yaw = None
+        if yaws:
+            ref = yaws[0]
+            yaw = wrap_deg(ref + sorted(wrap_deg(v - ref) for v in yaws)[len(yaws) // 2])
+        return PoseSample(samples[0].t, samples[0].leg, xs[len(xs) // 2], ys[len(ys) // 2], yaw, tracked=True)
+    k = min(3, len(tracked) // 2) or 1
+    a, b = _median_pose(tracked[:k]), _median_pose(tracked[-k:])
     dx, dy = b.x - a.x, b.y - a.y
     straight = math.hypot(dx, dy)
     path = sum(math.hypot(q.x - p.x, q.y - p.y) for p, q in zip(tracked, tracked[1:]))
     out.update({
         "measured": True,
         "straight_mm": round(straight, 1), "path_mm": round(path, 1),
-        "mean_speed_mm_s": round(path / seconds, 1) if seconds > 0 else None,
+        "mean_speed_mm_s": round(straight / seconds, 1) if seconds > 0 else None,      # net, start to end
+        "path_speed_mm_s": round(path / seconds, 1) if seconds > 0 else None,          # fix-to-fix, jitter included
         "travel_ratio": round(straight / (leg.speed * seconds), 2) if leg.speed and seconds > 0 else None,
     })
     if a.yaw is not None and b.yaw is not None:

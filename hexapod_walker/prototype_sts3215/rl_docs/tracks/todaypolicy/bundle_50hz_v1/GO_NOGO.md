@@ -196,6 +196,13 @@ modes measured, and for any SUSTAINED turn-in-place command it is now the
 only path confirmed not to freeze (raw freezes 4/4 seeds under the matched
 pair above).
 
+**Packaged 2026-09-12 ~19:4x**: the structured transfer-manifest + demo
+video hand-off artifact for this composed role lives at
+`composed_turn_role/{transfer_manifest.json,GO_NOGO.md,drive.mp4,
+drive_sheet.png,summary.json}` (schema-matched to `walkcurr`'s
+`bundle_rlonly_v2` pattern) — this is the artifact `amp/STATUS.md`
+2026-09-12 ~10:5x asked for.
+
 ## Next
 
 1. ~~A same-harness demo of the turn-capable composition...~~ DONE this

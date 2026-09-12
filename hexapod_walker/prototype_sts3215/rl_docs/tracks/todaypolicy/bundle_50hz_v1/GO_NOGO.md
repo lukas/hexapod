@@ -207,3 +207,15 @@ pair above).
    before superseding this bundle.
 3. Physical acceptance needs Robot Lab's bounded joystick trial per
    `RL_GOALS.md` — not scoped to this cloud cycle.
+4. **NEW 2026-09-12 ~15:2x**: a generalized, mode-independent periodic
+   teacher-substitution mechanism (`_ComposedPolicy`'s
+   `stall_substitute_every_s`/`_dur_s`, default off) is now built and
+   validated to prevent the SAME continuous-single-mode freeze on plain
+   straight-line walking (5/5 raw fail -> 5/5 composed pass on
+   `cap29-acq1`, turn_ticks=0), not just turn-in-place — see
+   `todaypolicy/STATUS.md` 2026-09-12 ~15:2x. NOT yet wired into this
+   bundle (the turn-composition above stays the only thing actually
+   shipped) — a duty-cycle dose sweep (the tested 25% duty gave only
+   modest net forward progress) and integration into
+   `eval_checkpoint.py`/`drive_video.py` are the open next steps before
+   this could supersede/extend the turn-only composition.

@@ -42,7 +42,15 @@
         ],
         "det_progress_ratio_med": 0.27,
         "det_slip_med": 3.87,
-        "known_limit": "2/6 det + 1/6 sto hold_min_load falls"
+        "known_limit": "2/6 det + 1/6 sto hold_min_load falls",
+        "generalized_stall_substitution_2026_09_12": {
+          "status": "CONFIRMED: the mode-independent generalization flagged as open_generalization_not_built (see wrong_substitute_control_2026_09_12) DOES rescue plain straight-line walking, not just turn-in-place -- built and validated this cycle, NOT yet wired into the shipped bundle (turn-composition above stays the only thing actually deployed).",
+          "mechanism": "rl_move/sim/probe_turn_compose.py:_ComposedPolicy stall_substitute_every_s/_dur_s (both default 0.0 = disabled/bit-exact). When both positive and compose=True, every every_s seconds of elapsed episode time the teacher takes over for dur_s seconds, tracking the REAL ambient command (not a wrong-substitute control), regardless of turn/walk/hold mode; ORs with the existing turn-tick gate.",
+          "method": "cap29-acq1, full training cfg-set replayed verbatim, goal.walk_turn_in_place_frac=0.0 forced so every tick is plain straight-walk (turn_ticks=0 confirmed all 5 seeds -- isolates this mechanism from the turn-tick one entirely). --stall-substitute-every-s 4.0 --stall-substitute-dur-s 1.0 (25% duty), 5 seeds x 20s@50Hz.",
+          "result": "RAW gait_valid=False 5/5 (sacrificed_legs [1,4]x4/[1]x1, forward_dist_m 0.004-0.046, progress_ratio -0.016..+0.032 -- the same freeze signature already on record). COMPOSED gait_valid=True 5/5, sacrificed_legs=[] every seed, forward_dist_m 0.006-0.114, progress_ratio 0.025-0.114 (every seed improves over its own raw pair). Frame strips confirm: raw shows the same static leg pose repeated through the back half of the episode; composed shows genuine per-frame leg reconfiguration.",
+          "honest_caveat": "net forward progress stays modest even composed (~0.0003-0.006 m/s at this 25% duty) -- confirmed to prevent leg-sacrifice/lock-in, not yet shown to restore sustained good-speed walking. A duty-cycle dose sweep and integration into eval_checkpoint.py/drive_video.py are the open next steps, not run this cycle.",
+          "evidence": "logs/probe_turn_compose/todaypolicy_cap29_acq1_stallsub_straightonly_every4_dur1/{report.json,raw_{0,3}.png,composed_{0,3}.png}; rl_move/sim/probe_turn_compose.py (stall_substitute_every_s/_dur_s, snapshot 61e32954)."
+        }
       },
       "alternate_seed": {
         "run": "cw-turn50hz-standwalk-cap29-stdwalklohi-warmadapt-canary2m-s1-acq1",

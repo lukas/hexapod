@@ -51,6 +51,7 @@ STAND_WAIT_S = 25.0
 SETTLE_S = 1.5
 # Teleop caps; the robot's drive controller clips harder.
 MAX_VX, MAX_VY, MAX_OMEGA, MAX_SECONDS = 60.0, 40.0, 0.5, 40.0
+OBSTACLE_LEG_S = 3.0     # leg length when the look saw something within a body length
 
 
 @dataclass
@@ -222,11 +223,23 @@ class Session:
         self.notes.append("stand-up did not finish in time")
         return False
 
-    def sit(self) -> None:
+    def sit(self, wait: bool = False) -> bool:
+        """STEP down. With ``wait`` poll until the knees are straight (or 25 s)."""
         try:
             self.post(f"{self.robot}/api/standup", {"mode": "step", "direction": "down"})
         except Exception as exc:  # noqa: BLE001
             self.notes.append(f"sit refused: {exc}")
+            return False
+        if not wait:
+            return True
+        t0 = self.clock()
+        while self.clock() - t0 < 25.0:
+            self.sleep(1.0)
+            knees = self.knees_deg(self.feedback())
+            if knees and max(knees) < 20.0 and self.mode() != "demo":
+                return True
+        self.notes.append("sit-down did not finish in time")
+        return False
 
     def stop(self, leg: Leg) -> None:
         try:
@@ -463,8 +476,11 @@ def metrics(leg: Leg, poses: List[PoseSample], seconds: float, ticks: int) -> Di
 
 def run_walk(settings: Settings, doc: dict, run_dir: Path, *, post: Optional[Callable] = None, get: Optional[Callable] = None,
              sleep: Optional[Callable[[float], None]] = None, clock: Optional[Callable[[], float]] = None,
-             log: Callable[[str], None] = print) -> Dict[str, Any]:
-    """Run a walk protocol. Returns {"status", "exit_code", "summary", "log_tail"}."""
+             log: Callable[[str], None] = print, obstacle: Optional[str] = None) -> Dict[str, Any]:
+    """Run a walk protocol. Returns {"status", "exit_code", "summary", "log_tail"}.
+
+    ``obstacle`` is what the pre-run look saw within a body length; the legs
+    are then cut to a few seconds each rather than refused."""
     run_dir.mkdir(parents=True, exist_ok=True)
     # Resolved at call time so tests can patch the module's HTTP and clock functions.
     post, get = post or _http_post, get or _http_get
@@ -484,6 +500,10 @@ def run_walk(settings: Settings, doc: dict, run_dir: Path, *, post: Optional[Cal
     if not legs:
         say("walk protocol has no legs")
         return {"status": "failed", "exit_code": 2, "summary": summary, "log_tail": "\n".join(lines)}
+    if obstacle:
+        legs = [Leg(l.name, l.vx, l.vy, l.omega, min(l.seconds, OBSTACLE_LEG_S), l.gait) for l in legs]
+        summary["obstacle"] = obstacle[:200]
+        say(f"the look saw something close ({obstacle[:80]}); legs cut to {OBSTACLE_LEG_S:.0f} s each")
     started = clock()
     if not s.stand():
         say("could not stand: " + "; ".join(s.notes))
@@ -510,6 +530,12 @@ def run_walk(settings: Settings, doc: dict, run_dir: Path, *, post: Optional[Cal
                 summary["aborted"] = m["fatal"]
                 say(f"stopping the run: {m['fatal']}")
                 break
+    if settings.recentre and summary["aborted"] is None:
+        # Leave the robot where the next run can be measured.
+        from . import recentre as _rc
+        rc = _rc.recentre(s, budget_s=settings.recentre_end_budget_s, gait=legs[0].gait, label="recentre_end")
+        summary["recentre"] = rc
+        say(f"recentre at the end: {rc['reason']}")
     s.sit()
     summary["motion_s"] = round(clock() - started, 1)
     summary["camera_index"] = s.camera_index

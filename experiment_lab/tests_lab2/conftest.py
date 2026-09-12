@@ -28,7 +28,7 @@ def settings(tmp_path):
          "segments": [{"kind": "step"}]}))
     # Never touch the live camera or the paid eyes from a test.
     return Settings(data_dir=tmp_path / "data", checkout=checkout, idle_sleep_s=0,
-                    wide_frame_url="http://127.0.0.1:9/none.jpg")
+                    wide_frame_url="http://127.0.0.1:9/none.jpg", recentre=False)
 
 
 @pytest.fixture(autouse=True)

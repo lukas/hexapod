@@ -84,6 +84,15 @@ class Settings:
     # encoders say zero and the camera says a leg is off does the loop hold.
     # HEXAPOD_LAB2_ZERO_CHECK=0 turns it off.
     zero_check: bool = True
+    # "If it's helpful move it to the center ... try to recenter at the end"
+    # (operator, 2026-09-11). Before a camera-measured protocol (walks, stands,
+    # tripod and whole-body work) and after a walk, if the chassis tag sits far
+    # from the middle of the frame the lab walks it back, closed loop on the
+    # tag's pixel position. Never a hold: if it cannot, the run goes ahead
+    # where the robot is. HEXAPOD_LAB2_RECENTRE=0 turns it off.
+    recentre: bool = True
+    recentre_budget_s: float = 90.0
+    recentre_end_budget_s: float = 20.0
     zero_check_budget_s: float = 60.0
     # Where hexapod-zero-check runs from (uv run in the tracker checkout, the
     # same one the camera server serves from). None -> the runner checkout's.
@@ -201,6 +210,7 @@ def load_settings() -> Settings:
         allow_force=os.getenv("HEXAPOD_LAB2_ALLOW_FORCE", "1") != "0",
         look_before_moving=os.getenv("HEXAPOD_LAB2_LOOK", "1") != "0",
         zero_check=os.getenv("HEXAPOD_LAB2_ZERO_CHECK", "1") != "0",
+        recentre=os.getenv("HEXAPOD_LAB2_RECENTRE", "1") != "0",
         tracker_dir=Path(os.getenv("HEXAPOD_LAB2_TRACKER_DIR")).expanduser() if os.getenv("HEXAPOD_LAB2_TRACKER_DIR") else None,
         allow_fix=os.getenv("HEXAPOD_LAB2_ALLOW_FIX", "0") == "1",
         goal=os.getenv("HEXAPOD_LAB2_GOAL", Settings.goal),

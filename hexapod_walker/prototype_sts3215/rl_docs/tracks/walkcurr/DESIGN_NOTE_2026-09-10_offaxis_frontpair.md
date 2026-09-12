@@ -340,3 +340,94 @@ Evidence: `rl_move/sim/decleg_policy.py` (`heading_rel_cos_sin`,
 `--decleg-heading-rel`), `rl_move/tests/test_decleg_policy.py`
 (14/14); `ops.sh entry cw-walkscratch-easy0905-decleg-base-s0` (the
 byte-identical parent spec this respecs in spirit).
+
+## Addendum 3, 2026-09-12 (idle-kick refill; 15/15 GPU free, backlog+
+pending_evals empty, every other track independently re-confirmed closed
+this window): a 14th mechanism class -- the joystick track's own
+cert-gated heading-widening curriculum, never applied here -- built
+(zero new code) and launched
+
+**Why this is genuinely different from every closed class above.**
+Classes #3 (exposure/batch composition, incl. the 100%-isolation
+canary) and #4-#7 (exploration/self-distill/PPO-loss/critic) all
+either kept the full 8-way heading mix present in every batch the
+WHOLE run, or removed forward practice entirely for the whole run
+(isolation). None of them used a monotonic, MASTERY-GATED ramp: start
+where the champion is already competent (forward, +-45), and widen the
+practiced heading cone ONLY once a deterministic held-out assay
+certifies real competence+retention at the current width, exactly the
+curriculum SHAPE standard curriculum-learning theory prescribes for
+"policy already good at the easy sub-task, bad at a harder
+generalization of it." This shape has never been tried on this
+champion/question -- every prior curriculum-flavored attempt (isolation,
+reweight) was static-composition, not progressive-widening-with-gates.
+
+**It already exists.** `goal.walk_curriculum` / `--walk-curriculum-version`
+(`rl_move/sim/walk_curriculum.py`, `WALKCURR_BUCKETS_V6` through `_V9`)
+is mature, heavily field-tested machinery built for the JOYSTICK track's
+own DONE-gate (bridge_10s -> front45 -> side90 -> rear135 -> rear180 ->
+fullcircle, each rung cert-gated on a deterministic held-out assay,
+retention-checked before promotion, V9 is the latest cert-metric fix of
+V8's already-working bucket scope) -- confirmed by grep against this
+track's own `STATUS.md` and `RL_LOG.md` that it has never once been
+combined with the `widen8`/`crutchoff`/dose10 champion or this exact
+off-axis-heading question. Contract-safe: it only reschedules WHICH
+commands get trained on (a deterministic function of measured
+competence), never touches the actor's action distribution or
+introduces a teacher/demo signal -- stays inside `walkcurr`'s `rl_only`
+no-BC/no-motion-prior contract exactly like the already-used exposure/
+reweight levers did.
+
+**Built:** nothing (zero new code). Confirmed via `walk_task._sample_
+walk_curr` that once `goal.walk_curriculum` is on, it fully owns
+command generation (`goal.walk_heading_set`/`walk_heading_max_rad`/
+`walk_stop_frac` become inert, verified by reading the source, not
+assumed) -- so this is a pure recipe change: swap the champion's
+static 8-way `goal.walk_heading_set` for `--walk-curriculum
+--walk-curriculum-version=9`, warm-started from the champion's own
+retention-confirmed checkpoint (`--init-from-source`, allowed for
+V5-V9 per the code's own documented exception list), `--episode-seconds`
+raised 20->60 (V6-V9's own hard requirement: training episodes must
+cover the longest bucket's `duration_s=60s`). Everything else (dose10
+duty-ratio/swing-gap reward pricing, DR, action box, safety) inherited
+byte-identical from the frozen champion.
+
+**First attempt crashed at argparse** (`cw-walkscratch-crutchoff-s0-
+widen8-plusduty-walkcurr9-canary2m`, r0): the respec blindly inherited
+`--best-ckpt` from the champion's own recipe, which `--walk-curriculum`
+explicitly forbids (`SystemExit`: "owns best-checkpoint selection...
+drop --best-ckpt/--ev-stop-min") -- caught by the trainer's own
+pre-flight validation before any GPU-second was spent, zero W&B run
+created. Verdicted `CANARY FAIL - INFRASTRUCTURE` (launch-config
+mistake, not a finding) and relaunched clean as `-r1` (best-ckpt
+dropped, otherwise byte-identical) via `backlog add` (hand-built arg
+list, since `respec` has no "drop an inherited bare flag" primitive)
+-- VERIFIED RUNNING train-0, fps ~4369.
+
+**Pre-registered gate (2M canary, phase=canary):** MECHANISM-HEALTH:
+boots/trains past init, >=1 real cert round logged (walkcurr admission
+log shows a fresh assay, not stuck at `cert_round=0`), no NaN/crash,
+`reward_per_tick` in the champion's own -1..-4/tick band, no new-fall
+spike. EFFICACY PASS: frontier (`active_n`) reaches bucket>=4
+(`side90`, the first genuinely off-axis rung) within 2M steps AND a
+`--pinned-heading-panel` read at on-axis headings (0/+-45) shows
+`gait_valid` unregressed vs the frozen champion. EFFICACY CONTINUE
+(08-21 ruling): frontier measurably advancing (past bucket 1) with
+reward/competence trending up even if bucket>=4 isn't reached at 2M --
+license a budget continuation, not a verdict. FAIL: frontier stuck at
+bucket 0/1 for the whole run (the SAME certifying-forever-at-bridge/
+front45 pattern the joystick track's own certfreeze v6/v7 saga hit)
+with the unchanged sacrificed-leg fingerprint on a pinned-heading-panel
+read at the still-locked headings, OR on-axis regresses -- this would
+mean the joystick-tuned per-bucket gate thresholds (e.g.
+`slip_per_m_max=2.0`) are miscalibrated for this champion's own
+physics/reward profile and the mechanism can't even get started here,
+closing this as the 14th class.
+
+Evidence: this file (13-class inventory above); `rl_move/sim/
+walk_curriculum.py` (`WALKCURR_BUCKETS_V9`); `rl_move/sim/
+train_ppo_mjx.py` (`--walk-curriculum`/`--walk-curriculum-version`,
+pre-existing); `ops.sh entry cw-walkscratch-crutchoff-s0-widen8-
+plusduty-walkcurr9-canary2m` (r0, LAUNCH_CRASH) and `...-r1` (VERIFIED
+RUNNING train-0); `ops.sh entry cw-walkscratch-crutchoff-s0-widen8-
+legdutyratio-swinggap-dose10-plusduty-acq1-cont10m` (champion/source).

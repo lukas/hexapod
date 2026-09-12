@@ -96,11 +96,62 @@ lower with no drag/tip.
 - No physical-robot motion was performed to produce this bundle or its demo;
   hardware handoff is Robot Lab's guarded-runner lane per `RL_GOALS.md`.
 
+## Update, 2026-09-12 ~11:0x — turn-composition validated for the `walk_turn_capable` role (closes Next item 1 below)
+
+One plain sentence: the `cap29` turn-capable role can now be run wrapped in a
+non-RL turn-in-place composition (`any_means`: explicit controller
+composition, built by amp/todaypolicy this same day) that is proven safe on
+the actual bundle checkpoint's full gate panel and shows genuine turn
+tracking on a 20 s joystick capture — RECOMMENDED whenever a session needs
+turning, at zero measured cost to the non-turn modes.
+
+Mechanism (`rl_move/sim/probe_turn_compose.py:_ComposedPolicy`, wired into
+`eval_checkpoint.py`/`drive_video.py` via `--compose-turn-blend-s`, default
+off/bit-exact): on ticks the env itself already classifies as live
+turn-in-place, swap the action to the same scripted `TripodGait` teacher
+this codebase's reward/BC-anchor machinery already treats as ground truth
+elsewhere, blended over `blend_s` seconds; straight-walk ticks are
+untouched. Validated at `blend_s=0.15`.
+
+Evidence (corrected-mass-matched comparator, `..._gate_massfix` not the
+stale pre-massfix `..._gate` amp's own STATUS entry diffed against): the
+full `walk/rise/lower/hold` det+sto gate panel at `blend_s=0.15`
+(`logs/ckpt_eval/cw_turn50hz_standwalk_cap29_stdwalklohi_warmadapt_canary2m_acq1_composed_gate/report.json`)
+is panel-level IDENTICAL to the uncomposed corrected-mass gate
+(`..._gate_massfix/report.json`) on every one of walk/rise/lower/hold
+det+sto (same `gait_valid`, same terms); only `walk_startjitter` (the one
+sub-panel whose natural goal draw occasionally contains a turn-in-place
+tick) shows small per-episode deltas, consistent with the composition
+engaging on a handful of ticks and being a true no-op elsewhere. A fresh 20 s
+`human_turn` drivevideo at the same blend
+(`logs/manual_drive/cap29_acq1_composed_humanturn/summary.json`):
+`terminated=false`, `gait_valid=true`, `sacrificed_legs=[]`,
+`turn_wz_err_med_rad_s=0.0747` (real tracking, not a freeze),
+`cur_max_a=2.573A` (inside the 50 Hz motor contract). Frame strip shows
+genuine per-frame leg reconfiguration through curved turn-in-place arcs.
+
+**Honest gap**: no matched RAW-vs-composed `human_turn` pair exists on THIS
+checkpoint yet (the earlier `probe_turn_compose.py` forced-single-mode probe
+that could have shown one drew `turn_ticks=0` in all 4 episodes — see
+`todaypolicy/STATUS.md` 2026-09-12 for that saga — so whether `cap29` itself
+would freeze without the composition is still unconfirmed; amp's own
+turncurr lineage is the one with the confirmed freeze). Treat this as
+"validated safe + demonstrably good", not "proven necessary", until that
+matched pair is run. Full detail: `composition.json`'s
+`walk_turn_capable.turn_composition_2026_09_12` block.
+
+**Practical recommendation**: when a physical/sim session needs joystick
+turning, load the `walk_turn_capable` export through
+`--compose-turn-blend-s 0.15` rather than raw — it costs nothing on the
+modes measured and is the only turn-capable path with a real, video-verified
+tracking number on record.
+
 ## Next
 
-1. A same-harness demo of the turn-capable composition (`--stance-policy`
-   unchanged, walk checkpoint swapped to the cap29 export) for a fair
-   side-by-side, if/when a joystick session actually needs turning.
+1. ~~A same-harness demo of the turn-capable composition...~~ DONE this
+   update (see above). Remaining sub-item: capture the matched raw-vs-
+   composed `human_turn` pair on `cap29` itself to settle whether the
+   composition is load-bearing or purely precautionary on this checkpoint.
 2. If the structural torque-headroom mechanism for the stand/lower residual
    is ever built, re-run this exact demo command to confirm no regression
    before superseding this bundle.

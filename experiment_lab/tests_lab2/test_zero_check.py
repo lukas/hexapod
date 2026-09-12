@@ -55,6 +55,10 @@ def test_camera_runs_the_tracker_cli_and_parses_its_last_line(settings, tmp_path
     assert doc["ok"] is True
     assert seen["cmd"][:3] == ["uv", "run", "hexapod-zero-check"] and "--json" in seen["cmd"] and str(tmp_path) in seen["cmd"]
     assert seen["cmd"][seen["cmd"].index("--camera-url") + 1] == "http://127.0.0.1:9"
+    assert seen["cmd"][seen["cmd"].index("--top-camera") + 1] == str(settings.top_camera)
+    import dataclasses
+    zero_check._real_camera(dataclasses.replace(settings, top_camera=1), tmp_path, run=run)
+    assert seen["cmd"][seen["cmd"].index("--top-camera") + 1] == "1"
     assert seen["timeout"] == settings.zero_check_budget_s and seen["cwd"] == str(settings.tracker_checkout)
 
     def slow(cmd, **kw):

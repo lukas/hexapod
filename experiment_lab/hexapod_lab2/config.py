@@ -94,6 +94,9 @@ class Settings:
     recentre_budget_s: float = 90.0
     recentre_end_budget_s: float = 20.0
     zero_check_budget_s: float = 60.0
+    # Which camera server index looks down on the robot (lids visible). The
+    # cameras were rearranged on 2026-09-12: the top view moved to index 1.
+    top_camera: int = 2
     # Where hexapod-zero-check runs from (uv run in the tracker checkout, the
     # same one the camera server serves from). None -> the runner checkout's.
     tracker_dir: Optional[Path] = None
@@ -210,6 +213,7 @@ def load_settings() -> Settings:
         allow_force=os.getenv("HEXAPOD_LAB2_ALLOW_FORCE", "1") != "0",
         look_before_moving=os.getenv("HEXAPOD_LAB2_LOOK", "1") != "0",
         zero_check=os.getenv("HEXAPOD_LAB2_ZERO_CHECK", "1") != "0",
+        top_camera=_i("HEXAPOD_LAB2_TOP_CAMERA", Settings.top_camera),
         recentre=os.getenv("HEXAPOD_LAB2_RECENTRE", "1") != "0",
         tracker_dir=Path(os.getenv("HEXAPOD_LAB2_TRACKER_DIR")).expanduser() if os.getenv("HEXAPOD_LAB2_TRACKER_DIR") else None,
         allow_fix=os.getenv("HEXAPOD_LAB2_ALLOW_FIX", "0") == "1",

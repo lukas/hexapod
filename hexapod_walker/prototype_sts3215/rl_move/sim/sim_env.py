@@ -49,6 +49,16 @@ from .servo_model import (
     position_actuator_ids, resolve_model_source,
 )
 from .struct_compliance import StructCompliance
+from .leg_mount_flex import (
+    addresses as leg_mount_flex_addresses,
+    diagnostics as leg_mount_flex_diagnostics,
+    from_cfg as leg_mount_flex_from_cfg,
+)
+from .joint_series_flex import (
+    addresses as joint_series_flex_addresses,
+    diagnostics as joint_series_flex_diagnostics,
+    from_cfg as joint_series_flex_from_cfg,
+)
 from .command_indicator import draw_env_command_indicator
 
 G0 = 9.80665
@@ -458,6 +468,21 @@ class SimHexapodBalanceEnv(_GymBase):
         import mujoco
         self._mujoco = mujoco
         self.cfg = cfg if cfg is not None else load_config()
+        self._leg_mount_flex = leg_mount_flex_from_cfg(self.cfg)
+        self._joint_series_flex = joint_series_flex_from_cfg(self.cfg)
+        self._struct_comp = StructCompliance.from_cfg(self.cfg)
+        compliance_models = [
+            name for name, enabled in (
+                ("struct_comp", self._struct_comp is not None),
+                ("leg_mount_flex", self._leg_mount_flex is not None),
+                ("joint_series_flex", self._joint_series_flex is not None),
+            ) if enabled
+        ]
+        if len(compliance_models) > 1:
+            raise ValueError(
+                f"{', '.join(compliance_models)} cannot both be enabled: "
+                "the compliance models are mutually exclusive to avoid "
+                "double-counting an uncalibrated effect")
         # bus.servo_params selects the fitted actuator set ("" = air fit,
         # "loaded" = 08-10 loaded bench fit); explicit params win.
         self.params = (params if params is not None
@@ -681,13 +706,27 @@ class SimHexapodBalanceEnv(_GymBase):
                 mesh_visuals=mesh_visuals,
                 leg_chassis_collision=leg_chassis_collision_from_cfg(
                     self.cfg),
-                source=self._model_source, foot_geom_radius_m=_r_foot)
+                source=self._model_source, foot_geom_radius_m=_r_foot,
+                leg_mount_flex=self._leg_mount_flex,
+                joint_series_flex=self._joint_series_flex)
         self.data = mujoco.MjData(self.model)
         self._substeps = max(1, int(round(self.dt / self.model.opt.timestep)))
         self._qadr = joint_qpos_addrs(self.model)
         self._vadr = joint_qvel_addrs(self.model)
         self._pos_act = position_actuator_ids(self.model)
-        self._struct_comp = StructCompliance.from_cfg(self.cfg)
+        self._leg_mount_flex_addrs = leg_mount_flex_addresses(
+            self.model, required=False)
+        if ((self._leg_mount_flex is None)
+                != (self._leg_mount_flex_addrs is None)):
+            raise ValueError(
+                "shared model leg-mount-flex topology does not match cfg")
+        self._joint_series_flex_addrs = joint_series_flex_addresses(
+            self.model, expected=self._joint_series_flex,
+            required=False)
+        if ((self._joint_series_flex is None)
+                != (self._joint_series_flex_addrs is None)):
+            raise ValueError(
+                "shared model joint-series-flex topology does not match cfg")
         self._struct_comp_k: np.ndarray | None = None
         self._chassis_bid = mujoco.mj_name2id(
             self.model, mujoco.mjtObj.mjOBJ_BODY, "chassis")
@@ -2387,6 +2426,31 @@ class SimHexapodBalanceEnv(_GymBase):
             # re-planting at foot height and re-settling, which distorts
             # deep post-lower poses into an unreal family.
             qp, qv = exact_start
+            if (qp.shape != (self.model.nq,)
+                    or qv.shape != (self.model.nv,)):
+                # Existing exact-state banks predate hidden compliance
+                # coordinates. Their named 18 servo joints are unambiguous,
+                # so preserve root + encoder state and initialize any new
+                # passive coordinates at model qpos0/zero velocity. Named
+                # addresses handle both the six mount hinges and a selected
+                # 1..18 post-encoder series topology.
+                if ((self._leg_mount_flex_addrs is not None
+                     or self._joint_series_flex_addrs is not None)
+                        and qp.shape == (25,) and qv.shape == (24,)):
+                    qp_flex = self.model.qpos0.copy()
+                    qp_flex[:7] = qp[:7]
+                    qp_flex[self._qadr] = qp[7:25]
+                    qv_flex = np.zeros(self.model.nv, dtype=float)
+                    qv_flex[:6] = qv[:6]
+                    qv_flex[self._vadr] = qv[6:24]
+                    qp, qv = qp_flex, qv_flex
+                else:
+                    raise ValueError(
+                        "rise_start_bank_exact full-state topology "
+                        f"{qp.shape}/{qv.shape} does not match model "
+                        f"nq/nv={self.model.nq}/{self.model.nv}; re-harvest "
+                        "the bank for this model topology or disable "
+                        "goal.rise_start_bank_exact")
             self._mujoco.mj_resetData(self.model, self.data)
             self.data.qpos[:] = qp
             # Recenter horizontally: harvest episodes drift in x/y and
@@ -2789,6 +2853,12 @@ class SimHexapodBalanceEnv(_GymBase):
         if self._struct_comp is not None and self._struct_comp_k is not None:
             info["struct_compliance"] = self._struct_comp.summary(
                 self._struct_comp_k)
+        if self._leg_mount_flex_addrs is not None:
+            info["leg_mount_flex"] = leg_mount_flex_diagnostics(
+                self.model, self.data)
+        if self._joint_series_flex_addrs is not None:
+            info["joint_series_flex"] = joint_series_flex_diagnostics(
+                self.model, self.data)
         goal = self._current_goal()
         if goal is not None:
             info["goal_mode"] = self._goal_traj.mode

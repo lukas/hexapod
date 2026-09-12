@@ -267,15 +267,20 @@ Every stand / lower / walk run writes a full local trace under
 `/home/arduino/hexapod_sts/linux_control/logs/` (`_EpisodeLog` in
 `linux_control/rl_policy.py`) — nothing to enable:
 
-- **`rl_<mode>_<stamp>.csv`** — one row per 25 Hz control tick:
-  `t_s`, `phase` (`run` / `tail`), body `roll_deg`/`pitch_deg`
+- **`rl_<mode>_<stamp>.csv`** — one row per actual controller tick (legacy
+  25 Hz and current 50/100 Hz policies retain their native cadence):
+  `t_s`, monotonic/wall-clock timing, `phase` (`walk` / holds / `tail`),
+  body `roll_deg`/`pitch_deg`
   (attitude filter), `gyro_{x,y,z}_dps`, goal refs (`height_ref_mm`,
   `vx_ref_mps`, `vy_ref_mps`), running `max_cur_a`, then per joint
   0–17: `q*_deg` (measured), `cmd*_deg` (commanded, post-safety),
   `act*` (raw policy action in [-1,1]), `cur*_a` (per-servo current;
   blank on ticks without full feedback), then the **full policy obs
   vector** `obs0..obsN` (68 stance / 72 walk) — replay it through the
-  same weights offline to separate obs-pipeline bugs from behavior.
+  same weights offline to separate obs-pipeline bugs from behavior. New
+  traces also append calibrated `ax_g`, `ay_g`, `az_g`, allowing the digital
+  twin to run the same complementary attitude estimator as the robot instead
+  of comparing an estimator output with an ideal MuJoCo quaternion.
   After the episode a **3 s read-only tail** (10 Hz, `phase=tail`,
   no commands sent) keeps recording attitude/q/currents so a tip-over
   during the end-of-episode hold is captured (added 08-10 after the

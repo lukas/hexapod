@@ -476,10 +476,21 @@ class EpisodeRandomization:
             b_fem = bid(f"L{i}_femur")
             b_tib = bid(f"L{i}_tibia")
             b_pad = bid(f"L{i}_pad")
+            # True post-encoder series flex reparents the original output
+            # body below an encoder carrier. Its attachment offset therefore
+            # lives on the carrier; named output bodies still own link mass,
+            # inertia and CoM. Fall back to the rigid topology per joint so
+            # selectors (for example only L4 pitch+knee) compose correctly.
+            b_fem_attach = bid(f"L{i}_pitch_encoder_carrier")
+            if b_fem_attach < 0:
+                b_fem_attach = b_fem
+            b_tib_attach = bid(f"L{i}_knee_encoder_carrier")
+            if b_tib_attach < 0:
+                b_tib_attach = b_tib
             s_coxa, s_femur, s_tibia = self.link_scale[i]
 
-            model.body_pos[b_fem, 0] *= s_coxa
-            model.body_pos[b_tib, 0] *= s_femur
+            model.body_pos[b_fem_attach, 0] *= s_coxa
+            model.body_pos[b_tib_attach, 0] *= s_femur
             model.body_pos[b_pad, 0] *= s_tibia
             # CoM of each link moves with its length.
             model.body_ipos[b_yaw, 0] *= s_coxa

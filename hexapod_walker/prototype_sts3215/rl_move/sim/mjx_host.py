@@ -21,6 +21,8 @@ from .sim_env import (leg_chassis_collision_from_cfg,
                       set_foot_ground_friction,
                       soften_contacts)
 from .struct_compliance import StructCompliance
+from .leg_mount_flex import from_cfg as leg_mount_flex_from_cfg
+from .joint_series_flex import from_cfg as joint_series_flex_from_cfg
 
 DEG2RAD = np.pi / 180.0
 
@@ -211,12 +213,31 @@ def prepare_shared_model(params: SimServoParams, *, iterations: int,
     # contact axis (SIM.md gap 4). Must be an XML/compile-time rewrite
     # (build_model kwarg) so put_model's device pair set includes the
     # chassis-underside contacts; runtime mask edits never register.
+    if cfg is None:
+        from rl_move.config import load_config
+        cfg = load_config()
+    mount_flex = leg_mount_flex_from_cfg(cfg)
+    series_flex = joint_series_flex_from_cfg(cfg)
+    struct_comp = StructCompliance.from_cfg(cfg)
+    compliance_models = [
+        name for name, enabled in (
+            ("struct_comp", struct_comp is not None),
+            ("leg_mount_flex", mount_flex is not None),
+            ("joint_series_flex", series_flex is not None),
+        ) if enabled
+    ]
+    if len(compliance_models) > 1:
+        raise ValueError(
+            f"{', '.join(compliance_models)} cannot both be enabled; "
+            "compliance models are mutually exclusive")
     model = build_model(fixed_base=False, flat_terrain=terrain_amp <= 0.0,
                         terrain_amp=terrain_amp, terrain_seed=terrain_seed,
                         mesh_visuals=False, mjx_compat=True,
                         leg_chassis_collision=leg_chassis,
                         source=resolve_model_source(cfg),
-                        foot_geom_radius_m=foot_geom_radius)
+                        foot_geom_radius_m=foot_geom_radius,
+                        leg_mount_flex=mount_flex,
+                        joint_series_flex=series_flex)
     soften_contacts(model)
     if foot_mu > 0.0:
         set_foot_ground_friction(model, foot_mu)

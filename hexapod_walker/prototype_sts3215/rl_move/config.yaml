@@ -219,6 +219,22 @@ struct_comp:
   dr_scale_lo: 0.5
   dr_scale_hi: 2.0
 
+leg_mount_flex:
+  # Dynamic, post-encoder flex at each leg root. Default OFF: enabling it
+  # changes model topology (+6 passive DOFs) and requires explicit measured
+  # stiffness/damping/friction/preload/range values. It is mutually exclusive
+  # with struct_comp, whose gain-reduction approximation would double-count
+  # the same effect. Fit with rl_move.sim.replay_trace before training.
+  enabled: 0
+
+joint_series_flex:
+  # True post-encoder torsional compliance at selected named servo joints.
+  # Default OFF: enabling changes topology by 1..18 passive DOFs and requires
+  # explicit legs, axes, and a complete 18-joint physical parameter table;
+  # there are intentionally no invented stiffness/damping defaults here.
+  # Mutually exclusive with struct_comp and leg_mount_flex.
+  enabled: 0
+
 plant:
   hip_deg: null              # null → standing_pose / plant_pose.json
   knee_deg: null

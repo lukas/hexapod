@@ -652,7 +652,7 @@ def main() -> None:
         return float(env.data.xpos[chassis_bid, 2])
 
     def q_now() -> np.ndarray:
-        return env.data.qpos[7:25].copy()
+        return env.data.qpos[env._qadr].copy()
 
     def q_now_robot_abs() -> np.ndarray:
         return env._mujoco_to_logical_q(q_now())
@@ -914,10 +914,12 @@ def main() -> None:
         env.data.qpos[2] = 0.20
         env.data.qpos[3:7] = [cr * cp, sr * cp, cr * sp, sr * sp]
         if scramble:
-            # Tangle spawn: every servo joint to a random legal angle
-            # (joint 0 is the free base; 1..18 are the hinges).
-            lo, hi = env.model.jnt_range[1:, 0], env.model.jnt_range[1:, 1]
-            env.data.qpos[7:25] = np.random.uniform(lo, hi)
+            # Tangle spawn: every commanded servo joint to a random legal
+            # angle. Hidden passive model joints, if any, retain reset state.
+            from .servo_model import joint_ids
+            ranges = env.model.jnt_range[joint_ids(env.model)]
+            env.data.qpos[env._qadr] = np.random.uniform(
+                ranges[:, 0], ranges[:, 1])
         env.data.qvel[:] = 0.0
         mujoco.mj_forward(env.model, env.data)
         reset_memories(hard=True)      # a teleport is a discontinuity

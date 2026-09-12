@@ -19,7 +19,15 @@ before judging a gap from sim numbers alone, and check which of the three
 model families (full mesh 3.49 kg / twin, 4.81 kg from 09-03 to 09-11 /
 legacy primitive) a number came from.
 
-## The simulation chain (one control tick, 25 Hz)
+**Hexapod-2 replay update (2026-09-12):**
+[`HEXAPOD2_DIGITAL_TWIN_2026-09-12.md`](HEXAPOD2_DIGITAL_TWIN_2026-09-12.md)
+freezes a SHA-pinned 4-fit/21-holdout matrix from the latest 52 Robot Lab
+runs. The loaded rigid model passes 11/21 holdouts; a true serial hip/knee
+probe passes 13/21 but makes PS200's severe roll underprediction worse. The
+dynamic topology is therefore useful and remains opt-in, while simple linear
+flex is not presented as the PS200 fix.
+
+## The simulation chain (one native controller tick, 25/50/100 Hz)
 
 policy action → SafetyLayer (same rate clamp/limits as the robot,
 `rl_move/safety.py`) → **servo model** → MuJoCo physics → obs builder
@@ -92,7 +100,8 @@ starts. Model-field DR is applied in the C env and (as shared-model
 per-env fields) in the MJX path.
 
 **Structural compliance (`struct_comp.*`, active 08-21).** Each servo
-axis gets a torsional spring in series with the position actuator:
+axis gets an algebraic torsional-spring approximation in series with the
+position actuator:
 `kp_eff = kp*k/(kp+k)`, and observations report
 `q_encoder ~= q_physical - tau/k`. This is intentionally simpler than
 full deformable-body modeling, but it trains against the specific gap
@@ -100,6 +109,19 @@ we see on the real robot: loaded printed structure/boots bend while the
 servo encoder still reports the shaft angle. The sampled stiffness
 vector rides reset-pool snapshots so CPU and MJX observations use the
 same episode values as the uploaded model rows.
+
+**Dynamic post-encoder compliance (`leg_mount_flex` and
+`joint_series_flex`, opt-in 09-12).** These mutually exclusive model-topology
+experiments add hidden passive state that can store and return energy. The
+first adds one aggregate pitch hinge per leg root. The second retains the
+18 named encoder-side servo joints and inserts selected coaxial output hinges
+before their link subtrees. Both require complete explicit physical parameters
+and are mutually exclusive with `struct_comp`; normal config leaves them off.
+CPU, MJX shared-model, replay, named joint addressing, exact rise-bank restore,
+and link-length randomization paths are covered. The uniform root probe failed
+the 25-run matrix. The first-pass series probe modestly improved aggregate
+holdouts but did not reproduce PS200, so neither is a calibrated Hexapod-2
+default.
 
 **Tipped starts (`dr.tipped_start_prob/deg`, added 08-10):** with prob
 0.30×dr_scale a plant/park-start episode begins at a settled 6–18°

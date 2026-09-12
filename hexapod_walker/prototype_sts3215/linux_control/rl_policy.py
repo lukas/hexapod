@@ -2763,7 +2763,12 @@ class _EpisodeLog:
                "q_cmd_err_max_deg", "q_cmd_err_joint", "action_abs_max",
                "mono_s", "wall_elapsed_s", "unix_s", "walk_engaged",
                "learned_policy_active", "state_age_ms", "position_age_ms",
-               "imu_age_ms", "bus_write_due", "snapshot_seq", "period_ms"])
+               "imu_age_ms", "bus_write_due", "snapshot_seq", "period_ms",
+               # Calibrated accelerometer channels, appended last to preserve
+               # every existing offline column index.  They let the digital
+               # twin run the same complementary attitude estimator instead
+               # of comparing hardware estimator output to a quaternion.
+               "ax_g", "ay_g", "az_g"])
         try:
             from event_log import emit
             emit("rl_episode", f"{mode} started ({self.csv_path.name})",
@@ -2857,7 +2862,9 @@ class _EpisodeLog:
                round(time.time(), 6), int(walk_engaged),
                int(learned_policy_active), state_age_ms, pos_age_ms,
                imu_age_ms, int(bus_write_due), timing.get("snapshot_seq", ""),
-               r_ms("period_s")])
+               r_ms("period_s")]
+            + np.round(np.asarray(state.imu_accel, dtype=float)
+                       / 9.80665, 6).tolist())
         self._n += 1
         if self._n % 25 == 0:      # survive a mid-run kill: flush each ~1 s
             self._f.flush()

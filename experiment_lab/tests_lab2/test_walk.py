@@ -264,3 +264,36 @@ def test_pose_uses_the_top_cameras_own_observation_not_the_fused_marker(settings
     s = walk.Session(dataclasses.replace(settings, top_camera=1), tmp_path, get=get, log=lambda m: None)
     p = s.pose("x")
     assert (p.x, p.y, p.yaw) == (20.0, 30.0, 2.0)
+
+
+def test_one_garbage_temperature_read_does_not_stop_the_walk(settings, tmp_path):
+    state, post, get, sleep, clock = _rig(speed_ratio=0.8)
+    calls = {"n": 0}
+
+    def get2(url):
+        r = get(url)
+        if url.endswith("/api/feedback"):
+            calls["n"] += 1
+            if calls["n"] == 3:
+                r["joints"][4]["temp_c"] = 150.0          # corrupted byte
+            if calls["n"] == 6:
+                r["joints"][4]["temp_c"] = 58.0           # one real hot sample, then back to normal
+        return r
+    res = walk.run_walk(settings, _doc(legs=[{"name": "fwd30", "vx_mm_s": 30, "seconds": 6}]), tmp_path,
+                        post=post, get=get2, sleep=sleep, clock=clock, log=lambda m: None)
+    assert res["status"] == "ok"
+    assert all(l["stopped"] == "duration" for l in res["summary"]["legs"])
+    assert res["summary"]["legs"][0]["hottest_c"] == 58.0             # the garbage read was dropped, the real one kept
+
+
+def test_three_hot_samples_in_a_row_stop_the_walk(settings, tmp_path):
+    state, post, get, sleep, clock = _rig(speed_ratio=0.8)
+
+    def get2(url):
+        r = get(url)
+        if url.endswith("/api/feedback") and state["t"] > 1.0:
+            r["joints"][4]["temp_c"] = 60.0
+        return r
+    res = walk.run_walk(settings, _doc(legs=[{"name": "fwd30", "vx_mm_s": 30, "seconds": 6}]), tmp_path,
+                        post=post, get=get2, sleep=sleep, clock=clock, log=lambda m: None)
+    assert res["status"] == "failed" and res["summary"]["legs"][0]["stopped"] == "hot"

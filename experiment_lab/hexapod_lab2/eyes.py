@@ -159,7 +159,8 @@ LOOK_QUESTION = (
 PATH_QUESTION = (
     " It is about to {about_to}. Only if something it could walk into (a cable, a wall, an object, a foot, "
     "another robot) lies in that direction of travel within about one body length, add a second line starting "
-    "OBSTACLE: and say what. Things beside or behind it, or further away, are not obstacles; do not mention them."
+    "OBSTACLE: and say what. Things beside or behind it, or further away, are not obstacles, and neither is the "
+    "robot's own power and data tether running off its body; do not mention them."
 )
 
 

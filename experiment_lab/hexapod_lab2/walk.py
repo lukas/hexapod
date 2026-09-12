@@ -353,9 +353,10 @@ class Session:
         if m.get("status") != "tracked":
             return PoseSample(t, leg_name, None, None, None)
         pos = m.get("position_mm") or {}
-        cams = m.get("camera_indices") or []
+        cams = [int(c) for c in (m.get("camera_indices") or [])]
         if cams and self.camera_index is None:
-            self.camera_index = int(cams[0])
+            top = int(getattr(self.settings, "top_camera", -1))
+            self.camera_index = top if top in cams else cams[0]     # stay inside the top camera's frame when it tracks the tag
         yaw = (m.get("rotation_degrees") or {}).get("yaw")
         return PoseSample(t, leg_name, pos.get("x"), pos.get("y"), yaw, tracked=True)
 

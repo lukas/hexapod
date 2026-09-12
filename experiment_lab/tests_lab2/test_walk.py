@@ -234,3 +234,18 @@ def test_pixel_prefers_the_top_camera_when_several_see_the_tag(settings, tmp_pat
     s2 = walk.Session(dataclasses.replace(settings, top_camera=2), tmp_path, get=get, log=lambda m: None)
     s2.pixel()
     assert s2.seen_camera == 0                                          # top camera absent: first camera that decodes it
+
+
+def test_tracking_camera_is_the_top_camera_when_it_tracks_the_marker(settings, tmp_path):
+    import dataclasses
+    def get(url):
+        if url.endswith("/api/poses"):
+            return {"markers": {"0": {"status": "tracked", "position_mm": {"x": 1.0, "y": 2.0},
+                                       "rotation_degrees": {"yaw": 0.0}, "camera_indices": [0, 1]}}}
+        raise AssertionError(url)
+    s = walk.Session(dataclasses.replace(settings, top_camera=1), tmp_path, get=get, log=lambda m: None)
+    s.pose("x")
+    assert s.camera_index == 1
+    s = walk.Session(dataclasses.replace(settings, top_camera=2), tmp_path, get=get, log=lambda m: None)
+    s.pose("x")
+    assert s.camera_index == 0

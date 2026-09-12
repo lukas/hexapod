@@ -1,0 +1,461 @@
+{
+  "composition": {
+    "schema": "hexapod.hybrid_demo.v1",
+    "name": "cw-turn50hz-standwalk-cap29-stdwalklohi-warmadapt-canary2m-acq1 hybrid",
+    "model_source": "mesh",
+    "states": {
+      "belly_zero": {
+        "bookkeeping_start_at": "zero",
+        "pose_family": "logical_zero_belly_down"
+      },
+      "step_stand": {
+        "pose_family": "standup_modes.step.final"
+      },
+      "walk_ready": {
+        "pose_family": "sim_walk_start",
+        "q_deg": [
+          0.0,
+          20.0,
+          80.0,
+          0.0,
+          20.0,
+          80.0,
+          0.0,
+          20.0,
+          80.0,
+          0.0,
+          20.0,
+          80.0,
+          0.0,
+          20.0,
+          80.0,
+          0.0,
+          20.0,
+          80.0
+        ]
+      },
+      "walk_done": {
+        "pose_family": "post_policy_runtime_state"
+      },
+      "grounded": {
+        "pose_family": "scripted_lower_limp_settled"
+      }
+    },
+    "controllers": {
+      "align_walk_ready": {
+        "type": "pose_blend",
+        "target": "sim_walk_start",
+        "seconds": 0.75
+      },
+      "bookkeeping_walk_frame": {
+        "type": "bookkeeping_reanchor",
+        "start_at": "plant",
+        "mode": "hold"
+      },
+      "rl_walk": {
+        "type": "sb3_walk_policy",
+        "checkpoint": "rl_move/sim/policies/ppo_goal_cw_turn50hz_standwalk_cap29_stdwalklohi_warmadapt_canary2m_acq1.zip",
+        "policy_mode": "deterministic",
+        "script": "human_turn",
+        "seconds": 20.0,
+        "speed_m_s": 0.08,
+        "wz_max_rad_s": 0.3,
+        "blend_s": 0.5,
+        "compose_turn_blend_s": 0.15,
+        "stall_substitute_every_s": 0.0,
+        "stall_substitute_dur_s": 0.0
+      },
+      "align_before_lower": {
+        "type": "pose_blend",
+        "target": "sim_walk_start",
+        "seconds": 0.75
+      },
+      "limp_settle": {
+        "type": "limp_settle",
+        "seconds": 2.0
+      },
+      "learned_stand": {
+        "type": "learned_stance_policy",
+        "checkpoint": "linux_control/policies/stand50hz_stance_tuckclock_scratch6m_curhot_b23k12.json",
+        "role": "stand",
+        "start_at": "zero",
+        "release": "stable",
+        "handoff_stable_s": 0.75,
+        "handoff_settle_s": 0.25,
+        "handoff_min_z_m": 0.1,
+        "handoff_max_tilt_deg": 7.0,
+        "handoff_max_current_a": 2.2
+      },
+      "learned_lower": {
+        "type": "learned_stance_policy",
+        "checkpoint": "linux_control/policies/stand50hz_stance_tuckclock_scratch6m_curhot_b23k12.json",
+        "role": "lower",
+        "start_at": "plant"
+      }
+    },
+    "sequence": [
+      {
+        "phase": "stand",
+        "controller": "learned_stand",
+        "from_state": "belly_zero",
+        "to_state": "step_stand"
+      },
+      {
+        "phase": "walk_ready_align",
+        "controller": "align_walk_ready",
+        "from_state": "step_stand",
+        "to_state": "walk_ready"
+      },
+      {
+        "phase": "walk_reanchor",
+        "controller": "bookkeeping_walk_frame",
+        "from_state": "walk_ready",
+        "to_state": "walk_ready"
+      },
+      {
+        "phase": "walk",
+        "controller": "rl_walk",
+        "from_state": "walk_ready",
+        "to_state": "walk_done"
+      },
+      {
+        "phase": "pre_lower_align",
+        "controller": "align_before_lower",
+        "from_state": "walk_done",
+        "to_state": "walk_ready"
+      },
+      {
+        "phase": "lower",
+        "controller": "learned_lower",
+        "from_state": "walk_ready",
+        "to_state": "grounded"
+      },
+      {
+        "phase": "limp",
+        "controller": "limp_settle",
+        "from_state": "grounded",
+        "to_state": "grounded"
+      }
+    ]
+  },
+  "model_source": "mesh",
+  "model_variant": "full_mesh",
+  "model_nmesh": 34,
+  "model_ngeom": 159,
+  "model_mass_kg": 3.490038,
+  "motor_contract": {
+    "bus.write_speed": 400.0,
+    "bus.write_acc": 20.0,
+    "bus.servo_vel_max_counts_s": "",
+    "bus.servo_params": "",
+    "resolved_vel_max_deg_s_min": 30.76171875,
+    "resolved_vel_max_deg_s_max": 30.76171875,
+    "resolved_vel_max_counts_s_max": 350.0,
+    "safety.max_delta_q_deg": 0.75,
+    "control.hz": 50.0,
+    "slew_limit_deg_s": 37.5,
+    "bus.profile_ramp_steps": 0.0,
+    "servo_params_source": "/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json",
+    "backend_profile": "servo_profile_np"
+  },
+  "reset_info": {
+    "zero_reset": {
+      "episode": 2,
+      "q_nominal_deg": [
+        5.5561667949552696e-05,
+        11.325617636661011,
+        11.794670575466924,
+        6.323686577630944e-05,
+        11.32561775018741,
+        11.79466283531356,
+        7.613343959559404e-05,
+        11.325618324480613,
+        11.794664208570076,
+        8.135543232545905e-05,
+        11.325618785363067,
+        11.794673322900401,
+        7.36801196980304e-05,
+        11.32561867192037,
+        11.794681064593187,
+        6.0782918774091294e-05,
+        11.325618097536765,
+        11.794679690441793
+      ],
+      "roll_deg": 7.82176378254885e-08,
+      "pitch_deg": 1.8354919433368277e-07,
+      "roll_rel_deg": 0.0,
+      "randomization": null,
+      "struct_compliance": {
+        "yaw": {
+          "nominal_nm_rad": 300.0,
+          "episode_nm_rad": 300.0
+        },
+        "hip": {
+          "nominal_nm_rad": 180.0,
+          "episode_nm_rad": 180.0
+        },
+        "knee": {
+          "nominal_nm_rad": 120.0,
+          "episode_nm_rad": 120.0
+        }
+      },
+      "goal_mode": "rise"
+    },
+    "plant_reset": {
+      "episode": 1,
+      "q_nominal_deg": [
+        -0.047041698546927135,
+        11.447955332607384,
+        100.74510768847377,
+        -0.04678360117866565,
+        11.472172428943525,
+        100.74652383561079,
+        -0.052858986267335636,
+        11.60046801140674,
+        101.18201811240709,
+        -0.046703446722063315,
+        11.420776634404227,
+        100.74566527540557,
+        -0.046718257134348004,
+        11.40238404843845,
+        100.7447890079331,
+        -0.05283577770116352,
+        11.559323556787323,
+        101.18505542620612
+      ],
+      "roll_deg": 0.01831481259768688,
+      "pitch_deg": 0.0023168663706056975,
+      "roll_rel_deg": 0.0,
+      "randomization": null,
+      "struct_compliance": {
+        "yaw": {
+          "nominal_nm_rad": 300.0,
+          "episode_nm_rad": 300.0
+        },
+        "hip": {
+          "nominal_nm_rad": 180.0,
+          "episode_nm_rad": 180.0
+        },
+        "knee": {
+          "nominal_nm_rad": 120.0,
+          "episode_nm_rad": 120.0
+        }
+      },
+      "goal_mode": "hold"
+    },
+    "plant_z_m": 0.11003253230559099
+  },
+  "terminated": false,
+  "termination_reason": "",
+  "truncated": false,
+  "sim_seconds": 40.02,
+  "phase_marks": [
+    {
+      "t": 0.0,
+      "phase": "stand",
+      "event": "start",
+      "from_state": "belly_zero",
+      "to_state": "step_stand",
+      "controller": "learned_stand"
+    },
+    {
+      "t": 0.0,
+      "phase": "stand",
+      "event": "profile",
+      "role": "stand",
+      "start_at": "zero",
+      "checkpoint": "/workspace/hexapod/hexapod_walker/prototype_sts3215/linux_control/policies/stand50hz_stance_tuckclock_scratch6m_curhot_b23k12.json",
+      "obs_dim": 68,
+      "profile": {
+        "hold_s": 5.0,
+        "ramp_s": 4.0,
+        "target_m": 0.045,
+        "total_s": 10.5
+      }
+    },
+    {
+      "t": 10.0,
+      "phase": "stand",
+      "event": "early_handoff",
+      "t_s": 10.0,
+      "profile_total_s": 10.5,
+      "release_after_s": 9.25,
+      "stable_s": 0.76,
+      "z_m": 0.1131,
+      "tilt_abs_deg": 0.335,
+      "max_current_a": 0.662
+    },
+    {
+      "t": 10.0,
+      "phase": "stand",
+      "event": "end",
+      "ok": true,
+      "rows": 500
+    },
+    {
+      "t": 10.0,
+      "phase": "walk_ready_align",
+      "event": "start",
+      "from_state": "step_stand",
+      "to_state": "walk_ready",
+      "controller": "align_walk_ready"
+    },
+    {
+      "t": 10.76,
+      "phase": "walk_ready_align",
+      "event": "end",
+      "ok": true,
+      "rows": 538
+    },
+    {
+      "t": 10.76,
+      "phase": "walk_reanchor",
+      "event": "start",
+      "from_state": "walk_ready",
+      "to_state": "walk_ready",
+      "controller": "bookkeeping_walk_frame"
+    },
+    {
+      "t": 10.78,
+      "phase": "walk_reanchor",
+      "event": "end",
+      "ok": true,
+      "rows": 539
+    },
+    {
+      "t": 10.78,
+      "phase": "walk",
+      "event": "start",
+      "from_state": "walk_ready",
+      "to_state": "walk_done",
+      "controller": "rl_walk"
+    },
+    {
+      "t": 30.78,
+      "phase": "walk",
+      "event": "end",
+      "ok": true,
+      "rows": 1539
+    },
+    {
+      "t": 30.78,
+      "phase": "pre_lower_align",
+      "event": "start",
+      "from_state": "walk_done",
+      "to_state": "walk_ready",
+      "controller": "align_before_lower"
+    },
+    {
+      "t": 31.54,
+      "phase": "pre_lower_align",
+      "event": "end",
+      "ok": true,
+      "rows": 1577
+    },
+    {
+      "t": 31.54,
+      "phase": "lower",
+      "event": "start",
+      "from_state": "walk_ready",
+      "to_state": "grounded",
+      "controller": "learned_lower"
+    },
+    {
+      "t": 31.54,
+      "phase": "lower",
+      "event": "profile",
+      "role": "lower",
+      "start_at": "plant",
+      "checkpoint": "/workspace/hexapod/hexapod_walker/prototype_sts3215/linux_control/policies/stand50hz_stance_tuckclock_scratch6m_curhot_b23k12.json",
+      "obs_dim": 68,
+      "profile": {
+        "hold_s": 0.0,
+        "ramp_s": 5.0,
+        "target_m": -0.06,
+        "total_s": 6.5
+      }
+    },
+    {
+      "t": 38.04,
+      "phase": "lower",
+      "event": "end",
+      "ok": true,
+      "rows": 1902
+    },
+    {
+      "t": 38.04,
+      "phase": "limp",
+      "event": "start",
+      "from_state": "grounded",
+      "to_state": "grounded",
+      "controller": "limp_settle"
+    },
+    {
+      "t": 40.04,
+      "phase": "limp",
+      "event": "end",
+      "ok": true,
+      "rows": 2002
+    }
+  ],
+  "phase_errors": [],
+  "roll_peak_abs_deg": 3.714,
+  "pitch_peak_abs_deg": 0.0,
+  "z_min_m": 0.04,
+  "z_max_m": 0.1274,
+  "walk_cmd_dist_m": 1.292,
+  "walk_along_dist_m": 0.317,
+  "walk_progress_ratio": 0.246,
+  "slip_m_total_all_phases": 3.176,
+  "slip_per_walk_m_all_phases": 10.01,
+  "duty_cycle_all_phases": [
+    0.728,
+    0.699,
+    0.706,
+    0.72,
+    0.71,
+    0.692
+  ],
+  "swing_count_all_phases": [
+    30,
+    40,
+    34,
+    29,
+    30,
+    39
+  ],
+  "sacrificed_legs_all_phases": [],
+  "cur_max_a": 2.64,
+  "cur_p95_a": 1.572,
+  "walk_wz_cmd_abs_max_rad_s": 0.3,
+  "walk_turn_wz_err_med_rad_s": 0.0642,
+  "walk_hold_wz_med_rad_s": 0.0444,
+  "course_windows_1s": 159,
+  "course_motion_valid_frac_1s": 0.956,
+  "course_speed_ratio_1s_med": 0.178,
+  "course_err_1s_mean_deg": 31.87,
+  "course_err_1s_med_deg": 21.96,
+  "course_err_1s_p90_deg": 68.44,
+  "wrong_course_frac_1s": 0.0,
+  "course_windows_2s": 135,
+  "course_motion_valid_frac_2s": 1.0,
+  "course_speed_ratio_2s_med": 0.185,
+  "course_err_2s_mean_deg": 31.26,
+  "course_err_2s_med_deg": 16.12,
+  "course_err_2s_p90_deg": 68.04,
+  "wrong_course_frac_2s": 0.0,
+  "walk_gait_valid": true,
+  "compose_summary": {
+    "total_ticks": 1000,
+    "turn_ticks": 106,
+    "walk_ticks": 894,
+    "mean_abs_wz_turn": 0.16103276392787882,
+    "mean_abs_wz_walk": 0.07472624863148764,
+    "blend_s": 0.15,
+    "final_blend_w": 0.0,
+    "wrong_substitute_vx": 0.0,
+    "stall_substitute_every_s": 0.0,
+    "stall_substitute_dur_s": 0.0,
+    "stall_ticks": 0
+  }
+}

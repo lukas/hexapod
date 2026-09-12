@@ -7,7 +7,8 @@
   "composition_note": "This candidate is the RL checkpoint below WRAPPED by a non-learned scripted-teacher substitution (`rl_move/sim/probe_turn_compose.py:_ComposedPolicy`, `--compose-turn-blend-s 0.15`): on ticks the env itself classifies as live sustained turn-in-place (s_ref<=1e-3 and |wz_ref|>1e-3), the action is swapped to `hexapod_core.tripod_gait.TripodGait`, blended over 0.15s; all other ticks (straight-walk, transitions) are untouched -- the RL policy drives them exactly as trained, bit-exact vs the uncomposed checkpoint at blend_s=None. This is an `any_means` composition (explicit controller mixing), NOT a claim of rl_only ancestry -- see standwalk/amp/walkcurr tracks for the separate rl_only lineage.",
   "why_composed_not_raw": "The raw checkpoint's own turn-authority training tracks short/moderate turn commands fine (probe_turn_authority wz_med +-0.19 rad/s, matches its 100Hz parent's band) but FREEZES on sessions holding SUSTAINED turn-in-place long enough to reach a known continuous-single-mode-duration degeneration point shared with this codebase's other lineages (amp track's turncurr found the same class of freeze independently, 6/6 RL-side mechanisms tried and refuted there). Matched raw-vs-composed evidence on THIS exact checkpoint (probe_turn_compose.py, full training cfg-set replayed, dr_scale=0, 15s@50Hz): RAW gait_valid=False 4/4 seeds under forced walk_turn_in_place_frac=1.0 (sacrificed_legs [1,4] on 3, [1,4,5] on 1); COMPOSED gait_valid=True 4/4, sacrificed_legs=[] every seed, mean|wz|_turn 0.145-0.159 rad/s (5-6x raw, back in the passing band). A control at walk_turn_in_place_frac=0.0 (0 turn ticks) shows RAW and COMPOSED are BYTE-IDENTICAL and both freeze the same way -- proving (a) the raw freeze is a real, not turn-specific, continuous-duration artifact, and (b) the composed wrapper's fix is causally tied to the real turn-tick substitutions, not a wrapping/reset artifact. Whether the deeper mechanism is turn-specific (H2) or any-sustained-substitution-works (H1) is NOT isolated by this pair alone; a separate wrong-substitute control on a different lineage found H1 (generic substitution) -- see `rl_docs/tracks/todaypolicy/STATUS.md` 2026-09-12 ~13:5x. Either way the practical recommendation is unchanged: compose when sustained turning is expected.",
   "source_demo_summaries": [
-    "logs/manual_drive/cap29_acq1_composed_humanturn/summary.json"
+    "logs/manual_drive/cap29_acq1_composed_humanturn/summary.json",
+    "logs/manual_drive/cap29_acq1_hybriddemo_composed_humanturn/summary.json (full stand->walk->lower session; durable copy: full_session_demo/summary.json)"
   ],
   "source_probe_evidence": [
     "logs/probe_turn_compose/cap29_acq1_tip1/report.json",
@@ -25,14 +26,17 @@
       "policy_mode": "deterministic-or-stochastic (gate panel covers both, see gate_delta_vs_uncomposed below)",
       "exported_np_policy": "linux_control/policies/turn50hz_standwalk_cap29_stdwalklohi_warmadapt_canary2m_acq1.json",
       "exported_np_policy_sha256": "5806cdd0746bd3f89dcfcd2438fce2e1473a16d1a92c4e5390d13a67b4ff499b",
-      "composition_wrapper": "rl_move/sim/probe_turn_compose.py:_ComposedPolicy, wired into rl_move/sim/eval_checkpoint.py and rl_move/sim/drive_video.py via --compose-turn-blend-s (float seconds; None/omitted = disabled, bit-exact old behavior). NOT yet wired into rl_move/sim/hybrid_demo.py's stand+walk+lower session tool as of this manifest -- a full sit-to-walk(composed)-to-sit hybrid demo is a named open follow-up, not built this cycle.",
+      "composition_wrapper": "rl_move/sim/probe_turn_compose.py:_ComposedPolicy, wired into rl_move/sim/eval_checkpoint.py, rl_move/sim/drive_video.py, AND (2026-09-12) rl_move/sim/hybrid_demo.py (walk-phase controller only) via --compose-turn-blend-s (float seconds; None/omitted = disabled, bit-exact old behavior).",
       "validated_blend_s": 0.15,
       "cli_addition_for_eval_or_drivevideo": "--compose-turn-blend-s 0.15",
       "joystick_contract": {
         "body_frame_vx_vy_wz": true,
         "trained_speed_m_s": 0.08,
         "control_hz": 50,
-        "turn_authority_wz_rad_s": [0.191, -0.191],
+        "turn_authority_wz_rad_s": [
+          0.191,
+          -0.191
+        ],
         "obs_note": "dual-GRU, obs includes wz (see ledger extra_args for full cfg-set)"
       }
     }
@@ -48,6 +52,19 @@
       "cur_max_a": 2.573,
       "sim_seconds": 20.0,
       "source": "logs/manual_drive/cap29_acq1_composed_humanturn/summary.json"
+    },
+    "human_turn_composed_full_session": {
+      "terminated": false,
+      "truncated": false,
+      "sim_seconds": 40.02,
+      "gait_valid": true,
+      "sacrificed_legs": [],
+      "walk_progress_ratio": 0.246,
+      "turn_wz_err_med_rad_s": 0.0642,
+      "cur_max_a": 2.64,
+      "compose_summary_turn_ticks_of_total": "106/1000",
+      "source": "full_session_demo/summary.json",
+      "command": "ops.sh hybriddemo cw-turn50hz-standwalk-cap29-stdwalklohi-warmadapt-canary2m-acq1 --stand-controller learned --lower-controller learned --stance-policy linux_control/policies/stand50hz_stance_tuckclock_scratch6m_curhot_b23k12.json --script human_turn --policy-mode deterministic --compose-turn-blend-s 0.15"
     }
   },
   "transfer_blockers_or_work": [
@@ -55,7 +72,7 @@
     "This is an ALTERNATE walk role, not the bundle default -- straight-line quality is measurably softer (det progress_ratio 0.27 vs the default's 0.41, det slip 3.87 vs 2.19) and hold-mode shows falls the default doesn't (2/6 det, ~2/6 sto `hold_min_load`, pre-existing, not introduced by the composition). Use the default straight-only role unless the session genuinely needs joystick turning.",
     "The composition wrapper is REQUIRED for any command script with sustained (multi-second) turn-in-place segments -- the raw uncomposed checkpoint reproducibly freezes/sacrifices legs on those segments (matched pair above). Brief/transitional turns are fine either way (probe_turn_authority already passes raw).",
     "H1-vs-H2 causal question (is the fix turn-specific or generic-substitution) is NOT closed on THIS lineage's own evidence alone -- practical recommendation is unaffected either way, but do not over-claim a turn-specific mechanism if asked.",
-    "NOT wired into hybrid_demo.py -- a full stand->walk(composed-turn)->lower single-command demo does not exist yet; today's evidence is the walk-mode gate panel plus a standalone human_turn drivevideo, both through eval_checkpoint.py/drive_video.py directly.",
+    "DONE 2026-09-12 -- wired into hybrid_demo.py (--compose-turn-blend-s/--stall-substitute-every-s/--stall-substitute-dur-s, walk-phase only): a full single-command stand->walk(composed-turn)->lower session now exists and PASSES (terminated=false, gait_valid=true, sacrificed_legs=[]) -- see ../composed_turn_role/full_session_demo/{summary.json,transfer_manifest.json,drive.mp4} and this directory's GO_NOGO.md 'Full-session demo' section.",
     "No physical trial performed. Physical acceptance goes through Robot Lab's serialized guarded runner per RL_GOALS.md, independent of this manifest.",
     "Run only the read-only hardware preflight first (18 servos, IMU, pose near walk_ready, tilt within limit) before any physical session, per standing practice."
   ],

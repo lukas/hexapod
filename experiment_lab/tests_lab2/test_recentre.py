@@ -186,6 +186,7 @@ def test_run_walk_cuts_legs_when_an_obstacle_was_seen_and_recentres_at_the_end(s
 
 def test_loop_recentres_before_camera_measured_protocols_only(settings, store, monkeypatch):
     calls = []
+    monkeypatch.setattr(loop, "pixel_of", lambda s, run_dir: (0.85, 0.5))
     monkeypatch.setattr(loop, "recentre_before", lambda s, run_dir, walk, log: calls.append(walk) or
                         {"moved": True, "done": True, "reason": "centred", "start": [0.8, 0.5], "end": [0.5, 0.5], "seconds": 30.0})
     monkeypatch.setattr(robot, "health", lambda url, budget: GOOD_FB)
@@ -243,3 +244,31 @@ def test_look_is_told_the_pose_when_the_encoders_read_flat_zero(settings, store,
     loop.run_once(settings, store, store.plan(pid), log=lambda m: None)
     assert asked["pose_known"] is False
     assert "do not answer NO because of how the legs look" in eyes.POSE_KNOWN
+
+
+def test_a_pending_recentre_is_told_to_the_look_and_skipped_on_an_obstacle(settings, store, monkeypatch):
+    asked = {}
+    monkeypatch.setattr(eyes, "ready_to_move", lambda s, **k: asked.update(k) or (True, "YES flat.\nOBSTACLE: cable bundle between it and the middle", 0.0))
+    monkeypatch.setattr(robot, "health", lambda url, budget: GOOD_FB)
+    monkeypatch.setattr(runner, "sync_checkout", lambda s: "synced")
+    monkeypatch.setattr(runner, "run_protocol", lambda s, p, rid, force=False, **kw: runner.RunResult(
+        status="ok", exit_code=0, run_dir=None, summary={}, log_tail="", motion_s=1.0))
+    monkeypatch.setattr(loop, "pixel_of", lambda s, run_dir: (0.85, 0.5))       # far right of the frame
+    moved = []
+    monkeypatch.setattr(loop, "recentre_before", lambda *a, **k: moved.append(1) or {"moved": True, "done": True, "reason": "centred",
+                                                                                     "start": None, "end": None, "seconds": 1.0})
+    on = dataclasses.replace(settings, recentre=True)
+    pid = store.add_plan(title="p", why="w", kind="existing", protocol="champion_stand_ground_v1", build_spec=None)
+    run = loop.run_once(on, store, store.plan(pid), log=lambda m: None)
+    assert run["status"] == "ok"
+    assert "toward the middle" in asked["about_to"]
+    assert moved == []                                                          # did not walk into the cable
+    rc = json.loads(run["summary_json"])["recentre_before"]
+    assert rc["moved"] is False and "cable" in rc["reason"]
+    # near the middle already: no move is announced and the walk intent stands alone
+    monkeypatch.setattr(loop, "pixel_of", lambda s, run_dir: (0.52, 0.5))
+    (settings.protocols_dir / "walk_t_v1.json").write_text(json.dumps(
+        {"name": "walk_t_v1", "walk_protocol": 1, "gait": 1, "legs": [{"name": "f", "vx_mm_s": 30, "seconds": 10}]}))
+    pid = store.add_plan(title="p", why="w", kind="existing", protocol="walk_t_v1", build_spec=None)
+    loop.run_once(on, store, store.plan(pid), log=lambda m: None)
+    assert asked["about_to"] == "walk about 30 cm forward"

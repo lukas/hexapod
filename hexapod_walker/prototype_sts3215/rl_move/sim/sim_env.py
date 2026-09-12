@@ -183,6 +183,37 @@ def torque_headroom_debt_step(prev_debt: np.ndarray, current_abs: np.ndarray,
     return prev_debt + alpha_d * (redness - prev_debt)
 
 
+def current_income_ema_step(prev_ema: float, income_tick: float,
+                             alpha_i: float) -> float:
+    """One EMA update of the "task income" signal used by
+    ``reward.k_current_income`` (standwalk track, 2026-09-12).
+
+    Root cause (``CURRENT_TRUTHS.md`` 2026-09-12 ~12:5x): the
+    dualbc7-anchor14coef1-...-termcost3 lineage's late-tail
+    ``over_current`` collapse is an INCENTIVE overshoot, not optimizer
+    instability -- ``env/mean_current_a`` climbs monotonically as
+    walk+rise income consolidates over many million steps, crossing the
+    safety cutoff en masse once income growth outpaces a price that
+    stays FLAT (a fixed dose) or merely SCHEDULED by wall-clock training
+    step (seven independent single-lever guesses confirmed this: dose
+    3/6/12, continuous k_current_hot, ramped bootstrap timing, PPO
+    clip-range anneal, log-std-anneal schedule -- none scales the price
+    to the policy's own growing income, they only vary how a fixed
+    number is reached).
+
+    ``income_tick`` is a non-negative proxy for "how much task reward
+    did the policy just earn" (the caller clips it >=0 so a bad tick
+    never discounts the tracked level). ``prev_ema`` is an EMA of that
+    signal with a slow time constant (``alpha_i = dt / tau_s``, tuned to
+    several episodes -- deliberately much slower than any single
+    episode, so it tracks recent-behavior income consolidation, not
+    single-tick/single-episode variation). Pure/stateless (caller owns
+    persistence) so it is unit-testable without a live physics/reward
+    pipeline.
+    """
+    return prev_ema + alpha_i * (income_tick - prev_ema)
+
+
 # --------------------------------------------------------------------------
 # Valid-plant specification (operator, 2026-08-10). "Standing" is a
 # GEOMETRIC condition, not a torso height: every rise arm before this
@@ -1035,6 +1066,14 @@ class SimHexapodBalanceEnv(_GymBase):
             self._current_hot_bootstrap = {
                 "steps": _chb_steps, "min_frac": _chb_min, "frac": 0.0,
             }
+
+        # Income-relative current-price EMA state (reward.
+        # k_current_income, see current_income_ema_step's docstring).
+        # Allocated here (persists for the life of this env instance,
+        # i.e. across every episode reset for the training run's
+        # lifetime on this worker) rather than in reset(): the whole
+        # point is a training-run-scale signal, not a per-episode one.
+        self._current_income_ema: float | None = None
 
         if _gym is not None:
             self.observation_space = self._obs_space_box(N_OBS)
@@ -4869,6 +4908,52 @@ class SimHexapodBalanceEnv(_GymBase):
             r_hot = -k_hot * float(np.sum(over ** 2))
             parts["reward_current_hot"] = r_hot
             reward += r_hot
+        # Income-relative current pricing (standwalk track, 2026-09-12 --
+        # see current_income_ema_step's docstring for the full root-cause
+        # chain this answers). Structurally DIFFERENT from every lever
+        # above it: instead of a coefficient the operator doses or
+        # schedules by training step, this prices over-current
+        # proportional to a slow (tau in SECONDS -- deliberately several
+        # episodes long, the same `dt / tau_s` idiom as
+        # `torque_headroom_debt_step`'s `alpha_d`, chosen over a raw tick
+        # count specifically because "step" units are ambiguous across
+        # vectorized envs whereas dt/tau_s is not) EMA of the policy's
+        # own already-earned, pre-penalty task reward THIS TICK (captured
+        # as ``reward`` at this exact point in the function: whatever
+        # compute_reward + the rise_ref term above already banked, before
+        # any of this function's own penalty add-ons, so the tracked
+        # income is not circularly suppressed by this term's own price).
+        # As the policy consolidates and earns more over millions of
+        # steps, the effective price rises automatically in step with
+        # it -- there is no dose or schedule to guess, which is exactly
+        # the axis the seven prior single-lever guesses could not reach.
+        # Bit-exact OFF by default (reward.k_current_income=0): the EMA
+        # state (`self._current_income_ema`) is only allocated/updated
+        # when the coefficient is nonzero, and persists across episode
+        # resets (NOT zeroed in reset(), unlike `_torque_debt`) because
+        # it is deliberately a multi-episode/training-scale signal, not a
+        # within-episode one. Enable: --cfg-set reward.k_current_income=<k>
+        # [--cfg-set reward.current_income_tau_s=<seconds>, default 120].
+        k_cur_inc = float(cfg_get(self.cfg, "reward", "k_current_income",
+                                  default=0.0))
+        if k_cur_inc > 0.0 and self._state.servo_current is not None:
+            hot_a_inc = float(cfg_get(self.cfg, "reward", "current_hot_a",
+                                      default=1.0))
+            over_inc = np.maximum(
+                self._state.servo_current - hot_a_inc, 0.0)
+            tau_s_inc = float(cfg_get(
+                self.cfg, "reward", "current_income_tau_s", default=120.0))
+            alpha_inc = min(max(self.dt / max(tau_s_inc, 1e-6), 0.0), 1.0)
+            if getattr(self, "_current_income_ema", None) is None:
+                self._current_income_ema = 0.0
+            income_tick = max(reward, 0.0)
+            self._current_income_ema = current_income_ema_step(
+                self._current_income_ema, income_tick, alpha_inc)
+            r_cur_inc = (-k_cur_inc * self._current_income_ema
+                         * float(np.sum(over_inc ** 2)))
+            parts["reward_current_income"] = r_cur_inc
+            parts["current_income_ema"] = self._current_income_ema
+            reward += r_cur_inc
         # --- First-principles posture terms (operator 08-08 ~20:45Z,
         # default OFF). WHY a waving leg is bad: smaller support polygon
         # (tips), load concentration (hot knees), wasted hold torque.

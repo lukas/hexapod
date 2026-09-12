@@ -1014,6 +1014,94 @@ def test_torque_headroom_reward_default_off_and_wired():
 
 
 # ---------------------------------------------------------------------------
+# Income-relative current pricing (standwalk track, 2026-09-12 — the
+# structurally-different lever after 7 flat-dose/flat-schedule guesses
+# (term_cost 3/6/12, k_current_hot, ramped bootstrap, clip-range-anneal,
+# log-std-anneal) all failed on the dualbc7-...-termcost3 late-tail
+# over_current collapse: root-caused as the price staying flat while the
+# policy's own income grows, so this prices over-current proportional to
+# a slow EMA of realized task income instead of a fixed dose).
+
+
+def test_current_income_ema_step_math():
+    """Pure EMA math: a sustained positive income signal converges the
+    tracked level toward it (never past it), and a zero/negative tick
+    never discounts (caller is expected to clip income_tick >= 0
+    upstream, but the step function itself is just a plain EMA)."""
+    from rl_move.sim.sim_env import current_income_ema_step
+
+    ema = 0.0
+    alpha = 1.0 / 100.0
+    for _ in range(400):  # 4 tau of sustained income=2.0
+        ema = current_income_ema_step(ema, 2.0, alpha)
+    assert 1.9 < ema <= 2.0 + 1e-9, "should converge close to the level"
+
+    # Decays back down once income drops to 0.
+    for _ in range(400):
+        ema = current_income_ema_step(ema, 0.0, alpha)
+    assert ema < 0.1
+
+    # alpha=0 freezes the EMA (never updates).
+    frozen = current_income_ema_step(0.5, 999.0, 0.0)
+    assert frozen == 0.5
+    # alpha=1 snaps instantly to the new sample.
+    snapped = current_income_ema_step(0.5, 3.0, 1.0)
+    assert snapped == 3.0
+
+
+def test_current_income_reward_default_off_and_wired():
+    """`reward.k_current_income` is bit-exact OFF by default (no info
+    key, no EMA state ever allocated) and produces a finite, non-
+    positive reward part with a non-negative tracked EMA when enabled;
+    the EMA persists across an episode reset (training-run-scale
+    signal, not a per-episode one, unlike `_torque_debt`)."""
+    from rl_move.config import load_config
+    from rl_move.sim.servo_model import SimServoParams
+    from rl_move.sim.joint_task import SimHexapodJointGoalEnv, q_rad_to_action
+
+    cfg_off = load_config()
+    env_off = SimHexapodJointGoalEnv(params=SimServoParams.load(),
+                                      cfg=cfg_off, randomize=False,
+                                      episode_seconds=2.0, seed=0)
+    obs, _ = env_off.reset()
+    a = q_rad_to_action(env_off._cmd.copy())
+    for _ in range(5):
+        obs, r, term, trunc, info = env_off.step(a)
+        assert "reward_current_income" not in info
+    assert getattr(env_off, "_current_income_ema", None) is None
+    env_off.close()
+
+    cfg_on = load_config()
+    cfg_on.setdefault("reward", {})
+    cfg_on["reward"]["k_current_income"] = 50.0
+    cfg_on["reward"]["current_hot_a"] = 0.0  # force `over` > 0 every tick
+    cfg_on["reward"]["current_income_tau_s"] = 0.1  # fast for the test
+    env_on = SimHexapodJointGoalEnv(params=SimServoParams.load(),
+                                     cfg=cfg_on, randomize=False,
+                                     episode_seconds=2.0, seed=0)
+    obs, _ = env_on.reset()
+    a = q_rad_to_action(env_on._cmd.copy())
+    seen = {}
+    for _ in range(10):
+        obs, r, term, trunc, info = env_on.step(a)
+        if "reward_current_income" in info:
+            seen["reward_current_income"] = info["reward_current_income"]
+            seen["current_income_ema"] = info["current_income_ema"]
+    assert "reward_current_income" in seen, "income-price term never fired"
+    assert seen["reward_current_income"] <= 0.0
+    assert np.isfinite(seen["reward_current_income"])
+    assert seen["current_income_ema"] >= 0.0
+    ema_after_first_pass = env_on._current_income_ema
+    assert ema_after_first_pass is not None
+
+    # Reset the episode: the EMA must NOT be zeroed (persists across
+    # resets, unlike torque_debt).
+    env_on.reset()
+    assert env_on._current_income_ema == ema_after_first_pass
+    env_on.close()
+
+
+# ---------------------------------------------------------------------------
 # Temporal actor: env-side obs history (plan §Architecture, cycle 13)
 
 

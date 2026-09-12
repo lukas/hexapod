@@ -42,6 +42,9 @@ def main(argv=None) -> int:
     cap.add_argument("usd", type=float)
     sub.add_parser("status")
     sub.add_parser("zero-check", help="camera vs encoders at the zero pose (hexapod-zero-check in the tracker checkout)")
+    rc = sub.add_parser("recentre", help="walk the robot toward the middle of the top camera's frame, then sit (or --stay standing)")
+    rc.add_argument("--stay", action="store_true", help="leave it standing")
+    rc.add_argument("--budget", type=float, default=None, help="seconds (default: settings.recentre_budget_s)")
     sub.add_parser("pause"); sub.add_parser("resume")
     args = ap.parse_args(argv)
 
@@ -112,6 +115,18 @@ def main(argv=None) -> int:
                           "queue": [(p["status"], p["title"], p["protocol"]) for p in store.plans(["queued", "building", "running"])],
                           "runs": [(r["started_at"], r["protocol"], r["status"]) for r in store.runs(limit=5)]}, indent=1))
         return 0
+    if args.cmd == "recentre":
+        from . import recentre, walk
+        out_dir = settings.data_dir / "recentre"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        s = walk.Session(settings, out_dir, log=lambda m: print(m, flush=True))
+        frac = s.pixel()
+        print(f"chassis tag at {frac} in camera {s.seen_camera}" if frac else "chassis tag not visible in any camera")
+        res = recentre.recentre(s, budget_s=args.budget or settings.recentre_budget_s)
+        if res["moved"] and not args.stay:
+            s.sit(wait=True)
+        print(json.dumps({k: res.get(k) for k in ("moved", "done", "reason", "start", "end", "seconds", "pushes")}, indent=1))
+        return 0 if res["done"] else 1
     if args.cmd == "zero-check":
         from . import robot, zero_check
         try:

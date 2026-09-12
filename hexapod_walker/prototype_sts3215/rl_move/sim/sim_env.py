@@ -987,6 +987,55 @@ class SimHexapodBalanceEnv(_GymBase):
             }
             self._residual_blend_override = _rba_start
 
+        # Hot-current BOOTSTRAP (standwalk track, 2026-09-12 — the
+        # dualbc7-anchor14coef1-...-termcost3 lineage's late-tail
+        # over_current spike: root-caused 09-12 ~12:5x as an INCENTIVE
+        # overshoot, not optimizer instability — env/mean_current_a
+        # climbs monotonically as walk+rise income consolidates over
+        # MANY MILLION steps, crossing the safety cutoff en masse once
+        # income growth outpaces a FLAT per-tick current price. Every
+        # dose tried so far (k_current_hot in {0,3,6}, flat from
+        # step 0) showed the identical dose-independent late-training
+        # tail shape (4 independent confirmations, 15:2x); a stack-
+        # frozen dose of 12 is on record from an earlier lineage,
+        # applied flat from initialization. This is a STRUCTURALLY
+        # different lever, not another flat-dose guess: introduce a
+        # HIGHER terminal dose than the safe-flat ceiling (6) GRADUALLY
+        # over training (mirrors k_loadslip_excess's own bootstrap
+        # convention, walk_task.py's apply_loadslip_bootstrap_frac —
+        # same broadcast contract, ramping UP to a cfg target) so the
+        # policy never sees the freeze-inducing high dose from
+        # initialization (the plausible cause of the flat-12 freeze),
+        # while the price is STILL RISING through the late-training
+        # window where the overshoot actually happens, unlike a
+        # bootstrap that finishes ramping before the tail (which would
+        # be behaviorally identical to a flat dose there). Same
+        # cfg-armed / trainer-driven / default-OFF contract as every
+        # other ramp in this file (bit-exact when reward.
+        # current_hot_bootstrap_steps is 0/absent — the debt array and
+        # override stay unallocated/None, k_current_hot reads exactly
+        # as before). Enable: --cfg-set reward.k_current_hot=<final
+        # dose> --cfg-set reward.current_hot_bootstrap_steps=<N>
+        # [--cfg-set reward.current_hot_bootstrap_min_frac=<0..1>].
+        self._current_hot_bootstrap: dict | None = None
+        self._current_hot_bootstrap_override: float | None = None
+        _chb_steps = int(float(cfg_get(
+            self.cfg, "reward", "current_hot_bootstrap_steps",
+            default=0) or 0))
+        if _chb_steps > 0:
+            _chb_min = float(cfg_get(
+                self.cfg, "reward", "current_hot_bootstrap_min_frac",
+                default=0.30))
+            if not 0.0 <= _chb_min <= 1.0:
+                raise ValueError(
+                    "reward.current_hot_bootstrap_min_frac "
+                    f"({_chb_min:g}) must be in [0, 1] — the "
+                    "bootstrap only ever anneals k_current_hot UP to "
+                    "the full cfg dose")
+            self._current_hot_bootstrap = {
+                "steps": _chb_steps, "min_frac": _chb_min, "frac": 0.0,
+            }
+
         if _gym is not None:
             self.observation_space = self._obs_space_box(N_OBS)
             self.action_space = _gym.spaces.Box(
@@ -2949,6 +2998,32 @@ class SimHexapodBalanceEnv(_GymBase):
         self._residual_blend_ramp["frac"] = f
         return {"frac": f, "blend": self._residual_blend_override}
 
+    def apply_current_hot_bootstrap_frac(self, frac: float) -> dict:
+        """Move the live ``k_current_hot`` scale to ``frac`` of the
+        bootstrap (0 = ``reward.current_hot_bootstrap_min_frac`` of
+        the cfg dose, 1 = full dose); trainer-driven — see the
+        ``reward.current_hot_bootstrap_steps`` block in ``__init__``.
+        Mirrors ``apply_loadslip_bootstrap_frac``'s contract exactly:
+        raises when the bootstrap is not armed, so a broadcast that
+        silently no-ops is never a hidden failure mode."""
+        if self._current_hot_bootstrap is None:
+            raise RuntimeError(
+                "apply_current_hot_bootstrap_frac called but reward."
+                "current_hot_bootstrap_steps is not set (>0) in this "
+                "env's cfg — the current-hot bootstrap is not armed")
+        f = min(max(float(frac), 0.0), 1.0)
+        m = self._current_hot_bootstrap["min_frac"]
+        self._current_hot_bootstrap_override = m + f * (1.0 - m)
+        self._current_hot_bootstrap["frac"] = f
+        return {"frac": f, "scale": self._current_hot_bootstrap_override}
+
+    def _current_hot_scale(self) -> float:
+        """Live scale on ``k_current_hot`` (see the current-hot
+        bootstrap block in ``__init__``): 1.0 (bit-exact legacy / full
+        cfg dose) unless the trainer has broadcast a bootstrap frac."""
+        ov = self._current_hot_bootstrap_override
+        return 1.0 if ov is None else ov
+
     def apply_profile_ramp_frac(self, frac: float) -> dict:
         """Move the live write profile to ``frac`` of the ramp
         (0 = gentle start, 1 = the cfg target dose); trainer-driven —
@@ -4783,6 +4858,10 @@ class SimHexapodBalanceEnv(_GymBase):
         # hurts. Enable with --cfg-set reward.k_current_hot=<k>.
         k_hot = float(cfg_get(self.cfg, "reward", "k_current_hot",
                               default=0.0))
+        # Bootstrap scale (default 1.0 = bit-exact legacy; see the
+        # current-hot bootstrap block in __init__): only ever shrinks
+        # k_hot early in training, never grows it past the cfg dose.
+        k_hot *= self._current_hot_scale()
         if k_hot > 0.0 and self._state.servo_current is not None:
             hot_a = float(cfg_get(self.cfg, "reward", "current_hot_a",
                                   default=1.0))

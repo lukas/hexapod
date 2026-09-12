@@ -3570,6 +3570,40 @@ def main(argv: list[str] | None = None) -> int:
                   f"--steps ({args.steps:,}) — the policy will NEVER "
                   "train at the full anti-skate charge in this run")
 
+    # Hot-current BOOTSTRAP (standwalk track, 2026-09-12 — see
+    # sim_env.py's __init__ block for the mechanism/why). Same
+    # cfg-armed / trainer-driven / default-OFF contract, structurally
+    # identical to the loadslip bootstrap immediately above but for a
+    # DIFFERENT coefficient (k_current_hot, a dense GLOBAL safety
+    # price, not a walk-only discovery-friction charge).
+    _chb_steps = 0
+    if env_kw.get("cfg") is not None:
+        from rl_move.config import cfg_get as _cfg_get_chb
+        _chb_steps = int(float(_cfg_get_chb(
+            env_kw["cfg"], "reward", "current_hot_bootstrap_steps",
+            default=0) or 0))
+
+    def _current_hot_frac_at(step: int) -> float:
+        return min(1.0, float(step) / float(_chb_steps))
+
+    def _current_hot_bootstrap_apply(target_venv, step: int) -> dict | None:
+        if _chb_steps <= 0:
+            return None
+        f = _current_hot_frac_at(step)
+        return target_venv.env_method(
+            "apply_current_hot_bootstrap_frac", f)[0]
+
+    if _chb_steps > 0:
+        _chb0 = _current_hot_bootstrap_apply(venv, 0)
+        print(f"[current-hot-bootstrap] armed: {_chb_steps:,} global "
+              "env steps from a softened k_current_hot to the full "
+              f"cfg dose; step-0 scale={_chb0['scale']:.3f}")
+        if _chb_steps >= args.steps:
+            print("[current-hot-bootstrap] WARNING: "
+                  f"current_hot_bootstrap_steps ({_chb_steps:,}) >= "
+                  f"--steps ({args.steps:,}) — the policy will NEVER "
+                  "train at the full current price in this run")
+
     # Residual-blend GATED anneal (2026-09-09, assistfade rung 3
     # "blend-schedule fix" — see sim_env.py's goal.walk_residual_
     # anneal_gate block in __init__/apply_residual_blend_frac for the
@@ -4984,6 +5018,37 @@ def main(argv: list[str] | None = None) -> int:
                             vals["excess_scale"]})
 
         callbacks.append(_LoadslipBootstrapCb())
+    if _chb_steps > 0:
+        class _CurrentHotBootstrapCb(BaseCallback):
+            """Advance the current-hot bootstrap once per rollout (see
+            the arming block after venv construction). W&B gets the
+            live scale under current_hot_bootstrap/*."""
+
+            def __init__(self):
+                super().__init__()
+                self._finished = False
+
+            def _on_step(self) -> bool:
+                return True
+
+            def _on_rollout_end(self) -> None:
+                if self._finished:
+                    return
+                vals = _current_hot_bootstrap_apply(
+                    venv, self.num_timesteps)
+                if vals["frac"] >= 1.0:
+                    self._finished = True
+                    print("[current-hot-bootstrap] complete @ "
+                          f"{self.num_timesteps:,} steps — training "
+                          "at the full current price from here on")
+                if run is not None:
+                    import wandb
+                    wandb.log({
+                        "global_step": self.num_timesteps,
+                        "current_hot_bootstrap/frac": vals["frac"],
+                        "current_hot_bootstrap/scale": vals["scale"]})
+
+        callbacks.append(_CurrentHotBootstrapCb())
     if _rba_gate:
         # See the arming block above (after venv construction) for
         # the mechanism/why. Structurally mirrors bc_anchor.py's

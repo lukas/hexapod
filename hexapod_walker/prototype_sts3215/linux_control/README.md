@@ -419,8 +419,9 @@ contact sweep residuals, and MuJoCo behavior agree.
 ### RL episode traces (automatic)
 
 Every RL stand / lower / walk run additionally writes per-tick telemetry
-on the robot: `logs/rl_<mode>_<stamp>.csv` (25 Hz — attitude, gyro, goal
-refs, measured + commanded q, raw action, per-servo current) and a
+on the robot: `logs/rl_<mode>_<stamp>.csv` (at the policy's real 25/50/100 Hz
+cadence — attitude, raw calibrated accel + gyro, goal refs, measured +
+commanded q, raw action, per-servo current) and a
 matching `_summary.json` (params + result), with `rl_episode` start/end
 markers in `events.jsonl`. Full column list and analysis notes:
 `../rl_move/API.md` § "RL episode logging". Pull with

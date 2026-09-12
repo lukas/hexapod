@@ -409,24 +409,39 @@ def _make_fixed_base_xml(xml: str) -> str:
     return xml
 
 
-def _compile_with_foot_radius(xml: str, assets=None, radius_m: float = 0.0):
-    """Compile a sphere-radius diagnostic with fresh collision bounds.
+def _compile_with_foot_radius(xml: str, assets=None, radius_m: float = 0.0,
+                              leg_mount_flex=None,
+                              joint_series_flex=None):
+    """Compile optional flex / sphere-radius diagnostics.
 
-    Zero keeps the original compile path. Positive doses retain the original
-    bodies' inertial properties: this changes contact geometry, not mass,
-    inertia, or friction calibration. MuJoCo friction torque coefficients
-    have length units already; a fixed rolling coefficient does not acquire
-    an additional radius multiplier.
+    Rigid + zero radius keeps the original compile path bit-exact. Flex uses
+    MjSpec to add either hidden mount hinges or true post-encoder series
+    hinges; a positive radius retains the original bodies' inertial properties
+    so it changes contact geometry, not mass, inertia, or friction calibration.
     """
     import mujoco
     radius = float(radius_m)
     if not np.isfinite(radius) or radius < 0.0:
         raise ValueError("env.foot_geom_radius_m must be finite and >= 0")
-    if radius == 0.0:
+    if leg_mount_flex is not None and joint_series_flex is not None:
+        raise ValueError(
+            "leg_mount_flex and joint_series_flex are mutually exclusive")
+    if (radius == 0.0 and leg_mount_flex is None
+            and joint_series_flex is None):
         return (mujoco.MjModel.from_xml_string(xml, assets=assets)
                 if assets else mujoco.MjModel.from_xml_string(xml))
 
     spec = mujoco.MjSpec.from_string(xml, assets=assets or {})
+    if leg_mount_flex is not None:
+        from .leg_mount_flex import apply_to_mjspec
+        apply_to_mjspec(spec, leg_mount_flex)
+    if joint_series_flex is not None:
+        from .joint_series_flex import apply_to_mjspec
+        # Unlike the simple mount hinge, true series compliance reparents
+        # output bodies and therefore returns a replacement MjSpec.
+        spec = apply_to_mjspec(spec, joint_series_flex)
+    if radius == 0.0:
+        return spec.compile()
     if spec.compiler.fusestatic:
         raise ValueError("foot radius diagnostic does not support fusestatic")
     targets = [g for g in spec.geoms if g.name in {
@@ -467,7 +482,8 @@ def _compile_with_foot_radius(xml: str, assets=None, radius_m: float = 0.0):
 def _build_mesh_model(*, source: str, fixed_base: bool, flat_terrain: bool,
                       mjx_compat: bool, terrain_amp: float,
                       terrain_seed: int, leg_chassis_collision: bool,
-                      foot_geom_radius_m: float = 0.0):
+                      foot_geom_radius_m: float = 0.0,
+                      leg_mount_flex=None, joint_series_flex=None):
     """build_model backend for the mesh family (source mesh / mesh_mjx)."""
     import mujoco
     want_full = source == "mesh" and not mjx_compat
@@ -497,7 +513,9 @@ def _build_mesh_model(*, source: str, fixed_base: bool, flat_terrain: bool,
                      'group="1" condim="3" friction="1.0 0.02 0.0001"/>')
         else:
             xml = _apply_leg_chassis_rewrites(xml, path.name)
-    model = _compile_with_foot_radius(xml, assets, foot_geom_radius_m)
+    model = _compile_with_foot_radius(
+        xml, assets, foot_geom_radius_m, leg_mount_flex,
+        joint_series_flex)
     _populate_terrain(model, flat_terrain, terrain_amp, terrain_seed)
     return model
 
@@ -543,7 +561,8 @@ def build_model(*, fixed_base: bool = False, flat_terrain: bool = True,
                 mesh_visuals: bool = True, mjx_compat: bool = False,
                 terrain_amp: float = 1.0, terrain_seed: int = 0,
                 leg_chassis_collision: bool = False,
-                source: str | None = None, foot_geom_radius_m: float = 0.0):
+                source: str | None = None, foot_geom_radius_m: float = 0.0,
+                leg_mount_flex=None, joint_series_flex=None):
     """Load the hexapod MJCF. ``fixed_base`` welds the chassis (bench/air
     tests); ``flat_terrain`` zeroes the random hfield so the floor is flat.
 
@@ -576,6 +595,16 @@ def build_model(*, fixed_base: bool = False, flat_terrain: bool = True,
     Zero follows the original compile path. This is a simulation geometry
     diagnostic, not a calibrated change to the physical robot.
 
+    ``leg_mount_flex`` is an opt-in ``LegMountFlexSpec`` which compiles six
+    passive, post-encoder leg-root hinges.  ``None`` leaves topology and
+    physics untouched.  The named 18-joint action/observation contract does
+    not include these hidden structural coordinates.
+
+    ``joint_series_flex`` is an opt-in ``JointSeriesFlexSpec`` which inserts
+    selected passive, co-axial hinges after the named encoder-side joints.
+    It is mutually exclusive with ``leg_mount_flex``. ``None`` is the exact
+    rigid legacy path; no stiffness or damping values are inferred here.
+
     ``source`` (default: cfg ``env.model_source``, see
     ``resolve_model_source``) selects the MJCF family: ``mesh`` /
     ``mesh_mjx`` load the mesh-accurate kinematics from ``mesh_mujoco/``
@@ -592,7 +621,9 @@ def build_model(*, fixed_base: bool = False, flat_terrain: bool = True,
             mjx_compat=mjx_compat, terrain_amp=terrain_amp,
             terrain_seed=terrain_seed,
             leg_chassis_collision=leg_chassis_collision,
-            foot_geom_radius_m=foot_geom_radius_m)
+            foot_geom_radius_m=foot_geom_radius_m,
+            leg_mount_flex=leg_mount_flex,
+            joint_series_flex=joint_series_flex)
     import mujoco_prototype as MP
     saved = (MP.USE_PART_MESHES, MP.USE_SERVO_MESHES)
     try:
@@ -649,7 +680,10 @@ def build_model(*, fixed_base: bool = False, flat_terrain: bool = True,
         if n != 1:
             raise RuntimeError("mjx_compat floor removal failed — "
                                "mujoco_prototype floor XML changed?")
-    model = _compile_with_foot_radius(xml, radius_m=foot_geom_radius_m)
+    model = _compile_with_foot_radius(
+        xml, radius_m=foot_geom_radius_m,
+        leg_mount_flex=leg_mount_flex,
+        joint_series_flex=joint_series_flex)
     _populate_terrain(model, flat_terrain, terrain_amp, terrain_seed)
     return model
 
@@ -724,6 +758,14 @@ def joint_qvel_addrs(model) -> np.ndarray:
 
 def position_actuator_ids(model) -> np.ndarray:
     return np.array([_act_id(model, n) for n in joint_names()], dtype=int)
+
+
+def joint_ids(model) -> np.ndarray:
+    """Compiled IDs of the 18 commanded joints, independent of auxiliaries."""
+    import mujoco
+    return np.array([
+        mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, name)
+        for name in joint_names()], dtype=int)
 
 
 # ---------------------------------------------------------------------------

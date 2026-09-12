@@ -1343,6 +1343,7 @@ def test_episode_log_records_actual_time_activity_and_sensor_age(tmp_path, monke
     state = _state(timestamp=10.01, timing={
         "snapshot_seq": 42, "pos_age_ms": 4.0, "imu_age_ms": 7.0,
     })
+    state.imu_accel = np.array([0.0, 0.0, 9.80665])
     now[0] = 10.08
     log.tick(0.01, state, None, None, None, 0.08, 0.0, 0.4,
              phase="walk", walk_engaged=True, learned_policy_active=True,
@@ -1361,6 +1362,9 @@ def test_episode_log_records_actual_time_activity_and_sensor_age(tmp_path, monke
     assert float(rows[0]["imu_age_ms"]) == pytest.approx(77.0)
     assert float(rows[0]["state_age_ms"]) == pytest.approx(77.0)
     assert rows[0]["snapshot_seq"] == "42"
+    assert float(rows[0]["ax_g"]) == pytest.approx(0.0)
+    assert float(rows[0]["ay_g"]) == pytest.approx(0.0)
+    assert float(rows[0]["az_g"]) == pytest.approx(1.0)
     assert rows[1]["walk_engaged"] == rows[1]["learned_policy_active"] == "0"
     assert rows[1]["bus_write_due"] == "0"
 

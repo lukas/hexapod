@@ -1,0 +1,710 @@
+{
+  "schema_version": 1,
+  "created_date": "2026-09-12",
+  "purpose": "Hexapod 2 hardware telemetry fit/held-out replay matrix for opt-in digital-twin compliance calibration.",
+  "selection_rules": {
+    "active_phase_values": [
+      "walk",
+      "run"
+    ],
+    "timing": "Use mono_s when present, otherwise t_s. Preserve real inter-tick timing and interior hold rows between the first and last active tick; split only at deliberate long discontinuities.",
+    "command_values": "vx/vy are medians of active CSV rows. yaw is not logged in these CSVs; nonzero AMP yaw commands come from the Robot Lab experiment labels.",
+    "split_policy": "Fit uses one trace each from PS200, walkteach, AMP, and allheading. Every repeat, reverse/crab/turn, older session, RL-only policy, and failure-mode trace remains held out.",
+    "translation": "Tracker-derived translation is not contained in these CSVs and must be joined separately; quality flags identify traces whose tracker measurement was invalid.",
+    "sim_counterpart": "Every row is directly open-loop replayable from cmd0..17. sim_counterpart identifies the matching local closed-loop actor; the RL-only row has an exported actor JSON rather than a local SB3 zip."
+  },
+  "deduplication": {
+    "algorithm": "sha256",
+    "selected_entries": 25,
+    "unique_csv_artifacts": 25,
+    "rule": "Exactly one physical CSV is stored per SHA-256; manifest entries may reference the same artifact if source records duplicate bytes."
+  },
+  "entries": [
+    {
+      "run_id": "cc274e771141",
+      "filename": "rl_drive_20260911_233603.csv",
+      "family": "speed_ps200",
+      "split": "fit",
+      "command": "forward vx=+0.10 m/s",
+      "command_values": {
+        "vx_ref_mps_active_median": 0.1,
+        "vy_ref_mps_active_median": 0.0,
+        "yaw_ref_rad_s": 0.0
+      },
+      "hz": 49.97,
+      "timing_column": "mono_s",
+      "active_phases": [
+        "walk"
+      ],
+      "active_rows": 728,
+      "active_span_s": 14.975982,
+      "artifact": "csv/fcadfd066c23__rl_drive_20260911_233603.csv",
+      "sha256": "fcadfd066c239decfb3ab1253cccd53e1226ece55823ce7178cb57bfd4ccffb2",
+      "quality_flags": [
+        "primary PS200 calibration trace"
+      ],
+      "sim_counterpart": {
+        "kind": "sb3_checkpoint",
+        "workspace_relative_path": "hexapod_walker/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_speed50hz_stride_ps200_lift14_massfix_sr105_acq10m.zip"
+      }
+    },
+    {
+      "run_id": "10f90c2597f3",
+      "filename": "rl_drive_20260911_230619.csv",
+      "family": "walkteach",
+      "split": "fit",
+      "command": "forward vx=+0.08 m/s",
+      "command_values": {
+        "vx_ref_mps_active_median": 0.08,
+        "vy_ref_mps_active_median": 0.0,
+        "yaw_ref_rad_s": 0.0
+      },
+      "hz": 97.547,
+      "timing_column": "mono_s",
+      "active_phases": [
+        "walk"
+      ],
+      "active_rows": 1329,
+      "active_span_s": 14.912571,
+      "artifact": "csv/be1ae0aa8316__rl_drive_20260911_230619.csv",
+      "sha256": "be1ae0aa831660d112d8a7a46e0f1e683577147d17eee1b5140f6975dadcf7db",
+      "quality_flags": [
+        "low-roll negative control"
+      ],
+      "sim_counterpart": {
+        "kind": "sb3_checkpoint",
+        "workspace_relative_path": "hexapod_walker/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkteach_scripted_allhead_acq12m.zip"
+      }
+    },
+    {
+      "run_id": "5c19a8585838",
+      "filename": "rl_drive_20260911_184231.csv",
+      "family": "amp_phasehz11_s29",
+      "split": "fit",
+      "command": "forward vx=+0.06 m/s",
+      "command_values": {
+        "vx_ref_mps_active_median": 0.06,
+        "vy_ref_mps_active_median": 0.0,
+        "yaw_ref_rad_s": 0.0
+      },
+      "hz": 24.999,
+      "timing_column": "mono_s",
+      "active_phases": [
+        "walk"
+      ],
+      "active_rows": 376,
+      "active_span_s": 14.999825,
+      "artifact": "csv/ddb145cc29a1__rl_drive_20260911_184231.csv",
+      "sha256": "ddb145cc29a17b41ff1488a25cfb4e9c2561a10bc3466044e4815ad0a1eda8de",
+      "quality_flags": [
+        "cross-family fit anchor"
+      ],
+      "sim_counterpart": {
+        "kind": "sb3_checkpoint",
+        "workspace_relative_path": "hexapod_walker/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_pushcal518_phasehz11_s29.zip"
+      }
+    },
+    {
+      "run_id": "a8422106c7b0",
+      "filename": "rl_drive_20260911_232958.csv",
+      "family": "allheading_mlp",
+      "split": "fit",
+      "command": "forward vx=+0.08 m/s",
+      "command_values": {
+        "vx_ref_mps_active_median": 0.08,
+        "vy_ref_mps_active_median": 0.0,
+        "yaw_ref_rad_s": 0.0
+      },
+      "hz": 97.343,
+      "timing_column": "mono_s",
+      "active_phases": [
+        "walk"
+      ],
+      "active_rows": 1328,
+      "active_span_s": 14.960471,
+      "artifact": "csv/b8246d24e72b__rl_drive_20260911_232958.csv",
+      "sha256": "b8246d24e72b9ccb06bff140f10e7fb329033609b86bbe3b5aad713d1175a22f",
+      "quality_flags": [
+        "low-roll negative control"
+      ],
+      "sim_counterpart": {
+        "kind": "sb3_checkpoint",
+        "workspace_relative_path": "hexapod_walker/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walk_allheading_mlp_singleframe_acq1_stdanneal.zip"
+      }
+    },
+    {
+      "run_id": "8263389349f6",
+      "filename": "rl_drive_20260911_233345.csv",
+      "family": "speed_ps200",
+      "split": "holdout",
+      "command": "forward vx=+0.08 m/s",
+      "command_values": {
+        "vx_ref_mps_active_median": 0.08,
+        "vy_ref_mps_active_median": 0.0,
+        "yaw_ref_rad_s": 0.0
+      },
+      "hz": 49.968,
+      "timing_column": "mono_s",
+      "active_phases": [
+        "walk"
+      ],
+      "active_rows": 432,
+      "active_span_s": 8.72454,
+      "artifact": "csv/90edc9809110__rl_drive_20260911_233345.csv",
+      "sha256": "90edc98091102009680e8d0746ac1d204639629812bd02071ae9c0ae6bb2f624",
+      "quality_flags": [
+        "Robot Lab status failed; AprilTag translation invalid, IMU/joint replay usable"
+      ],
+      "sim_counterpart": {
+        "kind": "sb3_checkpoint",
+        "workspace_relative_path": "hexapod_walker/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_speed50hz_stride_ps200_lift14_massfix_sr105_acq10m.zip"
+      }
+    },
+    {
+      "run_id": "7c968b7792ca",
+      "filename": "rl_drive_20260911_221746.csv",
+      "family": "allheading_mlp",
+      "split": "holdout",
+      "command": "forward vx=+0.08 m/s",
+      "command_values": {
+        "vx_ref_mps_active_median": 0.08,
+        "vy_ref_mps_active_median": 0.0,
+        "yaw_ref_rad_s": 0.0
+      },
+      "hz": 97.661,
+      "timing_column": "mono_s",
+      "active_phases": [
+        "walk"
+      ],
+      "active_rows": 1413,
+      "active_span_s": 15.169344,
+      "artifact": "csv/dec3ca41c6b6__rl_drive_20260911_221746.csv",
+      "sha256": "dec3ca41c6b6e0dba2c3264385bea0c445ad5ea2e6200a487d5722178a0add39",
+      "quality_flags": [],
+      "sim_counterpart": {
+        "kind": "sb3_checkpoint",
+        "workspace_relative_path": "hexapod_walker/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walk_allheading_mlp_singleframe_acq1_stdanneal.zip"
+      }
+    },
+    {
+      "run_id": "ca3e7039d1d6",
+      "filename": "rl_drive_20260911_222104.csv",
+      "family": "allheading_mlp",
+      "split": "holdout",
+      "command": "forward vx=+0.08 m/s",
+      "command_values": {
+        "vx_ref_mps_active_median": 0.08,
+        "vy_ref_mps_active_median": 0.0,
+        "yaw_ref_rad_s": 0.0
+      },
+      "hz": 97.666,
+      "timing_column": "mono_s",
+      "active_phases": [
+        "walk"
+      ],
+      "active_rows": 1392,
+      "active_span_s": 15.064868,
+      "artifact": "csv/d3bffb7b2f22__rl_drive_20260911_222104.csv",
+      "sha256": "d3bffb7b2f226681d62f221b11e0917856841bf3732d21eb58ea16b6c0d04129",
+      "quality_flags": [],
+      "sim_counterpart": {
+        "kind": "sb3_checkpoint",
+        "workspace_relative_path": "hexapod_walker/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walk_allheading_mlp_singleframe_acq1_stdanneal.zip"
+      }
+    },
+    {
+      "run_id": "945e97f4d7a8",
+      "filename": "rl_drive_20260911_222254.csv",
+      "family": "allheading_mlp",
+      "split": "holdout",
+      "command": "reverse vx=-0.08 m/s",
+      "command_values": {
+        "vx_ref_mps_active_median": -0.08,
+        "vy_ref_mps_active_median": 0.0,
+        "yaw_ref_rad_s": 0.0
+      },
+      "hz": 98.164,
+      "timing_column": "mono_s",
+      "active_phases": [
+        "walk"
+      ],
+      "active_rows": 790,
+      "active_span_s": 8.506626,
+      "artifact": "csv/c66c0b7c9694__rl_drive_20260911_222254.csv",
+      "sha256": "c66c0b7c9694de5f5ed17721fba5b55d6357202ff01bdab0cfb635121861d14d",
+      "quality_flags": [
+        "Robot Lab status failed; use attitude/joint replay, not unqualified tracker speed"
+      ],
+      "sim_counterpart": {
+        "kind": "sb3_checkpoint",
+        "workspace_relative_path": "hexapod_walker/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walk_allheading_mlp_singleframe_acq1_stdanneal.zip"
+      }
+    },
+    {
+      "run_id": "afc56f03ebe8",
+      "filename": "rl_drive_20260911_233150.csv",
+      "family": "allheading_mlp",
+      "split": "holdout",
+      "command": "reverse vx=-0.08 m/s",
+      "command_values": {
+        "vx_ref_mps_active_median": -0.08,
+        "vy_ref_mps_active_median": 0.0,
+        "yaw_ref_rad_s": 0.0
+      },
+      "hz": 97.537,
+      "timing_column": "mono_s",
+      "active_phases": [
+        "walk"
+      ],
+      "active_rows": 791,
+      "active_span_s": 8.893814,
+      "artifact": "csv/32040577c13b__rl_drive_20260911_233150.csv",
+      "sha256": "32040577c13b4e9a6bc89c70136d81450edaf6f19abab5474b39b1711641b58e",
+      "quality_flags": [
+        "Robot Lab status failed; use attitude/joint replay, not unqualified tracker speed"
+      ],
+      "sim_counterpart": {
+        "kind": "sb3_checkpoint",
+        "workspace_relative_path": "hexapod_walker/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walk_allheading_mlp_singleframe_acq1_stdanneal.zip"
+      }
+    },
+    {
+      "run_id": "59b526d18bb3",
+      "filename": "rl_drive_20260911_214432.csv",
+      "family": "walkteach",
+      "split": "holdout",
+      "command": "forward vx=+0.08 m/s",
+      "command_values": {
+        "vx_ref_mps_active_median": 0.08,
+        "vy_ref_mps_active_median": 0.0,
+        "yaw_ref_rad_s": 0.0
+      },
+      "hz": 97.847,
+      "timing_column": "mono_s",
+      "active_phases": [
+        "walk"
+      ],
+      "active_rows": 1370,
+      "active_span_s": 15.108387,
+      "artifact": "csv/cc710f115453__rl_drive_20260911_214432.csv",
+      "sha256": "cc710f11545321c40a04d51a826631aaf5fd7e80f1d47d2e90cbf9356f7820f6",
+      "quality_flags": [],
+      "sim_counterpart": {
+        "kind": "sb3_checkpoint",
+        "workspace_relative_path": "hexapod_walker/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkteach_scripted_allhead_acq12m.zip"
+      }
+    },
+    {
+      "run_id": "9aa024c6935a",
+      "filename": "rl_drive_20260911_215002.csv",
+      "family": "walkteach",
+      "split": "holdout",
+      "command": "forward vx=+0.08 m/s",
+      "command_values": {
+        "vx_ref_mps_active_median": 0.08,
+        "vy_ref_mps_active_median": 0.0,
+        "yaw_ref_rad_s": 0.0
+      },
+      "hz": 97.761,
+      "timing_column": "mono_s",
+      "active_phases": [
+        "walk"
+      ],
+      "active_rows": 1388,
+      "active_span_s": 15.233584,
+      "artifact": "csv/1a48c441caab__rl_drive_20260911_215002.csv",
+      "sha256": "1a48c441caabfc7135187005e707afa12ae87d53e76be50cc1375d1a9df340a9",
+      "quality_flags": [],
+      "sim_counterpart": {
+        "kind": "sb3_checkpoint",
+        "workspace_relative_path": "hexapod_walker/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkteach_scripted_allhead_acq12m.zip"
+      }
+    },
+    {
+      "run_id": "e6e216c01d62",
+      "filename": "rl_drive_20260911_215549.csv",
+      "family": "walkteach",
+      "split": "holdout",
+      "command": "reverse vx=-0.08 m/s",
+      "command_values": {
+        "vx_ref_mps_active_median": -0.08,
+        "vy_ref_mps_active_median": 0.0,
+        "yaw_ref_rad_s": 0.0
+      },
+      "hz": 98.02,
+      "timing_column": "mono_s",
+      "active_phases": [
+        "walk"
+      ],
+      "active_rows": 1398,
+      "active_span_s": 15.430897,
+      "artifact": "csv/f5aa29c458f3__rl_drive_20260911_215549.csv",
+      "sha256": "f5aa29c458f31960932bb27a7c99be52c13a8b39ad54eb2a0baee82014a5918e",
+      "quality_flags": [],
+      "sim_counterpart": {
+        "kind": "sb3_checkpoint",
+        "workspace_relative_path": "hexapod_walker/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkteach_scripted_allhead_acq12m.zip"
+      }
+    },
+    {
+      "run_id": "65688bc6207c",
+      "filename": "rl_drive_20260911_230208.csv",
+      "family": "walkteach",
+      "split": "holdout",
+      "command": "reverse vx=-0.08 m/s",
+      "command_values": {
+        "vx_ref_mps_active_median": -0.08,
+        "vy_ref_mps_active_median": 0.0,
+        "yaw_ref_rad_s": 0.0
+      },
+      "hz": 97.305,
+      "timing_column": "mono_s",
+      "active_phases": [
+        "walk"
+      ],
+      "active_rows": 1253,
+      "active_span_s": 15.119254,
+      "artifact": "csv/40169979e55e__rl_drive_20260911_230208.csv",
+      "sha256": "40169979e55efa4bdb113baa25d9f6fe6eccc1ece8b112caf6d67b46e60f4122",
+      "quality_flags": [],
+      "sim_counterpart": {
+        "kind": "sb3_checkpoint",
+        "workspace_relative_path": "hexapod_walker/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkteach_scripted_allhead_acq12m.zip"
+      }
+    },
+    {
+      "run_id": "5c19a8585838",
+      "filename": "rl_drive_20260911_184317.csv",
+      "family": "amp_phasehz11_s29",
+      "split": "holdout",
+      "command": "yaw=+0.30 rad/s",
+      "command_values": {
+        "vx_ref_mps_active_median": 0.0,
+        "vy_ref_mps_active_median": 0.0,
+        "yaw_ref_rad_s": 0.3
+      },
+      "hz": 25.002,
+      "timing_column": "mono_s",
+      "active_phases": [
+        "walk"
+      ],
+      "active_rows": 297,
+      "active_span_s": 11.880136,
+      "artifact": "csv/8a62f77a554d__rl_drive_20260911_184317.csv",
+      "sha256": "8a62f77a554d3a05cff9535a90cdf0bbc6395966ef5cde70c4b09a213afdf91d",
+      "quality_flags": [
+        "yaw reference is from Robot Lab experiment label; CSV omits yaw_ref"
+      ],
+      "sim_counterpart": {
+        "kind": "sb3_checkpoint",
+        "workspace_relative_path": "hexapod_walker/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_pushcal518_phasehz11_s29.zip"
+      }
+    },
+    {
+      "run_id": "5c19a8585838",
+      "filename": "rl_drive_20260911_184402.csv",
+      "family": "amp_phasehz11_s29",
+      "split": "holdout",
+      "command": "yaw=-0.30 rad/s",
+      "command_values": {
+        "vx_ref_mps_active_median": 0.0,
+        "vy_ref_mps_active_median": 0.0,
+        "yaw_ref_rad_s": -0.3
+      },
+      "hz": 25.0,
+      "timing_column": "mono_s",
+      "active_phases": [
+        "walk"
+      ],
+      "active_rows": 291,
+      "active_span_s": 11.600001,
+      "artifact": "csv/6decf37e66ea__rl_drive_20260911_184402.csv",
+      "sha256": "6decf37e66ea7199023cf440e9a3673e02dc12e14147cad0414dddfdf5200425",
+      "quality_flags": [
+        "yaw reference is from Robot Lab experiment label; CSV omits yaw_ref"
+      ],
+      "sim_counterpart": {
+        "kind": "sb3_checkpoint",
+        "workspace_relative_path": "hexapod_walker/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_pushcal518_phasehz11_s29.zip"
+      }
+    },
+    {
+      "run_id": "e9ab4b1873c7",
+      "filename": "rl_amp_225811.csv",
+      "family": "amp_phasehz11_s29",
+      "split": "holdout",
+      "command": "forward vx=+0.06 m/s",
+      "command_values": {
+        "vx_ref_mps_active_median": 0.06,
+        "vy_ref_mps_active_median": 0.0,
+        "yaw_ref_rad_s": 0.0
+      },
+      "hz": 24.999,
+      "timing_column": "mono_s",
+      "active_phases": [
+        "walk"
+      ],
+      "active_rows": 438,
+      "active_span_s": 17.520051,
+      "artifact": "csv/b2d1eb3de0fa__rl_amp_225811.csv",
+      "sha256": "b2d1eb3de0fa646bd2b542609762a6ce598d201bd7bbf5bb5758e67457402f61",
+      "quality_flags": [
+        "older post-IMU-reseat session"
+      ],
+      "sim_counterpart": {
+        "kind": "sb3_checkpoint",
+        "workspace_relative_path": "hexapod_walker/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_pushcal518_phasehz11_s29.zip"
+      }
+    },
+    {
+      "run_id": "e9ab4b1873c7",
+      "filename": "rl_walkteach_225518.csv",
+      "family": "walkteach",
+      "split": "holdout",
+      "command": "forward vx=+0.08 m/s",
+      "command_values": {
+        "vx_ref_mps_active_median": 0.08,
+        "vy_ref_mps_active_median": 0.0,
+        "yaw_ref_rad_s": 0.0
+      },
+      "hz": 97.819,
+      "timing_column": "mono_s",
+      "active_phases": [
+        "walk"
+      ],
+      "active_rows": 603,
+      "active_span_s": 6.449317,
+      "artifact": "csv/2b7df6a43e7a__rl_walkteach_225518.csv",
+      "sha256": "2b7df6a43e7a672dd39f555912e6419c8a9d8ea9abe42e462452cca939dd0717",
+      "quality_flags": [
+        "older post-IMU-reseat session"
+      ],
+      "sim_counterpart": {
+        "kind": "sb3_checkpoint",
+        "workspace_relative_path": "hexapod_walker/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkteach_scripted_allhead_acq12m.zip"
+      }
+    },
+    {
+      "run_id": "c728d29657ef",
+      "filename": "rl_drive_205338.csv",
+      "family": "allheading_mlp",
+      "split": "holdout",
+      "command": "reverse vx=-0.08 m/s",
+      "command_values": {
+        "vx_ref_mps_active_median": -0.08,
+        "vy_ref_mps_active_median": 0.0,
+        "yaw_ref_rad_s": 0.0
+      },
+      "hz": 97.518,
+      "timing_column": "mono_s",
+      "active_phases": [
+        "walk"
+      ],
+      "active_rows": 2875,
+      "active_span_s": 30.898782,
+      "artifact": "csv/1445d9c9ecbb__rl_drive_205338.csv",
+      "sha256": "1445d9c9ecbb966532bdfd5ccaa4120fef367d0cff02bde678e1639f912d652b",
+      "quality_flags": [
+        "older first RL session"
+      ],
+      "sim_counterpart": {
+        "kind": "sb3_checkpoint",
+        "workspace_relative_path": "hexapod_walker/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walk_allheading_mlp_singleframe_acq1_stdanneal.zip"
+      }
+    },
+    {
+      "run_id": "c728d29657ef",
+      "filename": "rl_drive_205737.csv",
+      "family": "allheading_mlp",
+      "split": "holdout",
+      "command": "forward vx=+0.08 m/s",
+      "command_values": {
+        "vx_ref_mps_active_median": 0.08,
+        "vy_ref_mps_active_median": 0.0,
+        "yaw_ref_rad_s": 0.0
+      },
+      "hz": 97.905,
+      "timing_column": "mono_s",
+      "active_phases": [
+        "walk"
+      ],
+      "active_rows": 2665,
+      "active_span_s": 28.487448,
+      "artifact": "csv/f6dbd8791aa9__rl_drive_205737.csv",
+      "sha256": "f6dbd8791aa9e67e0a7f2c722d6a618dff20ce84d1993dd34e51aaa35f0647fe",
+      "quality_flags": [
+        "older first RL session"
+      ],
+      "sim_counterpart": {
+        "kind": "sb3_checkpoint",
+        "workspace_relative_path": "hexapod_walker/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walk_allheading_mlp_singleframe_acq1_stdanneal.zip"
+      }
+    },
+    {
+      "run_id": "c728d29657ef",
+      "filename": "rl_walk25_02.csv",
+      "family": "dep_tip1",
+      "split": "holdout",
+      "command": "reverse vx=-0.05 m/s",
+      "command_values": {
+        "vx_ref_mps_active_median": -0.05,
+        "vy_ref_mps_active_median": 0.0,
+        "yaw_ref_rad_s": 0.0
+      },
+      "hz": 25.0,
+      "timing_column": "t_s",
+      "active_phases": [
+        "run"
+      ],
+      "active_rows": 150,
+      "active_span_s": 5.96,
+      "artifact": "csv/141c38706839__rl_walk25_02.csv",
+      "sha256": "141c3870683981fb6fa092f03cc69d14af328db229460b42af2511fb5a572ec8",
+      "quality_flags": [
+        "legacy phase=run trace; older first RL session"
+      ],
+      "sim_counterpart": {
+        "kind": "sb3_checkpoint",
+        "workspace_relative_path": "hexapod_walker/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_dep_tip1.zip"
+      }
+    },
+    {
+      "run_id": "867eb750b497",
+      "filename": "rl_drive_20260911_215820.csv",
+      "family": "stotight45_seed13",
+      "split": "holdout",
+      "command": "forward vx=+0.06 m/s",
+      "command_values": {
+        "vx_ref_mps_active_median": 0.06,
+        "vy_ref_mps_active_median": 0.0,
+        "yaw_ref_rad_s": 0.0
+      },
+      "hz": 24.999,
+      "timing_column": "mono_s",
+      "active_phases": [
+        "walk"
+      ],
+      "active_rows": 272,
+      "active_span_s": 10.880175,
+      "artifact": "csv/d23291a71727__rl_drive_20260911_215820.csv",
+      "sha256": "d23291a71727b6ad6c9d4b4829dd066b3177a3cd06d32682ffdb57770f649e41",
+      "quality_flags": [
+        "Robot Lab status failed; replay attitude/joints only"
+      ],
+      "sim_counterpart": {
+        "kind": "sb3_checkpoint",
+        "workspace_relative_path": "hexapod_walker/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_dep_bcgait4_phasedir9_stotight45_seed13.zip"
+      }
+    },
+    {
+      "run_id": "b258cb53139e",
+      "filename": "rl_drive_20260911_184524.csv",
+      "family": "stotight45_seed13",
+      "split": "holdout",
+      "command": "forward vx=+0.06 m/s",
+      "command_values": {
+        "vx_ref_mps_active_median": 0.06,
+        "vy_ref_mps_active_median": 0.0,
+        "yaw_ref_rad_s": 0.0
+      },
+      "hz": 25.001,
+      "timing_column": "mono_s",
+      "active_phases": [
+        "walk"
+      ],
+      "active_rows": 369,
+      "active_span_s": 14.71984,
+      "artifact": "csv/4c0ebc086337__rl_drive_20260911_184524.csv",
+      "sha256": "4c0ebc0863373edcddbe2b62392e6c3665c76e2f056033652709352689c76419",
+      "quality_flags": [
+        "Robot Lab marks measurement invalid; tracker outlier/arena exit, replay attitude/joints only"
+      ],
+      "sim_counterpart": {
+        "kind": "sb3_checkpoint",
+        "workspace_relative_path": "hexapod_walker/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_dep_bcgait4_phasedir9_stotight45_seed13.zip"
+      }
+    },
+    {
+      "run_id": "36141febdc20",
+      "filename": "rl_drive_20260911_201818.csv",
+      "family": "rl_only_widen8_crutchoff_s0",
+      "split": "holdout",
+      "command": "forward vx=+0.06 m/s",
+      "command_values": {
+        "vx_ref_mps_active_median": 0.06,
+        "vy_ref_mps_active_median": 0.0,
+        "yaw_ref_rad_s": 0.0
+      },
+      "hz": 49.953,
+      "timing_column": "mono_s",
+      "active_phases": [
+        "walk"
+      ],
+      "active_rows": 729,
+      "active_span_s": 14.957323,
+      "artifact": "csv/5c515451eda0__rl_drive_20260911_201818.csv",
+      "sha256": "5c515451eda04c20d6100c138859d916d71754d969ed51bc704b9c822b737e3b",
+      "quality_flags": [
+        "title says 0.08 m/s but active CSV vx_ref median is 0.06 m/s; manifest uses CSV"
+      ],
+      "sim_counterpart": {
+        "kind": "deployed_actor_json",
+        "workspace_relative_path": "hexapod_walker/prototype_sts3215/linux_control/policies/walkscratch_rlonly_widen8_crutchoff_s0_warmadapt_50hz_acq1.json"
+      }
+    },
+    {
+      "run_id": "eae5e9fec6d4",
+      "filename": "rl_drive_20260911_183919.csv",
+      "family": "allheading_mlp",
+      "split": "holdout",
+      "command": "crab vy=-0.08 m/s",
+      "command_values": {
+        "vx_ref_mps_active_median": 0.0,
+        "vy_ref_mps_active_median": -0.08,
+        "yaw_ref_rad_s": 0.0
+      },
+      "hz": 97.857,
+      "timing_column": "mono_s",
+      "active_phases": [
+        "walk"
+      ],
+      "active_rows": 1367,
+      "active_span_s": 14.641256,
+      "artifact": "csv/2ca8d2a9dcf3__rl_drive_20260911_183919.csv",
+      "sha256": "2ca8d2a9dcf369d72d3e3632059f6a1dd8508ec752aa5261d847eee74aca94d8",
+      "quality_flags": [],
+      "sim_counterpart": {
+        "kind": "sb3_checkpoint",
+        "workspace_relative_path": "hexapod_walker/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walk_allheading_mlp_singleframe_acq1_stdanneal.zip"
+      }
+    },
+    {
+      "run_id": "43a6a88a90f9",
+      "filename": "telemetry__rl_drive_20260911_183633.csv",
+      "family": "allheading_mlp",
+      "split": "holdout",
+      "command": "crab vy=+0.08 m/s",
+      "command_values": {
+        "vx_ref_mps_active_median": 0.0,
+        "vy_ref_mps_active_median": 0.08,
+        "yaw_ref_rad_s": 0.0
+      },
+      "hz": 97.671,
+      "timing_column": "mono_s",
+      "active_phases": [
+        "walk"
+      ],
+      "active_rows": 629,
+      "active_span_s": 6.770025,
+      "artifact": "csv/829a6ee8b5e9__telemetry__rl_drive_20260911_183633.csv",
+      "sha256": "829a6ee8b5e9cca526e282a207c6994ca67a5ffccbba1a58b8a38b070ff5e448",
+      "quality_flags": [
+        "aggregate-run telemetry artifact; no dedicated run record selected"
+      ],
+      "sim_counterpart": {
+        "kind": "sb3_checkpoint",
+        "workspace_relative_path": "hexapod_walker/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walk_allheading_mlp_singleframe_acq1_stdanneal.zip"
+      }
+    }
+  ]
+}

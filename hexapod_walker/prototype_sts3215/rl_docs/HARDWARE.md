@@ -21,7 +21,8 @@ from any run CSV.
 ## Data that exists (2026-08-09)
 
 - **RL episode traces** — every stand/lower/walk run on the robot
-  auto-logs 25 Hz per-tick telemetry (attitude, gyro, goal refs,
+  auto-logs per-tick telemetry at the policy's actual 25/50/100 Hz cadence
+  (attitude, calibrated accelerometer + gyro, goal refs,
   measured + commanded q ×18, raw action ×18, per-servo current) +
   a summary JSON. Format spec: `rl_move/API.md` § "RL episode
   logging". First two walk attempts: `rl_move/hardware_traces/

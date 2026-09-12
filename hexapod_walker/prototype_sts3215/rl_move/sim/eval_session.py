@@ -111,7 +111,7 @@ def run_session(stance_p: Path, walk_p: Path, cfg=None,
         return float(env.data.xpos[cbid, 2])
 
     def qnow() -> np.ndarray:
-        return env.data.qpos[7:25].copy()
+        return env.data.qpos[env._qadr].copy()
 
     # Plant reset captures the blend target, exactly like play.py.
     traj.start_at = "plant"

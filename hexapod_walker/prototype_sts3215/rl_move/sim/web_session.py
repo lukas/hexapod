@@ -650,7 +650,7 @@ class SimWebSession:
         return float(self.env.data.xpos[self.chassis_bid, 2])
 
     def _q_now(self) -> np.ndarray:
-        return self.env.data.qpos[7:25].copy()
+        return self.env.data.qpos[self.env._qadr].copy()
 
     def _q_now_robot_abs(self) -> np.ndarray:
         from hexapod_core.joint_frame import mujoco_rel_rad_to_robot_abs_rad
@@ -1098,8 +1098,10 @@ class SimWebSession:
         self.traj.vx = self.traj.vy = 0.0
         self.env.data.qpos[2] = 0.20
         self.env.data.qpos[3:7] = [cr * cp, sr * cp, cr * sp, sr * sp]
-        lo, hi = self.env.model.jnt_range[1:, 0], self.env.model.jnt_range[1:, 1]
-        self.env.data.qpos[7:25] = np.random.uniform(lo, hi)
+        from .servo_model import joint_ids
+        ranges = self.env.model.jnt_range[joint_ids(self.env.model)]
+        self.env.data.qpos[self.env._qadr] = np.random.uniform(
+            ranges[:, 0], ranges[:, 1])
         self.env.data.qvel[:] = 0.0
         self.mujoco.mj_forward(self.env.model, self.env.data)
         self._reset_memories(hard=True)
@@ -3014,7 +3016,7 @@ class SimWebSession:
                 self.env._place_at_plant(q_model)
             else:
                 qpos = self.env.data.qpos.copy()
-                qpos[7:25] = q_model
+                qpos[self.env._qadr] = q_model
                 qvel = np.zeros_like(self.env.data.qvel)
                 self._restore_phys(qpos, qvel)
             self.pose_hold_q = q_model.copy()

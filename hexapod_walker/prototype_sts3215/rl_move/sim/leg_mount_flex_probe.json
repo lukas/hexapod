@@ -1,0 +1,11 @@
+{
+  "status": "diagnostic_probe_not_calibrated",
+  "purpose": "Bounded six-degree leg-root flex probe for the Hexapod 2 replay matrix; do not use as a training default.",
+  "leg_mount_flex": {
+    "stiffness_nm_rad": 30.0,
+    "damping_nms_rad": 0.1,
+    "frictionloss_nm": 0.0,
+    "springref_deg": 0.0,
+    "range_deg": [-6.0, 6.0]
+  }
+}

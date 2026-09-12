@@ -197,6 +197,7 @@ from .walk_curriculum import (  # noqa: F401
     WALKCURR_BUCKETS_V7,
     WALKCURR_BUCKETS_V8,
     WALKCURR_BUCKETS_V9,
+    WALKCURR_BUCKETS_V10,
     WALKCURR_GATE_V2_IGNITION,
     WALKCURR_GATE_V2_QUALITY,
     WALKCURR_GATE_V3_BRIDGE,
@@ -1325,9 +1326,10 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         wc_version = float(cfg_get(self.cfg, "goal", "walk_curriculum",
                                    default=0.0))
         self._wc_on = wc_version in (1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0,
-                                     9.0)
+                                     9.0, 10.0)
         self._wc_version = int(wc_version) if self._wc_on else 0
-        self._wc_table = (WALKCURR_BUCKETS_V9 if self._wc_version == 9
+        self._wc_table = (WALKCURR_BUCKETS_V10 if self._wc_version == 10
+                          else WALKCURR_BUCKETS_V9 if self._wc_version == 9
                           else WALKCURR_BUCKETS_V8 if self._wc_version == 8
                           else WALKCURR_BUCKETS_V7 if self._wc_version == 7
                           else WALKCURR_BUCKETS_V6
@@ -1341,7 +1343,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           else WALKCURR_BUCKETS_V2
                           if self._wc_version == 2
                           else WALKCURR_BUCKETS)
-        if self._wc_version in (4, 5, 6, 7, 8, 9):
+        if self._wc_version in (4, 5, 6, 7, 8, 9, 10):
             required_s = max(float(b["duration_s"])
                              for b in self._wc_table)
             available_s = self.episode_steps * self.dt

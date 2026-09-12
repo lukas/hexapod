@@ -593,6 +593,55 @@ WALKCURR_BUCKETS_V9 = tuple(
     for b in WALKCURR_BUCKETS_V8
 )
 
+# WALKCURR_BUCKETS_V10 (2026-09-12, walkcurr9-canary-r1 post-mortem —
+# recalibrated-thresholds repair, NOT another scope/metric respec): the
+# `crutchoff/widen8/dose10` champion's own V9 canary never certified
+# bucket 0 (`b0_bridge_10s`) once in 4 cert rounds over the full 2M
+# budget — `walkcurr/frontier`/`active_n`/`frontier_pass` pinned at
+# 0/1/0 the entire run (`ops.sh entry
+# cw-walkscratch-crutchoff-s0-widen8-plusduty-walkcurr9-canary2m-r1`).
+# Reading the bucket-0 assay's own per-check metrics (logged every cert
+# round, stable across all 4 rounds — this is the champion's actual
+# operating point, not training noise): `slip_per_m` 4.51-5.09 vs the
+# V6-V9-shared gate's `slip_per_m_max=1.8`; `peak_roll_deg` 13.65-13.86
+# vs `peak_roll_deg_max=8.0`; `height_factor` 0.707-0.717 vs
+# `height_factor_min=0.80` — three separate checks, each missed by a
+# wide, stable margin, while every OTHER check in the same gate
+# (progress, cross_track, slew, six-leg-gait, duration) passes with
+# room to spare. `WALKCURR_GATE_V6_BRIDGE`/`_V6_JOYSTICK` (reused
+# unchanged through V7/V8/V9) share these exact three thresholds
+# across every rung, so the same "joystick-tuned thresholds don't fit
+# THIS champion's own gait style" defect would plausibly stall
+# front45/side90/etc too, even if bucket 0 were bypassed — confirming
+# the design note's own root-cause candidate
+# (`DESIGN_NOTE_2026-09-10_offaxis_frontpair.md` Addendum 3's FAIL
+# clause). V10 changes ONLY those three numbers, uniformly, on BOTH
+# the bridge and joystick gate tiers, to give real headroom above this
+# champion's OWN measured operating point instead of the transplanted
+# hist16-lineage numbers V6 authored for a different champion:
+# `slip_per_m_max` 1.8/2.0 -> 6.5, `peak_roll_deg_max` 8.0 -> 17.0,
+# `height_factor_min` 0.80 -> 0.60 (roughly the worst-observed value
+# plus a ~25-30% margin, not "loose enough to auto-pass" — this
+# champion's general DR-0 eval roll_peak_deg runs 5-9 deg and slip_per_m
+# 5-9, so 17 deg / 6.5 slip still rejects a materially worse rollout).
+# `cmd_prog_frac_min`/`cmd_prog_frac_p10_min`/`cross_track_frac_max`/
+# `slew_sat_max`/`contact_sw_per_s_min`/`foot_sw_min_per_s_min` and
+# every bucket's heading/duration/DR/wz/reversal/stop_metric structure
+# stay byte-identical to V9 — one dimension changed (RESEARCH_RULES
+# "one or two meaningful dimensions per wave"), not a fresh ladder.
+WALKCURR_GATE_V10_BRIDGE = dict(WALKCURR_GATE_V6_BRIDGE)
+WALKCURR_GATE_V10_BRIDGE.update(
+    slip_per_m_max=6.5, peak_roll_deg_max=17.0, height_factor_min=0.60)
+WALKCURR_GATE_V10_JOYSTICK = dict(WALKCURR_GATE_V6_JOYSTICK)
+WALKCURR_GATE_V10_JOYSTICK.update(
+    slip_per_m_max=6.5, peak_roll_deg_max=17.0, height_factor_min=0.60)
+WALKCURR_BUCKETS_V10 = tuple(
+    dict(b, gate=(WALKCURR_GATE_V10_BRIDGE
+                 if b["gate"] is WALKCURR_GATE_V6_BRIDGE
+                 else WALKCURR_GATE_V10_JOYSTICK))
+    for b in WALKCURR_BUCKETS_V9
+)
+
 # Sampling mixture over unlocked buckets (operator spec): 50% frontier,
 # 25% weakest mastered, 15% uniform over mastered, 10% the rung just
 # prior to the frontier. Empty components fold back to the frontier.

@@ -2368,7 +2368,7 @@ def main(argv: list[str] | None = None) -> int:
                          "sets cfg goal.walk_curriculum + "
                          "goal.walk_pure at env construction")
     ap.add_argument("--walk-curriculum-version", type=int, default=1,
-                    choices=(1, 2, 3, 4, 5, 6, 7, 8, 9),
+                    choices=(1, 2, 3, 4, 5, 6, 7, 8, 9, 10),
                     help="1 = WALKCURR_BUCKETS (walkcurr1), 2 = "
                          "WALKCURR_BUCKETS_V2 ignition ladder "
                          "(walkcurr2), 3 = WALKCURR_BUCKETS_V3 "
@@ -2411,7 +2411,18 @@ def main(argv: list[str] | None = None) -> int:
                          "of policy quality; 9 is byte-identical to 8 "
                          "except every gated bucket reads "
                          "stop_speed_pure_m_s instead, which excludes "
-                         "the same wz!=0 ticks the freeze does)")
+                         "the same wz!=0 ticks the freeze does), 10 = "
+                         "WALKCURR_BUCKETS_V10 recalibrated-threshold "
+                         "repair of 9 (walkcurr9-canary-r1 post-mortem, "
+                         "2026-09-12: frontier never certified bucket 0 "
+                         "in 4 cert rounds over a full 2M budget because "
+                         "the V6-authored slip/roll/height thresholds "
+                         "were tuned for a different champion; 10 is "
+                         "byte-identical to 9 except slip_per_m_max "
+                         "1.8/2.0->6.5, peak_roll_deg_max 8.0->17.0, "
+                         "height_factor_min 0.80->0.60 on every bucket's "
+                         "gate, matched to THIS champion's own measured "
+                         "bucket-0 operating point with margin)")
     ap.add_argument("--walkcurr-cert-every", type=int, default=500_000,
                     help="deterministic certification cadence (steps)")
     ap.add_argument("--walkcurr-cert-episodes", type=int, default=8,
@@ -2641,7 +2652,7 @@ def main(argv: list[str] | None = None) -> int:
                 "latest); drop --best-ckpt/--ev-stop-min")
         if (args.init_from is not None and not args.init_from_actor_only
                 and not args.init_from_policy_backbone
-                and args.walk_curriculum_version not in (5, 6, 7, 8, 9)):
+                and args.walk_curriculum_version not in (5, 6, 7, 8, 9, 10)):
             raise SystemExit("--walk-curriculum is a fresh-actor "
                              "acquisition contract (walkcurr lineage); "
                              "a full-checkpoint --init-from is not wired "
@@ -2653,17 +2664,20 @@ def main(argv: list[str] | None = None) -> int:
                              "operator order fb_20260820T075230_4a90c6, "
                              "V6 by fb_20260823T220651_5c66e3, and V7/V8 "
                              "(stress-diet repair + its front45-scope "
-                             "fix, 08-24) ride the same exception — warm "
-                             "full-checkpoint --init-from is allowed "
-                             "there, curriculum state still starts "
-                             "fresh)")
+                             "fix, 08-24) and V9/V10 (cert-metric fix + "
+                             "its own threshold recalibration) ride the "
+                             "same exception — warm full-checkpoint "
+                             "--init-from is allowed there, curriculum "
+                             "state still starts fresh)")
         if (args.walkcurr_post_promo_actor_lr > 0.0
                 and args.actor_lr <= 0.0):
             raise SystemExit("--walkcurr-post-promo-actor-lr requires "
                              "--actor-lr (it retargets the "
                              "update_health actor param group)")
-        if args.walk_curriculum_version in (4, 5, 6, 7, 8, 9):
-            if args.walk_curriculum_version == 9:
+        if args.walk_curriculum_version in (4, 5, 6, 7, 8, 9, 10):
+            if args.walk_curriculum_version == 10:
+                from .walk_task import WALKCURR_BUCKETS_V10 as _wc_tbl
+            elif args.walk_curriculum_version == 9:
                 from .walk_task import WALKCURR_BUCKETS_V9 as _wc_tbl
             elif args.walk_curriculum_version == 8:
                 from .walk_task import WALKCURR_BUCKETS_V8 as _wc_tbl
@@ -3743,9 +3757,10 @@ def main(argv: list[str] | None = None) -> int:
         from .walk_task import WALKCURR_BUCKETS_V7 as _WC7
         from .walk_task import WALKCURR_BUCKETS_V8 as _WC8
         from .walk_task import WALKCURR_BUCKETS_V9 as _WC9
+        from .walk_task import WALKCURR_BUCKETS_V10 as _WC10
         _tbl = {1: _WC1, 2: _WC2, 3: _WC3, 4: _WC4,
                 5: _WC5, 6: _WC6, 7: _WC7,
-                8: _WC8, 9: _WC9}[args.walk_curriculum_version]
+                8: _WC8, 9: _WC9, 10: _WC10}[args.walk_curriculum_version]
         print("[walkcurr] realized per-bucket DR (overrides --dr-scale "
               f"{args.dr_scale:g} per episode): "
               + " ".join(f"b{i}={row['dr']:g}"
@@ -6048,7 +6063,7 @@ def main(argv: list[str] | None = None) -> int:
                                 WALKCURR_BUCKETS_V3, WALKCURR_BUCKETS_V4,
                                 WALKCURR_BUCKETS_V5, WALKCURR_BUCKETS_V6,
                                 WALKCURR_BUCKETS_V7, WALKCURR_BUCKETS_V8,
-                                WALKCURR_BUCKETS_V9)
+                                WALKCURR_BUCKETS_V9, WALKCURR_BUCKETS_V10)
         from .walkcurr_cert import (WalkCurrController,
                                     aggregate_walk_probe,
                                     failed_probe_row,
@@ -6057,7 +6072,8 @@ def main(argv: list[str] | None = None) -> int:
                     3: WALKCURR_BUCKETS_V3, 4: WALKCURR_BUCKETS_V4,
                     5: WALKCURR_BUCKETS_V5, 6: WALKCURR_BUCKETS_V6,
                     7: WALKCURR_BUCKETS_V7, 8: WALKCURR_BUCKETS_V8,
-                    9: WALKCURR_BUCKETS_V9}[args.walk_curriculum_version]
+                    9: WALKCURR_BUCKETS_V9,
+                    10: WALKCURR_BUCKETS_V10}[args.walk_curriculum_version]
         core_venv = _unwrap_vec(venv)
         wc_best_path = POLICY_DIR / f"{out_name}_best.zip"
         wc_promo_dir = POLICY_DIR / "walkcurr_promotions"

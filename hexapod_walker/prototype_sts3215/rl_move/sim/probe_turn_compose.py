@@ -85,16 +85,29 @@ class _ComposedPolicy:
     scripted TripodGait teacher's action for the policy's. ``compose=
     False`` reduces to a transparent passthrough (the RAW/baseline
     condition), so both conditions replay through the exact same
-    ``run_episode`` call with a single boolean flipped."""
+    ``run_episode`` call with a single boolean flipped.
+
+    ``blend_s`` (default 0.0, bit-exact with the original hard switch
+    when left at 0) ramps the teacher/policy mix linearly over that many
+    seconds at each mode transition instead of snapping the action
+    discontinuously on the tick the gate flips (todaypolicy STATUS,
+    2026-09-12: "build a real handoff (smooth blend over the mode-
+    transition window, not the probe's hard switch)"). The ramp direction
+    is symmetric: it climbs toward the teacher on turn-entry and decays
+    back toward the policy on turn-exit at the same per-tick rate
+    (``dt / blend_s`` per tick), so a rapid re-toggle can never overshoot
+    past [0, 1] or jump discontinuously in either direction."""
 
     use_sde = False  # tells eval_checkpoint._maybe_reset_gsde_noise to skip
 
     def __init__(self, model, env, *, compose: bool,
-                 omega_gain: float = TURN_OMEGA_GAIN):
+                 omega_gain: float = TURN_OMEGA_GAIN,
+                 blend_s: float = 0.0):
         self.model = model
         self.env = env
         self.compose = compose
         self.omega_gain = omega_gain
+        self.blend_s = float(blend_s)
         self.gait = TripodGait(vx=0.0)
         self.gait.sync_plant_stance(*WALK_PLANT)
         self.gait.reset_phase()
@@ -103,6 +116,7 @@ class _ComposedPolicy:
         self.wz_turn_abs_sum = 0.0
         self.wz_walk_abs_sum = 0.0
         self.walk_ticks = 0
+        self._blend_w = 0.0
 
     def reset(self) -> None:
         if hasattr(self.model, "reset"):
@@ -113,6 +127,7 @@ class _ComposedPolicy:
         self.wz_turn_abs_sum = 0.0
         self.wz_walk_abs_sum = 0.0
         self.walk_ticks = 0
+        self._blend_w = 0.0
 
     def predict(self, obs, deterministic: bool = True):
         pol_act, state = self.model.predict(obs, deterministic=deterministic)
@@ -142,11 +157,30 @@ class _ComposedPolicy:
             self.gait.set_velocity(vx=float(goal.vx_ref),
                                     vy=float(goal.vy_ref),
                                     omega=wz_ref * self.omega_gain)
-        if not (self.compose and turn_tick):
+        target_w = 1.0 if (self.compose and turn_tick) else 0.0
+        if self.blend_s > 0.0:
+            dt = float(getattr(self.env, "dt", 0.02))
+            step = dt / self.blend_s
+            if target_w > self._blend_w:
+                self._blend_w = min(target_w, self._blend_w + step)
+            else:
+                self._blend_w = max(target_w, self._blend_w - step)
+        else:
+            # blend_s=0: bit-exact hard switch, identical to the
+            # original (pre-blend) behavior below.
+            self._blend_w = target_w
+        if self._blend_w <= 0.0:
             return pol_act, state
         t = self.env._step_i * self.env.dt
         q = np.asarray(self.gait.desired_deg(t)) * DEG2RAD
-        return q_rad_to_action(q), state
+        teacher_act = q_rad_to_action(q)
+        if self._blend_w >= 1.0:
+            return teacher_act, state
+        pol_arr = np.asarray(pol_act, dtype=np.float64)
+        teach_arr = np.asarray(teacher_act, dtype=np.float64)
+        blended = (1.0 - self._blend_w) * pol_arr + self._blend_w * teach_arr
+        out_dtype = getattr(pol_act, "dtype", np.float32)
+        return blended.astype(out_dtype), state
 
     def summary(self) -> dict:
         return {
@@ -157,6 +191,8 @@ class _ComposedPolicy:
                                  if self.turn_ticks else None),
             "mean_abs_wz_walk": (self.wz_walk_abs_sum / self.walk_ticks
                                  if self.walk_ticks else None),
+            "blend_s": self.blend_s,
+            "final_blend_w": self._blend_w,
         }
 
 
@@ -191,6 +227,9 @@ def main() -> None:
     ap.add_argument("--out", required=True)
     ap.add_argument("--deterministic", action=argparse.BooleanOptionalAction,
                     default=True)
+    ap.add_argument("--blend-s", type=float, default=0.0,
+                    help="mode-transition blend window in seconds "
+                         "(0.0 = original hard switch, bit-exact default)")
     args = ap.parse_args()
 
     from stable_baselines3 import PPO
@@ -207,7 +246,8 @@ def main() -> None:
         for tag, compose in (("raw", False), ("composed", True)):
             env = _build_env(args.cfg_set or [], episode_seconds=args.episode_seconds,
                              seed=seed, dr_scale=args.dr_scale)
-            wrapped = _ComposedPolicy(model, env, compose=compose)
+            wrapped = _ComposedPolicy(model, env, compose=compose,
+                                      blend_s=args.blend_s)
             ep, frames = run_episode(env, wrapped, deterministic=args.deterministic,
                                      video=True, annotate=_annotate_frame)
             _save_video(frames, out_dir / f"{tag}_{k}")

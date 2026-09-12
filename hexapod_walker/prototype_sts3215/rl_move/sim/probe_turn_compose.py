@@ -112,20 +112,47 @@ class _ComposedPolicy:
     the real ``wz_ref``) instead of the correct turn -- same exact tick
     pattern substituted, deliberately WRONG content. If this still
     rescues gait_valid, the mechanism is generic; if the freeze returns,
-    turn-correctness specifically matters."""
+    turn-correctness specifically matters.
+
+    ``stall_substitute_every_s``/``stall_substitute_dur_s`` (both
+    default 0.0 = disabled, bit-exact with every prior recorded probe
+    run when left off) generalize the fix beyond turn ticks, per the
+    todaypolicy/amp STATUS 2026-09-12 ~13:5x Next item: the 09-12
+    wrong-substitute-control finding showed the freeze this composition
+    breaks is a generic "sustained same-mode duration" artifact, not
+    turn-specific -- so a PERIODIC substitution, independent of mode,
+    should plausibly also protect plain long straight-walk sessions
+    (batch (B) in that entry showed the turn-gated composition gives
+    ZERO protection when there are no turn ticks to substitute on).
+    When both are > 0.0 and ``compose`` is True, every
+    ``stall_substitute_every_s`` seconds of ELAPSED EPISODE TIME (a
+    fixed wall-clock schedule, not conditioned on detecting a freeze --
+    simplest possible mechanism, no new heuristic to validate) the
+    teacher takes over for the following ``stall_substitute_dur_s``
+    seconds, tracking the SAME ambient command the policy would
+    otherwise be driving (correct vx/vy/wz -- unlike
+    ``wrong_substitute_vx`` this is content-preserving, meant to be
+    deployed, not a mechanism control), regardless of turn/walk/hold
+    mode. Combines with turn-tick substitution via OR (either condition
+    engages the teacher; the shared ``blend_s`` ramp still applies at
+    every transition either one causes)."""
 
     use_sde = False  # tells eval_checkpoint._maybe_reset_gsde_noise to skip
 
     def __init__(self, model, env, *, compose: bool,
                  omega_gain: float = TURN_OMEGA_GAIN,
                  blend_s: float = 0.0,
-                 wrong_substitute_vx: float = 0.0):
+                 wrong_substitute_vx: float = 0.0,
+                 stall_substitute_every_s: float = 0.0,
+                 stall_substitute_dur_s: float = 0.0):
         self.model = model
         self.env = env
         self.compose = compose
         self.omega_gain = omega_gain
         self.blend_s = float(blend_s)
         self.wrong_substitute_vx = float(wrong_substitute_vx)
+        self.stall_substitute_every_s = float(stall_substitute_every_s)
+        self.stall_substitute_dur_s = float(stall_substitute_dur_s)
         self.gait = TripodGait(vx=0.0)
         self.gait.sync_plant_stance(*WALK_PLANT)
         self.gait.reset_phase()
@@ -134,6 +161,7 @@ class _ComposedPolicy:
         self.wz_turn_abs_sum = 0.0
         self.wz_walk_abs_sum = 0.0
         self.walk_ticks = 0
+        self.stall_ticks = 0
         self._blend_w = 0.0
 
     def reset(self) -> None:
@@ -145,7 +173,22 @@ class _ComposedPolicy:
         self.wz_turn_abs_sum = 0.0
         self.wz_walk_abs_sum = 0.0
         self.walk_ticks = 0
+        self.stall_ticks = 0
         self._blend_w = 0.0
+
+    def _stall_tick(self) -> bool:
+        """True on periodic-substitution ticks (mode-independent). Off
+        (always False) unless BOTH schedule params are positive --
+        matches ``stall_substitute_every_s=0.0`` default exactly, and
+        an ``every_s>0``/``dur_s=0`` combination stays a no-op too
+        (a zero-length window substitutes nothing)."""
+        if self.stall_substitute_every_s <= 0.0 or self.stall_substitute_dur_s <= 0.0:
+            return False
+        dt = float(getattr(self.env, "dt", 0.02))
+        period_ticks = max(1, round(self.stall_substitute_every_s / dt))
+        dur_ticks = max(1, round(self.stall_substitute_dur_s / dt))
+        phase = (self.total_ticks - 1) % period_ticks
+        return phase < dur_ticks
 
     def predict(self, obs, deterministic: bool = True):
         pol_act, state = self.model.predict(obs, deterministic=deterministic)
@@ -181,7 +224,10 @@ class _ComposedPolicy:
                 self.gait.set_velocity(vx=float(goal.vx_ref),
                                         vy=float(goal.vy_ref),
                                         omega=wz_ref * self.omega_gain)
-        target_w = 1.0 if (self.compose and turn_tick) else 0.0
+        stall_tick = self._stall_tick()
+        if stall_tick:
+            self.stall_ticks += 1
+        target_w = 1.0 if (self.compose and (turn_tick or stall_tick)) else 0.0
         if self.blend_s > 0.0:
             dt = float(getattr(self.env, "dt", 0.02))
             step = dt / self.blend_s
@@ -218,6 +264,9 @@ class _ComposedPolicy:
             "blend_s": self.blend_s,
             "final_blend_w": self._blend_w,
             "wrong_substitute_vx": self.wrong_substitute_vx,
+            "stall_substitute_every_s": self.stall_substitute_every_s,
+            "stall_substitute_dur_s": self.stall_substitute_dur_s,
+            "stall_ticks": self.stall_ticks,
         }
 
 
@@ -261,6 +310,18 @@ def main() -> None:
                          "substitute straight-forward-walk teacher action "
                          "at this vx (omega=0, deliberately WRONG) on "
                          "turn ticks instead of the correct turn action")
+    ap.add_argument("--stall-substitute-every-s", type=float, default=0.0,
+                    help="generic mode-independent periodic-substitution "
+                         "schedule (default 0.0 = disabled/bit-exact): "
+                         "every this many seconds of elapsed episode time, "
+                         "the teacher takes over (tracking the real "
+                         "ambient command) for --stall-substitute-dur-s "
+                         "seconds, regardless of turn/walk/hold mode")
+    ap.add_argument("--stall-substitute-dur-s", type=float, default=0.0,
+                    help="duration of each periodic substitution window "
+                         "(default 0.0 = disabled/bit-exact; a positive "
+                         "--stall-substitute-every-s with this left at "
+                         "0.0 stays a no-op)")
     args = ap.parse_args()
 
     from stable_baselines3 import PPO
@@ -279,7 +340,9 @@ def main() -> None:
                              seed=seed, dr_scale=args.dr_scale)
             wrapped = _ComposedPolicy(model, env, compose=compose,
                                       blend_s=args.blend_s,
-                                      wrong_substitute_vx=args.wrong_substitute_vx)
+                                      wrong_substitute_vx=args.wrong_substitute_vx,
+                                      stall_substitute_every_s=args.stall_substitute_every_s,
+                                      stall_substitute_dur_s=args.stall_substitute_dur_s)
             ep, frames = run_episode(env, wrapped, deterministic=args.deterministic,
                                      video=True, annotate=_annotate_frame)
             _save_video(frames, out_dir / f"{tag}_{k}")

@@ -1,0 +1,15 @@
+{
+ "walk_protocol": 1,
+ "name": "walk_fwd50_long20_v1",
+ "created": "2026-09-12",
+ "description": "Forward 50 mm/s with 20 s legs. Whole-body WALK on the floor with the scripted no-slip tripod gait (gait 1), measured by the overhead camera (chassis tag position and heading on the floor grid): mean speed, straight-line travel against the command, heading drift, tilt, total current. The loop stands the robot up itself, streams the gait command, stops, and sits it down. Forward 50 mm/s for 20 s then back, the same 20 s legs as walk_fwd30_long20_v1, so speed, drift and tilt compare directly against that run; commanded one-way distance 1000 mm (the camera view is about 1.2 m; the run stops early if the robot nears the edge).",
+ "gait": 1,
+ "out_and_back": true,
+ "legs": [
+  {
+   "name": "fwd50",
+   "vx_mm_s": 50,
+   "seconds": 20
+  }
+ ]
+}

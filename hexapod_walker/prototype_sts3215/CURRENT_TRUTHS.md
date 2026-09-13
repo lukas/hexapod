@@ -44,6 +44,14 @@
   start-mix re-weighting (crouch/bridge-heavy reverse curriculum) or staged
   hold/lower-first training -- not more budget on this exact recipe.
 
+## NO CAMERA DAEMON; RUNS OWN THEIR CAMERAS (2026-09-13 ~09:40): the always-on camera server (`com.lukas.hexapod-cameras`, :8766) is removed; each lab run spawns `hexapod-cameras session`, cameras are registered by stable id in `~/.hexapod/cameras.json`, calibration is a command
+
+- Why: the daemon leaked device handles, renumbered its slots on every relaunch (so "camera 1" changed meaning between the evening of 09-12 and the morning of 09-13), lost lease holds on restarts, and the lab never recorded video (a 4 fps JPEG timelapse). Hexapod 2's laptop flow, with no server, produced the useful runs.
+- Tracker `hexapod_tracker/cameras.py` (`hexapod-cameras list|assign|adopt|calibrate floor|calibrate intrinsics|check|snapshot|record|session|show|import-intrinsics`). A session writes `state.json` (the old server's detections + poses shapes), `latest_<role>.jpg`, `vision.jsonl`, `<role>.mp4` + `<role>_timestamps.csv`, and stops when its stdin closes, on `STOP`, SIGTERM or `--seconds`.
+- Lab `hexapod_lab2/camera_session.py`: `loop.run_once` starts one per run before the look and stops it after `see_run`; `walk.Session(camera_dir=)`, `zero_check --camera-dir`, `run_hw --vision-dir`, the look and the recovery stills read the directory. Legacy URLs remain only as the fallback when `camera_session` is off (tests).
+- 2026-09-13 registry: top = 12MP AF Camera `0x830000032e40362` (floor fit good, 0.32 px rms, leave-one-out 5-9 mm on anchors 101/102/103), side = 4K U3 `0x520000032e46678` (intrinsics). Proven live: lab session up in 1.0 s, zero check and run_hw admission read it (ready in 0.5 s), 10 fps 1280x720 mp4 with per-frame capture times. A stand/walk through the loop is still to be run once the robot is free.
+- Gone with the daemon: the remote live camera view through the coreweave relay (the 8767 lab UI still serves run videos). The `--top-camera` slot numbers in the layout's `observed_in` are informational only.
+
 ## RECENTRE WORKS FROM THE TAGS; GAIT FORWARD IS THE LAYOUT'S +X (2026-09-12 ~20:30, hexapod 1): a 60 mm/s forward command moved the chassis tag 81 mm along the layout's +x (3 deg off in camera 1's floor frame); the lab recentred the robot from the top edge to the middle in 6 pushes / 46 s with the heading read from the tags, no probe
 
 - Body position and heading in the picture now come from the tags (`walk.fit_body`): the chassis tag directly, else the hip lids (heading = lid heading - lid euler z - leg azimuth; centre 87.5 mm in from each lid along the leg azimuth). Checked live in three cameras against the chassis tag. Hip lids do NOT turn with the yaw servo (joint 0 +15 deg moved only the knee lid), so the yaw term is moot.

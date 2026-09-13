@@ -96,10 +96,12 @@ have been costing $1–2 and 5–10 minutes.
 
 ### Things learned the hard way
 
-- The runner's default frame URL (`<state dir>/frame.jpg`) is not served by
-  the pose service on `:8766`; without a fetchable frame no frame ever counts
-  as advancing and admission fails before motion. Pass
-  `--vision-frame-url http://127.0.0.1:8766/snapshot/1.jpg` (the default here).
+- Cameras are per run (2026-09-13): `loop.run_once` starts
+  `hexapod-cameras session --out <run>/camera --roles top` before the look and
+  stops it after the run's video is described. The runner gets
+  `--vision-dir <run>/camera`, the zero check `--camera-dir`, and the look,
+  recentre and recovery stills read the same directory. The old `:8766`
+  URLs in settings are only the fallback when `camera_session` is off.
 - Every trajectory protocol — all the `*_belly_rest_*` and radial-shear
   single-leg replays, not just whole-body stands — trips the runner's
   `--force` gate (`kind: traj` / `rel_traj` segments). The loop passes
@@ -182,8 +184,9 @@ them in the launcher, not in code.
 
 ## Eyes, engineer, and replies (added 2026-09-10 evening)
 
-**Eyes.** The loop records the wide camera (`snapshot/0.jpg`) at 1 Hz for
-every run and recovery into `runs/<id>/wide/`, assembles `wide.mp4`, and
+**Eyes.** The loop keeps a 1 Hz still from the run's camera session
+(`camera/latest_top.jpg`) for every run and recovery in `runs/<id>/wide/`;
+the real video is the session's `camera/top.mp4`. It
 sends twelve frames (eight spread, the last four dense) to a vision model
 with the protocol and trip line as context. The description is stored as
 `seen` in the run summary, shown on the card, and fed to the planner. About

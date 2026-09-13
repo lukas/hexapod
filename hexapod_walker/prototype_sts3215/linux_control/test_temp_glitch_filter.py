@@ -13,13 +13,26 @@ def _fb(sid: int, temp: int) -> dict:
     return {"id": sid, "joint": sid - 2, "temp_c": temp}
 
 
-def _run(bus, temps):
+def _run(bus, temps, dt=0.0):
     out = []
     for t in temps:
         fb = _fb(5, t)
         bus._filter_temp(fb)
         out.append(fb["temp_c"])
+        if dt:
+            mcu_feetech_bus.time.monotonic.advance(dt)
     return out
+
+
+class _Clock:
+    def __init__(self, t=100.0):
+        self.t = t
+
+    def __call__(self):
+        return self.t
+
+    def advance(self, dt):
+        self.t += dt
 
 
 def test_first_reading_is_taken_as_is():
@@ -34,21 +47,31 @@ def test_isolated_jump_is_replaced_and_raw_kept():
     assert fb["temp_c"] == 30 and fb["temp_raw_c"] == 57
 
 
-def test_sustained_jump_is_accepted_on_second_read():
-    assert _run(_bus(), [30, 45, 45, 46]) == [30, 30, 45, 46]
+def test_a_jump_read_twice_in_a_row_is_still_held(monkeypatch):
+    # The MCU refreshes at ~10 Hz and the host polls at 10 Hz: one bad pass is often read twice.
+    monkeypatch.setattr(mcu_feetech_bus.time, "monotonic", _Clock())
+    assert _run(_bus(), [30, 108, 108, 108, 30, 30], dt=0.1) == [30, 30, 30, 30, 30, 30]
 
 
-def test_slow_heating_passes_untouched():
+def test_a_jump_that_lasts_a_second_is_accepted(monkeypatch):
+    monkeypatch.setattr(mcu_feetech_bus.time, "monotonic", _Clock())
+    out = _run(_bus(), [30] + [45] * 12 + [46], dt=0.1)
+    assert out[:2] == [30, 30] and out[-2:] == [45, 46] and 45 in out
+    assert 11 <= out.index(45) <= 12                    # held for about a second of agreeing reads
+
+
+def test_slow_heating_passes_untouched(monkeypatch):
+    monkeypatch.setattr(mcu_feetech_bus.time, "monotonic", _Clock())
     temps = list(range(30, 60, 2))
-    assert _run(_bus(), temps) == temps
+    assert _run(_bus(), temps, dt=0.5) == temps
 
 
 def test_stale_state_is_dropped(monkeypatch):
     bus = _bus()
-    clock = {"t": 100.0}
-    monkeypatch.setattr(mcu_feetech_bus.time, "monotonic", lambda: clock["t"])
+    clock = _Clock()
+    monkeypatch.setattr(mcu_feetech_bus.time, "monotonic", clock)
     _run(bus, [30])
-    clock["t"] += 10.0
+    clock.advance(10.0)
     assert _run(bus, [52]) == [52]
 
 

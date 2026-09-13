@@ -1007,9 +1007,13 @@ class McuFeetechBus:
     # The temperature byte of the FeedBack record is wrong on roughly 1.5 % of
     # reads (a 30 C servo reports 40-61 C for exactly one read, then 30 again,
     # while position/current/voltage in the same checksummed record are fine).
-    # A servo cannot move 8 C between two reads a fraction of a second apart,
-    # so a jump is held back until a second consecutive read agrees with it.
+    # A servo cannot move 8 C in a second, so a jump is held back until reads
+    # have agreed with it for TEMP_JUMP_CONFIRM_S. A count of reads is not
+    # enough: the MCU refreshes temperatures at ~10 Hz and the host polls at
+    # 10 Hz too, so one bad MCU pass is often read twice (2026-09-12 evening:
+    # "joint 4 hot 108 C, 3 consecutive polls" limped a 31 C robot).
     TEMP_JUMP_C = 8
+    TEMP_JUMP_CONFIRM_S = 1.0
     TEMP_HOLD_MAX_S = 5.0
 
     def _filter_temp(self, fb: dict) -> None:
@@ -1026,17 +1030,19 @@ class McuFeetechBus:
         now = time.monotonic()
         prev = state.get(sid)
         if prev is None or now - prev["t"] > self.TEMP_HOLD_MAX_S:
-            state[sid] = {"temp": raw, "t": now, "pending": None}
+            state[sid] = {"temp": raw, "t": now, "pending": None, "since": None}
             return
         if abs(raw - prev["temp"]) < self.TEMP_JUMP_C:
-            prev.update(temp=raw, t=now, pending=None)
+            prev.update(temp=raw, t=now, pending=None, since=None)
             return
         pending = prev["pending"]
         if pending is not None and abs(raw - pending) < self.TEMP_JUMP_C:
-            # Second read agrees: the jump is real.
-            prev.update(temp=raw, t=now, pending=None)
-            return
-        prev["pending"] = raw
+            if now - prev["since"] >= self.TEMP_JUMP_CONFIRM_S:
+                # Reads have agreed on the new level for long enough: the jump is real.
+                prev.update(temp=raw, t=now, pending=None, since=None)
+                return
+        else:
+            prev["pending"], prev["since"] = raw, now
         fb["temp_raw_c"] = raw
         fb["temp_c"] = prev["temp"]
 

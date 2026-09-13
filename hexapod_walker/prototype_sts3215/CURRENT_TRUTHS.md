@@ -43,6 +43,33 @@
   moving (s0 80.7->74.1mm, s1 83.0->81.7mm). Next lever per that gate:
   start-mix re-weighting (crouch/bridge-heavy reverse curriculum) or staged
   hold/lower-first training -- not more budget on this exact recipe.
+- **UPDATE 2026-09-13 ~17:3x: curriculum-structure is now refuted a 4th time
+  for from-scratch hold; root-cause probe shows a policy-learning defect, not
+  a reward-pricing or action-authority one.** `mixreweight` (4x hold
+  exposure, still mixed) and `holdjitter` (crouch-offset starts) each FAILED
+  IDENTICALLY to the base mix; `holdonly` (100% hold, zero rise/lower
+  dilution -- the purest exposure test possible) also `CANARY FAIL -
+  MECHANISM` (`cw-stance50hz-rlonly-scratch-s1-holdonly-canary2m`, 0/12
+  pooled hold survived at 2M). `rl_move/sim/probe_hold_decomp.py` rolled the
+  actual holdonly checkpoint through a clean DR-0 plant reset (reward already
+  at its max, 1.0, at that exact pose): the deterministic policy sinks from
+  tick 1 and crosses the 40 mm/1.0 s grace at t=1.0s, current climbing
+  0.25A->2.58A in lockstep -- byte-identical shape to the earlier
+  mixreweight probe, whose quiet-action control (repeat the reset action,
+  zero policy) held the same pose rock-solid the full 15s, ruling OUT
+  `safety.max_delta_q_deg=0.75` as too tight and ruling OUT
+  `hold_still_gate`/`hold_feet_load`/`k_current_hot` reward-pricing as the
+  cause (they already pay near-max at the true optimum). Curriculum-mix,
+  exposure-amount and start-distribution are now refuted as a class (4/4);
+  the untested next lever is the exploration/log-std anneal schedule
+  (`--log-std-init 0 --log-std-anneal-frac 0.5` spends the first half of the
+  2M budget at high raw std, plausibly starving early rollouts of the grace
+  window needed to teach the value function the static optimum) -- a
+  low-initial-std 2-seed pair (`cw-stance50hz-rlonly-scratch-{s0,s1}-
+  holdlowstd-canary2m`, `--log-std-init=-2`, otherwise byte-identical to
+  holdonly) is queued/running. Evidence: `ops.sh entry cw-stance50hz-rlonly-
+  scratch-s1-holdonly-canary2m`; `rl_move/sim/probe_hold_decomp.py`;
+  `walkcurr/STATUS.md` 2026-09-13 ~17:3x.
 
 ## NO CAMERA DAEMON; RUNS OWN THEIR CAMERAS (2026-09-13 ~09:40): the always-on camera server (`com.lukas.hexapod-cameras`, :8766) is removed; each lab run spawns `hexapod-cameras session`, cameras are registered by stable id in `~/.hexapod/cameras.json`, calibration is a command
 

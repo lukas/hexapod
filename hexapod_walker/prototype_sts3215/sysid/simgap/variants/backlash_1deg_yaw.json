@@ -1,0 +1,198 @@
+{
+ "purpose": "+-1 deg free play on the yaw joints only (horizontal-plane compliance; turning/travel loss candidate).",
+ "joint_series_flex": {
+  "legs": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   5
+  ],
+  "axes": [
+   "yaw"
+  ],
+  "joints": {
+   "L0_yaw": {
+    "stiffness_nm_rad": 1.0,
+    "damping_nms_rad": 0.02,
+    "frictionloss_nm": 0.01,
+    "springref_deg": 0.0,
+    "range_deg": [
+     -1.0,
+     1.0
+    ]
+   },
+   "L0_pitch": {
+    "stiffness_nm_rad": 1.0,
+    "damping_nms_rad": 0.02,
+    "frictionloss_nm": 0.01,
+    "springref_deg": 0.0,
+    "range_deg": [
+     -1.0,
+     1.0
+    ]
+   },
+   "L0_knee": {
+    "stiffness_nm_rad": 1.0,
+    "damping_nms_rad": 0.02,
+    "frictionloss_nm": 0.01,
+    "springref_deg": 0.0,
+    "range_deg": [
+     -1.0,
+     1.0
+    ]
+   },
+   "L1_yaw": {
+    "stiffness_nm_rad": 1.0,
+    "damping_nms_rad": 0.02,
+    "frictionloss_nm": 0.01,
+    "springref_deg": 0.0,
+    "range_deg": [
+     -1.0,
+     1.0
+    ]
+   },
+   "L1_pitch": {
+    "stiffness_nm_rad": 1.0,
+    "damping_nms_rad": 0.02,
+    "frictionloss_nm": 0.01,
+    "springref_deg": 0.0,
+    "range_deg": [
+     -1.0,
+     1.0
+    ]
+   },
+   "L1_knee": {
+    "stiffness_nm_rad": 1.0,
+    "damping_nms_rad": 0.02,
+    "frictionloss_nm": 0.01,
+    "springref_deg": 0.0,
+    "range_deg": [
+     -1.0,
+     1.0
+    ]
+   },
+   "L2_yaw": {
+    "stiffness_nm_rad": 1.0,
+    "damping_nms_rad": 0.02,
+    "frictionloss_nm": 0.01,
+    "springref_deg": 0.0,
+    "range_deg": [
+     -1.0,
+     1.0
+    ]
+   },
+   "L2_pitch": {
+    "stiffness_nm_rad": 1.0,
+    "damping_nms_rad": 0.02,
+    "frictionloss_nm": 0.01,
+    "springref_deg": 0.0,
+    "range_deg": [
+     -1.0,
+     1.0
+    ]
+   },
+   "L2_knee": {
+    "stiffness_nm_rad": 1.0,
+    "damping_nms_rad": 0.02,
+    "frictionloss_nm": 0.01,
+    "springref_deg": 0.0,
+    "range_deg": [
+     -1.0,
+     1.0
+    ]
+   },
+   "L3_yaw": {
+    "stiffness_nm_rad": 1.0,
+    "damping_nms_rad": 0.02,
+    "frictionloss_nm": 0.01,
+    "springref_deg": 0.0,
+    "range_deg": [
+     -1.0,
+     1.0
+    ]
+   },
+   "L3_pitch": {
+    "stiffness_nm_rad": 1.0,
+    "damping_nms_rad": 0.02,
+    "frictionloss_nm": 0.01,
+    "springref_deg": 0.0,
+    "range_deg": [
+     -1.0,
+     1.0
+    ]
+   },
+   "L3_knee": {
+    "stiffness_nm_rad": 1.0,
+    "damping_nms_rad": 0.02,
+    "frictionloss_nm": 0.01,
+    "springref_deg": 0.0,
+    "range_deg": [
+     -1.0,
+     1.0
+    ]
+   },
+   "L4_yaw": {
+    "stiffness_nm_rad": 1.0,
+    "damping_nms_rad": 0.02,
+    "frictionloss_nm": 0.01,
+    "springref_deg": 0.0,
+    "range_deg": [
+     -1.0,
+     1.0
+    ]
+   },
+   "L4_pitch": {
+    "stiffness_nm_rad": 1.0,
+    "damping_nms_rad": 0.02,
+    "frictionloss_nm": 0.01,
+    "springref_deg": 0.0,
+    "range_deg": [
+     -1.0,
+     1.0
+    ]
+   },
+   "L4_knee": {
+    "stiffness_nm_rad": 1.0,
+    "damping_nms_rad": 0.02,
+    "frictionloss_nm": 0.01,
+    "springref_deg": 0.0,
+    "range_deg": [
+     -1.0,
+     1.0
+    ]
+   },
+   "L5_yaw": {
+    "stiffness_nm_rad": 1.0,
+    "damping_nms_rad": 0.02,
+    "frictionloss_nm": 0.01,
+    "springref_deg": 0.0,
+    "range_deg": [
+     -1.0,
+     1.0
+    ]
+   },
+   "L5_pitch": {
+    "stiffness_nm_rad": 1.0,
+    "damping_nms_rad": 0.02,
+    "frictionloss_nm": 0.01,
+    "springref_deg": 0.0,
+    "range_deg": [
+     -1.0,
+     1.0
+    ]
+   },
+   "L5_knee": {
+    "stiffness_nm_rad": 1.0,
+    "damping_nms_rad": 0.02,
+    "frictionloss_nm": 0.01,
+    "springref_deg": 0.0,
+    "range_deg": [
+     -1.0,
+     1.0
+    ]
+   }
+  }
+ }
+}

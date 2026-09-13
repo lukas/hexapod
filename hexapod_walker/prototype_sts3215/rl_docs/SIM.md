@@ -27,6 +27,17 @@ probe passes 13/21 but makes PS200's severe roll underprediction worse. The
 dynamic topology is therefore useful and remains opt-in, while simple linear
 flex is not presented as the PS200 fix.
 
+**Gap catalog (2026-09-13):**
+[`../docs/SIM_REAL_GAP_CATALOG_2026-09-13.md`](../docs/SIM_REAL_GAP_CATALOG_2026-09-13.md)
+lists 17 measured differences between hexapod2's recorded RL runs and this
+twin, with 18 open-loop and 16 closed-loop physics variants. Headline: the
+actors stand and walk on one tripod with the other three feet hovering; the
+real loaded joints are 4-60x softer than the fitted kp (35/14 N m/rad measured
+at hip/knee from hold sag); hardware currents never exceed 0.78 A while the
+replay pins the 2.2 N m clamp; kp x0.1 or a 0.4-0.7 N m clamp reproduces the
+hardware speed collapse and shuffle closed loop, nothing yet reproduces the
+roll. Tools: `sysid/simgap/`.
+
 ## The simulation chain (one native controller tick, 25/50/100 Hz)
 
 policy action → SafetyLayer (same rate clamp/limits as the robot,

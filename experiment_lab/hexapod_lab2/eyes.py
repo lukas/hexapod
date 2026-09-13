@@ -29,26 +29,40 @@ FFMPEG = "/opt/homebrew/bin/ffmpeg" if Path("/opt/homebrew/bin/ffmpeg").exists()
 class WideCapture:
     """Grab one wide-camera JPEG per second while a run is in progress."""
 
-    def __init__(self, frame_url: str, out_dir: Path, *, hz: float = 1.0, fetch: Optional[Callable] = None):
+    def __init__(self, frame_url: str, out_dir: Path, *, hz: float = 1.0, fetch: Optional[Callable] = None,
+                 frame_file: Optional[Path] = None):
+        """``frame_file`` (a session's latest_<role>.jpg) replaces the URL when given."""
         self.frame_url, self.out_dir, self.period = frame_url, out_dir, 1.0 / hz
+        self.frame_file = frame_file
         self.fetch = fetch or self._fetch
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
         self.count = 0
+        self._last_mtime: Optional[float] = None
 
     @staticmethod
     def _fetch(url: str) -> bytes:
         with urlopen(url, timeout=3) as resp:
             return resp.read()
 
+    def _grab(self) -> Optional[bytes]:
+        if self.frame_file is not None:
+            mtime = self.frame_file.stat().st_mtime
+            if mtime == self._last_mtime:
+                return None                     # the session has not written a newer frame yet
+            self._last_mtime = mtime
+            return self.frame_file.read_bytes()
+        return self.fetch(self.frame_url)
+
     def _loop(self) -> None:
         self.out_dir.mkdir(parents=True, exist_ok=True)
         while not self._stop.is_set():
             started = time.monotonic()
             try:
-                data = self.fetch(self.frame_url)
-                (self.out_dir / f"{self.count:05d}.jpg").write_bytes(data)
-                self.count += 1
+                data = self._grab()
+                if data:
+                    (self.out_dir / f"{self.count:05d}.jpg").write_bytes(data)
+                    self.count += 1
             except Exception:  # noqa: BLE001 - a missed frame is just a gap
                 pass
             self._stop.wait(max(0.0, self.period - (time.monotonic() - started)))
@@ -180,9 +194,16 @@ def obstacle_in(text: str) -> Optional[str]:
     return None
 
 
+def frame_from(frame_file: Optional[Path], fetch: Callable, url: str) -> bytes:
+    """The look's frame: the session's latest still when there is one, else the legacy URL."""
+    if frame_file is not None:
+        return Path(frame_file).read_bytes()
+    return fetch(url)
+
+
 def ready_to_move(settings: Settings, *, post: Optional[Callable] = None, fetch: Optional[Callable] = None,
                   budget_s: Optional[float] = None, about_to: Optional[str] = None,
-                  pose_known: bool = False) -> tuple[bool, str, float]:
+                  pose_known: bool = False, frame_file: Optional[Path] = None) -> tuple[bool, str, float]:
     """One look at the wide camera before the robot moves.
 
     ``about_to`` ("walk about 30 cm forward and back") adds the path question:
@@ -203,7 +224,7 @@ def ready_to_move(settings: Settings, *, post: Optional[Callable] = None, fetch:
     if not api_key:
         return False, "no ANTHROPIC_API_KEY for the eyes", 0.0
     try:
-        data = (fetch or WideCapture._fetch)(settings.wide_frame_url)
+        data = frame_from(frame_file, fetch or WideCapture._fetch, settings.wide_frame_url)
     except Exception as exc:  # noqa: BLE001
         return False, f"no camera frame ({type(exc).__name__}: {exc})"[:200], 0.0
     settings.data_dir.mkdir(parents=True, exist_ok=True)
@@ -243,7 +264,9 @@ def see_run(settings: Settings, store: Store, run_id: str, context: str, *, log=
     frames = sorted(wide.glob("*.jpg")) if wide.exists() else []
     if not frames:
         return ""
-    video = make_video(wide, run_dir / "wide.mp4")
+    # The camera session recorded real video; the 1 Hz stills are only for the eyes.
+    recorded = sorted((run_dir / "camera").glob("*.mp4")) if (run_dir / "camera").exists() else []
+    video = f"camera/{recorded[0].name}" if recorded else ("wide.mp4" if make_video(wide, run_dir / "wide.mp4") else None)
     api_key = os.getenv("ANTHROPIC_API_KEY", "")
     if not api_key:
         store.update_run_summary(run_id, seen="(no ANTHROPIC_API_KEY for the eyes)", wide_frames=len(frames))
@@ -257,6 +280,6 @@ def see_run(settings: Settings, store: Store, run_id: str, context: str, *, log=
         return ""
     if cost:
         store.add_spend("eyes", cost, run_id)
-    store.update_run_summary(run_id, seen=text, wide_frames=len(frames), video="wide.mp4" if video else None)
+    store.update_run_summary(run_id, seen=text, wide_frames=len(frames), video=video)
     log(f"seen: {text[:160]}")
     return text

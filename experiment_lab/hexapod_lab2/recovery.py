@@ -117,8 +117,10 @@ class Recorder:
     camera still at each step. Every recovery is an unplanned experiment
     and gets kept like one."""
 
-    def __init__(self, run_dir: Optional[Path], frame_url: str, *, get=_get, fetch=_fetch_bytes):
+    def __init__(self, run_dir: Optional[Path], frame_url: str, *, get=_get, fetch=_fetch_bytes,
+                 frame_file: Optional[Path] = None):
         self.run_dir, self.frame_url, self.get, self.fetch = run_dir, frame_url, get, fetch
+        self.frame_file = frame_file
 
     def snapshot(self, robot_url: str, tag: str) -> Dict[str, Any]:
         try:
@@ -129,7 +131,8 @@ class Recorder:
             self.run_dir.mkdir(parents=True, exist_ok=True)
             (self.run_dir / f"{tag}_feedback.json").write_text(json.dumps(fb, indent=1))
             try:
-                (self.run_dir / f"{tag}.jpg").write_bytes(self.fetch(self.frame_url))
+                still = Path(self.frame_file).read_bytes() if self.frame_file else self.fetch(self.frame_url)
+                (self.run_dir / f"{tag}.jpg").write_bytes(still)
             except Exception:  # noqa: BLE001 - a missing still is not a failed recovery
                 pass
         return fb
@@ -162,10 +165,11 @@ def at_rest(fb: Dict[str, Any], *, knee_tol_deg: float = 20.0, tilt_deg: float =
 
 
 def recover(settings: Settings, *, log: Callable[[str], None] = print, post=_post, get=_get,
-            sleep=time.sleep, run_dir: Optional[Path] = None, fetch=_fetch_bytes) -> Dict[str, Any]:
+            sleep=time.sleep, run_dir: Optional[Path] = None, fetch=_fetch_bytes,
+            frame_file: Optional[Path] = None) -> Dict[str, Any]:
     """Run the ladder and record it. Returns {"ok", "rungs", "final", "before", "after"}."""
     url = settings.robot_url.rstrip("/")
-    rec = Recorder(run_dir, settings.vision_frame_url, get=get, fetch=fetch)
+    rec = Recorder(run_dir, settings.vision_frame_url, get=get, fetch=fetch, frame_file=frame_file)
     rungs = [("zero", "/api/zero", {"pose": "sit"}),
              ("untrap", "/api/untrap", {"force": True}),
              ("zero", "/api/zero", {"pose": "sit"})]

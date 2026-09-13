@@ -94,9 +94,18 @@ class Settings:
     recentre_budget_s: float = 90.0
     recentre_end_budget_s: float = 20.0
     zero_check_budget_s: float = 60.0
-    # Which camera server index looks down on the robot (lids visible). The
-    # cameras were rearranged on 2026-09-12: the top view moved to index 1.
+    # Which camera server index looks down on the robot (lids visible). Only
+    # used when the per-run camera session is off; with the session the role
+    # "top" from the registry (~/.hexapod/cameras.json) says which camera.
     top_camera: int = 2
+    # Per-run cameras: the loop starts `hexapod-cameras session` for each run
+    # (records video, writes detections and poses into <run>/camera/) instead
+    # of talking to an always-on camera server. Off -> the legacy URLs above.
+    camera_session: bool = True
+    camera_roles: str = "top"
+    camera_fps: float = 10.0
+    camera_state_hz: float = 5.0
+    camera_start_budget_s: float = 25.0
     # Where hexapod-zero-check runs from (uv run in the tracker checkout, the
     # same one the camera server serves from). None -> the runner checkout's.
     tracker_dir: Optional[Path] = None
@@ -194,6 +203,9 @@ def load_settings() -> Settings:
         wide_frame_url=os.getenv("HEXAPOD_LAB2_WIDE_FRAME_URL", Settings.wide_frame_url),
         eyes_model=os.getenv("HEXAPOD_LAB2_EYES_MODEL", Settings.eyes_model),
         wide_crop=os.getenv("HEXAPOD_LAB2_WIDE_CROP", Settings.wide_crop),
+        camera_session=os.getenv("HEXAPOD_LAB2_CAMERA_SESSION", "1") not in ("0", "false", "no"),
+        camera_roles=os.getenv("HEXAPOD_LAB2_CAMERA_ROLES", Settings.camera_roles),
+        camera_fps=_f("HEXAPOD_LAB2_CAMERA_FPS", Settings.camera_fps),
         engineer_max_usd=_f("HEXAPOD_LAB2_ENGINEER_MAX_USD", Settings.engineer_max_usd),
         engineer_budget_s=_f("HEXAPOD_LAB2_ENGINEER_BUDGET_S", Settings.engineer_budget_s),
         max_fix_lines=_i("HEXAPOD_LAB2_MAX_FIX_LINES", Settings.max_fix_lines),

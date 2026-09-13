@@ -306,6 +306,7 @@ class Session:
     seen_camera: Optional[int] = None
     proxy: bool = False                   # last pixel() came from leg tags, not the chassis tag
     heading_px: Optional[tuple] = None    # body +x as a unit vector in the picture (x right, y down), when tags gave one
+    camera_dir: Optional[Path] = None     # a hexapod-cameras session directory; None -> the legacy HTTP camera server
     fit_source: str = ""                  # "tag0", "lids", "centroid" or "" for the last pixel()
     _robot_ids: Optional[set] = None
     _layout: Optional[dict] = None
@@ -318,6 +319,33 @@ class Session:
     @property
     def camera(self) -> str:
         return camera_base(self.settings)
+
+    # -- camera documents -----------------------------------------------
+    def camera_state(self) -> Optional[dict]:
+        """The session's state.json (detections + poses), or None without a session."""
+        if self.camera_dir is None:
+            return None
+        try:
+            return json.loads((Path(self.camera_dir) / "state.json").read_text())
+        except (OSError, ValueError):
+            return {}
+
+    def camera_doc(self, kind: str) -> dict:
+        """``kind`` is "detections" or "poses": the same shapes the old server served."""
+        state = self.camera_state()
+        if state is not None:
+            if kind == "detections":
+                return {"cameras": state.get("cameras") or [], "roles": state.get("roles") or {}}
+            return state.get("poses") or {}
+        path = "/api/detections.json" if kind == "detections" else "/api/poses"
+        return self.get(f"{self.camera}{path}")
+
+    def top_index(self, doc: Optional[dict] = None) -> int:
+        """The camera that looks down on the robot: the session's "top" role, else settings.top_camera."""
+        roles = (doc or {}).get("roles") or {}
+        if "top" in roles:
+            return int(roles["top"])
+        return int(getattr(self.settings, "top_camera", -1))
 
     # -- robot --------------------------------------------------------
     def feedback(self) -> Optional[dict]:
@@ -536,7 +564,7 @@ class Session:
     def pose(self, leg_name: str) -> PoseSample:
         t = self.clock()
         try:
-            doc = self.get(f"{self.camera}/api/poses")
+            doc = self.camera_doc("poses")
         except Exception:  # noqa: BLE001
             return PoseSample(t, leg_name, None, None, None)
         m = ((doc or {}).get("markers") or {}).get("0") or {}
@@ -544,7 +572,7 @@ class Session:
             return PoseSample(t, leg_name, None, None, None)
         cams = [int(c) for c in (m.get("camera_indices") or [])]
         if cams and self.camera_index is None:
-            top = int(getattr(self.settings, "top_camera", -1))
+            top = self.top_index(self.camera_doc("detections") if self.camera_dir else None)
             self.camera_index = top if top in cams else cams[0]     # stay inside the top camera's frame when it tracks the tag
         # The fused marker mixes every camera that sees the tag; a weakly calibrated
         # side view (camera 0 with one floor anchor, 2026-09-12) turned a 30 mm/s walk
@@ -575,7 +603,7 @@ class Session:
                 pass
             if len(ids) == 1:                   # no layout file: the tracker's parts (yoke faces) will do
                 try:
-                    doc = self.get(f"{self.camera}/api/poses")
+                    doc = self.camera_doc("poses")
                     for part in ((doc or {}).get("parts") or {}).values():
                         ids.update(int(t) for t in (part.get("configured_tag_ids") or []))
                 except Exception:  # noqa: BLE001
@@ -595,11 +623,11 @@ class Session:
         one is absent, the first camera that decodes tag 0 is used. Works whether
         or not the view is floor-calibrated."""
         try:
-            doc = self.get(f"{self.camera}/api/detections.json")
+            doc = self.camera_doc("detections")
         except Exception:  # noqa: BLE001
             return None
         cams = (doc or {}).get("cameras") or []
-        want = self.camera_index if self.camera_index is not None else int(getattr(self.settings, "top_camera", -1))
+        want = self.camera_index if self.camera_index is not None else self.top_index(doc)
         chosen = [c for c in cams if int(c.get("index", -1)) == want]
         if not chosen:
             chosen = [c for c in cams if (c.get("tags") or {}).get("0")][:1]
@@ -877,7 +905,8 @@ def metrics(leg: Leg, poses: List[PoseSample], seconds: float, ticks: int) -> Di
 
 def run_walk(settings: Settings, doc: dict, run_dir: Path, *, post: Optional[Callable] = None, get: Optional[Callable] = None,
              sleep: Optional[Callable[[float], None]] = None, clock: Optional[Callable[[], float]] = None,
-             log: Callable[[str], None] = print, obstacle: Optional[str] = None) -> Dict[str, Any]:
+             log: Callable[[str], None] = print, obstacle: Optional[str] = None,
+             camera_dir: Optional[Path] = None) -> Dict[str, Any]:
     """Run a walk protocol. Returns {"status", "exit_code", "summary", "log_tail"}.
 
     ``obstacle`` is what the pre-run look saw within a body length; the legs
@@ -886,7 +915,7 @@ def run_walk(settings: Settings, doc: dict, run_dir: Path, *, post: Optional[Cal
     # Resolved at call time so tests can patch the module's HTTP and clock functions.
     post, get = post or _http_post, get or _http_get
     sleep, clock = sleep or time.sleep, clock or time.monotonic
-    s = Session(settings, run_dir, post=post, get=get, sleep=sleep, clock=clock, log=log)
+    s = Session(settings, run_dir, post=post, get=get, sleep=sleep, clock=clock, log=log, camera_dir=camera_dir)
     legs = legs_of(doc)
     lines: List[str] = []
 

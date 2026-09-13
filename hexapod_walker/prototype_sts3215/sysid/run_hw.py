@@ -218,6 +218,26 @@ def _capture_vision_sidecar(
     frames_dir = out_dir / "vision_frames"
     if save_frames:
         frames_dir.mkdir(parents=True, exist_ok=True)
+    # A hexapod-cameras session directory instead of a URL: state.json is the
+    # pose document (its performance.frame_sequence advances per state) and
+    # latest_<role>.jpg the frame. No port, no daemon; the parent owns the
+    # session for exactly one run.
+    vision_dir = Path(state_url).expanduser() if "://" not in str(state_url) else None
+
+    def read_state() -> dict:
+        if vision_dir is not None:
+            return json.loads((vision_dir / "state.json").read_text(encoding="utf-8"))
+        with urllib.request.urlopen(state_url, timeout=2.0) as response:
+            return json.loads(response.read().decode("utf-8"))
+
+    def read_frame(state: dict) -> bytes:
+        if vision_dir is not None:
+            roles = state.get("roles") or {}
+            role = "top" if "top" in roles else (next(iter(roles)) if roles else "top")
+            return (vision_dir / f"latest_{role}.jpg").read_bytes()
+        with urllib.request.urlopen(resolved_frame_url, timeout=2.0) as response:
+            return response.read()
+
     resolved_frame_url = (
         frame_url or state_url.rsplit("/", 1)[0] + "/frame.jpg"
     )
@@ -230,8 +250,7 @@ def _capture_vision_sidecar(
         while not stop.is_set():
             iteration = time.monotonic()
             try:
-                with urllib.request.urlopen(state_url, timeout=2.0) as response:
-                    state = json.loads(response.read().decode("utf-8"))
+                state = read_state()
                 if camera_guard is not None:
                     ok, reason = camera_guard.observe(state, now_unix=time.time())
                     if not ok:
@@ -269,10 +288,7 @@ def _capture_vision_sidecar(
                     }
                     if save_frames:
                         filename = f"frame_{captured:08d}.jpg"
-                        with urllib.request.urlopen(
-                            resolved_frame_url, timeout=2.0
-                        ) as response:
-                            (frames_dir / filename).write_bytes(response.read())
+                        (frames_dir / filename).write_bytes(read_frame(state))
                         record["image"] = f"vision_frames/{filename}"
                     stream.write(json.dumps(record, separators=(",", ":")) + "\n")
                     last_sequence = sequence
@@ -426,6 +442,9 @@ def main(argv: list[str] | None = None) -> int:
                     help="also save one JPEG for every captured vision frame")
     ap.add_argument("--vision-url",
                     default="http://127.0.0.1:8766/api/pose-state")
+    ap.add_argument("--vision-dir", default=None,
+                    help=("a hexapod-cameras session directory (state.json + "
+                          "latest_<role>.jpg) instead of --vision-url"))
     ap.add_argument(
         "--vision-frame-url",
         default=None,
@@ -471,6 +490,8 @@ def main(argv: list[str] | None = None) -> int:
             "physical sysid requires --capture-vision so camera admission "
             "and the continuous stale-frame abort are bound"
         )
+    if args.vision_dir:
+        args.vision_url = str(Path(args.vision_dir).expanduser())
 
     if not 0.5 <= args.vision_hz <= 30.0:
         raise SystemExit("--vision-hz must be between 0.5 and 30")

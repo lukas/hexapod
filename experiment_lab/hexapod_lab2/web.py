@@ -138,11 +138,11 @@ def render(store: Store, settings: Settings, robot: Optional[str] = None) -> str
             robot_tag += "<span class='tag recovery'>recovery</span>"
         seen_html = (f"<p class=point><b>Seen</b>{escape(first_sentences(summary['seen'], 320))}</p>"
                      if summary.get("seen") and not str(summary["seen"]).startswith("(") else "")
-        video_link = (f" · <a href='/v2/runs/{r['id']}/wide.mp4'>video</a>" if summary.get("video") else "")
+        video_link = (f" · <a href='/v2/runs/{r['id']}/{escape(str(summary['video']))}'>video</a>" if summary.get("video") else "")
         files = store.run_files(r["id"])
         # Hand-run experiments list every file; protocol runs list only what
         # was attached afterwards (the runner's dataset folder is one link).
-        shown = [f for f in files if not f.startswith("runner.log")
+        shown = [f for f in files if not f.startswith(("runner.log", "camera"))
                  and (not r.get("protocol") or not f.startswith(("wide", r["protocol"])))]
         links = (" · " + " ".join(
             f"<a href='/v2/runs/{r['id']}/{escape(f)}'>{escape(f)}</a>" for f in shown)) if shown else ""

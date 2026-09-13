@@ -8,7 +8,7 @@ from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
-from . import alerts, commands, deploy, eyes, planner, recentre, recovery, robot, runner, zero_check
+from . import alerts, camera_session, commands, deploy, eyes, planner, recentre, recovery, robot, runner, zero_check
 from .builder import BuilderThread
 from .config import Settings
 from .store import Store, now_iso
@@ -67,11 +67,11 @@ def walk_intent(doc: Optional[dict]) -> Optional[str]:
     return f"walk about {dist_cm:.0f} cm {way}{back}"
 
 
-def pixel_of(settings: Settings, run_dir: Path):
+def pixel_of(settings: Settings, run_dir: Path, camera_dir: Optional[Path] = None):
     """Where the chassis tag sits in the frame (fractions), or None."""
     from . import walk as walk_mod
     try:
-        return walk_mod.Session(settings, run_dir, log=lambda m: None).pixel()
+        return walk_mod.Session(settings, run_dir, log=lambda m: None, camera_dir=camera_dir).pixel()
     except Exception:  # noqa: BLE001 - no camera is "not visible"
         return None
 
@@ -81,10 +81,11 @@ def recentre_distance_cm(frac, frame_width_cm: float = 120.0) -> float:
     return recentre.distance_frac(frac) * frame_width_cm
 
 
-def recentre_before(settings: Settings, run_dir: Path, *, walk: bool, log=print) -> Optional[Dict[str, Any]]:
+def recentre_before(settings: Settings, run_dir: Path, *, walk: bool, log=print,
+                    camera_dir: Optional[Path] = None) -> Optional[Dict[str, Any]]:
     """Recentre if the chassis tag is far from the middle; sit again unless a walk follows."""
     from . import walk as walk_mod
-    s = walk_mod.Session(settings, run_dir, log=log)
+    s = walk_mod.Session(settings, run_dir, log=log, camera_dir=camera_dir)
     frac = s.pixel()
     if frac is None:
         log("recentre: chassis tag not in any camera; running where it is")
@@ -119,10 +120,34 @@ def run_once(settings: Settings, store: Store, plan: Dict[str, Any], log=print,
     about_to = walk_intent(walk_doc) if walk_doc else None
     obstacle: Optional[str] = None
     run_dir = settings.runs_dir / run_id
+    # The run's cameras: one session, started before the look, stopped after the
+    # video is described. Its directory is what every camera reader below uses.
+    cam = camera_session.CameraSession(settings, run_dir, log=log)
+    if settings.camera_session:
+        if cam.start():
+            store.add_event("camera", f"session on {cam.roles}: {cam.dir}")
+        else:
+            store.add_event("camera", f"no session: {cam.reason[:200]}")
+    try:
+        return _run_with_cameras(settings, store, plan, run_id, fb, walk_doc, about_to, run_dir, cam, log, sleep_fn)
+    finally:
+        cam.stop()
+
+
+def _run_with_cameras(settings: Settings, store: Store, plan: Dict[str, Any], run_id: str, fb: Dict[str, Any],
+                      walk_doc: Optional[dict], about_to: Optional[str], run_dir: Path,
+                      cam: "camera_session.CameraSession", log, sleep_fn) -> Dict[str, Any]:
+    obstacle: Optional[str] = None
+    camera_dir = cam.camera_dir
+    frame_file = cam.latest_path() if camera_dir else None
+    # Only name the session to the readers when there is one: without it every
+    # call is exactly the legacy call (URLs from settings), which the tests fake.
+    look_kw = {"frame_file": frame_file} if frame_file else {}
+    cam_kw = {"camera_dir": camera_dir} if camera_dir else {}
     # A recentre is a move too: if one is coming, the look is told about it.
     recentre_pending = False
     if settings.recentre and (walk_doc is not None or camera_measured(plan["protocol"])):
-        frac = pixel_of(settings, run_dir)
+        frac = pixel_of(settings, run_dir, **cam_kw)
         recentre_pending = recentre.needs_recentre(frac)
         if recentre_pending:
             towards = f"walk about {recentre_distance_cm(frac):.0f} cm toward the middle of this picture first"
@@ -133,7 +158,7 @@ def run_once(settings: Settings, store: Store, plan: Dict[str, Any], log=print,
         # is holding it. A no leaves the plan queued and holds the loop. For
         # a walk the same look is asked what sits in the robot's way.
         flat = zero_check.encoders(fb)["at_zero"] and math.hypot(float(fb.get("roll_deg") or 0), float(fb.get("pitch_deg") or 0)) < 8.0
-        ready, saw, cost = eyes.ready_to_move(settings, about_to=about_to, pose_known=flat)
+        ready, saw, cost = eyes.ready_to_move(settings, about_to=about_to, pose_known=flat, **look_kw)
         if cost:
             store.add_spend("eyes", cost, run_id)
         store.add_event("look", f"{'ready' if ready else 'NOT READY'}: {saw[:400]}")
@@ -143,7 +168,7 @@ def run_once(settings: Settings, store: Store, plan: Dict[str, Any], log=print,
             # One more look, a few seconds later, before holding the whole loop;
             # two independent noes are a hold, one is a wobble.
             sleep_fn(8.0)
-            ready, saw2, cost2 = eyes.ready_to_move(settings, about_to=about_to, pose_known=flat)
+            ready, saw2, cost2 = eyes.ready_to_move(settings, about_to=about_to, pose_known=flat, **look_kw)
             if cost2:
                 store.add_spend("eyes", cost2, run_id)
             store.add_event("look", f"second look {'ready' if ready else 'NOT READY'}: {saw2[:400]}")
@@ -162,7 +187,7 @@ def run_once(settings: Settings, store: Store, plan: Dict[str, Any], log=print,
         # Protocols other than walks start from the zero pose. The encoders
         # cannot see a slipped horn; the camera can. This holds only when the
         # encoders say zero and the camera says a leg points elsewhere.
-        zc = zero_check.double_check(settings, fb, run_dir / "zero_check", log=log)
+        zc = zero_check.double_check(settings, fb, run_dir / "zero_check", log=log, **cam_kw)
         store.add_event("zero_check", f"{zc['verdict']}: {zc['text'][:300]}")
         if zc["verdict"] == "camera_disagrees":
             store.finish_run(run_id, status="held", exit_code=None, run_dir=str(run_dir),
@@ -182,14 +207,15 @@ def run_once(settings: Settings, store: Store, plan: Dict[str, Any], log=print,
         log("recentre: " + rc["reason"])
     elif settings.recentre and (walk_doc is not None or camera_measured(plan["protocol"])):
         # Where the camera is the measurement, start in the middle of its frame.
-        rc = recentre_before(settings, run_dir, walk=walk_doc is not None, log=log)
+        rc = recentre_before(settings, run_dir, walk=walk_doc is not None, log=log, **cam_kw)
         if rc is not None:
             store.add_event("recentre", f"{'moved' if rc['moved'] else 'left'}: {rc['reason'][:200]}")
     log(f"sync: {runner.sync_checkout(settings)}")
     log(f"run {plan['protocol']} ({plan['title']})")
-    with eyes.WideCapture(settings.wide_frame_url, run_dir / "wide"):
+    with eyes.WideCapture(settings.wide_frame_url, run_dir / "wide", frame_file=frame_file):
         extra = {"obstacle": obstacle} if obstacle else {}
-        result = runner.run_protocol(settings, plan["protocol"], run_id, force=bool(plan.get("force")), **extra)
+        result = runner.run_protocol(settings, plan["protocol"], run_id, force=bool(plan.get("force")),
+                                     **cam_kw, **extra)
     # ok/failed say whether the robot did what the protocol asked. A plan whose
     # intent is to explore has no pass/fail on top of that: a run that completed
     # is "explored", and what it showed goes in the planner's learned paragraph.
@@ -223,8 +249,16 @@ def record_recovery(settings: Settings, store: Store, plan: Dict[str, Any], trip
         status="running")
     rid = store.start_run(pid)
     run_dir = settings.runs_dir / rid
-    with eyes.WideCapture(settings.wide_frame_url, run_dir / "wide"):
-        rep = (recover or recovery.recover)(settings, log=log, sleep=sleep, run_dir=run_dir)
+    cam = camera_session.CameraSession(settings, run_dir, log=log)
+    if settings.camera_session:
+        cam.start()
+    frame_file = cam.latest_path() if cam.camera_dir else None
+    try:
+        with eyes.WideCapture(settings.wide_frame_url, run_dir / "wide", frame_file=frame_file):
+            rep = (recover or recovery.recover)(settings, log=log, sleep=sleep, run_dir=run_dir,
+                                                **({"frame_file": frame_file} if frame_file else {}))
+    finally:
+        cam.stop()
     lines = [f"trip: {trip}", f"before: {rep.get('before')}"]
     lines += [f"{r['rung']} ({r['seconds']} s): {r['status']} -> {'free' if r['ok'] else 'still stuck'}" for r in rep["rungs"]]
     lines.append(f"after: {rep.get('after')}")

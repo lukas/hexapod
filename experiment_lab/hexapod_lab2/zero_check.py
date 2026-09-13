@@ -44,12 +44,18 @@ def encoders(fb: Optional[Dict[str, Any]], *, tol_deg: float = ENCODER_ZERO_TOL_
 
 
 def camera(settings: Settings, out_dir: Optional[Path], *, run: Callable = subprocess.run,
-           top_camera: Optional[int] = None) -> Dict[str, Any]:
-    """Run hexapod-zero-check once; its JSON, or {"error": ...}."""
-    u = urlsplit(settings.wide_frame_url)
-    top = settings.top_camera if top_camera is None else top_camera
-    cmd = ["uv", "run", "hexapod-zero-check", "--json", "--top-camera", str(top),
-           "--camera-url", f"{u.scheme}://{u.netloc}"]
+           top_camera: Optional[int] = None, camera_dir: Optional[Path] = None) -> Dict[str, Any]:
+    """Run hexapod-zero-check once; its JSON, or {"error": ...}.
+
+    With a camera session directory the check reads that (role "top"); otherwise
+    the legacy camera server named by wide_frame_url and settings.top_camera."""
+    if camera_dir is not None:
+        cmd = ["uv", "run", "hexapod-zero-check", "--json", "--camera-dir", str(camera_dir), "--top-camera", "top"]
+    else:
+        u = urlsplit(settings.wide_frame_url)
+        top = settings.top_camera if top_camera is None else top_camera
+        cmd = ["uv", "run", "hexapod-zero-check", "--json", "--top-camera", str(top),
+               "--camera-url", f"{u.scheme}://{u.netloc}"]
     if out_dir is not None:
         cmd += ["--out", str(out_dir)]
     try:
@@ -73,7 +79,8 @@ _real_camera = camera   # tests replace ``camera``; this keeps the subprocess wr
 
 
 def double_check(settings: Settings, fb: Optional[Dict[str, Any]], out_dir: Optional[Path], *,
-                 run: Callable = subprocess.run, log: Callable[[str], None] = print) -> Dict[str, Any]:
+                 run: Callable = subprocess.run, log: Callable[[str], None] = print,
+                 camera_dir: Optional[Path] = None) -> Dict[str, Any]:
     """The 2x2 of encoders and camera. Returns {"verdict", "text", "legs_off", "frame", "camera", "encoders"}."""
     enc = encoders(fb)
     out: Dict[str, Any] = {"encoders": enc, "legs_off": [], "frame": None, "camera": None}
@@ -87,7 +94,7 @@ def double_check(settings: Settings, fb: Optional[Dict[str, Any]], out_dir: Opti
                         f"lid check skipped, the runner glides to its start pose")
         log("zero check: " + out["text"])
         return out
-    cam = camera(settings, out_dir, run=run)
+    cam = camera(settings, out_dir, run=run, camera_dir=camera_dir)
     out["camera"] = {k: cam.get(k) for k in ("ok", "off", "unseen", "error", "warning", "summary", "chassis_tag_seen")}
     out["frame"] = cam.get("frame")
     legs = cam.get("legs") or {}

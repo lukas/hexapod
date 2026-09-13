@@ -116,15 +116,16 @@ def main(argv=None) -> int:
                           "runs": [(r["started_at"], r["protocol"], r["status"]) for r in store.runs(limit=5)]}, indent=1))
         return 0
     if args.cmd == "recentre":
-        from . import recentre, walk
+        from . import camera_session, recentre, walk
         out_dir = settings.data_dir / "recentre"
         out_dir.mkdir(parents=True, exist_ok=True)
-        s = walk.Session(settings, out_dir, log=lambda m: print(m, flush=True))
-        frac = s.pixel()
-        print(f"chassis tag at {frac} in camera {s.seen_camera}" if frac else "chassis tag not visible in any camera")
-        res = recentre.recentre(s, budget_s=args.budget or settings.recentre_budget_s)
-        if res["moved"] and not args.stay:
-            s.sit(wait=True)
+        with camera_session.CameraSession(settings, out_dir, log=lambda m: print(m, flush=True)) as cam:
+            s = walk.Session(settings, out_dir, log=lambda m: print(m, flush=True), camera_dir=cam.camera_dir)
+            frac = s.pixel()
+            print(f"chassis tag at {frac} in camera {s.seen_camera}" if frac else "chassis tag not visible in any camera")
+            res = recentre.recentre(s, budget_s=args.budget or settings.recentre_budget_s)
+            if res["moved"] and not args.stay:
+                s.sit(wait=True)
         print(json.dumps({k: res.get(k) for k in ("moved", "done", "reason", "start", "end", "seconds", "pushes")}, indent=1))
         return 0 if res["done"] else 1
     if args.cmd == "zero-check":
@@ -134,8 +135,10 @@ def main(argv=None) -> int:
         except Exception as exc:  # noqa: BLE001
             fb = None
             print(f"robot: {exc}")
+        from . import camera_session
         out_dir = settings.data_dir / "zero-check"
-        res = zero_check.double_check(settings, fb, out_dir, log=lambda m: None)
+        with camera_session.CameraSession(settings, out_dir, log=lambda m: print(m, flush=True)) as cam:
+            res = zero_check.double_check(settings, fb, out_dir, log=lambda m: None, camera_dir=cam.camera_dir)
         print(json.dumps({k: res.get(k) for k in ("verdict", "text", "legs_off", "frame", "camera")}, indent=1))
         return 0 if res["verdict"] in ("agree", "not_at_zero") else 1
     if args.cmd == "pause":

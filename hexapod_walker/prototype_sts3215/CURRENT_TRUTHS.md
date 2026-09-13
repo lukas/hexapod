@@ -15,6 +15,20 @@
   three bounded Robot Lab comparisons on the failed tape. A sim pass, a wide
   randomization range or an export is not evidence that it works physically.
   Canonical design and thresholds: `rl_docs/tracks/speed/DESIGN.md`.
+- **DR-joint-panel verdict, matched cont8m/10M budget, 2026-09-13:** the
+  pre-registered 4-arm comparison (CTRL matched-DR control, WIDE wider
+  independent DR, STRUCT correlated/asymmetric hard-region overlay,
+  COMBO = WIDE+STRUCT composed) is CLOSED — none of the four clears the
+  >=30% held-out peak-roll-reduction floor on the frozen PS200 parent/
+  manifest at matched budget (CTRL 0.02/0.17, WIDE -0.12/-0.02, STRUCT
+  -0.01/0.12, COMBO -0.15/0.08; overall/hard). WIDE and COMBO both looked
+  promising at their own 2M canary and then REGRESSED with more full-dose
+  training — more independent-DR exposure or dose composition does not
+  monotonically buy robustness in this recipe. This does not close the
+  operator's licensed direction (joint/correlated/asymmetric search then
+  DR variants) as a whole, only this specific fixed gait/reward/actuator
+  recipe at this budget; the next candidate lever is outside this DR-variant
+  family (see `rl_docs/tracks/speed/STATUS.md` 2026-09-13 ~21:5x for detail).
 
 ## RL-ONLY OUTCOME REOPENED: full 50 Hz joystick gait plus clean rise/hold/lower required (2026-09-13, operator)
 

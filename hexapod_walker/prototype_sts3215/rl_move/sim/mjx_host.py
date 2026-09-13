@@ -48,7 +48,7 @@ SNAP_ATTRS = (
     # erosion in score1/scoreref1/-dr0/-lowlr/-riseonly/rsi1. Any new
     # per-episode attr set in _reset_begin/_reset_finalize and read in
     # the step path MUST be added here.
-    "_score_best", "_rise_ramp_i0", "_end_posture_from",
+    "_score_best", "_lower_score_best", "_rise_ramp_i0", "_end_posture_from",
     "_rsi_pending", "_rsi_ref_tick0",
     # Two-phase rise sub-goal freeze counter (goal.rise_curl_gate,
     # 2026-09-13 risecurlgate-s1-canary2m FAIL-MECHANISM escalation):

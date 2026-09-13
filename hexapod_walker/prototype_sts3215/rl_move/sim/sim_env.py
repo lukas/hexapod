@@ -208,6 +208,25 @@ def current_headroom_income_factor(cur_peak_a: float, cap_a: float,
     return 1.0 - redness
 
 
+def lower_depth_frac(h_rel_m: float, h_target_m: float) -> float:
+    """Fraction of a LOWER episode's own signed target depth reached so
+    far (``reward.lower_score_prog``, walkcurr track, 2026-09-13
+    ``lowerpartial-{s0,s1}`` FAIL-MECHANISM pair). ``h_rel_m`` is
+    current chassis height relative to episode/segment start (sim_env's
+    ``h_rel``); ``h_target_m`` is the episode's signed height target
+    (negative for a lower episode -- sim_env's ``self._h_target``). Both
+    are negative during a genuine descent, so their ratio is positive;
+    clamped to [0, 1] (0 = at the start pose, 1 = at/past the target
+    depth). Returns 0.0 for a non-lower target (``h_target_m >= 0``) so
+    a caller can call this unconditionally without an extra branch.
+    Pure/stateless -- the episode-level ratchet (best-depth-so-far) is
+    the caller's job, same split as ``current_headroom_income_factor``.
+    """
+    if h_target_m >= 0.0:
+        return 0.0
+    return min(max(h_rel_m / h_target_m, 0.0), 1.0)
+
+
 def current_income_ema_step(prev_ema: float, income_tick: float,
                              alpha_i: float) -> float:
     """One EMA update of the "task income" signal used by
@@ -2937,6 +2956,12 @@ class SimHexapodBalanceEnv(_GymBase):
         # with the episode's FIRST score so crouch/near-plant starts don't
         # collect their starting posture as free income.
         self._score_best: float | None = None
+        # Depth-ratchet baseline (reward.lower_score_prog, 2026-09-13):
+        # same convention as _score_best above, just for the lower-side
+        # `lower_depth_frac` ratchet — seeded on first read so a
+        # mid-descent start (lowerpartial) doesn't collect its starting
+        # depth as free income.
+        self._lower_score_best: float | None = None
         # Feet-under-body ("curl") scores, rise episodes only: mean XY
         # distance from each foot to its plant-footprint anchor. Curling
         # changes NO height term (belly stays down), so without this the
@@ -4052,6 +4077,7 @@ class SimHexapodBalanceEnv(_GymBase):
         self._h_milestones = set()
         self._prev_h_err_abs = 0.0
         self._score_best = None
+        self._lower_score_best = None
         self._is_rise = mode == "rise"
         self._is_getup = False
         self._getup_best = None
@@ -4933,14 +4959,70 @@ class SimHexapodBalanceEnv(_GymBase):
                     self._h_milestones.add(frac)
                     r_mile += kms
             r_mile *= pf
-            if score_mode:
+            # Lower-specific income-shaping ratchet (2026-09-13, walkcurr
+            # `lowerpartial-{s0,s1}` FAIL-MECHANISM pair: the two-seed
+            # start-state-curriculum gate is now closed 2/2 across BOTH
+            # start-state mechanisms tried, and both verdicts named the
+            # same next lever — lower has no ratcheted "credit for
+            # genuine descent" analog of `reward_rise_score_prog` at
+            # all, only the moving-reference progress term above (which
+            # prices the CURRENT tick's ref-tracking delta, so it never
+            # accumulates into a standing income for having actually
+            # gotten lower — a frozen park above the wall only costs as
+            # much as the ref is currently outrunning it that instant,
+            # not a steady bleed). `lower_score_mode` replaces that
+            # stream for lower episodes with a potential-based ratchet
+            # on depth-toward-target fraction (0..1,
+            # `lower_depth_frac = clip(h_rel / h_target, 0, 1)`, both
+            # signed negative for a lower episode so the ratio is
+            # positive), paid ONLY on new best-ever depth reached this
+            # episode (same ratchet math as `_score_best`), net of a
+            # small continuous per-tick tracking-error charge so idle
+            # parking above the wall stops being free — the exact gap
+            # STATUS.md 09-13 ~21:2x named ("lower currently has no
+            # lower_score/ratchet analog of rise_score_prog at all ...
+            # plausibly WHY the -6mm park is a stable optimum"). Default
+            # OFF (reward.lower_score_prog=0): bit-exact, no new
+            # arithmetic touches the existing path. Same on/off
+            # convention as `rise_score_income` just above.
+            lower_score_mode = (
+                self._h_target < 0.0
+                and float(cfg_get(self.cfg, "reward", "lower_score_prog",
+                                  default=0.0)) == 1.0)
+            if score_mode or lower_score_mode:
                 # Height progress + milestones are exactly the streams
                 # that bankrolled every flag-leg/tripod cheat — zeroed
-                # here; the stand-score below is the only rise income.
+                # here; the stand-score (rise) / depth ratchet (lower)
+                # below is the only income for that mode instead.
                 r_prog, r_mile = 0.0, 0.0
             parts["reward_rise_progress"] = r_prog
             parts["reward_rise_milestone"] = r_mile
             reward += r_prog + r_mile
+            if lower_score_mode:
+                depth_frac = lower_depth_frac(h_rel, self._h_target)
+                if self._lower_score_best is None:
+                    self._lower_score_best = depth_frac
+                delta_lsp = max(0.0, depth_frac - self._lower_score_best)
+                self._lower_score_best = self._lower_score_best + delta_lsp
+                klsp = float(cfg_get(self.cfg, "reward",
+                                     "k_lower_score_prog", default=100.0))
+                r_lsp = klsp * delta_lsp
+                parts["reward_lower_score"] = r_lsp
+                parts["lower_depth_frac"] = depth_frac
+                reward += r_lsp
+                # Continuous tracking-error charge (NOT ratcheted, does
+                # not reset once depth is banked): prices the gap
+                # between the best depth reached so far and full target
+                # every tick, so freezing at ANY partial depth keeps
+                # costing instead of going quiet once its one-time
+                # ratchet income has been collected. Weak by default
+                # (k=1.0) — the ratchet is the primary signal, this
+                # only removes the free-parking floor.
+                klst = float(cfg_get(self.cfg, "reward",
+                                     "k_lower_score_track", default=1.0))
+                r_lst = -klst * (1.0 - depth_frac) ** 2
+                parts["reward_lower_track"] = r_lst
+                reward += r_lst
             if score_mode and clear is not None:
                 # The tracking kernel pays torso-at-ref-height with no
                 # posture opinion — the stream every cheat lived on.

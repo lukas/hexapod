@@ -3682,6 +3682,70 @@ def main(argv: list[str] | None = None) -> int:
               f"latched, ramps to the cfg target over "
               f"{_rba_ramp_steps:,} steps")
 
+    # HOLD termination-grace GATED anneal (2026-09-13, walkcurr track
+    # — see sim_env.py's safety.hold_grace_curriculum block in
+    # __init__/apply_hold_grace_frac for the mechanism/why: STATUS.md
+    # 09-13 ~17:5x/~18:0x closed 5/5 static-cfg-dose hold-from-scratch
+    # levers at one FIXED termination envelope each. Single source of
+    # truth: safety.hold_grace_curriculum arms BOTH the env-side ramp
+    # struct and this trainer-side gate callback below. Deliberately
+    # simpler than the residual-anneal gate's dedicated deterministic
+    # assay env: this recipe's own training diet is already 100%
+    # hold, so the gate reads survival competence straight off the
+    # LIVE stochastic training rollout stream (dones + termination_
+    # reason, the same per-step signal the rollout metrics callback
+    # already aggregates into terminations/*) instead of spinning up
+    # a second MJX world — a boring, cheap first cut; if window noise
+    # turns out to matter a dedicated deterministic assay is the next
+    # lever, not a reason to block this one.
+    _hg_gate = False
+    _hg_ramp_steps = 1_000_000
+    _hg_check_every = 200_000
+    _hg_min_episodes = 200
+    _hg_promote_frac = 0.5
+    if env_kw.get("cfg") is not None:
+        from rl_move.config import cfg_get as _cfg_get_hg
+        _hg_gate = float(_cfg_get_hg(
+            env_kw["cfg"], "safety", "hold_grace_curriculum",
+            default=0.0) or 0.0) > 0.0
+        if _hg_gate:
+            _hg_ramp_steps = int(float(_cfg_get_hg(
+                env_kw["cfg"], "train", "hold_grace_ramp_steps",
+                default=1_000_000)))
+            _hg_check_every = int(float(_cfg_get_hg(
+                env_kw["cfg"], "train", "hold_grace_check_every",
+                default=200_000)))
+            _hg_min_episodes = int(float(_cfg_get_hg(
+                env_kw["cfg"], "train", "hold_grace_min_episodes",
+                default=200)))
+            _hg_promote_frac = float(_cfg_get_hg(
+                env_kw["cfg"], "train", "hold_grace_promote_survived_frac",
+                default=0.5))
+    # Mutable holder (not a local, so the closures + callback class all
+    # see the same latch) — pass_step is None until the gate callback
+    # latches it; never un-latched (monotonic tightening only).
+    _hg_state = {"pass_step": None}
+
+    def _hg_frac_at(step: int) -> float:
+        from .bc_anchor import gated_ramp_frac
+        return gated_ramp_frac(_hg_state["pass_step"], step, _hg_ramp_steps)
+
+    def _hg_apply(target_venv, step: int) -> dict | None:
+        if not _hg_gate:
+            return None
+        f = _hg_frac_at(step)
+        return target_venv.env_method("apply_hold_grace_frac", f)[0]
+
+    if _hg_gate:
+        _hg0 = _hg_apply(venv, 0)
+        print("[hold-grace-gate] armed: held at drop_mm="
+              f"{_hg0['drop_mm']:.1f} grace_s={_hg0['grace_s']:.2f} "
+              f"until the training rollout stream first shows "
+              f">= {_hg_min_episodes} hold episodes/window with "
+              f"survived_frac >= {_hg_promote_frac:.2f} (checked every "
+              f"{_hg_check_every:,} steps); once latched, tightens to "
+              f"the cfg target over {_hg_ramp_steps:,} steps")
+
     if args.predictive_live:
         capture_indices = list(range(args.pred_capture_envs))
         venv.env_method("dynrep_capture_enable", True,
@@ -5260,6 +5324,102 @@ def main(argv: list[str] | None = None) -> int:
 
         callbacks.append(_ResidualAnnealGateCb())
         print("[residual-anneal-gate] callback registered")
+    if _hg_gate:
+        # See the arming block above (before venv-dependent callbacks)
+        # for the mechanism/why. Reads survival competence straight
+        # off the live stochastic training rollout (dones +
+        # termination_reason from self.locals, exactly like the
+        # rollout-metrics callback's own terminations/* aggregation)
+        # rather than a dedicated deterministic assay env — this
+        # recipe's whole diet is already hold, so the training stream
+        # itself IS the competence signal.
+        class _HoldGraceGateCb(BaseCallback):
+            """Broadcasts the live hold-grace frac every rollout (held
+            at 0 = the loose start until the gate first passes, then
+            ramps to 1 = the cfg target over _hg_ramp_steps); tallies
+            survived_frac (episodes ending TRUNCATED, i.e. surviving
+            the full episode, vs any termination) over a rolling
+            window of >= _hg_min_episodes since the last check, and
+            latches _hg_state['pass_step'] the first time that
+            window's survived_frac clears _hg_promote_frac."""
+
+            def __init__(self):
+                super().__init__()
+                self._next = int(_hg_check_every)
+                self._ep_total = 0
+                self._ep_survived = 0
+
+            def _on_step(self) -> bool:
+                if _hg_state["pass_step"] is not None:
+                    return True  # latched; stop tallying, nothing left to gate
+                infos = self.locals.get("infos")
+                dones = self.locals.get("dones")
+                if infos is None or dones is None:
+                    return True
+                for i in np.flatnonzero(np.asarray(dones)):
+                    info = infos[int(i)]
+                    reason = info.get("termination_reason") or (
+                        "truncated" if info.get("TimeLimit.truncated")
+                        else "done")
+                    self._ep_total += 1
+                    if reason == "truncated":
+                        self._ep_survived += 1
+                return True
+
+            def _on_rollout_start(self) -> None:
+                vals = _hg_apply(venv, self.num_timesteps)
+                if run is not None:
+                    import wandb
+                    wandb.log({
+                        "global_step": self.num_timesteps,
+                        "hold_grace/frac": vals["frac"],
+                        "hold_grace/drop_mm": vals["drop_mm"],
+                        "hold_grace/grace_s": vals["grace_s"],
+                        "hold_grace/passed":
+                            float(_hg_state["pass_step"] is not None)})
+
+            def _on_rollout_end(self) -> None:
+                if _hg_state["pass_step"] is not None:
+                    return  # latched at first pass, never re-armed
+                if self.num_timesteps < self._next:
+                    return
+                self._next = ((self.num_timesteps // _hg_check_every)
+                              + 1) * _hg_check_every
+                if self._ep_total < _hg_min_episodes:
+                    print(f"[hold-grace-gate] check @ "
+                          f"{self.num_timesteps:,}: only "
+                          f"{self._ep_total} episodes since last check "
+                          f"(< {_hg_min_episodes}), skipping — will "
+                          "keep accumulating")
+                    return
+                frac = self._ep_survived / max(self._ep_total, 1)
+                passed = frac >= _hg_promote_frac
+                print(f"[hold-grace-gate] check @ {self.num_timesteps:,}"
+                      f": survived_frac={frac:.3f} over "
+                      f"{self._ep_total} episodes -> "
+                      f"{'PASS' if passed else 'FAIL'} (thresh "
+                      f"{_hg_promote_frac:.2f})")
+                if run is not None:
+                    import wandb
+                    wandb.log({
+                        "global_step": self.num_timesteps,
+                        "hold_grace/survived_frac_window": frac,
+                        "hold_grace/window_episodes": self._ep_total,
+                        "hold_grace/gate_pass": float(passed)})
+                self._ep_total = 0
+                self._ep_survived = 0
+                if passed:
+                    _hg_state["pass_step"] = int(self.num_timesteps)
+                    print("[hold-grace-gate] PASSED @ "
+                          f"{self.num_timesteps:,} — tightening the "
+                          f"hold envelope to the cfg target over "
+                          f"{_hg_ramp_steps:,} steps from here")
+                    if run is not None:
+                        run.summary["hold_grace_pass_step"] = (
+                            int(self.num_timesteps))
+
+        callbacks.append(_HoldGraceGateCb())
+        print("[hold-grace-gate] callback registered")
     if args.ent_coef_final is not None:
         class _EntCoefAnnealCb(BaseCallback):
             """Linearly anneal model.ent_coef from args.ent_coef to

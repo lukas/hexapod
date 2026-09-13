@@ -1045,6 +1045,90 @@ class SimHexapodBalanceEnv(_GymBase):
             }
             self._residual_blend_override = _rba_start
 
+        # HOLD termination-grace CURRICULUM (2026-09-13, walkcurr
+        # track — the sinkfence/holdlowstd joint refutation: 5/5
+        # static-cfg-dose levers (base goal-mix, mixreweight exposure,
+        # holdjitter start-offset, holdlowstd log-std-schedule, and a
+        # TIGHTER static hold_max_height_drop_mm/hold_height_grace_s
+        # envelope itself) converge on the identical "ride the
+        # envelope to its bound" defect regardless of how wide or
+        # tight that bound is fixed at. STATUS.md's own pre-registered
+        # next escalation: "start wide, tighten with competence" — a
+        # single STATIC envelope is either too loose (profitable long
+        # sink, holdonly's 40mm/1.0s) or too tight (near-instant death
+        # before any hold skill can form, sinkfence's 15mm/0.5s); ONLY
+        # a schedule that starts at the loose value (so early
+        # exploration survives long enough to see the plant income)
+        # and tightens toward the validated tight target ONCE the
+        # trainer's own rollout stream shows the policy already
+        # surviving to truncation lets both regimes do their job in
+        # sequence instead of at war with each other for the whole
+        # run. Mirrors goal.walk_residual_anneal_gate's "gated ramp"
+        # contract exactly (armed-but-unbroadcast sits at the LOOSE
+        # START, not the target — the opposite convention from term_
+        # penalty/drag_allow, which loosen a safety-relevant charge
+        # and so must default to the validated value for any eval/play
+        # path that never broadcasts; here the mechanism only ever
+        # TIGHTENS a termination envelope, so sitting at the loose
+        # start when unbroadcast is the safe/inert default — same
+        # reasoning as residual_blend). Single source of truth:
+        # safety.hold_grace_curriculum arms BOTH this env-side ramp
+        # struct and the trainer-side gate callback below (train_ppo_
+        # mjx.py) — no separate train.* on/off flag. The TARGET the
+        # ramp tightens toward is whatever safety.hold_max_height_
+        # drop_mm/hold_height_grace_s are already set to (the run's
+        # own validated tight envelope); safety.hold_grace_start_*
+        # name the loose starting point. Default 0 = off, bit-exact:
+        # the HOLD-mode collapse check below falls straight back to
+        # reading the two safety.* cfg leaves directly, unchanged.
+        self._hold_grace_ramp: dict | None = None
+        self._hold_grace_override_drop_mm: float | None = None
+        self._hold_grace_override_grace_s: float | None = None
+        _hg_gate = float(cfg_get(
+            self.cfg, "safety", "hold_grace_curriculum",
+            default=0.0) or 0.0) > 0.0
+        if _hg_gate:
+            _hg_target_drop = float(cfg_get(
+                self.cfg, "safety", "hold_max_height_drop_mm",
+                default=0.0))
+            _hg_target_grace = float(cfg_get(
+                self.cfg, "safety", "hold_height_grace_s", default=0.0))
+            if _hg_target_drop <= 0.0:
+                raise ValueError(
+                    "safety.hold_grace_curriculum is set but safety."
+                    "hold_max_height_drop_mm<=0 — there is no HOLD "
+                    "termination envelope armed for this curriculum "
+                    "to tighten toward")
+            _hg_start_drop = float(cfg_get(
+                self.cfg, "safety", "hold_grace_start_drop_mm",
+                default=40.0))
+            _hg_start_grace = float(cfg_get(
+                self.cfg, "safety", "hold_grace_start_grace_s",
+                default=1.0))
+            if _hg_start_drop < _hg_target_drop:
+                raise ValueError(
+                    "safety.hold_grace_start_drop_mm "
+                    f"({_hg_start_drop:g}) must be >= safety."
+                    f"hold_max_height_drop_mm ({_hg_target_drop:g}) — "
+                    "the curriculum only ever TIGHTENS the envelope "
+                    "from a loose start, never loosens past the "
+                    "validated target")
+            if _hg_start_grace < _hg_target_grace:
+                raise ValueError(
+                    "safety.hold_grace_start_grace_s "
+                    f"({_hg_start_grace:g}) must be >= safety."
+                    f"hold_height_grace_s ({_hg_target_grace:g}) — "
+                    "the curriculum only ever TIGHTENS the grace "
+                    "window from a loose start, never loosens past "
+                    "the validated target")
+            self._hold_grace_ramp = {
+                "start_drop": _hg_start_drop, "target_drop": _hg_target_drop,
+                "start_grace": _hg_start_grace,
+                "target_grace": _hg_target_grace, "frac": 0.0,
+            }
+            self._hold_grace_override_drop_mm = _hg_start_drop
+            self._hold_grace_override_grace_s = _hg_start_grace
+
         # Hot-current BOOTSTRAP (standwalk track, 2026-09-12 — the
         # dualbc7-anchor14coef1-...-termcost3 lineage's late-tail
         # over_current spike: root-caused 09-12 ~12:5x as an INCENTIVE
@@ -3070,6 +3154,33 @@ class SimHexapodBalanceEnv(_GymBase):
         self._residual_blend_ramp["frac"] = f
         return {"frac": f, "blend": self._residual_blend_override}
 
+    def apply_hold_grace_frac(self, frac: float) -> dict:
+        """Move the live HOLD-mode termination envelope to ``frac`` of
+        the gated tightening curriculum (0 = the loose ``safety.
+        hold_grace_start_*`` start, held until the trainer's ignition
+        gate first latches a survival-competence pass; 1 = the cfg
+        ``safety.hold_max_height_drop_mm``/``hold_height_grace_s``
+        target); see the ``safety.hold_grace_curriculum`` block in
+        ``__init__``. Mirrors ``apply_residual_blend_frac``'s contract
+        exactly: raises when the gate is not armed, so a broadcast
+        that silently no-ops is never a hidden failure mode. VecEnv
+        ``env_method`` hook (sharded workers can't be poked
+        in-process)."""
+        if self._hold_grace_ramp is None:
+            raise RuntimeError(
+                "apply_hold_grace_frac called but safety."
+                "hold_grace_curriculum is not set (>0) in this env's "
+                "cfg — the hold-grace gated anneal is not armed")
+        f = min(max(float(frac), 0.0), 1.0)
+        r = self._hold_grace_ramp
+        self._hold_grace_override_drop_mm = (
+            r["start_drop"] + f * (r["target_drop"] - r["start_drop"]))
+        self._hold_grace_override_grace_s = (
+            r["start_grace"] + f * (r["target_grace"] - r["start_grace"]))
+        r["frac"] = f
+        return {"frac": f, "drop_mm": self._hold_grace_override_drop_mm,
+                "grace_s": self._hold_grace_override_grace_s}
+
     def apply_current_hot_bootstrap_frac(self, frac: float) -> dict:
         """Move the live ``k_current_hot`` scale to ``frac`` of the
         bootstrap (0 = ``reward.current_hot_bootstrap_min_frac`` of
@@ -3925,10 +4036,19 @@ class SimHexapodBalanceEnv(_GymBase):
         # catches the level-bellied survivor tilt cannot see, exactly
         # like walk_low_height for the seated scoot. Default 0.0 = off,
         # bit-exact for every existing task/config.
-        hold_max_drop_mm = float(cfg_get(
-            self.cfg, "safety", "hold_max_height_drop_mm", default=0.0))
-        hold_height_grace_s = float(cfg_get(
-            self.cfg, "safety", "hold_height_grace_s", default=0.0))
+        if self._hold_grace_ramp is not None:
+            # Gated tightening curriculum armed: read the LIVE
+            # trainer-broadcast envelope (starts loose, ratchets to
+            # the cfg target — see apply_hold_grace_frac), not the
+            # static cfg leaves directly.
+            hold_max_drop_mm = float(self._hold_grace_override_drop_mm)
+            hold_height_grace_s = float(self._hold_grace_override_grace_s)
+        else:
+            hold_max_drop_mm = float(cfg_get(
+                self.cfg, "safety", "hold_max_height_drop_mm",
+                default=0.0))
+            hold_height_grace_s = float(cfg_get(
+                self.cfg, "safety", "hold_height_grace_s", default=0.0))
         if (not terminated and hold_max_drop_mm > 0.0
                 and self._goal_traj is not None
                 and getattr(self._goal_traj, "mode", "") == "hold"

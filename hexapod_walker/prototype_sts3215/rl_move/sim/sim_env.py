@@ -5804,9 +5804,17 @@ class SimHexapodBalanceEnv(_GymBase):
         # curricula ... are allowed"), not another reward-pricing dose
         # on the same continuous income. Bit-exact OFF by default
         # (reward.rise_curl_pretrain=0): every existing checkpoint's
-        # reward is untouched. Tests:
+        # reward is untouched. Crouch starts are EXEMPT (same exemption
+        # as `_rise_gate_tick`'s freeze): curl_dist is already ~0 there,
+        # so there is nothing to pretrain and the full height/score
+        # reward stays live -- without this exemption, a mixed-mode
+        # pretrain batch would starve the crouch->full-rise pathway of
+        # its own already-working reward signal and risk regressing the
+        # one branch this campaign already trusts (rise_crouch_success
+        # held at 1.0 across every prior canary). Tests:
         # rl_move/tests/test_rise_curl_pretrain_reward.py.
-        if (self._is_rise and float(cfg_get(
+        if (self._is_rise and getattr(self._goal_traj, "start_at", None)
+                != "crouch" and float(cfg_get(
                 self.cfg, "reward", "rise_curl_pretrain",
                 default=0.0)) == 1.0):
             _keep_keys = (

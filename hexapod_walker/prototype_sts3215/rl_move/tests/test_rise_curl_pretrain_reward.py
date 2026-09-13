@@ -69,7 +69,8 @@ _KEEP_KEYS = (
 )
 
 
-def _rise_env(seed: int, pretrain: float = 0.0) -> SimHexapodGoalEnv:
+def _rise_env(seed: int, pretrain: float = 0.0,
+              start: str = "flat") -> SimHexapodGoalEnv:
     cfg = load_config()
     cfg.setdefault("actions", {})["max_height_mm"] = 115
     cfg.setdefault("goal", {})["rise_height_mm"] = [90, 90]
@@ -85,7 +86,7 @@ def _rise_env(seed: int, pretrain: float = 0.0) -> SimHexapodGoalEnv:
               "lower", "quad", "walk"):
         if hasattr(g, f"p_{m}"):
             setattr(g, f"p_{m}", 1.0 if m == "rise" else 0.0)
-    g.force_rise_start = "flat"
+    g.force_rise_start = start
     return env
 
 
@@ -139,6 +140,21 @@ def test_returned_reward_equals_sum_of_surviving_parts():
                         and isinstance(v, (int, float)))
         assert r == pytest.approx(part_sum, abs=1e-6), \
             "scalar reward diverges from its own logged reward_* parts"
+
+
+def test_crouch_start_is_exempt_full_reward_stays_live():
+    # Crouch starts have curl_dist ~0 already (nothing to pretrain) --
+    # the flag must not touch their reward, so the campaign's
+    # already-working rise_crouch_success pathway can't regress just
+    # from mixing pretrain-flagged batches into a shared training run.
+    on = [i for _, i in _run(_rise_env(seed=3, pretrain=1.0,
+                                        start="crouch"), 450,
+                             np.full((6,), 0.8, dtype=np.float32))]
+    assert not any(i.get("rise_curl_pretrain_active") for i in on), \
+        "crouch start was NOT exempted from the pretrain reward gate"
+    assert any(i.get("reward_rise_score_prog", 0.0) != 0.0
+               for i in on), \
+        "crouch start's normal height/score income was suppressed"
 
 
 def test_on_drops_exactly_the_named_keys_nothing_else_reward_shaped():

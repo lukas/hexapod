@@ -50,6 +50,12 @@ SNAP_ATTRS = (
     # the step path MUST be added here.
     "_score_best", "_rise_ramp_i0", "_end_posture_from",
     "_rsi_pending", "_rsi_ref_tick0",
+    # Two-phase rise sub-goal freeze counter (goal.rise_curl_gate,
+    # 2026-09-13 risecurlgate-s1-canary2m FAIL-MECHANISM escalation):
+    # per-episode, set in reset/_seq_reset_mode_state, incremented every
+    # step path tick by _rise_gate_tick -- the exact class of attr this
+    # list exists to catch.
+    "_rise_gate_freeze_ticks",
     # HOLD/TRACK BC-anchor eligibility (08-11, RL_PLAN queue 2.3): set
     # in _reset_finalize, read every step-path tick — the exact class
     # of attr this list exists to catch (see comment above).

@@ -3065,6 +3065,7 @@ class SimHexapodBalanceEnv(_GymBase):
             self._plant_deg * DEG2RAD)[:, :2]
         self._curl_dist_prev = self._curl_dist()
         self._curl_milestones: set[float] = set()
+        self._rise_gate_freeze_ticks = 0
         self._state = self._read_state()
         self._rec_reset_height_mm = 0.0
         self._rec_reset_tilt_deg = 0.0
@@ -3183,7 +3184,65 @@ class SimHexapodBalanceEnv(_GymBase):
     def _current_goal(self):
         if self._goal_traj is None:
             return None
-        return self._goal_traj.at(self._step_i)
+        idx = self._step_i - getattr(self, "_rise_gate_freeze_ticks", 0)
+        return self._goal_traj.at(idx)
+
+    def _rise_gate_tick(self) -> None:
+        """Two-phase rise sub-goal (``goal.rise_curl_gate``, default 0 =
+        OFF = bit-exact identical to every prior checkpoint): called
+        once per real tick, right after ``self._step_i`` advances and
+        before the tick's reward/obs goal is read.
+
+        Escalation context (2026-09-13, `risecurlgate-s1-canary2m`
+        CANARY FAIL-MECHANISM): TWO successive income-repricing levers
+        on `reward_rise_score_prog` (current-headroom-gated, then
+        curl-geometry-gated) both left the flat/bridge rise/det failing
+        trajectories bit-identical to the ungated parent — pricing the
+        SAME continuous height ramp differently never stopped the
+        policy from attempting the sprawled straight push, because the
+        height ref advances on a fixed WALL-CLOCK schedule
+        (`goal.rise_ramp_s` after `goal.rise_hold_s`) regardless of
+        whether the feet ever curled in. This is not another re-price:
+        it makes the height ramp's own onset CONDITIONAL on a genuine
+        intermediate sub-goal (feet within `rise_curl_gate_threshold_mm`
+        of the plant footprint, i.e. curl-to-bridge-pose), by freezing
+        the trajectory index fed to ``_current_goal()`` at the last
+        pre-ramp (height==0) tick for as long as the sub-goal is unmet,
+        up to a capped extra wait (`rise_curl_gate_max_extra_s`) so an
+        episode that never curls still eventually gets scored on the
+        attempt rather than stalling forever. ``_rise_ramp_i0`` (already
+        computed at reset as the first nonzero index of the height
+        schedule, for the pre-existing BC-reference alignment) doubles
+        as the natural hold-boundary here. Crouch starts (curl_dist
+        already ~0) are exempt — nothing to gate. Pure index-freeze:
+        no new physics, no change to any existing reward term's
+        formula; every other reward path reads whatever goal
+        ``_current_goal()`` returns exactly as before.
+        Tests: rl_move/tests/test_rise_curl_gate_hold.py.
+        """
+        if not self._is_rise or self._goal_traj is None:
+            return
+        if float(cfg_get(self.cfg, "goal", "rise_curl_gate",
+                          default=0.0)) != 1.0:
+            return
+        if getattr(self._goal_traj, "start_at", None) == "crouch":
+            return  # curl_dist ~0 already -- nothing to gate
+        hold_n = int(getattr(self, "_rise_ramp_i0", 0))
+        freeze = self._rise_gate_freeze_ticks
+        idx = self._step_i - freeze
+        if idx < hold_n:
+            return  # still inside the natural pre-ramp hold window
+        max_extra_s = float(cfg_get(
+            self.cfg, "goal", "rise_curl_gate_max_extra_s", default=2.0))
+        max_extra_ticks = int(round(max_extra_s / self.dt))
+        if freeze >= max_extra_ticks:
+            return  # capped -- let the ramp proceed without the curl
+        th_m = float(cfg_get(
+            self.cfg, "goal", "rise_curl_gate_threshold_mm",
+            default=40.0)) * 0.001
+        if self._curl_dist() <= th_m:
+            return  # sub-goal met -- unlock permanently from here on
+        self._rise_gate_freeze_ticks = freeze + 1
 
     def _act_to_q(self, clipped: np.ndarray):
         """Map a clipped action to joint targets: (q_rad, ok, reason).
@@ -4007,6 +4066,7 @@ class SimHexapodBalanceEnv(_GymBase):
         self._end_posture_from = None
         self._curl_dist_prev = self._curl_dist()
         self._curl_milestones = set()
+        self._rise_gate_freeze_ticks = 0
         # Hold/lower BC anchors mid-sequence use q_nom directly — which
         # the switch just re-based to the CANONICAL plant frame, i.e.
         # exactly the settled-plant base a fresh single-mode hold/lower
@@ -4064,6 +4124,7 @@ class SimHexapodBalanceEnv(_GymBase):
         self._step_i += 1
         if getattr(self, "_seq_plan", None) is not None:
             self._seq_maybe_switch()
+        self._rise_gate_tick()
         goal = self._current_goal()
         h_err = None
         h_rel = float(self.data.xpos[self._chassis_bid, 2]) - self._z0

@@ -151,6 +151,26 @@ def _rollout(model, env, behavior: str = "policy",
         for k in _TRACK_KEYS:
             v = info.get(k)
             row[k] = round(float(v), 4) if v is not None else None
+        # Per-leg ground-truth touch forces (2026-09-13, holdgraceslow
+        # hold_min_load dig-in): the SAME measurement the hold_min_load
+        # termination EMA tracks (_minload_min_force_now), but kept
+        # per-leg so WHICH foot unloads (and whether it is one flag leg
+        # or a rocking set) is visible directly. Read-only diagnostic.
+        try:
+            legf = []
+            for i in range(6):
+                if env._touch_adr[i] >= 0:
+                    legf.append(round(max(float(
+                        env.data.sensordata[env._touch_adr[i]]), 0.0), 2))
+                else:
+                    legf.append(None)
+            row["leg_f_n"] = legf
+            row["min_f_n"] = (min(f for f in legf if f is not None)
+                              if any(f is not None for f in legf) else None)
+            row["minload_ema"] = round(float(
+                getattr(env, "_hold_minload_ema", float("nan"))), 3)
+        except Exception:
+            pass
         rows.append(row)
         step += 1
     return rows

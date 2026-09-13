@@ -9,7 +9,11 @@ demonstration-free lineage.
 What is the fastest forward body speed Hexapod 2 can sustain with a real
 six-leg lift/place gait, bounded slip and body motion, and a transfer contract
 that is safe to test physically? After establishing that frontier, can one
-policy cover the useful speed range without losing the fast endpoint?
+policy cover the useful speed range without losing the fast endpoint? The
+current research priority is now the transfer question: what combinations of
+model error made the best fast gait fail physically, and can training over a
+wider, evidence-bounded distribution retain useful speed while surviving the
+same real-world conditions?
 
 Speed always means measured forward displacement divided by elapsed time.
 Command magnitude, foot speed, cadence, joint travel and training return are
@@ -36,6 +40,84 @@ diagnostics, never the answer.
 - The clean RL-only speed-band widening to 0.03-0.12 m/s passed three seeds,
   but that track still has high slip/off-axis limitations. It remains under
   `walkcurr`; no assisted weights or targets cross into it.
+- The PS200 physical tape reached 16.78 degrees peak roll where the matched
+  simulation produced 3.32 degrees. Prior one-factor frozen-policy probes did
+  not explain the gap, and a recurrent external-roll-torque hardening canary
+  did not learn resistance. That closes those exact mechanisms, not the
+  broader question of interacting model errors or wider domain randomization.
+
+## Sim-to-real robustness direction (operator order, 2026-09-13)
+
+The next deliverable is not a still-faster simulation score. It is the fastest
+member of the existing Pareto frontier that survives a deliberately broader
+simulated reality distribution and then improves on the failed physical tape.
+Use the strongest 50 Hz fast candidates as frozen baselines; do not discard
+their nominal speed before establishing the robustness tradeoff.
+
+### Diagnose interacting model error
+
+Ingest every available artifact from the failed physical trial: command tape,
+orientation, achieved displacement, video, servo position/current/temperature,
+timing and contact estimates. Missing telemetry is a named uncertainty, not a
+reason to wait: begin with the observed roll/time/speed/video signature and
+refine the posterior when Robot Lab exports more channels.
+
+Build a reproducible frozen-policy sensitivity/search panel over combinations,
+not another one-knob dose ladder. Cover the simulator's existing uncertainty
+families where supported: body/link mass, COM and inertia; ground and per-foot
+friction/compliance; actuator strength, damping, gain, slew/current saturation;
+latency/dropout; encoder zero, backlash/deadband and IMU bias/mounting; link
+length and per-leg asymmetric manufacturing error. Record units, bounds and
+provenance. Use measured bounds when available and conservative engineering
+bounds otherwise; reject physically absurd parameter sets.
+
+Search jointly sampled and correlated/asymmetric ensembles. Rank ensembles by
+their ability to reproduce the physical signature across the fast parent and
+control policies: peak-roll scale and timing, forward-speed loss, gait/contact
+asymmetry and current pattern where present. Hold out combinations and seeds so
+the subsequent learner cannot pass by memorizing the diagnostic set. The prior
+PS200 probes remain closed as isolated explanations; this direction is licensed
+because interactions and distributional training were not tested by them.
+
+### Train a bounded robustness population
+
+After the panel exists, run a matched discovery population from the best fast
+50 Hz parent: current-DR control, wider independent DR, and structured
+correlated/asymmetric DR fitted to the physical-signature region. An adaptive
+or adversarial hard-case sampler is a fourth arm only when its implementation
+and held-out gate are ready. Change no gait/reward/actuator-envelope lever in
+the same comparison. Use one seed for discovery, then replicate any apparent
+winner on a second seed before acquisition.
+
+Widen DR with a curriculum so the policy first retains the fast gait and then
+faces harder domains; merely maximizing ranges is not success. Log performance
+by parameter stratum and preserve the frozen parent on every panel. If all arms
+lose the gait, narrow or restructure the distribution from evidence rather
+than buying more steps.
+
+### Promotion gates
+
+A simulation candidate must satisfy both sides of the tradeoff:
+
+- Nominal mesh/50 Hz speed is at least 90% of its matched fast parent and at
+  least 0.07 m/s at the 0.10 m/s pin, with zero falls and no chronic sacrificed
+  leg.
+- On a held-out real-world-survival panel of at least 48 deterministic and
+  stochastic episodes, it reduces the parent's physical-signature peak-roll
+  statistic by at least 30%, has zero falls, retains six-leg gait validity in
+  at least 90% of episodes, and does not replace roll with skating, excessive
+  current, wrong-way motion or a speed loss greater than 20%.
+- The exact failed physical command tape is replayed in simulation and included
+  in the report/video, but is not part of training or model selection.
+
+Only Robot Lab performs the bounded physical comparison. Start with three
+observed runs of at most 30 seconds using the same command tape, conservative
+verified actuator contract and abort criteria. The first physical milestone is
+zero falls/trips/guard aborts, at least 30% less peak roll than the 16.78-degree
+baseline, all six legs visibly cycling, and median achieved speed at least
+0.05 m/s, with synchronized video and trustworthy current/thermal telemetry.
+Report sim and hardware separately. A sim robustness PASS, export, or single
+good hardware run is not physical promotion.
 
 ## Staged program
 

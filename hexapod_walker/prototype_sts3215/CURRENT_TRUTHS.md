@@ -1,5 +1,21 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## SPEED PRIORITY: make the fast gait survive hardware through evidence-bounded wider DR (2026-09-13, operator)
+
+- The fast frontier is no longer judged by simulation speed alone. The current
+  transfer gap is the PS200 tape's 16.78-degree physical roll versus 3.32
+  degrees in matched simulation; a physical failure does not erase the sim
+  frontier, but it prevents promotion.
+- The next licensed direction is joint/correlated/per-leg-asymmetric model-
+  error search followed by matched current-DR, wider-independent-DR and
+  physical-signature-targeted structured-DR training. Prior isolated PS200
+  probes and the external-roll-torque canary remain closed only as those exact
+  mechanisms; multi-parameter distributional training is new work.
+- Promotion requires retained nominal speed plus held-out robustness and then
+  three bounded Robot Lab comparisons on the failed tape. A sim pass, a wide
+  randomization range or an export is not evidence that it works physically.
+  Canonical design and thresholds: `rl_docs/tracks/speed/DESIGN.md`.
+
 ## RL-ONLY OUTCOME REOPENED: full 50 Hz joystick gait plus clean rise/hold/lower required (2026-09-13, operator)
 
 - `bundle_rlonly_v2` is retained as useful clean forward-walk evidence, not

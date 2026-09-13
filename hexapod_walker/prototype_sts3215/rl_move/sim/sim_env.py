@@ -241,6 +241,48 @@ def action_rate_penalty(prev_action: np.ndarray,
                           - np.asarray(prev_action, dtype=np.float64)) ** 2))
 
 
+def hold_barrier_penalty(h_err_m: float, hold_max_drop_mm: float,
+                          gain: float) -> float:
+    """Steepening BARRIER penalty on how close the chassis sits to the
+    ACTIVE hold-mode termination bound (``reward.hold_barrier_gain``,
+    2026-09-13, walkcurr hold-from-scratch escalation).
+
+    The ``holdgrace`` curriculum canary pair (both seeds) closed the
+    "termination-grace curriculum" lever named as the next escalation
+    after 5/5 static-cfg-dose levers failed: the gate itself engaged
+    fine (survived_frac cleared 0.4 by ~131k/2M steps in both seeds)
+    but once the envelope tightened to its validated target, both
+    seeds still rode it straight to ``hold_low_height`` every episode
+    (0/6 survived at 2M). The existing quadratic ``reward_height``
+    term (``-k_height * h_err**2``) is flat enough near the bound that
+    slowly sinking into the discounted, CAPPED terminal cost
+    (``reward.term_cost_max``) is cheaper than paying the stiffer
+    stand-still/feet-load charges of actually holding — a misaligned
+    reward per the 08-21 ruling, not a training-duration problem.
+
+    This term instead DIVERGES as ``|h_err|`` approaches
+    ``hold_max_drop_mm`` (the live grace-curriculum-overridden value
+    when that curriculum is armed, the static cfg leaf otherwise), so
+    the marginal cost of closing on the cliff rises far faster than
+    the quadratic term ever does, well before termination actually
+    fires. Unlike a pure potential-based reshaping (which by
+    construction cannot change the optimal policy), this explicitly
+    re-prices the ride-the-bound trajectory itself.
+
+    Pure/stateless: ``h_err_m`` is the signed height error in METERS
+    (same convention as ``compute_reward``'s ``height_err``),
+    ``hold_max_drop_mm`` is the currently active bound in mm (<=0 means
+    no active bound -> penalty is 0), ``gain`` is
+    ``reward.hold_barrier_gain`` (<=0 -> penalty is 0, bit-exact off).
+    Returns the (non-positive) reward contribution; caller adds it to
+    ``reward`` and records it in ``parts["reward_hold_barrier"]``.
+    """
+    if gain <= 0.0 or hold_max_drop_mm <= 0.0:
+        return 0.0
+    drop_frac = min(abs(h_err_m) * 1000.0 / hold_max_drop_mm, 0.999)
+    return -gain * (drop_frac ** 2) / (1.0 - drop_frac)
+
+
 # --------------------------------------------------------------------------
 # Valid-plant specification (operator, 2026-08-10). "Standing" is a
 # GEOMETRIC condition, not a torso height: every rise arm before this
@@ -4372,6 +4414,45 @@ class SimHexapodBalanceEnv(_GymBase):
                                        unload_force_n=unload_f,
                                        ref_quiet=ref_quiet,
                                        tilt_settle_scale=tilt_settle_scale)
+        # Height-approach BARRIER shaping (2026-09-13, walkcurr
+        # hold-from-scratch escalation: the hold_grace curriculum closed
+        # the "termination-grace curriculum" lever named as the next
+        # escalation after 5/5 static-dose levers failed -- both canary
+        # seeds gate-PASSED early (survived_frac cleared 0.4 at the
+        # loose 40mm/1.0s start by 131k steps) then rode the tightened
+        # envelope straight to hold_low_height every remaining episode,
+        # 0/6 survived at 2M in both seeds, fwd med 0.00-0.01m
+        # throughout -- the plain quadratic reward_height term above is
+        # flat enough near the bound that slowly sinking into the
+        # (discounted, capped) terminal cost is cheaper than paying the
+        # stiffer stand-still/feet-load charges of actually holding.
+        # This adds a steepening BARRIER that DIVERGES as the chassis
+        # approaches the ACTIVE hold_max_height_drop_mm bound (the live
+        # grace-curriculum-overridden value when that curriculum is
+        # armed, the static cfg leaf otherwise) so the marginal cost of
+        # closing on the cliff rises far faster than the quadratic term
+        # ever does, well before termination actually fires -- unlike a
+        # pure potential-based reshaping (which cannot change the
+        # optimal policy by construction), this explicitly re-prices the
+        # ride-the-bound trajectory itself, per the 08-21 ruling's
+        # "reward is misaligned -> fix the reward" branch. Scoped to
+        # HOLD only (mirrors hold_still_gate's own mode scoping just
+        # below -- rise/lower/raise/track have their own height stacks/
+        # no fixed drop-line to converge on; getup/recover never reach
+        # here since h_err stays None for them). Default 0.0 = off,
+        # bit-exact: reward/parts totals are unchanged unless a caller
+        # explicitly sets reward.hold_barrier_gain > 0.
+        r_hold_barrier = 0.0
+        k_hbar = float(cfg_get(self.cfg, "reward", "hold_barrier_gain",
+                               default=0.0))
+        if (k_hbar > 0.0 and goal is not None
+                and self._goal_traj is not None
+                and getattr(self._goal_traj, "mode", "") == "hold"
+                and h_err is not None):
+            r_hold_barrier = hold_barrier_penalty(
+                h_err, hold_max_drop_mm, k_hbar)
+            reward += r_hold_barrier
+        parts["reward_hold_barrier"] = r_hold_barrier
         # HOLD/TRACK stillness+feet pricing (2026-08-11, cfg
         # reward.hold_still_gate in [0,1], default 0 = legacy exact).
         # cw-stand-bc1-hard1's dig-in showed hold/track are not quiet

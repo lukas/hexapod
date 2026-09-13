@@ -4560,6 +4560,7 @@ def main(argv: list[str] | None = None) -> int:
             "reward_load_even", "reward_step_event", "reward_drag",
             "reward_park_duty", "reward_end_posture", "reward_effort",
             "reward_walk_yaw", "reward_quad_clear", "reward_quad_plant",
+            "reward_hold_barrier",
             # Gate factors (08-10 postgate1 dig-in: rise_posture_factor
             # was computed in-env but never logged, blinding triage to
             # the gate's live value).

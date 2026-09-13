@@ -5,16 +5,20 @@
 [RL_GOALS.md](hexapod_walker/prototype_sts3215/RL_GOALS.md) is canonical for
 purpose and priorities (Lukas, 2026-09-08): (1) smooth joystick walking on the
 physical robot by any effective means, to advance physical builds now;
-(2) the same physical outcome with walking learned entirely through RL and
-no demonstrations anywhere in its training lineage. BC/AMP/teacher-assisted
-methods belong to the first goal even when assistance is later removed.
+(2) the same physical outcome, including a clean full-direction gait and
+rise/hold/lower, with every motion-producing role learned entirely through RL
+and no demonstrations anywhere in its training lineage (expanded by Lukas,
+2026-09-13). BC/AMP/teacher-assisted methods belong to the first goal even when
+assistance is later removed.
 Both goals must also be shown working in simulation: provide an interactive
 joystick demo, a viewable video and a reproducible launch path for each,
 following `RL_GOALS.md`. Report sim and hardware readiness independently.
 Run both goals in parallel. Method/simulation gates do not establish physical
 goal completion; do not require every method or one monolithic policy to
-succeed before delivering useful walking. Preserve budgets, evidence and
-hardware observation/ownership rules below.
+succeed before delivering useful walking. For `rl_only`, separate clean RL
+roles may be composed, but full joystick direction/speed/yaw plus learned
+rise/hold/lower are required for goal completion. Preserve budgets, evidence
+and hardware observation/ownership rules below.
 
 ## MCP and Git: standing authorization
 

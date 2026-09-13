@@ -1,5 +1,24 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## RL-ONLY OUTCOME REOPENED: full 50 Hz joystick gait plus clean rise/hold/lower required (2026-09-13, operator)
+
+- `bundle_rlonly_v2` is retained as useful clean forward-walk evidence, not
+  Goal 2 completion. Its restricted forward/near-forward envelope, known
+  off-axis front-leg sacrifice and missing rise/lower role are active gaps; a
+  demo that avoids failed headings cannot close them.
+- Acceptance now requires the corrected full-mesh model at 50 Hz: grounded ->
+  rise/hold -> forward, both diagonals, both laterals, both rear diagonals,
+  reverse, both yaw signs, speed changes, stops/restarts -> controlled lower,
+  with zero falls and all six legs lifting and placing on sustained commands.
+- One monolithic actor is not required. Separate roles may be composed only if
+  every motion-producing role has a demonstration-free RL lineage; the state
+  machine may select/blend roles but may not supply a scripted pose path, gait,
+  teacher or assisted controller. The fifteen closed off-axis mechanism
+  classes remain binding evidence, so `walkcurr` is reopened for a genuinely
+  new structural gait mechanism and a clean stance curriculum, not another
+  dose/seed/schedule variant. The orchestrator should design and execute the
+  next justified canaries without waiting for further operator clarification.
+
 ## RECENTRE WORKS FROM THE TAGS; GAIT FORWARD IS THE LAYOUT'S +X (2026-09-12 ~20:30, hexapod 1): a 60 mm/s forward command moved the chassis tag 81 mm along the layout's +x (3 deg off in camera 1's floor frame); the lab recentred the robot from the top edge to the middle in 6 pushes / 46 s with the heading read from the tags, no probe
 
 - Body position and heading in the picture now come from the tags (`walk.fit_body`): the chassis tag directly, else the hip lids (heading = lid heading - lid euler z - leg azimuth; centre 87.5 mm in from each lid along the leg azimuth). Checked live in three cameras against the chassis tag. Hip lids do NOT turn with the yaw servo (joint 0 +15 deg moved only the knee lid), so the yaw term is moot.

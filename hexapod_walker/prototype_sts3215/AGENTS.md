@@ -5,11 +5,13 @@
 Read [RL_GOALS.md](RL_GOALS.md) for purpose and priorities and
 [RL_PLAN.md](RL_PLAN.md) for the operating plan. `any_means` delivers smooth
 physical joystick walking using any effective method so physical builds
-progress now. `rl_only` targets the same result with walking learned entirely
-through RL, with no demonstrations anywhere in the policy's training lineage.
-Teacher/BC/AMP/assisted methods serve `any_means`. Both goals proceed in
-parallel. Each also requires an interactive joystick sim demo, viewable video
-and reproducible launch path; report sim and physical readiness separately.
+progress now. `rl_only` targets a clean full gait: full-direction joystick
+walking plus rise/hold/lower, with every motion-producing role learned entirely
+through RL and no demonstrations anywhere in its training lineage. Separate
+clean RL roles may be composed; teacher/BC/AMP/assisted motion roles serve
+`any_means` only. Both goals proceed in parallel. Each also requires an
+interactive joystick sim demo, viewable video and reproducible launch path;
+report sim and physical readiness separately.
 Simulation or method PASS does not establish physical completion.
 Root `AGENTS.md` still governs observed, bounded hardware work and ownership.
 

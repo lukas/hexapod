@@ -127,3 +127,58 @@ should model the upstream load-dependent mechanism (post-encoder compliance,
 backlash/contact loss, or a load-triggered L4 stance-onset error) and validate
 that component against the recorded joint/current/contact timing before
 funding another PS200 descendant.
+
+## Addendum, 2026-09-13: static global deadband/backlash dose — RULED OUT
+
+The FAIL verdict above named three candidates for the next sim-to-real
+mechanism: post-encoder compliance, backlash/contact loss, or a
+load-triggered L4 stance-onset error. This addendum screens the first
+candidate the same way the zero-offset hypothesis was screened above: a
+static, per-episode, uniform per-joint dose — here a pinned multiplier on
+the SAME calibrated real-hardware `deadband_deg` (`motor_model.json`) that
+ordinary training DR already samples up to 1.8x nominal. `probe_ps200_transfer.py`
+gained a `deadband` mechanism/case family (`cb70c89b`'s sibling change,
+`--cfg-set`-equivalent `dr.deadband_scale="<d>,<d>"` absolute override,
+same pattern as `joint_zero_bias_deg`); no new mechanics code was needed.
+
+Doses 2x–12x nominal (well past the training ceiling) on the frozen PS200
+actor, full 4-seed panel, identical command/seeds/episode as every other
+case in this doc:
+
+| deadband multiplier | PS200 median peak roll (°) | median fwd speed (m/s) |
+|---:|---:|---:|
+| 1x (baseline) | 1.35 | 0.048 |
+| 2x | 1.02 | 0.046 |
+| 3x | 1.10 | 0.042 |
+| 4x | 1.21 | 0.037 |
+| 6x | 1.36 | 0.028 |
+| 8x | 1.62 | 0.017 |
+| 12x | 1.53 | 0.007 |
+
+Peak roll stays flat at 1.0–1.6° across the entire dose range — far short
+of the 16.78° hardware target and even short of the already-insufficient
+±5° zero-offset case (2.25°) — while forward speed collapses toward a
+near-stall crawl at the top doses (0.048 → 0.007 m/s, a 6.9x slowdown).
+A crippling global backlash dose that nearly halts the gait still does not
+reproduce the hardware roll signature. **Static, uniform (non-load-coupled)
+deadband/backlash is RULED OUT** as the PS200 roll mechanism; do not
+re-screen it at a higher dose or apply it as a training DR widening.
+
+This narrows the remaining named candidates to a **load-triggered** effect
+(only the third candidate, a load-dependent stance-onset error, or a
+load-coupled — not globally-static — version of backlash/compliance):
+whatever is happening is coupled to which leg is bearing weight, not to a
+context-free joint property. Building and validating that mechanism (using
+sensed per-leg ground-reaction force as the trigger, not a fixed phase
+schedule) is unbuilt design/code work for a future cycle — this addendum
+only closes the static/global half of the "post-encoder compliance /
+backlash" candidate.
+
+Reproduce: `uv run python -m rl_move.sim.probe_ps200_transfer` (now runs
+4 stages: zero panel, deadband dose panel, phase screens, control panel).
+Full results: `logs/ckpt_eval/ps200_transfer_probe_deadband_20260913/`.
+The recurrent-torque re-selection in that run reproduces the original
+14.7° finding almost exactly (byte-close to the FAIL verdict above),
+confirming the harness is stable; it is not a new training recommendation
+— that mechanism already FAILED its hardening canary (see FAIL verdict
+above) and is not being re-funded here.

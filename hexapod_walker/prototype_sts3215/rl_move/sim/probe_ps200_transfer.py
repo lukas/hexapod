@@ -74,6 +74,7 @@ class Intervention:
     name: str
     mechanism: str = "none"
     zero_range_deg: float = 0.0
+    deadband_scale: float = 1.0
     dropout_legs: tuple[int, ...] = ()
     torque_peak_nm: float = 0.0
     period_s: float = 1.5
@@ -203,6 +204,16 @@ def _policy_cfg(meta: dict, intervention: Intervention) -> dict:
     dr = cfg.setdefault("dr", {})
     dr["joint_zero_bias_deg"] = float(intervention.zero_range_deg)
     dr["zero_drift_cmd_frame"] = 1.0
+    # Pinned (degenerate-range) deadband multiplier — an absolute override
+    # of the SAME calibrated per-joint deadband_deg (motor_model.json,
+    # real-hardware measured) that ordinary training DR already samples
+    # from up to 1.8x nominal.  A dose here can go well past that training
+    # ceiling to screen the "post-encoder compliance / backlash" candidate
+    # named in docs/PS200_TRANSFER_PROBE_2026-09-12.md's Next step, the
+    # same way zero_range_deg screens the zero-offset candidate: a static
+    # per-episode physical property, not a phase-locked world edit.
+    dr["deadband_scale"] = (
+        f"{intervention.deadband_scale},{intervention.deadband_scale}")
     return cfg
 
 
@@ -461,6 +472,17 @@ def _write_outputs(out_dir: Path, rows: list[dict], cases: list[Intervention],
             f"{s['peak_abs_roll_range_deg'][0]:.2f}–"
             f"{s['peak_abs_roll_range_deg'][1]:.2f} | "
             f"{s['terminations']}/{s['n']} |")
+    deadband_lines = []
+    for dose in (1, 2, 3, 4, 6, 8, 12):
+        name = "baseline" if dose == 1 else f"deadband_x{dose:g}"
+        s = _summary(rows, "ps200", name)
+        if not s:
+            continue
+        deadband_lines.append(
+            f"| {dose}x | {s['peak_abs_roll_median_deg']:.2f} | "
+            f"{s['peak_abs_roll_range_deg'][0]:.2f}–"
+            f"{s['peak_abs_roll_range_deg'][1]:.2f} | "
+            f"{s['terminations']}/{s['n']} |")
     candidate_rows = []
     for policy in POLICIES:
         b = _summary(rows, policy, "baseline")
@@ -490,7 +512,17 @@ peak roll; prior identical-command mesh replay: {SIM_TRACE_PS200_PEAK_ROLL_DEG:.
 |---:|---:|---:|---:|
 {chr(10).join(zero_lines)}
 
-## Best screened recurrent mechanism
+## Deadband (backlash/post-encoder compliance) dose
+
+Pinned per-joint deadband multiplier, the SAME calibrated real-hardware
+`deadband_deg` (motor_model.json) that ordinary training DR already samples
+up to 1.8x nominal — doses below go well past that ceiling.
+
+| deadband multiplier | PS200 median peak (°) | range (°) | terminations |
+|---:|---:|---:|---:|
+{chr(10).join(deadband_lines)}
+
+## Best screened mechanism (static dose or recurrent phase-lock)
 
 Selected `{candidate}` as the PS200 screen case closest to the hardware roll
 scale, then reran it and baseline on all three frozen policies with the same
@@ -558,10 +590,23 @@ def main() -> int:
         for peak in (2.6, 5.0, 7.5, 10.0, 12.5)
         for phase in (0.0, 0.375, 0.75, 1.125)
     ]
-    cases = [baseline, *zero_cases, *dropout_cases, *torque_cases]
+    deadband_cases = [
+        Intervention(f"deadband_x{dose:g}", mechanism="deadband",
+                     deadband_scale=float(dose))
+        # Ordinary training DR already samples this SAME calibrated
+        # per-joint deadband up to 1.8x nominal; these doses probe well
+        # past that ceiling to screen the "post-encoder compliance /
+        # backlash" candidate named as this probe's own Next step
+        # (docs/PS200_TRANSFER_PROBE_2026-09-12.md), the same way
+        # zero_range_deg screens the zero-offset candidate — a static
+        # per-episode physical property, not a phase-locked world edit.
+        for dose in (2, 3, 4, 6, 8, 12)
+    ]
+    cases = [baseline, *zero_cases, *dropout_cases, *torque_cases,
+             *deadband_cases]
     rows: list[dict] = []
 
-    print("[1/3] PS200 baseline + frame-coupled zero panel")
+    print("[1/4] PS200 baseline + frame-coupled zero panel")
     for case in (baseline, *zero_cases):
         for seed in seeds:
             row = rollout(POLICIES["ps200"], case, seed=seed,
@@ -571,7 +616,17 @@ def main() -> int:
         print(f"  {case.name:<24} peak median "
               f"{s['peak_abs_roll_median_deg']:5.2f} deg")
 
-    print("[2/3] PS200 phase screens: L4 support loss + recurrent roll torque")
+    print("[2/4] PS200 deadband (backlash) dose panel")
+    for case in deadband_cases:
+        for seed in seeds:
+            row = rollout(POLICIES["ps200"], case, seed=seed,
+                          episode_s=args.episode_s, cmd_m_s=args.cmd)
+            rows.append(row)
+        s = _summary(rows, "ps200", case.name)
+        print(f"  {case.name:<24} peak median "
+              f"{s['peak_abs_roll_median_deg']:5.2f} deg")
+
+    print("[3/4] PS200 phase screens: L4 support loss + recurrent roll torque")
     screen_seed = seeds[0]
     for i, case in enumerate((*dropout_cases, *torque_cases), start=1):
         rows.append(rollout(POLICIES["ps200"], case, seed=screen_seed,
@@ -581,8 +636,11 @@ def main() -> int:
 
     best_dropout = _closest_case(rows, "support_loss", args.target_roll_deg)
     best_torque = _closest_case(rows, "roll_torque", args.target_roll_deg)
-    finalists = [best_dropout, best_torque]
-    # Fill each phase-screen winner out to the requested seed panel.
+    best_deadband = _closest_case(rows, "deadband", args.target_roll_deg)
+    finalists = [best_dropout, best_torque, best_deadband]
+    # Fill each screen winner out to the requested seed panel (deadband
+    # cases already ran the full seed panel in step 2/4, so this is a
+    # no-op for it via the `done` seed-set check below).
     for name in finalists:
         case = _case_by_name(cases, name)
         done = {r["seed"] for r in rows
@@ -599,11 +657,12 @@ def main() -> int:
             - args.target_roll_deg),
     )
     candidate_case = _case_by_name(cases, candidate)
-    print(f"  support finalist: {best_dropout}")
-    print(f"  torque finalist:  {best_torque}")
-    print(f"  selected:         {candidate}")
+    print(f"  support finalist:   {best_dropout}")
+    print(f"  torque finalist:    {best_torque}")
+    print(f"  deadband finalist:  {best_deadband}")
+    print(f"  selected:           {candidate}")
 
-    print("[3/3] Identical candidate + baseline on lower-roll controls")
+    print("[4/4] Identical candidate + baseline on lower-roll controls")
     for policy_name in ("walkteach", "allheading"):
         for case in (baseline, candidate_case):
             for seed in seeds:

@@ -7,11 +7,20 @@ import pytest
 from rl_move.sim.domain_rand import DomainRandomizer, RandRanges
 from rl_move.sim.probe_ps200_transfer import (
     Intervention,
+    _policy_cfg,
     periodic_active,
     periodic_half_sine,
     periodic_phase_s,
 )
 from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+
+_FAKE_META = {
+    "control_hz": 50.0,
+    "max_delta_q_deg": 12.0,
+    "walk_speed_min_m_s": 0.05,
+    "walk_speed_max_m_s": 0.15,
+    "phase_hz": 1.0,
+}
 
 
 def test_periodic_phase_starts_at_requested_gait_phase(monkeypatch):
@@ -92,3 +101,30 @@ def test_sim_walk_push_repeats_without_changing_legacy_shape(monkeypatch):
     assert torque(fake) == pytest.approx(5.0)
     fake._step_i = round(1.5 / fake.dt)
     assert torque(fake) == 0.0
+
+
+def test_deadband_intervention_defaults_to_nominal_scale():
+    iv = Intervention("baseline")
+    assert iv.deadband_scale == pytest.approx(1.0)
+    dosed = Intervention("deadband_x6", mechanism="deadband",
+                         deadband_scale=6.0)
+    assert dosed.deadband_scale == pytest.approx(6.0)
+
+
+def test_policy_cfg_pins_a_degenerate_deadband_range(monkeypatch):
+    monkeypatch.setenv("HEXAPOD_MODEL_SOURCE", "mesh")
+    baseline_cfg = _policy_cfg(_FAKE_META, Intervention("baseline"))
+    assert baseline_cfg["dr"]["deadband_scale"] == "1.0,1.0"
+
+    dosed_cfg = _policy_cfg(
+        _FAKE_META,
+        Intervention("deadband_x6", mechanism="deadband",
+                     deadband_scale=6.0))
+    assert dosed_cfg["dr"]["deadband_scale"] == "6.0,6.0"
+    # A pinned dose must still round-trip through the SAME absolute-override
+    # path (dr.<field> = "lo,hi") every other intervention field uses, well
+    # past the 1.8x ceiling ordinary training DR samples.
+    ranges = RandRanges()
+    lo, hi = (float(x) for x in dosed_cfg["dr"]["deadband_scale"].split(","))
+    setattr(ranges, "deadband_scale", (lo, hi))
+    assert ranges.deadband_scale == (6.0, 6.0)

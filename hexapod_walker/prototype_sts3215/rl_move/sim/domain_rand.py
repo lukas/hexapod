@@ -32,7 +32,7 @@ the conservative defaults below.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 import numpy as np
 
@@ -682,6 +682,106 @@ class EpisodeRandomization:
         }
 
 
+def _struct_gravity(rng: np.random.Generator) -> np.ndarray:
+    """Tilted gravity for a struct episode (panel tilt bound)."""
+    u = rng.uniform
+    tilt = float(u(0.0, STRUCT_TILT_DEG)) * DEG2RAD
+    az = float(u(0.0, 2.0 * math.pi))
+    grade = np.array([math.tan(tilt) * math.cos(az),
+                      math.tan(tilt) * math.sin(az), -1.0])
+    return G0 * grade / np.linalg.norm(grade)
+
+
+def _sample_struct_overlay(rng: np.random.Generator,
+                           ep: EpisodeRandomization) -> EpisodeRandomization:
+    """Overlay one structured hard-region ensemble on a base episode.
+
+    Port of the frozen joint panel's correlated/asymmetric samplers
+    (`probe_dr_joint_panel._sample_{correlated,asymmetric}`, kept frozen
+    there as a pre-registered artifact) with the panel's measured
+    hard-region emphasis always on: per-joint kp/kv spread, FRAME-COUPLED
+    zero bias (zero_drift_cmd_frame=True), chassis CoM offset, cmd drop,
+    contact stiffness and ground tilt, plus per-foot friction / per-leg
+    torque asymmetry. Doses come from the module STRUCT_* constants
+    (PanelBounds provenance). Draws happen only when the overlay fires,
+    after every base-sample draw — the OFF path never reaches here.
+    """
+    u = rng.uniform
+    mode = "correlated" if rng.random() < 0.5 else "asymmetric"
+
+    # Hard-region core (both modes): the panel's strongest roll drivers.
+    kp = u(1.0 - STRUCT_KP_PCT, 1.0 + STRUCT_KP_PCT, N_JOINTS)
+    kv = u(1.0 - STRUCT_KV_PCT, 1.0 + STRUCT_KV_PCT, N_JOINTS)
+    zb = u(-STRUCT_ZERO_BIAS_DEG, STRUCT_ZERO_BIAS_DEG, N_JOINTS) * DEG2RAD
+    com = np.array([u(-STRUCT_COM_XY_M, STRUCT_COM_XY_M),
+                    u(-STRUCT_COM_XY_M, STRUCT_COM_XY_M), 0.0])
+    cmd_drop = float(u(*STRUCT_CMD_DROP))
+    stiff = float(u(*STRUCT_CONTACT_STIFF))
+    gravity = _struct_gravity(rng)
+    foot = np.ones(N_LEGS)
+    leg_t = np.ones(N_LEGS)
+    over: dict = {}
+
+    if mode == "correlated":
+        # Latent physical stories couple many knobs at once (panel doc).
+        g = float(u(0.0, 1.0))            # battery sag under gait load
+        over["torque_scale"] = float(
+            STRUCT_TORQUE[1] - g * (STRUCT_TORQUE[1] - STRUCT_TORQUE[0]))
+        over["vel_scale"] = float(
+            STRUCT_VEL[1] - g * (STRUCT_VEL[1] - STRUCT_VEL[0]))
+        over["latency_scale"] = float(
+            1.0 + g * (STRUCT_LATENCY[1] - 1.0) * u(0.3, 1.0))
+        w = int(rng.integers(0, N_LEGS))  # one worn leg
+        wg = float(u(0.0, 1.0))
+        for j in (3 * w, 3 * w + 1, 3 * w + 2):
+            kp[j] *= 1.0 - wg * STRUCT_KP_PCT
+            zb[j] = float(u(-1.0, 1.0)) * wg * STRUCT_ZERO_BIAS_DEG * DEG2RAD
+        leg_t[w] = 1.0 - wg * (1.0 - STRUCT_LEG_TORQUE[0])
+        foot[w] = 1.0 - wg * (1.0 - STRUCT_FOOT_FRICTION[0])
+        over["deadband_scale"] = float(
+            1.0 + wg * (STRUCT_DEADBAND[1] - 1.0) * u(0.0, 1.0))
+        m = float(u(-1.0, 1.0))           # as-built mass error + CoM shift
+        mid = 0.5 * (STRUCT_MASS[0] + STRUCT_MASS[1])
+        half = 0.5 * (STRUCT_MASS[1] - STRUCT_MASS[0])
+        over["mass_scale"] = float(mid + m * half)
+        com = com * abs(m)
+        f = float(u(0.0, 1.0))            # slick floor: dull + soft
+        over["friction_scale"] = float(
+            1.0 - f * (1.0 - STRUCT_FRICTION[0]))
+        stiff = float(1.0 - f * (1.0 - STRUCT_CONTACT_STIFF[0]))
+    else:
+        # Systematic per-side / per-leg-group manufacturing+wear asymmetry.
+        group = [_STRUCT_LEFT, _STRUCT_RIGHT, _STRUCT_FRONT, _STRUCT_REAR,
+                 (int(rng.integers(0, N_LEGS)),)][int(rng.integers(0, 5))]
+        g = float(u(0.4, 1.0))
+        lms = np.asarray(ep.leg_mass_scale, dtype=float).copy()
+        for leg in group:
+            for j in (3 * leg, 3 * leg + 1, 3 * leg + 2):
+                kp[j] = 1.0 - g * STRUCT_KP_PCT * u(0.5, 1.0)
+                kv[j] = 1.0 + g * STRUCT_KV_PCT * u(-1.0, 1.0)
+                zb[j] = g * STRUCT_ZERO_BIAS_DEG * u(-1.0, 1.0) * DEG2RAD
+            leg_t[leg] = 1.0 - g * (1.0 - STRUCT_LEG_TORQUE[0]) * u(0.5, 1.0)
+            foot[leg] = (1.0
+                         - g * (1.0 - STRUCT_FOOT_FRICTION[0]) * u(0.5, 1.0))
+            lms[leg] = 1.0 + g * STRUCT_LEG_MASS_PCT * u(-1.0, 1.0, 3)
+        over["leg_mass_scale"] = lms
+        # Mild global context so the asymmetry acts on a non-nominal robot.
+        over["mass_scale"] = float(u(0.95, 1.15))
+        over["friction_scale"] = float(u(0.7, 1.2))
+        over["torque_scale"] = float(u(0.8, 1.05))
+        over["latency_scale"] = float(u(0.9, 1.6))
+        over["deadband_scale"] = float(u(0.8, 2.0))
+
+    return replace(
+        ep,
+        kp_scale=kp, kv_scale=kv,
+        joint_zero_bias_rad=zb, zero_drift_cmd_frame=True,
+        com_offset_m=com, cmd_drop_prob=cmd_drop,
+        contact_stiff_scale=stiff, gravity_vec=gravity,
+        foot_friction_scale=foot, leg_torque_scale=leg_t,
+        struct_dr_mode=mode, **over)
+
+
 class DomainRandomizer:
     def __init__(self, ranges: RandRanges | None = None, *,
                  scale: float = 1.0):
@@ -860,7 +960,7 @@ class DomainRandomizer:
                     prev_end = start_i + dur_i
                 ext_push_extra = tuple(extras)
 
-        return EpisodeRandomization(
+        ep = EpisodeRandomization(
             mass_scale=u(*r.mass_scale),
             com_offset_m=np.array([
                 u(-r.com_offset_m, r.com_offset_m),
@@ -914,3 +1014,16 @@ class DomainRandomizer:
             ext_push_dir_rad=ext_push_dir,
             ext_push_extra=ext_push_extra,
         )
+        # Per-foot friction / per-leg torque asymmetry + structured
+        # hard-region overlay: ALL drawn after every base field (guarded),
+        # so the defaults leave the historical stream untouched AND
+        # enabling them never shifts the base draws for a given seed.
+        if tuple(r.foot_friction_scale) != (1.0, 1.0):
+            ep = replace(ep, foot_friction_scale=u(
+                r.foot_friction_scale[0], r.foot_friction_scale[1], N_LEGS))
+        if tuple(r.leg_torque_scale) != (1.0, 1.0):
+            ep = replace(ep, leg_torque_scale=u(
+                r.leg_torque_scale[0], r.leg_torque_scale[1], N_LEGS))
+        if r.struct_dr_prob > 0.0 and rng.random() < r.struct_dr_prob:
+            ep = _sample_struct_overlay(rng, ep)
+        return ep

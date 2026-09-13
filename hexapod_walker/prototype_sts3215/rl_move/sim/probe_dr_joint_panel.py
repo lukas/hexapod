@@ -436,9 +436,18 @@ class PanelEnv(SimHexapodJointWalkEnv):
 
 
 def rollout(spec: PolicySpec, ens: Ensemble | None, *, seed: int,
-            episode_s: float, cmd_m_s: float) -> dict:
-    """One frozen-policy episode under one fixed ensemble (None=nominal)."""
-    policy = load_np_policy(_policy_path(spec))
+            episode_s: float, cmd_m_s: float, policy=None) -> dict:
+    """One frozen-policy episode under one fixed ensemble (None=nominal).
+
+    ``policy`` (optional) injects a pre-loaded policy object exposing
+    ``meta`` / ``observation_space`` / ``predict`` / ``reset`` — the
+    held-out robustness gate uses this to roll out raw SB3 ``.zip``
+    checkpoints (`eval_dr_robustness_gate.CkptPolicy`) with the exact
+    same env/metrics as the exported-artifact path. Default (None) is
+    the original exported-np-policy load, bit-identical.
+    """
+    if policy is None:
+        policy = load_np_policy(_policy_path(spec))
     cfg = _policy_cfg(policy.meta, Intervention(name="panel"))
     params = ens.params if ens is not None else neutral_params()
     env = PanelEnv(

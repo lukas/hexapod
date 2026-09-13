@@ -2638,6 +2638,10 @@ class SimHexapodBalanceEnv(_GymBase):
             # dr.fault_*: no-op unless this episode drew a fault (must
             # run AFTER apply_params_to_model, which SETS these rows).
             self._ep_rand.apply_fault_to_model(self.model)
+            # dr.leg_torque_scale / struct overlay per-leg torque
+            # asymmetry: no-op unless this episode carries non-unit
+            # scales (also must run AFTER apply_params_to_model).
+            self._ep_rand.apply_asym_to_model(self.model)
         else:
             apply_params_to_model(self.model, self.params)
         self._apply_struct_compliance_to_model(self.model)

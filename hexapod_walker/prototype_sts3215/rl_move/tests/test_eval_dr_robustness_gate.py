@@ -110,3 +110,17 @@ def test_gate_report_fails_on_no_improvement_and_falls():
                           ensembles=ens, hard_frac=0.5)
     assert report2["gate_pass"] is False
     assert not report2["checks"]["b_zero_falls"]
+
+
+def test_resolve_policy_branches():
+    # .json / exported artifacts -> None (rollout's own np-policy path);
+    # .zip without parent meta must fail loudly, never silently fall back.
+    from rl_move.sim.eval_dr_robustness_gate import resolve_policy
+    assert resolve_policy("policies/foo.json", {"control_hz": 50}) is None
+    assert resolve_policy("policies/foo.json", None) is None
+    try:
+        resolve_policy("policies/foo.zip", None)
+    except ValueError as e:
+        assert "parent" in str(e)
+    else:
+        raise AssertionError("zip without parent meta must raise")

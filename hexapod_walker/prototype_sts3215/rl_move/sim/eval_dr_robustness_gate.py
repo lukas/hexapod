@@ -41,6 +41,15 @@ Usage (from `prototype_sts3215`)::
         --candidate armstruct=linux_control/policies/<exported_candidate>.json \
         --out logs/ckpt_eval/dr_robustness_gate_<stamp>
 
+Candidates may also be RAW SB3 ``.zip`` checkpoints (the trained DR
+arms' native artifact — no export step needed):
+
+    --candidate armwide=rl_move/sim/policies/ppo_goal_<candidate>.zip
+
+The env contract for a .zip candidate is taken from the PARENT's
+exported meta (see `CkptPolicy`); the parent artifact must therefore be
+an exported .json.
+
 Smoke/self-check (existing exported policies, no new checkpoint
 required): substitute an already-exported control policy as the
 "--candidate" to prove the pipeline produces sane, non-trivial deltas
@@ -60,6 +69,42 @@ from rl_move.sim.probe_dr_joint_panel import Ensemble, rollout
 from rl_move.sim.probe_ps200_transfer import PolicySpec
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+class CkptPolicy:
+    """Raw SB3 ``.zip`` checkpoint adapter for `probe_dr_joint_panel.rollout`.
+
+    The trained DR arms produce SB3 checkpoints, not linux_control
+    exports; the operator task requires the gate to load checkpoints
+    directly. The env contract (control hz, speed band, safety deltas,
+    phase hz ...) is NOT stored in the zip — it is supplied by ``meta``,
+    taken from the PARENT's exported policy artifact: the pre-registered
+    arms hold gait/reward/actuator envelope fixed, so the parent's
+    deployment meta IS the candidate's env contract. A candidate with a
+    different obs layout fails the rollout's own obs-shape assert.
+    """
+
+    def __init__(self, zip_path: str | Path, meta: dict):
+        from stable_baselines3 import PPO
+        self._m = PPO.load(str(zip_path), device="cpu")
+        self.meta = dict(meta)
+        self.observation_space = self._m.observation_space
+
+    def predict(self, obs, deterministic: bool = True):
+        return self._m.predict(obs, deterministic=deterministic)
+
+    def reset(self) -> None:
+        pass
+
+
+def resolve_policy(artifact: str | Path, parent_meta: dict | None):
+    """None (exported-artifact path inside rollout) or a CkptPolicy."""
+    if not str(artifact).endswith(".zip"):
+        return None
+    if parent_meta is None:
+        raise ValueError(f"{artifact}: .zip candidates need the parent's "
+                         "exported meta for the env contract")
+    return CkptPolicy(artifact, parent_meta)
 
 
 def load_heldout_ensembles(panel_dir: Path) -> tuple[list[Ensemble], dict]:
@@ -99,14 +144,16 @@ def gait_valid(row: dict) -> bool:
 
 def _episode_rows(spec: PolicySpec, ensembles: list[Ensemble],
                    seeds: tuple[int, ...], *, episode_s: float,
-                   cmd_m_s: float) -> list[dict]:
-    return [rollout(spec, e, seed=s, episode_s=episode_s, cmd_m_s=cmd_m_s)
+                   cmd_m_s: float, policy=None) -> list[dict]:
+    return [rollout(spec, e, seed=s, episode_s=episode_s, cmd_m_s=cmd_m_s,
+                    policy=policy)
             for e in ensembles for s in seeds]
 
 
 def _nominal_rows(spec: PolicySpec, seeds: tuple[int, ...], *,
-                  episode_s: float, cmd_m_s: float) -> list[dict]:
-    return [rollout(spec, None, seed=s, episode_s=episode_s, cmd_m_s=cmd_m_s)
+                  episode_s: float, cmd_m_s: float, policy=None) -> list[dict]:
+    return [rollout(spec, None, seed=s, episode_s=episode_s, cmd_m_s=cmd_m_s,
+                    policy=policy)
             for s in seeds]
 
 
@@ -221,17 +268,26 @@ def main() -> int:
     parent_nominal = _nominal_rows(parent_spec, seeds, episode_s=episode_s,
                                    cmd_m_s=cmd_m_s)
 
+    # Env-contract meta for raw .zip candidates comes from the parent
+    # export (arms hold the env contract fixed by pre-registration).
+    from rl_move.np_policy import load_np_policy
+    parent_meta = load_np_policy(args.parent_artifact).meta
+
     reports = []
     for cand_arg in args.candidate:
         name, _, artifact = cand_arg.partition("=")
         if not artifact:
             ap.error(f"--candidate must be name=path, got {cand_arg!r}")
         cand_spec = PolicySpec(name, artifact)
-        print(f"[gate] candidate={name}", flush=True)
+        cand_policy = resolve_policy(artifact, parent_meta)
+        print(f"[gate] candidate={name}"
+              + (" (raw SB3 zip checkpoint)" if cand_policy else ""),
+              flush=True)
         cand_rows = _episode_rows(cand_spec, ensembles, seeds,
-                                  episode_s=episode_s, cmd_m_s=cmd_m_s)
+                                  episode_s=episode_s, cmd_m_s=cmd_m_s,
+                                  policy=cand_policy)
         cand_nominal = _nominal_rows(cand_spec, seeds, episode_s=episode_s,
-                                     cmd_m_s=cmd_m_s)
+                                     cmd_m_s=cmd_m_s, policy=cand_policy)
         report = gate_report(
             parent_name=parent_spec.name, parent_rows=parent_rows,
             parent_nominal=parent_nominal, cand_name=name,

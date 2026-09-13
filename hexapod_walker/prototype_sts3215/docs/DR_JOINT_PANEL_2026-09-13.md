@@ -99,3 +99,52 @@ of episodes, (d) robust speed loss ≤20% vs parent on the same ensembles, and
 (e) nominal mesh/50 Hz speed ≥90% of parent at the 0.10 pin. The exact failed
 physical tape stays out of training/model selection and is replayed only in
 the final report.
+
+## Addendum 1 (2026-09-13 ~21:xx, operator task hexapod:speed-sim2real-dr continuation)
+
+Items (a) and (b) of the pre-registration's "Next" list are BUILT and TESTED;
+the three arms launch in the same cycle.
+
+* (a) Held-out gate harness `rl_move/sim/eval_dr_robustness_gate.py`
+  (previous cycle) now loads RAW SB3 `.zip` checkpoints directly
+  (`CkptPolicy` adapter; env contract from the PARENT's exported meta —
+  valid because the arms hold the env contract fixed by pre-registration).
+  Self-parity smoke: parent export vs parent's own zip on one held-out
+  ensemble — roll 2.306 vs 2.306 deg, held-out speed 0.0393 vs 0.0393,
+  nominal 0.0434 vs 0.0434 (identical to the reported precision); gate
+  correctly fails only clause (a) (a policy cannot beat itself by 30%).
+* (b) Trainer-side structured DR plumbing (`rl_move/sim/domain_rand.py`,
+  hook in `sim_env.reset`), all default-OFF and bit-exact when off
+  (golden-stream test): `dr.foot_friction_scale` / `dr.leg_torque_scale`
+  (independent per-foot friction / per-leg torque-saturation asymmetry —
+  the two PanelBounds families training DR never had; pure MjModel field
+  edits on `geom_friction`+floor cap / `actuator_forcerange`, both in
+  `mjx_backend.MODEL_DR_FIELDS`) and `dr.struct_dr_prob` (probability an
+  episode's base draw is overlaid with one correlated battery-sag/
+  worn-leg/build-mass/floor or per-group asymmetric hard-region ensemble;
+  dose menu = frozen `STRUCT_*` constants with PanelBounds provenance,
+  frame-coupled zero bias forced on; probability follows the curriculum,
+  dose does not). Tests: `rl_move/tests/test_dr_struct_plumbing.py` (8) +
+  extended gate/panel suites.
+
+Arm specs as launched (respec of the frozen parent, warm-start
+`--init-from-source`, 2M steps, seed 0, everything else verbatim):
+
+* ARM-CTRL `cw-speed50hz-ps200dr-armctrl-disc2m`: no changes — prices the
+  pure 2M-continuation effect.
+* ARM-WIDE `cw-speed50hz-ps200dr-armwide-disc2m`: independent DR widened to
+  PanelBounds via absolute `dr.*` overrides (mass 0.85–1.25, com 0.025,
+  leg-mass 0.20, link 0.02/0.02, friction 0.45–1.40, stiffness 0.50–3.00,
+  tilt 3.0, kp 0.35, kv 0.40, torque 0.55–1.05, vel 0.70–1.10, latency
+  0.70–2.50, deadband 0.50–3.00, cmd-drop 0.08, zero-bias 5.0
+  frame-coupled, imu-bias 2.0, foot-friction 0.50–1.10, leg-torque
+  0.60–1.05) on the parent's own `--dr-scale 0.0` base (non-overridden
+  start-pose/IMU-mount/tipped axes stay at the parent's nominal),
+  `env.dr_stage_ramp_steps=1000000`.
+* ARM-STRUCT `cw-speed50hz-ps200dr-armstruct-disc2m`:
+  `dr.struct_dr_prob=0.6` overlay on the parent's nominal base (0.4 of
+  episodes match the parent exactly, 0.6 carry one structured hard-region
+  ensemble), `env.dr_stage_ramp_steps=1000000`.
+
+Second-seed replication remains contingent on a held-out-gate winner, per
+the order. The held-out manifest stays untouched by training/selection.

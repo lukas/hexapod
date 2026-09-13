@@ -86,10 +86,55 @@ _TRACK_KEYS = (
     "height_mm",
 )
 
+# Mode-specific extra keys (2026-09-13, s1-holdbias-riselower15m dig-in:
+# rise/lower park in a crouch attractor while hold stays solid — the
+# question is WHICH terms pay for parking vs completing the motion).
+# Only added when --mode != hold, so the default hold read stays
+# bit-exact with every prior probe invocation.
+_MODE_EXTRA_KEYS = {
+    "rise": (
+        "height_ref_mm", "reward_height", "reward_rise_progress",
+        "reward_rise_finish", "reward_rise_milestone",
+        "reward_curl_progress", "reward_curl_milestone",
+        "reward_rise_score_prog", "reward_rise_score_hold", "rise_score",
+        "rise_income_factor", "rise_posture_factor", "rise_feet_factor",
+        "rise_plant_factor",
+    ),
+    "lower": (
+        "height_ref_mm", "reward_height", "reward_curl_progress",
+        "reward_curl_milestone",
+    ),
+}
 
-def _make_env(seed: int, episode_seconds: float) -> SimHexapodJointGoalEnv:
+
+def _parse_cfg_set(items: list[str]) -> dict[tuple[str, str], object]:
+    """``section.leaf=value`` strings -> override dict (values parsed as
+    JSON when possible, else kept as strings) — the launcher's own
+    --cfg-set convention, so a probe can replay ANY run's exact launch
+    cfg on top of the baked mixreweight-era LAUNCH_OVERRIDES (2026-09-13,
+    s1-holdbias-riselower15m dig-in: that lineage's
+    goal.joint_action_bias_*_deg centering is not in the baked dict and
+    without it the checkpoint's action mapping is wrong)."""
+    out: dict[tuple[str, str], object] = {}
+    for item in items:
+        key, _, raw = item.partition("=")
+        sec, _, leaf = key.partition(".")
+        try:
+            val: object = json.loads(raw)
+        except json.JSONDecodeError:
+            val = raw
+        out[(sec, leaf)] = val
+    return out
+
+
+def _make_env(seed: int, episode_seconds: float, mode: str = "hold",
+              rise_start: str | None = None,
+              cfg_set: dict[tuple[str, str], object] | None = None,
+              ) -> SimHexapodJointGoalEnv:
     cfg = load_config()
     for (sec, leaf), val in LAUNCH_OVERRIDES.items():
+        cfg.setdefault(sec, {})[leaf] = val
+    for (sec, leaf), val in (cfg_set or {}).items():
         cfg.setdefault(sec, {})[leaf] = val
     env = SimHexapodJointGoalEnv(
         params=SimServoParams.from_cfg(cfg), randomize=False,
@@ -97,12 +142,15 @@ def _make_env(seed: int, episode_seconds: float) -> SimHexapodJointGoalEnv:
     gen = env._goal_gen
     for a in [a for a in vars(gen) if a.startswith("p_")]:
         setattr(gen, a, 0.0)
-    gen.p_hold = 1.0
+    setattr(gen, f"p_{mode}", 1.0)
+    if rise_start is not None:
+        gen.force_rise_start = rise_start
     return env
 
 
 def _rollout(model, env, behavior: str = "policy",
-             noise_std: float = 0.0, noise_seed: int = 0) -> list[dict]:
+             noise_std: float = 0.0, noise_seed: int = 0,
+             extra_keys: tuple[str, ...] = ()) -> list[dict]:
     """``behavior='policy'``: the checkpoint's own actor (deterministic).
     ``behavior='hold_quiet'``: constant action == the plant pose the
     episode reset into (q0, unchanged for the whole episode) -- an
@@ -148,7 +196,7 @@ def _rollout(model, env, behavior: str = "policy",
         obs, r, term, trunc, info = env.step(np.asarray(act).ravel())
         row = {"t": round(step * env.dt, 3), "r": round(float(r), 3),
                "term_reason": info.get("termination_reason")}
-        for k in _TRACK_KEYS:
+        for k in _TRACK_KEYS + tuple(extra_keys):
             v = info.get(k)
             row[k] = round(float(v), 4) if v is not None else None
         # Per-leg ground-truth touch forces (2026-09-13, holdgraceslow
@@ -187,15 +235,30 @@ def main() -> None:
     ap.add_argument("--noise-std", type=float, default=0.0,
                      help="only for --behavior noise: per-joint Gaussian "
                           "jitter std added to the correct q0 action")
+    ap.add_argument("--mode", choices=("hold", "rise", "lower"),
+                    default="hold",
+                    help="episode goal mode (default hold = legacy "
+                         "bit-exact probe behavior)")
+    ap.add_argument("--rise-start", choices=("flat", "bridge", "crouch"),
+                    default=None,
+                    help="pin the rise start kind (only --mode rise)")
+    ap.add_argument("--cfg-set", action="append", default=[],
+                    metavar="SEC.LEAF=VAL",
+                    help="extra cfg overrides applied AFTER the baked "
+                         "LAUNCH_OVERRIDES (launcher convention); pass "
+                         "the probed run's own cfg_set here")
     args = ap.parse_args()
 
     model = None
     if args.behavior == "policy":
         from rl_move.sim.gru_policy import load_checkpoint_auto
         model = load_checkpoint_auto(args.ckpt, device="cpu")
-    env = _make_env(args.seed, args.episode_seconds)
+    env = _make_env(args.seed, args.episode_seconds, mode=args.mode,
+                    rise_start=args.rise_start,
+                    cfg_set=_parse_cfg_set(args.cfg_set))
     rows = _rollout(model, env, behavior=args.behavior,
-                     noise_std=args.noise_std, noise_seed=args.seed)
+                     noise_std=args.noise_std, noise_seed=args.seed,
+                     extra_keys=_MODE_EXTRA_KEYS.get(args.mode, ()))
 
     print(f"[probe_hold_decomp] {args.ckpt.name} seed={args.seed} "
           f"{len(rows)} ticks ({rows[-1]['t'] if rows else 0}s)")
@@ -212,6 +275,17 @@ def main() -> None:
             first, last = body[0], body[-1]
             print("[probe_hold_decomp] first tick:", first)
             print("[probe_hold_decomp] last body tick:", last)
+        # Per-term episode totals (2026-09-13): what actually pays over
+        # the whole episode, so "parking is/isn't reward-optimal" is a
+        # single read instead of eyeballing per-tick dumps.
+        totals: dict[str, float] = {}
+        for r_ in rows:
+            for k, v in r_.items():
+                if isinstance(v, float) and (k.startswith("reward")
+                                             or k == "r"):
+                    totals[k] = totals.get(k, 0.0) + v
+        print("[probe_hold_decomp] episode term totals:",
+              {k: round(v, 2) for k, v in sorted(totals.items())})
     if args.json:
         args.json.parent.mkdir(parents=True, exist_ok=True)
         args.json.write_text(json.dumps(rows, indent=1))

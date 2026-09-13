@@ -183,6 +183,31 @@ def torque_headroom_debt_step(prev_debt: np.ndarray, current_abs: np.ndarray,
     return prev_debt + alpha_d * (redness - prev_debt)
 
 
+def current_headroom_income_factor(cur_peak_a: float, cap_a: float,
+                                    margin_a: float) -> float:
+    """Instantaneous income-discount factor for
+    ``reward.rise_score_income_headroom_gate`` (walkcurr track,
+    2026-09-13 risebridge-s1 FAIL-MECHANISM escalation).
+
+    Same "redness" shape as ``torque_headroom_debt_step`` (0 outside a
+    red zone that starts ``margin_a`` below the physical
+    torque-saturation current ``cap_a`` and reaches 1 exactly at the
+    rail) but consumed directly as ``1 - redness`` -- an INCOME
+    multiplier applied at the instant of the tick, not an integrated
+    debt. The distinction matters: ``k_torque_headroom`` penalizes a
+    SUSTAINED stall after the fact and did not stop a policy from
+    banking the rise_score_prog income all the way to the current-limit
+    trip; discounting the income itself denies the credit for the
+    saturating push AT the moment it happens, while a later LOW-current
+    path to the same score is unaffected (headroom_f == 1 there).  Pure/
+    stateless (caller owns any state) so it is unit-testable without a
+    live physics/reward pipeline.
+    """
+    redness = min(max((cur_peak_a - (cap_a - margin_a))
+                       / max(margin_a, 1e-6), 0.0), 1.0)
+    return 1.0 - redness
+
+
 def current_income_ema_step(prev_ema: float, income_tick: float,
                              alpha_i: float) -> float:
     """One EMA update of the "task income" signal used by
@@ -4910,8 +4935,61 @@ class SimHexapodBalanceEnv(_GymBase):
                     self._score_best = s_now
                 ksp = float(cfg_get(self.cfg, "reward",
                                     "k_rise_score_prog", default=30.0))
-                r_sp = ksp * max(0.0, s_now - self._score_best)
-                self._score_best = max(self._score_best, s_now)
+                delta_s = max(0.0, s_now - self._score_best)
+                # Current-headroom-gated rise_score_prog income
+                # (2026-09-13, walkcurr risebridge-s1 FAIL-MECHANISM
+                # escalation, pre-registered STATUS.md 09-13
+                # "holdbias-riselower15m" dig-in). Root cause: this
+                # income pays for ANY new height/posture score
+                # regardless of servo current, so the flat-rise
+                # sprawl-push banks real reward (+10.6/tick measured)
+                # all the way to the 2.64A over_current trip while the
+                # curl-first (bridge) corridor -- which stays under
+                # 1.3A -- only earns +15 total; pricing points straight
+                # at the infeasible corridor, so parking there
+                # dominates trying. `k_torque_headroom` already
+                # penalizes sustained current DEBT post-hoc and did
+                # not stop the funded push (this income keeps paying
+                # regardless of any accruing debt); this instead
+                # discounts the INCOME itself, at the instant of the
+                # saturating tick, using the same redness shape as
+                # `torque_headroom_debt_step` (instantaneous, not
+                # integrated -- a push should be denied the credit
+                # WHILE it is happening, not after a debt has built
+                # up). Only the PAID fraction of the new score is
+                # banked into `_score_best`; the unpaid remainder stays
+                # available so a later LOW-current path that reaches
+                # the same score still gets paid in full -- the gate
+                # discourages the expensive route, it does not confis-
+                # cate the credit for reaching that height honestly.
+                # Bit-exact OFF by default
+                # (reward.rise_score_income_headroom_gate=0): with the
+                # gate off, headroom_f==1.0 always and
+                # `_score_best += delta_s * 1.0 == max(_score_best,
+                # s_now)`, identical to the pre-existing line. Enable:
+                # --cfg-set reward.rise_score_income_headroom_gate=1
+                # [--cfg-set reward.rise_score_headroom_cap_a=<a>]
+                # [--cfg-set reward.rise_score_headroom_margin_a=<a>].
+                headroom_f = 1.0
+                gate_income = float(cfg_get(
+                    self.cfg, "reward",
+                    "rise_score_income_headroom_gate",
+                    default=0.0)) == 1.0
+                if (gate_income and delta_s > 0.0
+                        and self._state.servo_current is not None):
+                    cap_a = float(cfg_get(
+                        self.cfg, "reward",
+                        "rise_score_headroom_cap_a", default=2.64))
+                    margin_a = float(cfg_get(
+                        self.cfg, "reward",
+                        "rise_score_headroom_margin_a", default=0.3))
+                    cur_peak = float(np.max(np.abs(
+                        self._state.servo_current)))
+                    headroom_f = current_headroom_income_factor(
+                        cur_peak, cap_a, margin_a)
+                    parts["rise_score_headroom_factor"] = headroom_f
+                r_sp = ksp * delta_s * headroom_f
+                self._score_best = self._score_best + delta_s * headroom_f
                 parts["reward_rise_score_prog"] = r_sp
                 reward += r_sp
                 # Hold pay: only once the commanded ramp has arrived —

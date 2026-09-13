@@ -173,6 +173,32 @@ class GoalGenerator:
         # 24. Default 0.0 = feature off (legacy lower behavior).
         self.lower_belly_start_frac = float(
             g.get("lower_belly_start_frac", 0.0))
+        # Mid-descent curriculum (2026-09-13, lowerheavy-s0/s1 FAIL-
+        # MECHANISM follow-up): both seeds parked lower's end height at
+        # ~-6mm above plant despite lower=0.6 exposure and fresh
+        # exploration std — a habitual floor learned during hold/rise
+        # training, not a reachability limit (the decomp probe shows
+        # ~1.0/tick income is available past that point with zero
+        # termination risk). Exposure/std dosing does not move a
+        # learned-habit wall; this lever instead puts states PAST the
+        # wall directly into the start distribution: with probability
+        # lower_partial_frac, a lower episode starts already crouched
+        # partway down (a random fraction of that episode's own target
+        # depth, sampled in [lower_partial_min_frac,
+        # lower_partial_max_frac]) with the height ref matching the
+        # start pose (no tracking-error jump), then ramps the
+        # REMAINING distance to the same target. The policy experiences
+        # "continue descending past -6mm" directly instead of needing
+        # to break the habit from the top every episode. Default
+        # 0.0/0.3/0.8 = feature off, legacy lower behavior unchanged.
+        # The extra rng draws are UNCONDITIONAL (same convention as
+        # lower_belly_start_frac above) so frac=0 vs frac>0 consume an
+        # identical draw count within this code revision.
+        self.lower_partial_frac = float(g.get("lower_partial_frac", 0.0))
+        self.lower_partial_min_frac = float(
+            g.get("lower_partial_min_frac", 0.3))
+        self.lower_partial_max_frac = float(
+            g.get("lower_partial_max_frac", 0.8))
         # Slow on purpose: "gently, without banging" is the task. The
         # tracking kernel penalizes running ahead of the ramp, so a
         # 5 s descent IS the gentleness constraint.
@@ -495,12 +521,33 @@ class GoalGenerator:
                 ramp_n = max(1, int(round(self._jittered_s(
                     rng, self.lower_ramp_s, self.lower_ramp_jitter)
                     / dt)))
-                height = np.full(n_steps, target)
-                height[:hold_n] = 0.0
-                end = min(hold_n + ramp_n, n_steps)
-                height[hold_n:end] = np.linspace(0.0, target, end - hold_n)
+                # Mid-descent draw (unconditional, see lower_partial_
+                # frac above): a fraction of THIS episode's own target
+                # depth, so the start pose and the ref it resumes from
+                # match exactly (no tracking-error jump at reset).
+                lower_partial = rng.random() < float(
+                    self.lower_partial_frac)
+                lower_partial_pf = float(rng.uniform(
+                    self.lower_partial_min_frac,
+                    self.lower_partial_max_frac))
+                if lower_partial:
+                    start_at = "crouch"
+                    lower_partial_depth = lower_partial_pf * (-target)
+                    height = np.full(n_steps, target)
+                    height[:hold_n] = -lower_partial_depth
+                    end = min(hold_n + ramp_n, n_steps)
+                    height[hold_n:end] = np.linspace(
+                        -lower_partial_depth, target, end - hold_n)
+                else:
+                    height = np.full(n_steps, target)
+                    height[:hold_n] = 0.0
+                    end = min(hold_n + ramp_n, n_steps)
+                    height[hold_n:end] = np.linspace(
+                        0.0, target, end - hold_n)
         crouch_dz = 0.0
         start_curl = 0.0
+        if mode == "lower" and start_at == "crouch":
+            crouch_dz = lower_partial_depth
         if mode == "rise":
             # Reverse curriculum over the start pose: 35% belly-flat ZERO
             # (the real operator placement — must curl before any height

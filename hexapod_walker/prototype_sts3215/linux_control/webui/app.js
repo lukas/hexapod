@@ -217,7 +217,6 @@ function applyBackendMeta(meta){
   }
   if(changed){
     updateArmUI();
-    rlPaintReadinessDefault();
     if(activeView === 'rl') simPollMaybe();
   }
   paintTargetRows();
@@ -3996,41 +3995,7 @@ $('mu-stop').onclick = async ()=>{
 };
 $('mu-refresh').onclick = ()=> muRefresh();
 
-async function rlCheck(mode){
-  $('rlpreflight').dataset.checked = '1';
-  $('rlpreflight').textContent = 'Checking '+mode+'…';
-  try{
-    const r = await fetch('/api/rl/preflight?mode='+mode, {cache:'no-store'});
-    const d = await r.json();
-    const det = [];
-    if(d.roll_deg!=null) det.push(`roll ${d.roll_deg}°`);
-    if(d.pitch_deg!=null) det.push(`pitch ${d.pitch_deg}°`);
-    if(d.max_pose_delta_deg!=null)
-      det.push(`pose Δ ${d.max_pose_delta_deg}° (tol ${d.pose_tol_deg}°)`);
-    $('rlpreflight').innerHTML = d.ok
-      ? `<b style="color:#5fd08a">READY for ${mode}</b>`
-        + (d.sim ? ' (sim — always ready)' : '') + ` · ${det.join(' · ')}`
-      : `<b style="color:#ff7b72">NOT ready</b>: ${d.error||'?'}`
-        + (det.length ? ` · ${det.join(' · ')}` : '');
-  }catch(e){ $('rlpreflight').textContent = 'check failed (link?)'; }
-}
-$('rlcheckstand').onclick = ()=> rlCheck('stand');
-$('rlchecklower').onclick = ()=> rlCheck('lower');
-$('rlcheckwalk').onclick = ()=> rlCheck('walk');
-// The Readiness checks guard REAL hardware (servo IDs, IMU, tilt, start
-// pose); the MuJoCo sim passes them by construction. Say so instead of
-// showing an empty box — but never clobber a result the operator asked
-// for (dataset.checked). Re-painted when the backend target flips.
-function rlPaintReadinessDefault(){
-  const pf = $('rlpreflight');
-  if(pf && pf.dataset.checked !== '1')
-    pf.textContent = (targetHasSim && !targetHasRobot)
-      ? 'SIM target — always READY. These checks (servo IDs, IMU, tilt, '
-        + 'start pose) guard the real robot.'
-      : '—';
-}
 async function refreshRlTab(){
-  rlPaintReadinessDefault();
   try{
     const r = await fetch('/api/rl/policy', {cache:'no-store'});
     const d = await r.json();

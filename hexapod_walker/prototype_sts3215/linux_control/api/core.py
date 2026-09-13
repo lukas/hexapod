@@ -763,7 +763,7 @@ class CoreApi:
         if not force and worst > MAX_SAFE_DELTA_DEG:
             return {"ok": False,
                     "error": (f"pose delta {worst:.1f}° on "
-                              f"{_joint_label(worst_joint, self.names)}; "
+                              f"{joint_label(worst_joint, self.names)}; "
                               "pass force=true for large deliberate moves"),
                     "worst_delta_deg": round(worst, 2),
                     "worst_joint": worst_joint,

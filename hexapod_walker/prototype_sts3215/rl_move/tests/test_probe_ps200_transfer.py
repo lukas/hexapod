@@ -9,6 +9,7 @@ from rl_move.sim.probe_ps200_transfer import (
     Intervention,
     TransferProbeEnv,
     _policy_cfg,
+    _temporary_foot_ground_friction,
     periodic_active,
     periodic_half_sine,
     periodic_phase_s,
@@ -291,6 +292,85 @@ def test_friction_loss_reuses_the_support_loss_periodic_window():
                             friction_scale=0.15, **common)
     for t in (1.9, 2.24, 2.25, 2.4, 2.54, 2.55, 3.75):
         assert periodic_active(t, support) == periodic_active(t, friction)
+
+
+def test_friction_loss_changes_effective_pair_and_restores(monkeypatch):
+    monkeypatch.setenv("HEXAPOD_MODEL_SOURCE", "mesh")
+    mujoco = pytest.importorskip("mujoco")
+    model = mujoco.MjModel.from_xml_string("""
+        <mujoco>
+          <worldbody>
+            <geom name="floor" type="plane" size="1 1 .1"
+                  friction="1.5 .05 .0001"/>
+            <body pos="-.1 0 .04">
+              <freejoint/>
+              <geom name="target" type="sphere" size=".05"
+                    friction="2 .1 .001"/>
+            </body>
+            <body pos=".1 0 .04">
+              <freejoint/>
+              <geom name="other" type="sphere" size=".05"
+                    friction="2 .1 .001"/>
+            </body>
+          </worldbody>
+        </mujoco>
+    """)
+    data = mujoco.MjData(model)
+    obj = mujoco.mjtObj.mjOBJ_GEOM
+    floor = mujoco.mj_name2id(model, obj, "floor")
+    target = mujoco.mj_name2id(model, obj, "target")
+    other = mujoco.mj_name2id(model, obj, "other")
+    baseline = model.geom_friction.copy()
+    mujoco.mj_forward(model, data)
+
+    def contacts_by_pair():
+        return {
+            frozenset((int(c.geom1), int(c.geom2))): {
+                "friction": np.asarray(c.friction).copy(),
+                "solref": np.asarray(c.solref).copy(),
+                "dim": int(c.dim),
+            }
+            for c in data.contact
+        }
+
+    baseline_contacts = contacts_by_pair()
+
+    with _temporary_foot_ground_friction(
+            model, (target,), (floor,), 0.1):
+        mujoco.mj_forward(model, data)
+        by_pair = contacts_by_pair()
+        target_pair = frozenset((floor, target))
+        other_pair = frozenset((floor, other))
+        # Target pair really reaches 2.0 * 0.1 instead of being pinned at
+        # the unmodified floor's 1.5.  MuJoCo expands the three geom values
+        # to five contact values; the other foot remains at baseline.
+        assert by_pair[target_pair]["friction"] == pytest.approx(
+            [0.2, 0.2, 0.01, 0.0001, 0.0001])
+        assert by_pair[other_pair]["friction"] == pytest.approx(
+            [2.0, 2.0, 0.1, 0.001, 0.001])
+        # The correction must not alter contact dimensionality or solver
+        # impedance/reference parameters (as changing geom priority would).
+        for pair in (target_pair, other_pair):
+            assert by_pair[pair]["solref"] == pytest.approx(
+                baseline_contacts[pair]["solref"])
+            assert by_pair[pair]["dim"] == baseline_contacts[pair]["dim"]
+
+    assert model.geom_friction == pytest.approx(baseline)
+
+
+def test_friction_loss_restores_after_failed_tick(monkeypatch):
+    monkeypatch.setenv("HEXAPOD_MODEL_SOURCE", "mesh")
+    model = SimpleNamespace(geom_friction=np.array([
+        [1.5, 0.05, 0.0001],
+        [2.0, 0.1, 0.001],
+    ]))
+    baseline = model.geom_friction.copy()
+    with pytest.raises(RuntimeError, match="tick failed"):
+        with _temporary_foot_ground_friction(model, (1,), (0,), 0.02):
+            assert model.geom_friction[1, 0] == pytest.approx(0.04)
+            assert model.geom_friction[0, 0] == pytest.approx(0.04)
+            raise RuntimeError("tick failed")
+    assert model.geom_friction == pytest.approx(baseline)
 
 
 def test_policy_cfg_pins_a_degenerate_deadband_range(monkeypatch):

@@ -26,6 +26,7 @@ import argparse
 import csv
 import json
 import math
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -152,6 +153,49 @@ def periodic_half_sine(t_s: float, intervention: Intervention) -> float:
         math.pi * phase / intervention.duration_s)
 
 
+@contextmanager
+def _temporary_foot_ground_friction(model, foot_gids, ground_gids,
+                                    scale: float):
+    """Scale one or more feet and the ground for a single probe tick.
+
+    MuJoCo combines equal-priority geom friction with an element-wise MAX.
+    Scaling only a foot therefore cannot reduce its contact below the floor's
+    friction.  Scale the target feet and lower both possible ground geoms just
+    enough that they cannot pin any target component.  Non-target foot
+    contacts remain at their foot-side baseline because the mesh models
+    deliberately give feet more friction than the ground.
+
+    The caller owns a single physics tick.  Always restore the compiled model,
+    including when stepping raises, so an intervention cannot leak into the
+    next tick, reset, policy, or seed.
+    """
+    scale = float(scale)
+    if not math.isfinite(scale) or not 0.0 <= scale <= 1.0:
+        raise ValueError("friction-loss scale must be finite and in [0, 1]")
+    foot_gids = np.asarray(tuple(foot_gids), dtype=int)
+    ground_gids = np.asarray(tuple(ground_gids), dtype=int)
+    if foot_gids.size == 0:
+        raise ValueError("friction-loss intervention needs a target foot")
+    if ground_gids.size == 0:
+        raise ValueError("friction-loss intervention needs floor or terrain")
+    if np.intersect1d(foot_gids, ground_gids).size:
+        raise ValueError("target feet and ground geoms must be disjoint")
+    foot_base = model.geom_friction[foot_gids].copy()
+    ground_base = model.geom_friction[ground_gids].copy()
+    foot_dosed = foot_base * scale
+    # Equal-priority contacts use max(geom1, geom2) component-wise.  A shared
+    # ground coefficient no greater than every dosed target lets each target
+    # retain its own requested value without unnecessarily scaling the floor.
+    ground_cap = np.min(foot_dosed, axis=0)
+    model.geom_friction[foot_gids] = foot_dosed
+    model.geom_friction[ground_gids] = np.minimum(ground_base, ground_cap)
+    try:
+        yield
+    finally:
+        model.geom_friction[foot_gids] = foot_base
+        model.geom_friction[ground_gids] = ground_base
+
+
 class TransferProbeEnv(SimHexapodJointWalkEnv):
     """MuJoCo env with two explicitly bounded diagnostic interventions."""
 
@@ -160,7 +204,8 @@ class TransferProbeEnv(SimHexapodJointWalkEnv):
         super().__init__(*args, **kwargs)
         self._dropout_gids: tuple[int, ...] = ()
         self._friction_gids: tuple[int, ...] = ()
-        self._friction_base: np.ndarray | None = None
+        self._friction_ground_gids: tuple[int, ...] = ()
+        self._friction_contact_slides: list[float] = []
         if intervention.mechanism in ("support_loss", "friction_loss"):
             gids = []
             for leg in intervention.dropout_legs:
@@ -176,8 +221,15 @@ class TransferProbeEnv(SimHexapodJointWalkEnv):
                 self._dropout_gids = tuple(gids)
             else:
                 self._friction_gids = tuple(gids)
-                self._friction_base = self.model.geom_friction[
-                    np.asarray(gids, dtype=int)].copy()
+                ground_gids = []
+                for gname in ("floor", "terrain"):
+                    gid = self._mujoco.mj_name2id(
+                        self.model, self._mujoco.mjtObj.mjOBJ_GEOM, gname)
+                    if gid >= 0:
+                        ground_gids.append(gid)
+                if not ground_gids:
+                    raise ValueError("mesh model has no floor or terrain geom")
+                self._friction_ground_gids = tuple(ground_gids)
         # load_triggered edge-detector state: which control tick (if any)
         # the current GRF-gated pulse started on, plus the hysteresis flag
         # used to fire on RISING edges only (never re-arm while the leg
@@ -232,6 +284,28 @@ class TransferProbeEnv(SimHexapodJointWalkEnv):
                 math.pi * elapsed / iv.duration_s)
         return super()._walk_push_torque_nm()
 
+    def _record_friction_contacts(self) -> None:
+        """Record and verify the effective target-foot contact friction."""
+        feet = set(self._friction_gids)
+        ground = set(self._friction_ground_gids)
+        for i in range(int(self.data.ncon)):
+            contact = self.data.contact[i]
+            g1, g2 = int(contact.geom1), int(contact.geom2)
+            if not ((g1 in feet and g2 in ground)
+                    or (g2 in feet and g1 in ground)):
+                continue
+            pair = np.maximum(self.model.geom_friction[g1],
+                              self.model.geom_friction[g2])
+            expected = np.asarray(
+                [pair[0], pair[0], pair[1], pair[2], pair[2]], dtype=float)
+            observed = np.asarray(contact.friction, dtype=float)
+            if not np.allclose(observed, expected, rtol=1e-6, atol=1e-9):
+                raise RuntimeError(
+                    "friction-loss contact did not receive the requested "
+                    f"friction: observed={observed.tolist()}, "
+                    f"expected={expected.tolist()}")
+            self._friction_contact_slides.append(float(observed[0]))
+
     def _advance(self, *, limp: bool = False) -> None:
         iv = self.intervention
         in_walk = (self._goal_traj is not None
@@ -264,17 +338,11 @@ class TransferProbeEnv(SimHexapodJointWalkEnv):
                 self.model.geom_conaffinity[gids] = conaffinity
             return
         if friction_active and self._friction_gids:
-            gids = np.asarray(self._friction_gids, dtype=int)
-            base = self._friction_base
-            self.model.geom_friction[gids] = base * iv.friction_scale
-            try:
+            with _temporary_foot_ground_friction(
+                    self.model, self._friction_gids,
+                    self._friction_ground_gids, iv.friction_scale):
                 super()._advance(limp=limp)
-            finally:
-                # Same one-tick-owned restore discipline as support_loss:
-                # the leg stays IN contact throughout (unlike support_loss,
-                # contype/conaffinity are untouched here) but its effective
-                # traction is scaled down only for the scheduled window.
-                self.model.geom_friction[gids] = base
+                self._record_friction_contacts()
             return
         return super()._advance(limp=limp)
 
@@ -425,6 +493,7 @@ def rollout(spec: PolicySpec, intervention: Intervention, *, seed: int,
 
     zero_bias = ((reset_info.get("randomization") or {})
                  .get("zero_bias_max_deg", 0.0))
+    friction_slides = env._friction_contact_slides
     abs_rolls = [abs(v) for v in rolls]
     elapsed_walk = max(ticks * (1.0 / float(policy.meta["control_hz"]))
                        - intervention.start_s, 1e-9)
@@ -462,6 +531,11 @@ def rollout(spec: PolicySpec, intervention: Intervention, *, seed: int,
             for v in air_max
         ],
         "sampled_zero_bias_max_deg": float(zero_bias),
+        "friction_contact_samples": len(friction_slides),
+        "friction_slide_min": (
+            round(min(friction_slides), 6) if friction_slides else None),
+        "friction_slide_max": (
+            round(max(friction_slides), 6) if friction_slides else None),
         "intervention": asdict(intervention),
     }
 

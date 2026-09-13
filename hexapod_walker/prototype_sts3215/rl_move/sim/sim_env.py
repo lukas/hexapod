@@ -4988,8 +4988,55 @@ class SimHexapodBalanceEnv(_GymBase):
                     headroom_f = current_headroom_income_factor(
                         cur_peak, cap_a, margin_a)
                     parts["rise_score_headroom_factor"] = headroom_f
-                r_sp = ksp * delta_s * headroom_f
-                self._score_best = self._score_best + delta_s * headroom_f
+                # Curl-distance-gated rise_score_prog income (2026-09-13,
+                # riseheadroomgate-s1 CANARY FAIL-MECHANISM escalation:
+                # the current-only gate above left the rise/det failing
+                # trajectories BIT-IDENTICAL to the ungated parent
+                # -- cur_rail_frac 0.587/0.457/0.587 in both, meaning
+                # the policy never diverged from the doomed straight
+                # push even with current-headroom pricing live. Root
+                # cause: current only rises LATE in the push (near the
+                # 2.64A rail itself), so by the time headroom_f bites
+                # the height/posture score has mostly already been
+                # banked -- the gate fires too late to redirect the
+                # policy. This gate instead prices the SAME income on
+                # FOOT GEOMETRY, which is known from tick 0: measured
+                # curl_dist_mm at reset is ~176mm flat / ~111mm bridge
+                # (the corridor that stays under 1.3A) / ~0mm crouch
+                # (probe this cycle, RL_LOG 09-13 21:1x). Reusing the
+                # exact current_headroom_income_factor ramp shape
+                # (same "pay 0 at/above cap, pay full margin below"
+                # math, dimension-agnostic) keyed on curl_dist instead
+                # of current: at the flat start's own ~176mm sprawl the
+                # score income is fully zero regardless of achieved
+                # height, ramping to full pay only once the feet have
+                # actually tucked to within ~111mm (bridge-like) of the
+                # plant footprint -- the curl-first path is REQUIRED to
+                # earn the height/posture score at all, not merely
+                # cheaper. Bit-exact OFF by default
+                # (reward.rise_score_income_curl_gate=0): curl_f==1.0
+                # always, identical to the pre-existing line. Enable:
+                # --cfg-set reward.rise_score_income_curl_gate=1
+                # [--cfg-set reward.rise_score_curl_cap_m=<m>]
+                # [--cfg-set reward.rise_score_curl_margin_m=<m>].
+                curl_f = 1.0
+                gate_curl = float(cfg_get(
+                    self.cfg, "reward",
+                    "rise_score_income_curl_gate",
+                    default=0.0)) == 1.0
+                if gate_curl and delta_s > 0.0:
+                    cap_m = float(cfg_get(
+                        self.cfg, "reward",
+                        "rise_score_curl_cap_m", default=0.176))
+                    margin_m = float(cfg_get(
+                        self.cfg, "reward",
+                        "rise_score_curl_margin_m", default=0.066))
+                    curl_f = current_headroom_income_factor(
+                        self._curl_dist(), cap_m, margin_m)
+                    parts["rise_score_curl_factor"] = curl_f
+                gate_f = headroom_f * curl_f
+                r_sp = ksp * delta_s * gate_f
+                self._score_best = self._score_best + delta_s * gate_f
                 parts["reward_rise_score_prog"] = r_sp
                 reward += r_sp
                 # Hold pay: only once the commanded ramp has arrived —

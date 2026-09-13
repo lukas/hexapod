@@ -32,7 +32,7 @@ import csv
 import json
 import math
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 from urllib.request import Request, urlopen
@@ -892,7 +892,7 @@ def run_walk(settings: Settings, doc: dict, run_dir: Path, *, post: Optional[Cal
         say("walk protocol has no legs")
         return {"status": "failed", "exit_code": 2, "summary": summary, "log_tail": "\n".join(lines)}
     if obstacle:
-        legs = [Leg(l.name, l.vx, l.vy, l.omega, min(l.seconds, OBSTACLE_LEG_S), l.gait) for l in legs]
+        legs = [replace(l, seconds=min(l.seconds, OBSTACLE_LEG_S)) for l in legs]     # keeps the RL flag (2026-09-12: it was dropped)
         summary["obstacle"] = obstacle[:200]
         say(f"the look saw something close ({obstacle[:80]}); legs cut to {OBSTACLE_LEG_S:.0f} s each")
     started = clock()

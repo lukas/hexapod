@@ -375,3 +375,14 @@ def test_losing_the_robot_right_after_the_edge_stops_the_leg(settings, tmp_path)
     leg = res["summary"]["legs"][0]
     assert leg["stopped"] == "tag_lost" and leg["seconds"] < 2.0, leg
     assert any("left the camera" in n for n in res["summary"]["notes"])
+
+
+def test_an_obstacle_shortens_rl_legs_without_turning_them_into_scripted_gait(settings, tmp_path):
+    state, post, get, sleep, clock = _rl_rig()
+    doc = _doc(rl_policy="walkteach_allhead_acq12m_100hz.json", legs=[{"name": "walkteach_fwd", "vx_mm_s": 80, "seconds": 14}])
+    res = walk.run_walk(settings, doc, tmp_path, post=post, get=get, sleep=sleep, clock=clock, log=lambda m: None,
+                        obstacle="another robot within a body length")
+    legs = res["summary"]["legs"]
+    assert legs and all(l["seconds"] <= walk.OBSTACLE_LEG_S + 0.5 for l in legs), legs
+    assert state["rl"]["cmds"], "RL drive was not used"
+    assert not any(not c.startswith("J 0 0 0") for c in state["cmds"]), "scripted gait was streamed"

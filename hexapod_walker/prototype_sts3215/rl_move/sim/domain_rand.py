@@ -42,6 +42,38 @@ DEG2RAD = math.pi / 180.0
 N_LEGS = 6
 G0 = 9.80665
 
+# Structured hard-region DR dose menu (dr.struct_dr_prob, 2026-09-13
+# speed sim-to-real order). Values are the frozen-policy joint panel's
+# PanelBounds (rl_move/sim/probe_dr_joint_panel.py, run
+# logs/ckpt_eval/dr_joint_panel_20260913, doc
+# docs/DR_JOINT_PANEL_2026-09-13.md); the emphasis directions are that
+# panel's measured hard-region correlations with ps200 peak roll:
+# per-joint kp spread +0.84, FRAME-COUPLED zero bias +0.77, CoM +0.59,
+# cmd-drop +0.53, ground tilt +0.46, contact stiffness +0.45, per-foot
+# friction / per-leg torque asymmetry -0.59/-0.46. Doses are FIXED
+# evidence, not a cfg surface (same convention as the tipped/fault dose
+# menus: probability follows the curriculum, the dose does not).
+STRUCT_KP_PCT = 0.35
+STRUCT_KV_PCT = 0.40
+STRUCT_ZERO_BIAS_DEG = 5.0
+STRUCT_COM_XY_M = 0.025
+STRUCT_CMD_DROP = (0.0, 0.08)
+STRUCT_CONTACT_STIFF = (0.50, 3.00)
+STRUCT_TILT_DEG = 3.0
+STRUCT_FOOT_FRICTION = (0.50, 1.10)
+STRUCT_LEG_TORQUE = (0.60, 1.05)
+STRUCT_TORQUE = (0.55, 1.05)
+STRUCT_VEL = (0.70, 1.10)
+STRUCT_LATENCY = (0.70, 2.50)
+STRUCT_DEADBAND = (0.50, 3.00)
+STRUCT_MASS = (0.85, 1.25)
+STRUCT_FRICTION = (0.45, 1.40)
+STRUCT_LEG_MASS_PCT = 0.20
+_STRUCT_LEFT = (0, 1, 2)
+_STRUCT_RIGHT = (3, 4, 5)
+_STRUCT_FRONT = (0, 5)
+_STRUCT_REAR = (2, 3)
+
 # Frozen-joint DOF damping (N·m·s/rad). Seized-gearbox approximation:
 # implicit (unconditionally stable) viscous lock. Against the fitted
 # joint kv range (0.02-3.0) this is a 150-25000x stiffening; measured
@@ -256,6 +288,25 @@ class RandRanges:
     ext_push_repeat_max: int = 1
     ext_push_gap_s: tuple[float, float] = (1.0, 3.0)
     ext_push_horizon_s: float = 13.0
+    # Per-foot friction / per-leg torque-saturation asymmetry (2026-09-13
+    # speed sim-to-real order; PanelBounds families the training DR never
+    # had). Independent per-foot / per-leg draws inside the range; (1,1)
+    # (the default) = OFF with a GUARDED draw (no rng consumed), keeping
+    # the legacy stream bit-exact. Applied as pure MjModel field edits
+    # (geom_friction rows + floor cap; actuator_forcerange rows) — both
+    # fields are in mjx_backend.MODEL_DR_FIELDS so the per-world model-DR
+    # upload carries them to the batched GPU stacks unchanged.
+    foot_friction_scale: tuple[float, float] = (1.0, 1.0)
+    leg_torque_scale: tuple[float, float] = (1.0, 1.0)
+    # Structured hard-region DR (2026-09-13): with prob struct_dr_prob an
+    # episode's base draw is OVERLAID with one correlated (battery-sag /
+    # worn-leg / build-mass / floor latent stories) or asymmetric
+    # (left/right/front/rear/single-leg group) ensemble drawn from the
+    # STRUCT_* dose menu above — the joint panel's evidence-defined hard
+    # region, including frame-coupled zero bias (zero_drift_cmd_frame
+    # forced ON for the overlaid episode). 0.0 (default) = OFF, guarded
+    # draw at the very END of sample() so the base stream is bit-exact.
+    struct_dr_prob: float = 0.0
 
     def scaled(self, s: float) -> "RandRanges":
         """Curriculum knob: shrink every range toward nominal by ``s``.
@@ -338,6 +389,12 @@ class RandRanges:
             ext_push_repeat_max=self.ext_push_repeat_max,
             ext_push_gap_s=self.ext_push_gap_s,
             ext_push_horizon_s=self.ext_push_horizon_s,
+            # New-family ranges shrink toward nominal like every other
+            # multiplicative range; the struct overlay follows the
+            # probability-ramps/dose-does-not convention.
+            foot_friction_scale=pair(*self.foot_friction_scale),
+            leg_torque_scale=pair(*self.leg_torque_scale),
+            struct_dr_prob=self.struct_dr_prob * s,
         )
 
 
@@ -418,6 +475,17 @@ class EpisodeRandomization:
     # Empty by default -- bit-exact no-op whenever repeat_max<=1 (the
     # default), since sample() only ever appends here when repeat_max>1.
     ext_push_extra: tuple[tuple[float, float, float, float], ...] = ()
+    # Per-foot friction / per-leg torque asymmetry (dr.foot_friction_scale,
+    # dr.leg_torque_scale, and the struct overlay below). All-ones = the
+    # historical model, byte-exact (both apply paths are guarded no-ops).
+    foot_friction_scale: np.ndarray = field(
+        default_factory=lambda: np.ones(N_LEGS))
+    leg_torque_scale: np.ndarray = field(
+        default_factory=lambda: np.ones(N_LEGS))
+    # "" = no structured overlay this episode; else "correlated" /
+    # "asymmetric" (diagnostics only — the fields above already carry
+    # the overlay's values).
+    struct_dr_mode: str = ""
 
     def fault_health(self) -> np.ndarray:
         """(18,) health vector per AMP brief §8.2: 1.0 healthy, 0.0
@@ -464,6 +532,33 @@ class EpisodeRandomization:
                 # scale 0.0 = dead servo: joint free-swings against its
                 # existing kv damping + frictionloss (backdrive), which
                 # stay untouched.
+
+    def apply_asym_to_model(self, model) -> None:
+        """Per-leg torque-saturation asymmetry (dr.leg_torque_scale /
+        struct overlay) as pure MjModel field edits.
+
+        Call AFTER ``apply_params_to_model`` (which SETS the actuator
+        forcerange rows each reset) and after ``apply_fault_to_model``
+        (composes multiplicatively with a weak/leg fault, like the joint
+        panel's PanelEnv recipe). Touches only ``actuator_forcerange``
+        (in ``mjx_backend.MODEL_DR_FIELDS`` — per-world upload carries
+        it to the batched stacks). Guarded no-op at all-ones.
+        """
+        lts = np.asarray(self.leg_torque_scale, dtype=float)
+        if not np.any(lts != 1.0):
+            return
+        from .servo_model import _act_id, joint_names
+
+        names = joint_names()
+        for leg in range(N_LEGS):
+            s = float(lts[leg])
+            if s == 1.0:
+                continue
+            for j in (3 * leg, 3 * leg + 1, 3 * leg + 2):
+                pa = _act_id(model, names[j])
+                va = _act_id(model, names[j] + "_d")
+                model.actuator_forcerange[pa] *= s
+                model.actuator_forcerange[va] *= s
 
     def apply_to_model(self, model, *, chassis_bid: int) -> None:
         """Mutate a (freshly restored) MjModel in place."""
@@ -521,6 +616,30 @@ class EpisodeRandomization:
         model.geom_solref[:, 0] *= self.contact_stiff_scale
         model.opt.gravity[:] = self.gravity_vec
 
+        # Per-foot friction asymmetry (dr.foot_friction_scale / struct
+        # overlay). Guarded no-op at all-ones. Same recipe as the joint
+        # panel's PanelEnv: MuJoCo combines contact friction by
+        # element-wise max, so a foot dosed BELOW the floor coefficient
+        # must also cap the floor or the dose silently vanishes.
+        ffs = np.asarray(self.foot_friction_scale, dtype=float)
+        if np.any(ffs != 1.0):
+            foot_gids = []
+            for i in range(N_LEGS):
+                g = gid(f"L{i}_foot")
+                if g < 0:
+                    raise ValueError(f"model has no L{i}_foot geom")
+                foot_gids.append(g)
+            ground_gids = [g for g in (gid("floor"), gid("terrain"))
+                           if g >= 0]
+            if not ground_gids:
+                raise ValueError("model has no floor or terrain geom")
+            dosed = model.geom_friction[foot_gids, 0] * ffs
+            model.geom_friction[foot_gids, 0] = dosed
+            cap = float(np.min(dosed))
+            for g in ground_gids:
+                model.geom_friction[g, 0] = min(
+                    float(model.geom_friction[g, 0]), cap)
+
     def summary(self) -> dict:
         tilt = math.degrees(math.acos(
             min(1.0, -float(self.gravity_vec[2]) / G0)))
@@ -555,6 +674,11 @@ class EpisodeRandomization:
             "fault": ("none" if not self.fault_mode else
                       f"{self.fault_mode}:j{list(self.fault_joints)}"
                       f"@{round(self.fault_scale, 2)}"),
+            "struct_dr": self.struct_dr_mode or "none",
+            "foot_friction_min": round(
+                float(np.min(self.foot_friction_scale)), 3),
+            "leg_torque_min": round(
+                float(np.min(self.leg_torque_scale)), 3),
         }
 
 

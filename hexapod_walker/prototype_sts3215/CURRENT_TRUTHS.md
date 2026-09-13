@@ -18,6 +18,31 @@
   new structural gait mechanism and a clean stance curriculum, not another
   dose/seed/schedule variant. The orchestrator should design and execute the
   next justified canaries without waiting for further operator clarification.
+- **UPDATE same day, ~triage cycle: the off-axis-heading front-pair leg
+  sacrifice (all 15 closed training-mechanism classes) is now RESOLVED for
+  full-direction WALKING by a zero-training eval/deploy-side wrapper, not by
+  reopening any of the 15 classes.** The hexapod model is exactly invariant
+  under "rotate 60 deg about z + relabel legs"; a fixed rot60 obs/action
+  reindex (`rl_move/sim/rot60.py`) applied to the unmodified
+  `bundle_rlonly_v2` champion converts the off-axis collapse (base arm:
+  `gait_valid` 0/3-1/3, slip_per_m up to 208, 1-2 sacrificed legs/ep on
+  +-90/+-135/180) into near-on-axis parity (rot60 arm: off-axis `gait_valid`
+  11/15 det + 12/15 sto vs its own on-axis 7/9 + 8/9, slip_per_m mostly 4-9,
+  zero falls in 96 episodes, on-axis unchanged). Matched pair:
+  `logs/ckpt_eval/cw_walk50hz_rlonly_crutchoff_s0_warmadapt_acq1_{rot60panel,basepanel}/report.json`;
+  mesh-family equivariance locked by `rl_move/tests/test_rot60_mesh.py`;
+  full writeup `rl_docs/tracks/walkcurr/DESIGN_NOTE_2026-09-13_rot60_fullgait_stance.md`,
+  `SKILLS.md` row, `walkcurr/STATUS.md` same date. Still open before the
+  full-direction WALK leg of the reopened gate is fully done: sector-boundary
+  transient session, stops/restarts panel, yaw-channel plan (champion has no
+  wz obs). Rise/hold/lower remains SEPARATELY unresolved: the matched clean
+  from-scratch stance canary pair (`cw-stance50hz-rlonly-scratch-{s0,s1}-canary2m`)
+  BOTH verdicted `CANARY FAIL - MECHANISM` same cycle -- a majority OC-pin
+  freeze at ~2.6-2.64A across hold/rise/lower, hold/det 0/6 survived at both
+  the 1M and 2M eval-callback reads in both seeds, rise height error barely
+  moving (s0 80.7->74.1mm, s1 83.0->81.7mm). Next lever per that gate:
+  start-mix re-weighting (crouch/bridge-heavy reverse curriculum) or staged
+  hold/lower-first training -- not more budget on this exact recipe.
 
 ## RECENTRE WORKS FROM THE TAGS; GAIT FORWARD IS THE LAYOUT'S +X (2026-09-12 ~20:30, hexapod 1): a 60 mm/s forward command moved the chassis tag 81 mm along the layout's +x (3 deg off in camera 1's floor frame); the lab recentred the robot from the top edge to the middle in 6 pushes / 46 s with the heading read from the tags, no probe
 

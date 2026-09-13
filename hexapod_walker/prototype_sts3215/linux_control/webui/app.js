@@ -4048,7 +4048,74 @@ const RL_DEFAULT_WALK_FILE =
   'walk_allheading_mlp_singleframe_acq1_stdanneal.json';
 const RL_DEFAULT_HOLD_FILE =
   'stand_stancemix_tuckclock_scratch8m.json';
+const RL_GAIT_WALKTEACH_FILE = 'walkteach_allhead_acq12m_100hz.json';
+const RL_GAIT_ALLHEADING_FILE = RL_DEFAULT_WALK_FILE;
+const RL_GAIT_RLONLY_FILE =
+  'walkscratch_rlonly_widen8_crutchoff_s0_warmadapt_50hz_acq1.json';
+// Walking-gait cards: one exported policy each, used for both the walk
+// role and the hold role (the same network at zero command), stand/lower
+// left as they are. Numbers are from
+// docs/RL_GAITS_HEXAPOD1_VS_HEXAPOD2_2026-09-12.md (hexapod2 tag-grid
+// session 2026-09-11, floor camera, net straight-line speed). Only the
+// gait file has to exist on the connected robot for the card to be live.
 const RL_POLICY_BUNDLES = [
+  {
+    id: 'gait-walkteach-100hz',
+    tag: 'Best measured',
+    title: 'Walkteach all-heading, 100 Hz',
+    summary: 'Fastest gait measured on hardware so far. Sets it as the walk '
+      + 'policy and as the hold policy (same network at zero command); '
+      + 'stand and lower are not changed.',
+    files: [RL_GAIT_WALKTEACH_FILE],
+    walkFile: RL_GAIT_WALKTEACH_FILE,
+    roleValues: {walk: RL_GAIT_WALKTEACH_FILE, hold: RL_GAIT_WALKTEACH_FILE},
+    rows: [
+      ['Walk', RL_GAIT_WALKTEACH_FILE],
+      ['Hold', RL_GAIT_WALKTEACH_FILE],
+      ['Stand / Lower', 'unchanged'],
+    ],
+    metrics: ['obs 75, 100 Hz', 'hexapod2 09-11: 15-38 mm/s fwd at cmd 80',
+              '7 mm/s reverse', 'tilt max 3-6 deg', '5 runs, all completed',
+              'hexapod1: no speed number yet'],
+  },
+  {
+    id: 'gait-allheading-100hz',
+    tag: 'Measured',
+    title: 'All-heading MLP single-frame, 100 Hz',
+    summary: 'The todaypolicy walk. Slower than walkteach but the longest '
+      + 'hardware drive sessions on record. Walk and hold both use it; '
+      + 'stand and lower are not changed.',
+    files: [RL_GAIT_ALLHEADING_FILE],
+    walkFile: RL_GAIT_ALLHEADING_FILE,
+    roleValues: {walk: RL_GAIT_ALLHEADING_FILE, hold: RL_GAIT_ALLHEADING_FILE},
+    rows: [
+      ['Walk', RL_GAIT_ALLHEADING_FILE],
+      ['Hold', RL_GAIT_ALLHEADING_FILE],
+      ['Stand / Lower', 'unchanged'],
+    ],
+    metrics: ['obs 74, 100 Hz', 'hexapod2 09-11: 6.5-11 mm/s fwd at cmd 80',
+              'tilt max 4-8 deg', '09-10: two 30 s drive sessions, no fall',
+              'hexapod1: no speed number yet'],
+  },
+  {
+    id: 'gait-rlonly-50hz',
+    tag: '50 Hz',
+    title: 'RL-only from scratch, 50 Hz',
+    summary: 'walkcurr rl_only lineage (no gait clock, no teacher, no motion '
+      + 'prior), transfer candidate v2 at 50 Hz. This is what hexapod1 '
+      + 'currently runs for walk and hold. No hardware speed has been '
+      + 'measured for it yet.',
+    files: [RL_GAIT_RLONLY_FILE],
+    walkFile: RL_GAIT_RLONLY_FILE,
+    roleValues: {walk: RL_GAIT_RLONLY_FILE, hold: RL_GAIT_RLONLY_FILE},
+    rows: [
+      ['Walk', RL_GAIT_RLONLY_FILE],
+      ['Hold', RL_GAIT_RLONLY_FILE],
+      ['Stand / Lower', 'unchanged'],
+    ],
+    metrics: ['obs 72, 50 Hz', 'RL-only lineage', 'hexapod1 current walk + hold',
+              'not measured on hardware'],
+  },
   {
     id: 'todaypolicy-mlpsf-tuck-v1',
     tag: 'Default',

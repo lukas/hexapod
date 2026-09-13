@@ -1,5 +1,11 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## SERVO TEMPERATURE BYTE GLITCHES; BUS NOW HOLDS BACK ISOLATED JUMPS (2026-09-12 ~18:30, both robots): about 1.5 % of FeedBack reads carry a wrong temperature for one servo (30 C reads 40-61 C for exactly one MCU read, then 30 again) while position, current, voltage and load in the same checksummed record are fine
+
+- Evidence: the 120 s champion stand hold (run ed9b18e9fc07, 720 distinct reads) had 9 such spikes, every one a single read; a servo cannot move 8 C between reads a fraction of a second apart. The "servo at 56 C" walk stop (run 4109077fd1a7) and today's 48/51 C "hottest" values were these bytes, not hot servos: all 18 servos read 28-32 C after the walks.
+- Fix: `McuFeetechBus._filter_temp` (mcu_feetech_bus.py) holds a jump of >= 8 C back for one read and reports the last accepted value with the raw byte in `temp_raw_c`; a second consecutive read that agrees is accepted; slow heating passes untouched; state older than 5 s is dropped. Cost 5 us per 18-servo read on the Mac against a ~10 ms serial round trip, no extra bus traffic. Deployed to hexapod 1 and hexapod 2.
+- Consequence: `hottest_c` in the lab's walk summaries before this entry is inflated by these bytes; the lab's hot stop was already debounced to 3 polls.
+
 ## RE-TAPED TAGS CALIBRATED, ROBOT RE-ZEROED (2026-09-12 ~16:50, hexapod 1): new layout installed (leg 5 lids 114/117, no tibia mounts), stand sag gone, scripted walk 4.7 fwd / 22.6 back mm/s, RL comparison blocked by the robot's position in camera 1
 
 One plain sentence: after the operator re-taped tags and replaced leg 5's servos, the six-leg calibration on camera 1 (now the top view) installed a layout the zero check agrees with to 0.6 deg on every leg; the encoders were re-zeroed at the flat rest pose (L5 yaw had read -175, L0/L3 knees +32/+28 with straight legs), the two-minute stand sag fell from 2-6 deg to under 0.8 deg, and the first valid camera walk on the scripted gait gave 4.7 mm/s forward and 22.6 back at a 30 mm/s command; the RL gaits could not be measured because the robot walked to the edge of camera 1's frame.

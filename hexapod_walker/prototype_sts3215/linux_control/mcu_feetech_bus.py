@@ -1004,6 +1004,42 @@ class McuFeetechBus:
             "pos_counts": int(pos),
         }
 
+    # The temperature byte of the FeedBack record is wrong on roughly 1.5 % of
+    # reads (a 30 C servo reports 40-61 C for exactly one read, then 30 again,
+    # while position/current/voltage in the same checksummed record are fine).
+    # A servo cannot move 8 C between two reads a fraction of a second apart,
+    # so a jump is held back until a second consecutive read agrees with it.
+    TEMP_JUMP_C = 8
+    TEMP_HOLD_MAX_S = 5.0
+
+    def _filter_temp(self, fb: dict) -> None:
+        """Replace an isolated temperature jump with the last accepted value.
+
+        Keeps ``temp_raw_c`` when a reading was overridden so the raw byte is
+        still visible to anyone who wants it.  Mutates ``fb`` in place.
+        """
+        state = getattr(self, "_temp_filter", None)
+        if state is None:
+            state = self._temp_filter = {}
+        sid = fb["id"]
+        raw = fb["temp_c"]
+        now = time.monotonic()
+        prev = state.get(sid)
+        if prev is None or now - prev["t"] > self.TEMP_HOLD_MAX_S:
+            state[sid] = {"temp": raw, "t": now, "pending": None}
+            return
+        if abs(raw - prev["temp"]) < self.TEMP_JUMP_C:
+            prev.update(temp=raw, t=now, pending=None)
+            return
+        pending = prev["pending"]
+        if pending is not None and abs(raw - pending) < self.TEMP_JUMP_C:
+            # Second read agrees: the jump is real.
+            prev.update(temp=raw, t=now, pending=None)
+            return
+        prev["pending"] = raw
+        fb["temp_raw_c"] = raw
+        fb["temp_c"] = prev["temp"]
+
     def read_all_feedback(self, ids: list[int] | None = None
                           ) -> dict[int, dict]:
         """One MCU round-trip: FeedBack block for every id.
@@ -1020,6 +1056,7 @@ class McuFeetechBus:
             fb = self._fb_dict_from_rec(rec)
             if fb is None:
                 continue
+            self._filter_temp(fb)
             out[fb["joint"]] = fb
             self._fb_cache[fb["id"]] = fb
             self._pos_cache[fb["joint"]] = float(fb["deg"])

@@ -334,3 +334,73 @@ test_probe_ps200_transfer.py` (3 new tests); `logs/ckpt_eval/
 ps200_transfer_probe_loadshare_20260913/{rows.json,controls_thr07_rows.json,
 ps200_baseline_extra_rows.json,all_rows_combined.json}`; recurroll5 FAIL
 numbers per the canary-outcome table above.
+
+## Addendum, 2026-09-13 (fourth): direct foot-friction loss — RULED OUT, flat null result at every dose
+
+The third addendum's own "genuinely different operationalization" list
+narrowed to one untested item: "a non-torque-pulse mechanism modeling
+contact/compliance loss directly, not another injected-torque variant."
+Every prior candidate (frame-coupled zero-offset, isolated L4 support loss,
+recurrent/load-triggered/load-share torque, static deadband) either injects
+an external moment or edits a joint-level property; none touches the
+foot-ground contact itself while the leg stays loaded. This addendum builds
+that: a `friction_loss` mechanism reusing the exact same periodic scheduling
+as `support_loss` (`dropout_legs`/`duration_s`/`phase_s`/`period_s`,
+`periodic_active()`), but instead of zeroing `geom_contype`/`geom_conaffinity`
+(removing contact outright), it scales `geom_friction` on the scheduled
+leg's foot geom down to `friction_scale` for the window — the leg stays
+planted and load-bearing, but its effective traction drops, so any roll
+this produces is genuine foot slip under real load, not an injected torque
+or a support-removal event. 2 new mechanics tests green
+(`rl_move/tests/test_probe_ps200_transfer.py`, 15 total).
+
+Screened `friction_scale` in (0.3, 0.1, 0.02) — i.e. 70%/90%/98% traction
+loss — on both L1 and L4, at the same four gait-phase offsets
+(0.0/0.375/0.75/1.125 s) used by every prior periodic screen, full mesh,
+PS200 (`logs/ckpt_eval/ps200_transfer_probe_frictionloss_20260913/`):
+
+| leg | friction scale | PS200 peak roll (°), across 4 phases |
+|---|---:|---|
+| L1 | 0.3 | 1.19–1.46 |
+| L1 | 0.1 | 1.14–1.39 |
+| L1 | 0.02 | 1.14–1.39 |
+| L4 | 0.3 | 1.13–1.46 |
+| L4 | 0.1 | 1.13–1.46 |
+| L4 | 0.02 | 1.13–1.46 |
+
+Baseline (no intervention) peak is 1.38°. **Every one of 24 dosed cases
+sits inside the baseline's own noise band (1.13–1.55°) regardless of leg,
+dose, or phase** — even the most extreme dose tested (`friction_scale=0.02`,
+98% traction loss, effectively near-frictionless for 0.3 s) does not move
+peak roll at all, let alone toward the 16.78° hardware target. The 4-seed
+follow-up on the closest-scoring case (`friction_L4_x0.3_p0.375`, picked by
+the same `_closest_case` selection every prior mechanism used) confirms
+this is not a screen-seed artifact: median 1.48° (range 1.34–1.55°),
+selectivity gate `scale_match=False`, `recurrent_peaks=False`,
+`ps200_increase_deg=0.123` — nowhere near the `>=3.0` absolute bar, zero
+falls. Controls (`walkteach`/`allheading`) show the same flat non-response
+(-0.05/+0.02° change). **Decision: RULED OUT, no training funded.** The
+policy's own gait dynamics apparently do not translate a single momentarily
+slippery foot into meaningful chassis roll at this command speed — the
+tripod gait's other five legs absorb the loss before it reaches the body,
+unlike the recurrent external torque candidate (addendum 0) which bypasses
+the legs entirely and DOES reproduce the hardware scale (but training could
+not learn to reject it, per the canary-outcome table above).
+
+**Track effect:** this closes the last cheaply-screenable "different
+operationalization" from addendum 2/3's own named list. Every operationalized
+world-intervention this probe can construct now either (a) reproduces the
+hardware roll scale but training cannot learn from it (recurrent torque,
+load-triggered, load-share — all injected-moment shaped), or (b) does not
+reproduce the scale at all (zero-offset, deadband, support-loss,
+friction-loss). This is a real negative result, not a gap in search effort:
+the remaining honest path is real hardware per-leg force/current/contact
+telemetry from the actual PS200 run (Robot Lab/operator export, still
+unreachable from this cloud pod — checked again this addendum's own cycle,
+no new access), not another blind mechanism guess from this cloud pod.
+
+Evidence: `rl_move/sim/probe_ps200_transfer.py` (`friction_loss` mechanism,
+`friction_scale` field, `_friction_gids`/`_friction_base` state); `rl_move/
+tests/test_probe_ps200_transfer.py` (2 new tests, 15 total); `logs/ckpt_eval/
+ps200_transfer_probe_frictionloss_20260913/{rows.json,verdict.json}`;
+snapshot `ee7733ff` (`exp/ps200-frictionloss-mechanism`).

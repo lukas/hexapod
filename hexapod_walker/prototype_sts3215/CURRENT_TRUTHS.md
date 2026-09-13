@@ -70,6 +70,32 @@
   holdonly) is queued/running. Evidence: `ops.sh entry cw-stance50hz-rlonly-
   scratch-s1-holdonly-canary2m`; `rl_move/sim/probe_hold_decomp.py`;
   `walkcurr/STATUS.md` 2026-09-13 ~17:3x.
+- **UPDATE 2026-09-13 ~17:4x: the log-std-schedule lever is ALSO refuted —
+  5th-of-5 identical failure; escalate to a genuinely different mechanism
+  class (value-function/credit-assignment), not another cfg dose.** Both
+  `holdlowstd-canary2m` seeds finished CANARY FAIL - MECHANISM: gate+owncfg
+  hold/det and hold/sto both 0/6 survived at 2M in both seeds, reward
+  quarters FALLING not rising (s0 `[-38,-81,-89,-110]`, s1
+  `[-37,-79,-91,-110]` — no 08-21 continue case applies).
+  `probe_hold_decomp.py` on both resulting checkpoints reproduces the exact
+  holdonly/mixreweight fingerprint: deterministic policy sinks from tick 1
+  at a clean DR-0 plant reset (reward already max=1.0 there), crosses the
+  40mm/1.0s grace at t=0.98s, current climbs 0.25A->2.58A in lockstep —
+  low initial exploration noise did not change the collapse at all. Every
+  curriculum-structure lever (base-mix, mixreweight-exposure,
+  holdjitter-start-offset) AND now the exploration/log-std-schedule lever
+  are refuted identically (5/5); reward-pricing and action-authority were
+  already excluded by the quiet-action control. The only still-running,
+  pre-registered lever from this saga is `holdonly-sinkfence-canary2m`
+  (tighter 15mm/0.5s termination envelope instead of 40mm/1.0s, s0+s1,
+  in flight) — its own gate says if it ALSO fails, escalate to a
+  termination-grace CURRICULUM (start wide, tighten with competence) or
+  height-potential shaping as the next genuinely different mechanism,
+  not another static cfg dose; do not relaunch any dose/seed of the
+  refuted recipe classes. Evidence: `ops.sh entry cw-stance50hz-rlonly-
+  scratch-{s0,s1}-holdlowstd-canary2m`; `rl_move/sim/probe_hold_decomp.py`
+  run against both `holdlowstd` checkpoints this cycle;
+  `walkcurr/STATUS.md` 2026-09-13 ~17:4x.
 
 ## NO CAMERA DAEMON; RUNS OWN THEIR CAMERAS (2026-09-13 ~09:40): the always-on camera server (`com.lukas.hexapod-cameras`, :8766) is removed; each lab run spawns `hexapod-cameras session`, cameras are registered by stable id in `~/.hexapod/cameras.json`, calibration is a command
 

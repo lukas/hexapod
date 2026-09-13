@@ -734,8 +734,13 @@ def main() -> int:
               f"ratio={r['score']['parent_over_control_ratio']}",
               flush=True)
 
-    ranked.sort(key=lambda r: r["score"].get(
-        "final_score", r["score"].get("stage1_score", 0.0)), reverse=True)
+    # Control-tested (stage-2) ensembles rank above stage-1-only ones:
+    # a signature candidate REQUIRES selectivity evidence.
+    ranked.sort(key=lambda r: ("final_score" in r["score"],
+                               r["score"].get(
+                                   "final_score",
+                                   r["score"].get("stage1_score", 0.0))),
+                reverse=True)
     _write_outputs(out_dir, args=args, bounds=bounds, ensembles=ensembles,
                    rows=rows, ranking=ranked)
     print(f"wrote {out_dir}")

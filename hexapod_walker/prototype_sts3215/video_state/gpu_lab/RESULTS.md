@@ -10,13 +10,15 @@ pod under `/data/results/`; a local mirror under `~/hexapod-vision-data/report/`
 
 ## TL;DR
 
-- **Pose from one frame (E1)**: a frozen DINOv2-giant probe reads the 18 joint
-  angles to 4-6 deg MAE (knee 8-13 deg vs 29-42 deg for guessing the mean) but
-  does NOT beat the repo's 0.55M CNN retrained on the same 50k frames (3.8 /
-  5.0 deg). Data, not model size, is the bottleneck; and the labelled set has
-  no tips at all (|roll| max 21 deg), so nothing here validates tip detection.
-  Only a ridge probe was tried (no MLP head, no fine-tuning), so "frozen
-  features + linear" is the limit of what was tested, not a ceiling.
+- **Pose from one frame (E1, then E5)**: the first pass (frozen DINOv2-giant
+  probe on 640 px whole frames) got 4.1 deg MAE over roll/pitch/18 joints and
+  7.9 deg on knees, no better than the repo's small CNN. E5 fixed the real
+  problem (the robot is cut off at the top of the frame and was tiny at 640
+  px): cropping the robot band at full resolution and fine-tuning
+  DINOv2-base end to end halves the error to **2.0 deg overall, 3.9 deg
+  knee** on unseen runs (2-3 deg on the legs the camera actually sees), at
+  3.4 ms per frame. The labelled set still has no tips at all (|roll| max 21
+  deg), so nothing here validates tip detection.
 - **Behaviour classification (E2)**: Qwen3-VL-32B given the whole clip as video
   is a decent narrator: it names the right robot, times stand-ups and lowers
   to within a second (checked against frame-difference motion bursts), sees
@@ -174,6 +176,54 @@ whole-clip narration costs ~8 s per 40 s clip. The blocker for a live safety
 use is recall on subtle events (E2/E3), not speed. The pose probe (E1) is the
 only thing here that is both live-rate and quantitatively validated, and it
 is validated only on static poses.
+
+## E5: improving the pose model (2026-09-13)
+
+Why E1 was coarse: the floor camera cuts the robot off at the top edge of the
+frame. In many labelled frames only the front legs are visible while the
+labels cover all 18 joints, and E1 fed the whole 640 px frame, so the robot
+was ~200 px wide. Per-leg ridge error confirmed it: knees on legs 1-3 were
+5-7 deg, legs 0/4/5 were 9-10 deg.
+
+Changes: (1) crop the robot band (x 200-1080, y 0-220) from the original
+1280x720 frames, so the robot is ~2.5x larger in pixels; (2) fine-tune end to
+end (DINOv2-base, layer-wise lr, bf16, MLP head) instead of a frozen probe;
+(3) train the repo CNN at 704x176 on the same crops; (4) report per leg and
+with a +-2-frame temporal median (which does nothing here: poses are static).
+Same splits as E1. MAE in degrees.
+
+| split | model | roll | pitch | coxa | femur | knee | all 20 | batch-1 |
+|---|---|---|---|---|---|---|---|---|
+| by run | mean baseline | 1.18 | 2.23 | 1.95 | 6.42 | 28.85 | 11.34 | |
+| by run | E1 DINOv2-g probe, 640 px | 0.94 | 0.99 | 1.18 | 4.13 | 7.95 | 4.07 | 21 ms |
+| by run | E1 StateCNN, 160 px | 0.83 | 1.06 | 0.74 | 3.39 | 8.05 | 3.75 | |
+| by run | E5 StateCNN, crops 704x176 | 0.61 | 0.77 | 0.74 | 2.72 | 6.77 | 3.14 | 0.4 ms |
+| by run | **E5 DINOv2-base fine-tuned, crops** | **0.58** | **0.69** | **0.62** | **2.03** | **3.89** | **2.03** | 3.4 ms |
+| by family | mean baseline | 1.36 | 3.05 | 1.75 | 12.09 | 41.66 | 16.87 | |
+| by family | E1 DINOv2-g probe | 1.66 | 1.71 | 1.93 | 4.64 | 12.93 | 6.02 | |
+| by family | E1 StateCNN | 1.41 | 1.68 | 1.49 | 4.15 | 10.42 | 4.97 | |
+| by family | E5 StateCNN, crops | 1.06 | 1.49 | 1.47 | 4.00 | 9.81 | 4.71 | |
+| by family | E5 DINOv2-base fine-tuned | 0.99 | 1.22 | 1.46 | 3.46 | 10.31 | 4.68 | |
+
+Per-leg knee MAE, fine-tuned DINOv2-base, by run: L0 5.0, L1 2.6, L2 2.9,
+L3 2.3, L4 5.2, L5 5.4. The legs the camera sees are now at 2-3 deg; the
+far-side legs at ~5 deg are being inferred from symmetry and context.
+
+By-family per held-out family (all-20 MAE): single_leg 5.6 (trained on only
+11.6k frames from the other three families, tested on 38k), soak 1.1,
+stand 2.2, tripod 1.8. The 4.7 headline is that one extrapolation fold.
+
+Reading: knee error halved (7.9 -> 3.9 deg) and overall error halved
+(4.1 -> 2.0 deg) on unseen runs of known protocols; the frozen-probe
+conclusion in E1 was wrong, fine-tuning matters once the robot is big enough
+in the image. The model runs at 3.4 ms per frame batch-1 on the H200 (the
+CNN at 0.4 ms), both far faster than the ~9 Hz frame rate. Training cost:
+28 min for the ViT across 5 folds, 13 min for the CNN.
+
+Still true: no tips or dynamic gaits in the labelled data, so 2 deg is a
+static-pose number. Next data-side step is footage of the walking / stand-up
+protocols with the floor camera recording, and moving or tilting the camera
+so the whole robot is in frame.
 
 ## Zero-shot keypoints / grounding
 

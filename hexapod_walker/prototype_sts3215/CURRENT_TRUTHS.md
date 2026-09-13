@@ -96,6 +96,44 @@
   scratch-{s0,s1}-holdlowstd-canary2m`; `rl_move/sim/probe_hold_decomp.py`
   run against both `holdlowstd` checkpoints this cycle;
   `walkcurr/STATUS.md` 2026-09-13 ~17:4x.
+- **UPDATE 2026-09-13 ~18:4x: root cause found — it was never a reward or
+  action-authority defect, it's an uncoordinated TIMING race between two
+  training schedules.** `holdgrace` (gated termination-grace curriculum)
+  and `holdbarrier` (steepening height-approach reward barrier) both also
+  FAILED - MECHANISM, closing 7/7 levers. But `probe_hold_decomp.py
+  --behavior hold_quiet` (constant action = the exact reset pose, zero
+  policy) survives the FULL 15s at near-max reward (0.98-1.0/tick,
+  height_err<0.4mm) under the real 15mm/0.5s bound — the task is trivially
+  solvable and the reward already prices it correctly, so no reward lever
+  could ever have fixed this. A new `--behavior noise` mode (same
+  zero-policy baseline + Gaussian jitter) finds the real fault line: pure
+  noise around the CORRECT action survives cleanly at std<=0.05 but trips
+  `hold_min_load` within 2-3.4s at std>=0.135. Cross-referencing
+  `holdgrace-canary2m`'s own two schedules: `hold_grace_ramp_steps=500000`
+  finishes tightening the termination bound to 15mm/0.5s by step ~631k,
+  while `--log-std-anneal-frac 0.5` (2M budget) doesn't reach its low final
+  value until step 1,000,000 — at 631k the anneal is only 63% done
+  (interpolated std~0.08, inside the fatal band). **The bound finishes
+  tightening while exploration noise is still too large to survive it** —
+  this is why every reward-pricing lever (holdonly through holdbarrier)
+  looked like a reward problem from the outside but wasn't one, and why the
+  earlier-refuted static-low-std lever (`holdlowstd`, `--log-std-init=-2`
+  held constant, no envelope curriculum) also failed: a permanently-low std
+  doesn't fix an already-wrong MEAN (raw action=0 maps to a mid-range pose,
+  not the plant/hold target) unless the termination bound stays loose long
+  enough for the mean to converge first — exactly what `holdgrace`'s early
+  phase showed (50%+ stochastic survival by step 131k under the loose
+  40mm/1.0s start) before its own tightening outran the noise anneal.
+  **Launched the fix, not another dose**: `cw-stance50hz-rlonly-scratch-
+  {s0,s1}-holdgraceslow-canary5m` (same curriculum machinery, single lever
+  = `hold_grace_ramp_steps` 500k->3.5M + budget 2M->5M so tightening can't
+  finish until after the log-std anneal does), `--phase acquisition`
+  (5M exceeds the 2M canary cap), both VERIFIED RUNNING. Evidence: `ops.sh
+  entry cw-stance50hz-rlonly-scratch-{s0,s1}-holdbarrier-canary2m`;
+  `rl_move/sim/probe_hold_decomp.py` (`--behavior hold_quiet|noise`, new
+  this cycle, snapshot `exp/probe-hold-decomp-noise-mode`); `ops.sh entry
+  cw-stance50hz-rlonly-scratch-{s0,s1}-holdgraceslow-canary5m` (full
+  derivation in the hypothesis); `walkcurr/STATUS.md` 2026-09-13 ~18:4x.
 
 ## NO CAMERA DAEMON; RUNS OWN THEIR CAMERAS (2026-09-13 ~09:40): the always-on camera server (`com.lukas.hexapod-cameras`, :8766) is removed; each lab run spawns `hexapod-cameras session`, cameras are registered by stable id in `~/.hexapod/cameras.json`, calibration is a command
 

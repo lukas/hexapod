@@ -253,3 +253,84 @@ threshold dose of the same shape. The more decisive unblock remains
 Robot Lab/operator exporting the hardware run's joint/current/contact
 timing (or SSO access) so a candidate can be fit to real data instead of
 screened blind.
+
+## Addendum, 2026-09-13 (third): asymmetric front-vs-rear load-share trigger — technically clears the frozen-policy gate, but training-canary funding declined on existing FAIL evidence
+
+This addendum builds the second addendum's own named next step verbatim: "a
+genuinely different operationalization ... an asymmetric front-vs-rear
+load-share trigger". `probe_ps200_transfer.py` gained a `load_share`
+mechanism — the SAME 5.0 N·m / 0.3 s half-sine pulse, fired on the RISING
+edge of the FRONT pair's (L0/L5, the layout's true front-left/front-right
+legs per `mesh_mujoco/hexapod_mesh_mjx.xml` body offsets) share of the
+combined front+rear (L2/L3) sensed ground-reaction force crossing a
+threshold fraction — a relative, two-group signal instead of one leg's
+absolute force level. 3 new mechanics tests green
+(`rl_move/tests/test_probe_ps200_transfer.py`, 13 total).
+
+Screened front-share thresholds 0.6/0.7/0.8/0.9 on PS200, full mesh, 4
+seeds each (`logs/ckpt_eval/ps200_transfer_probe_loadshare_20260913/`):
+
+| front-share threshold | PS200 median peak (°) | range (°) | falls |
+|---:|---:|---:|---:|
+| 0.6 | 14.75 | 14.44–29.61 | 1/4 (`tilt_roll`) |
+| 0.7 | 15.22 | 14.56–15.67 | 0/4 |
+| 0.8 | 14.31 | 1.97–17.38 | 0/4 |
+| 0.9 | 15.93 | 1.97–17.38 | 0/4 |
+
+Threshold 0.7 is the standout: tight, reproducible across all 4 seeds
+(unlike L4's non-monotonic single-leg trigger) and every seed fires
+multiple (3–6) separated recurrent peaks. Ran the full pre-registered
+selectivity check (`_selectivity()`, same gate every prior mechanism in
+this doc used) with a 4-seed PS200 baseline: **`selective=True`,
+`fund_training=True`** — `ps200_increase_deg=13.87` clears both the
+absolute (`>=3.0`) and relative (`>=1.5x` the larger control increase,
+`8.95`) bars, though only by a ~3% margin. Threshold 0.9 (closer to the
+16.78° target on paper) does NOT clear the gate — its recurrent-peak count
+falls under 2 (median 1.5) and its per-seed range is as wide as 0.8's
+(1.97–17.38°), the same "selective in principle, too noisy per-seed to
+trust" failure mode L4 showed. Threshold 0.6 has an outright fall in 1/4
+seeds and is not a candidate. As threshold decreases (fires more often,
+closer to ordinary gait-timing frequency), the two lower-roll controls'
+own peaks scale up almost in lockstep with PS200's (thr 0.9: walkteach/
+allheading increases 2.85°/2.60° vs PS200's 14.57°; thr 0.7: increases
+6.62°/8.95° vs PS200's 13.87°) — the same shared-tripod-timing signature
+L1's single-leg trigger showed, just less extreme. Thr 0.7 sits right at
+the edge where this shared-timing contamination has grown enough to
+almost, but not quite, erase the required selectivity margin.
+
+**Decision: mechanism technically passes the pre-registered frozen-policy
+selectivity gate at threshold 0.7, but a training canary is NOT funded on
+it.** Reason: this is the same intervention SHAPE (external 5 N·m/0.3 s
+half-sine chassis-roll torque during a fraction of walk-mode steps) as the
+already-run `cw-speed50hz-ps200-recurroll5-d03-p0375-canary2m` canary,
+which FAILED decisively — 2M steps of 30%-episode exposure to this exact
+torque pulse did not teach the checkpoint to reduce its forced-roll
+response AT ALL (child 14.79° vs parent 14.73°, a **worse** number, not a
+30% reduction) despite that canary's wall-clock trigger giving training
+the MORE favorable (fully predictable, fixed-phase) exposure pattern of
+the two. A GRF/load-share-triggered version fires at less regular,
+noisier per-episode timing (thr 0.7's own event_ticks range 193–293 per
+10 s seed vs the wall-clock version's exactly-periodic schedule) — strictly
+harder for on-policy PPO to anticipate and counter, not easier. Nothing in
+this screen supplies evidence that changing WHEN the identical pulse fires
+would flip a demonstrated non-learning result into a learning one; funding
+a second, near-identical training canary without such evidence repeats the
+mistake this campaign's own discipline elsewhere (walkcurr's 15-class
+inventory) explicitly declines to make. **No training funded.**
+
+This also narrows the surviving "different operationalization" list to
+one item: a genuinely non-torque-pulse mechanism (e.g. one that models
+foot/ground compliance or contact-timing loss directly, rather than
+injecting an external chassis torque of this same magnitude/duration) —
+untried, and the other two candidates in this family (single-leg,
+front-vs-rear pair) are both now screened. The more decisive unblock
+remains Robot Lab/operator exporting the hardware run's joint/current/
+contact timing so a candidate can be fit to real data instead of screened
+blind — unchanged from the prior two addenda.
+
+Evidence: `rl_move/sim/probe_ps200_transfer.py` (`load_share` mechanism,
+`front_legs`/`rear_legs`/`share_threshold` fields); `rl_move/tests/
+test_probe_ps200_transfer.py` (3 new tests); `logs/ckpt_eval/
+ps200_transfer_probe_loadshare_20260913/{rows.json,controls_thr07_rows.json,
+ps200_baseline_extra_rows.json,all_rows_combined.json}`; recurroll5 FAIL
+numbers per the canary-outcome table above.

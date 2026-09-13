@@ -89,6 +89,21 @@ class Intervention:
     # stance-onset error").
     trigger_leg: int = 4
     force_threshold_n: float = 0.0
+    # ``load_share`` mechanism (2026-09-13 addendum 3): the single-leg
+    # trigger above is either non-selective (L1: shared by every gait) or
+    # too noisy/threshold-sensitive to trust (L4: non-monotonic across
+    # seeds). This is the addendum 2 FAIL's own named next step -- "a
+    # genuinely different operationalization ... an asymmetric
+    # front-vs-rear load-share trigger" -- not another single-leg dose of
+    # the same shape. Fires the SAME half-sine pulse on the RISING edge of
+    # the FRONT pair's (L0/L5) share of the combined front+rear sensed
+    # ground-reaction force crossing ``share_threshold`` (a fraction in
+    # 0..1), i.e. weight visibly shifting onto the front legs relative to
+    # the rear pair (L2/L3) -- a relative, two-group signal, not an
+    # absolute single-leg force level.
+    front_legs: tuple[int, ...] = (0, 5)
+    rear_legs: tuple[int, ...] = (2, 3)
+    share_threshold: float = 0.0
 
 
 def periodic_phase_s(t_s: float, *, start_s: float, period_s: float,
@@ -151,16 +166,28 @@ class TransferProbeEnv(SimHexapodJointWalkEnv):
         self._lt_active_ticks: int = 0
 
     def _lt_maybe_trigger(self, iv: Intervention) -> None:
-        """Start a new pulse on a rising per-leg contact-force edge.
+        """Start a new pulse on a rising edge of the sensed trigger signal.
 
-        Reads ``_foot_prev_force[trigger_leg]`` -- the SAME sensed force
-        the base env already tracks for slip pricing -- as it stood at the
-        end of the PREVIOUS control tick (this tick's physics has not run
-        yet), so the trigger is causally one tick behind the true onset,
-        exactly the latency a real force-gated controller would see.
+        Reads ``_foot_prev_force`` -- the SAME sensed per-leg force the
+        base env already tracks for slip pricing -- as it stood at the end
+        of the PREVIOUS control tick (this tick's physics has not run yet),
+        so the trigger is causally one tick behind the true onset, exactly
+        the latency a real force-gated controller would see.
+
+        ``load_triggered``: sensed = one leg's own force, threshold in N.
+        ``load_share``: sensed = the front pair's share (0..1) of the
+        combined front+rear sensed force, threshold a fraction -- a
+        relative two-group signal instead of one leg's absolute level.
         """
-        sensed = self._foot_prev_force[iv.trigger_leg]
-        is_high = sensed >= iv.force_threshold_n
+        if iv.mechanism == "load_share":
+            front = sum(self._foot_prev_force[leg] for leg in iv.front_legs)
+            rear = sum(self._foot_prev_force[leg] for leg in iv.rear_legs)
+            total = front + rear
+            sensed = front / total if total > 1e-9 else 0.0
+            is_high = sensed >= iv.share_threshold
+        else:
+            sensed = self._foot_prev_force[iv.trigger_leg]
+            is_high = sensed >= iv.force_threshold_n
         if is_high and not self._lt_was_high:
             self._lt_pulse_start_step = self._step_i
         self._lt_was_high = is_high
@@ -173,7 +200,7 @@ class TransferProbeEnv(SimHexapodJointWalkEnv):
             if not in_walk:
                 return 0.0
             return periodic_half_sine(self._step_i * self.dt, iv)
-        if iv.mechanism == "load_triggered":
+        if iv.mechanism in ("load_triggered", "load_share"):
             if not in_walk or self._lt_pulse_start_step is None:
                 return 0.0
             elapsed = (self._step_i - self._lt_pulse_start_step) * self.dt
@@ -188,7 +215,8 @@ class TransferProbeEnv(SimHexapodJointWalkEnv):
         iv = self.intervention
         in_walk = (self._goal_traj is not None
                   and getattr(self._goal_traj, "mode", "") == "walk")
-        if not limp and iv.mechanism == "load_triggered" and in_walk:
+        if (not limp and iv.mechanism in ("load_triggered", "load_share")
+                and in_walk):
             self._lt_maybe_trigger(iv)
         active = (
             not limp and iv.mechanism == "support_loss" and in_walk
@@ -348,7 +376,7 @@ def rollout(spec: PolicySpec, intervention: Intervention, *, seed: int,
                 term_reason = str(info.get("termination_reason") or "")
                 break
     finally:
-        if intervention.mechanism == "load_triggered":
+        if intervention.mechanism in ("load_triggered", "load_share"):
             # Ticks counted from inside the env's own trigger (the outer
             # loop above cannot know a pulse fired until AFTER env.step
             # runs its physics -- see _lt_maybe_trigger's docstring).

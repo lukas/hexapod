@@ -188,6 +188,87 @@ def test_load_trigger_torque_is_smooth_half_sine_after_pulse_starts():
     assert torque(fake) == 0.0  # gated off outside walk mode
 
 
+def test_load_share_defaults_and_fields():
+    iv = Intervention("baseline")
+    assert iv.front_legs == (0, 5)
+    assert iv.rear_legs == (2, 3)
+    assert iv.share_threshold == pytest.approx(0.0)
+    dosed = Intervention("loadshare_front0.7_peak5.00_d0.3",
+                         mechanism="load_share", share_threshold=0.7,
+                         torque_peak_nm=5.0, duration_s=0.3)
+    assert dosed.share_threshold == pytest.approx(0.7)
+
+
+def test_load_share_fires_only_on_rising_front_share_edge(monkeypatch):
+    monkeypatch.setenv("HEXAPOD_MODEL_SOURCE", "mesh")
+    iv = Intervention("ls", mechanism="load_share", share_threshold=0.6)
+    fake = SimpleNamespace(
+        _foot_prev_force=[0.0] * 6, _lt_was_high=False,
+        _lt_pulse_start_step=None, _step_i=10)
+    TransferProbeEnv._lt_maybe_trigger(fake, iv)
+    assert fake._lt_pulse_start_step is None  # 0/0 share -> sensed=0, no edge
+
+    # Front (L0/L5) carries 3N, rear (L2/L3) carries 7N -> share 0.3: no edge.
+    fake._foot_prev_force = [3.0, 0.0, 3.5, 3.5, 0.0, 0.0]
+    fake._step_i = 11
+    TransferProbeEnv._lt_maybe_trigger(fake, iv)
+    assert fake._lt_pulse_start_step is None
+
+    # Front now carries 8N, rear 2N -> share 0.8 >= 0.6: rising edge.
+    fake._foot_prev_force = [4.0, 0.0, 1.0, 1.0, 0.0, 4.0]
+    fake._step_i = 12
+    TransferProbeEnv._lt_maybe_trigger(fake, iv)
+    assert fake._lt_pulse_start_step == 12
+
+    fake._step_i = 13  # stays high: must NOT retrigger
+    TransferProbeEnv._lt_maybe_trigger(fake, iv)
+    assert fake._lt_pulse_start_step == 12
+
+    # Share drops back under threshold, then crosses again -> new edge.
+    fake._foot_prev_force = [1.0, 0.0, 4.0, 4.0, 0.0, 1.0]
+    fake._step_i = 14
+    TransferProbeEnv._lt_maybe_trigger(fake, iv)
+    assert fake._lt_pulse_start_step == 12
+
+    fake._foot_prev_force = [5.0, 0.0, 1.0, 1.0, 0.0, 4.0]
+    fake._step_i = 20
+    TransferProbeEnv._lt_maybe_trigger(fake, iv)
+    assert fake._lt_pulse_start_step == 20
+
+    # A rear-only load (mid legs 1/4 don't count in either group) never
+    # arms the trigger regardless of magnitude.
+    other = SimpleNamespace(
+        _foot_prev_force=[0.0, 9.0, 0.0, 0.0, 9.0, 0.0], _lt_was_high=False,
+        _lt_pulse_start_step=None, _step_i=0)
+    TransferProbeEnv._lt_maybe_trigger(other, iv)
+    assert other._lt_pulse_start_step is None
+
+
+def test_load_share_torque_reuses_the_load_triggered_pulse_shape():
+    dt = 0.02
+    iv = Intervention("ls", mechanism="load_share", torque_peak_nm=5.0,
+                      duration_s=0.3)
+    fake = SimpleNamespace(
+        intervention=iv, dt=dt, _step_i=100,
+        _goal_traj=SimpleNamespace(mode="walk"),
+        _lt_pulse_start_step=None, _lt_active_ticks=0)
+    torque = TransferProbeEnv._walk_push_torque_nm
+    assert torque(fake) == 0.0  # no pulse armed yet
+
+    fake._lt_pulse_start_step = 100
+    fake._step_i = 107
+    elapsed = 7 * dt
+    assert torque(fake) == pytest.approx(
+        5.0 * math.sin(math.pi * elapsed / 0.3))
+    fake._step_i = 100 + round(0.3 / dt)  # pulse has ended
+    assert torque(fake) == 0.0
+    assert fake._lt_active_ticks == 1
+
+    fake._goal_traj = SimpleNamespace(mode="rise")
+    fake._step_i = 105
+    assert torque(fake) == 0.0  # gated off outside walk mode
+
+
 def test_policy_cfg_pins_a_degenerate_deadband_range(monkeypatch):
     monkeypatch.setenv("HEXAPOD_MODEL_SOURCE", "mesh")
     baseline_cfg = _policy_cfg(_FAKE_META, Intervention("baseline"))

@@ -6590,6 +6590,17 @@ class SimHexapodBalanceEnv(_GymBase):
             ) * RAD2DEG
             info["height_mm"] = h_rel * 1000.0
             info["height_ref_mm"] = goal.height_ref * 1000.0
+            if self._is_rise:
+                # Two-phase rise sub-goal observability
+                # (goal.rise_curl_gate): nonzero whenever the height
+                # ramp's onset is currently being deferred waiting on
+                # the curl-to-bridge sub-goal -- the direct telltale
+                # that the mechanism is actually firing (env/rise_gate_
+                # freeze_ticks in W&B), unlike the prior income-price
+                # gate's factor, which stayed pinned at 1.0 the whole
+                # `risecurlgate-s1-canary2m` run despite being "on".
+                info["rise_gate_freeze_ticks"] = float(
+                    self._rise_gate_freeze_ticks)
             if h_err is not None:   # getup mode has no height ref
                 info["height_err_mm"] = h_err * 1000.0
             if unload_f is not None:

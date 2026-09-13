@@ -188,6 +188,14 @@ class RandRanges:
     walk_push_prob: float = 0.0
     walk_push_nm: tuple[float, float] = (2.0, 3.0)       # peak |torque|
     walk_push_s: tuple[float, float] = (0.8, 1.5)        # pulse duration
+    # Recurrent form of the same chassis-roll disturbance (09-12 PS200
+    # transfer probe). A positive period repeats the sampled pulse at this
+    # cadence, beginning at walk_push_start_s; period 0 keeps the historical
+    # takeoff-only t=0 pulse exactly. The dose is not curriculum-scaled, like
+    # walk_push_nm/s. Ranges allow a training arm to randomize gait phase by
+    # sampling start across one period without adding a second phase field.
+    walk_push_repeat_period_s: tuple[float, float] = (0.0, 0.0)
+    walk_push_start_s: tuple[float, float] = (0.0, 0.0)
     # Per-joint FAULT INJECTION (AMP brief §8; M0 checklist "fault
     # injection works"). With prob fault_prob an episode carries ONE
     # fault, drawn from fault_mix = (weakened joint, frozen joint,
@@ -311,6 +319,8 @@ class RandRanges:
             walk_push_prob=self.walk_push_prob * s,
             walk_push_nm=self.walk_push_nm,
             walk_push_s=self.walk_push_s,
+            walk_push_repeat_period_s=self.walk_push_repeat_period_s,
+            walk_push_start_s=self.walk_push_start_s,
             # Same convention as tipped/rock/push: probability follows
             # the curriculum, the dose (strength menu / mix) does not —
             # a half-strength fault is a different, easier fault.
@@ -380,6 +390,11 @@ class EpisodeRandomization:
     # as tipped_roll_deg).
     walk_push_peak_nm: float = 0.0
     walk_push_dur_s: float = 0.0
+    # Optional recurrent timing. repeat_period_s <= 0 preserves the original
+    # one-shot takeoff pulse. start_s is only sampled when repeat is enabled,
+    # so the default adds no RNG draw to historical walk_push episodes.
+    walk_push_repeat_period_s: float = 0.0
+    walk_push_start_s: float = 0.0
     # Fault injection (dr.fault_*, see RandRanges). fault_mode "" =
     # healthy episode (all fault fields inert, apply_fault_to_model
     # is a no-op). "weak"/"frozen" carry ONE joint index in
@@ -534,6 +549,9 @@ class EpisodeRandomization:
             "walk_kick_dur_s": round(self.walk_kick_dur_s, 2),
             "walk_push_peak_nm": round(self.walk_push_peak_nm, 2),
             "walk_push_dur_s": round(self.walk_push_dur_s, 2),
+            "walk_push_repeat_period_s": round(
+                self.walk_push_repeat_period_s, 3),
+            "walk_push_start_s": round(self.walk_push_start_s, 3),
             "fault": ("none" if not self.fault_mode else
                       f"{self.fault_mode}:j{list(self.fault_joints)}"
                       f"@{round(self.fault_scale, 2)}"),
@@ -651,11 +669,18 @@ class DomainRandomizer:
 
         # Walk takeoff push: same guarded-draw convention.
         walk_push, walk_push_s = 0.0, 0.0
+        walk_push_repeat_period, walk_push_start = 0.0, 0.0
         if r.walk_push_prob > 0.0 and rng.random() < r.walk_push_prob:
             walk_push = float(u(*r.walk_push_nm))
             walk_push_s = float(u(*r.walk_push_s))
             if rng.random() < 0.5:
                 walk_push = -walk_push
+            # Guarded to preserve the historical RNG stream whenever the
+            # recurrent extension is disabled (the default).
+            if max(r.walk_push_repeat_period_s) > 0.0:
+                walk_push_repeat_period = float(
+                    u(*r.walk_push_repeat_period_s))
+                walk_push_start = float(u(*r.walk_push_start_s))
 
         # Fault injection: same guarded-draw convention (fault_prob=0
         # keeps the legacy rng stream bit-exact).
@@ -754,6 +779,8 @@ class DomainRandomizer:
             walk_kick_dur_s=walk_kick_s,
             walk_push_peak_nm=walk_push,
             walk_push_dur_s=walk_push_s,
+            walk_push_repeat_period_s=walk_push_repeat_period,
+            walk_push_start_s=walk_push_start,
             fault_mode=fault_mode,
             fault_joints=fault_joints,
             fault_scale=fault_scale,

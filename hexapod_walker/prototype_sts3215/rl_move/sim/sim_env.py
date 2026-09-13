@@ -1326,6 +1326,12 @@ class SimHexapodBalanceEnv(_GymBase):
                 or getattr(self._goal_traj, "mode", "") != "walk"):
             return 0.0
         t = self._step_i * self.dt
+        repeat_s = float(getattr(er, "walk_push_repeat_period_s", 0.0))
+        if repeat_s > 0.0:
+            t -= float(getattr(er, "walk_push_start_s", 0.0))
+            if t < 0.0:
+                return 0.0
+            t %= repeat_s
         if t >= er.walk_push_dur_s:
             return 0.0
         return er.walk_push_peak_nm * math.sin(

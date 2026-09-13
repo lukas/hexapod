@@ -90,3 +90,40 @@ the 0.0545 m/s parent while reducing the forced recurrent-pulse roll by at
 least 30% (14.73° → ≤10.31°), with zero falls and all six legs cycling. The
 paired nominal and forced panels must use the parent and child under identical
 seeds; training reward alone is not a verdict.
+
+## Canary outcome
+
+`cw-speed50hz-ps200-recurroll5-d03-p0375-canary2m` warm-started from the
+mass-corrected PS200 parent and trained for 2,015,232 actual steps (2M target)
+in 174 s. The recurrent perturbation was active in 30% of training episodes
+and randomized in sign. The checkpoint completed and published normally.
+
+The decisive local full-mesh panel used the frozen parent and child under the
+same four seeds, 10 s episodes and pinned 0.10 m/s command. Raw rows are in
+`logs/ckpt_eval/ps200_recurroll_child_gate_20260913T030725Z/results.json` on
+the operator Mac.
+
+| policy | case | median peak roll | median speed | recurrent >5° peaks | falls |
+|---|---|---:|---:|---:|---:|
+| parent | nominal | 1.32° | 0.0488 m/s | 0 | 0/4 |
+| child | nominal | 1.38° | 0.0512 m/s | 0 | 0/4 |
+| parent | +5 N·m recurrent | 14.73° | 0.0382 m/s | 5 | 0/4 |
+| child | +5 N·m recurrent | **14.79°** | 0.0407 m/s | 5 | 0/4 |
+| parent | −5 N·m recurrent | 1.50° | 0.0465 m/s | 0 | 0/4 |
+| child | −5 N·m recurrent | 3.00° | 0.0508 m/s | 0 | 0/4 |
+
+The child retained nominal behavior, but it reduced the diagnosed positive
+roll by **−0.4%** rather than the required ≥30%, and forced speed improved
+only 6.5% rather than ≥20%. Every leg still cycled (worst positive-pulse child
+contact duty 0.293), so this is not a false failure caused by freezing, but L1
+air time worsened to 1.22 s in one child seed. The opposite torque direction
+was never the frozen parent's vulnerability and training did not generalize
+into positive-direction rejection.
+
+**Verdict: FAIL.** Recurrent external roll torque is useful as a diagnostic
+stress test, but this 30%-episode, 2M-step curriculum did not teach the missing
+response. Do not continue it or increase the dose. The next sim-to-real work
+should model the upstream load-dependent mechanism (post-encoder compliance,
+backlash/contact loss, or a load-triggered L4 stance-onset error) and validate
+that component against the recorded joint/current/contact timing before
+funding another PS200 descendant.

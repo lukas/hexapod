@@ -6,7 +6,7 @@ from hexapod_lab2 import runner, walk
 
 
 def _rig(*, speed_ratio=0.8, drift_deg=5.0, tilt=4.0, tag_visible=True, trip_at=None, edge_at=None,
-         standing=False, yaw0=143.0):
+         standing=False, yaw0=143.0, start_frac=(0.5, 350.0 / 720.0), lose_tag_after=None):
     """Fake robot + camera. The tag moves along the commanded direction at speed_ratio of the command,
     rotated by drift_deg, from a start pose; the pixel position starts mid-frame and slides."""
     state = {"t": 0.0, "vx": 0.0, "vy": 0.0, "om": 0.0, "x": 700.0, "y": 450.0, "yaw": yaw0,
@@ -51,10 +51,13 @@ def _rig(*, speed_ratio=0.8, drift_deg=5.0, tilt=4.0, tag_visible=True, trip_at=
             return {"markers": {"0": {"status": "tracked", "position_mm": {"x": state["x"], "y": state["y"]},
                                        "rotation_degrees": {"yaw": state["yaw"]}, "camera_indices": [2]}}}
         if url.endswith("/api/detections.json"):
-            fx = 0.5 + (state["x"] - 700.0) / 1200.0
+            if lose_tag_after is not None and state["t"] >= lose_tag_after:
+                return {"cameras": [{"index": 2, "width": 1280, "height": 720, "tags": {}}]}
+            fx = start_frac[0] + (state["x"] - 700.0) / 1200.0
+            fy = start_frac[1] - (state["y"] - 450.0) / 720.0            # world +y is up in the picture
             if edge_at is not None and state["t"] >= edge_at:
                 fx = 0.95
-            c = [[fx * 1280 - 10, 350], [fx * 1280 + 10, 350], [fx * 1280 + 10, 370], [fx * 1280 - 10, 370]]
+            c = [[fx * 1280 - 10, fy * 720 - 10], [fx * 1280 + 10, fy * 720 - 10], [fx * 1280 + 10, fy * 720 + 10], [fx * 1280 - 10, fy * 720 + 10]]
             return {"cameras": [{"index": 2, "width": 1280, "height": 720, "tags": {"0": c}}]}
         raise AssertionError(url)
     return state, post, get, sleep, clock
@@ -119,7 +122,7 @@ def test_tripped_servo_stops_the_run_and_sits(settings, tmp_path):
 
 
 def test_frame_edge_and_lost_tag_end_the_leg_but_not_the_run(settings, tmp_path):
-    state, post, get, sleep, clock = _rig(edge_at=1.5)
+    state, post, get, sleep, clock = _rig(edge_at=4.0)          # the leg starts about 2.5 s in, after the stand
     res = walk.run_walk(settings, _doc(), tmp_path, post=post, get=get, sleep=sleep, clock=clock, log=lambda m: None)
     assert res["status"] == "ok"
     assert res["summary"]["legs"][0]["stopped"] == "frame_edge" and res["summary"]["legs"][0]["seconds"] < 2.5
@@ -349,3 +352,26 @@ def test_a_walk_ready_refusal_re_stands_once_and_retries(settings, tmp_path):
     leg = res["summary"]["legs"][0]
     assert leg["stopped"] == "duration" and leg["ticks_sent"] > 30
     assert any("re-stood once" in n for n in res["summary"]["notes"])
+
+
+def test_a_leg_that_starts_at_the_edge_and_walks_inward_runs_its_full_time(settings, tmp_path):
+    # Nose toward the top of the picture (world +y), robot at the bottom edge: forward brings it in.
+    state, post, get, sleep, clock = _rig(yaw0=90.0, drift_deg=0.0, start_frac=(0.5, 0.93))
+    res = walk.run_walk(settings, _doc(out_and_back=False), tmp_path, post=post, get=get, sleep=sleep, clock=clock, log=lambda m: None)
+    leg = res["summary"]["legs"][0]
+    assert leg["stopped"] == "duration" and leg["seconds"] >= 4.0, leg
+
+
+def test_a_leg_that_walks_out_from_the_edge_stops_once_it_is_clearly_going_out(settings, tmp_path):
+    state, post, get, sleep, clock = _rig(yaw0=-90.0, drift_deg=0.0, start_frac=(0.5, 0.93))
+    res = walk.run_walk(settings, _doc(out_and_back=False), tmp_path, post=post, get=get, sleep=sleep, clock=clock, log=lambda m: None)
+    leg = res["summary"]["legs"][0]
+    assert leg["stopped"] == "frame_edge" and 0.3 < leg["seconds"] < 2.5, leg
+
+
+def test_losing_the_robot_right_after_the_edge_stops_the_leg(settings, tmp_path):
+    state, post, get, sleep, clock = _rig(yaw0=90.0, drift_deg=0.0, start_frac=(0.5, 0.93), lose_tag_after=3.5)
+    res = walk.run_walk(settings, _doc(out_and_back=False), tmp_path, post=post, get=get, sleep=sleep, clock=clock, log=lambda m: None)
+    leg = res["summary"]["legs"][0]
+    assert leg["stopped"] == "tag_lost" and leg["seconds"] < 2.0, leg
+    assert any("left the camera" in n for n in res["summary"]["notes"])

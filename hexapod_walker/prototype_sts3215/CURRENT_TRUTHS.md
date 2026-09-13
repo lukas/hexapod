@@ -1,5 +1,12 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## RECENTRE WORKS FROM THE TAGS; GAIT FORWARD IS THE LAYOUT'S +X (2026-09-12 ~20:30, hexapod 1): a 60 mm/s forward command moved the chassis tag 81 mm along the layout's +x (3 deg off in camera 1's floor frame); the lab recentred the robot from the top edge to the middle in 6 pushes / 46 s with the heading read from the tags, no probe
+
+- Body position and heading in the picture now come from the tags (`walk.fit_body`): the chassis tag directly, else the hip lids (heading = lid heading - lid euler z - leg azimuth; centre 87.5 mm in from each lid along the leg azimuth). Checked live in three cameras against the chassis tag. Hip lids do NOT turn with the yaw servo (joint 0 +15 deg moved only the knee lid), so the yaw term is moot.
+- The walk runner's frame-edge guard is now direction-aware (`walk.EdgeWatch`): near the edge AND the one-second median distance from centre has grown 3 % of the frame past its best. A leg that starts at the edge and walks in runs; the robot leaving the picture right after being near the edge stops it ("tag_lost"). Single-sample rules fired on body sway (20-40 px per step) and on lid-fit wobble, which is why every RL leg and every recentre push died within a second on 2026-09-12 afternoon.
+- Recentre seeds its heading from the tags and skips the probe; if a push lands > 75 deg from the prediction it goes back to learning from pushes.
+- Do not judge walking direction from pushes at the frame edge with the lids only: the 30 mm/s gait covers ~30 mm in 5 s there, under the fit's sway noise. Three such probes tonight read "backward" and were all wrong; the robot ended fully out of camera 1 and had to be placed by hand.
+
 ## SERVO TEMPERATURE BYTE GLITCHES; BUS NOW HOLDS BACK ISOLATED JUMPS (2026-09-12 ~18:30, both robots): about 1.5 % of FeedBack reads carry a wrong temperature for one servo (30 C reads 40-61 C for exactly one MCU read, then 30 again) while position, current, voltage and load in the same checksummed record are fine
 
 - Evidence: the 120 s champion stand hold (run ed9b18e9fc07, 720 distinct reads) had 9 such spikes, every one a single read; a servo cannot move 8 C between reads a fraction of a second apart. The "servo at 56 C" walk stop (run 4109077fd1a7) and today's 48/51 C "hottest" values were these bytes, not hot servos: all 18 servos read 28-32 C after the walks.

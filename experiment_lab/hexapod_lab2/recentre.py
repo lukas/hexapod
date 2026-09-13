@@ -24,7 +24,7 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, Optional, Tuple
 
-from .walk import FEEDBACK_LOST_S, J_HZ, SETTLE_S, TILT_ABORT_DEG, Leg, Session
+from .walk import EdgeWatch, FEEDBACK_LOST_S, J_HZ, SETTLE_S, TILT_ABORT_DEG, Leg, Session, distance_frac
 
 CENTRE_TOL_FRAC = 0.10     # this close to the middle counts as centred
 FAR_FRAC = 0.25            # further than this from the middle is worth fixing
@@ -32,11 +32,8 @@ PROBE_S = 6.0              # one forward push to learn where the body points in 
 STEP_S = 6.0               # re-measure and re-aim this often
 SPEED_MM_S = 30.0
 MIN_MOVE_PX = 12.0         # less than this and a push taught us nothing
+DISAGREE_DEG = 75.0        # a push that lands this far from where the tags said it would: stop trusting the tags
 Vec = Tuple[float, float]
-
-
-def distance_frac(frac: Optional[Vec]) -> float:
-    return math.hypot(frac[0] - 0.5, frac[1] - 0.5) if frac else 0.0
 
 
 def needs_recentre(frac: Optional[Vec]) -> bool:
@@ -73,7 +70,7 @@ def drive(s: Session, leg: Leg, seconds: float) -> Optional[str]:
     t0 = s.clock()
     next_tick, last_pose_at, last_fb_at, last_fb_ok = t0, -1e9, -1e9, t0
     reason: Optional[str] = None
-    last_dist: Optional[float] = None
+    watch = EdgeWatch()
     try:
         while s.clock() - t0 < seconds:
             now = s.clock()
@@ -91,12 +88,11 @@ def drive(s: Session, leg: Leg, seconds: float) -> Optional[str]:
                 frac = s.pixel()
                 if frac is None:
                     return "tag lost"
-                dist = distance_frac(frac)
-                # Near the edge and getting further from the middle: stop. Near the
-                # edge but coming back in is exactly what a recentre push does.
-                if s.near_edge(frac) and last_dist is not None and dist > last_dist + 1e-4:
+                # Near the edge and clearly further out than this push's best: stop. Near
+                # the edge but coming back in is exactly what a recentre push does, and
+                # body sway (tens of px per step) must not look like going out.
+                if watch.update(frac) == "frame_edge":
                     return "frame edge"
-                last_dist = dist
             if now - last_fb_at >= 0.3:
                 last_fb_at = now
                 fb = s.feedback()
@@ -136,6 +132,8 @@ def recentre(s: Session, *, budget_s: float = 90.0, gait: int = 1, label: str = 
     chir = 1.0
     probe_sign = 1.0            # the probe pushes forward; backward if forward met the frame edge
     edge_stops = 0
+    trust_tags = True           # the tags say which way the body points; a push that lands elsewhere ends that
+    out["heading_from_tags"] = False
     while s.clock() - t0 < budget_s:
         frac = s.pixel()
         if frac is None:
@@ -144,6 +142,12 @@ def recentre(s: Session, *, budget_s: float = 90.0, gait: int = 1, label: str = 
         if distance_frac(frac) <= CENTRE_TOL_FRAC:
             out.update(done=True, reason="centred")
             break
+        if trust_tags and s.heading_px is not None:
+            # The tags already say where the body points in the picture: no probe needed.
+            if fwd is None:
+                s.notes.append(f"{label}: heading read from the {s.fit_source} tags; skipping the probe")
+                out["heading_from_tags"] = True
+            fwd = s.heading_px
         w, h = s.frame_size or (1280, 720)
         err = ((0.5 - frac[0]) * w, (0.5 - frac[1]) * h)          # tag -> middle, pixels
         remaining = budget_s - (s.clock() - t0)
@@ -183,15 +187,23 @@ def recentre(s: Session, *, budget_s: float = 90.0, gait: int = 1, label: str = 
                 break
             continue
         cmd_deg = math.degrees(math.atan2(leg.vy, leg.vx))       # commanded direction, clockwise from body +x
+        du = _unit(d)
         if fwd is not None and abs(leg.vy) > 5.0:
             # Which handedness explains the push better? The predicted image direction of the
             # command is body +x turned by cmd_deg clockwise (chirality +1) or counter-clockwise (-1).
-            du = _unit(d)
             fit = {c: sum(a * b for a, b in zip(_rot(fwd, c * cmd_deg), du)) for c in (1.0, -1.0)}
             if fit[-chir] > fit[chir] + 0.2:
                 chir = -chir
                 s.notes.append(f"{label}: camera image looks mirrored; using the other handedness")
-        fwd = _rot(_unit(d), -chir * cmd_deg)
+        if fwd is not None and trust_tags and out["heading_from_tags"]:
+            # Did the robot go where the tag heading predicted? If not, the picture is mirrored
+            # or a layout sign is wrong: learn the heading from the pushes instead, as before.
+            pred = _rot(fwd, chir * cmd_deg)
+            off = math.degrees(math.acos(max(-1.0, min(1.0, pred[0] * du[0] + pred[1] * du[1]))))
+            if off > DISAGREE_DEG:
+                trust_tags = False
+                s.notes.append(f"{label}: push landed {off:.0f} deg from the tag heading; learning from the pushes")
+        fwd = _rot(du, -chir * cmd_deg)
     else:
         out["reason"] = f"budget of {budget_s:.0f} s used"
     end = s.pixel()

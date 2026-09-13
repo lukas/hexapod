@@ -7,8 +7,39 @@ from hexapod_lab2 import eyes, loop, planner, recentre, robot, runner, walk
 from tests_lab2.test_lab2 import GOOD_FB
 
 
+AZIMUTH = {0: -18.7, 1: -94.7, 2: -160.8, 3: 151.0, 4: 88.0, 5: 35.2}
+HIP_LIDS = {1: (0, 90.0), 109: (1, -90.0), 3: (2, 90.0), 5: (3, 90.0), 6: (4, 0.0), 114: (5, -90.0)}  # id: (leg, euler z)
+CHASSIS_EULER_Z = 14.2
+BODY_R_MM = 87.5
+TAG_EDGE_MM = 27.2
+
+
+def _layout_settings(settings, tmp_path):
+    """Settings whose tracker checkout holds a minimal copy of the installed layout."""
+    import dataclasses
+    d = tmp_path / "tracker" / "configs"
+    d.mkdir(parents=True, exist_ok=True)
+    tags = [{"id": 0, "kind": "chassis_tag", "frame_from_tag": {"euler_xyz_deg": [0, 0, CHASSIS_EULER_Z]}}]
+    tags += [{"id": tid, "kind": "servo_lid", "joint": "hip", "leg": leg, "frame_from_tag": {"euler_xyz_deg": [0, 0, ez]}}
+             for tid, (leg, ez) in HIP_LIDS.items()]
+    tags += [{"id": 7, "kind": "servo_lid", "joint": "knee", "leg": 0, "frame_from_tag": {"euler_xyz_deg": [0, 0, 90.0]}}]
+    (d / "hexapod-1-apriltag-layout.json").write_text(json.dumps(
+        {"robot_tags": tags, "leg_zero_azimuth_body_deg": {str(k): v for k, v in AZIMUTH.items()}}))
+    return dataclasses.replace(settings, tracker_dir=tmp_path / "tracker")
+
+
+def _tag_world(cx, cy, heading_deg, edge=TAG_EDGE_MM):
+    """World corners (x right, y up) of a tag centred at (cx, cy) whose +x points along heading_deg:
+    corner 0 -> 1 is +x, corner 3 -> 0 is +y, like the tracker's detections."""
+    a = math.radians(heading_deg)
+    u, v = (math.cos(a), math.sin(a)), (-math.sin(a), math.cos(a))
+    h = edge / 2.0
+    return [(cx - h * u[0] + h * v[0], cy - h * u[1] + h * v[1]), (cx + h * u[0] + h * v[0], cy + h * u[1] + h * v[1]),
+            (cx + h * u[0] - h * v[0], cy + h * u[1] - h * v[1]), (cx - h * u[0] - h * v[0], cy - h * u[1] - h * v[1])]
+
+
 def _rig(*, x=1050.0, y=450.0, yaw0=143.0, speed_ratio=0.8, drift_deg=5.0, cam_rot_deg=0.0, mirror=False,
-         standing=False, lose_tag_after=None):
+         standing=False, lose_tag_after=None, lids=False):
     """World: x right, y up, yaw counter-clockwise. Camera above the floor, image y down, rotated by
     cam_rot_deg in the picture and optionally mirrored. 1 px = 1 mm around the middle (1280x720)."""
     st = {"t": 0.0, "vx": 0.0, "vy": 0.0, "x": x, "y": y, "yaw": yaw0, "knee": 80.0 if standing else 0.0,
@@ -34,14 +65,26 @@ def _rig(*, x=1050.0, y=450.0, yaw0=143.0, speed_ratio=0.8, drift_deg=5.0, cam_r
             st["mode"] = "stand" if body["direction"] == "up" else "idle"
             return {"ok": True}
         return {"ok": True}
-    def pixel():
+    def to_px(wx, wy):
         # image y down: world +y is up in the picture
-        ex, ey = (st["x"] - 700.0), -(st["y"] - 450.0)
+        ex, ey = (wx - 700.0), -(wy - 450.0)
         a = math.radians(cam_rot_deg)
         ix, iy = ex * math.cos(a) - ey * math.sin(a), ex * math.sin(a) + ey * math.cos(a)
         if mirror:
             ix = -ix
-        return 0.5 + ix / 1280.0, 0.5 + iy / 720.0
+        return 640.0 + ix, 360.0 + iy
+    def pixel():
+        px = to_px(st["x"], st["y"])
+        return px[0] / 1280.0, px[1] / 720.0
+    def tags_now():
+        if lids:
+            out = {}
+            for tid, (leg, ez) in HIP_LIDS.items():
+                a = math.radians(st["yaw"] + AZIMUTH[leg])
+                cx, cy = st["x"] + BODY_R_MM * math.cos(a), st["y"] + BODY_R_MM * math.sin(a)
+                out[str(tid)] = [list(to_px(*c)) for c in _tag_world(cx, cy, st["yaw"] + AZIMUTH[leg] + ez)]
+            return out
+        return {"0": [list(to_px(*c)) for c in _tag_world(st["x"], st["y"], st["yaw"] + CHASSIS_EULER_Z)]}
     def get(url):
         if url.endswith("/api/feedback"):
             joints = [{"deg": 0.0, "cur_a": 0.3, "temp_c": 35.0} for _ in range(18)]
@@ -56,15 +99,14 @@ def _rig(*, x=1050.0, y=450.0, yaw0=143.0, speed_ratio=0.8, drift_deg=5.0, cam_r
         if url.endswith("/api/detections.json"):
             if lose_tag_after is not None and st["t"] > lose_tag_after:
                 return {"cameras": [{"index": 2, "width": 1280, "height": 720, "tags": {}}]}
-            fx, fy = pixel()
-            c = [[fx * 1280 - 10, fy * 720 - 10], [fx * 1280 + 10, fy * 720 - 10], [fx * 1280 + 10, fy * 720 + 10], [fx * 1280 - 10, fy * 720 + 10]]
-            return {"cameras": [{"index": 2, "width": 1280, "height": 720, "tags": {"0": c}}]}
+            return {"cameras": [{"index": 2, "width": 1280, "height": 720, "tags": tags_now()}]}
         raise AssertionError(url)
     return st, post, get, sleep, clock, pixel
 
 
 def _session(settings, tmp_path, rig):
     st, post, get, sleep, clock, pixel = rig
+    settings = _layout_settings(settings, tmp_path)
     return walk.Session(settings, tmp_path, post=post, get=get, sleep=sleep, clock=clock, log=lambda m: None), st, pixel
 
 
@@ -103,16 +145,55 @@ def test_a_rotated_or_mirrored_camera_still_converges(settings, tmp_path):
         assert recentre.needs_recentre(pixel()) and not s.near_edge(pixel()), (rot, mirror, pixel())
         rc = recentre.recentre(s, budget_s=120.0)
         assert rc["done"], (rot, mirror, rc)
-        assert rc["chirality"] == (-1 if mirror else 1), (rot, mirror, rc)
+        assert rc["heading_from_tags"] and rc["pushes"] <= 6, (rot, mirror, rc)
+        if not mirror:
+            assert rc["chirality"] == 1, (rot, mirror, rc)
+        elif rc["pushes"] > 2:
+            # A mirrored picture reflects the tag heading too; the sideways pushes reveal it.
+            assert rc["chirality"] == -1, (rot, mirror, rc, s.notes)
 
 
-def test_a_probe_into_the_edge_is_followed_by_a_backward_probe(settings, tmp_path):
-    # Robot near the right edge with its nose pointing at that edge: forward would leave the frame.
+def test_the_tag_heading_replaces_the_probe_and_goes_straight_in(settings, tmp_path):
+    # Robot near the right edge with its nose pointing at that edge. The chassis tag says so,
+    # so the first push is already backward, toward the middle: no probe, no edge stop.
     x, y = _start_for(400.0, 0.0, 0.0, False)
     s, st, pixel = _session(settings, tmp_path, _rig(x=x, y=y, yaw0=-5.0))
     rc = recentre.recentre(s, budget_s=120.0)
-    assert rc["done"], rc
+    assert rc["done"] and rc["heading_from_tags"], rc
+    assert not any("probing backward" in n for n in s.notes)
+    first = [c for c in st["cmds"] if not c.startswith("J 0 0 0")][0]
+    assert float(first.split()[1]) < -20.0, first                       # backward, hard
+    assert s.fit_source == "tag0"
+
+
+def test_without_a_tag_heading_a_probe_into_the_edge_is_followed_by_a_backward_probe(settings, tmp_path, monkeypatch):
+    monkeypatch.setattr(walk, "fit_body", lambda tags, layout, yaws: None)   # no heading: back to learning by pushing
+    x, y = _start_for(400.0, 0.0, 0.0, False)
+    s, st, pixel = _session(settings, tmp_path, _rig(x=x, y=y, yaw0=-5.0))
+    rc = recentre.recentre(s, budget_s=120.0)
+    assert rc["done"] and not rc["heading_from_tags"], rc
     assert any("probing backward" in n for n in s.notes)
+
+
+def test_hip_lids_give_the_body_centre_and_heading_when_the_chassis_tag_is_out(settings, tmp_path):
+    for yaw in (-40.0, 95.0, 170.0):
+        s, st, pixel = _session(settings, tmp_path, _rig(x=520.0, y=700.0, yaw0=yaw, lids=True))
+        got = s.pixel()
+        truth = pixel()
+        assert s.fit_source == "lids" and s.proxy
+        assert abs(got[0] - truth[0]) * 1280 < 6 and abs(got[1] - truth[1]) * 720 < 6, (yaw, got, truth)
+        # body +x in the picture (y down): world heading yaw
+        want = (math.cos(math.radians(yaw)), -math.sin(math.radians(yaw)))
+        assert math.hypot(s.heading_px[0] - want[0], s.heading_px[1] - want[1]) < 0.05, (yaw, s.heading_px, want)
+
+
+def test_recentre_from_the_bottom_edge_with_only_hip_lids_in_view(settings, tmp_path):
+    # Where hexapod 1 sat on 2026-09-12: chassis tag below the picture, two hip lids in it, nose up-frame.
+    s, st, pixel = _session(settings, tmp_path, _rig(x=520.0, y=110.0, yaw0=95.0, lids=True))
+    assert s.near_edge(s.pixel()), s.pixel()
+    rc = recentre.recentre(s, budget_s=120.0)
+    assert rc["done"] and rc["heading_from_tags"], (rc, s.notes)
+    assert rc["pushes"] <= 6
 
 
 def test_tag_lost_stops_the_push_and_says_so(settings, tmp_path):

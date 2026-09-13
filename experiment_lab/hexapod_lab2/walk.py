@@ -47,6 +47,10 @@ TILT_ABORT_DEG = 30.0
 TAG_LOST_S = 2.0
 FEEDBACK_LOST_S = 5.0
 FRAME_EDGE_FRAC = 0.12
+EDGE_NOISE_FRAC = 0.03       # camera 1's fix-to-fix jitter is tens of mm; a real move out is more than this
+EDGE_WINDOW = 5              # distance samples (about a second) in the median that the edge rule compares
+BODY_YAW_AXIS_M = 0.0875     # body centre to a yaw servo's output shaft (chassis apothem 100 mm - 12.5 mm)
+TAG_BLACK_M = 0.0272         # black square of the robot's tags; sets the pixel scale around each tag
 STAND_WAIT_S = 25.0
 SETTLE_S = 1.5
 # Teleop caps; the robot's drive controller clips harder.
@@ -178,6 +182,115 @@ class PoseSample:
     tracked: bool = False
 
 
+def distance_frac(frac: Optional[tuple]) -> float:
+    """How far the robot is from the middle of the picture, as a fraction of the frame (0.5 = at an edge)."""
+    return math.hypot(frac[0] - 0.5, frac[1] - 0.5) if frac else 0.0
+
+
+def near_edge(frac: Optional[tuple]) -> bool:
+    if frac is None:
+        return False
+    return min(frac[0], 1.0 - frac[0], frac[1], 1.0 - frac[1]) < FRAME_EDGE_FRAC
+
+
+class EdgeWatch:
+    """Is the robot near an edge of the picture and clearly moving further out?
+
+    Compares the median distance-from-centre over the last EDGE_WINDOW samples
+    with the lowest such median seen so far: body sway during the gait moves the
+    chassis tag by 20-40 px each step (2026-09-12, standing tall at the top of
+    camera 1), which a single-sample rule read as walking out."""
+
+    def __init__(self) -> None:
+        self.hist: List[float] = []
+        self.best: Optional[float] = None
+        self.last_near = False
+
+    def update(self, frac: Optional[tuple]) -> Optional[str]:
+        """"tag_lost", "frame_edge" or None for this sample."""
+        if frac is None:
+            return "tag_lost" if self.last_near else None
+        near = near_edge(frac)
+        self.hist.append(distance_frac(frac))
+        self.hist = self.hist[-EDGE_WINDOW:]
+        med = sorted(self.hist)[len(self.hist) // 2]
+        if self.best is None or med < self.best:
+            self.best = med
+        going_out = len(self.hist) >= EDGE_WINDOW and med > self.best + EDGE_NOISE_FRAC
+        self.last_near = near
+        return "frame_edge" if near and going_out else None
+
+
+def _tag_centre(corners) -> tuple:
+    return (sum(p[0] for p in corners) / 4.0, sum(p[1] for p in corners) / 4.0)
+
+
+def _tag_heading_up_deg(corners) -> float:
+    """The tag's +x (corner 0 toward corner 1) as a heading in the picture with y up, degrees."""
+    return math.degrees(math.atan2(-(corners[1][1] - corners[0][1]), corners[1][0] - corners[0][0]))
+
+
+def _tag_edge_px(corners) -> float:
+    return sum(math.dist(corners[i], corners[(i + 1) % 4]) for i in range(4)) / 4.0
+
+
+def _wrap(deg: float) -> float:
+    return (deg + 180.0) % 360.0 - 180.0
+
+
+def fit_body(tags: dict, layout: dict, yaws_deg: Dict[int, float]) -> Optional[dict]:
+    """Where the body is and which way it faces, from the tags in one picture.
+
+    The chassis tag gives both directly. Without it, each horizontal hip lid
+    does: its heading in the picture is body heading + the leg's zero azimuth
+    - the yaw servo's angle + the lid's own rotation (layout ``frame_from_tag``
+    euler z), and its centre sits BODY_YAW_AXIS_M out from the body centre
+    along body heading + azimuth. Checked live on 2026-09-12 against the
+    chassis tag in three cameras (lids agreed within 1 deg in the top view);
+    the sign of the yaw-servo term follows the layout's joint_conventions and
+    was checked only at yaw = 0. Knee lids tilt with the knee and are not used.
+
+    Returns ``{"px": (x, y), "heading_px": (ux, uy), "heading_up_deg", "source", "n"}``
+    in picture pixels (y down), or None when neither kind of tag is there."""
+    robot_tags = layout.get("robot_tags") or []
+    azimuth = {int(k): float(v) for k, v in (layout.get("leg_zero_azimuth_body_deg") or {}).items()}
+
+    def euler_z(t) -> float:
+        return float(((t.get("frame_from_tag") or {}).get("euler_xyz_deg") or [0, 0, 0])[2])
+
+    def result(px, heading_up, source, n):
+        a = math.radians(heading_up)
+        return {"px": px, "heading_px": (math.cos(a), -math.sin(a)), "heading_up_deg": round(heading_up, 1),
+                "source": source, "n": n}
+
+    chassis = next((t for t in robot_tags if t.get("kind") == "chassis_tag" and str(t.get("id")) in tags), None)
+    if "0" in tags or chassis is not None:
+        tid = str(chassis["id"]) if chassis else "0"
+        corners = tags[tid]
+        heading = _tag_heading_up_deg(corners) - (euler_z(chassis) if chassis else 0.0)
+        return result(_tag_centre(corners), _wrap(heading), "tag0", 1)
+    headings, centres = [], []
+    for t in robot_tags:
+        if t.get("kind") != "servo_lid" or t.get("joint") != "hip" or str(t.get("id")) not in tags:
+            continue
+        leg = int(t.get("leg", -1))
+        if leg not in azimuth:
+            continue
+        corners = tags[str(t["id"])]
+        body_heading = _wrap(_tag_heading_up_deg(corners) - euler_z(t) - azimuth[leg] + float(yaws_deg.get(leg, 0.0)))
+        headings.append(body_heading)
+        scale = _tag_edge_px(corners) / TAG_BLACK_M                    # px per metre around this tag
+        out = math.radians(body_heading + azimuth[leg])                # lid sits out along the leg's zero azimuth
+        cx, cy = _tag_centre(corners)
+        centres.append((cx - BODY_YAW_AXIS_M * scale * math.cos(out), cy + BODY_YAW_AXIS_M * scale * math.sin(out)))
+    if not headings:
+        return None
+    mean_heading = math.degrees(math.atan2(sum(math.sin(math.radians(h)) for h in headings),
+                                           sum(math.cos(math.radians(h)) for h in headings)))
+    n = float(len(centres))
+    return result((sum(c[0] for c in centres) / n, sum(c[1] for c in centres) / n), mean_heading, "lids", len(centres))
+
+
 @dataclass
 class Session:
     settings: Settings
@@ -192,7 +305,11 @@ class Session:
     frame_size: Optional[tuple] = None
     seen_camera: Optional[int] = None
     proxy: bool = False                   # last pixel() came from leg tags, not the chassis tag
+    heading_px: Optional[tuple] = None    # body +x as a unit vector in the picture (x right, y down), when tags gave one
+    fit_source: str = ""                  # "tag0", "lids", "centroid" or "" for the last pixel()
     _robot_ids: Optional[set] = None
+    _layout: Optional[dict] = None
+    _fb_last: Optional[tuple] = None      # (clock time, feedback dict)
 
     @property
     def robot(self) -> str:
@@ -208,7 +325,28 @@ class Session:
             fb = self.get(f"{self.robot}/api/feedback")
         except Exception:  # noqa: BLE001
             return None
-        return fb if isinstance(fb, dict) and fb.get("ok", True) else None
+        if isinstance(fb, dict) and fb.get("ok", True):
+            self._fb_last = (self.clock(), fb)
+            return fb
+        return None
+
+    def recent_feedback(self, max_age_s: float = 1.0) -> Optional[dict]:
+        """The last feedback if it is fresh, else a new one (keeps body_fit from doubling the polling)."""
+        if self._fb_last and self.clock() - self._fb_last[0] <= max_age_s:
+            return self._fb_last[1]
+        return self.feedback()
+
+    def yaw_joints_deg(self) -> Dict[int, float]:
+        """Leg -> yaw servo angle from the freshest feedback; missing joints read 0."""
+        joints = ((self.recent_feedback() or {}).get("joints") or [])
+        out: Dict[int, float] = {}
+        for leg in range(6):
+            j = joints[3 * leg] if 3 * leg < len(joints) else None
+            try:
+                out[leg] = float((j or {}).get("deg") or 0.0)
+            except (TypeError, ValueError):
+                out[leg] = 0.0
+        return out
 
     def mode(self) -> str:
         try:
@@ -407,14 +545,23 @@ class Session:
         yaw = (obs.get("rotation_degrees") or {}).get("yaw")
         return PoseSample(t, leg_name, pos.get("x"), pos.get("y"), yaw, tracked=True)
 
+    def layout(self) -> dict:
+        """The installed tag layout, read once: {} when there is none."""
+        if self._layout is None:
+            path = Path(getattr(self.settings, "tracker_checkout", Path("/nonexistent"))) / "configs" / "hexapod-1-apriltag-layout.json"
+            try:
+                self._layout = json.loads(path.read_text())
+            except (OSError, ValueError):
+                self._layout = {}
+        return self._layout
+
     def robot_tag_ids(self) -> set:
         """Every tag id the tracker's layout puts on the robot (parts + chassis tag)."""
         if self._robot_ids is None:
             ids = {0}
-            layout = Path(getattr(self.settings, "tracker_checkout", Path("/nonexistent"))) / "configs" / "hexapod-1-apriltag-layout.json"
             try:
-                ids.update(int(t["id"]) for t in json.loads(layout.read_text()).get("robot_tags", []))
-            except (OSError, ValueError, KeyError, TypeError):
+                ids.update(int(t["id"]) for t in self.layout().get("robot_tags", []))
+            except (ValueError, KeyError, TypeError):
                 pass
             if len(ids) == 1:                   # no layout file: the tracker's parts (yoke faces) will do
                 try:
@@ -450,27 +597,27 @@ class Session:
             tags = c.get("tags") or {}
             if not c.get("width") or not c.get("height"):
                 continue
-            corners = tags.get("0")
-            self.proxy = False
-            if not corners:
-                robot = [crn for tid, crn in tags.items() if int(tid) in self.robot_tag_ids() and crn]
-                if not robot:
-                    return None
-                corners = [[sum(p[0] for p in crn) / 4.0, sum(p[1] for p in crn) / 4.0] for crn in robot]
-                self.proxy = True
-            n = float(len(corners))
-            cx = sum(p[0] for p in corners) / n / float(c["width"])
-            cy = sum(p[1] for p in corners) / n / float(c["height"])
             self.frame_size = (int(c["width"]), int(c["height"]))
             self.seen_camera = int(c.get("index", -1))
-            return cx, cy
+            fit = fit_body(tags, self.layout(), self.yaw_joints_deg() if "0" not in tags else {})
+            if fit is not None:
+                self.proxy = fit["source"] != "tag0"
+                self.fit_source = fit["source"]
+                self.heading_px = fit["heading_px"]
+                return fit["px"][0] / float(c["width"]), fit["px"][1] / float(c["height"])
+            # No chassis tag and no hip lid: the centroid of whatever robot tags are there.
+            robot = [crn for tid, crn in tags.items() if int(tid) in self.robot_tag_ids() and crn]
+            if not robot:
+                return None
+            pts = [[sum(p[0] for p in crn) / 4.0, sum(p[1] for p in crn) / 4.0] for crn in robot]
+            self.proxy, self.fit_source, self.heading_px = True, "centroid", None
+            n = float(len(pts))
+            return sum(p[0] for p in pts) / n / float(c["width"]), sum(p[1] for p in pts) / n / float(c["height"])
         return None
 
     @staticmethod
     def near_edge(frac: Optional[tuple]) -> bool:
-        if frac is None:
-            return False
-        return min(frac[0], 1.0 - frac[0], frac[1], 1.0 - frac[1]) < FRAME_EDGE_FRAC
+        return near_edge(frac)
 
 
 # ---------------------------------------------------------------- legs
@@ -580,9 +727,19 @@ def _stream(s: Session, leg: Leg, writers: dict, st: Dict[str, Any], t0: float) 
                 p.px, p.py = round(frac[0], 3), round(frac[1], 3)
             st["poses"].append(p)
             writers["pose"].writerow([round(p.t, 3), leg.name, p.x, p.y, p.yaw, p.px, p.py])
-            if s.near_edge(frac):
+            # Near the edge and moving further out: stop. Starting at the edge and coming
+            # back in is allowed (2026-09-12: every RL leg died at its first sample because
+            # the robot began the walk at the bottom of camera 1). Losing the robot right
+            # after it was near the edge means it left the picture: stop too.
+            watch = st.setdefault("edge_watch", EdgeWatch())
+            verdict = watch.update(frac)
+            if verdict == "tag_lost":
+                st["reason"] = "tag_lost"
+                s.notes.append(f"{leg.name}: stopped early, robot left the camera's view")
+                return
+            if verdict == "frame_edge":
                 st["reason"] = "frame_edge"
-                s.notes.append(f"{leg.name}: stopped early, robot near the edge of the camera's view")
+                s.notes.append(f"{leg.name}: stopped early, robot near the edge of the camera's view and moving out")
                 return
             if p.tracked:
                 if st["lost_since"] is not None:

@@ -66,8 +66,15 @@ LAUNCH_OVERRIDES = {
     ("reward", "term_cost_max"): 60.0,
     ("reward", "hold_feet_load"): 1.0,
     ("reward", "hold_feet_load_min"): 1.0,
-    ("safety", "hold_max_height_drop_mm"): 40.0,
-    ("safety", "hold_height_grace_s"): 1.0,
+    # NOTE (2026-09-13, holdbarrier follow-up): the sinkfence/holdgrace/
+    # holdbarrier lineage tightened this envelope to 15mm/0.5s -- this
+    # module's own zero-intelligence baselines (hold_quiet/noise) don't
+    # depend on the bound's exact value (they either drift or don't
+    # regardless of where the wall is), but any probe reading
+    # term_reason/height_err against "the bound" should use THIS
+    # lineage's actual value, not the older 40mm/1.0s mixreweight one.
+    ("safety", "hold_max_height_drop_mm"): 15.0,
+    ("safety", "hold_height_grace_s"): 0.5,
     ("safety", "hold_min_load_terminate_s"): 1.0,
     ("safety", "hold_min_load_terminate_n"): 0.3,
     ("safety", "hold_min_load_terminate_grace_s"): 1.0,
@@ -94,7 +101,8 @@ def _make_env(seed: int, episode_seconds: float) -> SimHexapodJointGoalEnv:
     return env
 
 
-def _rollout(model, env, behavior: str = "policy") -> list[dict]:
+def _rollout(model, env, behavior: str = "policy",
+             noise_std: float = 0.0, noise_seed: int = 0) -> list[dict]:
     """``behavior='policy'``: the checkpoint's own actor (deterministic).
     ``behavior='hold_quiet'``: constant action == the plant pose the
     episode reset into (q0, unchanged for the whole episode) -- an
@@ -102,19 +110,37 @@ def _rollout(model, env, behavior: str = "policy") -> list[dict]:
     also sinks and terminates, the collapse is a physics/actuator-
     authority ceiling independent of anything the policy chose (rules
     out a reward-shaping fix), not a policy failure to hold.
+    ``behavior='noise'``: no policy at all -- ``q0_action`` (the SAME
+    correct absolute-joint target ``hold_quiet`` holds constant) plus
+    i.i.d. Gaussian jitter of std ``noise_std`` per joint per tick,
+    clipped to [-1, 1] (2026-09-13, holdbarrier FAIL-MECHANISM
+    follow-up). Answers the question ``hold_quiet`` alone cannot:
+    how much of the PPO exploration std (``--log-std-init``, a
+    training-only knob, not a reward term) is survivable if the
+    policy's MEAN were already correct? Sweep ``noise_std`` across a
+    checkpoint's own logged ``train/std`` trajectory (1.0 at
+    ``log_std_init=0`` down to the annealed final) to find the
+    survivable threshold independent of any reward-shaping question.
     """
     obs, _ = env.reset()
     state, ep_start = None, np.ones((1,), dtype=bool)
     q0_action = None
-    if behavior == "hold_quiet":
+    rng = None
+    if behavior in ("hold_quiet", "noise"):
         from rl_move.sim.joint_task import q_rad_to_action
         q0_action = q_rad_to_action(env._state.joint_position.copy())
+    if behavior == "noise":
+        rng = np.random.default_rng(noise_seed)
     rows: list[dict] = []
     term = trunc = False
     step = 0
     while not (term or trunc):
         if behavior == "hold_quiet":
             act = q0_action
+        elif behavior == "noise":
+            act = np.clip(q0_action + rng.normal(0.0, noise_std,
+                                                  size=q0_action.shape),
+                          -1.0, 1.0)
         else:
             act, state = model.policy.predict(
                 obs, state=state, episode_start=ep_start, deterministic=True)
@@ -136,8 +162,11 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--episode-seconds", type=float, default=15.0)
     ap.add_argument("--json", type=Path, default=None)
-    ap.add_argument("--behavior", choices=("policy", "hold_quiet"),
+    ap.add_argument("--behavior", choices=("policy", "hold_quiet", "noise"),
                     default="policy")
+    ap.add_argument("--noise-std", type=float, default=0.0,
+                     help="only for --behavior noise: per-joint Gaussian "
+                          "jitter std added to the correct q0 action")
     args = ap.parse_args()
 
     model = None
@@ -145,7 +174,8 @@ def main() -> None:
         from rl_move.sim.gru_policy import load_checkpoint_auto
         model = load_checkpoint_auto(args.ckpt, device="cpu")
     env = _make_env(args.seed, args.episode_seconds)
-    rows = _rollout(model, env, behavior=args.behavior)
+    rows = _rollout(model, env, behavior=args.behavior,
+                     noise_std=args.noise_std, noise_seed=args.seed)
 
     print(f"[probe_hold_decomp] {args.ckpt.name} seed={args.seed} "
           f"{len(rows)} ticks ({rows[-1]['t'] if rows else 0}s)")

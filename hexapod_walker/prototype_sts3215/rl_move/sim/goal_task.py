@@ -242,6 +242,37 @@ class GoalGenerator:
         # one (kind, target_m) pair instead of a random mix, for
         # reproducible probes. None (default) = normal random draw.
         self.force_hold_height_profile: tuple[str, float] | None = None
+        # HOLD start-state reverse curriculum (2026-09-13,
+        # DESIGN_NOTE_2026-09-13_rot60_fullgait_stance.md Mechanism B
+        # gate's own named next lever after mixreweight-canary2m's
+        # FAIL-MECHANISM + probe_hold_decomp.py's dig-in). HOLD has
+        # ALWAYS started EXACTLY at the plant target (start_at="plant"
+        # from the top of sample(), a single point with crouch_dz==0
+        # exactly) with height_ref=0 the whole episode -- unlike rise/
+        # lower, whose height_ref is CONTINUOUSLY moving and so trains
+        # the policy at a dense continuum of nonzero-height-error
+        # states. probe_hold_decomp.py showed the from-scratch stance
+        # checkpoint starts sinking on tick 1 from that exact optimum
+        # and never recovers even though a trivial constant action
+        # holds it forever -- consistent with a policy that has never
+        # once been trained to correct a SMALL deviation back toward
+        # the target, because its start distribution never contains
+        # one. goal.hold_start_jitter_frac (default 0.0 = off, bit-
+        # exact -- no extra rng draw at frac=0, the same short-circuit
+        # convention as hold_height_cmd_frac/rise_start_bank_frac)
+        # draws a SMALL crouch offset (goal.hold_start_jitter_mm, a
+        # "bridge" band close to the target, not rise's full crouch)
+        # via the existing start_at="crouch" reset path; height stays
+        # whatever this sample() call already set (flat 0, or the
+        # hold_height_cmd schedule if that also fired) so the TARGET
+        # is unchanged -- the episode now needs to close a small gap
+        # and then hold there, exactly the missing training signal.
+        self.hold_start_jitter_frac = float(
+            g.get("hold_start_jitter_frac", 0.0))
+        hsj_mm = g.get("hold_start_jitter_mm", [5.0, 30.0])
+        self.hold_start_jitter_m = (
+            min(float(hsj_mm[0]), max_h) * 0.001,
+            min(float(hsj_mm[1]), max_h) * 0.001)
 
     @staticmethod
     def _jittered_s(rng: np.random.Generator, base_s: float,
@@ -527,6 +558,11 @@ class GoalGenerator:
             height[:hold_n] = 0.0
             end = min(hold_n + ramp_n, n_steps)
             height[hold_n:end] = np.linspace(0.0, rise, end - hold_n)
+        elif mode == "hold" and self.hold_start_jitter_frac > 0.0:
+            if rng.random() < self.hold_start_jitter_frac:
+                lo_m, hi_m = self.hold_start_jitter_m
+                start_at = "crouch"
+                crouch_dz = float(rng.uniform(lo_m, hi_m))
         lift_legs = self.quad_legs if mode == "quad" else None
         return GoalTrajectory(mode=mode, roll=roll, pitch=pitch,
                               height=height, unload_leg=unload_leg,

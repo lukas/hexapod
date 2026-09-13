@@ -104,6 +104,20 @@ class Intervention:
     front_legs: tuple[int, ...] = (0, 5)
     rear_legs: tuple[int, ...] = (2, 3)
     share_threshold: float = 0.0
+    # ``friction_loss`` mechanism (2026-09-13 addendum 4): every prior
+    # candidate injects an external torque (roll_torque, load_triggered,
+    # load_share) or removes contact outright (support_loss) or edits a
+    # static per-joint property (zero-offset, deadband). None models
+    # contact/compliance loss AT THE FOOT directly -- a leg that stays
+    # planted and loaded but slips because its effective ground friction
+    # has dropped (grease, wear, a compliant/lossy contact patch), which
+    # is a genuinely different physical consequence: the chassis roll
+    # this produces (if any) comes from real foot slip under real load,
+    # not an externally applied moment. Reuses the SAME periodic
+    # scheduling as ``support_loss`` (``dropout_legs``/``duration_s``/
+    # ``phase_s``/``period_s``) but scales ``geom_friction`` on the
+    # scheduled legs instead of zeroing their contact mask.
+    friction_scale: float = 1.0
 
 
 def periodic_phase_s(t_s: float, *, start_s: float, period_s: float,
@@ -145,7 +159,9 @@ class TransferProbeEnv(SimHexapodJointWalkEnv):
         self.intervention = intervention
         super().__init__(*args, **kwargs)
         self._dropout_gids: tuple[int, ...] = ()
-        if intervention.mechanism == "support_loss":
+        self._friction_gids: tuple[int, ...] = ()
+        self._friction_base: np.ndarray | None = None
+        if intervention.mechanism in ("support_loss", "friction_loss"):
             gids = []
             for leg in intervention.dropout_legs:
                 if leg not in range(6):
@@ -156,7 +172,12 @@ class TransferProbeEnv(SimHexapodJointWalkEnv):
                 if gid < 0:
                     raise ValueError(f"mesh model has no L{leg}_foot geom")
                 gids.append(gid)
-            self._dropout_gids = tuple(gids)
+            if intervention.mechanism == "support_loss":
+                self._dropout_gids = tuple(gids)
+            else:
+                self._friction_gids = tuple(gids)
+                self._friction_base = self.model.geom_friction[
+                    np.asarray(gids, dtype=int)].copy()
         # load_triggered edge-detector state: which control tick (if any)
         # the current GRF-gated pulse started on, plus the hysteresis flag
         # used to fire on RISING edges only (never re-arm while the leg
@@ -218,26 +239,44 @@ class TransferProbeEnv(SimHexapodJointWalkEnv):
         if (not limp and iv.mechanism in ("load_triggered", "load_share")
                 and in_walk):
             self._lt_maybe_trigger(iv)
-        active = (
+        support_active = (
             not limp and iv.mechanism == "support_loss" and in_walk
             and periodic_active(self._step_i * self.dt, iv)
         )
-        if not active or not self._dropout_gids:
-            return super()._advance(limp=limp)
-
-        gids = np.asarray(self._dropout_gids, dtype=int)
-        contype = self.model.geom_contype[gids].copy()
-        conaffinity = self.model.geom_conaffinity[gids].copy()
-        self.model.geom_contype[gids] = 0
-        self.model.geom_conaffinity[gids] = 0
-        try:
-            super()._advance(limp=limp)
-        finally:
-            # The intervention owns exactly one control tick.  Restoring in
-            # finally also prevents a terminated/exceptional tick from
-            # leaking a collision-mask edit into reset or another case.
-            self.model.geom_contype[gids] = contype
-            self.model.geom_conaffinity[gids] = conaffinity
+        friction_active = (
+            not limp and iv.mechanism == "friction_loss" and in_walk
+            and periodic_active(self._step_i * self.dt, iv)
+        )
+        if support_active and self._dropout_gids:
+            gids = np.asarray(self._dropout_gids, dtype=int)
+            contype = self.model.geom_contype[gids].copy()
+            conaffinity = self.model.geom_conaffinity[gids].copy()
+            self.model.geom_contype[gids] = 0
+            self.model.geom_conaffinity[gids] = 0
+            try:
+                super()._advance(limp=limp)
+            finally:
+                # The intervention owns exactly one control tick.  Restoring
+                # in finally also prevents a terminated/exceptional tick
+                # from leaking a collision-mask edit into reset or another
+                # case.
+                self.model.geom_contype[gids] = contype
+                self.model.geom_conaffinity[gids] = conaffinity
+            return
+        if friction_active and self._friction_gids:
+            gids = np.asarray(self._friction_gids, dtype=int)
+            base = self._friction_base
+            self.model.geom_friction[gids] = base * iv.friction_scale
+            try:
+                super()._advance(limp=limp)
+            finally:
+                # Same one-tick-owned restore discipline as support_loss:
+                # the leg stays IN contact throughout (unlike support_loss,
+                # contype/conaffinity are untouched here) but its effective
+                # traction is scaled down only for the scheduled window.
+                self.model.geom_friction[gids] = base
+            return
+        return super()._advance(limp=limp)
 
 
 def _policy_path(spec: PolicySpec) -> Path:
@@ -348,7 +387,8 @@ def rollout(spec: PolicySpec, intervention: Intervention, *, seed: int,
     try:
         while True:
             t_s = env._step_i * env.dt
-            if intervention.mechanism in ("support_loss", "roll_torque") \
+            if intervention.mechanism in (
+                    "support_loss", "roll_torque", "friction_loss") \
                     and periodic_active(t_s, intervention):
                 event_ticks += 1
             action, _ = policy.predict(obs, deterministic=True)

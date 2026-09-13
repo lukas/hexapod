@@ -269,6 +269,30 @@ def test_load_share_torque_reuses_the_load_triggered_pulse_shape():
     assert torque(fake) == 0.0  # gated off outside walk mode
 
 
+def test_friction_loss_defaults_and_fields():
+    iv = Intervention("baseline")
+    assert iv.friction_scale == pytest.approx(1.0)
+    dosed = Intervention("friction_L4_x0.1_d0.3_p0.375",
+                         mechanism="friction_loss", dropout_legs=(4,),
+                         friction_scale=0.1, duration_s=0.3, phase_s=0.375)
+    assert dosed.friction_scale == pytest.approx(0.1)
+    assert dosed.dropout_legs == (4,)
+
+
+def test_friction_loss_reuses_the_support_loss_periodic_window():
+    # friction_loss schedules on the SAME periodic_active window as
+    # support_loss (dropout_legs/duration_s/phase_s/period_s) -- only the
+    # world edit inside that window differs (scaled friction vs removed
+    # contact), so the timing math needs no new test, just this one check
+    # that both mechanisms agree on the same window for identical fields.
+    common = dict(duration_s=0.3, phase_s=0.25, start_s=2.0, period_s=1.5)
+    support = Intervention("drop", mechanism="support_loss", **common)
+    friction = Intervention("slip", mechanism="friction_loss",
+                            friction_scale=0.15, **common)
+    for t in (1.9, 2.24, 2.25, 2.4, 2.54, 2.55, 3.75):
+        assert periodic_active(t, support) == periodic_active(t, friction)
+
+
 def test_policy_cfg_pins_a_degenerate_deadband_range(monkeypatch):
     monkeypatch.setenv("HEXAPOD_MODEL_SOURCE", "mesh")
     baseline_cfg = _policy_cfg(_FAKE_META, Intervention("baseline"))

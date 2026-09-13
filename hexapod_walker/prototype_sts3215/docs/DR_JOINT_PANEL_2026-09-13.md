@@ -148,3 +148,17 @@ Arm specs as launched (respec of the frozen parent, warm-start
 
 Second-seed replication remains contingent on a held-out-gate winner, per
 the order. The held-out manifest stays untouched by training/selection.
+
+## Addendum 2 (same cycle): 2M canary gate readings + matched continuations
+
+All three arms trained (2M) and were gated on the frozen held-out manifest
+on their own pods (candidates loaded as raw checkpoint zips): CTRL
+0.12/0.07 roll cut (overall/hard), WIDE 0.15/0.17 (gait_valid 0.93, robust
+speed −2% i.e. faster, nominal 1.01), STRUCT 0.01/0.10. None clears clause
+(a); ep_rew still rising steeply in all three at the 2M cutoff, so per the
+08-21 interpretation ruling all three were CONTINUED as matched hardening
+runs `cw-speed50hz-ps200dr-arm{ctrl,wide,struct}-cont8m` (10M total,
+`env.dr_stage_ramp_steps=0` for WIDE/STRUCT so the full 8M is at full
+dose). The 10M matched comparison is the discovery decision point; a
+winner triggers second-seed replication per the pre-registration. Held-out
+manifest remains selection-free (gates only).

@@ -457,3 +457,70 @@ walkcurr9-canary2m-r1/wandb_history.csv`; `logs/ckpt_eval/
 cw_walkscratch_crutchoff_s0_widen8_plusduty_walkcurr9_canary2m_r1_gate/
 {report.json,walk_det_1.png}`; matched-parent
 `..._cont10m_gate/report.json`; W&B `ohgv56y4`.
+
+## Addendum 4, 2026-09-13 (triage cycle): a 15th mechanism class --
+recalibrating V9's bucket-0 cert thresholds to this champion's own
+operating point (`WALKCURR_BUCKETS_V10`) -- FAILS on the gate's OTHER
+clause (on-axis regression), even though it fixes the exact defect
+Addendum 3 named
+
+**One plain sentence.** Addendum 3's FAIL root-caused the stall to
+three specific bucket-0 gate checks missed by a wide, stable margin
+(`slip_per_m_max`, `peak_roll_deg_max`, `height_factor_min` --
+transplanted from the joystick track's different champion); this
+class recalibrated exactly those three numbers to this champion's own
+measured band (with ~25-30% margin, not loosened to auto-pass) and
+relaunched the identical recipe otherwise -- the recalibration WORKED
+(bucket 0 certifies on cert_round 1 of 4 and stays certified all 4
+rounds, a clean contrast with V9's `pass=0`/`active_n=0` the whole
+run), but the resulting policy independently trips the gate's other
+named FAIL clause: **on-axis `gait_valid` regresses vs the frozen
+champion.**
+
+Matched comparison (both read with the IDENTICAL `--pinned-heading-
+panel` script/cfg/seed; champion's own reference already on disk from
+a prior read, not re-derived): parent
+(`cw_walkscratch_crutchoff_s0_widen8_legdutyratio_swinggap_dose10_
+plusduty_acq1_cont10m_headpanel/report.json`) is **18/18** on-axis
+(h000/+45/-45, det+sto) `gait_valid=True`, `sacrificed_legs=[]` every
+single episode, zero terminations across all 24 episodes shown.
+Candidate (`..._walkcurr10_canary2m_headpanel/report.json`) is
+**13/18**: h000 6/6 clean, h+45 4/6 (both `sto` episodes sacrifice
+leg 5), h-45 3/6 (2 of 3 `det` episodes sacrifice a NEW two-leg set
+`[0,2]`, worse than the usual single-leg pattern) -- plus two fresh
+FALL terminations (`tilt_roll`) never seen in any of the champion's
+many independently-read on-axis panels this campaign
+(`walk/det/2`, `walk_startjitter/sto/1`).
+
+**Read: the widening-curriculum training itself, once it actually
+progresses past bucket 0, measurably perturbs this champion's
+previously rock-solid on-axis gait -- a genuinely new failure mode
+(falls), not V9's static stuck-frontier/leg-drag signature.** This is
+useful negative evidence beyond "closed": it says the mechanism isn't
+merely mis-thresholded, it trades on-axis stability for bucket-0
+progress at this dose/budget, which the gate's own text (rightly)
+treats as disqualifying rather than a reward-misalignment case for the
+08-21 continue-on-rising-reward ruling (mechanism health, including
+reward, was fine the whole run -- the eval regression is the sole
+disqualifier).
+
+**Standing state: 15 independent mechanism classes now closed, 0/15,
+against this exact off-axis-heading front-pair gap.** No named lever
+remains untried in this note. Honest next options, neither yet
+attempted: (a) a genuinely new structural mechanism not yet conceived
+(not a dose/threshold/seed variant of anything above -- e.g. a
+per-heading action-space or reward reparameterization that doesn't
+touch training SCHEDULE but the front-pair's own dynamics/kinematics
+directly), or (b) accept this as a standing `rl_only` walkcurr
+limitation and redirect capacity elsewhere on the track until someone
+writes that note.
+
+Evidence: `ops.sh entry cw-walkscratch-crutchoff-s0-widen8-plusduty-
+walkcurr10-canary2m` (verdict); `logs/ckpt_eval/
+cw_walkscratch_crutchoff_s0_widen8_plusduty_walkcurr10_canary2m_
+headpanel/report.json`; `logs/ckpt_eval/
+cw_walkscratch_crutchoff_s0_widen8_legdutyratio_swinggap_dose10_
+plusduty_acq1_cont10m_headpanel/report.json` (matched-parent
+reference); `logs/experiments/cw-walkscratch-crutchoff-s0-widen8-
+plusduty-walkcurr10-canary2m/wandb_history.csv` (`walkcurr/*` columns,
+bucket-0 cert confirmation).

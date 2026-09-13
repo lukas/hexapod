@@ -1,3 +1,4 @@
+from pathlib import Path
 """A dozen fast tests for the decisions; the runner and CLI are exercised live."""
 import dataclasses
 import json
@@ -182,6 +183,11 @@ def test_http_import_then_upload_file(settings, store):
     assert c.put(f"/v2/api/runs/{rid}/files/../evil", content=b"x").status_code in (400, 404, 201)
     assert Store(settings.db_path).run_files(rid) == ["clip.mp4"]
     assert c.get(f"/v2/runs/{rid}/clip.mp4").status_code == 200
+    run_dir = Path(Store(settings.db_path).run(rid)["run_dir"])
+    (run_dir / "camera").mkdir()
+    (run_dir / "camera" / "top.mp4").write_bytes(b"real video")
+    assert c.get(f"/v2/runs/{rid}/camera/top.mp4").content == b"real video"   # the session's video sits one level down
+    assert c.get(f"/v2/runs/{rid}/camera/../../evil").status_code == 404
     page = c.get("/v2/?robot=hexapod2").text
     assert "Hex2 stand" in page and "clip.mp4" in page
     assert c.put("/v2/api/runs/nope/files/a.txt", content=b"x").status_code == 404

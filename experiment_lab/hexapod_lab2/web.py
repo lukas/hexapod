@@ -242,7 +242,7 @@ def build_router(viewer_dependency: Callable, operator_dependency: Optional[Call
             "events": s.events(20),
         })
 
-    @router.get("/runs/{run_id}/{filename}")
+    @router.get("/runs/{run_id}/{filename:path}")               # `camera/top.mp4` lives one level down
     def artifact(run_id: str, filename: str, _=Depends(viewer_dependency)):
         s = store()
         run = s.run(run_id)

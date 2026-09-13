@@ -267,6 +267,5 @@ through its API. Old registry files in the code bundle are not imported. Mechani
 Before all 18 motors are assigned, robot control views show setup guidance
 instead of controls. The persistent banner links to Motor setup. The robot
 API rejects control POSTs until setup is complete; setup, TFT maintenance,
-and stop operations remain available. MuJoCo-only use is independent. On
-the robot, `/vision` explains that the camera service runs on the central
-hub; the hub continues serving the actual Vision application at `/vision`.
+and stop operations remain available. MuJoCo-only use is independent. Cameras
+are served by the tracker camera server on `:8766`, not by this UI.

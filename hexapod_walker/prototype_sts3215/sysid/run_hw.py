@@ -419,12 +419,13 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--abort", action="store_true",
                     help="just send /api/rl/stop and exit")
     ap.add_argument("--capture-vision", action="store_true",
-                    help=("record and continuously guard /api/vision/state "
-                          "beside the hardware trace; required with --go"))
+                    help=("record and continuously guard the camera server's "
+                          "pose document beside the hardware trace; required "
+                          "with --go"))
     ap.add_argument("--capture-frames", action="store_true",
                     help="also save one JPEG for every captured vision frame")
     ap.add_argument("--vision-url",
-                    default="http://127.0.0.1:8898/api/vision/state")
+                    default="http://127.0.0.1:8766/api/pose-state")
     ap.add_argument(
         "--vision-frame-url",
         default=None,

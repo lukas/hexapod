@@ -45,7 +45,7 @@ dependencies = [
     # pure-Python rtree fallback the CAD verifier would otherwise use). Only
     # on platforms that publish wheels.
     "embreex>=4.4; sys_platform == 'darwin' or (sys_platform == 'linux' and platform_machine == 'x86_64') or (sys_platform == 'win32' and platform_machine == 'AMD64')",
-    # ---- vision (linux_control/vision_server.py, video_state/, sim video eval) ----
+    # ---- vision (hexapod-tracker camera server, video_state/, sim video eval) ----
     # contrib build: hexapod-tracker needs the aruco/apriltag module; it and
     # opencv-python both provide `cv2` and must never be installed together.
     "opencv-contrib-python>=4.8,<6",

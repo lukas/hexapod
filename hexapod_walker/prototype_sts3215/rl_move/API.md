@@ -62,47 +62,14 @@ the process rules below are what remain).
 Drive `C` (centre) and `P` (stand) refuse if any live joint would move
 more than **25°** from present unless the command includes `FORCE`.
 
-## Mac Vision gait-survey routes (`http://localhost:8898`)
+## Cameras
 
-These routes live on the Mac hub, not the Uno Q. `POST survey/start` is the
-Vision page's only motion-capable endpoint and requires
-`{"acknowledge_motion":true}` plus a SAFE camera/IMU preflight.
-
-| Method | Path | Purpose |
-|---|---|---|
-| GET | `/api/vision/state` | Camera/pose/calibration state plus `survey` status, logs, run directory, and artifacts |
-| POST | `/api/vision/survey/start` | Start a supervised recorded suite, e.g. `{"acknowledge_motion":true,"gaits":[1,11],"speed_mm_s":30,"direction_s":8,"adaptive_centering":true,"soft_recovery":true,"max_recoveries":2}` |
-| POST | `/api/vision/survey/stop` | Interrupt the suite; its signal handler stops and limps, retaining captured artifacts |
-
-Soft recovery is only for confirmed pre-trip warnings. The canonical anomaly
-response matrix is in [`../EMERGENCY_HANDLING.md`](../EMERGENCY_HANDLING.md).
-A single missing reply does not stop or reposition the robot; persistent servo
-loss requires three consecutive incomplete scans with distinct fresh
-timestamps. After a recoverable signal or framework stop, a normal camera view
-plus three fresh healthy telemetry samples permits up to two retries of the
-complete failed step. Tip, visibly bad posture, brownout, confirmed heat, jam,
-surprise force, hard/sustained current, and stand/plant blend failures never
-resume automatically. An ordinary camera/recorder/framework failure uses a
-phase-aware stop and hold when walking, or preserves the pose when already
-stationary—never an automatic sit or safe-zero. Heat requires three
-consecutive over-threshold samples from the same joint. After a thermal limp,
-the raw camera and telemetry logs remain open until three complete samples are
-below the warm threshold (or the five-minute cooldown timeout). A later
-safe-zero requires a normal live camera view and three recovered healthy
-samples; hands-on correction is needed only if those remain inconclusive. Tilt also requires three
-valid consecutive samples; an instantaneous near-180-degree Euler jump that
-contradicts the gyro is logged and excluded from the trip vote rather than
-being mistaken for a physical tip.
-
-The survey keeps the initial guarded-preflight chassis image position as its
-centering anchor and resolves duplicate floor-tag IDs by global reprojection
-fit. A completed run contains raw/annotated video, camera timestamps,
-hardware telemetry/events, AprilTag poses, `apriltag_motion.json`, a matched
-MuJoCo replay/video, `comparison.json`, and `manifest.json`. Aggregate repeated
-runs with `uv run python -m
-rl_move.scripts.summarize_scripted_gait_reliability --runs
-rl_move/hardware_traces --output
-rl_move/hardware_traces/gait_reliability.json`.
+Cameras and poses are served by the tracker camera server on the Mac at
+`http://localhost:8766` (`/status.json`, `/api/cameras/health`, `/api/poses`,
+`/api/pose-state`, `/snapshot/<slot>.jpg`; see
+`hexapod-tracker/docs/LLM_HANDOFF.md`). The hub's former `/api/vision/*`
+routes, including the vision-page gait survey (`POST /api/vision/survey/start`),
+were removed on 2026-09-12.
 
 ## Stream-loss fail policy (2026-09-10 fix)
 

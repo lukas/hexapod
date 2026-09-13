@@ -231,51 +231,18 @@ The implementation, configs, tests, and camera UI live in the
 [`hexapod-tracker`](../hexapod-tracker) submodule. The historical
 `linux_control` commands are compatibility adapters for existing workflows.
 
-For the cleaner React/TypeScript interface, build once and open it from the
-same local web hub used by the robot and simulator UI:
+Cameras are served by the tracker's multi-camera server on `:8766`, run as a
+launchd job by `hexapod-tracker/tools/camera_service.sh` (see
+[`hexapod-tracker/docs/LLM_HANDOFF.md`](../hexapod-tracker/docs/LLM_HANDOFF.md)).
+It discovers the attached cameras at every launch, pins each slot by its
+AVFoundation stable id, keeps one camera per USB host controller, and
+relaunches itself when the rig changes. Robot Lab, the sysid runner and the
+calibration programs read frames from it over HTTP; nothing else opens a
+camera. The hub on `:8898` no longer has a vision page or camera worker.
 
-```bash
-make vision-build
-make vision                       # http://localhost:8898/vision
-```
-
-The camera is off by default. The page can start/stop capture and switch
-OpenCV camera indexes, shows direct robot-tag/floor-tag/
-foot coverage, waits for a stable fully observed pose, and records a robust
-multi-frame visual-versus-encoder calibration report. Reports are written to
-`artifacts/apriltag_pose/calibrations/`. A reviewed 12/12 report can be applied
-as `robot_pose.visual_joint_bias_deg` in the vision config. This corrects only
-the displayed AprilTag yaw/hip angles; it never moves a motor or rewrites a
-servo zero. Knees remain visually unobservable without tibia/yoke markers.
-
-`/vision` owns one camera at a time. To see several USB cameras at once, run
-the submodule's multi-camera server instead, conventionally on `:8766`, and
-prefer the native AVFoundation path — the OpenCV backend has produced torn
-frames here. Pin each slot to a camera by its AVFoundation stable id so
-replugging cannot reassign it:
-
-```bash
-OPENCV_AVFOUNDATION_SKIP_AUTH=1 uv run hexapod-camera-server \
-  --indices 0 1 2 3 --native-avfoundation 0 1 2 3 \
-  --device-id 0:<uniqueID> --device-id 1:<uniqueID> \
-  --device-id 2:<uniqueID> --device-id 3:<uniqueID> \
-  --host 127.0.0.1 --port 8766
-```
-
-Read the ids from `/status.json`. Bare `--indices` numbers slots only, and
-AVFoundation renumbers those whenever any camera joins or leaves.
-
-Two traps when several cameras are attached, both documented with measurements
+One trap when several cameras are attached, documented with measurements
 in [`hexapod-tracker/docs/LLM_HANDOFF.md`](../hexapod-tracker/docs/LLM_HANDOFF.md):
 
-- **Stopping the `/vision` camera does not release it.** After
-  `POST /api/vision/camera/stop`, `/api/vision/state` reports the camera `off`,
-  but the `:8898` process can still hold the device; another process then fails
-  to open it with `AVFoundationErrorDomain Code=-11817`, naming the holder in
-  `AVErrorPIDKey`. Only restarting that process frees the camera, and
-  restarting `:8898` is not free — it is the robot-control surface, and
-  `make web-8898-restart` relaunches from the working tree, so it changes the
-  served code.
 - **One USB 2.0 bus carries about two full-resolution OV9281 streams.** These
   cameras have no compressed mode, so several on a single hub will starve.
   Spread them across separate USB host controllers; a hub adds no bandwidth.

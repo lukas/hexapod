@@ -140,20 +140,6 @@ def make_https_server(bind: str, port: int,
     return server
 
 
-def _camera_indexes(value: str) -> tuple[int, ...]:
-    try:
-        indexes = tuple(dict.fromkeys(
-            int(item.strip()) for item in value.split(",") if item.strip()
-        ))
-    except ValueError as error:
-        raise argparse.ArgumentTypeError(
-            "camera indexes must be comma-separated integers"
-        ) from error
-    if not indexes or any(index < 0 for index in indexes):
-        raise argparse.ArgumentTypeError(
-            "camera indexes need one or more non-negative values"
-        )
-    return indexes
 
 
 def _json_body(handler: BaseHTTPRequestHandler) -> dict[str, Any]:
@@ -498,30 +484,6 @@ def build_arg_parser() -> argparse.ArgumentParser:
                          "cfg (e.g. its joint_action_box/bias values) "
                          "through the interactive web session so it "
                          "matches training instead of bare defaults")
-    ap.add_argument("--no-vision", action="store_true",
-                    help="disable the local /vision camera worker and page")
-    ap.add_argument("--vision-camera", type=int, default=0)
-    ap.add_argument("--vision-camera-cycle", type=_camera_indexes,
-                    default=(0, 1), metavar="INDEXES")
-    ap.add_argument("--vision-processing-width", type=int, default=1280)
-    ap.add_argument("--vision-target-fps", type=float, default=10.0)
-    ap.add_argument("--vision-opencv-threads", type=int, default=4)
-    ap.add_argument(
-        "--vision-capture-backend",
-        choices=("auto", "avfoundation", "opencv"),
-        default="auto",
-        help="camera transport; auto prefers native macOS NV12 capture",
-    )
-    ap.add_argument("--vision-capture-width", type=int, default=1920)
-    ap.add_argument("--vision-capture-height", type=int, default=1440)
-    ap.add_argument("--vision-capture-fps", type=float, default=30.0)
-    ap.add_argument(
-        "--vision-proxy", default=None, metavar="URL",
-        help="serve /vision and /api/vision/* by proxying the standalone "
-             "vision service (see sim_viewer/hexapod_vision_8766.sh) instead "
-             "of opening the camera in this process; the --vision-* capture "
-             "flags then belong to that service, not here",
-    )
     return ap
 
 
@@ -560,19 +522,6 @@ def main(session_factory: Callable[..., Any] | None = None) -> None:
         raise SystemExit("--https-port must be positive")
     if bool(args.tls_cert) != bool(args.tls_key):
         raise SystemExit("--tls-cert and --tls-key must be provided together")
-    if args.vision_camera < 0:
-        raise SystemExit("--vision-camera must be non-negative")
-    if (args.vision_processing_width != 0
-            and args.vision_processing_width < 320):
-        raise SystemExit("--vision-processing-width must be 0 or at least 320")
-    if args.vision_target_fps <= 0.0:
-        raise SystemExit("--vision-target-fps must be positive")
-    if args.vision_opencv_threads <= 0:
-        raise SystemExit("--vision-opencv-threads must be positive")
-    if min(args.vision_capture_width, args.vision_capture_height) <= 0:
-        raise SystemExit("--vision-capture-width/height must be positive")
-    if args.vision_capture_fps <= 0.0:
-        raise SystemExit("--vision-capture-fps must be positive")
     if args.viewer and session_factory is None:
         _reexec_under_mjpython_for_viewer()
     use_hub = session_factory is None
@@ -611,50 +560,8 @@ def main(session_factory: Callable[..., Any] | None = None) -> None:
     http_srv = None
     https_srv = None
     https_thread = None
-    vision_runtime = None
     try:
         handler = handler_factory()
-        if args.vision_proxy and not args.no_vision:
-            # The camera lives in its own process now.  Keep the same URLs
-            # working here, but never open a capture device in the process
-            # that also bridges the robot.
-            linux_control = ROOT / "linux_control"
-            if str(linux_control) not in sys.path:
-                sys.path.insert(0, str(linux_control))
-            from vision_proxy import (  # noqa: PLC0415
-                wrap_handler_with_vision_proxy,
-            )
-            handler = wrap_handler_with_vision_proxy(
-                handler, args.vision_proxy)
-        elif not args.no_vision:
-            linux_control = ROOT / "linux_control"
-            if str(linux_control) not in sys.path:
-                sys.path.insert(0, str(linux_control))
-            from vision_server import (  # noqa: PLC0415
-                DEFAULT_REPORT_DIR,
-                DEFAULT_UI_DIR,
-                VisionRuntime,
-                materialize_default_config,
-                wrap_handler_with_vision,
-            )
-            vision_runtime = VisionRuntime(
-                materialize_default_config(),
-                camera_index=args.vision_camera,
-                camera_cycle=args.vision_camera_cycle,
-                processing_width=args.vision_processing_width,
-                target_fps=args.vision_target_fps,
-                opencv_threads=args.vision_opencv_threads,
-                capture_backend=args.vision_capture_backend,
-                capture_width=args.vision_capture_width,
-                capture_height=args.vision_capture_height,
-                capture_fps=args.vision_capture_fps,
-                robot_url=args.robot_url or None,
-                report_dir=DEFAULT_REPORT_DIR,
-            )
-            vision_runtime.start()
-            handler = wrap_handler_with_vision(
-                handler, vision_runtime, DEFAULT_UI_DIR
-            )
         cert_file = (args.tls_cert or DEFAULT_TLS_CERT).expanduser()
         key_file = (args.tls_key or DEFAULT_TLS_KEY).expanduser()
         ensure_tls_certificate(cert_file, key_file, args.bind,
@@ -674,18 +581,6 @@ def main(session_factory: Callable[..., Any] | None = None) -> None:
         https_url = f"https://{args.bind}:{args.https_port}/rl"
         print(f"sim web UI: {http_url}", flush=True)
         print(f"sim web UI (gamepad): {https_url}", flush=True)
-        if vision_runtime is not None:
-            print(
-                f"vision UI: https://{args.bind}:{args.https_port}/vision "
-                "(read-only)",
-                flush=True,
-            )
-        elif args.vision_proxy and not args.no_vision:
-            print(
-                f"vision UI: https://{args.bind}:{args.https_port}/vision "
-                f"(proxied to {args.vision_proxy}; no camera in this process)",
-                flush=True,
-            )
         if use_hub:
             robot = args.robot_url or "(connect from web UI)"
             print(f"hub target: {session.target} | robot: {robot}",
@@ -713,8 +608,6 @@ def main(session_factory: Callable[..., Any] | None = None) -> None:
             https_srv.server_close()
         if https_thread is not None:
             https_thread.join(timeout=2.0)
-        if vision_runtime is not None:
-            vision_runtime.stop()
         close = getattr(session, "close", None)
         if close:
             close()

@@ -182,3 +182,74 @@ The recurrent-torque re-selection in that run reproduces the original
 confirming the harness is stable; it is not a new training recommendation
 — that mechanism already FAILED its hardening canary (see FAIL verdict
 above) and is not being re-funded here.
+
+## Addendum, 2026-09-13 (second): load-triggered (GRF-gated) torque — built, screened, RULED OUT as tested
+
+The FAIL verdict's third named candidate was "a load-triggered L4
+stance-onset error", explicitly contrasted with a fixed-phase schedule.
+`probe_ps200_transfer.py` gained a `load_triggered` mechanism: the SAME
+5.0 N·m/0.3 s half-sine pulse as the recurrent-torque hypothesis, but
+fired on a RISING per-leg ground-reaction-force edge — read from the same
+`_foot_prev_force` sensor the base env already uses for slip pricing, one
+control tick behind real time (the causal sensing latency a force-gated
+controller would actually have) — instead of a wall-clock repeat. No
+schedule/phase parameters at all; the trigger is the leg's own sensed
+load. 8 new fast mechanics tests green (`rl_move/tests/test_probe_ps200_transfer.py`).
+
+Screened leg 1 (front pair, opposite the originally-suspected L4) and leg 4
+across GRF thresholds 2/5/8 N, full mesh, same seeds/command as every
+other case in this doc:
+
+| trigger leg | GRF threshold (N) | PS200 median peak (°) | range (°) |
+|---|---:|---:|---:|
+| L1 | 2 | 16.03 | 15.32–16.27 |
+| L1 | 5 | 15.40 | n=1 |
+| L1 | 8 | 15.70 | n=1 |
+| L4 | 2 | 7.68 | n=1 |
+| L4 | 5 | 1.70 | n=1 |
+| L4 | 8 | 15.38 | n=1 |
+
+L1 is a striking, ROBUST scale match at every threshold tried (15.3–16.3°
+against a 16.78° target) — but selectivity fails: the identical
+GRF-triggered pulse on this leg also drives `walkteach` to 10.88° and
+`allheading` to 13.43° (baselines 1.56°/1.54°), a 7–9x jump each, not the
+"PS200-specific" signature a real mechanism should show. L1's stance-onset
+load transition is evidently a property shared by all three deployed
+gaits' common tripod timing, not something distinguishing PS200's
+hardware behavior from the two lower-roll controls — ruled out on
+selectivity, the same gate the fixed-schedule recurrent torque passed and
+this does not.
+
+A same-day 4-seed follow-up sweep narrowed leg 4 further (thresholds
+2/4/6/8/10/12 N, `logs/ckpt_eval/ps200_transfer_probe_loadtrig_20260913/l4_threshold_sweep_rows.json`):
+medians of 7.69 / 1.56 / 13.95 / 8.55 / 2.29 / 15.14° with wide,
+non-monotonic seed ranges at several doses (e.g. thr=8 N: 1.58–15.38°
+across 4 seeds). A single fixed force threshold on this leg is not a
+stable, reproducible trigger — whether it fires at all this run depends
+sensitively on incidental per-seed phase alignment, not a clean
+physical crossing. This is not the well-behaved dose-response the L1
+screen or the static deadband/zero panels showed; it does not meet the
+bar for a training recommendation regardless of scale match at any one
+threshold.
+
+**Decision: RULED OUT as tested.** Neither leg makes a load-triggered,
+GRF-threshold-gated pulse a fundable mechanism: L1 is robust but
+non-selective (shared by every deployed gait); L4 is selective in
+principle (very different response across nearby thresholds/seeds on
+this leg alone) but too noisy/threshold-sensitive in this simple
+single-instant-crossing form to trust. This also confirms, from the sim
+side alone, the 07:0x-cycle finding that this cloud pod has no reachable
+real per-leg force/current/contact-timing telemetry from the actual
+PS200 hardware run (checked again: `hexapod-vision-lab{,2}`/
+`camera-relay`/`buildviz-hub` only hold clip mp4s/annotation jpgs; the
+Robot Lab dashboard API needs SSO this pod does not have) — without that
+real trigger shape/timing to fit against, further blind threshold/leg/
+duration tuning of this candidate is not a well-motivated next probe.
+**No training funded.** Next sim-only step, if one is wanted before real
+telemetry is available: a genuinely different operationalization (e.g. a
+double-support-transition detector using BOTH legs' forces, or an
+asymmetric front-vs-rear load-share trigger) — not another single-leg
+threshold dose of the same shape. The more decisive unblock remains
+Robot Lab/operator exporting the hardware run's joint/current/contact
+timing (or SSO access) so a candidate can be fit to real data instead of
+screened blind.

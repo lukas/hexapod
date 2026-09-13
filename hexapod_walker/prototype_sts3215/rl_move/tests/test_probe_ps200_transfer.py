@@ -7,6 +7,7 @@ import pytest
 from rl_move.sim.domain_rand import DomainRandomizer, RandRanges
 from rl_move.sim.probe_ps200_transfer import (
     Intervention,
+    TransferProbeEnv,
     _policy_cfg,
     periodic_active,
     periodic_half_sine,
@@ -109,6 +110,82 @@ def test_deadband_intervention_defaults_to_nominal_scale():
     dosed = Intervention("deadband_x6", mechanism="deadband",
                          deadband_scale=6.0)
     assert dosed.deadband_scale == pytest.approx(6.0)
+
+
+def test_load_trigger_defaults_and_fields():
+    iv = Intervention("baseline")
+    assert iv.mechanism == "none"
+    assert iv.trigger_leg == 4
+    assert iv.force_threshold_n == pytest.approx(0.0)
+    dosed = Intervention("loadtrig_L1_thr5_peak5.00_d0.3",
+                         mechanism="load_triggered", trigger_leg=1,
+                         force_threshold_n=5.0, torque_peak_nm=5.0,
+                         duration_s=0.3)
+    assert dosed.trigger_leg == 1
+    assert dosed.force_threshold_n == pytest.approx(5.0)
+
+
+def test_load_trigger_fires_only_on_rising_grf_edge(monkeypatch):
+    monkeypatch.setenv("HEXAPOD_MODEL_SOURCE", "mesh")
+    iv = Intervention("lt", mechanism="load_triggered", trigger_leg=4,
+                      force_threshold_n=5.0)
+    fake = SimpleNamespace(
+        _foot_prev_force=[0.0] * 6, _lt_was_high=False,
+        _lt_pulse_start_step=None, _step_i=10)
+    TransferProbeEnv._lt_maybe_trigger(fake, iv)
+    assert fake._lt_pulse_start_step is None  # below threshold: no edge
+
+    fake._foot_prev_force[4] = 6.0
+    fake._step_i = 11
+    TransferProbeEnv._lt_maybe_trigger(fake, iv)
+    assert fake._lt_pulse_start_step == 11  # rising edge -> pulse starts
+
+    fake._step_i = 12  # stays loaded: must NOT retrigger
+    TransferProbeEnv._lt_maybe_trigger(fake, iv)
+    assert fake._lt_pulse_start_step == 11
+
+    fake._foot_prev_force[4] = 0.0  # unloads
+    fake._step_i = 13
+    TransferProbeEnv._lt_maybe_trigger(fake, iv)
+    assert fake._lt_pulse_start_step == 11  # unchanged, no edge on drop
+
+    fake._foot_prev_force[4] = 7.0  # loads again: new edge
+    fake._step_i = 20
+    TransferProbeEnv._lt_maybe_trigger(fake, iv)
+    assert fake._lt_pulse_start_step == 20
+
+    # A different leg's force never arms this trigger leg's edge.
+    other = SimpleNamespace(
+        _foot_prev_force=[9.0, 9.0, 9.0, 9.0, 0.0, 9.0], _lt_was_high=False,
+        _lt_pulse_start_step=None, _step_i=0)
+    TransferProbeEnv._lt_maybe_trigger(other, iv)
+    assert other._lt_pulse_start_step is None
+
+
+def test_load_trigger_torque_is_smooth_half_sine_after_pulse_starts():
+    dt = 0.02
+    iv = Intervention("lt", mechanism="load_triggered", torque_peak_nm=5.0,
+                      duration_s=0.3)
+    fake = SimpleNamespace(
+        intervention=iv, dt=dt, _step_i=100,
+        _goal_traj=SimpleNamespace(mode="walk"),
+        _lt_pulse_start_step=None, _lt_active_ticks=0)
+    torque = TransferProbeEnv._walk_push_torque_nm
+    assert torque(fake) == 0.0  # no pulse armed yet
+
+    fake._lt_pulse_start_step = 100
+    assert torque(fake) == pytest.approx(0.0, abs=1e-9)  # elapsed 0
+    fake._step_i = 107  # elapsed = 7 * dt = 0.14 s, inside the 0.3 s window
+    elapsed = 7 * dt
+    assert torque(fake) == pytest.approx(
+        5.0 * math.sin(math.pi * elapsed / 0.3))
+    fake._step_i = 100 + round(0.3 / dt)  # pulse has ended
+    assert torque(fake) == 0.0
+    assert fake._lt_active_ticks == 2  # the two in-window calls above
+
+    fake._goal_traj = SimpleNamespace(mode="rise")
+    fake._step_i = 105
+    assert torque(fake) == 0.0  # gated off outside walk mode
 
 
 def test_policy_cfg_pins_a_degenerate_deadband_range(monkeypatch):

@@ -81,6 +81,14 @@ class Intervention:
     duration_s: float = 0.3
     phase_s: float = 0.0
     start_s: float = 2.0
+    # ``load_triggered`` mechanism (2026-09-13 addendum): the recurrent
+    # ``roll_torque`` pulse above fires on a blind wall-clock schedule.
+    # This fires the SAME half-sine pulse shape gated on a sensed per-leg
+    # ground-reaction-force crossing, i.e. real stance onset, not a timer
+    # -- the FAIL verdict's third named candidate ("load-triggered L4
+    # stance-onset error").
+    trigger_leg: int = 4
+    force_threshold_n: float = 0.0
 
 
 def periodic_phase_s(t_s: float, *, start_s: float, period_s: float,
@@ -134,21 +142,56 @@ class TransferProbeEnv(SimHexapodJointWalkEnv):
                     raise ValueError(f"mesh model has no L{leg}_foot geom")
                 gids.append(gid)
             self._dropout_gids = tuple(gids)
+        # load_triggered edge-detector state: which control tick (if any)
+        # the current GRF-gated pulse started on, plus the hysteresis flag
+        # used to fire on RISING edges only (never re-arm while the leg
+        # stays loaded through one long stance).
+        self._lt_pulse_start_step: int | None = None
+        self._lt_was_high: bool = False
+        self._lt_active_ticks: int = 0
+
+    def _lt_maybe_trigger(self, iv: Intervention) -> None:
+        """Start a new pulse on a rising per-leg contact-force edge.
+
+        Reads ``_foot_prev_force[trigger_leg]`` -- the SAME sensed force
+        the base env already tracks for slip pricing -- as it stood at the
+        end of the PREVIOUS control tick (this tick's physics has not run
+        yet), so the trigger is causally one tick behind the true onset,
+        exactly the latency a real force-gated controller would see.
+        """
+        sensed = self._foot_prev_force[iv.trigger_leg]
+        is_high = sensed >= iv.force_threshold_n
+        if is_high and not self._lt_was_high:
+            self._lt_pulse_start_step = self._step_i
+        self._lt_was_high = is_high
 
     def _walk_push_torque_nm(self) -> float:
-        if self.intervention.mechanism != "roll_torque":
-            return super()._walk_push_torque_nm()
-        if (self._goal_traj is None
-                or getattr(self._goal_traj, "mode", "") != "walk"):
-            return 0.0
-        return periodic_half_sine(self._step_i * self.dt, self.intervention)
+        iv = self.intervention
+        in_walk = (self._goal_traj is not None
+                  and getattr(self._goal_traj, "mode", "") == "walk")
+        if iv.mechanism == "roll_torque":
+            if not in_walk:
+                return 0.0
+            return periodic_half_sine(self._step_i * self.dt, iv)
+        if iv.mechanism == "load_triggered":
+            if not in_walk or self._lt_pulse_start_step is None:
+                return 0.0
+            elapsed = (self._step_i - self._lt_pulse_start_step) * self.dt
+            if elapsed < 0.0 or elapsed >= iv.duration_s - 1e-12:
+                return 0.0
+            self._lt_active_ticks += 1
+            return iv.torque_peak_nm * math.sin(
+                math.pi * elapsed / iv.duration_s)
+        return super()._walk_push_torque_nm()
 
     def _advance(self, *, limp: bool = False) -> None:
         iv = self.intervention
+        in_walk = (self._goal_traj is not None
+                  and getattr(self._goal_traj, "mode", "") == "walk")
+        if not limp and iv.mechanism == "load_triggered" and in_walk:
+            self._lt_maybe_trigger(iv)
         active = (
-            not limp and iv.mechanism == "support_loss"
-            and self._goal_traj is not None
-            and getattr(self._goal_traj, "mode", "") == "walk"
+            not limp and iv.mechanism == "support_loss" and in_walk
             and periodic_active(self._step_i * self.dt, iv)
         )
         if not active or not self._dropout_gids:
@@ -305,6 +348,11 @@ def rollout(spec: PolicySpec, intervention: Intervention, *, seed: int,
                 term_reason = str(info.get("termination_reason") or "")
                 break
     finally:
+        if intervention.mechanism == "load_triggered":
+            # Ticks counted from inside the env's own trigger (the outer
+            # loop above cannot know a pulse fired until AFTER env.step
+            # runs its physics -- see _lt_maybe_trigger's docstring).
+            event_ticks = env._lt_active_ticks
         env.close()
 
     zero_bias = ((reset_info.get("randomization") or {})
@@ -483,6 +531,20 @@ def _write_outputs(out_dir: Path, rows: list[dict], cases: list[Intervention],
             f"{s['peak_abs_roll_range_deg'][0]:.2f}–"
             f"{s['peak_abs_roll_range_deg'][1]:.2f} | "
             f"{s['terminations']}/{s['n']} |")
+    loadtrig_lines = []
+    for case in cases:
+        if case.mechanism != "load_triggered":
+            continue
+        s = _summary(rows, "ps200", case.name)
+        if not s:
+            continue
+        loadtrig_lines.append(
+            f"| L{case.trigger_leg} | {case.force_threshold_n:g} | "
+            f"{case.torque_peak_nm:.2f} | "
+            f"{s['peak_abs_roll_median_deg']:.2f} | "
+            f"{s['peak_abs_roll_range_deg'][0]:.2f}–"
+            f"{s['peak_abs_roll_range_deg'][1]:.2f} | "
+            f"{s['terminations']}/{s['n']} |")
     candidate_rows = []
     for policy in POLICIES:
         b = _summary(rows, policy, "baseline")
@@ -521,6 +583,17 @@ up to 1.8x nominal — doses below go well past that ceiling.
 | deadband multiplier | PS200 median peak (°) | range (°) | terminations |
 |---:|---:|---:|---:|
 {chr(10).join(deadband_lines)}
+
+## Load-triggered (GRF-gated) recurrent torque dose
+
+Same half-sine pulse shape as the recurrent-torque hypothesis (5.0 N·m,
+0.3 s), but fired on a RISING per-leg ground-reaction-force edge (real
+stance onset, one control tick of causal sensing latency) instead of a
+fixed wall-clock schedule — the FAIL verdict's third named candidate.
+
+| trigger leg | GRF threshold (N) | torque (N·m) | PS200 median peak (°) | range (°) | terminations |
+|---|---:|---:|---:|---:|---:|
+{chr(10).join(loadtrig_lines)}
 
 ## Best screened mechanism (static dose or recurrent phase-lock)
 
@@ -602,8 +675,29 @@ def main() -> int:
         # per-episode physical property, not a phase-locked world edit.
         for dose in (2, 3, 4, 6, 8, 12)
     ]
+    load_triggered_cases = [
+        Intervention(
+            f"loadtrig_L{leg}_thr{thr:g}_peak{peak:.2f}_d{dur:.1f}",
+            mechanism="load_triggered", trigger_leg=leg,
+            force_threshold_n=thr, torque_peak_nm=peak, duration_s=dur)
+        # Same half-sine pulse SHAPE/scale as the already-selected fixed-
+        # schedule recurrent torque (5.0 N*m, 0.3 s) that passed the
+        # frozen-policy gate, but now gated on a sensed per-leg GRF
+        # crossing (real stance onset on the trigger leg) instead of a
+        # blind wall-clock repeat -- the FAIL verdict's named "load-
+        # triggered L4 stance-onset error" candidate. Screens both the
+        # original L4 suspect and L1 (the other front-pair leg, in case
+        # the mechanism is a front-pair rather than L4-specific effect)
+        # across three GRF thresholds spanning "any contact" to "solidly
+        # loaded" (contact-on convention elsewhere in this file is
+        # force > 0.5 N; meaningful-contact conventions use ~1 N).
+        for leg in (1, 4)
+        for thr in (2.0, 5.0, 8.0)
+        for peak in (5.0,)
+        for dur in (0.3,)
+    ]
     cases = [baseline, *zero_cases, *dropout_cases, *torque_cases,
-             *deadband_cases]
+             *deadband_cases, *load_triggered_cases]
     rows: list[dict] = []
 
     print("[1/4] PS200 baseline + frame-coupled zero panel")
@@ -626,18 +720,23 @@ def main() -> int:
         print(f"  {case.name:<24} peak median "
               f"{s['peak_abs_roll_median_deg']:5.2f} deg")
 
-    print("[3/4] PS200 phase screens: L4 support loss + recurrent roll torque")
+    print("[3/4] PS200 phase/GRF screens: L4 support loss, recurrent roll "
+          "torque, load-triggered torque")
     screen_seed = seeds[0]
-    for i, case in enumerate((*dropout_cases, *torque_cases), start=1):
+    screen_cases = (*dropout_cases, *torque_cases, *load_triggered_cases)
+    for i, case in enumerate(screen_cases, start=1):
         rows.append(rollout(POLICIES["ps200"], case, seed=screen_seed,
                             episode_s=args.episode_s, cmd_m_s=args.cmd))
         if i % 6 == 0:
-            print(f"  screened {i}/{len(dropout_cases) + len(torque_cases)}")
+            print(f"  screened {i}/{len(screen_cases)}")
 
     best_dropout = _closest_case(rows, "support_loss", args.target_roll_deg)
     best_torque = _closest_case(rows, "roll_torque", args.target_roll_deg)
     best_deadband = _closest_case(rows, "deadband", args.target_roll_deg)
-    finalists = [best_dropout, best_torque, best_deadband]
+    best_load_triggered = _closest_case(
+        rows, "load_triggered", args.target_roll_deg)
+    finalists = [best_dropout, best_torque, best_deadband,
+                best_load_triggered]
     # Fill each screen winner out to the requested seed panel (deadband
     # cases already ran the full seed panel in step 2/4, so this is a
     # no-op for it via the `done` seed-set check below).
@@ -657,10 +756,11 @@ def main() -> int:
             - args.target_roll_deg),
     )
     candidate_case = _case_by_name(cases, candidate)
-    print(f"  support finalist:   {best_dropout}")
-    print(f"  torque finalist:    {best_torque}")
-    print(f"  deadband finalist:  {best_deadband}")
-    print(f"  selected:           {candidate}")
+    print(f"  support finalist:      {best_dropout}")
+    print(f"  torque finalist:       {best_torque}")
+    print(f"  deadband finalist:     {best_deadband}")
+    print(f"  load-triggered finalist: {best_load_triggered}")
+    print(f"  selected:              {candidate}")
 
     print("[4/4] Identical candidate + baseline on lower-roll controls")
     for policy_name in ("walkteach", "allheading"):

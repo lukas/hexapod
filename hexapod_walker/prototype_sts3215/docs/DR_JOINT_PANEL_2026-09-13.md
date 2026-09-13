@@ -162,3 +162,47 @@ runs `cw-speed50hz-ps200dr-arm{ctrl,wide,struct}-cont8m` (10M total,
 dose). The 10M matched comparison is the discovery decision point; a
 winner triggers second-seed replication per the pre-registration. Held-out
 manifest remains selection-free (gates only).
+
+## Addendum 3 (2026-09-13 refill cycle): matched-budget verdict — no winner at
+the ~8M/10M continuation; ARM-COMBO pre-registered as the dose-composition
+follow-up
+
+Held-out gate re-run on each `-cont8m` checkpoint's own pod (raw zip,
+frozen `heldout_manifest.json`, same harness):
+
+| arm | roll cut overall/hard | falls | gait_valid | robust speed loss | nominal ratio |
+|---|---|---|---|---|---|
+| CTRL   | 0.02 / 0.17  | 0 | 0.93 | -0.01 | 1.03 |
+| WIDE   | -0.12 / -0.02 | 0 | 0.93 | -0.01 | 0.98 |
+| STRUCT | -0.01 / 0.12 | 0 | 0.87 | 0.01  | 1.02 |
+
+None clears clause (a) (needs >=30% overall AND hard); neither WIDE nor
+STRUCT beats CTRL's hard-subset reduction at matched budget (both arms'
+own hard-subset numbers WORSENED since their 2M canary: WIDE 0.17->-0.02,
+STRUCT 0.10->0.12 roughly flat/worse-overall). `rollout/ep_rew_mean` by
+decile (own W&B history) is flat-to-declining in the back half of training
+for all three (e.g. CTRL 1333.8@50%->1209.4@100%, WIDE 685.5->653.8,
+STRUCT 1032.0->860.9, STRUCT's last two deciles falling outright) — per
+the 08-21 ruling this is the genuine-mechanism-verdict case (flat/falling
+reward + bad eval), not a "let it run longer" case. Verdict: independent-DR
+widening alone (ARM-WIDE) and the hard-region overlay alone (ARM-STRUCT),
+each at these PanelBounds-derived doses and this budget, are INSUFFICIENT
+to clear the pre-registered roll-robustness bar and neither beats the
+plain-continuation control — this closes the two single-lever arms as
+pre-registered (see per-run verdicts in RL_LOG/experiments.json).
+
+Per this doc's own Addendum-2 text ("no winner ... next lever is dose
+composition ... new pre-registration required"), the follow-up is
+**ARM-COMBO**: WIDE's full independent-DR widening (identical `dr.*`
+overrides) PLUS STRUCT's `dr.struct_dr_prob=0.6` hard-region overlay in
+the SAME arm, same frozen parent, same 2M discovery budget/ramp
+(`env.dr_stage_ramp_steps=1000000`), one seed — `cw-speed50hz-ps200dr-
+armcombo-disc2m`. Rationale: WIDE and STRUCT are non-exclusive mechanisms
+(uniform-wider sampling vs. concentrated hard-region overlay); neither
+alone reached the bar, but their directions of effect were never tested
+jointly. Same held-out gate, same five clauses; mechanism credit requires
+beating BOTH CTRL-cont8m's and the better of WIDE/STRUCT's cont8m
+hard-subset reduction (0.17). A discovery-budget non-mover (flat reward,
+no gate movement) closes the dose-composition lever too and leaves PS200
+signature replication parked on hardware telemetry per Addendum 0's
+standing note.

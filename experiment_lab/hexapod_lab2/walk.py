@@ -458,6 +458,10 @@ class Session:
         self.rl_json("/api/rl/roles", {"role": "hold", "file": policy})
         if self.rl_json("/api/rl/preflight?mode=walk").get("ok"):
             return True
+        return self.rl_walk_ready()
+
+    def rl_walk_ready(self) -> bool:
+        """Stand into the sim walk-ready stance with the RL stand routine and confirm with preflight."""
         self.log("not walk-ready; asking the robot to stand into the walk-ready stance")
         st = self.rl_json("/api/rl/stand", {})
         if not st.get("ok"):
@@ -479,6 +483,12 @@ class Session:
         """Open the drive session and wait until it is live: drive/start is asynchronous,
         and a command sent before the loop is up answers 'no drive session'."""
         r = self.rl_json("/api/rl/drive/start", {})
+        if not r.get("ok") and "walk-ready" in str(r.get("error", "")):
+            # The previous leg's policy stop left a hip far from the stance (2026-09-12: L4 hip
+            # 71 deg off). Stand into it once and ask again, as the scripted gait path does.
+            self.notes.append("drive/start refused for pose; re-standing into walk-ready and retrying once")
+            if self.rl_walk_ready():
+                r = self.rl_json("/api/rl/drive/start", {})
         if not r.get("ok"):
             self.notes.append(f"drive/start refused: {r.get('error')}")
             return False

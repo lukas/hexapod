@@ -149,8 +149,10 @@ def test_runner_dispatches_walk_protocols_in_process(settings, tmp_path, monkeyp
     assert "fwd30" in res.log_tail
 
 
-def _rl_rig(**kw):
-    """The scripted rig plus the RL drive API: policy_select, roles, preflight, stand, drive start/cmd/stop."""
+def _rl_rig(stop_unsettles_pose=False, **kw):
+    """The scripted rig plus the RL drive API: policy_select, roles, preflight, stand, drive start/cmd/stop.
+    ``stop_unsettles_pose``: every drive stop leaves the robot off the walk-ready stance, so the next
+    drive/start is refused by preflight until /api/rl/stand runs again."""
     state, post, get, sleep, clock = _rig(**kw)
     rl = {"policy": None, "roles": [], "ready": False, "drive": False, "cmds": [], "starts": 0, "stops": 0, "standing_job": False}
     state["rl"] = rl
@@ -165,7 +167,10 @@ def _rl_rig(**kw):
             if url.endswith("/api/rl/stand"):
                 rl["ready"] = True; state["knee"] = 80.0; state["mode"] = "stand"; return {"ok": True}
             if url.endswith("/api/rl/drive/start"):
-                rl["starts"] += 1; rl["drive_live_at"] = state["t"] + 0.6; return {"ok": True}   # async: live 0.6 s later
+                rl["starts"] += 1
+                if not rl["ready"]:
+                    return {"ok": False, "error": "preflight: pose is not the sim walk-ready start: joint 13 is 71 deg from expected (tol 25)"}
+                rl["drive_live_at"] = state["t"] + 0.6; return {"ok": True}   # async: live 0.6 s later
             if url.endswith("/api/rl/drive/cmd"):
                 if rl.get("drive_live_at") is not None and state["t"] >= rl["drive_live_at"]:
                     rl["drive"] = True
@@ -174,7 +179,10 @@ def _rl_rig(**kw):
                     state["vx"], state["vy"], state["om"] = body["vx"] * 1000.0, body["vy"] * 1000.0, body["wz"]
                 return {"ok": rl["drive"], "active": rl["drive"]}
             if url.endswith("/api/rl/drive/stop"):
-                rl["drive"] = False; rl["stops"] += 1; state["vx"] = state["vy"] = state["om"] = 0.0; return {"ok": True}
+                rl["drive"] = False; rl["stops"] += 1; state["vx"] = state["vy"] = state["om"] = 0.0
+                if stop_unsettles_pose:
+                    rl["ready"] = False
+                return {"ok": True}
             raise AssertionError(url)
         return post(url, body, raw)
 
@@ -386,3 +394,15 @@ def test_an_obstacle_shortens_rl_legs_without_turning_them_into_scripted_gait(se
     assert legs and all(l["seconds"] <= walk.OBSTACLE_LEG_S + 0.5 for l in legs), legs
     assert state["rl"]["cmds"], "RL drive was not used"
     assert not any(not c.startswith("J 0 0 0") for c in state["cmds"]), "scripted gait was streamed"
+
+
+def test_a_drive_start_refused_for_pose_re_stands_and_retries_once(settings, tmp_path):
+    state, post, get, sleep, clock = _rl_rig(stop_unsettles_pose=True, speed_ratio=0.5)
+    doc = _doc(legs=[{"name": "fwd80", "vx_mm_s": 80, "seconds": 5}], rl_policy="walkteach_allhead_acq12m_100hz.json")
+    res = walk.run_walk(settings, doc, tmp_path, post=post, get=get, sleep=sleep, clock=clock, log=lambda m: None)
+    assert res["status"] == "ok", res["log_tail"]
+    legs = res["summary"]["legs"]
+    assert [l["stopped"] for l in legs] == ["duration", "duration"], legs
+    rl = state["rl"]
+    assert rl["starts"] == 3 and rl["stops"] == 2                      # second leg: refused, re-stood, started
+    assert sum(1 for n in res["summary"]["notes"] if "re-standing into walk-ready" in n) == 1

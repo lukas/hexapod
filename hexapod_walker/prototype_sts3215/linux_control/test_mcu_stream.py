@@ -271,18 +271,24 @@ def test_step_all_round_trip():
     snap = bus.step_all(degrees, speed=400, acc=20)
     assert snap is not None
 
-    # TX side: exactly the 'S' frame write_all would have sync-written.
-    want_items = [(joint_to_servo_id(j), deg_to_count(j, degrees[j], 0.0),
+    # The API tibia is absolute; the physical knee hinge is tibia minus hip.
+    want_raw = [d - degrees[j - 1] if j % 3 == 2 else d
+                for j, d in enumerate(degrees)]
+    want_items = [(joint_to_servo_id(j), deg_to_count(j, want_raw[j], 0.0),
                    400, 20) for j in range(N_JOINTS)]
     assert bytes(bus._ser.tx) == encode_sync_frame(ord("S"), want_items)
 
     # RX side: engineering units.
     assert snap["seq"] == 42 and snap["pos_age_ms"] == 4
     for j in range(N_JOINTS):
+        expected = count_to_deg(j, 2048 + 10 * j)
+        if j % 3 == 2:
+            expected += count_to_deg(j - 1, 2048 + 10 * (j - 1))
         assert abs(snap["pos_deg"][j]
-                   - count_to_deg(j, 2048 + 10 * j)) < 1e-9
+                   - expected) < 1e-9
         assert abs(snap["speed_deg_s"][j]
-                   - speed_counts_to_deg_s(40)) < 1e-9
+                   - speed_counts_to_deg_s(80 if j % 3 == 2 else 40)) < 1e-9
+        assert snap['raw_pos_deg'][j] == count_to_deg(j, 2048 + 10 * j)
     imu = snap["imu"]
     assert imu is not None
     assert abs(imu["az_g"] - 1.0) < 1e-6
@@ -575,9 +581,18 @@ def test_open_recovers_when_a_later_stream_attempt_answers(monkeypatch):
 
 def test_no_stream_opt_out_is_gone():
     assert "HEXAPOD_NO_STREAM" not in mcu_feetech_bus.__doc__
-    assert not hasattr(McuFeetechBus, "read_all_positions")
     assert not hasattr(McuFeetechBus, "_flush_sync_ascii_fallback")
     assert not hasattr(McuFeetechBus, "_flush_sync_slow_wp_fallback")
+
+
+def test_pose_read_compatibility_uses_snapshot_transport_only():
+    bus = _mk_bus(b'')
+    calls = []
+    bus.read_snapshot = lambda: calls.append(1) or {
+        "pos_deg": {1: 20., 2: 80.}, "raw_pos_deg": {1: 20., 2: 60.}}
+    assert bus.read_all_positions() == {1: 20., 2: 80.}
+    assert bus.read_all_raw_positions([4]) == {2: 60.}
+    assert len(calls) == 2
 
 
 def _main() -> int:

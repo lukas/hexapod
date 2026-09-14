@@ -52,6 +52,7 @@ from feetech_bus import (  # noqa: E402
     FeetechBus,
     N_JOINTS,
     SERVO_IDS,
+    JOINT_SIGN,
     count_to_deg,
     deg_to_count,
     joint_of_servo,
@@ -59,6 +60,11 @@ from feetech_bus import (  # noqa: E402
     load_trims,
     normalize_acc,
     normalize_speed,
+    robot_pose_to_raw_degrees,
+    raw_positions_to_robot_degrees,
+    raw_feedback_to_robot_feedback,
+    raw_degree_to_count,
+    raw_pose_to_counts,
 )
 
 MCU_PORT_DEFAULT = "/dev/ttyHS1"
@@ -585,7 +591,9 @@ class McuFeetechBus:
                 count_to_deg(joint, int(count)) - float(self.trims[joint]))
             speeds[joint] = int(speed)
             accelerations[joint] = int(acc)
-        return command, speeds, accelerations
+        logical = raw_positions_to_robot_degrees(
+            {j: value for j, value in enumerate(command) if value is not None})
+        return [logical.get(j) for j in range(N_JOINTS)], speeds, accelerations
 
     def _emit_goal_items(self, items: list[tuple[int, int, int, int]], *,
                          kind: str, ok: bool | None = None) -> None:
@@ -594,6 +602,10 @@ class McuFeetechBus:
         command, speeds, accelerations = self._command_from_items(items)
         payload = {
             "command_deg": command,
+            "raw_command_deg": [next((count_to_deg(j, int(count))
+                for sid, count, _speed, _acc in items if int(sid) == j + 2), None)
+                for j in range(N_JOINTS)],
+            "raw_joint_frame": "servo_relative",
             "speed_counts_s": speeds,
             "acc_units": accelerations,
         }
@@ -607,6 +619,8 @@ class McuFeetechBus:
             return {"snapshot_ok": False}
         positions = snapshot.get("pos_deg") or {}
         speeds = snapshot.get("speed_deg_s") or {}
+        raw_positions = snapshot.get("raw_pos_deg", positions)
+        raw_speeds = snapshot.get("raw_speed_deg_s", speeds)
         return {
             "snapshot_ok": True,
             "snapshot_seq": snapshot.get("seq"),
@@ -614,9 +628,13 @@ class McuFeetechBus:
             "imu_age_ms": snapshot.get("imu_age_ms"),
             "position_deg": [positions.get(j) for j in range(N_JOINTS)],
             "speed_deg_s": [speeds.get(j) for j in range(N_JOINTS)],
+            "raw_position_deg": [raw_positions.get(j) for j in range(N_JOINTS)],
+            "raw_speed_deg_s": [raw_speeds.get(j) for j in range(N_JOINTS)],
             "servo_reports": snapshot.get("servo_reports", []),
-            "missing_servo_ids": [joint_to_servo_id(j) for j in range(N_JOINTS)
-                                  if j not in positions],
+            "missing_servo_ids": [j + 2 for j in range(N_JOINTS)
+                                  if j not in raw_positions],
+            "missing_joint_coordinates": [j for j in range(N_JOINTS)
+                                           if j not in positions],
             "imu": dict(snapshot["imu"])
             if isinstance(snapshot.get("imu"), dict) else None,
         }
@@ -1035,7 +1053,7 @@ class McuFeetechBus:
         # SCS-series 0.732 rpm/unit convention — a clean 50× inflation:
         # the battery's "1537 °/s" readings were exactly the commanded
         # 350 counts/s profile speed.)
-        speed_deg_s = float(spd) * 360.0 / 4096.0
+        speed_deg_s = JOINT_SIGN[joint] * float(spd) * 360.0 / 4096.0
         return {
             "joint": joint,
             "id": int(sid),
@@ -1091,7 +1109,7 @@ class McuFeetechBus:
         fb["temp_raw_c"] = raw
         fb["temp_c"] = prev["temp"]
 
-    def read_all_feedback(self, ids: list[int] | None = None
+    def read_all_raw_feedback(self, ids: list[int] | None = None
                           ) -> dict[int, dict]:
         """One MCU round-trip: FeedBack block for every id.
 
@@ -1099,6 +1117,8 @@ class McuFeetechBus:
         """
         got = self._bin_req(ord("F"), ids, timeout=1.5)
         out: dict[int, dict] = {}
+        self._fb_cache = {}
+        self._pos_cache = {}
         if not got:
             return out
         rn, payload = got
@@ -1109,8 +1129,11 @@ class McuFeetechBus:
                 continue
             self._filter_temp(fb)
             out[fb["joint"]] = fb
-            self._fb_cache[fb["id"]] = fb
-            self._pos_cache[fb["joint"]] = float(fb["deg"])
+        raw = out
+        out = raw_feedback_to_robot_feedback(raw, self.trims)
+        self._fb_cache = {fb['id']: fb for fb in out.values()}
+        self._pos_cache = {j: float(fb['deg']) for j, fb in out.items()
+                           if fb['deg'] is not None}
         self._fb_cache_mono = time.monotonic()
         self._pos_cache_mono = self._fb_cache_mono
         if getattr(self, "_telemetry_sink", None) is not None:
@@ -1121,6 +1144,10 @@ class McuFeetechBus:
                 "speed_deg_s": [
                     out[j].get("speed_deg_s") if j in out else None
                     for j in range(N_JOINTS)],
+                "raw_position_deg": [out[j].get('raw_deg') if j in out else None
+                                     for j in range(N_JOINTS)],
+                "raw_speed_deg_s": [out[j].get('raw_speed_deg_s') if j in out else None
+                                    for j in range(N_JOINTS)],
                 "current_a": [
                     out[j].get("current_a") if j in out else None
                     for j in range(N_JOINTS)],
@@ -1137,7 +1164,22 @@ class McuFeetechBus:
                     out[j].get("moving") if j in out else None
                     for j in range(N_JOINTS)],
             })
-        return out
+        return raw
+
+    def read_all_feedback(self, ids: list[int] | None = None) -> dict[int, dict]:
+        return raw_feedback_to_robot_feedback(self.read_all_raw_feedback(ids), self.trims)
+
+    def read_all_raw_positions(self, ids=None):
+        snapshot = self.read_snapshot()
+        raw = (snapshot or {}).get("raw_pos_deg") or {}
+        return {j: value for j, value in raw.items()
+                if ids is None or joint_to_servo_id(j) in ids}
+
+    def read_all_positions(self, ids=None):
+        snapshot = self.read_snapshot()
+        pos = (snapshot or {}).get("pos_deg") or {}
+        return {j: value for j, value in pos.items()
+                if ids is None or joint_to_servo_id(j) in ids}
 
     def _read_pos_counts(self, sid: int) -> int | None:
         """Direct single-servo present position in raw counts (``RP``)."""
@@ -1164,13 +1206,14 @@ class McuFeetechBus:
         if (time.monotonic() - self._pos_cache_mono < 0.05
                 and joint in self._pos_cache):
             return self._pos_cache[joint]
-        snap = self.read_snapshot()
-        if snap is not None and joint in snap["pos_deg"]:
-            return snap["pos_deg"][joint]
+        # Bulk-refresh all live (or default 2..19) — still 1 RTT.
+        bulk = self.read_all_positions(self._live_cache)
+        # An incomplete reply must not be filled from another hip sample.
+        return bulk.get(joint)
+
+    def read_raw_position_deg(self, joint: int) -> float | None:
         pos = self._read_pos_counts(joint_to_servo_id(joint))
-        if pos is None:
-            return None
-        return count_to_deg(joint, pos)
+        return None if pos is None else count_to_deg(joint, pos)
 
     def read_feedback(self, joint: int) -> dict | None:
         """Match ``FeetechBus.read_feedback`` (bulk path when possible)."""
@@ -1181,13 +1224,17 @@ class McuFeetechBus:
         bulk = self.read_all_feedback(self._live_cache)
         if joint in bulk:
             return bulk[joint]
-        # Fallback: single-id bulk.
-        bulk = self.read_all_feedback([sid])
+        # A knee requires its hip from this same feedback acquisition.
+        bulk = self.read_all_feedback([sid - 1, sid] if joint % 3 == 2 else [sid])
         return bulk.get(joint)
+
+    def read_raw_feedback(self, joint: int) -> dict | None:
+        return self.read_all_raw_feedback([joint_to_servo_id(joint)]).get(joint)
 
     def write_joint(self, joint: int, deg: float,
                     speed: int = 1500, acc: int = 30,
                     *, allow_max_speed: bool = False) -> None:
+        """Raw single-servo bench move; use write_all for logical poses."""
         speed = normalize_speed(speed, allow_max=allow_max_speed)
         acc = normalize_acc(acc)
         count = deg_to_count(joint, deg, self.trims[joint])
@@ -1198,10 +1245,28 @@ class McuFeetechBus:
         require_bus_available(self)
         speed = normalize_speed(speed, allow_max=allow_max_speed)
         acc = normalize_acc(acc)
-        for joint, deg in enumerate(degrees):
-            count = deg_to_count(joint, deg, self.trims[joint])
+        raw = robot_pose_to_raw_degrees(degrees, self.trims)
+        for joint, deg in enumerate(raw):
+            count = deg_to_count(joint, deg, 0.0)
             self.pkt.SyncWritePosEx(
                 joint_to_servo_id(joint), count, speed, acc)
+        self.pkt.groupSyncWrite.txPacket()
+        self.pkt.groupSyncWrite.clearParam()
+
+    def write_raw_joint(self, joint: int, deg: float,
+                        speed: int = 1500, acc: int = 30) -> None:
+        count = raw_degree_to_count(joint, deg)
+        self.pkt.WritePosEx(joint_to_servo_id(joint), count,
+                            normalize_speed(speed), normalize_acc(acc))
+
+    def write_raw_all(self, degrees, speed: int = 1500, acc: int = 30, *, ids=None) -> None:
+        require_bus_available(self)
+        counts = raw_pose_to_counts(degrees)
+        speed, acc = normalize_speed(speed), normalize_acc(acc)
+        for j, count in enumerate(counts):
+            sid = joint_to_servo_id(j)
+            if ids is None or sid in ids:
+                self.pkt.SyncWritePosEx(sid, count, speed, acc)
         self.pkt.groupSyncWrite.txPacket()
         self.pkt.groupSyncWrite.clearParam()
 
@@ -1225,10 +1290,11 @@ class McuFeetechBus:
         speed = normalize_speed(speed, allow_max=allow_max_speed)
         acc = normalize_acc(acc)
         degrees = [float(value) for value in degrees]
+        raw = robot_pose_to_raw_degrees(degrees, self.trims)
         items = []
-        for joint, deg in enumerate(degrees):
+        for joint, deg in enumerate(raw):
             items.append((joint_to_servo_id(joint),
-                          deg_to_count(joint, deg, self.trims[joint]),
+                          deg_to_count(joint, deg, 0.0),
                           speed, acc))
         snapshot = self._snapshot_txn(items, apply_calib=apply_calib)
         if getattr(self, "_telemetry_sink", None) is not None:
@@ -1258,6 +1324,7 @@ class McuFeetechBus:
         frame = encode_sync_frame(ord("S"), items)
         got = self._bin_txn(frame, ord("s"), SNAP_REC_LEN,
                             head_len=SNAP_HEAD_LEN, timeout=0.5)
+        self._pos_cache = {}
         if not got:
             return None
         rn, payload = got
@@ -1271,8 +1338,12 @@ class McuFeetechBus:
             deg = count_to_deg(joint, rec["pos_counts"])
             pos_deg[joint] = deg
             # STS speed unit is counts/s → deg/s = counts × 360/4096.
-            speed_deg_s[joint] = rec["spd_counts_s"] * 360.0 / 4096.0
-            self._pos_cache[joint] = deg
+            speed_deg_s[joint] = JOINT_SIGN[joint] * rec["spd_counts_s"] * 360.0 / 4096.0
+        raw_pos_deg = dict(pos_deg)
+        raw_speed_deg_s = dict(speed_deg_s)
+        pos_deg = raw_positions_to_robot_degrees(pos_deg, self.trims)
+        speed_deg_s = raw_positions_to_robot_degrees(speed_deg_s)
+        self._pos_cache = dict(pos_deg)
         self._pos_cache_mono = time.monotonic()
         imu = None
         if (snap["imu_age_ms"] != SNAP_AGE_INVALID
@@ -1286,6 +1357,8 @@ class McuFeetechBus:
             "imu_age_ms": snap["imu_age_ms"],
             "pos_deg": pos_deg,
             "speed_deg_s": speed_deg_s,
+            "raw_pos_deg": raw_pos_deg,
+            "raw_speed_deg_s": raw_speed_deg_s,
             "imu": imu,
             # Keep rejected per-servo records instead of losing their IDs
             # when the position dictionary filters an MCU ok=false entry.

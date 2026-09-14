@@ -8,6 +8,35 @@ from __future__ import annotations
 from .common import *  # noqa: F401,F403
 
 
+def validated_standup_frames(keyframes, *, down=False, trims=None):
+    """Preflight the authored path and optional replant before any motion."""
+    from safe_zero import validate_motor_pose_path
+    frames = [([float(v) for v in kf["q_deg"]], float(kf["s"]))
+              for kf in keyframes]
+    if not frames:
+        raise ValueError("stand-up has no keyframes")
+    if down:
+        qs = [q for q, _ in frames]
+        ss = [s for _, s in frames]
+        frames = [(qs[-1], 0.8)] + [
+            (qs[i], ss[i + 1]) for i in range(len(qs) - 2, -1, -1)]
+    # Check every motor endpoint (including possible replant lifts)
+    # before acquisition or arming. Relative knee limits constrain
+    # combinations of hip and absolute tibia, not either alone.
+    motor_path = [q for q, _ in frames]
+    replant_targets = [frames[-1][0]] if not down else (
+        [frames[1][0]] if len(frames) > 1 else [])
+    for target in replant_targets:
+        for legs in ((0, 2, 4), (1, 3, 5)):
+            lifted = list(target)
+            for leg in legs:
+                lifted[3 * leg + 1] -= 6.0
+                lifted[3 * leg + 2] += 6.0
+            motor_path.append(lifted)
+    validate_motor_pose_path(motor_path, trims)
+    return frames
+
+
 class StandupApi:
     # -- stand-up lab ---------------------------------------------------------
     # Sim-validated stand-up strategies (rl_move/sim/compare_standup.py):
@@ -74,6 +103,8 @@ class StandupApi:
                 ease_to_pose,
             )
             from drive_controller import MAX_SAFE_DELTA_DEG
+            from feetech_bus import robot_pose_to_raw_degrees
+            from safe_zero import validate_motor_pose_path
         except ImportError as e:
             return {"ok": False, "error": str(e)}
         if self.drive.dry_run or not self.drive.bus:
@@ -135,13 +166,11 @@ class StandupApi:
         # keeps each segment's duration with its segment: the glide from
         # keyframe i to i-1 takes what i-1 -> i took, plus a short
         # align glide onto the last keyframe first.
-        frames = [([float(v) for v in kf["q_deg"]], float(kf["s"]))
-                  for kf in keyframes]
-        if down:
-            qs = [q for q, _ in frames]
-            ss = [s for _, s in frames]
-            frames = [(qs[-1], 0.8)] + [
-                (qs[i], ss[i + 1]) for i in range(len(qs) - 2, -1, -1)]
+        try:
+            frames = validated_standup_frames(
+                keyframes, down=down, trims=getattr(self.drive.bus, "trims", None))
+        except (TypeError, KeyError, ValueError) as exc:
+            return {"ok": False, "code": "motor_limits", "error": str(exc)}
         first = frames[0][0]
         acquire_zero_first = False
         safe_down_instead = False
@@ -189,14 +218,9 @@ class StandupApi:
 
         def _worker():
             d = self.drive
-            with d._lock:
-                d.mode = "demo"
-                d.gait.stop()
-                if not d.armed:
-                    d._torque_all(True)
-                    d.armed = True
             live = _live_robot_ids(d.bus)
             tracker = CurrentPeakTracker()
+            arm_ready = d.armed
             result: dict = {"ok": False, "mode": mode,
                             "direction": direction}
             # Worker-local copy: the down path drops the wide frame
@@ -213,6 +237,9 @@ class StandupApi:
             except Exception:
                 pass
             try:
+                with d._lock:
+                    d.mode = "demo"
+                    d.gait.stop()
                 self._bus_hot_begin()
 
                 def _acq_prog(p: dict) -> None:
@@ -254,6 +281,20 @@ class StandupApi:
                                 "msg": self._demo_status}
                         return result
 
+                # Acquisition has its own preflight/guarded executor. A
+                # refused acquisition must not leave a previously limp
+                # robot armed merely because a stand was requested.
+                present, missing = self._present_pose18()
+                if missing:
+                    result["error"] = f"missing stand-up joints: {missing}"
+                    return result
+                validate_motor_pose_path(
+                    [present] + [q for q, _ in kf_path],
+                    getattr(d.bus, "trims", None))
+                with d._lock:
+                    if not d.armed:
+                        d.arm_at_present(torque, abort_check=self._demo_abort.is_set)
+                    arm_ready = True
                 _set_torque_limit(d.bus, live, torque)
                 _enable_torque(d.bus, live)
                 n = len(kf_path)
@@ -308,7 +349,7 @@ class StandupApi:
                     now = {fb["joint"] for fb in tracker.last_fb
                            if fb["joint"] not in tracker.implausible_joints
                            and abs(fb["current_a"]) > abort_current_a
-                           and abs(fb["speed_deg_s"]) < 8.0}
+                           and abs(fb.get("raw_speed_deg_s", fb.get("speed_deg_s")) or 0.0) < 8.0}
                     hit = bool(now & stall_prev)
                     stall_prev = now
                     return hit
@@ -418,8 +459,9 @@ class StandupApi:
                 ts, qs = [0.0], [q0]
                 loaded_seg = [False]     # loaded_seg[s]: segment s-1 -> s moves all six hips
                 for q_deg, kf_s in kf_path[1:]:
-                    d_seg = max(abs(b - a) for a, b in
-                                zip(qs[-1], q_deg))
+                    d_seg = max(abs(b - a) for a, b in zip(
+                        robot_pose_to_raw_degrees(qs[-1], getattr(d.bus, "trims", None)),
+                        robot_pose_to_raw_degrees(q_deg, getattr(d.bus, "trims", None))))
                     hips_moving = sum(
                         1 for lg in range(6)
                         if abs(q_deg[joint_index(lg, "hip")]
@@ -435,7 +477,7 @@ class StandupApi:
                 # skip the streamer's gentle first-write ease (speed
                 # 120 ≈ 10 deg/s — measured as a near-stalled first
                 # 0.3 s of every run).
-                streamer.last = list(q0)
+                streamer.prime(d.bus, q0)
                 tripped = False
                 seg, last_sample = 1, -1.0
                 t0 = time.monotonic()
@@ -514,9 +556,14 @@ class StandupApi:
                         # lag vs the SCHEDULE pose (not the carrot,
                         # which is deliberately ahead by rate*look)
                         q_sched = _q_at(t)
+                        raw_sched = robot_pose_to_raw_degrees(
+                            q_sched, getattr(d.bus, "trims", None))
                         err = max(
-                            (abs(q_sched[fb["joint"]] - fb["deg"])
-                             for fb in tracker.last_fb), default=0.0)
+                            (abs(raw_sched[fb["joint"]]
+                                 - fb.get("raw_deg", fb.get("deg")))
+                             for fb in tracker.last_fb
+                             if fb.get("raw_deg", fb.get("deg")) is not None),
+                            default=float("inf"))
                         if err < 16.0:
                             rate = min(rate * 1.35, 2.8)
                         elif err > 28.0:
@@ -657,7 +704,8 @@ class StandupApi:
                 if gen != self._demo_gen:
                     return
                 try:
-                    _set_torque_limit(d.bus, live, 1000)
+                    if arm_ready:
+                        _set_torque_limit(d.bus, live, 1000)
                 except Exception:
                     pass
                 with d._lock:

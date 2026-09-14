@@ -31,6 +31,23 @@ class _Bus:
     def write_joint(self, joint, value, **kwargs):
         self.writes.append(("joint", joint, value))
 
+    # These fixtures have always represented independent physical servo
+    # coordinates. Expose that explicitly now that public pose APIs convert
+    # absolute tibia angles, while preserving all timing/fault injections.
+    def read_all_raw_positions(self):
+        return self.read_all_positions()
+
+    def read_all_raw_feedback(self):
+        return self.read_all_feedback()
+
+    def write_raw_joint(self, joint, value, **kwargs):
+        return self.write_joint(joint, value, **kwargs)
+
+    def write_raw_all(self, pose, *, ids=None, **kwargs):
+        if ids is not None:
+            return sys.modules['inplace_demos']._write_pose(self, pose, ids, **kwargs)
+        return self.write_all(pose, **kwargs)
+
 
 def _admit(samples, *, clock=None):
     values = iter(clock or [0.0, 0.01, 0.1, 0.11, 0.2, 0.21])

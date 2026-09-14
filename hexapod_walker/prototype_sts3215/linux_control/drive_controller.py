@@ -71,6 +71,7 @@ from feetech_bus import (  # noqa: E402
     ADDR_TORQUE_ENABLE, BAUD_DEFAULT, N_JOINTS, SERVO_IDS, WALK_ACC,
     WALK_SPEED, deg_to_count, joint_to_servo_id, normalize_acc,
     normalize_speed, standing_pose_degrees,
+    robot_pose_to_raw_degrees,
 )
 from cpg_controller_loader import (  # noqa: E402
     list_cpg_controllers as _list_cpg_controllers,
@@ -146,7 +147,7 @@ class DriveController:
         self.gait = self._new_demo_tripod_gait()
         self.armed = False
         self.mode = "idle"  # idle | stand | walk
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._loop_overruns = 0
@@ -298,26 +299,98 @@ class DriveController:
                 f"torque {action} not acknowledged for "
                 f"{len(failures)} servo(s): {detail}")
 
+    def arm_at_present(self, torque_limit: int, abort_check=None) -> None:
+        """Preload all raw present counts at limited torque before enabling.
+
+        Only for a disarmed, observed stable robot. This avoids old goals on
+        re-enable; it does not establish pose calibration or support safety.
+        """
+        if type(torque_limit) is not int or not 150 <= torque_limit <= 1000:
+            raise ValueError("arm torque limit must be an integer in 150..1000")
+        with self._lock:
+            if self.armed:
+                raise RuntimeError("arm_at_present requires a disarmed controller")
+            if self.dry_run or self.bus is None:
+                raise RuntimeError("arm_at_present requires the motor bus")
+            bus = self.bus
+            ids = [joint_to_servo_id(j) for j in range(N_JOINTS)]
+            check = abort_check or (lambda: False)
+
+            def aborted():
+                if check():
+                    raise RuntimeError("arming aborted before target motion")
+
+            def read(sid, address, size=2):
+                fn = bus.pkt.read1ByteTxRx if size == 1 else bus.pkt.read2ByteTxRx
+                for _ in range(3):
+                    value, comm, error = fn(sid, address)
+                    if comm == 0 and error == 0:
+                        return value
+                raise RuntimeError(f"servo {sid} register {address} unavailable")
+
+            try:
+                counts = {}
+                for sid in ids:
+                    aborted()
+                    if read(sid, ADDR_TORQUE_ENABLE, 1) != 0:
+                        raise RuntimeError(f"servo {sid} torque is not off before arming")
+                    count = read(sid, 56)
+                    if type(count) is not int or not 0 <= count <= 4095:
+                        raise RuntimeError(f"servo {sid} has an invalid raw encoder count")
+                    counts[sid] = count
+                for sid in ids:
+                    aborted()
+                    _, comm, error = bus.pkt.write2ByteTxRx(sid, 48, torque_limit)
+                    if comm != 0 or error != 0 or read(sid, 48) != torque_limit:
+                        raise RuntimeError(f"servo {sid} torque limit was not verified")
+                for sid in ids:
+                    aborted()
+                    # Raw counts deliberately bypass trims and soft-limit
+                    # clamping: a present-position hold must mean exactly here.
+                    if bus.pkt.WritePosEx(sid, counts[sid], 90, 4) != 0:
+                        raise RuntimeError(f"servo {sid} current-position preload failed")
+                    if read(sid, 42) != counts[sid]:
+                        raise RuntimeError(f"servo {sid} current-position preload unverified")
+                for sid in ids:
+                    aborted()
+                    bus.torque(sid, True)
+                    if read(sid, ADDR_TORQUE_ENABLE, 1) != 1:
+                        raise RuntimeError(f"servo {sid} torque enable was not verified")
+                aborted()
+                self.armed = True
+                self.status = "armed at present pose"
+            except Exception as exc:
+                failures = []
+                for sid in ids:
+                    try:
+                        bus.torque(sid, False)
+                        if read(sid, ADDR_TORQUE_ENABLE, 1) != 0:
+                            raise RuntimeError("torque remains on")
+                    except Exception as stop_exc:
+                        failures.append(f"{sid}: {stop_exc}")
+                self.armed = False
+                self.mode = "idle"
+                self.status = ("arm failed; torque state unverified" if failures
+                               else "arm failed; torque off verified")
+                if failures:
+                    raise RuntimeError(f"{exc}; torque-off unverified: "
+                                       + "; ".join(failures)) from exc
+                raise
+
     def _read_present_pose(self) -> list[float | None]:
         if not self.bus:
             return [None] * N_JOINTS
-        # One cached snapshot transaction on the MCU bridge. A USB
-        # ``FeetechBus`` (bench) has no snapshot and reads per joint.
-        read_snapshot = getattr(self.bus, "read_snapshot", None)
-        if read_snapshot is not None:
-            snap = read_snapshot()
-            pos = snap["pos_deg"] if snap is not None else {}
-            if len(pos) >= N_JOINTS:
-                return [pos.get(j) for j in range(N_JOINTS)]
-            # Incomplete snapshot: name the slots and fall to per-joint
-            # reads so the caller can still tell WHICH servo is silent.
-            # Counted and printed; this must not be a quiet slow path.
-            self.present_pose_slow_reads += 1
-            missing = [j for j in range(N_JOINTS) if j not in pos]
-            print(f"[drive] WARNING snapshot "
-                  f"{'missing' if snap is None else f'incomplete {missing}'}"
-                  f"; per-joint position reads "
-                  f"(count {self.present_pose_slow_reads})")
+        # One bulk sync-read transaction when the bus supports it — 18
+        # individual request/response reads can cost more than a whole
+        # control period on the legacy path.
+        bulk = getattr(self.bus, "read_all_positions", None)
+        if bulk is not None:
+            try:
+                pos = bulk()
+                if isinstance(pos, dict):
+                    return [pos.get(j) for j in range(N_JOINTS)]
+            except Exception:
+                return [None] * N_JOINTS
         out: list[float | None] = []
         for j in range(N_JOINTS):
             try:
@@ -330,14 +403,18 @@ class DriveController:
                               ) -> tuple[float, int | None]:
         """Largest |goal − present| on live joints that have a reading."""
         present = self._read_present_pose()
+        raw_goal = robot_pose_to_raw_degrees(goal, self.bus.trims)
+        if any(v is None for v in present):
+            raise ValueError('need all 18 coherent angles to check servo travel')
+        raw_present = robot_pose_to_raw_degrees(present, self.bus.trims, validate=False)
         live = self._live_ids()
         worst = 0.0
         worst_j: int | None = None
-        for j, g in enumerate(goal):
+        for j, g in enumerate(raw_goal):
             sid = joint_to_servo_id(j)
             if live and sid not in live:
                 continue
-            p = present[j] if j < len(present) else None
+            p = raw_present[j]
             if p is None:
                 continue
             d = abs(float(g) - float(p))
@@ -364,6 +441,8 @@ class DriveController:
 
     def _write_pose(self, degrees: list[float], *,
                     speed: int = WALK_SPEED, acc: int = WALK_ACC) -> None:
+        raw = robot_pose_to_raw_degrees(
+            degrees, self.bus.trims if self.bus else None)
         self._last_pose = list(degrees)
         if not self.bus or not self.armed:
             return
@@ -374,11 +453,11 @@ class DriveController:
         # the independent feedback guard continues to enforce missing-ID
         # safety during the run.
         live = self._live_ids(allow_stale=self.mode == "walk")
-        for joint, deg in enumerate(degrees):
+        for joint, deg in enumerate(raw):
             sid = joint_to_servo_id(joint)
             if live and sid not in live:
                 continue
-            count = deg_to_count(joint, deg, self.bus.trims[joint])
+            count = deg_to_count(joint, deg, 0.0)
             self.bus.pkt.SyncWritePosEx(sid, count, speed, acc)
         self.bus.pkt.groupSyncWrite.txPacket()
         self.bus.pkt.groupSyncWrite.clearParam()
@@ -387,7 +466,9 @@ class DriveController:
         if not self.bus or not self.armed:
             return
         present = self._read_present_pose()
-        pose = [0.0 if d is None else float(d) for d in present]
+        if any(d is None for d in present):
+            raise ValueError('need all 18 coherent angles to hold')
+        pose = [float(d) for d in present]
         self._write_pose(pose, speed=250, acc=30)
 
     def _sync_gait_walk_stance(self) -> None:
@@ -627,8 +708,11 @@ class DriveController:
         cmd = parts[0].upper()
 
         if cmd in ("ARM",):
-            self._torque_all(True)
-            self.armed = True
+            if not self.armed:
+                if self.dry_run:
+                    self.armed = True
+                else:
+                    self.arm_at_present(450)
             self.mode = "idle"
             self.status = "armed"
             return "armed"

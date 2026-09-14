@@ -106,6 +106,7 @@ class MotionLog:
             "t_s", "tick", "joint", "id", "name",
             "cmd_deg", "present_deg", "err_deg",
             "speed_deg_s", "load_pct", "current_a", "volt",
+            "raw_deg", "raw_speed_deg_s",
             "wrote", "cmd_speed", "cmd_acc", "moving",
             "ax_g", "ay_g", "az_g",
             "gx_dps", "gy_dps", "gz_dps", "temp_c",
@@ -290,8 +291,9 @@ class MotionLog:
                     pass
 
             cmd_deg = float(cmd[joint]) if joint < len(cmd) else 0.0
-            present = float(fb["deg"])
-            err = present - cmd_deg
+            present = None if fb.get('deg') is None else float(fb['deg'])
+            err = None if present is None else present - cmd_deg
+            speed = fb.get('speed_deg_s')
             w_speed, w_acc = wrote.get(joint, (0, 0))
             did_write = 1 if joint in wrote else 0
             cur_a = float(fb["current_a"])
@@ -305,9 +307,11 @@ class MotionLog:
                 "id": sid,
                 "name": joint_name(joint, self.names),
                 "cmd_deg": f"{cmd_deg:.3f}",
-                "present_deg": f"{present:.3f}",
-                "err_deg": f"{err:.3f}",
-                "speed_deg_s": f"{float(fb.get('speed_deg_s', 0.0)):.2f}",
+                "present_deg": '' if present is None else f"{present:.3f}",
+                "err_deg": '' if err is None else f"{err:.3f}",
+                "speed_deg_s": '' if speed is None else f"{float(speed):.2f}",
+                "raw_deg": fb.get('raw_deg', ''),
+                "raw_speed_deg_s": fb.get('raw_speed_deg_s', ''),
                 "load_pct": f"{float(fb['load_pct']):.1f}",
                 "current_a": f"{cur_a:.3f}",
                 "volt": f"{float(fb['volt']):.2f}",
@@ -320,10 +324,13 @@ class MotionLog:
             row.update(extra_cols)
             self._w.writerow(row)
 
-            self._err.setdefault(joint, []).append(err)
-            self._spd.setdefault(joint, []).append(abs(float(fb.get("speed_deg_s", 0.0))))
+            if err is not None:
+                self._err.setdefault(joint, []).append(err)
+            if speed is not None:
+                self._spd.setdefault(joint, []).append(abs(float(speed)))
             self._load.setdefault(joint, []).append(float(fb["load_pct"]))
-            self._present.setdefault(joint, []).append(present)
+            if present is not None:
+                self._present.setdefault(joint, []).append(present)
             if did_write:
                 self._wrote_n[joint] = self._wrote_n.get(joint, 0) + 1
 

@@ -459,7 +459,8 @@ class RlApi:
         a few Hz sustainable even while the drive loop walks, unlike
         ``/api/status`` whose 1..31 scan takes seconds. Built for external
         telemetry loggers (``rl_move/scripts/tape_measure_walk.py``).
-        ``joints`` is indexed 0..17; missing servos are null.
+        ``joints`` is indexed 0..17; missing servos are null. A knee whose
+        hip is missing retains raw health but has an unknown logical angle.
         """
         import math as _math
 
@@ -478,7 +479,10 @@ class RlApi:
         for j in range(N_JOINTS):
             f = fb.get(j)
             joints.append(None if f is None else {
-                "deg": round(float(f.get("deg", 0.0)), 2),
+                "deg": (None if f.get("deg") is None
+                        else round(float(f["deg"]), 2)),
+                "raw_deg": (None if f.get("raw_deg") is None
+                            else round(float(f["raw_deg"]), 2)),
                 "cur_a": round(float(f.get("current_a", 0.0)), 3),
                 "temp_c": int(f.get("temp_c") or 0),
                 "load_pct": round(float(f.get("load_pct", 0.0)), 1),

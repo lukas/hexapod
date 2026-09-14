@@ -3565,6 +3565,42 @@ def main(argv: list[str] | None = None) -> int:
                   f"--steps ({args.steps:,}) — the policy will NEVER "
                   "train at the full deterrent in this run")
 
+    # RISE start-distribution RAMP (2026-09-14, walkcurr flat-start
+    # rise over_current gap — see goal_task.py's GoalGenerator.
+    # __init__ block for the mechanism/why: the cap-based action-
+    # gating family closed 10/10, and CURRENT_TRUTHS.md 2026-09-14
+    # ~06:4x names a curl-state-conditioned curriculum change biasing
+    # early rollouts toward a tuck-first order as the untried
+    # escalation). Same cfg-armed / trainer-driven / default-OFF
+    # contract as the ramp above.
+    _rs_ramp_steps = 0
+    if env_kw.get("cfg") is not None:
+        from rl_move.config import cfg_get as _cfg_get_rs
+        _rs_ramp_steps = int(float(_cfg_get_rs(
+            env_kw["cfg"], "goal", "rise_start_ramp_steps",
+            default=0) or 0))
+
+    def _rise_start_ramp_frac_at(step: int) -> float:
+        return min(1.0, float(step) / float(_rs_ramp_steps))
+
+    def _rise_start_ramp_apply(target_venv, step: int) -> dict | None:
+        if _rs_ramp_steps <= 0:
+            return None
+        f = _rise_start_ramp_frac_at(step)
+        return target_venv.env_method("apply_rise_start_frac", f)[0]
+
+    if _rs_ramp_steps > 0:
+        _rs0 = _rise_start_ramp_apply(venv, 0)
+        print(f"[rise-start-ramp] armed: {_rs_ramp_steps:,} global env "
+              "steps from a bridge/crouch-heavy rise start mix to the "
+              f"cfg target; step-0 flat_frac={_rs0['flat_frac']:.3f} "
+              f"partial_frac={_rs0['partial_frac']:.3f}")
+        if _rs_ramp_steps >= args.steps:
+            print("[rise-start-ramp] WARNING: goal."
+                  f"rise_start_ramp_steps ({_rs_ramp_steps:,}) >= "
+                  f"--steps ({args.steps:,}) — the policy will NEVER "
+                  "train on the full target start mix in this run")
+
     # Dense walk-charge RAMP (08-23, walkcurr fwd1/fwd2 dig-in — see
     # walk_task.py's __init__ block for the mechanism). Same cfg-armed
     # / trainer-driven / default-OFF contract as the two ramps above.
@@ -5111,6 +5147,40 @@ def main(argv: list[str] | None = None) -> int:
                             vals["term_penalty"]})
 
         callbacks.append(_TermPenaltyRampCb())
+    if _rs_ramp_steps > 0:
+        class _RiseStartRampCb(BaseCallback):
+            """Advance the rise start-pose ramp once per rollout (see
+            the arming block after venv construction). W&B gets the
+            live mix under rise_start_ramp/*."""
+
+            def __init__(self):
+                super().__init__()
+                self._finished = False
+
+            def _on_step(self) -> bool:
+                return True
+
+            def _on_rollout_end(self) -> None:
+                if self._finished:
+                    return
+                vals = _rise_start_ramp_apply(venv, self.num_timesteps)
+                if vals is None:
+                    return
+                if vals["frac"] >= 1.0:
+                    self._finished = True
+                    print("[rise-start-ramp] ramp complete @ "
+                          f"{self.num_timesteps:,} steps — training "
+                          "on the full target start mix from here on")
+                if run is not None:
+                    import wandb
+                    wandb.log({
+                        "global_step": self.num_timesteps,
+                        "rise_start_ramp/frac": vals["frac"],
+                        "rise_start_ramp/flat_frac": vals["flat_frac"],
+                        "rise_start_ramp/partial_frac":
+                            vals["partial_frac"]})
+
+        callbacks.append(_RiseStartRampCb())
     if _wc_ramp_steps > 0:
         class _WalkChargeRampCb(BaseCallback):
             """Advance the dense walk-charge ramp once per rollout

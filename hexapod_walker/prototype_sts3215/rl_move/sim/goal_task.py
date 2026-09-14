@@ -141,6 +141,51 @@ class GoalGenerator:
         # is the config-only lever to train against it.
         self.rise_flat_frac = float(g.get("rise_flat_frac", 0.35))
         self.rise_partial_frac = float(g.get("rise_partial_frac", 0.40))
+        # RISE START-DISTRIBUTION RAMP (2026-09-14, walkcurr flat-start
+        # rise over_current gap). CURRENT_TRUTHS.md 2026-09-14 ~06:4x
+        # closed the ENTIRE cap-based action-gating family (10/10 arms:
+        # 9 height-magnitude + 2 joint-rate doses) with a binding
+        # conclusion that the axis was never "how much/how fast can it
+        # move", it is WHICH SEQUENCE it moves in -- and named the
+        # untried escalation as a curl-state-conditioned exploration/
+        # curriculum change biasing early rollouts toward a tuck-first
+        # order. The 35/40/25 flat/partial/crouch reverse-curriculum
+        # mix just above has NEVER varied over training time: a true
+        # flat start (the hardest case, zero curl) is drawn with equal
+        # probability at step 0 (random init) and step 100M alike. This
+        # block ramps the flat/partial split from a LOOSE, bridge/
+        # crouch-heavy start mix up to the cfg target mix (the two
+        # lines above) over `goal.rise_start_ramp_steps` global
+        # training steps -- the exact plain-ramp / env_method idiom
+        # `reward.term_penalty_ramp_steps` already uses (train_ppo_
+        # mjx.py), applied to reset-state diversity instead of a
+        # reward coefficient. This is curriculum/reset-diversity
+        # plumbing, not a demonstration or motion prior: no reference
+        # trajectory or teacher action is read, only WHICH already-
+        # legal start kind (flat/partial/crouch, all pre-existing) is
+        # drawn how often. Default OFF (goal.rise_start_ramp_steps=0):
+        # rise_flat_frac/rise_partial_frac keep their legacy cfg values
+        # unconditionally, bit-exact, no new rng draws.
+        # Tests: rl_move/tests/test_rise_start_ramp.py.
+        self._rise_flat_frac_target = self.rise_flat_frac
+        self._rise_partial_frac_target = self.rise_partial_frac
+        self.rise_start_ramp_steps = int(float(
+            g.get("rise_start_ramp_steps", 0) or 0))
+        self._rise_flat_frac_start = float(
+            g.get("rise_start_flat_frac_start", 0.0))
+        self._rise_partial_frac_start = float(
+            g.get("rise_start_partial_frac_start", 0.60))
+        self.rise_start_ramp_frac = 0.0
+        if self.rise_start_ramp_steps > 0:
+            if (self._rise_flat_frac_start + self._rise_partial_frac_start
+                    > 1.0 + 1e-9):
+                raise ValueError(
+                    "goal.rise_start_flat_frac_start + goal."
+                    "rise_start_partial_frac_start must be <= 1.0 "
+                    f"(got {self._rise_flat_frac_start:g} + "
+                    f"{self._rise_partial_frac_start:g})")
+            self.rise_flat_frac = self._rise_flat_frac_start
+            self.rise_partial_frac = self._rise_partial_frac_start
         self.rise_ramp_s = float(g.get("rise_ramp_s", 4.0))
         # Post-lower rise starts (08-14, the SESSION_BULK_GATE named
         # boundary: 100% of the hierarchy's det session failures were
@@ -299,6 +344,31 @@ class GoalGenerator:
         self.hold_start_jitter_m = (
             min(float(hsj_mm[0]), max_h) * 0.001,
             min(float(hsj_mm[1]), max_h) * 0.001)
+
+    def set_rise_start_frac(self, frac: float) -> dict:
+        """Move the rise flat/partial start-pose mix `frac` of the way
+        from the loose bridge/crouch-heavy start to the cfg target mix
+        (see `goal.rise_start_ramp_steps` in `__init__`). VecEnv
+        `env_method` hook via `SimHexapodGoalEnv.apply_rise_start_frac`
+        — sharded MJX workers can't be poked in-process. Raises if the
+        ramp is not armed, so a broadcast that silently no-ops is never
+        a hidden failure mode (mirrors `apply_hold_grace_frac`)."""
+        if self.rise_start_ramp_steps <= 0:
+            raise RuntimeError(
+                "set_rise_start_frac called but goal."
+                "rise_start_ramp_steps is not set (>0) — the rise "
+                "start-pose ramp is not armed")
+        f = min(max(float(frac), 0.0), 1.0)
+        self.rise_flat_frac = (
+            self._rise_flat_frac_start
+            + f * (self._rise_flat_frac_target - self._rise_flat_frac_start))
+        self.rise_partial_frac = (
+            self._rise_partial_frac_start
+            + f * (self._rise_partial_frac_target
+                   - self._rise_partial_frac_start))
+        self.rise_start_ramp_frac = f
+        return {"frac": f, "flat_frac": self.rise_flat_frac,
+                "partial_frac": self.rise_partial_frac}
 
     @staticmethod
     def _jittered_s(rng: np.random.Generator, base_s: float,
@@ -823,6 +893,12 @@ class SimHexapodGoalEnv(SimHexapodBalanceEnv):
         # +1: _current_goal is also read at step index == episode_steps.
         return self._goal_gen.sample(self.rng, self.episode_steps + 1,
                                      self.dt)
+
+    def apply_rise_start_frac(self, frac: float) -> dict:
+        """VecEnv `env_method` hook forwarding to the goal generator's
+        rise start-pose ramp (`goal.rise_start_ramp_steps`); see
+        `GoalGenerator.set_rise_start_frac`."""
+        return self._goal_gen.set_rise_start_frac(frac)
 
     def set_goal_mix(self, mix: dict) -> None:
         """Set p_<mode> sampling probabilities on the goal generator.

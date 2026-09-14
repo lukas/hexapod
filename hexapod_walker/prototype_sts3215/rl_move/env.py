@@ -456,29 +456,23 @@ class HexapodBalanceEnv:
                             speed: int | None = None) -> RobotState:
         """Command a pose and return state without a second bus read.
 
-        Stream firmware supports ``step_all``: SyncWrite + cached state
-        snapshot in a single transaction. Legacy firmware falls back to
-        the old write-then-read path.
+        ``step_all``: SyncWrite + cached state snapshot in a single
+        transaction. If the combined transaction returns no snapshot
+        (framing error), the goal may or may not have landed: read the
+        real state once and never re-send blind through another path.
         """
         self.estimator.set_commanded(q_rad)
         deg = (np.asarray(q_rad) * RAD2DEG).tolist()
         sp = self.write_speed if speed is None else int(speed)
         if self.enable_motion:
-            step_all = getattr(self.bus, "step_all", None)
-            if step_all is not None:
-                try:
-                    snap = step_all(deg, speed=sp, acc=self.write_acc)
-                except Exception:
-                    snap = None
-                if snap is not None:
-                    from_snap = getattr(
-                        self.estimator, "update_from_snapshot", None)
-                    if from_snap is not None:
-                        state = from_snap(snap)
-                        if state is not None:
-                            return state
-                    return self.estimator.update()
-            self.bus.write_all(deg, speed=sp, acc=self.write_acc)
+            snap = self.bus.step_all(deg, speed=sp, acc=self.write_acc)
+            if snap is not None:
+                from_snap = getattr(
+                    self.estimator, "update_from_snapshot", None)
+                if from_snap is not None:
+                    state = from_snap(snap)
+                    if state is not None:
+                        return state
         return self.estimator.update()
 
     def _limp(self) -> None:

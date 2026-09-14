@@ -1510,6 +1510,18 @@ def main():
 
     DRIVE = DriveController(port=args.port, baud=args.baud, dry_run=args.dry_run)
     DRIVE.start()
+    if DRIVE.bus_error:
+        print("[web] ============================================================")
+        print(f"[web] BUS FAULT: {DRIVE.bus_error}")
+        print("[web] serving the API with NO bus so this is visible; "
+              "motion is refused until the MCU is reflashed and "
+              "hexapod-web restarted")
+        print("[web] ============================================================")
+        try:
+            from event_log import emit
+            emit("bus_fault", DRIVE.bus_error, src="web", level="error")
+        except Exception:
+            pass
     try:
         _main_after_bus(args)
     except Exception as e:
@@ -1543,7 +1555,8 @@ def _main_after_bus(args) -> None:
     DRIVE.bench = BENCH
     telemetry_auto = os.environ.get(
         "HEXAPOD_TELEMETRY_AUTO", "1").strip().lower()
-    if not args.dry_run and telemetry_auto in ("1", "true", "yes", "on"):
+    have_bus = DRIVE.bus is not None
+    if have_bus and telemetry_auto in ("1", "true", "yes", "on"):
         try:
             result = BENCH.telemetry_start(label="auto")
             print(f"[web] passive telemetry auto-start: {result}")
@@ -1551,7 +1564,7 @@ def _main_after_bus(args) -> None:
             # Logging failure is visible but must not disable robot controls.
             print(f"[web] passive telemetry unavailable: {error}")
     LINK = Link(DRIVE)
-    if not args.dry_run:
+    if have_bus:
         # The ST7789 shares the MCU serial path with motion/test commands.
         # Keep it opt-in so cosmetic screen repaints cannot delay robot work.
         tft_status = os.environ.get("HEXAPOD_TFT_STATUS", "").strip().lower()

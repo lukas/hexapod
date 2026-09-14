@@ -298,7 +298,8 @@ def run_sysid_protocol(
     sum_path = log_dir / f"sysid_{name}_{stamp}_summary.json"
 
     def _read_pose() -> tuple[dict[int, float], list[int]]:
-        pos = bus.read_all_positions()
+        snap = bus.read_snapshot()
+        pos = snap.get("pos_deg") if isinstance(snap, dict) else None
         if not isinstance(pos, dict):
             pos = {}
         return pos, [j for j in live_joints if j not in pos]

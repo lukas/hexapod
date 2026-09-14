@@ -76,7 +76,7 @@ from cpg_controller_loader import (  # noqa: E402
     list_cpg_controllers as _list_cpg_controllers,
     load_cpg_controller as _load_cpg_controller,
 )
-from mcu_feetech_bus import open_feetech_bus  # noqa: E402
+from mcu_feetech_bus import McuFirmwareError, open_feetech_bus  # noqa: E402
 from hexapod_core.noslip_gait import NoSlipGait  # noqa: E402
 from hexapod_core.scripted_walk_contract import (  # noqa: E402
     SCRIPTED_WALK_ACC_UNITS,
@@ -159,6 +159,10 @@ class DriveController:
         self.status = "init"
         self._live_ids_cache: set[int] = set()
         self._live_ids_t = 0.0
+        self.present_pose_slow_reads = 0
+        # Set when the bus could not be opened because the MCU runs the
+        # wrong firmware; web_drive keeps serving so the operator sees it.
+        self.bus_error: str | None = None
         # Set by web_drive after construction (optional bench JSON API).
         self.bench = None
         self._sync_gait_walk_stance()
@@ -175,7 +179,21 @@ class DriveController:
 
     def start(self) -> None:
         if not self.dry_run:
-            self.bus, port = open_feetech_bus(self.port, baud=self.baud)
+            try:
+                self.bus, port = open_feetech_bus(self.port, baud=self.baud)
+            except McuFirmwareError as e:
+                # Wrong sketch on the MCU. Do NOT start in a degraded mode
+                # (the old driver quietly used the slow legacy bus path
+                # here). Keep serving HTTP with no bus so the operator sees
+                # the error in /api/status, /api/robot and the UI header,
+                # and every motion request is refused with it.
+                self.bus = None
+                self.bus_error = str(e)
+                self.status = f"BUS FAULT: {e}"
+                print(f"[drive] BUS FAULT -- no bus, motion refused: {e}")
+                self._thread = threading.Thread(target=self._loop, daemon=True)
+                self._thread.start()
+                return
             self.port = port
             # Boot limp — nothing moves until ARM.
             self._torque_all(False)
@@ -266,17 +284,23 @@ class DriveController:
     def _read_present_pose(self) -> list[float | None]:
         if not self.bus:
             return [None] * N_JOINTS
-        # One bulk sync-read transaction when the bus supports it — 18
-        # individual request/response reads can cost more than a whole
-        # control period on the legacy path.
-        bulk = getattr(self.bus, "read_all_positions", None)
-        if bulk is not None:
-            try:
-                pos = bulk()
-                if isinstance(pos, dict) and pos:
-                    return [pos.get(j) for j in range(N_JOINTS)]
-            except Exception:
-                pass
+        # One cached snapshot transaction on the MCU bridge. A USB
+        # ``FeetechBus`` (bench) has no snapshot and reads per joint.
+        read_snapshot = getattr(self.bus, "read_snapshot", None)
+        if read_snapshot is not None:
+            snap = read_snapshot()
+            pos = snap["pos_deg"] if snap is not None else {}
+            if len(pos) >= N_JOINTS:
+                return [pos.get(j) for j in range(N_JOINTS)]
+            # Incomplete snapshot: name the slots and fall to per-joint
+            # reads so the caller can still tell WHICH servo is silent.
+            # Counted and printed; this must not be a quiet slow path.
+            self.present_pose_slow_reads += 1
+            missing = [j for j in range(N_JOINTS) if j not in pos]
+            print(f"[drive] WARNING snapshot "
+                  f"{'missing' if snap is None else f'incomplete {missing}'}"
+                  f"; per-joint position reads "
+                  f"(count {self.present_pose_slow_reads})")
         out: list[float | None] = []
         for j in range(N_JOINTS):
             try:

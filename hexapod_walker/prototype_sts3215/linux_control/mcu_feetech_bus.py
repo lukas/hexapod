@@ -11,16 +11,23 @@ Used by ``web_drive`` / ``DriveController`` and by ``urt2_motor_setup``.
     bus, port = open_feetech_bus()          # MCU preferred, else USB
     bus, port = open_feetech_bus("mcu")     # force MCU bridge
 
-STREAM mode (2026-08-19, the 50-100 Hz feedback upgrade): on open, the
-driver sends ``STREAM 1``. New firmware then free-runs the servo bus
-itself (pos+speed sync-read + IMU every pass, full current/load/volt/
-temp state at ~10 Hz) and serves ``read_all_positions`` /
-``read_all_feedback`` / ``read_imu`` from RAM caches with no servo-bus
-wait — each call collapses to one short host<->MCU UART round trip.
-``step_all()`` goes further: SyncWrite 18 goals AND get the freshest
-state snapshot back in a SINGLE round trip (the whole bus cost of a
-control tick). Old firmware answers ERR and everything falls back to
-the legacy synchronous paths. Opt out with ``HEXAPOD_NO_STREAM=1``.
+STREAM mode (2026-08-19, the 50-100 Hz feedback upgrade) is the ONLY
+supported contract: on open the driver sends ``STREAM 1`` and requires
+``OK STREAM 1`` back. The firmware then free-runs the servo bus itself
+(pos+speed sync-read + IMU every pass, full current/load/volt/temp state
+at ~10 Hz) and serves ``read_snapshot`` / ``read_all_feedback`` /
+``read_imu`` from RAM caches with no servo-bus wait — one short
+host<->MCU UART round trip each. ``step_all()`` SyncWrites 18 goals AND
+returns the freshest state snapshot in a SINGLE round trip (the whole
+bus cost of a control tick).
+
+There is no legacy synchronous path any more. A sketch that answers the
+handshake with anything but ``OK STREAM 1`` makes ``McuFeetechBus``
+raise ``McuFirmwareError`` naming the fix (``firmware/
+flash_feetech_bridge.sh arduino@<robot>.local``). Until 2026-09-14 the
+driver silently fell back to per-call servo-bus reads (9-13 ms per
+18-servo read), which made 100 Hz impossible while looking like a slow
+policy — see rl_docs/HARDWARE_100HZ_TIMING_2026-09-10.md, Cause 1.
 """
 from __future__ import annotations
 
@@ -53,20 +60,40 @@ from feetech_bus import (  # noqa: E402
 )
 
 MCU_PORT_DEFAULT = "/dev/ttyHS1"
-# Prefer firmware HOST_BAUD (921600); fall back if an older sketch is flashed.
+# Firmware HOST_BAUD. The STREAM sketch only speaks 921600; the old 115200
+# fallback existed for pre-STREAM sketches and is gone with them.
 MCU_BAUD = 921_600
-MCU_BAUD_CANDIDATES = (921_600, 115_200)
+FLASH_HINT = ("flash the current bridge with "
+              "firmware/flash_feetech_bridge.sh arduino@<robot>.local, "
+              "then sudo systemctl restart hexapod-web")
 MCU_SERIAL_READ_TIMEOUT = float(os.environ.get(
     "HEXAPOD_MCU_SERIAL_READ_TIMEOUT", "0.005"))
 HELLO_TOKEN = "HELLO feetech_bridge"
 COMM_SUCCESS = 0
 COMM_FAIL = 1
 
+
+class McuBridgeError(RuntimeError):
+    """The MCU bridge answered HELLO but did not complete the handshake."""
+
+
+class McuFirmwareError(McuBridgeError):
+    """The flashed sketch does not implement STREAM mode (pre-2026-08-19).
+
+    Raised instead of degrading to the legacy synchronous bus path. The
+    message names the fix; ``web_drive`` surfaces it to the operator.
+    """
+
 # 's' snapshot reply: fixed header (seq u16, pos_age u16, imu_age u16,
 # imu 7×i16) then 6 bytes per servo (id, ok, pos i16, spd i16).
 SNAP_HEAD_LEN = 20
 SNAP_REC_LEN = 6
 SNAP_AGE_INVALID = 0xFFFF
+# bb2071e98: bounded retry for the empty-reply boot race on STREAM 1.
+STREAM_HANDSHAKE_ATTEMPTS = 3
+# Bounded re-send of one W frame (the MCU host-UART ring can drop a frame
+# during an acquisition pass). Each use is printed and counted.
+SYNC_WRITE_ATTEMPTS = 2
 
 
 def encode_sync_frame(cmd: int, items: list[tuple[int, int, int, int]]
@@ -414,28 +441,21 @@ class McuFeetechBus:
         # much cheaper.
         rounds = 6
         for attempt in range(rounds):
-            for baud in MCU_BAUD_CANDIDATES:
-                try:
-                    if self._ser is not None:
-                        self._ser.close()
-                except Exception:
-                    pass
-                self._ser = serial.Serial(
-                    port, baud, timeout=MCU_SERIAL_READ_TIMEOUT,
-                    write_timeout=1.0)
-                self.baud = baud
-                time.sleep(0.12)
-                self._serial_reset_input()
-                # TFT bitbang init can briefly stall the MCU after reset.
-                hello = self._transact("HELLO", timeout=2.0)
-                last_hello = hello
-                if hello is not None and "HELLO" in hello:
-                    if baud != MCU_BAUD:
-                        print(f"[bus] MCU bridge on {port} @ {baud} "
-                              f"(fallback; prefer {MCU_BAUD})")
-                    connected = True
-                    break
-            if connected:
+            try:
+                if self._ser is not None:
+                    self._ser.close()
+            except Exception:
+                pass
+            self._ser = serial.Serial(
+                port, MCU_BAUD, timeout=MCU_SERIAL_READ_TIMEOUT,
+                write_timeout=1.0)
+            time.sleep(0.12)
+            self._serial_reset_input()
+            # TFT bitbang init can briefly stall the MCU after reset.
+            hello = self._transact("HELLO", timeout=2.0)
+            last_hello = hello
+            if hello is not None and "HELLO" in hello:
+                connected = True
                 break
             print(f"[bus] no HELLO from {port} (attempt {attempt + 1}/"
                   f"{rounds}, got {last_hello!r}) — retrying")
@@ -457,33 +477,48 @@ class McuFeetechBus:
                 f"No feetech_bridge on {port} (got {last_hello!r}). "
                 "Flash firmware/feetech_bridge and wire URT UART to D0/D1.")
 
-        # STREAM mode: ask the firmware to free-run acquisition so reads
-        # are cache-served (module docstring). ERR = old sketch → every
-        # path falls back to the legacy synchronous transactions.
-        self.streaming = False
-        self.has_stream = False
-        cmd = "STREAM" if os.environ.get("HEXAPOD_NO_STREAM") else "STREAM 1"
+        # STREAM mode is mandatory: ask the firmware to free-run acquisition
+        # so reads are cache-served (module docstring) and refuse to run on
+        # anything that does not confirm it.
+        #
         # A freshly-booted bridge can answer HELLO before it is ready to stream
         # and then return nothing to the first STREAM inside the timeout. That
         # empty reply used to read as "old firmware", so the driver fell to the
         # slow legacy path for the whole session and every RL drive was refused
         # ("snapshot transport unavailable") until the service was restarted by
-        # hand. Retry on an EMPTY reply only; an explicit non-OK reply is old
-        # firmware and still falls through to legacy at once.
+        # hand (bb2071e98). Retry on an EMPTY reply only, bounded; an explicit
+        # reply that is not ``OK STREAM 1`` is the wrong sketch and is an error.
         line = None
-        for attempt in range(1, 4):
-            line = self._transact(cmd, timeout=1.5)
+        for attempt in range(1, STREAM_HANDSHAKE_ATTEMPTS + 1):
+            line = self._transact("STREAM 1", timeout=1.5)
             if line:
                 if attempt > 1:
                     print(f"[bus] STREAM answered on attempt {attempt}")
                 break
-            print(f"[bus] no STREAM reply (attempt {attempt}/3) — retrying")
+            print(f"[bus] no STREAM reply (attempt {attempt}/"
+                  f"{STREAM_HANDSHAKE_ATTEMPTS}) — retrying")
             time.sleep(0.5)
-        if line and line.startswith("OK STREAM"):
-            self.has_stream = True
-            self.streaming = line.strip().endswith("1")
-            print(f"[bus] MCU stream mode "
-                  f"{'ON' if self.streaming else 'off'}")
+        if not line:
+            self._ser.close()
+            raise McuBridgeError(
+                f"feetech_bridge on {port} answered HELLO but gave no reply "
+                f"to STREAM 1 in {STREAM_HANDSHAKE_ATTEMPTS} attempts. This is "
+                "a boot-time race, not old firmware: restart hexapod-web "
+                "(the service restarts itself); if it repeats, "
+                + FLASH_HINT + ".")
+        if line.strip() != "OK STREAM 1":
+            self._ser.close()
+            raise McuFirmwareError(
+                f"feetech_bridge on {port} answered {line!r} to STREAM 1; "
+                "the flashed sketch predates STREAM mode (2026-08-19) and "
+                "the slow legacy bus path is no longer supported -- "
+                + FLASH_HINT + ".")
+        # Transport-capability flag read by tooling (bus_bench,
+        # motor_setup/inplace_demos dense waypoints). Always True here; a USB
+        # ``FeetechBus`` has no such attribute.
+        self.streaming = True
+        self.sync_write_retries = 0
+        print("[bus] MCU stream mode ON")
 
     def set_telemetry_sink(self, sink) -> None:
         """Attach/detach a nonblocking passive recorder callback.
@@ -1109,39 +1144,8 @@ class McuFeetechBus:
             })
         return out
 
-    def read_all_positions(self, ids: list[int] | None = None
-                           ) -> dict[int, float]:
-        """One MCU round-trip: present position for every id → joint deg."""
-        got = self._bin_req(ord("P"), ids, timeout=1.0)
-        out: dict[int, float] = {}
-        if not got:
-            return out
-        rn, payload = got
-        for k in range(rn):
-            sid, ok, pos = struct.unpack_from("<BBh", payload, k * 4)
-            if not ok:
-                continue
-            joint = int(sid) - 2
-            if 0 <= joint < N_JOINTS:
-                deg = count_to_deg(joint, int(pos))
-                out[joint] = deg
-                self._pos_cache[joint] = deg
-        self._pos_cache_mono = time.monotonic()
-        if getattr(self, "_telemetry_sink", None) is not None:
-            self._emit_telemetry("positions", {
-                "position_deg": [out.get(j) for j in range(N_JOINTS)],
-            })
-        return out
-
     def _read_pos_counts(self, sid: int) -> int | None:
-        # Prefer a fresh bulk position cache when possible.
-        joint = int(sid) - 2
-        if (0 <= joint < N_JOINTS
-                and time.monotonic() - self._pos_cache_mono < 0.02
-                and joint in self._pos_cache):
-            # Reverse via deg_to_count is trim-dependent; fall through to RP
-            # for exact counts. Cache is for deg reads.
-            pass
+        """Direct single-servo present position in raw counts (``RP``)."""
         line = self._transact(f"RP {int(sid)}", timeout=0.5)
         if not line or not line.startswith("OK"):
             return None
@@ -1154,13 +1158,20 @@ class McuFeetechBus:
             return None
 
     def read_position_deg(self, joint: int) -> float | None:
+        """Present angle of one joint.
+
+        Served from the position cache filled by the last snapshot /
+        feedback read when that is < 50 ms old (so 18 consecutive calls
+        cost one bus transaction), else one ``read_snapshot`` refresh.
+        A joint the snapshot flags not-ok gets one direct ``RP`` read so
+        the caller can name exactly which servo is silent.
+        """
         if (time.monotonic() - self._pos_cache_mono < 0.05
                 and joint in self._pos_cache):
             return self._pos_cache[joint]
-        # Bulk-refresh all live (or default 2..19) — still 1 RTT.
-        bulk = self.read_all_positions(self._live_cache)
-        if joint in bulk:
-            return bulk[joint]
+        snap = self.read_snapshot()
+        if snap is not None and joint in snap["pos_deg"]:
+            return snap["pos_deg"][joint]
         pos = self._read_pos_counts(joint_to_servo_id(joint))
         if pos is None:
             return None
@@ -1204,19 +1215,18 @@ class McuFeetechBus:
                  ) -> dict | None:
         """SyncWrite all 18 goals AND get a state snapshot: ONE round trip.
 
-        The whole bus cost of a control tick. Requires stream-capable
-        firmware ('S' command); returns ``None`` when unsupported or on
-        a framing error — callers fall back to ``write_all`` +
-        ``read_all_positions`` / ``read_imu``.
+        The whole bus cost of a control tick ('S' n=18). Returns ``None``
+        only on a framing/checksum error or reply timeout -- the command
+        may or may not have been applied; callers treat the tick as a
+        missing sample (the RL runner re-holds the same target), they do
+        not re-send through another path.
 
         Returns ``{"seq", "pos_age_ms", "imu_age_ms",
         "pos_deg": {joint: deg}, "speed_deg_s": {joint: deg/s},
-        "imu": read_imu-style dict | None}``. Ages are how stale the
-        MCU's caches were at reply time (streaming: typically <= one
-        background pass, a few ms).
+        "imu": read_imu-style dict | None, "servo_reports": [...]}``.
+        Ages are how stale the MCU's caches were at reply time
+        (typically <= one background pass, a few ms).
         """
-        if not getattr(self, "has_stream", False):
-            return None
         speed = normalize_speed(speed, allow_max=allow_max_speed)
         acc = normalize_acc(acc)
         degrees = [float(value) for value in degrees]
@@ -1239,10 +1249,9 @@ class McuFeetechBus:
     def read_snapshot(self, *, apply_calib: bool = True) -> dict | None:
         """Positions + speed + IMU in ONE round trip ('S' n=0, no write).
 
-        Same return shape as ``step_all``; ``None`` on legacy firmware.
+        Same return shape as ``step_all``; ``None`` only on a framing/
+        checksum error or reply timeout.
         """
-        if not getattr(self, "has_stream", False):
-            return None
         snapshot = self._snapshot_txn([], apply_calib=apply_calib)
         if getattr(self, "_telemetry_sink", None) is not None:
             self._emit_telemetry(
@@ -1299,7 +1308,7 @@ class McuFeetechBus:
         self._emit_goal_items(items, kind="sync_write")
         binary_replies: list[str | None] = []
         frame = encode_sync_frame(ord("W"), items)
-        for attempt in range(2):
+        for attempt in range(SYNC_WRITE_ATTEMPTS):
             trace = {"cmd": "W", "want": "OK", "n": len(items),
                      "attempt": attempt + 1, "timeout_ms": 800.0}
             t_start = time.monotonic()
@@ -1343,74 +1352,27 @@ class McuFeetechBus:
                     reason=reason)
             binary_replies.append(line)
             if line and line.startswith("OK"):
+                if attempt:
+                    # Not silent: the firmware notes the host UART ring can
+                    # drop a whole W frame during an acquisition pass, so one
+                    # bounded re-send of the same absolute pose is kept -- but
+                    # every use is counted and printed so a link that needs
+                    # it often is visible in the journal.
+                    self.sync_write_retries = (
+                        getattr(self, "sync_write_retries", 0) + 1)
+                    print(f"[bus] WARNING SyncWrite needed retry "
+                          f"{attempt + 1}/{SYNC_WRITE_ATTEMPTS} "
+                          f"(first reply {binary_replies[0]!r}; "
+                          f"total retries {self.sync_write_retries})")
                 return
-            # The MCU firmware notes that the host UART ring can drop a
-            # full W frame during acquisition passes. Re-sending the same
-            # absolute pose is idempotent enough and avoids abandoning a
-            # stand-up on one missed reply/frame.
-            if attempt == 0:
+            if attempt + 1 < SYNC_WRITE_ATTEMPTS:
                 time.sleep(0.01)
-
-        ascii_replies = self._flush_sync_ascii_fallback(items)
-        if ascii_replies and all(r and r.startswith("OK")
-                                 for r in ascii_replies):
-            return
-        cause = (
-            f"binary={binary_replies!r} fallback={ascii_replies!r}")
-        self._flush_sync_slow_wp_fallback(items, cause=cause)
-
-    def _flush_sync_ascii_fallback(
-            self, items: list[tuple[int, int, int, int]],
-            *, chunk_n: int = 6) -> list[str | None]:
-        replies: list[str | None] = []
-
-        def send_sw(chunk: list[tuple[int, int, int, int]]) -> str | None:
-            parts = ["SW", str(len(chunk))]
-            for sid, pos, speed, acc in chunk:
-                parts.extend([str(sid), str(int(pos)),
-                              str(int(speed)), str(int(acc))])
-            return self._transact(" ".join(parts), timeout=1.0)
-
-        n = min(len(items), 18)
-        whole = list(items[:n])
-        replies.append(send_sw(whole))
-        if replies[-1] and replies[-1].startswith("OK"):
-            return replies
-        if n <= chunk_n:
-            return replies
-        chunked: list[str | None] = []
-        for i in range(0, n, chunk_n):
-            reply = send_sw(whole[i:i + chunk_n])
-            chunked.append(reply)
-            if not reply or not reply.startswith("OK"):
-                replies.extend(chunked)
-                return replies
-        return chunked
-
-    def _flush_sync_slow_wp_fallback(
-            self, items: list[tuple[int, int, int, int]], *,
-            cause: str) -> None:
-        """Last-resort per-servo fallback.
-
-        This used to be limited to slow calibration/search glides. Stand-up
-        can also hit a dropped batch frame while the MCU is busy; sending
-        individual absolute goals is slightly less synchronous, but it is a
-        better failure mode than aborting mid-tuck and leaving the robot in
-        a half-folded pose.
-        """
-        failures: list[str] = []
-        for sid, pos, speed, acc in items:
-            reply = self._transact(
-                f"WP {int(sid)} {int(pos)} {int(speed)} {int(acc)}",
-                timeout=0.6)
-            if not reply or not reply.startswith("OK"):
-                failures.append(f"{sid}:{reply!r}")
-        if failures:
-            preview = ", ".join(failures[:4])
-            if len(failures) > 4:
-                preview += f", +{len(failures) - 4} more"
-            raise RuntimeError(
-                f"SyncWrite failed: {cause}; WP fallback failed {preview}")
+        # No ASCII ``SW`` re-encode and no per-servo ``WP`` glide any more:
+        # those re-sent the same goals through slower paths and hid a
+        # dropping link. Callers see the failure; torque stays as it was.
+        raise RuntimeError(
+            f"SyncWrite failed after {SYNC_WRITE_ATTEMPTS} attempts: "
+            f"replies={binary_replies!r}")
 
     def power_summary(self, *, timeout: float = 2.5) -> dict:
         """One-shot bus power: live count, sum current, avg volt, max load.
@@ -1438,57 +1400,25 @@ class McuFeetechBus:
 
     def read_imu(self, *, timeout: float = 0.6,
                  apply_calib: bool = True) -> dict | None:
-        """Read MPU-6050 via MCU ``IMUR`` (Wire SDA/SCL).
+        """MPU-6050 sample from the streamed snapshot (one round trip).
 
-        Returns engineering units, or ``None`` if the sensor/bridge
-        does not answer. Scale assumes the sketch's ±2 g / ±250 dps
-        config. When ``logs/imu_calib.json`` exists and ``apply_calib``,
-        subtracts rest gyro/accel biases from Calibrate → IMU.
+        Returns engineering units, or ``None`` when the MCU has no valid
+        IMU sample (``imu_age_ms`` = 0xFFFF or an all-zero frame: an
+        asleep/unplugged MPU; the firmware owns the wake/retry, see
+        ``STREAM_IMU_RUNTIME_FAIL_GRACE_MS``). Scale assumes the sketch's
+        +-2 g / +-250 dps config. When ``logs/imu_calib.json`` exists and
+        ``apply_calib``, subtracts rest gyro/accel biases.
+
+        Until 2026-09-14 a snapshot without IMU fell through to the ASCII
+        ``IMUR`` read plus an ``IMU`` wake (1 s timeout + sleep): every
+        caller polling the IMU during a dropout blocked the bus for up to
+        ~2 s per call. ``timeout`` is kept for signature compatibility.
         """
-        if getattr(self, "has_stream", False):
-            try:
-                snap = self.read_snapshot(apply_calib=apply_calib)
-            except Exception:
-                snap = None
-            if isinstance(snap, dict) and isinstance(snap.get("imu"), dict):
-                return snap["imu"]
-
-        line = self._transact("IMUR", timeout=timeout)
-        if not line or not line.startswith("OK"):
-            return None
-        parts = line.split()
-        if len(parts) < 8:
-            return None
-        try:
-            ax, ay, az = int(parts[1]), int(parts[2]), int(parts[3])
-            gx, gy, gz = int(parts[4]), int(parts[5]), int(parts[6])
-            temp_raw = int(parts[7])
-        except ValueError:
-            return None
-        if not any((ax, ay, az, gx, gy, gz, temp_raw)):
-            # All-zero frame = MPU asleep (power-glitch default state).
-            # "IMU" wakes it (PWR_MGMT_1) + WHO_AM_I; retry once. Still
-            # zeros -> report NOT ANSWERING rather than a fake flat
-            # reading (atan2(0,0)=0 false-passed the tilt gate once,
-            # 2026-08-09).
-            self._transact("IMU", timeout=max(timeout, 1.0))
-            time.sleep(0.05)
-            line = self._transact("IMUR", timeout=timeout)
-            parts = line.split() if line and line.startswith("OK") else []
-            if len(parts) < 8:
-                return None
-            try:
-                ax, ay, az = int(parts[1]), int(parts[2]), int(parts[3])
-                gx, gy, gz = int(parts[4]), int(parts[5]), int(parts[6])
-                temp_raw = int(parts[7])
-            except ValueError:
-                return None
-            if not any((ax, ay, az, gx, gy, gz, temp_raw)):
-                return None
-        sample = self._imu_sample(ax, ay, az, gx, gy, gz, temp_raw,
-                                  apply_calib=apply_calib)
-        self._emit_telemetry("imu", {"imu": dict(sample)})
-        return sample
+        del timeout
+        snap = self.read_snapshot(apply_calib=apply_calib)
+        if isinstance(snap, dict) and isinstance(snap.get("imu"), dict):
+            return snap["imu"]
+        return None
 
     def _imu_sample(self, ax: int, ay: int, az: int, gx: int, gy: int,
                     gz: int, temp_raw: int, *, apply_calib: bool = True
@@ -1618,8 +1548,7 @@ class McuFeetechBus:
 
     def close(self) -> None:
         try:
-            if getattr(self, "streaming", False):
-                self._transact("STREAM 0", timeout=0.5)
+            self._transact("STREAM 0", timeout=0.5)
         except Exception:
             pass
         try:

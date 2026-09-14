@@ -37,8 +37,9 @@ class FakeBus:
         self.scan_calls += 1
         return list(ids)
 
-    def read_all_positions(self):
-        return {j: q for j, q in enumerate(self.pose)}
+    def read_snapshot(self):
+        return {"seq": 1, "pos_age_ms": 1, "imu_age_ms": 1, "imu": None,
+                "pos_deg": {j: q for j, q in enumerate(self.pose)}}
 
 
 def test_scripted_walk_uses_shared_100hz_raised_profile_contract():

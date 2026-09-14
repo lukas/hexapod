@@ -62,7 +62,7 @@ def main() -> int:
         return s[min(len(s) - 1, int(round((p / 100) * (len(s) - 1))))]
 
     print(f"[probe] ticks={n}  target={args.hz} Hz")
-    print(f"  read_all_positions  mean={statistics.mean(t_pos):.2f} ms  "
+    print(f"  snapshot positions  mean={statistics.mean(t_pos):.2f} ms  "
           f"p95={pct(t_pos,95):.2f} ms  max={max(t_pos):.2f} ms")
     print(f"  read_imu            mean={statistics.mean(t_imu):.2f} ms  "
           f"p95={pct(t_imu,95):.2f} ms  max={max(t_imu):.2f} ms")

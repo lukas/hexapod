@@ -5550,9 +5550,9 @@ class SimHexapodBalanceEnv(_GymBase):
                 if h_prev is None:
                     h_prev = h_rel
                 if not tucked_d:
-                    d_h = max(h_rel - h_prev, 0.0)
-                    if _curl_delta <= 0.0 and d_h > 0.0:
-                        r_decouple = -k_decouple * (d_h ** 2)
+                    d_h_mm = max(h_rel - h_prev, 0.0) * 1000.0
+                    if _curl_delta <= 0.0 and d_h_mm > 0.0:
+                        r_decouple = -k_decouple * (d_h_mm ** 2)
                         parts["reward_rise_decouple"] = r_decouple
                         reward += r_decouple
                 self._rise_h_prev = h_rel

@@ -329,7 +329,7 @@ class MotorSetup:
             return result
 
     def recovery_nudge(self, data):
-        """Bounded raw recovery for L0 and its L1/L5 support hip/knee joints.
+        """Bounded raw recovery for L0/L4 and L1/L3/L5 support hip/knee joints.
 
         At most two joints move by <=5 degrees while selected joints hold
         their freshly read positions. The 200/1000 torque cap, 90 speed,
@@ -353,15 +353,15 @@ class MotorSetup:
         phase_deltas = ([p['deltas_deg'] for p in data['phases']] if phased
                         else [data.get('deltas_deg', {})])
         holds = data.get('hold_joints', [])
-        allowed = {1, 2, 4, 5, 16, 17}
+        allowed = {1, 2, 4, 5, 10, 11, 13, 14, 16, 17}
         if (not isinstance(holds, list) or any(type(j) is not int or j not in allowed for j in holds)
                 or len(set(holds)) != len(holds)):
-            raise ValueError('hold_joints must contain distinct joints from 1,2,4,5,16,17.')
+            raise ValueError('hold_joints must contain distinct joints from 1,2,4,5,10,11,13,14,16,17.')
         phase_offsets, phase_pairs = [], []
         for deltas in phase_deltas:
             if (not isinstance(deltas, dict) or len(deltas) > 2 or (phased and not deltas)
-                    or any(key not in {'1', '2', '4', '5', '16', '17'} for key in deltas)):
-                raise ValueError('Choose at most two moving joints from 1,2,4,5,16,17 per phase.')
+                    or any(key not in {'1', '2', '4', '5', '10', '11', '13', '14', '16', '17'} for key in deltas)):
+                raise ValueError('Choose at most two moving joints from 1,2,4,5,10,11,13,14,16,17 per phase.')
             offsets = {}
             for key, delta in deltas.items():
                 if (type(delta) not in (int, float) or not math.isfinite(delta)
@@ -373,7 +373,7 @@ class MotorSetup:
                     raise ValueError('Recovery delta is smaller than one encoder count.')
                 offsets[joint] = offset
             phase_offsets.append(offsets)
-            phase_pairs.append(next(((hip, hip + 1) for hip in (1, 4, 16)
+            phase_pairs.append(next(((hip, hip + 1) for hip in (1, 4, 10, 13, 16)
                 if hip in offsets and hip + 1 in offsets
                 and deltas[str(hip)] * deltas[str(hip + 1)] < 0
                 and math.isclose(deltas[str(hip)] + deltas[str(hip + 1)], 0., abs_tol=.1)), None))

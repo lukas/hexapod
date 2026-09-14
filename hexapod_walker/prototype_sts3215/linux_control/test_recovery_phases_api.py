@@ -247,3 +247,55 @@ def test_legacy_single_phase_payload_still_produces_one_group(rig):
     assert result["ok"] and result["torque_off"]
     assert bus.groups == [{3: (expected_target(1, -3), 90, 4),
                            4: (expected_target(2, 3), 90, 4)}]
+
+
+def test_l3_support_then_l4_recovery_preloads_six_once_and_preserves_raw_goals(rig):
+    api, bus, _clock = rig
+    payload = {"phases": [{"deltas_deg": {"10": 3, "11": 3}},
+                           {"deltas_deg": {"13": -3, "14": 3}}],
+               "hold_joints": [1, 2]}
+    result = api.recovery_nudge(payload)
+    assert result["ok"] and result["torque_off"]
+    assert result["joint_frame"] == "servo_relative"
+    joints = (1, 2, 10, 11, 13, 14)
+    ids = tuple(j + 2 for j in joints)
+    first_enable = next(i for i, event in enumerate(bus.events)
+                        if event[0] == "torque" and event[2])
+    assert [event for event in bus.events if event[0] == "position"] == [
+        ("position", sid, 2000, 90, 4) for sid in ids]
+    for sid in ids:
+        preload = bus.events.index(("position", sid, 2000, 90, 4))
+        assert preload < first_enable
+        assert ("read", sid, 42) in bus.events[preload + 1:first_enable]
+    assert [event for event in bus.events if event[0] == "torque" and event[2]] == [
+        ("torque", sid, True) for sid in ids]
+    assert bus.groups == [
+        {12: (expected_target(10, 3), 90, 4), 13: (expected_target(11, 3), 90, 4)},
+        {15: (expected_target(13, -3), 90, 4), 16: (expected_target(14, 3), 90, 4)}]
+    final_targets = {j: expected_target(j, delta) for j, delta in (
+        (1, 0), (2, 0), (10, 3), (11, 3), (13, -3), (14, 3))}
+    assert result["phases"][1]["target_counts"] == final_targets
+    assert all(bus.goal[j + 2] == target for j, target in final_targets.items())
+    assert [event for event in bus.events if event[0] == "torque" and not event[2]] == [
+        ("torque", sid, False) for sid in ids]
+    assert all(bus.limit[sid] == 700 for sid in ids)
+    assert not bus.on
+
+
+def test_expanded_phase_joint_set_still_refuses_seven_participants(rig):
+    api, bus, _clock = rig
+    with pytest.raises(ValueError):
+        api.recovery_nudge({"phases": [{"deltas_deg": {"4": 3, "5": 3}},
+                                        {"deltas_deg": {"10": 3, "11": 3}}],
+                            "hold_joints": [1, 2, 13]})
+    assert not [event for event in bus.events if event[0] != "read"]
+
+
+@pytest.mark.parametrize("joint", [7, 8, 9])
+def test_expanded_phase_joint_set_keeps_l2_and_yaw_unavailable(rig, joint):
+    api, bus, _clock = rig
+    with pytest.raises(ValueError):
+        api.recovery_nudge({"phases": [{"deltas_deg": {"10": 3}},
+                                        {"deltas_deg": {str(joint): 3}}],
+                            "hold_joints": [1, 2]})
+    assert not [event for event in bus.events if event[0] != "read"]

@@ -187,7 +187,7 @@ def test_recovery_preloads_all_before_enabling_and_only_groups_deltas(rig, paylo
             protection_torque_raw=20, protection_time_raw=50, overload_torque_raw=80)
 
 
-@pytest.mark.parametrize('holds', [[4, 5], [4, 5, 16, 17]])
+@pytest.mark.parametrize('holds', [[4, 5], [4, 5, 16, 17], [10, 11, 13, 14, 16, 17]])
 def test_support_only_is_bounded_and_does_not_send_movement(rig, holds):
     api, bus, clock = rig
     start = clock.now
@@ -199,13 +199,19 @@ def test_support_only_is_bounded_and_does_not_send_movement(rig, holds):
     assert not bus.on
 
 
-def test_l5_bounded_placement_uses_raw_pitch_targets_only(rig):
+@pytest.mark.parametrize('hip,supports', [(10, [13, 14, 16, 17]),
+                                          (13, [10, 11, 16, 17]), (16, [4, 5])])
+def test_l3_l4_l5_bounded_placement_uses_raw_pitch_targets_only(rig, hip, supports):
     api, bus, _clock = rig
-    result = api.recovery_nudge({'deltas_deg': {'16': -2, '17': 2}, 'hold_joints': [4, 5]})
+    result = api.recovery_nudge({'deltas_deg': {str(hip): -2, str(hip + 1): 2},
+                                 'hold_joints': supports})
     assert result['ok'] and result['torque_off']
-    assert bus.groups == [{18: (expected_target(16, -2), 90, 4),
-                           19: (expected_target(17, 2), 90, 4)}]
-    assert bus.position[6] == bus.position[7] == 2000
+    assert bus.groups == [{hip + 2: (expected_target(hip, -2), 90, 4),
+                           hip + 3: (expected_target(hip + 1, 2), 90, 4)}]
+    assert all(bus.position[j + 2] == 2000 for j in supports)
+    ids = {j + 2 for j in [hip, hip + 1, *supports]}
+    assert {event[1] for event in bus.events if event[0] == 'torque'} == ids
+    assert all(bus.limit[sid] == 700 for sid in ids)
     assert not bus.on
 
 
@@ -266,7 +272,11 @@ def test_hold_deadline_after_partial_bad_health_cannot_claim_success(rig, bad_re
     {"deltas_deg": {"0": 1}, "hold_joints": []},
     {"deltas_deg": {"15": 1}, "hold_joints": []},
     {"deltas_deg": {"7": 1}, "hold_joints": []},
+    {"deltas_deg": {"8": 1}, "hold_joints": []},
+    {"deltas_deg": {"9": 1}, "hold_joints": []},
+    {"deltas_deg": {"12": 1}, "hold_joints": []},
     {"deltas_deg": {}, "hold_joints": [1, 2, 4, 5, 16, 17, 15]},
+    {"deltas_deg": {}, "hold_joints": [1, 2, 4, 5, 10, 11, 13]},
     {"deltas_deg": {"1": 5.1}, "hold_joints": []},
     {"deltas_deg": {"1": True}, "hold_joints": []},
     {"deltas_deg": {"1": float("nan")}, "hold_joints": []},
@@ -503,7 +513,7 @@ def test_nontracking_motor_times_out_without_returning_home(rig):
 
 
 @pytest.mark.parametrize("delta,hard", [(2, False), (3, True)])
-@pytest.mark.parametrize("hip", [1, 4, 16])
+@pytest.mark.parametrize("hip", [1, 4, 10, 13, 16])
 def test_pair_guard_detects_one_joint_stuck_despite_compensating_targets(rig, delta, hard, hip):
     api, bus, clock = rig
     bus.stalled.add(hip + 2)

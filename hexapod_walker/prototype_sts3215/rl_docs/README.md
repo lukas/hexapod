@@ -11,7 +11,7 @@ no demonstrations. Eight method tracks live in
 `../rl_move/orchestrator/tracks.json`: `joystick`, `amp`, `cpg`, `standwalk`,
 `assistfade`, `todaypolicy`, `speed` serve `any_means`; `walkcurr` serves
 `rl_only`.
-Method PASS is not parent-goal completion. Superseded docs live in `../archive/`.
+Method PASS is not parent-goal completion. Superseded docs were retired 2026-09-14 (git history before that commit).
 
 | File | What it answers | When to read |
 |------|-----------------|--------------|
@@ -46,7 +46,6 @@ Method PASS is not parent-goal completion. Superseded docs live in `../archive/`
 | `runs/` | One GENERATED summary per run — rendered from `experiments.json`; never hand-edit | Browsing past runs |
 | `../RESEARCH_RULES.md` + `../RUN_INTERPRETATION_RULES.md` | How to design, launch, continue, and judge runs (incl. the 08-21 reward/eval ruling) | Before launch/triage |
 | `../rl_move/orchestrator/guardrails.yaml` | Hard limits you must obey | Every cycle |
-| `../archive/` | Full history, reviews, retired docs (search, don't read) | Only when the active docs point there |
 
 Standing rule: if you had to FIGURE OUT a command (it failed, was
 slow, or took several tries) and then got it right, promote it —

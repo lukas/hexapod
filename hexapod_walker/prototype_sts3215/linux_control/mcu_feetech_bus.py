@@ -463,7 +463,22 @@ class McuFeetechBus:
         self.streaming = False
         self.has_stream = False
         cmd = "STREAM" if os.environ.get("HEXAPOD_NO_STREAM") else "STREAM 1"
-        line = self._transact(cmd, timeout=1.5)
+        # A freshly-booted bridge can answer HELLO before it is ready to stream
+        # and then return nothing to the first STREAM inside the timeout. That
+        # empty reply used to read as "old firmware", so the driver fell to the
+        # slow legacy path for the whole session and every RL drive was refused
+        # ("snapshot transport unavailable") until the service was restarted by
+        # hand. Retry on an EMPTY reply only; an explicit non-OK reply is old
+        # firmware and still falls through to legacy at once.
+        line = None
+        for attempt in range(1, 4):
+            line = self._transact(cmd, timeout=1.5)
+            if line:
+                if attempt > 1:
+                    print(f"[bus] STREAM answered on attempt {attempt}")
+                break
+            print(f"[bus] no STREAM reply (attempt {attempt}/3) — retrying")
+            time.sleep(0.5)
         if line and line.startswith("OK STREAM"):
             self.has_stream = True
             self.streaming = line.strip().endswith("1")

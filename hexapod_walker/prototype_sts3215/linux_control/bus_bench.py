@@ -14,7 +14,7 @@ moves, but only run it when the operator asks for it:
 
 Interpreting results (2026-08-19 stream-bridge upgrade): with STREAM
 firmware the MCU free-runs acquisition and every read here is served
-from its RAM caches — expect read_snapshot/read_all_positions well over
+from its RAM caches — expect read_snapshot well over
 100 Hz. On legacy firmware each call blocks on 18 servo replies; the
 old measured tick (write + positions + IMU) was >20 ms (~40 Hz ceiling,
 the reason rl_move ran at 25 Hz).
@@ -114,13 +114,6 @@ def main(argv=None) -> int:
         print_bus_debug(bus)
         if args.bridge_debug:
             print_bridge_debug(bus, "read_snapshot")
-    if hasattr(bus, "read_all_positions"):
-        if args.bridge_debug:
-            bridge_debug(bus, reset=True)
-        bench("read_all_positions", bus.read_all_positions, args.seconds)
-        print_bus_debug(bus)
-        if args.bridge_debug:
-            print_bridge_debug(bus, "read_all_positions")
     if hasattr(bus, "read_all_feedback"):
         if args.bridge_debug:
             bridge_debug(bus, reset=True)
@@ -137,7 +130,8 @@ def main(argv=None) -> int:
             print_bridge_debug(bus, "read_imu")
 
     if args.step and hasattr(bus, "step_all"):
-        pose = bus.read_all_positions()
+        snap = bus.read_snapshot()
+        pose = snap["pos_deg"] if isinstance(snap, dict) else None
         if not isinstance(pose, dict) or len(pose) < 18:
             print("  step bench skipped: incomplete position read")
         else:

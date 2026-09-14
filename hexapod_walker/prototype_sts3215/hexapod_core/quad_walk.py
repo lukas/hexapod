@@ -325,6 +325,7 @@ class QuadRearWalk:
                  gait: str = "walk", direction: float = 1.0,
                  trim_fn=None):
         from . import tripod_gait as TG
+        from .joint_frame import joint_index
         self._TG = TG
         self.base = list(base_deg)
         self.seconds = float(seconds)
@@ -373,9 +374,9 @@ class QuadRearWalk:
         self.azim: list[float] = []
         for leg in range(6):
             a = (leg + 0.5) * math.pi / 3.0
-            yaw = math.radians(self.base[3 * leg + 0])
-            hip = math.radians(self.base[3 * leg + 1])
-            knee = math.radians(self.base[3 * leg + 2])
+            yaw = math.radians(self.base[joint_index(leg, "yaw")])
+            hip = math.radians(self.base[joint_index(leg, "hip")])
+            knee = math.radians(self.base[joint_index(leg, "knee")])
             reach, fz = TG.foot_rz_from_hip_knee(
                 math.degrees(hip), math.degrees(knee))
             ox0 = TG.LEG_RADIAL * math.cos(a)

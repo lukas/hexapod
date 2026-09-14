@@ -224,9 +224,10 @@ def _read_q(bus) -> list:
     for j, f in fb.items():
         if 0 <= j < N_JOINTS and f.get("deg") is not None:
             q[j] = float(f["deg"])
-    if any(v is None for v in q) and hasattr(bus, "read_all_positions"):
+    if any(v is None for v in q) and hasattr(bus, "read_snapshot"):
         try:
-            for j, v in (bus.read_all_positions() or {}).items():
+            snap = bus.read_snapshot()
+            for j, v in ((snap or {}).get("pos_deg") or {}).items():
                 if 0 <= j < N_JOINTS and q[j] is None:
                     q[j] = float(v)
         except Exception:

@@ -54,7 +54,7 @@ for _p in (_HERE, _ROOT, _ROOT / "linux_control"):
 
 from feetech_bus import (  # noqa: E402
     ADDR_TORQUE_ENABLE, BAUD_DEFAULT, COUNTS_PER_DEG, FeetechBus, JOINT_SIGN,
-    N_JOINTS, WALK_ACC, WALK_SPEED, count_to_deg, deg_to_count,
+    N_JOINTS, SERVO_IDS, WALK_ACC, WALK_SPEED, count_to_deg, deg_to_count,
     joint_to_servo_id, normalize_acc, normalize_speed, standing_pose_degrees,
 )
 from motion_telemetry import (  # noqa: E402
@@ -308,7 +308,7 @@ def _planted_legs_up(hip: float, knee: float, legs: list[int], *,
 
 
 def _live_robot_ids(bus: FeetechBus) -> set[int]:
-    ids = {sid for sid in bus.scan(range(2, 20))}
+    ids = {sid for sid in bus.scan(SERVO_IDS)}
     if not ids:
         # One transient EMPTY scan aborted a dance mid-show (08-22,
         # dance_encore act III): a single MCU-link hiccup reported zero
@@ -322,7 +322,7 @@ def _live_robot_ids(bus: FeetechBus) -> set[int]:
                 except Exception:
                     pass
         time.sleep(0.25)
-        ids = {sid for sid in bus.scan(range(2, 20))}
+        ids = {sid for sid in bus.scan(SERVO_IDS)}
     return ids
 
 
@@ -731,13 +731,14 @@ class PoseStreamer:
 
 def _read_pose(bus: FeetechBus, live: set[int]) -> list[float]:
     """Present joint angles (deg); missing IDs → 0."""
-    # MCU stream bridge: one cached bulk transaction beats 18 round trips.
-    read_all = getattr(bus, "read_all_positions", None)
-    if callable(read_all):
+    # MCU stream bridge: one cached snapshot beats 18 round trips.
+    read_snapshot = getattr(bus, "read_snapshot", None)
+    if callable(read_snapshot):
         try:
-            bulk = read_all()
+            snap = read_snapshot()
         except Exception:
-            bulk = None
+            snap = None
+        bulk = snap.get("pos_deg") if isinstance(snap, dict) else None
         if bulk:
             pose = [0.0] * N_JOINTS
             got = 0
@@ -2490,10 +2491,14 @@ def run_shimmy_vel_demo(bus: FeetechBus, *,
     if not yaw_joints:
         print("  No yaw servos live — skip.")
         return "skipped"
-    read_all = getattr(bus, "read_all_positions", None)
-    if not callable(read_all):
-        print("  shimmy_v needs the MCU bulk-position path — skip.")
+    read_snapshot = getattr(bus, "read_snapshot", None)
+    if not callable(read_snapshot):
+        print("  shimmy_v needs the MCU snapshot path — skip.")
         return "skipped"
+
+    def read_all() -> dict[int, float]:
+        snap = read_snapshot()
+        return dict(snap["pos_deg"]) if isinstance(snap, dict) else {}
 
     print(f"  shimmy_v — VELOCITY mode, {len(yaw_joints)} yaws @ "
           f"{1.0 / SHIMMY_V_DT:.0f} Hz, ±{SHIMMY_V_AMP_DEG:.0f}° "

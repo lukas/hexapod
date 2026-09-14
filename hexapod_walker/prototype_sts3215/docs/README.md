@@ -34,5 +34,5 @@ ownership map below before adding another top-level Markdown file.
   and deployment documentation.
 - [`../hexapod-tracker/README.md`](../hexapod-tracker/README.md) owns camera,
   AprilTag, and perception documentation in its standalone submodule.
-- [`../archive/README.md`](../archive/README.md) explains frozen handoffs and
-  historical records. Do not treat archived status files as current truth.
+- Frozen handoffs and historical status snapshots were retired from the tree
+  2026-09-14; use git history. Do not treat archived status files as current truth.

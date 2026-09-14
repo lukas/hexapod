@@ -80,13 +80,13 @@ _PROTO_ROOT = Path(__file__).resolve().parents[1]
 if str(_PROTO_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROTO_ROOT))
 
-from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT
+from hexapod_core.joint_frame import (  # noqa: F401 (re-exported)
+    FACTORY_SERVO_ID, FRAME_ROBOT_ABS, JOINT_CONTRACT, N_JOINTS,
+    SERVO_ID_OFFSET, SERVO_IDS, joint_of_servo, servo_id)
 
 # ---------------------------------------------------------------------------
 # Joint model (mirrors firmware/prototype_servo_bridge.ino and mujoco_prototype)
 # ---------------------------------------------------------------------------
-
-N_JOINTS = 18
 
 # Per-axis safe limits, axis = joint % 3 (0 yaw, 1 hip, 2 knee).
 AXIS_LIMITS_DEG = {
@@ -177,13 +177,9 @@ def joint_limits(joint: int) -> tuple[float, float]:
 
 # Factory-default STS3215 ID.  Never assigned to a robot joint so a fresh
 # servo can always be added onto a live chain without an ID collision.
-FACTORY_SERVO_ID = 1
-SERVO_ID_OFFSET = 2   # joint 0 -> ID 2, ..., joint 17 -> ID 19
-
-
 def joint_to_servo_id(joint: int) -> int:
     """Logical joint 0..17 -> servo bus ID 2..19 (ID 1 left free)."""
-    return joint + SERVO_ID_OFFSET
+    return servo_id(joint)
 
 
 def plant_pose_path() -> Path:

@@ -298,7 +298,8 @@ def run_sysid_protocol(
     sum_path = log_dir / f"sysid_{name}_{stamp}_summary.json"
 
     def _read_pose() -> tuple[dict[int, float], list[int]]:
-        pos = bus.read_all_positions()
+        snap = bus.read_snapshot()
+        pos = snap.get("pos_deg") if isinstance(snap, dict) else None
         if not isinstance(pos, dict):
             pos = {}
         return pos, [j for j in live_joints if j not in pos]
@@ -394,6 +395,7 @@ def run_sysid_protocol(
 
     seg_home: dict[int, list[float]] = {}
     seg_stats: list[dict] = []
+    feedback_read_errors = 0
     cur_seg = -1
     t_run0: float | None = None
     overruns = 0
@@ -457,12 +459,19 @@ def run_sysid_protocol(
             if t_now - last_fb_t >= 1.0 / FEEDBACK_HZ:
                 try:
                     fb = bus.read_all_feedback()
-                    if isinstance(fb, dict) and fb:
-                        last_fb = fb
-                        last_fb_t = t_now
-                        fresh = True
-                except Exception:
-                    pass
+                except Exception as e:
+                    # The previous feedback frame stays in use for the
+                    # current-trip check; count and say so rather than
+                    # silently ageing the guard's input.
+                    fb = None
+                    feedback_read_errors += 1
+                    print(f"[sysid] WARNING feedback read failed "
+                          f"({e!r}); reusing last frame "
+                          f"(count {feedback_read_errors})")
+                if isinstance(fb, dict) and fb:
+                    last_fb = fb
+                    last_fb_t = t_now
+                    fresh = True
             # CSV feedback cells follow the HIGHEST-current joint of the
             # active set (multi-joint traj mode used to log whichever
             # joint came last — useless for diagnosing an overcurrent).
@@ -767,27 +776,36 @@ def run_sysid_protocol(
             hold_pose[j] = float(deg)
             hold_servo_ids.add(joint_to_servo_id(j))
     torque_left_on = False
+    cleanup_errors: list[str] = []
     try:
         _set_torque_limit(bus, live_ids, 1000)
-    except Exception:
-        pass
+    except Exception as e:
+        cleanup_errors.append(f"torque_limit_restore: {e!r}")
     if hold_servo_ids:
         try:
             _write_pose(bus, hold_pose, hold_servo_ids, speed=HOLD_SPEED, acc=25)
             torque_left_on = True
-        except Exception:
+        except Exception as e:
+            cleanup_errors.append(f"hold_write: {e!r}")
             torque_left_on = False
     if not torque_left_on:
         try:
             _limp_all(bus, live_ids)
-        except Exception:
-            pass
+        except Exception as e:
+            cleanup_errors.append(f"limp: {e!r}")
+    for err in cleanup_errors:
+        # End-of-run bus failures decide whether the robot is holding or
+        # limp; they were swallowed. Print and report them with the result.
+        print(f"[sysid] WARNING end-of-run cleanup: {err}")
 
     done = sum(s["ticks"] for s in seg_stats)
     result = {
         "ok": tripped_error is None and not aborted,
         "mode": "sysid",
         "name": name,
+        **({"cleanup_errors": cleanup_errors} if cleanup_errors else {}),
+        **({"feedback_read_errors": feedback_read_errors}
+           if feedback_read_errors else {}),
         "protocol_hash": phash,
         "hz": hz,
         "ticks_planned": len(ticks),

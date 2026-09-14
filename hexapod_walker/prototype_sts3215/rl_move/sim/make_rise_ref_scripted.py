@@ -64,14 +64,15 @@ from rl_move.robot_state import DEG2RAD
 
 from .servo_model import SimServoParams, resolve_model_source
 from .train_ppo_sim import ENV_CLASSES
+from hexapod_core.joint_frame import joint_index, leg_joints
 from .extract_rise_ref import (_blend_pose_ik,
                                _validate_open_loop_robustness)
 
 
 def _foot_rz(q_rad: np.ndarray, leg: int) -> tuple[float, float]:
     from hexapod_core import tripod_gait as _tg
-    hip_deg = math.degrees(q_rad[3 * leg + 1])
-    knee_abs_deg = math.degrees(q_rad[3 * leg + 2])
+    hip_deg = math.degrees(q_rad[joint_index(leg, "hip")])
+    knee_abs_deg = math.degrees(q_rad[joint_index(leg, "knee")])
     return _tg.foot_rz_from_hip_knee(hip_deg, knee_abs_deg)
 
 
@@ -129,9 +130,10 @@ def build_script(q_start: np.ndarray, q_plant: np.ndarray, dt: float,
         if sol is None:
             raise SystemExit(f"[make_rise_ref_scripted] tuck IK failed "
                              f"for leg {leg}: r={r_p:.3f} z={z_s:.3f}")
-        q_crouch[3 * leg + 0] = q_plant[3 * leg + 0]   # coxa at plant yaw
-        q_crouch[3 * leg + 1] = sol[0]
-        q_crouch[3 * leg + 2] = sol[1]
+        j_yaw, j_hip, j_knee = leg_joints(leg)
+        q_crouch[j_yaw] = q_plant[j_yaw]   # coxa at plant yaw
+        q_crouch[j_hip] = sol[0]
+        q_crouch[j_knee] = sol[1]
     rise_m = tuck_rise_mm * 1e-3
     q_crouch_belly = q_crouch.copy()   # belly-level crouch (legacy pose)
     if rise_m > 0.0:
@@ -150,8 +152,8 @@ def build_script(q_start: np.ndarray, q_plant: np.ndarray, dt: float,
                     f"[make_rise_ref_scripted] raised-tuck IK failed "
                     f"for leg {leg}: r={r_p:.3f} "
                     f"z={z_crouch[leg] - rise_m:.3f}")
-            q_crouch[3 * leg + 1] = sol[0]
-            q_crouch[3 * leg + 2] = sol[1]
+            q_crouch[joint_index(leg, "hip")] = sol[0]
+            q_crouch[joint_index(leg, "knee")] = sol[1]
     qs = []
     lift = tuck_lift_mm * 1e-3
     # With a chassis rise the tuck splits: feet SWEEP (with the
@@ -180,14 +182,15 @@ def build_script(q_start: np.ndarray, q_plant: np.ndarray, dt: float,
                    + lift * math.sin(math.pi * sw)
                    - rise_k)
             sol = _leg_from_rz(r_k, z_k)
+            j_yaw, j_hip, j_knee = leg_joints(leg)
             if sol is None:          # keep previous tick's leg pose
                 q_prev = qs[-1] if qs else q_start
-                q_k[3 * leg + 1] = q_prev[3 * leg + 1]
-                q_k[3 * leg + 2] = q_prev[3 * leg + 2]
+                q_k[j_hip] = q_prev[j_hip]
+                q_k[j_knee] = q_prev[j_knee]
             else:
-                q_k[3 * leg + 1], q_k[3 * leg + 2] = sol
-            q_k[3 * leg + 0] = ((1.0 - sw) * q_start[3 * leg + 0]
-                                + sw * q_plant[3 * leg + 0])
+                q_k[j_hip], q_k[j_knee] = sol
+            q_k[j_yaw] = ((1.0 - sw) * q_start[j_yaw]
+                          + sw * q_plant[j_yaw])
         qs.append(q_k)
     ramp_i0 = len(qs)
     for k in range(n_press):

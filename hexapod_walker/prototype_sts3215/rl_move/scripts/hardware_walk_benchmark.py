@@ -14,6 +14,8 @@ from pathlib import Path
 import statistics
 from typing import Any
 
+from hexapod_core.joint_frame import joint_index
+
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = "hexapod.hardware_walk_benchmark.v1"
 POLICY = "hardware-walk-noyaw-v2-canary"
@@ -91,7 +93,7 @@ def validate_target_only_protocol(protocol: dict, leg: int) -> list[int]:
         commands.extend(rows)
     moving = sorted(j for j in range(18)
                     if any(abs(float(row[j]) - float(home[j])) > 1e-7 for row in commands))
-    if moving != [3 * leg + 1, 3 * leg + 2]:
+    if moving != [joint_index(leg, "hip"), joint_index(leg, "knee")]:
         raise ValueError(f"Unexpected moving joints across home/segments: {moving}")
     return moving
 

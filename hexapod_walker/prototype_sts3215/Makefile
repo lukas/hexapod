@@ -24,11 +24,13 @@ endif
 # Override with `make view-buildviz BUILDVIZ_ROOT=/path/to/buildviz`.
 BUILDVIZ_ROOT ?= $(HOME)/buildviz
 
-# Orchestrator runtime state (ledger, run stories, RL_LOG.md) lives in
-# <checkout>/.state, a clone of lukas/hexapod-state -- see
-# rl_move/orchestrator/state_dir.py. Read-only here; the controller writes.
+# Orchestrator runtime state (ledger directory, run stories, RL_LOG.md) is a
+# plain directory at <checkout>/.state (or $HEXAPOD_STATE_DIR), not a git
+# repo -- see rl_move/orchestrator/state_dir.py. This copies the LIVE state
+# from the controller pod (falls back to the hexapod-state PVC mirror) into
+# it. Read-only here; the controller is the only writer.
 state:
-	bash "$(CURDIR)/rl_move/orchestrator/state_sync.sh"
+	bash "$(CURDIR)/rl_move/orchestrator/state_sync.sh" pull
 
 # Tests. The default developer loop skips @pytest.mark.slow rollouts and
 # runs in parallel (pytest-xdist is in the dev group). `make test` is the

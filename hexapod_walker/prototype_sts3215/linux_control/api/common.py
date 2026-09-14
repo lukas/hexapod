@@ -28,6 +28,7 @@ if _PARENT not in sys.path:
     sys.path.insert(0, _PARENT)
 
 from motor_setup.feetech_bus import N_JOINTS, joint_limits, joint_to_servo_id
+from hexapod_core.joint_frame import SERVO_IDS, joint_index, joint_of_servo
 
 if TYPE_CHECKING:
     from drive_controller import DriveController
@@ -161,7 +162,6 @@ class _BusQualityTracker:
     TRACKED_METHODS = {
         "read_snapshot",
         "step_all",
-        "read_all_positions",
         "read_all_feedback",
         "read_imu",
         "read_position_deg",
@@ -238,7 +238,7 @@ class _BusQualityTracker:
             if isinstance(result, dict):
                 live = len(result.get("pos_deg") or {})
             return live >= self.expected_joints, live
-        if short in ("read_all_positions", "read_all_feedback"):
+        if short == "read_all_feedback":
             live = len(result) if isinstance(result, dict) else 0
             return live >= self.expected_joints, live
         if short in ("read_position_deg", "read_feedback"):

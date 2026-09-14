@@ -34,7 +34,7 @@ def _target_source(tmp_path, source):
      ("new", 12.5, ["--video-fps", "12.5"]),
      ("old", 100, []), ("missing", 100, [])],
 )
-def test_pod_probe_real_shell_compatibility(monkeypatch, tmp_path, source, hz, expected):
+def test_pod_probe_real_shell_compatibility(state_ledger, monkeypatch, tmp_path, source, hz, expected):
     _target_source(tmp_path, source)
     monkeypatch.setattr(pod_eval, "POD_PROTO", str(tmp_path))
     seen = []
@@ -59,15 +59,13 @@ def test_unavailable_probe_keeps_legacy_flags(monkeypatch, error):
     assert pod_eval.eval_video_args("unavailable-pod", 100) == ""
 
 
-def _gate_fixture(monkeypatch, tmp_path, hz=100, dr=0):
+def _gate_fixture(state_ledger, monkeypatch, tmp_path, hz=100, dr=0):
     run = "video-pacing-test-" + tmp_path.name
-    ledger = tmp_path / "experiments.json"
-    ledger.write_text(json.dumps([{
+    state = state_ledger([{
         "run": run, "pod": "target-pod", "wandb_id": "test-id",
         "extra_args": ["--task", "joint_walk", "--cfg-set", f"control.hz={hz}",
                        "--dr-scale", str(dr)],
-    }]))
-    monkeypatch.setattr(pod_eval, "LEDGER", ledger)
+    }])
     monkeypatch.setattr(pod_eval, "PROTO", tmp_path)
     monkeypatch.setattr(pod_eval, "find_checkpoint",
                         lambda *args, **kwargs: "policy.zip")
@@ -78,11 +76,11 @@ def _gate_fixture(monkeypatch, tmp_path, hz=100, dr=0):
     monkeypatch.setattr(pod_eval, "remote_report_exists", lambda *args: False)
     monkeypatch.setattr(pod_eval, "open", lambda *args: io.StringIO(), raising=False)
     monkeypatch.setattr(sys, "argv", ["pod_eval.py", run])
-    return run, ledger
+    return run, state
 
 
-def test_gate_and_owncfg_receive_pacing_after_one_probe(monkeypatch, tmp_path):
-    _gate_fixture(monkeypatch, tmp_path, hz=12.5, dr=0.3)
+def test_gate_and_owncfg_receive_pacing_after_one_probe(state_ledger, monkeypatch, tmp_path):
+    _gate_fixture(state_ledger, monkeypatch, tmp_path, hz=12.5, dr=0.3)
     probes, launches = [], []
 
     def probe(pod, hz):
@@ -115,8 +113,8 @@ def test_gate_and_owncfg_receive_pacing_after_one_probe(monkeypatch, tmp_path):
 
 
 @pytest.mark.parametrize("guard", ["synced", "running", "remote_complete"])
-def test_existing_passes_never_probe_or_launch(monkeypatch, tmp_path, guard):
-    _gate_fixture(monkeypatch, tmp_path)
+def test_existing_passes_never_probe_or_launch(state_ledger, monkeypatch, tmp_path, guard):
+    _gate_fixture(state_ledger, monkeypatch, tmp_path)
     monkeypatch.setattr(pod_eval, "core_pass_synced", lambda *args: guard == "synced")
     monkeypatch.setattr(pod_eval, "remote_eval_running", lambda *args: guard == "running")
     monkeypatch.setattr(pod_eval, "remote_report_exists", lambda *args: guard == "remote_complete")
@@ -145,14 +143,14 @@ def test_existing_passes_never_probe_or_launch(monkeypatch, tmp_path, guard):
      ("new", 12.5, ["--video-fps", "12.5"]),
      ("old", 100, []), ("missing", 100, [])],
 )
-def test_evalcmd_probes_execution_target(monkeypatch, tmp_path, capsys, source, hz, expected):
+def test_evalcmd_probes_execution_target(state_ledger, monkeypatch, tmp_path, capsys, source, hz, expected):
     """Execute the real printed shell with a fake uv, never an evaluator.
 
     Generating on a new controller must not commit a command to flags that
     an old target pod cannot parse. The probe belongs in the printed script.
     """
-    run, ledger = _gate_fixture(monkeypatch, tmp_path, hz=hz)
-    monkeypatch.setenv("LEDGER", str(ledger))
+    run, state = _gate_fixture(state_ledger, monkeypatch, tmp_path, hz=hz)
+    monkeypatch.setenv("HEXAPOD_STATE_DIR", str(state))
     monkeypatch.setattr(sys, "argv", ["-", run])
     ops = (_ORCH / "ops.sh").read_text()
     section = ops.split("evalcmd) ", 1)[1].split("\nevalcmdstress)", 1)[0]

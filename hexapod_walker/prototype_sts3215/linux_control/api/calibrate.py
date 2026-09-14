@@ -1306,8 +1306,6 @@ class CalibrateApi:
                 "msg": "no bus; bus error rate not available",
             }
         method = "read_snapshot"
-        if not callable(getattr(bus, method, None)):
-            method = "read_all_positions"
         fn = getattr(bus, method, None)
         if not callable(fn):
             return {
@@ -1316,7 +1314,8 @@ class CalibrateApi:
                 "non_blocking": True,
                 "mode": mode,
                 "label": label,
-                "msg": "bus has no bulk read path for error-rate probe",
+                "msg": ("bus has no read_snapshot (USB adapter); the "
+                        "error-rate probe needs the MCU stream bridge"),
             }
 
         tracker = self._new_bus_quality_tracker(label)

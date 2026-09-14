@@ -547,7 +547,6 @@ def main(argv: list[str] | None = None) -> None:
     print(f"   Walker standing height:          {full.extents[1]/10:.1f} cm")
     print(f"   Total triangles:                 {len(full.faces):,}")
     print()
-    print("Next: run ./hexapod_walker/prototype/render_prototype.sh to produce a Cycles render.")
 
 
 if __name__ == "__main__":

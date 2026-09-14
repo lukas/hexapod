@@ -146,7 +146,7 @@ def _mcu_bus() -> McuFeetechBus:
     bus._lock = threading.Lock()
     bus._ser = _FakeSerial()
     bus._telemetry_sink = None
-    bus.has_stream = False
+    bus.streaming = True
     bus._bin_trace_events = []
     bus._bin_trace_seq = 0
     bus._bin_trace_slow_ms = 30.0

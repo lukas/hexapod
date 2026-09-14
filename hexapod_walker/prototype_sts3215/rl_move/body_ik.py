@@ -12,6 +12,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from hexapod_core.joint_frame import leg_slice
 from hexapod_core.tripod_gait import (
     COXA, FEMUR, TIBIA, LEG_RADIAL, _leg_ik,
 )
@@ -116,7 +117,7 @@ def fk_all_feet(q_rad: np.ndarray) -> np.ndarray:
     az = leg_azimuths()
     feet = np.zeros((N_LEGS, 3), dtype=float)
     for i in range(N_LEGS):
-        yaw, hip, knee = q[3 * i], q[3 * i + 1], q[3 * i + 2]
+        yaw, hip, knee = q[leg_slice(i)]
         feet[i] = fk_foot_body(yaw, hip, knee, az[i])
     return feet
 

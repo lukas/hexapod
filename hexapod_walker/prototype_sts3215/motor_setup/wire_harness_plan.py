@@ -28,8 +28,8 @@ geometry (``hexapod_prototype``) and the chassis-frame leg layout
   * ``leg_idx`` (0 .. 5): hex-leg index (0 = +X half north-east,
     going CCW; matches ``_leg_chassis_frames()``).
   * ``axis`` (string): "yaw" / "hip_pitch" / "knee".
-  * ``servo_id`` (int 1 .. 18): the bus address assigned to this
-    joint (``servo_id = joint_idx + 2`` = IDs 2..19; set once with
+  * ``servo_id`` (int 2 .. 19): the bus address assigned to this
+    joint (``hexapod_core.joint_frame.servo_id(joint_idx)``; set once with
     ``feetech_bus.py setid``).  ID 1 is left free (factory default)
     so a fresh servo can join a live daisy-chain.  Replaces the
     retired PWM ``pca_board`` / ``pca_channel`` pair — on the serial
@@ -125,6 +125,7 @@ if str(_PROTOTYPE_DIR) not in sys.path:
     sys.path.insert(0, str(_PROTOTYPE_DIR))
 
 import hexapod_prototype as hp  # noqa: E402
+from hexapod_core.joint_frame import servo_id  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -346,13 +347,12 @@ def joint_idx(leg_idx: int, axis: str) -> int:
 def joint_to_servo_id(joint: int) -> int:
     """Return the serial-bus address for one joint index.
 
-    ``servo_id = joint + 2`` (IDs 2..19), matching
+    ``hexapod_core.joint_frame.servo_id`` (IDs 2..19), matching
     ``motor_setup/feetech_bus.py`` and ``firmware/WIRING.md``.  ID 1 is
     never assigned -- it is the STS3215 factory default, kept free so a
     fresh servo can join a live daisy-chain without colliding.
     """
-    assert 0 <= joint <= 17
-    return joint + 2
+    return servo_id(joint)
 
 
 # ---------------------------------------------------------------------------

@@ -28,15 +28,13 @@ pod_eval = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(pod_eval)
 
 
-def _fixture(monkeypatch, tmp_path, extra_args):
+def _fixture(state_ledger, monkeypatch, tmp_path, extra_args):
     run = "dr-default-test-" + tmp_path.name
-    ledger = tmp_path / "experiments.json"
-    ledger.write_text(json.dumps([{
+    state_ledger([{
         "run": run, "pod": "target-pod", "wandb_id": "test-id",
         "extra_args": ["--task", "joint_walk", "--cfg-set", "control.hz=50",
                        *extra_args],
-    }]))
-    monkeypatch.setattr(pod_eval, "LEDGER", ledger)
+    }])
     monkeypatch.setattr(pod_eval, "PROTO", tmp_path)
     monkeypatch.setattr(pod_eval, "find_checkpoint", lambda *a, **k: "policy.zip")
     monkeypatch.setattr(pod_eval, "session_side", lambda *a: None)
@@ -50,8 +48,8 @@ def _fixture(monkeypatch, tmp_path, extra_args):
     return run
 
 
-def _run_and_collect_drv(monkeypatch, tmp_path, extra_args):
-    _fixture(monkeypatch, tmp_path, extra_args)
+def _run_and_collect_drv(state_ledger, monkeypatch, tmp_path, extra_args):
+    _fixture(state_ledger, monkeypatch, tmp_path, extra_args)
     launches = []
 
     def launch(args, **kwargs):
@@ -79,18 +77,18 @@ def _run_and_collect_drv(monkeypatch, tmp_path, extra_args):
     return tags
 
 
-def test_omitted_dr_scale_schedules_owncfg_at_trainer_default(monkeypatch, tmp_path):
-    tags = _run_and_collect_drv(monkeypatch, tmp_path, [])
+def test_omitted_dr_scale_schedules_owncfg_at_trainer_default(state_ledger, monkeypatch, tmp_path):
+    tags = _run_and_collect_drv(state_ledger, monkeypatch, tmp_path, [])
     assert ("gate", "0.0") in tags
     assert ("owncfg", "1.0") in tags
 
 
-def test_no_dr_flag_forces_dr_zero_and_skips_owncfg(monkeypatch, tmp_path):
-    tags = _run_and_collect_drv(monkeypatch, tmp_path, ["--no-dr"])
+def test_no_dr_flag_forces_dr_zero_and_skips_owncfg(state_ledger, monkeypatch, tmp_path):
+    tags = _run_and_collect_drv(state_ledger, monkeypatch, tmp_path, ["--no-dr"])
     assert tags == {("gate", "0.0")}
 
 
-def test_explicit_dr_scale_still_wins(monkeypatch, tmp_path):
-    tags = _run_and_collect_drv(monkeypatch, tmp_path, ["--dr-scale", "0.35"])
+def test_explicit_dr_scale_still_wins(state_ledger, monkeypatch, tmp_path):
+    tags = _run_and_collect_drv(state_ledger, monkeypatch, tmp_path, ["--dr-scale", "0.35"])
     assert ("gate", "0.0") in tags
     assert ("owncfg", "0.35") in tags

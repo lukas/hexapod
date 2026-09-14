@@ -43,7 +43,8 @@ import numpy as np
 
 from rl_move.robot_state import DEG2RAD, N_JOINTS
 from rl_move.safety import AXIS_LIMITS_DEG
-from hexapod_core.joint_frame import robot_abs_rad_to_mujoco_rel_rad
+from hexapod_core.joint_frame import (
+    SIM_JOINT_NAMES, robot_abs_rad_to_mujoco_rel_rad)
 
 _YAW_LO, _YAW_HI = (AXIS_LIMITS_DEG[0][0] * DEG2RAD,
                     AXIS_LIMITS_DEG[0][1] * DEG2RAD)
@@ -80,8 +81,7 @@ class CartFootDecoder:
         mujoco.mj_resetData(model, data)
 
         jids = np.array([mujoco.mj_name2id(
-            model, mujoco.mjtObj.mjOBJ_JOINT,
-            f"L{j // 3}_{('yaw', 'pitch', 'knee')[j % 3]}")
+            model, mujoco.mjtObj.mjOBJ_JOINT, SIM_JOINT_NAMES[j])
             for j in range(N_JOINTS)], dtype=int)
         sids = np.array([mujoco.mj_name2id(
             model, mujoco.mjtObj.mjOBJ_SITE, f"L{i}_foot_site")

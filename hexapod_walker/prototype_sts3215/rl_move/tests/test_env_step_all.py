@@ -92,7 +92,10 @@ def test_command_and_update_uses_step_all_snapshot():
     assert est.snapshots == [snap]
 
 
-def test_command_and_update_falls_back_when_step_all_has_no_snapshot():
+def test_command_and_update_reads_state_without_resending_on_no_snapshot():
+    # A framing miss on the combined transaction: the goal may or may not
+    # have landed. The env reads the real state once and never re-sends
+    # through a separate write path (the legacy write_all fallback is gone).
     bus = _StepBus(None)
     est = _FakeEstimator()
 
@@ -101,7 +104,7 @@ def test_command_and_update_falls_back_when_step_all_has_no_snapshot():
 
     assert state.bus_ok
     assert bus.steps == 1
-    assert bus.writes == 1
+    assert bus.writes == 0
     assert est.updates == 1
     assert est.snapshots == []
 

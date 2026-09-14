@@ -28,6 +28,8 @@ from pathlib import Path
 
 import numpy as np
 
+from hexapod_core.joint_frame import SIM_JOINT_NAMES
+
 _PROTO = Path(__file__).resolve().parents[2]
 
 N_JOINTS = 18
@@ -697,8 +699,7 @@ def _act_id(model, name: str) -> int:
 
 
 def joint_names() -> list[str]:
-    return [f"L{j // 3}_{('yaw', 'pitch', 'knee')[j % 3]}"
-            for j in range(N_JOINTS)]
+    return list(SIM_JOINT_NAMES)
 
 
 def apply_params_to_model(model, params: SimServoParams,

@@ -16,6 +16,13 @@ watch = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(watch)
 
 
+@pytest.fixture(autouse=True)
+def _log_to_tmp(tmp_path, monkeypatch):
+    # watch_loop.LOG is the controller's /workspace/orchestrator.log; the
+    # real reap_cycles/log paths under test must not depend on that host.
+    monkeypatch.setattr(watch, "LOG", tmp_path / "orchestrator.log")
+
+
 def _capacity(free=5, backlog=0):
     return {"slots_total": 12, "slots_ready": 11, "slots_free": free,
             "free_pods": [f"hexapod-mjx-train-{i}" for i in range(free)],
@@ -201,7 +208,7 @@ def test_partial_idle_main_loop_obeys_grace_owner_and_no_work_backoff(
         assert "cw-unrelated-finished-run" in args[3]
 
 
-def test_ledger_verdicted_counts_full_verdict_vocabulary(tmp_path, monkeypatch):
+def test_ledger_verdicted_counts_full_verdict_vocabulary(tmp_path, monkeypatch, state_ledger):
     """Meta 09-07: 1225 verdicted runs carried statuses outside
     FINISHED/FAILED (PASS, CANARY FAIL - MECHANISM, ...); a watcher
     restart could re-spawn triage for all of them."""
@@ -215,10 +222,8 @@ def test_ledger_verdicted_counts_full_verdict_vocabulary(tmp_path, monkeypatch):
         # relaunch after a verdicted attempt: latest entry wins
         {"run": "cw-a", "status": "RUNNING"},
     ]
-    path = tmp_path / "experiments.json"
-    path.write_text(json.dumps(ledger))
+    state_ledger(ledger)
     monkeypatch.setattr(watch, "HERE", tmp_path)
-    monkeypatch.setattr(watch, "LEDGER", path)
     got = watch.ledger_verdicted()
     assert got == {"cw-b", "cw-c"}
 
@@ -241,7 +246,7 @@ def test_prestage_finished_is_idempotent(monkeypatch):
 
 
 @pytest.fixture
-def fast_finish_ledger(tmp_path, monkeypatch):
+def fast_finish_ledger(tmp_path, monkeypatch, state_ledger):
     """The real short deferred-run shape written by cmd_checkup."""
     entry = {
         "run": "cw-fast-deferred", "pod": "train-1", "status": "FINISHED",
@@ -249,19 +254,17 @@ def fast_finish_ledger(tmp_path, monkeypatch):
         "extra_args": ["--defer-final-artifacts"],
         "checkups": [{"verdict": "FINISHED_BEFORE_CHECKUP"}],
     }
-    path = tmp_path / "experiments.json"
-    path.write_text(json.dumps([entry]))
+    state_ledger([entry])
     monkeypatch.setattr(watch, "HERE", tmp_path)
-    monkeypatch.setattr(watch, "LEDGER", path)
     monkeypatch.setattr(watch, "PAUSE", tmp_path / "PAUSE")
     monkeypatch.setattr(watch, "log", lambda message: None)
     monkeypatch.setattr(watch, "load_processed", lambda: set())
     monkeypatch.setattr(watch, "_prestage_fired", set())
-    return entry, path
+    return entry, state_ledger
 
 
 def test_checkup_completion_is_not_a_scientific_verdict(fast_finish_ledger):
-    entry, path = fast_finish_ledger
+    entry, write = fast_finish_ledger
     rows = []
     for i, verdict in enumerate((None, "", "None", "  ", "clean gait", "CANARY FAIL")):
         rows.append({**entry, "run": f"cw-{i}", "verdict": verdict})
@@ -274,15 +277,15 @@ def test_checkup_completion_is_not_a_scientific_verdict(fast_finish_ledger):
         {"run": "cw-relaunched", "status": "FAILED", "verdict": "old failure"},
         {**entry, "run": "cw-relaunched"},
     ]
-    path.write_text(json.dumps(rows))
+    write(rows)
     assert watch.ledger_verdicted() == {
         "cw-4", "cw-5", "cw-legacy", "cw-infra-failed", "cw-old-checkup"}
 
 
-def _handoff_polls(monkeypatch, path, polls, dispatch):
+def _handoff_polls(monkeypatch, write, polls, dispatch):
     """Run actual worker iterations, replacing only time and remote I/O."""
     index, probes = [0], []
-    path.write_text(json.dumps([polls[0][0]]))
+    write([polls[0][0]])
     monkeypatch.setattr(watch, "prestage_finished", dispatch)
 
     def remote_read(args, **kwargs):
@@ -299,7 +302,7 @@ def _handoff_polls(monkeypatch, path, polls, dispatch):
         index[0] += 1
         if index[0] == len(polls):
             raise _StopLoop
-        path.write_text(json.dumps([polls[index[0]][0]]))
+        write([polls[index[0]][0]])
 
     monkeypatch.setattr(watch.subprocess, "run", remote_read)
     monkeypatch.setattr(watch.time, "sleep", next_poll)
@@ -311,7 +314,7 @@ def _handoff_polls(monkeypatch, path, polls, dispatch):
 @pytest.mark.parametrize("finalizer_phase", ["artifacts_pending", "evaluated", "failed"])
 def test_running_to_finished_between_handoff_polls_fires_once(
         fast_finish_ledger, monkeypatch, finalizer_phase):
-    entry, path = fast_finish_ledger
+    entry, write = fast_finish_ledger
     threads = []
     monkeypatch.setattr(
         watch.threading, "Thread",
@@ -325,7 +328,7 @@ def test_running_to_finished_between_handoff_polls_fires_once(
         (entry, {"phase": finalizer_phase, "jobs": {"final_video": {"status": "pending"}}}),
         (entry, {"phase": finalizer_phase}),
     ]
-    probes = _handoff_polls(monkeypatch, path, polls, prestage)
+    probes = _handoff_polls(monkeypatch, write, polls, prestage)
     assert len(probes) == 2  # periodic completion is not training completion
     assert probes[-1][-1].endswith(
         "/artifact_handoff/cw-fast-deferred/state.json")
@@ -339,7 +342,7 @@ def test_running_to_finished_between_handoff_polls_fires_once(
 @pytest.mark.parametrize("blocked", ["processed", "verdict", "missing-pod", "old", "legacy"])
 def test_handoff_preserves_handled_and_verdict_exclusions(
         fast_finish_ledger, monkeypatch, blocked):
-    entry, path = fast_finish_ledger
+    entry, write = fast_finish_ledger
     if blocked == "processed":
         monkeypatch.setattr(watch, "load_processed", lambda: {entry["run"]})
     elif blocked == "verdict":
@@ -354,7 +357,7 @@ def test_handoff_preserves_handled_and_verdict_exclusions(
 
     calls = []
     probes = _handoff_polls(
-        monkeypatch, path, [(entry, {"phase": "evaluated"})], calls.append)
+        monkeypatch, write, [(entry, {"phase": "evaluated"})], calls.append)
     assert calls == []
     assert probes == []
 
@@ -366,9 +369,9 @@ def test_handoff_preserves_handled_and_verdict_exclusions(
 ])
 def test_handoff_retries_missing_or_pending_training_state(
         fast_finish_ledger, monkeypatch, unready):
-    entry, path = fast_finish_ledger
+    entry, write = fast_finish_ledger
     calls = []
-    probes = _handoff_polls(monkeypatch, path, [
+    probes = _handoff_polls(monkeypatch, write, [
         (entry, unready),
         (entry, {"phase": "artifacts_pending"}),
         (entry, {"phase": "evaluated"}),
@@ -389,11 +392,11 @@ def test_handoff_retries_missing_or_pending_training_state(
 def test_fast_finish_triage_waits_for_core_gate_and_preserves_owners(
         fast_finish_ledger, tmp_path, monkeypatch,
         wandb_finished, synced, blocked, expected_prestage, expected_cycles):
-    entry, path = fast_finish_ledger
+    entry, write = fast_finish_ledger
     run = entry["run"]
     if blocked == "verdict":
         entry["verdict"] = "PASS - scientifically reviewed"
-        path.write_text(json.dumps([entry]))
+        write([entry])
     sentinel = tmp_path / "core.synced"
     if synced:
         sentinel.touch()
@@ -416,18 +419,19 @@ def test_fast_finish_triage_waits_for_core_gate_and_preserves_owners(
         assert calls[0][0][0] == {run}
 
 
-def test_board_fingerprint_stable_and_tracks_ledger_changes(tmp_path, monkeypatch):
+def test_board_fingerprint_stable_and_tracks_ledger_changes(tmp_path, monkeypatch,
+                                                            state_ledger):
     """The IDLE-refill gate (09-10 meta) holds while the board is
     byte-identical and re-arms on any ledger/backlog change."""
-    ledger = tmp_path / "experiments.json"
+    entries = [{"run": "a", "status": "FINISHED"}]
+    state_ledger(entries)
     backlog = tmp_path / "backlog.json"
-    ledger.write_text('[{"run": "a", "status": "FINISHED"}]')
     backlog.write_text("[]")
-    monkeypatch.setattr(watch, "LEDGER", ledger)
     monkeypatch.setattr(watch, "BACKLOG", backlog)
     fp1 = watch.board_fingerprint()
     assert fp1 == watch.board_fingerprint()  # stable while unchanged
-    ledger.write_text('[{"run": "a", "status": "FINISHED", "verdict": "x"}]')
+    entries[0]["verdict"] = "x"
+    state_ledger(entries)
     assert watch.board_fingerprint() != fp1  # verdict re-arms refills
     fp2 = watch.board_fingerprint()
     backlog.write_text('[{"run": "queued"}]')
@@ -460,7 +464,7 @@ def test_reap_cycles_arms_idle_gate_only_for_idle_refills(tmp_path, monkeypatch)
         assert bool(watch.IDLE_REFILL_REAPED) is expect, (label, tail)
 
 
-def test_digin_escalation_not_limited_to_cycles_own_runs(tmp_path, monkeypatch):
+def test_digin_escalation_not_limited_to_cycles_own_runs(tmp_path, monkeypatch, state_ledger):
     """09-11 bug: an idle-kick/(partial-)refill cycle is spawned with
     `runs=set()` (nothing "finished" triggered it) but routinely finds
     and flags a DIFFERENT, incidentally-discovered run. The old
@@ -478,10 +482,7 @@ def test_digin_escalation_not_limited_to_cycles_own_runs(tmp_path, monkeypatch):
                           "stamp": "s2", "model": k.get("model"),
                           "proc": SimpleNamespace(poll=lambda: None),
                           "out": tmp_path / "digin.log", "render": None})
-    ledger = tmp_path / "experiments.json"
-    ledger.write_text(json.dumps([
-        {"run": "cw-unrelated-flagged-run", "status": "FINISHED"}]))
-    monkeypatch.setattr(watch, "LEDGER", ledger)
+    state_ledger([{"run": "cw-unrelated-flagged-run", "status": "FINISHED"}])
     watch._digin_spawned.clear()
 
     out = tmp_path / "triage.log"
@@ -503,17 +504,15 @@ def test_digin_escalation_not_limited_to_cycles_own_runs(tmp_path, monkeypatch):
     assert "cw-unrelated-flagged-run" in watch._digin_spawned
 
 
-def test_digin_escalation_ignores_names_not_in_ledger():
+def test_digin_escalation_ignores_names_not_in_ledger(state_ledger):
     """A forged/hallucinated run name (not present in the ledger) must
     not spawn a deep cycle — the ledger-membership check is the only
     guard now that the intersection-with-`c["runs"]` restriction is
     gone."""
     import unittest.mock as mock
+    state_ledger([{"run": "cw-real-run", "status": "FINISHED"}])
     with mock.patch.object(watch, "registry_update", lambda *a, **k: None), \
-         mock.patch.object(watch, "spawn_cycle") as spy, \
-         mock.patch.object(watch, "LEDGER") as ledger_mock:
-        ledger_mock.read_text.return_value = json.dumps(
-            [{"run": "cw-real-run", "status": "FINISHED"}])
+         mock.patch.object(watch, "spawn_cycle") as spy:
         watch._digin_spawned.clear()
         cycle = {"label": "kick", "runs": set(), "t0": 0.0, "stamp": "s3",
                  "model": watch.AGENT_MODEL_TRIAGE,

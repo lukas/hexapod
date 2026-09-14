@@ -41,6 +41,7 @@ from .sim_env import SimHexapodBalanceEnv, set_foot_ground_friction
 from .servo_model import ServoProfile
 
 
+from hexapod_core.joint_frame import joint_index
 from rl_move.robot_state import RAD2DEG, N_JOINTS
 import mujoco_prototype as MP
 
@@ -212,8 +213,8 @@ def build_traj(strategy: str, fkm: RealLegFK, z_gnd: float,
         for i, (r_t, z_t) in enumerate(targets):
             h, k = fkm.solve(r_t, z_t, (seeds[i][0], seeds[i][1]))
             seeds[i] = [h, k]
-            q[3 * i + 1] = h
-            q[3 * i + 2] = k
+            q[joint_index(i, "hip")] = h
+            q[joint_index(i, "knee")] = k
         return q
 
     def follow_legs(p0s: list, p1s: list, t_s: float) -> list:

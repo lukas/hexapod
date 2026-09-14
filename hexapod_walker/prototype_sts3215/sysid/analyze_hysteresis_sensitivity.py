@@ -16,6 +16,8 @@ from typing import Any
 
 import numpy as np
 
+from hexapod_core.joint_frame import joint_index
+
 from .analyze_hysteresis import analyze_hysteresis
 
 METHOD = "matched_midpoint_dwells_excluding_arrival_endpoint_v1"
@@ -47,12 +49,12 @@ def _overrun_rows(path: Path) -> list[int]:
 
 
 def _encoder_rows(path: Path, *, leg: str) -> list[tuple[float, float]]:
-    joint_offset = int(leg[1:]) * 3
+    leg_i = int(leg[1:])
     with path.open(newline="", encoding="utf-8") as stream:
         return [
             (
-                float(row[f"q{joint_offset + 1}_deg"]),
-                float(row[f"q{joint_offset + 2}_deg"]),
+                float(row[f"q{joint_index(leg_i, 'hip')}_deg"]),
+                float(row[f"q{joint_index(leg_i, 'knee')}_deg"]),
             )
             for row in csv.DictReader(stream)
         ]

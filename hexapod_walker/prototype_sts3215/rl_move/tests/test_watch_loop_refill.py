@@ -16,6 +16,13 @@ watch = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(watch)
 
 
+@pytest.fixture(autouse=True)
+def _log_to_tmp(tmp_path, monkeypatch):
+    # watch_loop.LOG is the controller's /workspace/orchestrator.log; the
+    # real reap_cycles/log paths under test must not depend on that host.
+    monkeypatch.setattr(watch, "LOG", tmp_path / "orchestrator.log")
+
+
 def _capacity(free=5, backlog=0):
     return {"slots_total": 12, "slots_ready": 11, "slots_free": free,
             "free_pods": [f"hexapod-mjx-train-{i}" for i in range(free)],

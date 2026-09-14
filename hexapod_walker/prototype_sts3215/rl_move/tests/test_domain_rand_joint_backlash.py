@@ -184,3 +184,126 @@ def test_env_backlash_none_when_disabled():
     env = SimHexapodJointWalkEnv(cfg={}, randomize=True, dr_scale=1.0)
     env.reset(seed=0)
     assert env._backlash is None
+
+
+# ------------------------------------------------------- group (asymmetric)
+# dr.joint_backlash_group (2026-09-14): concentrate the dose on a named
+# subset of joints instead of independently across all 18 -- the panel's
+# own hard-region correlation study names per-joint/per-leg HETEROGENEITY,
+# not global scale, as the strongest roll driver, so this is the
+# untried-asymmetric form of the SAME already-built mechanism.
+
+from rl_move.sim.domain_rand import BACKLASH_GROUPS, backlash_group_mask
+
+
+def test_default_group_is_off_and_mask_all_true():
+    assert RandRanges().joint_backlash_group == ""
+    assert np.all(backlash_group_mask(""))
+
+
+def test_leg_group_masks_exactly_three_joints_per_leg():
+    for name, legs in (("left", (0, 1, 2)), ("right", (3, 4, 5)),
+                       ("front", (0, 5)), ("rear", (2, 3))):
+        mask = backlash_group_mask(name)
+        expect = np.zeros(N_JOINTS, dtype=bool)
+        for leg in legs:
+            expect[3 * leg:3 * leg + 3] = True
+        assert np.array_equal(mask, expect), name
+
+
+def test_single_leg_group_masks_exactly_that_legs_three_joints():
+    mask = backlash_group_mask("leg4")
+    assert mask.sum() == 3
+    assert np.all(mask[12:15])
+    assert not np.any(mask[:12])
+    assert not np.any(mask[15:])
+
+
+def test_axis_group_masks_every_leg_same_axis():
+    for name, axis in (("yaw", 0), ("pitch", 1), ("knee", 2)):
+        mask = backlash_group_mask(name)
+        assert mask.sum() == N_LEGS
+        assert np.all(np.where(mask)[0] % 3 == axis)
+
+
+def test_unknown_group_raises():
+    with pytest.raises(ValueError):
+        backlash_group_mask("nope")
+    with pytest.raises(ValueError):
+        backlash_group_mask("leg9")
+
+
+def test_all_named_groups_are_registered_and_valid():
+    for name in BACKLASH_GROUPS:
+        mask = backlash_group_mask(name)
+        assert mask.dtype == bool
+        assert mask.any()
+
+
+def test_group_mask_is_bit_exact_noop_when_unset():
+    # Empty group must leave the per-joint draw byte-identical to the
+    # pre-2026-09-14 behavior for the SAME rng stream.
+    off = DomainRandomizer(RandRanges(
+        joint_backlash_deg=(2.0, 5.0)), scale=1.0).sample(
+        np.random.default_rng(3))
+    on = DomainRandomizer(RandRanges(
+        joint_backlash_deg=(2.0, 5.0), joint_backlash_group=""),
+        scale=1.0).sample(np.random.default_rng(3))
+    assert np.array_equal(off.joint_backlash_gap_rad, on.joint_backlash_gap_rad)
+
+
+def test_group_zeroes_gap_outside_named_joints_same_stream():
+    plain = DomainRandomizer(RandRanges(
+        joint_backlash_deg=(2.0, 5.0)), scale=1.0).sample(
+        np.random.default_rng(5))
+    grouped = DomainRandomizer(RandRanges(
+        joint_backlash_deg=(2.0, 5.0), joint_backlash_group="leg2"),
+        scale=1.0).sample(np.random.default_rng(5))
+    # Same rng stream (mask applied post-draw, no extra consumption): the
+    # IN-group joints match the ungrouped draw exactly; out-of-group are
+    # forced to zero.
+    mask = backlash_group_mask("leg2")
+    assert np.array_equal(
+        grouped.joint_backlash_gap_rad[mask], plain.joint_backlash_gap_rad[mask])
+    assert np.all(grouped.joint_backlash_gap_rad[~mask] == 0.0)
+    assert np.any(grouped.joint_backlash_gap_rad[mask] > 0.0)
+
+
+def test_scaled_passes_group_through_unscaled():
+    r = RandRanges(joint_backlash_group="right").scaled(0.3)
+    assert r.joint_backlash_group == "right"
+
+
+def test_cfg_override_passes_group_string_through_unparsed():
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+    cfg = {"dr": {"joint_backlash_deg": "4.0,8.0",
+                  "joint_backlash_group": "leg3"}}
+    env = SimHexapodJointWalkEnv(cfg=cfg, randomize=True, dr_scale=1.0)
+    assert env.randomizer.ranges.joint_backlash_group == "leg3"
+    # A comma-bearing NUMERIC override on a different field must still
+    # parse to a tuple exactly as before (regression guard on the fix).
+    assert env.randomizer.ranges.joint_backlash_deg == (4.0, 8.0)
+
+
+def test_cfg_override_rejects_unknown_group_at_reset():
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+    cfg = {"dr": {"joint_backlash_deg": "4.0,8.0",
+                  "joint_backlash_group": "bogus"}}
+    env = SimHexapodJointWalkEnv(cfg=cfg, randomize=True, dr_scale=1.0)
+    with pytest.raises(ValueError):
+        env.reset(seed=0)
+
+
+def test_env_wires_grouped_backlash_and_rollout_runs():
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+    cfg = {"dr": {"joint_backlash_deg": "4.0,8.0",
+                  "joint_backlash_group": "right"}}
+    env = SimHexapodJointWalkEnv(cfg=cfg, randomize=True, dr_scale=1.0)
+    env.reset(seed=0)
+    assert env._backlash is not None
+    mask = backlash_group_mask("right")
+    assert np.all(env._backlash.gap_rad[~mask] == 0.0)
+    assert np.any(env._backlash.gap_rad[mask] > 0.0)
+    a = np.zeros(env.n_act, dtype=np.float32)
+    for _ in range(5):
+        env.step(a)

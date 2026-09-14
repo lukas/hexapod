@@ -946,8 +946,16 @@ class SimHexapodBalanceEnv(_GymBase):
                 if not hasattr(self.randomizer.ranges, _k):
                     raise ValueError(f"unknown DR override dr.{_k}")
                 if isinstance(_v, str):
-                    _parts = tuple(float(x) for x in _v.split(","))
-                    _v = _parts[0] if len(_parts) == 1 else _parts
+                    # String-typed fields (e.g. dr.joint_backlash_group)
+                    # are a categorical name, not a "lo,hi" magnitude
+                    # range -- pass through unparsed. Detected off the
+                    # field's OWN current (default) value, so this never
+                    # changes behavior for any pre-existing numeric
+                    # override.
+                    if not isinstance(
+                            getattr(self.randomizer.ranges, _k), str):
+                        _parts = tuple(float(x) for x in _v.split(","))
+                        _v = _parts[0] if len(_parts) == 1 else _parts
                 setattr(self.randomizer.ranges, _k, _v)
         # DR-STAGE RAMP (2026-09-08, staged-DR-breadth fresh-acquisition
         # design): env.dr_stage_ramp_steps > 0 arms a trainer-driven

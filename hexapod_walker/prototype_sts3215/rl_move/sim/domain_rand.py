@@ -79,6 +79,45 @@ _STRUCT_RIGHT = (3, 4, 5)
 _STRUCT_FRONT = (0, 5)
 _STRUCT_REAR = (2, 3)
 
+# Valid dr.joint_backlash_group names (see RandRanges.joint_backlash_group).
+BACKLASH_GROUPS = (
+    "left", "right", "front", "rear",
+    "yaw", "pitch", "knee",
+    "leg0", "leg1", "leg2", "leg3", "leg4", "leg5",
+)
+_BACKLASH_LEG_GROUPS = {
+    "left": _STRUCT_LEFT, "right": _STRUCT_RIGHT,
+    "front": _STRUCT_FRONT, "rear": _STRUCT_REAR,
+}
+_BACKLASH_AXIS_GROUPS = {"yaw": 0, "pitch": 1, "knee": 2}
+
+
+def backlash_group_mask(group: str) -> np.ndarray:
+    """(N_JOINTS,) bool mask for ``dr.joint_backlash_group``.
+
+    "" -> all-True (legacy: every joint independently dosed). Leg groups
+    ("left"/"right"/"front"/"rear"/"legN") set all 3 axes of the named
+    leg(s); axis groups ("yaw"/"pitch"/"knee") set that axis across all
+    6 legs. Raises on an unrecognized name -- fail loud, never silently
+    dose nothing.
+    """
+    if not group:
+        return np.ones(N_JOINTS, dtype=bool)
+    mask = np.zeros(N_JOINTS, dtype=bool)
+    if group in _BACKLASH_LEG_GROUPS:
+        for leg in _BACKLASH_LEG_GROUPS[group]:
+            mask[3 * leg:3 * leg + 3] = True
+    elif group in _BACKLASH_AXIS_GROUPS:
+        mask[_BACKLASH_AXIS_GROUPS[group]::3] = True
+    elif group.startswith("leg") and group[3:].isdigit():
+        leg = int(group[3:])
+        if not (0 <= leg < N_LEGS):
+            raise ValueError(f"joint_backlash_group leg index out of range: {group!r}")
+        mask[3 * leg:3 * leg + 3] = True
+    else:
+        raise ValueError(f"unknown joint_backlash_group: {group!r}")
+    return mask
+
 # Adaptive/adversarial hard-case sampler (dr.struct_dr_adaptive, speed
 # track, 2026-09-14 — the DR-composition panel's own next-named lever
 # after CTRL/WIDE/STRUCT/COMBO all closed, see STATUS.md 09-13 ~21:5x):
@@ -363,6 +402,23 @@ class RandRanges:
     # changing it changes what "full load" means, not how uncertain it
     # is. Small enough that ordinary stance/swing torques saturate it.
     joint_backlash_load_ref_nm: float = 1.2
+    # joint_backlash_group: concentrate the gap on a NAMED subset of
+    # joints instead of spreading it independently across all 18
+    # (2026-09-14, speed track — the uniform-across-all-18 form of this
+    # mechanism was probed NULL against the PS200 signature; the panel's
+    # own hard-region correlation study names per-joint/per-leg
+    # HETEROGENEITY, not global scale, as the strongest roll driver
+    # (kp joint-to-joint spread +0.84), so an asymmetric/concentrated
+    # dose is the next-named, untried form of the SAME mechanism, not a
+    # new one). "" (default) = every joint drawn independently as
+    # before, bit-exact (the mask is all-ones). Else one of
+    # ``BACKLASH_GROUPS`` ("left"/"right"/"front"/"rear" leg groups,
+    # "yaw"/"pitch"/"knee" axis groups, or "leg0".."leg5" a single leg's
+    # 3 joints) — joints outside the named group are forced to zero gap
+    # post-draw (same rng stream, same call count, purely a mask
+    # multiply) so enabling/disabling this field never shifts any other
+    # draw for a given seed.
+    joint_backlash_group: str = ""
     # Adaptive/adversarial hard-case sampler (2026-09-14, speed track —
     # the DR-composition panel's next-named lever after CTRL/WIDE/
     # STRUCT/COMBO all missed the held-out >=30% roll-reduction floor,
@@ -475,6 +531,11 @@ class RandRanges:
             joint_backlash_load_gain=(self.joint_backlash_load_gain[0] * s,
                                        self.joint_backlash_load_gain[1] * s),
             joint_backlash_load_ref_nm=self.joint_backlash_load_ref_nm,
+            # Categorical group selector, not a magnitude — same
+            # convention as struct_dr_adaptive/zero_drift_cmd_frame:
+            # WHICH joints get dosed does not shrink with the
+            # curriculum, only the probability/dose menus do.
+            joint_backlash_group=self.joint_backlash_group,
         )
 
 
@@ -1289,6 +1350,13 @@ class DomainRandomizer:
         if max(r.joint_backlash_deg) > 0.0:
             gap_deg = u(r.joint_backlash_deg[0], r.joint_backlash_deg[1],
                         N_JOINTS)
+            # Group mask (2026-09-14): "" -> all-ones, so this multiply
+            # is a bit-exact no-op for every pre-existing config; it
+            # consumes no rng and runs AFTER the draw above so the
+            # stream is identical whether or not a group is named.
+            if r.joint_backlash_group:
+                gap_deg = gap_deg * backlash_group_mask(
+                    r.joint_backlash_group).astype(float)
             load_gain = (u(*r.joint_backlash_load_gain)
                          if max(r.joint_backlash_load_gain) > 0.0 else 0.0)
             ep = replace(

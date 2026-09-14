@@ -31,10 +31,13 @@ from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlsplit
 
 HERE = Path(__file__).resolve().parent
-# HERE for sibling modules; the bundle/prototype root for the
-# hexapod_core / motor_setup / rl_move packages.
-for _p in (HERE, HERE.parent):
-    if str(_p) not in sys.path:
+# Establish canonical module precedence BEFORE BenchAPI can import/cache
+# bus helpers. Existing PYTHONPATH entries still need promotion ahead of
+# the script directory, where older deployments left duplicate modules.
+for _p in reversed((HERE / "vendor", HERE.parent / "motor_setup", HERE, HERE.parent)):
+    if _p.is_dir():
+        while str(_p) in sys.path:
+            sys.path.remove(str(_p))
         sys.path.insert(0, str(_p))
 
 from bench_api import BenchAPI  # noqa: E402

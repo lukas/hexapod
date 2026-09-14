@@ -104,6 +104,7 @@ files = [
     "linux_control/bus_bench.py",
     "linux_control/sysid_protocol.py",
     "linux_control/sysid_runner.py",
+    "linux_control/motor_dynamics.py",
     "hexapod_core/walk_ready_transition.py",
     "linux_control/rl_walk_start.py",
     "rl_move/env.py",
@@ -404,6 +405,7 @@ hex_remote_compile() {
       linux_control/cpg_controller_loader.py \
       linux_control/telemetry_recorder.py \
       linux_control/async_bus_guard.py \
+      linux_control/motor_dynamics.py \
       linux_control/rl_policy.py \
       rl_move/env.py \
       rl_move/robot_state.py \

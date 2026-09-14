@@ -151,11 +151,10 @@ def pull_teacher_run(run: str) -> dict:
 
     from .train_ppo_sim import _parse_cfg_set
 
-    if not state_dir.LEDGER.exists():
-        raise SystemExit(
-            f"--*-teacher-run: no ledger at {state_dir.LEDGER} -- "
-            "run `make -C hexapod_walker/prototype_sts3215 state` first")
-    entries = json.loads(state_dir.LEDGER.read_text())
+    try:
+        entries = state_dir.load_ledger()
+    except (OSError, RuntimeError) as exc:
+        raise SystemExit(f"--*-teacher-run: {exc}") from exc
     entry = current_entries(entries).get(run)
     if entry is None:
         raise SystemExit(f"--*-teacher-run: no ledger entry for {run!r}")

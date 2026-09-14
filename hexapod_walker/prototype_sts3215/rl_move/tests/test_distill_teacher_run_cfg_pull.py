@@ -51,24 +51,17 @@ def test_extract_flag_value_both_forms_and_missing():
     assert _extract_flag_value(extra_args, "--missing") is None
 
 
-def _write_ledger(path, entries):
-    path.write_text(json.dumps(entries))
-
-
-def test_pull_teacher_run_happy_path(tmp_path, monkeypatch):
+def test_pull_teacher_run_happy_path(tmp_path, monkeypatch, state_ledger):
     ckpt_dir = tmp_path / "policies"
     ckpt_dir.mkdir()
     (ckpt_dir / "ppo_goal_myrun.zip").write_bytes(b"fake")
-    ledger = tmp_path / "experiments.json"
-    _write_ledger(ledger, [
+    state_ledger([
         {"run": "myrun", "status": "PASS", "created": "t0",
          "extra_args": ["--out-name", "ppo_goal_myrun", "--dr-scale", "0.2",
                         "--cfg-set", "bus.write_speed=1500",
                         "--cfg-set", "safety.max_delta_q_deg=2.5"]},
     ])
     import rl_move.sim.distill_gru as dg
-    from rl_move.orchestrator import state_dir
-    monkeypatch.setattr(state_dir, "LEDGER", ledger)
     monkeypatch.setattr(dg, "POLICY_DIR", ckpt_dir)
     out = pull_teacher_run("myrun")
     assert out["checkpoint"] == ckpt_dir / "ppo_goal_myrun.zip"
@@ -78,24 +71,18 @@ def test_pull_teacher_run_happy_path(tmp_path, monkeypatch):
     assert out["status"] == "PASS"
 
 
-def test_pull_teacher_run_unknown_run_raises(tmp_path, monkeypatch):
-    ledger = tmp_path / "experiments.json"
-    _write_ledger(ledger, [])
-    from rl_move.orchestrator import state_dir
-    monkeypatch.setattr(state_dir, "LEDGER", ledger)
+def test_pull_teacher_run_unknown_run_raises(tmp_path, monkeypatch, state_ledger):
+    state_ledger([])
     with pytest.raises(SystemExit, match="no ledger entry"):
         pull_teacher_run("nope")
 
 
-def test_pull_teacher_run_missing_checkpoint_raises(tmp_path, monkeypatch):
-    ledger = tmp_path / "experiments.json"
-    _write_ledger(ledger, [
+def test_pull_teacher_run_missing_checkpoint_raises(tmp_path, monkeypatch, state_ledger):
+    state_ledger([
         {"run": "myrun", "status": "PASS", "created": "t0",
          "extra_args": ["--out-name", "ppo_goal_myrun"]},
     ])
     import rl_move.sim.distill_gru as dg
-    from rl_move.orchestrator import state_dir
-    monkeypatch.setattr(state_dir, "LEDGER", ledger)
     monkeypatch.setattr(dg, "POLICY_DIR", tmp_path / "empty_policies")
     (tmp_path / "empty_policies").mkdir()
     with pytest.raises(SystemExit, match="does not exist"):

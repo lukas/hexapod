@@ -3135,6 +3135,8 @@ class SimHexapodBalanceEnv(_GymBase):
         self._rise_gate_freeze_ticks = 0
         self._lower_gate_freeze_ticks = 0
         self._pretuck_latched = False
+        self._decouple_latched = False
+        self._rise_h_prev = None
         self._state = self._read_state()
         self._rec_reset_height_mm = 0.0
         self._rec_reset_tilt_deg = 0.0
@@ -4249,6 +4251,8 @@ class SimHexapodBalanceEnv(_GymBase):
         self._curl_milestones = set()
         self._rise_gate_freeze_ticks = 0
         self._pretuck_latched = False
+        self._decouple_latched = False
+        self._rise_h_prev = None
         # Hold/lower BC anchors mid-sequence use q_nom directly — which
         # the switch just re-based to the CANONICAL plant frame, i.e.
         # exactly the settled-plant base a fresh single-mode hold/lower
@@ -5481,7 +5485,8 @@ class SimHexapodBalanceEnv(_GymBase):
             th_mm = cfg_get(self.cfg, "reward", "curl_milestone_mm",
                             default=[40.0, 15.0])
             dist = self._curl_dist()
-            r_cprog = kcp * (self._curl_dist_prev - dist)
+            _curl_delta = self._curl_dist_prev - dist
+            r_cprog = kcp * _curl_delta
             self._curl_dist_prev = dist
             r_cmile = 0.0
             for th in th_mm:
@@ -5492,6 +5497,65 @@ class SimHexapodBalanceEnv(_GymBase):
             parts["reward_curl_progress"] = r_cprog
             parts["reward_curl_milestone"] = r_cmile
             reward += r_cprog + r_cmile
+            # Height-without-curl DECOUPLING price (2026-09-14, follow-on
+            # to the risepretuck dose2/dose8 CANARY FAIL-MECHANISM
+            # diagnostic). A `--rollout-trace-out` per-tick trace off a
+            # FAILING flat-start rise episode (both current_pretuck
+            # doses) showed ALL SIX legs' pitch+knee servos pinned at/
+            # near the 2.64A ceiling simultaneously for >1.5s while
+            # footprint_err_end_mm stayed at the ~52mm stuck band (feet
+            # never moved toward the plant anchor) even though torso
+            # height climbed 0->53mm over the same window -- i.e. the
+            # policy pushes the body straight UP in Z from the
+            # original (splayed) foot XY layout instead of pulling feet
+            # IN (reducing curl_dist) first, the poor-leverage
+            # brute-force shape that costs near-max current on every
+            # joint simultaneously. Every closed lever on this sub-
+            # problem (current-headroom-gate, geometry/score-income
+            # gate, two-phase-freeze, curl-pretrain, current_pretuck)
+            # priced CURRENT, SCORE-INCOME, or a TRAINING STAGE in
+            # isolation -- none of them couple the two live state
+            # signals (curl_dist, h_rel) together. This term does:
+            # while pre-tuck (same one-way latch/threshold/crouch-
+            # exemption idiom as current_pretuck -- not a scripted
+            # clock, not a motion prior, both signals already read
+            # elsewhere in this same reward path), any positive torso
+            # height gained on a tick where curl_dist did NOT also
+            # shrink (`_curl_delta <= 0`) is charged quadratically --
+            # i.e. "raising the body without pulling your feet in
+            # first" is the specifically priced behavior, height gained
+            # WHILE curling is free. Bit-exact OFF by default
+            # (reward.k_rise_decouple=0.0): no extra state read, no
+            # behavior change for any existing checkpoint/lineage.
+            # --cfg-set reward.k_rise_decouple=<k>
+            # [--cfg-set reward.rise_decouple_curl_mm=<mm>] (default 40,
+            # matches the bridge-pose bar every other pretuck-family
+            # lever uses).
+            # Tests: rl_move/tests/test_rise_decouple_reward.py.
+            k_decouple = float(cfg_get(
+                self.cfg, "reward", "k_rise_decouple", default=0.0))
+            if (k_decouple > 0.0
+                    and getattr(self._goal_traj, "start_at", None)
+                    != "crouch"):
+                if getattr(self, "_decouple_latched", False):
+                    tucked_d = True
+                else:
+                    th_m_d = float(cfg_get(
+                        self.cfg, "reward", "rise_decouple_curl_mm",
+                        default=40.0)) * 0.001
+                    tucked_d = dist <= th_m_d
+                    if tucked_d:
+                        self._decouple_latched = True
+                h_prev = getattr(self, "_rise_h_prev", None)
+                if h_prev is None:
+                    h_prev = h_rel
+                if not tucked_d:
+                    d_h = max(h_rel - h_prev, 0.0)
+                    if _curl_delta <= 0.0 and d_h > 0.0:
+                        r_decouple = -k_decouple * (d_h ** 2)
+                        parts["reward_rise_decouple"] = r_decouple
+                        reward += r_decouple
+                self._rise_h_prev = h_rel
             # Hold-phase repricing (run 06): while the height ref still
             # sits at 0 (the curl window), the tracking kernel pays for
             # CURL DISTANCE, not stillness. Before this, lying frozen
@@ -6087,6 +6151,7 @@ class SimHexapodBalanceEnv(_GymBase):
             _keep_keys = (
                 "reward_curl_progress", "reward_curl_milestone",
                 "reward_current_hot", "reward_current_pretuck",
+                "reward_rise_decouple",
                 "reward_current_income",
                 "reward_support_margin", "reward_load_even",
                 "reward_torque_headroom", "reward_action_rate",

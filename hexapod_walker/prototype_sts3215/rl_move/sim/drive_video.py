@@ -218,6 +218,21 @@ def main() -> int:
     # via env._current_goal() to detect live turn-in-place ticks -- a
     # "human_turn"/"turn" script segment with near-zero forward speed and
     # nonzero wz composes exactly like the probe/gate panel do.
+    # walkcurr design-note follow-up (2026-09-14): same wrapper/flag as
+    # eval_checkpoint.py's own --rot60 (Canary A's offline mechanism),
+    # now available on the interactive drive-video demo path so a
+    # --script human/sweep/turn capture of an off-axis heading actually
+    # shows full-direction walking instead of the closed LEGPARK-SKATE
+    # off-axis fingerprint. Default OFF/bit-exact.
+    ap.add_argument("--rot60", action="store_true",
+                    help="wrap the policy in the rot60 exact-symmetry "
+                         "canonicalizer (rot60.Rot60Policy) -- commands "
+                         "are rotated into the model's own trained "
+                         "+/-30deg wedge and legs relabeled, so a "
+                         "policy that only walks that wedge cleanly "
+                         "walks every heading; needs a plain (non-"
+                         "recurrent) checkpoint with the FRAME_WALK=72 "
+                         "obs layout (no phase/mode tail).")
     ap.add_argument("--compose-turn-blend-s", type=float, default=None,
                     help="wrap the policy in probe_turn_compose's "
                          "_ComposedPolicy (scripted-teacher substitution "
@@ -285,7 +300,17 @@ def main() -> int:
     assert model.observation_space.shape == env.observation_space.shape, (
         f"obs mismatch: policy {model.observation_space.shape} vs env "
         f"{env.observation_space.shape} -- pass the run's cfg stack")
+    if args.rot60 and getattr(getattr(model, "policy", None),
+                              "lstm_actor", None) is not None:
+        raise SystemExit("--rot60 + recurrent checkpoint is not "
+                         "implemented (sector state and hidden state "
+                         "would need joint handling)")
     model = wrap_recurrent_predictor(model)
+    if args.rot60:
+        from rl_move.config import cfg_get as _cg
+        from .rot60 import Rot60Policy
+        model = Rot60Policy(model, tilt_scale=float(
+            _cg(env.cfg, "obs", "tilt_scale", default=0.2)))
     if args.compose_turn_blend_s is not None:
         # Local import: probe_turn_compose imports FROM eval_checkpoint
         # (not this module), so no circular-import risk here, but kept

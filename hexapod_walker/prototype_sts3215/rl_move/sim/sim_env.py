@@ -41,7 +41,7 @@ from rl_move.robot_state import (
 )
 from rl_move.safety import SafetyLayer, action_to_body_offset
 
-from .domain_rand import DomainRandomizer, EpisodeRandomization
+from .domain_rand import DomainRandomizer, EpisodeRandomization, JointBacklash
 from .deployed_transport import DeployedTransport
 from .servo_model import (
     ServoProfile, SimServoParams, apply_params_to_model, build_model,
@@ -1014,6 +1014,8 @@ class SimHexapodBalanceEnv(_GymBase):
         self._prev_action = np.zeros(self.n_act, dtype=float)
         self._cmd = np.zeros(N_JOINTS, dtype=float)
         self._profile: ServoProfile | None = None
+        self._backlash: JointBacklash | None = None
+        self._backlash_prev_force = np.zeros(N_JOINTS, dtype=float)
         self._step_i = 0
         self._episode = 0
         self._state: RobotState | None = None
@@ -1561,6 +1563,16 @@ class SimHexapodBalanceEnv(_GymBase):
                              and self._ep_rand.ext_push_peak_n != 0.0)
         for _ in range(self._substeps):
             target = self._profile.tick(h)
+            if not limp and self._backlash is not None:
+                # Dynamic joint backlash (dr.joint_backlash_deg, see
+                # domain_rand.JointBacklash): the effective target lags
+                # the profile's true target by up to half the (possibly
+                # load-widened) gap after a direction reversal. Load is
+                # the PREVIOUS substep's actuator force -- one-substep
+                # lagged, never a look-ahead into this substep's own
+                # not-yet-computed torque.
+                target = self._backlash.apply(
+                    target, self._backlash_prev_force)
             q = self.data.qpos[self._qadr]
             if limp:
                 # Torque-off settling (reset only): the actuator reference
@@ -1596,6 +1608,9 @@ class SimHexapodBalanceEnv(_GymBase):
                 self.data.xfrc_applied[self._chassis_bid, 0:3] = (
                     push_fx, push_fy, 0.0)
             mujoco.mj_step(self.model, self.data)
+            if self._backlash is not None:
+                self._backlash_prev_force[:] = np.abs(
+                    self.data.actuator_force[self._pos_act])
             # Accumulate the IMU-point specific force at the physics rate
             # (exact velocities, one FD) — includes the lever-arm
             # acceleration of an off-center IMU without tick-rate
@@ -2766,6 +2781,15 @@ class SimHexapodBalanceEnv(_GymBase):
             vel_scale=((1.0 if er is None else er.vel_scale)
                        * self._ease_v),
         )
+        if er is not None and np.any(er.joint_backlash_gap_rad > 0.0):
+            self._backlash = JointBacklash(
+                er.joint_backlash_gap_rad,
+                load_gain=er.joint_backlash_load_gain,
+                load_ref_nm=er.joint_backlash_load_ref_nm)
+            self._backlash.reset(q_start)
+        else:
+            self._backlash = None
+        self._backlash_prev_force[:] = 0.0
         self._cmd = self._mujoco_to_logical_q(q_start)
         if exact_start is None:
             # Settle with slippery feet AND limp servos first: when a
@@ -4041,6 +4065,15 @@ class SimHexapodBalanceEnv(_GymBase):
                 vel_scale=((1.0 if er is None else er.vel_scale)
                            * self._ease_v),
             )
+            if er is not None and np.any(er.joint_backlash_gap_rad > 0.0):
+                self._backlash = JointBacklash(
+                    er.joint_backlash_gap_rad,
+                    load_gain=er.joint_backlash_load_gain,
+                    load_ref_nm=er.joint_backlash_load_ref_nm)
+                self._backlash.reset(q_probe)
+            else:
+                self._backlash = None
+            self._backlash_prev_force[:] = 0.0
             self._cmd = self._mujoco_to_logical_q(q_probe)
             fr = self.model.geom_friction[:, 0].copy()
             self.model.geom_friction[:, 0] = self.SLIP_MU
@@ -4050,6 +4083,8 @@ class SimHexapodBalanceEnv(_GymBase):
             q_nom_mujoco = self.data.qpos[self._qadr].copy()
             q_nom = self._mujoco_to_logical_q(q_nom_mujoco)
             self._profile.reset(q_nom_mujoco)
+            if self._backlash is not None:
+                self._backlash.reset(q_nom_mujoco)
             self._cmd = q_nom.copy()
             self._settle(0.3)
             frames[fam] = {

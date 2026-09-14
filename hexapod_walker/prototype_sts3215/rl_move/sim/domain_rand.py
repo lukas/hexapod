@@ -41,6 +41,11 @@ from .servo_model import AXES, N_JOINTS, SimServoParams
 DEG2RAD = math.pi / 180.0
 N_LEGS = 6
 G0 = 9.80665
+# Cap on the load-coupling multiplier in JointBacklash.apply (see
+# RandRanges.joint_backlash_load_gain) -- keeps a large load spike from
+# blowing the gap up unboundedly; 4x the reference load is already a
+# generous stance-to-shove range.
+JOINT_BACKLASH_LOAD_CAP = 4.0
 
 # Structured hard-region DR dose menu (dr.struct_dr_prob, 2026-09-13
 # speed sim-to-real order). Values are the frozen-policy joint panel's
@@ -324,6 +329,40 @@ class RandRanges:
     # forced ON for the overlaid episode). 0.0 (default) = OFF, guarded
     # draw at the very END of sample() so the base stream is bit-exact.
     struct_dr_prob: float = 0.0
+    # Dynamic, load-coupled joint BACKLASH (2026-09-14, speed track —
+    # DR_JOINT_PANEL_2026-09-13's own escalation after CTRL/WIDE/STRUCT/
+    # COMBO/ADAPT closed the whole bounded-STATIC-parameter family 0/5:
+    # "very likely a DYNAMIC, load-coupled mechanism (series compliance/
+    # backlash under load, servo-loop behavior under load, stick-slip)
+    # that the simulator's parametric families do not express" — every
+    # existing axis (kp/kv/torque/deadband/friction/etc.) is either a
+    # constant-for-the-episode scale OR a symmetric always-on dead-zone
+    # (dr.deadband_scale, already probed and refuted alone in
+    # probe_ps200_transfer.py's "Deadband (backlash/post-encoder
+    # compliance) dose" table — a uniform multiplier on the SAME
+    # always-on dead-zone, not direction-reversal play). This is
+    # different in kind: a classical mechanical BACKLASH (play) — the
+    # actuator's effective setpoint only re-engages once the commanded
+    # target has moved more than half the gap PAST the point of the last
+    # direction reversal — whose gap WIDENS with the joint's own recent
+    # load (a coarse stand-in for load-dependent series compliance /
+    # stick-slip, since sim has no true gearbox/cable compliance model).
+    # joint_backlash_deg: per-joint full-gap magnitude range (degrees),
+    # sampled independently per joint per episode, like kp_scale_pct.
+    # (0.0, 0.0) = OFF, guarded draw (no rng consumed), bit-exact.
+    joint_backlash_deg: tuple[float, float] = (0.0, 0.0)
+    # joint_backlash_load_gain: fraction the gap WIDENS per unit of
+    # |actuator_force|/joint_backlash_load_ref_nm (capped at
+    # JOINT_BACKLASH_LOAD_CAP); e.g. 1.0 = gap doubles at the reference
+    # load. Sampled once per episode like the gap. (0.0, 0.0) = no load
+    # coupling (a pure static-gap backlash), still guarded/bit-exact.
+    joint_backlash_load_gain: tuple[float, float] = (0.0, 0.0)
+    # Reference |force| (N*m-equivalent actuator-force units) that maps
+    # to load_gain's "1 unit" of load. A modeling constant, not
+    # randomized (never scaled by dr-scale, like zero_drift_cmd_frame) —
+    # changing it changes what "full load" means, not how uncertain it
+    # is. Small enough that ordinary stance/swing torques saturate it.
+    joint_backlash_load_ref_nm: float = 1.2
     # Adaptive/adversarial hard-case sampler (2026-09-14, speed track —
     # the DR-composition panel's next-named lever after CTRL/WIDE/
     # STRUCT/COMBO all missed the held-out >=30% roll-reduction floor,
@@ -428,6 +467,14 @@ class RandRanges:
             leg_torque_scale=pair(*self.leg_torque_scale),
             struct_dr_prob=self.struct_dr_prob * s,
             struct_dr_adaptive=self.struct_dr_adaptive,
+            # Magnitude ranges follow the curriculum like every other
+            # per-joint scale (kp/kv/torque); the load-coupling reference
+            # is a modeling constant, not scaled (like zero_drift_cmd_frame).
+            joint_backlash_deg=(self.joint_backlash_deg[0] * s,
+                                 self.joint_backlash_deg[1] * s),
+            joint_backlash_load_gain=(self.joint_backlash_load_gain[0] * s,
+                                       self.joint_backlash_load_gain[1] * s),
+            joint_backlash_load_ref_nm=self.joint_backlash_load_ref_nm,
         )
 
 
@@ -518,6 +565,16 @@ class EpisodeRandomization:
     # "" = no structured overlay this episode; else "correlated" /
     # "asymmetric" (diagnostics only — the fields above already carry
     # the overlay's values).
+    # Dynamic, load-coupled joint backlash (dr.joint_backlash_deg /
+    # dr.joint_backlash_load_gain, see RandRanges). All-zero gap (the
+    # default) = OFF, byte-exact (JointBacklash.apply is the identity
+    # map at gap=0 — see its own docstring). Per-joint gap in RADIANS
+    # (converted from the sampled degrees at draw time, matching every
+    # other *_rad field's convention).
+    joint_backlash_gap_rad: np.ndarray = field(
+        default_factory=lambda: np.zeros(N_JOINTS))
+    joint_backlash_load_gain: float = 0.0
+    joint_backlash_load_ref_nm: float = 1.2
     struct_dr_mode: str = ""
     # "" = no structured overlay this episode; else one of
     # domain_rand.STRUCT_STORIES — the granular key the adaptive
@@ -721,7 +778,79 @@ class EpisodeRandomization:
                 float(np.min(self.foot_friction_scale)), 3),
             "leg_torque_min": round(
                 float(np.min(self.leg_torque_scale)), 3),
+            "joint_backlash_max_deg": round(
+                float(np.max(self.joint_backlash_gap_rad)) / DEG2RAD, 2),
+            "joint_backlash_load_gain": round(
+                self.joint_backlash_load_gain, 2),
         }
+
+
+class JointBacklash:
+    """Per-joint classical mechanical backlash (play), optionally widened
+    by recent joint load — the DYNAMIC, load-coupled uncertainty family
+    DR_JOINT_PANEL_2026-09-13 named as its escalation after every bounded
+    STATIC parameter family (independent/correlated/asymmetric, incl. the
+    structured hard-region overlay) closed 0/5 against the PS200 16.78-deg
+    hardware roll signature.
+
+    Physical picture: a servo's OUTPUT (through gearbox/link play) does not
+    instantly follow a direction reversal of its commanded setpoint — it
+    must first take up a small "dead" gap before it re-engages, and that
+    gap is understood to widen under load (worn/loaded gear teeth, cable
+    stretch). This is intentionally distinct from ``deadband_scale``
+    (RandRanges), an always-on symmetric dead-zone around ANY held
+    position, already probed alone (probe_ps200_transfer.py "Deadband
+    (backlash/post-encoder compliance) dose") and refuted as a scale
+    match: that mechanism never engages/disengages with commanded
+    DIRECTION, so it cannot express the "takes up slack on every reversal,
+    especially under load" story this class does.
+
+    ``apply`` is the textbook backlash (play) nonlinearity: the engaged
+    (effective, foot-side) position only moves once the commanded target
+    has crossed more than ``gap/2`` past the point of the last reversal.
+    At ``gap=0`` (every joint, the historical default) ``apply`` is the
+    exact identity map — ``move`` is true whenever ``target != engaged``
+    and the update sets ``engaged = target`` unconditionally, so a
+    disabled axis is bit-exact with pre-2026-09-14 behavior with zero
+    extra branching cost avoided only by the caller never constructing
+    this class when the episode's gap is all-zero (see sim_env.py).
+    """
+
+    def __init__(self, gap_rad: np.ndarray, *, load_gain: float = 0.0,
+                 load_ref_nm: float = 1.2):
+        self.gap_rad = np.asarray(gap_rad, dtype=float).reshape(N_JOINTS)
+        self.load_gain = float(load_gain)
+        self.load_ref_nm = max(float(load_ref_nm), 1e-9)
+        self._engaged: np.ndarray | None = None
+
+    def reset(self, q0_rad: np.ndarray) -> None:
+        self._engaged = np.asarray(q0_rad, dtype=float).reshape(
+            N_JOINTS).copy()
+
+    def apply(self, target_rad: np.ndarray,
+              load_nm: np.ndarray | None = None) -> np.ndarray:
+        """Return this tick's backlash-lagged effective target.
+
+        ``load_nm`` (optional, one tick lagged — the caller's most recent
+        available actuator-force reading, never a look-ahead) is the
+        per-joint load magnitude driving the load-coupled gap widening;
+        ``None`` or ``load_gain=0`` keeps a pure static-gap backlash.
+        """
+        if self._engaged is None:
+            self.reset(target_rad)
+        gap = self.gap_rad
+        if self.load_gain > 0.0 and load_nm is not None:
+            load_frac = np.clip(
+                np.abs(load_nm) / self.load_ref_nm, 0.0,
+                JOINT_BACKLASH_LOAD_CAP)
+            gap = gap * (1.0 + self.load_gain * load_frac)
+        half = gap * 0.5
+        target = np.asarray(target_rad, dtype=float).reshape(N_JOINTS)
+        delta = target - self._engaged
+        move = np.abs(delta) > half
+        self._engaged = np.where(
+            move, target - np.sign(delta) * half, self._engaged)
+        return self._engaged
 
 
 def _struct_gravity(rng: np.random.Generator) -> np.ndarray:
@@ -1153,4 +1282,18 @@ class DomainRandomizer:
                 probs = np.asarray([weights[k] for k in keys], dtype=float)
                 story = str(rng.choice(keys, p=probs))
             ep = _sample_struct_overlay(rng, ep, story=story)
+        # Dynamic joint backlash: drawn LAST (guarded), same convention
+        # as foot_friction_scale/leg_torque_scale/struct above -- the
+        # default (0.0, 0.0) range never consumes rng and leaves every
+        # earlier draw's stream byte-exact.
+        if max(r.joint_backlash_deg) > 0.0:
+            gap_deg = u(r.joint_backlash_deg[0], r.joint_backlash_deg[1],
+                        N_JOINTS)
+            load_gain = (u(*r.joint_backlash_load_gain)
+                         if max(r.joint_backlash_load_gain) > 0.0 else 0.0)
+            ep = replace(
+                ep,
+                joint_backlash_gap_rad=gap_deg * DEG2RAD,
+                joint_backlash_load_gain=float(load_gain),
+                joint_backlash_load_ref_nm=float(r.joint_backlash_load_ref_nm))
         return ep

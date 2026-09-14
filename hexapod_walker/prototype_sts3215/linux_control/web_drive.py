@@ -315,6 +315,7 @@ BUS_REQUIRED_GET = frozenset({
 })
 BUS_REQUIRED_POST = frozenset({
     "/api/setup/nudge",
+    "/api/setup/recovery_nudge",
     "/api/tft/ready",
     "/api/tft/recover",
     "/api/tft/selftest",
@@ -856,7 +857,8 @@ class Handler(BaseHTTPRequestHandler):
         if (path != "/cmd" and self._request_requires_bus()
                 and self._reject_quarantined_bus()):
             return
-        if path in ("/api/setup/scan", "/api/setup/assign", "/api/setup/wiggle", "/api/setup/nudge"):
+        if path in ("/api/setup/scan", "/api/setup/assign", "/api/setup/wiggle",
+                    "/api/setup/nudge", "/api/setup/recovery_nudge"):
             try:
                 data = json.loads(body or "{}")
                 if not isinstance(data, dict):
@@ -867,6 +869,8 @@ class Handler(BaseHTTPRequestHandler):
                     result = SETUP.wiggle(data)
                 elif path.endswith("/nudge"):
                     result = SETUP.nudge(data)
+                elif path.endswith("/recovery_nudge"):
+                    result = SETUP.recovery_nudge(data)
                 else:
                     result = SETUP.assign(data)
                 self._json(200, result)

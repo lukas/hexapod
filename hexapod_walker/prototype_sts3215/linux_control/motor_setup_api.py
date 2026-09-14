@@ -327,3 +327,287 @@ class MotorSetup:
                 finally:
                     self.wiggling = False
             return result
+
+    def recovery_nudge(self, data):
+        """Bounded raw recovery for L0 and its L1/L5 support hip/knee joints.
+
+        At most two joints move by <=5 degrees while selected joints hold
+        their freshly read positions. The 200/1000 torque cap, 90 speed,
+        4 acceleration and 3-second active bound are fixed; a hold-only
+        probe lasts one second. This never re-zeros or returns home.
+        """
+        from feetech_bus import COUNTS_PER_DEG, JOINT_SIGN, count_to_deg, joint_limits
+
+        if not isinstance(data, dict) or set(data) - {'deltas_deg', 'hold_joints'}:
+            raise ValueError('Recovery accepts only deltas_deg and hold_joints.')
+        deltas, holds = data.get('deltas_deg', {}), data.get('hold_joints', [])
+        allowed = {1, 2, 4, 5, 16, 17}
+        if (not isinstance(deltas, dict) or len(deltas) > 2
+                or any(key not in {'1', '2', '4', '5', '16', '17'} for key in deltas)):
+            raise ValueError('Choose at most two moving joints from 1,2,4,5,16,17.')
+        if (not isinstance(holds, list) or any(type(j) is not int or j not in allowed for j in holds)
+                or len(set(holds)) != len(holds)):
+            raise ValueError('hold_joints must contain distinct joints from 1,2,4,5,16,17.')
+        offsets = {}
+        for key, delta in deltas.items():
+            if (type(delta) not in (int, float) or not math.isfinite(delta)
+                    or not 0 < abs(delta) <= 5):
+                raise ValueError('Each raw delta must be finite, nonzero and within -5..5 degrees.')
+            joint = int(key)
+            offset = math.trunc(delta * COUNTS_PER_DEG * JOINT_SIGN[joint])
+            if not offset:
+                raise ValueError('Recovery delta is smaller than one encoder count.')
+            offsets[joint] = offset
+        if set(offsets) & set(holds):
+            raise ValueError('A joint cannot both move and hold.')
+        participants = sorted(set(offsets) | set(holds))
+        if not 1 <= len(participants) <= 6:
+            raise ValueError('Choose one to six recovery participants.')
+        pair_joints = next(((hip, hip + 1) for hip in (1, 4, 16)
+                            if hip in offsets and hip + 1 in offsets
+                            and deltas[str(hip)] * deltas[str(hip + 1)] < 0
+                            and math.isclose(deltas[str(hip)] + deltas[str(hip + 1)],
+                                             0., abs_tol=.1)), None)
+        duration = 3.0 if offsets else 1.0
+        self.abort.clear()
+        with self.lock, self.drive._lock:
+            bus = self._ready()
+            registered = self._registry()['servos']
+            if any(str(j + 2) not in registered for j in participants):
+                raise ValueError('Assign every recovery participant before moving.')
+            deadline = None
+            active_start = None
+            active_healthy_scan = False
+            partial_bad_health = False
+
+            class ActiveDeadline(TimeoutError):
+                pass
+
+            def check():
+                if self.abort.is_set():
+                    raise ValueError('Recovery stopped.')
+                if deadline is not None and time.monotonic() >= deadline:
+                    raise ActiveDeadline('Recovery active time limit reached.')
+
+            def read(sid, addr, size=2, *, guarded=True):
+                fn = bus.pkt.read1ByteTxRx if size == 1 else bus.pkt.read2ByteTxRx
+                for _ in range(3):
+                    if guarded:
+                        check()
+                    value, comm, err = fn(sid, addr)
+                    if comm == 0 and err == 0:
+                        return value
+                raise ValueError(f'Servo {sid} feedback unavailable at register {addr}.')
+
+            def write_limit(sid, value, *, guarded=True):
+                if guarded:
+                    check()
+                _, comm, err = bus.pkt.write2ByteTxRx(sid, 48, value)
+                if comm != 0 or err != 0 or read(sid, 48, guarded=guarded) != value:
+                    raise ValueError(f'Servo {sid} torque limit unverified.')
+
+            if any(read(sid, 40, 1) != 0 for sid in range(2, 20)):
+                raise ValueError('All 18 motors must have torque off before recovery.')
+            result = dict(ok=False, joint_frame='servo_relative', joints={}, torque_off=False,
+                          active_seconds=0., pair_error_deg=0., max_pair_error_deg=0., pair_fault_reads=0)
+            homes, targets, limits = {}, {}, {}
+
+            def set_start(j, count):
+                target = count + offsets.get(j, 0)
+                before, goal = count_to_deg(j, count), count_to_deg(j, target)
+                lo, hi = joint_limits(j)
+                if not (0 <= count <= 4095 and 0 <= target <= 4095
+                        and lo <= before <= hi and lo <= goal <= hi):
+                    raise ValueError(f'Joint {j} recovery start or target outside raw limits.')
+                homes[j], targets[j] = count, target
+                result['joints'][str(j)].update(before_deg=before, target_deg=goal,
+                                                before_counts=count, target_counts=target)
+
+            for j in participants:
+                result['joints'][str(j)] = dict(
+                    joint=j, id=j + 2, role='move' if j in offsets else 'hold',
+                    reached_deg=None, after_deg=None, torque_off=False,
+                    current_a=None, peak_current_a=0., load_pct=None, max_load_pct=0.,
+                    voltage_v=None, temp_c=None, min_voltage_v=None, max_voltage_v=None,
+                    max_temp_c=None, support_drift_deg=0., max_support_drift_deg=0.,
+                    force_fault_reads=0, voltage_fault_reads=0,
+                    temperature_fault_reads=0, support_drift_fault_reads=0, samples=0)
+                set_start(j, read(j + 2, 56))
+                limits[j] = read(j + 2, 48)
+                result['joints'][str(j)].update(saved_torque_limit=limits[j],
+                                                applied_torque_limit=None)
+
+            def pending():
+                return result['pair_fault_reads'] or any(
+                    row[key] for row in result['joints'].values() for key in (
+                        'force_fault_reads', 'voltage_fault_reads',
+                        'temperature_fault_reads', 'support_drift_fault_reads'))
+
+            def observe():
+                nonlocal active_healthy_scan, partial_bad_health
+                partial_bad_health = False
+                positions = {}
+                for j in participants:
+                    sid, row = j + 2, result['joints'][str(j)]
+                    current = (read(sid, 69) & 0x7fff) * .0065
+                    row.update(current_a=current, peak_current_a=max(row['peak_current_a'], current))
+                    partial_bad_health |= current >= .25
+                    if current >= 1.0:
+                        raise ValueError(f'Joint {j} hard current {current:.3f} A >= 1 A.')
+                    load = (read(sid, 60) & 0x3ff) / 10.
+                    row.update(load_pct=load, max_load_pct=max(row['max_load_pct'], load))
+                    partial_bad_health |= load >= 23.
+                    voltage = read(sid, 62, 1) / 10.
+                    row['voltage_v'] = voltage
+                    row['min_voltage_v'] = voltage if row['min_voltage_v'] is None else min(row['min_voltage_v'], voltage)
+                    row['max_voltage_v'] = voltage if row['max_voltage_v'] is None else max(row['max_voltage_v'], voltage)
+                    partial_bad_health |= not 9. <= voltage <= 14.
+                    temperature = read(sid, 63, 1)
+                    row['temp_c'] = temperature
+                    row['max_temp_c'] = temperature if row['max_temp_c'] is None else max(row['max_temp_c'], temperature)
+                    partial_bad_health |= temperature >= 60
+                    count = read(sid, 56)
+                    if not 0 <= count <= 4095:
+                        raise ValueError(f'Joint {j} invalid raw encoder reading.')
+                    positions[j] = count
+                    angle = count_to_deg(j, count)
+                    drift = abs(angle - row['before_deg']) if j in holds else 0.
+                    partial_bad_health |= drift > 3.
+                    row.update(reached_deg=angle, reached_counts=count, support_drift_deg=drift,
+                               max_support_drift_deg=max(row['max_support_drift_deg'], drift),
+                               samples=row['samples'] + 1)
+                    faults = {'force': current >= .25 or load >= 23.,
+                              'voltage': not 9. <= voltage <= 14.,
+                              'temperature': temperature >= 60,
+                              'support_drift': drift > 3.}
+                    for name, bad in faults.items():
+                        key = name + '_fault_reads'
+                        row[key] = row[key] + 1 if bad else 0
+                        if row[key] >= 3:
+                            raise ValueError(f'Joint {j} {name} fault on 3 consecutive fresh reads '
+                                             f'({current:.3f} A, {load:.1f}% load, {voltage:.1f} V, '
+                                             f'{temperature:g} C, support drift {drift:.2f} deg).')
+                    if pair_joints and j == pair_joints[1]:
+                        # Both moving-joint reads are fresh now: check their
+                        # coupling before spending time on support telemetry.
+                        error = sum(result['joints'][str(k)]['reached_deg']
+                                    - result['joints'][str(k)]['before_deg'] for k in pair_joints)
+                        result['pair_error_deg'] = error
+                        result['max_pair_error_deg'] = max(result['max_pair_error_deg'], abs(error))
+                        result['pair_fault_reads'] = result['pair_fault_reads'] + 1 if abs(error) > 1.5 else 0
+                        if abs(error) > 2.5 or result['pair_fault_reads'] >= 3:
+                            raise ValueError(f'L{pair_joints[0] // 3} hip/knee actual pair mismatch {error:.2f} deg.')
+                if active_start is not None:
+                    active_healthy_scan = not pending()
+                return positions
+
+            self.wiggling = True
+            try:
+                preflight_end = time.monotonic() + 3.
+                observe()
+                while pending():
+                    if self.abort.wait(.05):
+                        raise ValueError('Recovery stopped.')
+                    if time.monotonic() >= preflight_end:
+                        raise TimeoutError('Recovery health preflight did not clear.')
+                    observe()
+                # Refresh raw starts after health admission, validate every
+                # endpoint, then preload/verify all goals before any enable.
+                for j in participants:
+                    set_start(j, read(j + 2, 56))
+                for j in participants:
+                    sid = j + 2
+                    applied = min(limits[j], 200)
+                    write_limit(sid, applied)
+                    result['joints'][str(j)]['applied_torque_limit'] = applied
+                    check()
+                    if bus.pkt.WritePosEx(sid, homes[j], 90, 4) != 0:
+                        raise ValueError(f'Joint {j} present-position preload failed.')
+                    if read(sid, 42) != homes[j]:
+                        raise ValueError(f'Joint {j} present-position preload unverified.')
+                active_start = time.monotonic()
+                deadline = active_start + duration
+                for j in participants:
+                    check()
+                    bus.torque(j + 2, True)
+                    if read(j + 2, 40, 1) != 1:
+                        raise ValueError(f'Joint {j} torque enable unverified.')
+                if offsets:
+                    group = bus.pkt.groupSyncWrite
+                    group.clearParam()
+                    try:
+                        for j in sorted(offsets):
+                            check()
+                            bus.pkt.SyncWritePosEx(j + 2, targets[j], 90, 4)
+                        check()
+                        if group.txPacket() not in (None, 0):
+                            raise ValueError('Recovery coordinated target write failed.')
+                    finally:
+                        group.clearParam()
+                while True:
+                    positions = observe()
+                    if offsets and not pending() and all(abs(positions[j] - targets[j]) <= 3 for j in offsets):
+                        check()
+                        result['ok'] = True
+                        break
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        if not offsets and not pending():
+                            result['ok'] = True
+                            break
+                        raise TimeoutError('Recovery active time limit reached.')
+                    if self.abort.wait(min(.05, remaining)):
+                        raise ValueError('Recovery stopped.')
+                    if not offsets and time.monotonic() >= deadline:
+                        if pending():
+                            raise ValueError('Recovery hold ended with pending health votes.')
+                        result['ok'] = True
+                        break
+            except ActiveDeadline as exc:
+                # A one-second hold can end between register reads. A
+                # completed healthy ACTIVE sweep is required, and any bad
+                # partial observation prevents a success claim. Cleanup
+                # starts now; the deadline is never extended for a scan.
+                if not offsets and active_healthy_scan and not partial_bad_health and not pending():
+                    result['ok'] = True
+                else:
+                    result['error'] = str(exc)
+            except Exception as exc:
+                result['error'] = str(exc)
+            finally:
+                errors = []
+                # Off commands for ALL participants precede any verification
+                # or limit restoration. One failed servo cannot skip others.
+                for j in participants:
+                    try:
+                        bus.torque(j + 2, False)
+                    except Exception as exc:
+                        errors.append(f'Joint {j} torque-off command: {exc}')
+                if active_start is not None:
+                    result['active_seconds'] = time.monotonic() - active_start
+                for j in participants:
+                    try:
+                        if read(j + 2, 40, 1, guarded=False) != 0:
+                            raise ValueError('torque remains enabled')
+                        result['joints'][str(j)]['torque_off'] = True
+                    except Exception as exc:
+                        errors.append(f'Joint {j} torque off unverified: {exc}')
+                result['torque_off'] = all(row['torque_off'] for row in result['joints'].values())
+                for j in participants:
+                    if result['torque_off']:
+                        try:
+                            write_limit(j + 2, limits[j], guarded=False)
+                        except Exception as exc:
+                            errors.append(f'Joint {j} limit restore: {exc}')
+                    try:
+                        after = read(j + 2, 56, guarded=False)
+                        if not 0 <= after <= 4095:
+                            raise ValueError('invalid raw encoder reading')
+                        result['joints'][str(j)].update(after_counts=after, after_deg=count_to_deg(j, after))
+                    except Exception as exc:
+                        errors.append(f'Joint {j} post-recovery feedback: {exc}')
+                if errors:
+                    result['ok'] = False
+                    result['error'] = '; '.join(filter(None, [result.get('error'), *errors]))
+                self.wiggling = False
+            return result

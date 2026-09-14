@@ -40,6 +40,7 @@ _RL = Path(__file__).resolve().parents[1]
 _PROTO = _RL.parent
 _LINUX = _PROTO / "linux_control"
 
+from hexapod_core.joint_frame import joint_index
 from rl_move.robot_state import DEG2RAD
 
 from .servo_model import SimServoParams
@@ -70,7 +71,7 @@ def _blend_pose_ik(q_from_rad: np.ndarray, q_plant_rad: np.ndarray,
     q_plant = np.asarray(q_plant_rad, dtype=float).reshape(18)
     q_out = (1.0 - s) * q_from + s * q_plant
     for leg in range(6):
-        hip_j, knee_j = 3 * leg + 1, 3 * leg + 2
+        hip_j, knee_j = joint_index(leg, "hip"), joint_index(leg, "knee")
         hip_from_deg = math.degrees(q_from[hip_j])
         hip_plant_deg = math.degrees(q_plant[hip_j])
         knee_abs_from_deg = math.degrees(q_from[knee_j])

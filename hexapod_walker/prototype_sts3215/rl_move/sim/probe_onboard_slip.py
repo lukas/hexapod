@@ -30,7 +30,8 @@ from rl_move.sim.servo_model import (
     position_actuator_ids,
 )
 from rl_move.sim.sim_env import set_foot_ground_friction
-from hexapod_core.joint_frame import robot_abs_deg_to_mujoco_rel_rad
+from hexapod_core.joint_frame import (
+    joint_index, leg_joints, robot_abs_deg_to_mujoco_rel_rad)
 
 DEG2RAD = math.pi / 180.0
 RAD2DEG = 180.0 / math.pi
@@ -65,13 +66,13 @@ def _roll_pitch_deg(xmat: np.ndarray) -> tuple[float, float]:
 
 def _pose(leg: int, yaw: float, mode: str) -> np.ndarray:
     q = PLANT.copy()
-    j = leg * 3
-    q[j] = yaw
+    j_yaw, j_hip, j_knee = leg_joints(leg)
+    q[j_yaw] = yaw
     if mode == "hover":
-        q[j + 1] -= 6.0
-        q[j + 2] += 14.0
+        q[j_hip] -= 6.0
+        q[j_knee] += 14.0
     elif mode == "loaded":
-        q[j + 1] += 3.0
+        q[j_hip] += 3.0
     return q
 
 
@@ -105,8 +106,9 @@ def _run_segment(model, data, params, q_goal_deg: np.ndarray,
         touches.append(float(data.sensordata[touch_adr[leg]]))
         tilts.append(max(abs(x) for x in _roll_pitch_deg(
             data.xmat[chassis_bid])))
-        qerr.append(abs(float(q_goal_deg[leg * 3] * DEG2RAD
-                              - data.qpos[qadr[leg * 3]])) * RAD2DEG)
+        j_yaw = joint_index(leg, "yaw")
+        qerr.append(abs(float(q_goal_deg[j_yaw] * DEG2RAD
+                              - data.qpos[qadr[j_yaw]])) * RAD2DEG)
     pad = data.xpos[pad_bids[leg], :2].copy()
     chassis = data.xpos[chassis_bid, :2].copy()
     return {
@@ -146,7 +148,7 @@ def run(mu: float, *, legs: list[int]) -> dict:
             center = _pose(leg, 0.0, mode)
             for yaw in (0.0, -AMP_DEG, AMP_DEG, -AMP_DEG, 0.0):
                 q = center.copy()
-                q[leg * 3] = yaw
+                q[joint_index(leg, "yaw")] = yaw
                 r = _run_segment(
                     model, data, params, q, 0.36,
                     qadr=qadr, pos_act=pos_act, touch_adr=touch_adr,

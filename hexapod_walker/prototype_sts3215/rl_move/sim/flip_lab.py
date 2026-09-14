@@ -31,6 +31,7 @@ import mujoco
 from hexapod_core.joint_frame import (
     FRAME_ROBOT_ABS,
     JOINT_CONTRACT,
+    joint_index,
     mujoco_rel_rad_to_robot_abs_rad,
     robot_abs_rad_to_mujoco_rel_rad,
 )
@@ -458,10 +459,9 @@ class FlipLab:
 
         coast = kick.copy()
         for leg in kick_legs:
-            coast[3 * leg + 1] = min(coast[3 * leg + 1],
-                                     5.0 * DEG2RAD)
-            coast[3 * leg + 2] = max(coast[3 * leg + 2],
-                                     70.0 * DEG2RAD)
+            j_hip, j_knee = joint_index(leg, "hip"), joint_index(leg, "knee")
+            coast[j_hip] = min(coast[j_hip], 5.0 * DEG2RAD)
+            coast[j_knee] = max(coast[j_knee], 70.0 * DEG2RAD)
         return [self._clip_q(windup), self._clip_q(kick), self._clip_q(coast)]
 
     def rock_pose(self, side: str, cand: RockCandidate) -> np.ndarray:
@@ -484,8 +484,8 @@ class FlipLab:
     def rock_raise_pose(self, cand: RockCandidate) -> np.ndarray:
         q = self.plant_q.copy()
         for leg in range(6):
-            q[3 * leg + 1] = cand.raise_hip_deg * DEG2RAD
-            q[3 * leg + 2] = cand.raise_knee_deg * DEG2RAD
+            q[joint_index(leg, "hip")] = cand.raise_hip_deg * DEG2RAD
+            q[joint_index(leg, "knee")] = cand.raise_knee_deg * DEG2RAD
         return self._clip_q(q)
 
     def rock_start_pose(self, cand: RockCandidate) -> np.ndarray:

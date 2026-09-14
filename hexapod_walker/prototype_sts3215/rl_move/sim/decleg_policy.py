@@ -56,6 +56,8 @@ from __future__ import annotations
 import math
 
 import numpy as np
+
+from hexapod_core.joint_frame import leg_joints
 import torch
 from torch import nn
 
@@ -129,9 +131,9 @@ def joint_walk_leg_slices(obs_width: int
             "(need >= 59 dims: 18q+18qd+2tilt+3gyro+18prev)")
     legs = []
     for i in range(N_LEGS):
-        legs.append([3 * i, 3 * i + 1, 3 * i + 2,
-                     18 + 3 * i, 18 + 3 * i + 1, 18 + 3 * i + 2,
-                     41 + 3 * i, 41 + 3 * i + 1, 41 + 3 * i + 2])
+        js = list(leg_joints(i))          # q block
+        legs.append(js + [18 + j for j in js]      # qd block
+                    + [41 + j for j in js])        # prev-action block
     shared = list(range(36, 41)) + list(range(59, obs_width))
     return legs, shared
 

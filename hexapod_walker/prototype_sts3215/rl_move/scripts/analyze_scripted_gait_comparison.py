@@ -12,16 +12,18 @@ from typing import Any
 import numpy as np
 
 from hexapod_core.joint_frame import (
+    AXES as JOINT_AXES,
     FRAME_ROBOT_ABS,
     JOINT_CONTRACT,
+    N_LEGS,
+    joint_index,
     require_robot_abs_joint_frame,
 )
 
 
 AXES = {
-    "yaw": np.asarray([3 * leg for leg in range(6)]),
-    "hip": np.asarray([3 * leg + 1 for leg in range(6)]),
-    "knee": np.asarray([3 * leg + 2 for leg in range(6)]),
+    axis: np.asarray([joint_index(leg, axis) for leg in range(N_LEGS)])
+    for axis in JOINT_AXES
 }
 
 

@@ -43,13 +43,13 @@ import xml.etree.ElementTree as ET
 
 import numpy as np
 
+from hexapod_core.joint_frame import N_LEGS, SIM_AXES, SIM_JOINT_NAMES
 from rl_move.config import cfg_get
 
 
-N_LEGS = 6
-AXES = ("yaw", "pitch", "knee")
-ACTIVE_JOINT_NAMES = tuple(
-    f"L{leg}_{axis}" for leg in range(N_LEGS) for axis in AXES)
+# MuJoCo spells the hip hinge ``pitch``; these are joint_frame's sim names.
+AXES = SIM_AXES
+ACTIVE_JOINT_NAMES = SIM_JOINT_NAMES
 FLEX_JOINT_NAMES = tuple(
     f"{name}_series_flex" for name in ACTIVE_JOINT_NAMES)
 ENCODER_BODY_NAMES = tuple(

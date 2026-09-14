@@ -59,3 +59,7 @@ H1 feedback has been checked at rest; loaded motion remains unverified.
 Scripted controllers now emit this contract directly, but their historical
 performance/safety claims are not automatically transferred. Re-run their
 trajectory and safety gates under v2 before treating those claims as current.
+
+## Later physical verification, 2026-09-14
+
+The recovery and stand/lower follow-up are recorded in [Angle-path verification](ANGLE_PATH_VERIFICATION_20260914.md). H1 completed normal STEP rise and lower; the earlier recovery restrictions above describe the earlier state. Exact loaded tracking and RL steering remain separate measurements.

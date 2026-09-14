@@ -631,7 +631,7 @@ class McuFeetechBus:
             "raw_position_deg": [raw_positions.get(j) for j in range(N_JOINTS)],
             "raw_speed_deg_s": [raw_speeds.get(j) for j in range(N_JOINTS)],
             "servo_reports": snapshot.get("servo_reports", []),
-            "missing_servo_ids": [j + 2 for j in range(N_JOINTS)
+            "missing_servo_ids": [joint_to_servo_id(j) for j in range(N_JOINTS)
                                   if j not in raw_positions],
             "missing_joint_coordinates": [j for j in range(N_JOINTS)
                                            if j not in positions],

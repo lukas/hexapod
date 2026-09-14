@@ -244,8 +244,8 @@ class ZeroApi:
         goal = list(present)
         for leg in range(6):
             goal[3 * leg] = max(-35.0, min(35.0, goal[3 * leg]))
-            goal[3 * leg + 1] = FOLD_HIP_DEG
-            goal[3 * leg + 2] = FOLD_KNEE_DEG
+            goal[joint_index(leg, "hip")] = FOLD_HIP_DEG
+            goal[joint_index(leg, "knee")] = FOLD_KNEE_DEG
         try:
             validate_motor_pose_path((present, goal),
                                      getattr(self.drive.bus, "trims", None))

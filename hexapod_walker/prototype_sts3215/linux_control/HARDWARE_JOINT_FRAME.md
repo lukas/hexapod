@@ -52,3 +52,7 @@ isolated-motion results and the L1 calibration records. Only L1 servos 6 and
 L0's obscured distal-foot clearance and small, springing-back low-force
 probes require a hands-on clearance check and supported pose before loaded
 recovery. Passing software checks does not establish physical readiness.
+
+## Later physical verification, 2026-09-14
+
+The recovery and stand/lower follow-up are recorded in [Angle-path verification](../ANGLE_PATH_VERIFICATION_20260914.md). H1 completed normal STEP rise and lower; the earlier recovery restrictions above describe the earlier state. Exact loaded tracking and RL steering remain separate measurements.

@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 
 import pytest
 
 import robot_observe as observe
+from hexapod_core.joint_frame import N_JOINTS
 
 
 class Clock:
@@ -37,9 +39,9 @@ def offline(monkeypatch):
 
 
 def feedback(stamp=999.0):
-    return {"ok": True, "live": 18, "t_unix": stamp, "roll_deg": 1.2, "pitch_deg": -2.3,
+    return {"ok": True, "live": N_JOINTS, "t_unix": stamp, "roll_deg": 1.2, "pitch_deg": -2.3,
             "joints": [{"raw_deg": 12.0, "deg": 24.0, "cur_a": .1,
-                        "temp_c": 30, "volt": 11.4, "load_pct": 8.0} for _ in range(18)]}
+                        "temp_c": 30, "volt": 11.4, "load_pct": 8.0} for _ in range(N_JOINTS)]}
 
 
 def supply_feedback(monkeypatch, payloads):
@@ -53,6 +55,31 @@ def supply_feedback(monkeypatch, payloads):
 
     monkeypatch.setattr(observe, "get_json", get_json)
     return calls
+
+
+@pytest.mark.parametrize("missing_joint", [None, 6])
+def test_observer_accepts_current_public_feedback_contract_without_raw_angles(
+        monkeypatch, offline, missing_joint):
+    from linux_control.api.rl import RlApi
+    from linux_control.api import rl
+
+    monkeypatch.setattr(rl, "time", offline)
+    readings = {
+        j: {"deg": 24.0, "current_a": .1, "temp_c": 30, "load_pct": 8.0, "volt": 11.4}
+        for j in range(N_JOINTS) if j != missing_joint}
+    bus = SimpleNamespace(read_all_feedback=lambda: readings,
+                          read_imu=lambda **kwargs: {"ax_g": 0.0, "ay_g": 0.0, "az_g": 1.0})
+    api = SimpleNamespace(drive=SimpleNamespace(dry_run=False, bus=bus),
+                          _bus_admission_error=lambda: None)
+    payload = RlApi.rl_feedback(api)
+    assert payload["joints"][0].get("raw_deg") is None
+    monkeypatch.setattr(observe, "get_bytes", lambda *args: json.dumps(payload).encode())
+    row = observe.read_feedback("http://offline")
+    assert row["summary"]["fresh"]
+    assert row["summary"]["complete"] is (missing_joint is None)
+    assert row["summary"]["raw_positions_available"] is False
+    assert row["summary"]["max_abs_logical_deg"] == 24.0
+    assert row["feedback"]["joints"][0].get("raw_deg") is None
 
 
 @pytest.mark.parametrize("stamps,expected", [
@@ -80,11 +107,11 @@ def test_incomplete_read_breaks_a_partial_run_without_erasing_attempt_evidence(m
     bad = feedback(999.2)
     if fault == "missing_joint":
         bad["joints"].pop()
-        bad["live"] = 17
+        bad["live"] = N_JOINTS - 1
     elif fault == "missing_stamp":
         bad.pop("t_unix")
     elif fault == "missing_field":
-        bad["joints"][6].pop("raw_deg")
+        bad["joints"][6].pop("deg")
     else:
         bad = {"ok": False, "error": "offline read failed"}
     supply_feedback(monkeypatch, [feedback(999), feedback(999.1), bad,
@@ -97,7 +124,7 @@ def test_incomplete_read_breaks_a_partial_run_without_erasing_attempt_evidence(m
 
 
 @pytest.mark.parametrize("field,value", [
-    ("raw_deg", None), ("raw_deg", float("nan")), ("deg", float("inf")),
+    ("raw_deg", float("nan")), ("deg", float("inf")),
     ("cur_a", float("-inf")), ("temp_c", "30"), ("volt", True), ("load_pct", {}),
 ])
 def test_malformed_joint_telemetry_never_becomes_complete(field, value):
@@ -110,7 +137,7 @@ def test_malformed_joint_telemetry_never_becomes_complete(field, value):
 
 
 @pytest.mark.parametrize("replace", [
-    {"joints": None}, {"joints": [None] * 18}, {"live": 17}, {"ok": "true"},
+    {"joints": None}, {"joints": [None] * N_JOINTS}, {"live": N_JOINTS - 1}, {"ok": "true"},
     {"roll_deg": float("nan")}, {"pitch_deg": float("inf")},
 ])
 def test_malformed_pose_or_attitude_cannot_be_complete(replace):

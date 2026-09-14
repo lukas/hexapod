@@ -32,8 +32,8 @@ def validated_standup_frames(keyframes, *, down=False, trims=None):
         for legs in ((0, 2, 4), (1, 3, 5)):
             lifted = list(target)
             for leg in legs:
-                lifted[3 * leg + 1] -= 6.0
-                lifted[3 * leg + 2] += 6.0
+                lifted[joint_index(leg, "hip")] -= 6.0
+                lifted[joint_index(leg, "knee")] += 6.0
             motor_path.append(lifted)
     validate_motor_pose_path(motor_path, trims)
     return frames

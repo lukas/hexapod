@@ -14,7 +14,7 @@ def _sample(*, count: int = 18, voltage: float = 12.0) -> dict[int, dict]:
 
 def _snap(pos_deg: dict[int, float]) -> dict:
     return {"seq": 1, "pos_age_ms": 1, "imu_age_ms": 1, "imu": None,
-            "pos_deg": dict(pos_deg)}
+            "pos_deg": dict(pos_deg), "raw_pos_deg": dict(pos_deg)}
 
 
 class _Bus:
@@ -35,7 +35,7 @@ class _Bus:
     # coordinates. Expose that explicitly now that public pose APIs convert
     # absolute tibia angles, while preserving all timing/fault injections.
     def read_all_raw_positions(self):
-        return self.read_all_positions()
+        return self.read_snapshot()["raw_pos_deg"]
 
     def read_all_raw_feedback(self):
         return self.read_all_feedback()

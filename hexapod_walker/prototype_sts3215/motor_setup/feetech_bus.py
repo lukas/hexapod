@@ -620,7 +620,7 @@ class FeetechBus:
         return count_to_deg(joint, pos)
 
     def read_all_raw_positions(self, ids=None) -> dict[int, float]:
-        joints = range(N_JOINTS) if ids is None else [int(sid) - 2 for sid in ids]
+        joints = range(N_JOINTS) if ids is None else [joint_of_servo(int(sid)) for sid in ids]
         raw = {j: self.read_raw_position_deg(j) for j in joints}
         return {j: value for j, value in raw.items() if value is not None}
 
@@ -661,7 +661,7 @@ class FeetechBus:
         }
 
     def read_all_raw_feedback(self, ids=None) -> dict[int, dict]:
-        joints = range(N_JOINTS) if ids is None else [int(sid) - 2 for sid in ids]
+        joints = range(N_JOINTS) if ids is None else [joint_of_servo(int(sid)) for sid in ids]
         raw = {}
         for j in joints:
             row = self.read_raw_feedback(j)

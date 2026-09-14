@@ -359,8 +359,12 @@ class MotorSetup:
         five_leg_unfold retains those twelve joints and effort limits for
         exactly two phases: equal 5..10-degree planting moves (knee2
         negative, knee5/hips7,10,16 positive), then knee14 outward 5..30
-        degrees. Its phases allow 4/6 seconds, 10 total, with 3-degree
-        settling; joint positions alone do not establish foot contact.
+        degrees. Its phases allow 4/6 seconds, 10 total. Planting requires
+        >=50% signed progress, <=5-degree error and three stable healthy
+        scans; opening retains 3-degree settling. During opening, planted
+        support drift uses their frozen achieved positions while the
+        original goals remain commanded and both errors are reported.
+        Joint positions alone do not establish foot contact.
         This never re-zeros or returns home.
         """
         from feetech_bus import COUNTS_PER_DEG, JOINT_SIGN, count_to_deg, joint_limits
@@ -529,7 +533,11 @@ class MotorSetup:
                 if five_leg_unfold:
                     for phase, phase_limit in zip(result['phases'], phase_durations):
                         phase['time_limit_s'] = phase_limit
+                    result['phases'][0].update(min_progress_fraction=.5, max_goal_error_deg=5.)
+                    result['phases'][1]['max_goal_error_deg'] = 3.
+                    result.update(achieved_support_anchors_counts={}, achieved_support_anchors_deg={})
             homes, targets, limits, pair_homes = {}, {}, {}, {}
+            support_anchor_counts = {}
             planned_targets = [{} for _ in phase_offsets]
             phase_start = None
 
@@ -653,9 +661,15 @@ class MotorSetup:
                         raise ValueError(f'Joint {j} invalid raw encoder reading.')
                     positions[j] = count
                     angle = count_to_deg(j, count)
-                    # A prior phase's mover becomes a support without losing
-                    # its command. Anchor to that goal, not a sagged reading.
+                    # Goals remain unchanged. Only unfold's measured planting
+                    # positions become frozen phase2 drift anchors; every
+                    # other support continues to use its original goal.
                     anchor = row['target_deg'] if phased else row['before_deg']
+                    if j in support_anchor_counts:
+                        anchor = count_to_deg(j, support_anchor_counts[j])
+                    if five_leg_unfold:
+                        row.update(support_anchor_deg=anchor, target_error_deg=angle - row['target_deg'],
+                                   abs_target_error_deg=abs(angle - row['target_deg']))
                     drift = abs(angle - anchor) if j not in offsets else 0.
                     partial_bad_health |= drift > 3.
                     row.update(reached_deg=angle, reached_counts=count, support_drift_deg=drift,
@@ -764,9 +778,16 @@ class MotorSetup:
                         phase = result['phases'][phase_index]
                         phase.update(reached_counts=dict(positions),
                                      elapsed_s=time.monotonic() - phase_start)
+                        tolerance, progress_ok = phase_settle_tolerance, True
+                        if five_leg_unfold and phase_index == 0:
+                            tolerance = 5.
+                            phase['progress_fractions'] = {
+                                str(j): (positions[j] - homes[j]) / offsets[j] for j in offsets}
+                            progress_ok = all(value >= .5 for value in phase['progress_fractions'].values())
                         if (not pending() and not partial_bad_health
+                                and progress_ok
                                 and all(row['servo_status'] == 0 for row in result['joints'].values())
-                                and all(abs(positions[j] - targets[j]) <= phase_settle_tolerance * COUNTS_PER_DEG
+                                and all(abs(positions[j] - targets[j]) <= tolerance * COUNTS_PER_DEG
                                         for j in offsets)):
                             settled_scans.append(dict(counts=positions,
                                                       active_s=time.monotonic() - active_start))
@@ -796,6 +817,16 @@ class MotorSetup:
                             transition_time = time.monotonic()
                             if transition_time >= deadline:
                                 raise ActiveDeadline('Recovery active time limit reached before phase transition.')
+                            if five_leg_unfold:
+                                # Freeze the last complete settled scan once.
+                                # Do not rebase or rewrite any servo goal.
+                                support_anchor_counts.update({j: positions[j] for j in phase_offsets[0]})
+                                result['achieved_support_anchors_counts'] = {
+                                    str(j): count for j, count in support_anchor_counts.items()}
+                                result['achieved_support_anchors_deg'] = {
+                                    str(j): count_to_deg(j, count) for j, count in support_anchor_counts.items()}
+                                for j in support_anchor_counts:
+                                    result['joints'][str(j)]['support_anchor_deg'] = count_to_deg(j, support_anchor_counts[j])
                             phase_index = 1
                             result['phase_index'] = 2
                             offsets, pair_joints = phase_offsets[1], phase_pairs[1]

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from feetech_bus import JOINT_SIGN
+from feetech_bus import COUNTS_PER_DEG, JOINT_SIGN, count_to_deg
 from test_recovery_effort_api import active_fault
 from test_recovery_five_leg_support_api import IDS, JOINTS, assert_no_writes, raw_pose
 from test_recovery_nudge_api import expected_target, rig  # noqa: F401
@@ -147,7 +147,7 @@ def test_new_sequence_does_not_expand_other_profile_admission(rig, profile):
     assert_no_writes(bus)
 
 
-def test_phase_one_admits_three_degree_residual_only_after_three_stable_healthy_scans(rig):
+def test_phase_one_admits_partial_progress_only_after_three_stable_healthy_scans(rig):
     api, bus, _clock = rig
     start_pose(bus)
     original = bus.txPacket
@@ -155,7 +155,7 @@ def test_phase_one_admits_three_degree_residual_only_after_three_stable_healthy_
     def write():
         value = original()
         if len(bus.groups) == 1:
-            # ~2.46 degrees short, admissible under this profile's 3-degree gate.
+            # ~2.46 degrees short, with more than half the commanded progress.
             bus.position[4] += 28 * JOINT_SIGN[2]
         return value
 
@@ -166,6 +166,216 @@ def test_phase_one_admits_three_degree_residual_only_after_three_stable_healthy_
     assert phase["settled"] and len(phase["settle_scans"]) == 3
     assert abs(phase["reached_counts"][2] - phase["target_counts"][2]) == 28
     assert all(scan["counts"][2] == phase["reached_counts"][2] for scan in phase["settle_scans"])
+
+
+@pytest.mark.parametrize("joint", [2, 5, 7, 10, 16])
+@pytest.mark.parametrize("progress_counts", [0, 27, -1])
+def test_every_first_phase_mover_requires_half_progress_not_just_small_goal_error(rig, joint, progress_counts):
+    api, bus, clock = rig
+    homes = start_pose(bus)
+    original = bus.txPacket
+    direction = JOINT_SIGN[joint] * (-1 if joint == 2 else 1)
+
+    def write():
+        value = original()
+        if len(bus.groups) == 1:
+            bus.position[joint + 2] = homes[joint] + direction * progress_counts
+        return value
+
+    bus.txPacket = write
+    start = clock.now
+    result = api.recovery_nudge(request(magnitude=5))
+    assert not result["ok"] and result["torque_off"]
+    assert len(bus.groups) == 1
+    assert not result["phases"][0]["settled"]
+    assert result["phases"][0]["progress_fractions"][str(joint)] < .5
+    assert 4 <= clock.now - start < 4.1
+    assert not bus.on
+
+
+def test_exact_half_of_quantized_first_phase_command_is_admitted(rig):
+    api, bus, _clock = rig
+    homes = start_pose(bus)
+    original = bus.txPacket
+
+    def write():
+        value = original()
+        if len(bus.groups) == 1:
+            offset = expected_target(10, 5) - 2000
+            assert offset % 2 == 0
+            bus.position[12] = homes[10] + offset // 2
+        return value
+
+    bus.txPacket = write
+    result = api.recovery_nudge(request(magnitude=5))
+    assert result["ok"] and result["torque_off"]
+    assert result["phases"][0]["progress_fractions"]["10"] == .5
+
+
+def test_stable_3164_degree_residual_hands_off_with_frozen_actual_anchor_and_original_goal(rig):
+    api, bus, _clock = rig
+    homes = start_pose(bus)
+    original = bus.txPacket
+    achieved = {}
+
+    def write():
+        value = original()
+        if len(bus.groups) == 1:
+            bus.position[12] -= 36 * JOINT_SIGN[10]  # 3.164-degree loaded residual.
+            achieved.update({j: bus.position[j + 2] for j in (2, 5, 7, 10, 16)})
+        return value
+
+    bus.txPacket = write
+    result = api.recovery_nudge(request())
+    assert result["ok"] and result["torque_off"]
+    phase = result["phases"][0]
+    assert phase["min_progress_fraction"] == .5
+    assert phase["max_goal_error_deg"] == 5
+    assert phase["progress_fractions"]["10"] > .5
+    assert phase["settled"] and len(phase["settle_scans"]) == 3
+    assert result["achieved_support_anchors_counts"] == {str(j): count for j, count in achieved.items()}
+    assert result["achieved_support_anchors_deg"] == {
+        str(j): count_to_deg(j, count) for j, count in achieved.items()}
+    row = result["joints"]["10"]
+    assert row["support_anchor_deg"] == count_to_deg(10, achieved[10])
+    assert row["support_drift_deg"] == 0
+    assert row["abs_target_error_deg"] == pytest.approx(36 / COUNTS_PER_DEG)
+    assert row["target_error_deg"] == pytest.approx(-36 / COUNTS_PER_DEG)
+    assert bus.goal[12] == homes[10] + expected_target(10, 10) - 2000
+    assert row["target_counts"] == bus.goal[12]
+    assert len([e for e in bus.events if e[0] == "position" and e[1] == 12]) == 1
+
+
+def test_first_phase_goal_error_over_five_still_blocks_despite_positive_progress(rig):
+    api, bus, clock = rig
+    start_pose(bus)
+    original = bus.txPacket
+
+    def write():
+        value = original()
+        if len(bus.groups) == 1:
+            bus.position[12] += round(6 * COUNTS_PER_DEG) * JOINT_SIGN[10]
+        return value
+
+    bus.txPacket = write
+    start = clock.now
+    result = api.recovery_nudge(request())
+    assert not result["ok"] and result["torque_off"]
+    assert result["phases"][0]["progress_fractions"]["10"] > 1
+    assert len(bus.groups) == 1
+    assert 4 <= clock.now - start < 4.1
+
+
+def test_handoff_waits_for_three_fully_healthy_scans_after_pending_force_votes_clear(rig):
+    api, bus, _clock = rig
+    start_pose(bus)
+    samples = active_fault(bus, 12, 69, [77, 77, 0, 0, 0])
+    original = bus.txPacket
+    handoff_reads = []
+
+    def write():
+        if len(bus.groups) == 1:
+            handoff_reads.append(len(samples))
+        return original()
+
+    bus.txPacket = write
+    result = api.recovery_nudge(request())
+    assert result["ok"] and result["torque_off"]
+    assert handoff_reads == [5]
+    assert samples[:5] == [77, 77, 0, 0, 0]
+
+
+def test_intermittent_unhealthy_scans_never_satisfy_handoff_even_without_three_fault_votes(rig):
+    api, bus, clock = rig
+    start_pose(bus)
+    samples = active_fault(bus, 12, 69, [77, 0] * 100)
+    start = clock.now
+    result = api.recovery_nudge(request())
+    assert not result["ok"] and result["torque_off"]
+    assert len(samples) > 3 and len(bus.groups) == 1
+    assert "time limit" in result["error"]
+    assert 4 <= clock.now - start < 4.1
+
+
+def test_later_support_collapse_is_measured_from_frozen_handoff_not_reanchored_each_read(rig):
+    api, bus, _clock = rig
+    start_pose(bus)
+    bus.stalled.add(16)  # Keep phase two active long enough to observe the collapse.
+    original = bus.txPacket
+    anchor, observations = {}, []
+
+    def write():
+        value = original()
+        if len(bus.groups) == 1:
+            bus.position[12] -= 36 * JOINT_SIGN[10]
+            anchor["count"] = bus.position[12]
+        return value
+
+    def position(b):
+        if len(b.groups) == 2 and 12 in b.on:
+            observations.append(True)
+            b.position[12] = anchor["count"] - len(observations) * 8 * JOINT_SIGN[10]
+            return b.position[12]
+        return None
+
+    bus.txPacket = write
+    bus.faults[(12, 56)] = position
+    result = api.recovery_nudge(request())
+    row = result["joints"]["10"]
+    assert not result["ok"] and result["torque_off"]
+    assert "Joint 10 support_drift fault" in result["error"]
+    assert len(observations) == 7  # Drift crosses 3 degrees on reads 5, 6, 7.
+    assert row["support_drift_fault_reads"] == 3
+    assert row["support_anchor_deg"] == count_to_deg(10, anchor["count"])
+    assert result["achieved_support_anchors_counts"]["10"] == anchor["count"]
+    assert row["max_support_drift_deg"] == pytest.approx(56 / COUNTS_PER_DEG)
+    assert bus.goal[12] == result["phases"][0]["target_counts"][10]
+    assert not bus.on
+
+
+def test_initially_held_supports_keep_initial_anchor_at_handoff(rig):
+    api, bus, _clock = rig
+    homes = start_pose(bus)
+    bus.stalled.add(16)
+    original = bus.txPacket
+
+    def write():
+        value = original()
+        if len(bus.groups) == 1:
+            bus.position[3] = homes[1] + 20 * JOINT_SIGN[1]
+        elif len(bus.groups) == 2:
+            bus.position[3] = homes[1] + 40 * JOINT_SIGN[1]
+        return value
+
+    bus.txPacket = write
+    result = api.recovery_nudge(request())
+    assert not result["ok"] and result["torque_off"]
+    assert "Joint 1 support_drift fault" in result["error"]
+    assert set(result["achieved_support_anchors_counts"]) == {"2", "5", "7", "10", "16"}
+    assert result["joints"]["1"]["support_anchor_deg"] == count_to_deg(1, homes[1])
+    assert result["joints"]["1"]["support_drift_fault_reads"] == 3
+    assert not bus.on
+
+
+def test_second_phase_retains_three_degree_goal_tolerance(rig):
+    api, bus, _clock = rig
+    start_pose(bus)
+    original = bus.txPacket
+
+    def write():
+        value = original()
+        if len(bus.groups) == 2:
+            bus.position[16] += 36 * JOINT_SIGN[14]
+        return value
+
+    bus.txPacket = write
+    result = api.recovery_nudge(request())
+    assert not result["ok"] and result["torque_off"]
+    assert result["phases"][0]["settled"]
+    assert not result["phases"][1]["settled"]
+    assert result["phases"][1]["elapsed_s"] >= 6
+    assert "time limit" in result["error"]
+    assert not bus.on
 
 
 def test_support_instability_blocks_phase_transition(rig):

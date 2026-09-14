@@ -349,6 +349,13 @@ class MotorSetup:
         progress mismatch guarded independently of the commanded targets.
         two_knees_sweep50 uses the same knees, supports and effort guards
         for one 5..30-degree outward sweep lasting at most 6 seconds.
+        l4_sweep50 permits the same sweep bound for L4 knee alone, with
+        the five l4_50pct supports and identical effort and health guards.
+        five_leg_support requires all twelve pitch joints, moving at most
+        two per phase by <=5 degrees. Supports/L4 hip use cap 300; L4 knee
+        uses cap 500. Only calibrated raw L1 knee (joint5) may start outside
+        soft limits: it may hold or move monotonically toward/into range,
+        never farther outside. Encoder counts always remain within 0..4095.
         This never re-zeros or returns home.
         """
         from feetech_bus import COUNTS_PER_DEG, JOINT_SIGN, count_to_deg, joint_limits
@@ -357,18 +364,20 @@ class MotorSetup:
             raise ValueError('Recovery accepts deltas_deg or phases, hold_joints, and optional effort_profile.')
         effort_profile = data.get('effort_profile')
         if 'effort_profile' in data and effort_profile not in (
-                'l4_30pct', 'l4_50pct', 'two_knees_50pct', 'two_knees_sweep50'):
+                'l4_30pct', 'l4_50pct', 'l4_sweep50', 'two_knees_50pct', 'two_knees_sweep50',
+                'five_leg_support'):
             raise ValueError('Unknown recovery effort profile.')
-        knee_sweep = effort_profile == 'two_knees_sweep50'
+        five_leg_support = effort_profile == 'five_leg_support'
+        knee_sweep = effort_profile in ('l4_sweep50', 'two_knees_sweep50')
         two_knees = effort_profile in ('two_knees_50pct', 'two_knees_sweep50')
         effort_joints = {2, 14} if two_knees else {14} if effort_profile else set()
         phase_settle_tolerance = 3. if two_knees else 2.
         profile_cap, profile_current, profile_load, delta_bound = (
             (500, .75, 53., 30 if knee_sweep else 10)
-            if effort_profile == 'l4_50pct' or two_knees else (300, .5, 33., 5))
+            if effort_profile in ('l4_50pct', 'l4_sweep50') or two_knees else (300, .5, 33., 5))
         phased = 'phases' in data
         if knee_sweep and phased:
-            raise ValueError('two_knees_sweep50 permits one sweep only, without phases.')
+            raise ValueError(f'{effort_profile} permits one sweep only, without phases.')
         if phased and ('deltas_deg' in data or not isinstance(data['phases'], list)
                        or len(data['phases']) != 2
                        or any(not isinstance(p, dict) or set(p) != {'deltas_deg'}
@@ -378,14 +387,18 @@ class MotorSetup:
                         else [data.get('deltas_deg', {})])
         holds = data.get('hold_joints', [])
         allowed = {1, 2, 4, 5, 10, 11, 13, 14, 16, 17}
+        if five_leg_support:
+            allowed.update((7, 8))
+        allowed_keys = {str(j) for j in allowed}
+        allowed_names = ','.join(str(j) for j in sorted(allowed))
         if (not isinstance(holds, list) or any(type(j) is not int or j not in allowed for j in holds)
                 or len(set(holds)) != len(holds)):
-            raise ValueError('hold_joints must contain distinct joints from 1,2,4,5,10,11,13,14,16,17.')
+            raise ValueError(f'hold_joints must contain distinct joints from {allowed_names}.')
         phase_offsets, phase_pairs = [], []
         for deltas in phase_deltas:
             if (not isinstance(deltas, dict) or len(deltas) > 2 or (phased and not deltas)
-                    or any(key not in {'1', '2', '4', '5', '10', '11', '13', '14', '16', '17'} for key in deltas)):
-                raise ValueError('Choose at most two moving joints from 1,2,4,5,10,11,13,14,16,17 per phase.')
+                    or any(key not in allowed_keys for key in deltas)):
+                raise ValueError(f'Choose at most two moving joints from {allowed_names} per phase.')
             offsets = {}
             for key, delta in deltas.items():
                 if (type(delta) not in (int, float) or not math.isfinite(delta)
@@ -397,14 +410,17 @@ class MotorSetup:
                     raise ValueError('Recovery delta is smaller than one encoder count.')
                 offsets[joint] = offset
             phase_offsets.append(offsets)
-            phase_pairs.append(next(((hip, hip + 1) for hip in (1, 4, 10, 13, 16)
+            phase_pairs.append(next(((hip, hip + 1) for hip in (1, 4, 7, 10, 13, 16)
                 if hip in offsets and hip + 1 in offsets
                 and deltas[str(hip)] * deltas[str(hip + 1)] < 0
                 and math.isclose(deltas[str(hip)] + deltas[str(hip + 1)], 0., abs_tol=.1)), None))
         moving = set().union(*phase_offsets)
         if moving & set(holds):
             raise ValueError('A joint cannot both move and hold.')
-        if two_knees:
+        if five_leg_support:
+            if moving | set(holds) != allowed:
+                raise ValueError('five_leg_support requires all twelve pitch joints as movers or holds.')
+        elif two_knees:
             if (set(holds) != {1, 13, 16, 17}
                     or any(set(d) != {'2', '14'} or d['2'] != d['14']
                            or not -delta_bound <= d['2'] <= -5 for d in phase_deltas)):
@@ -413,11 +429,20 @@ class MotorSetup:
         elif effort_profile and ((phased and effort_profile != 'l4_50pct')
                                or moving != {14} or any(d['14'] >= 0 for d in phase_deltas)
                                or set(holds) != {10, 11, 13, 16, 17}):
-            shape = 'one move' if effort_profile == 'l4_30pct' else 'one move or two phases'
+            shape = 'one move or two phases' if effort_profile == 'l4_50pct' else 'one move'
             raise ValueError(f'{effort_profile} requires outward joint14 only, holds10,11,13,16,17, and {shape}.')
+        if effort_profile == 'l4_sweep50' and phase_deltas[0]['14'] > -5:
+            raise ValueError('l4_sweep50 requires an outward joint14 delta within -30..-5 degrees.')
         participants = sorted(moving | set(holds))
-        if not 1 <= len(participants) <= 6:
+        if not five_leg_support and not 1 <= len(participants) <= 6:
             raise ValueError('Choose one to six recovery participants.')
+        effort_limits = {}
+        for j in participants:
+            if five_leg_support:
+                effort_limits[j] = (500, .75, 53.) if j == 14 else (300, .5, 33.)
+            else:
+                effort_limits[j] = ((profile_cap, profile_current, profile_load)
+                                    if j in effort_joints else (200, .25, 23.))
         phase_index = 0
         offsets, pair_joints = phase_offsets[0], phase_pairs[0]
         duration = 6.0 if knee_sweep else 3.0 if offsets else 1.0
@@ -467,6 +492,9 @@ class MotorSetup:
                           phase_settle_tolerance_deg=phase_settle_tolerance,
                           knee_progress_mismatch_deg=0., max_knee_progress_mismatch_deg=0.,
                           knee_progress_fault_reads=0)
+            if five_leg_support:
+                result.update(raw_limit_recovery_joints=[5],
+                              raw_limit_recovery_policy='hold_or_monotonic_toward_soft_limits')
             if two_knees:
                 result.update(knee_progress_soft_limit_deg=3., knee_progress_hard_limit_deg=5.,
                               knee_progress_fault_reads_required=3)
@@ -477,21 +505,37 @@ class MotorSetup:
             planned_targets = [{} for _ in phase_offsets]
             phase_start = None
 
+            def raw_target_allowed(j, start, target):
+                lo, hi = joint_limits(j)
+                # Preserve the calibrated raw reference. Recovery cannot
+                # retreat farther outside or exit the opposite boundary.
+                if five_leg_support and j == 5:
+                    if start < lo:
+                        return start <= target <= hi
+                    if start > hi:
+                        return lo <= target <= start
+                return lo <= target <= hi
+
             def set_start(j, count):
                 before = count_to_deg(j, count)
                 lo, hi = joint_limits(j)
-                if not (0 <= count <= 4095 and lo <= before <= hi):
+                recover_raw_limit = five_leg_support and j == 5
+                if not (0 <= count <= 4095 and (lo <= before <= hi or recover_raw_limit)):
                     raise ValueError(f'Joint {j} recovery start or target outside raw limits.')
                 target = count
+                previous = before
                 for i, changes in enumerate(phase_offsets):
                     target += changes.get(j, 0)
-                    if not (0 <= target <= 4095 and lo <= count_to_deg(j, target) <= hi):
+                    angle = count_to_deg(j, target)
+                    if not (0 <= target <= 4095 and raw_target_allowed(j, previous, angle)):
                         raise ValueError(f'Joint {j} recovery start or target outside raw limits.')
                     planned_targets[i][j] = target
+                    previous = angle
                 homes[j], pair_homes[j], targets[j] = count, count, planned_targets[0][j]
                 goal = count_to_deg(j, targets[j])
                 result['joints'][str(j)].update(before_deg=before, target_deg=goal,
-                                                before_counts=count, target_counts=targets[j])
+                                                before_counts=count, target_counts=targets[j],
+                                                raw_start_outside_soft_limits=not lo <= before <= hi)
 
             for j in participants:
                 result['joints'][str(j)] = dict(
@@ -502,8 +546,8 @@ class MotorSetup:
                     max_temp_c=None, support_drift_deg=0., max_support_drift_deg=0.,
                     force_fault_reads=0, voltage_fault_reads=0,
                     temperature_fault_reads=0, support_drift_fault_reads=0, samples=0,
-                    current_soft_limit_a=profile_current if j in effort_joints else .25,
-                    load_soft_limit_pct=profile_load if j in effort_joints else 23.,
+                    current_soft_limit_a=effort_limits[j][1],
+                    load_soft_limit_pct=effort_limits[j][2],
                     torque_enabled=None, torque_read_values=[], servo_status=None, seen_statuses=[], moving=None,
                     accepted_goal_counts=None, observed_goal_counts=None,
                     observed_torque_limit=None, last_sample_monotonic_s=None, active_sample_s=None)
@@ -661,7 +705,7 @@ class MotorSetup:
                     set_start(j, read(j + 2, 56))
                 for j in participants:
                     sid = j + 2
-                    applied = min(limits[j], profile_cap if j in effort_joints else 200)
+                    applied = min(limits[j], effort_limits[j][0])
                     write_limit(sid, applied)
                     result['joints'][str(j)]['applied_torque_limit'] = applied
                     check()
@@ -717,6 +761,9 @@ class MotorSetup:
                             for j in phase_offsets[1]:
                                 if abs(planned_targets[1][j] - positions[j]) > delta_bound * COUNTS_PER_DEG:
                                     raise ValueError(f'Joint {j} next phase exceeds {delta_bound} degrees from its actual position.')
+                                if five_leg_support and j == 5 and not raw_target_allowed(
+                                        j, count_to_deg(j, positions[j]), count_to_deg(j, planned_targets[1][j])):
+                                    raise ValueError('Joint 5 next phase would worsen its actual raw limit violation.')
                             check()
                             transition_time = time.monotonic()
                             if transition_time >= deadline:

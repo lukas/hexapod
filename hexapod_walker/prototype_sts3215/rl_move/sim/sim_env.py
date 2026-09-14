@@ -3430,7 +3430,9 @@ class SimHexapodBalanceEnv(_GymBase):
         Base env: body-offset action through the fixed-foot IK. The raw
         joint-space subclass overrides this and nothing else.
         """
-        offset = action_to_body_offset(clipped, self.cfg)
+        offset = action_to_body_offset(
+            clipped, self.cfg,
+            curl_frac=getattr(self.ik, "curl_frac", None))
         ik = self.ik.solve(offset)
         return ik.q_rad, ik.ok, ik.reason
 

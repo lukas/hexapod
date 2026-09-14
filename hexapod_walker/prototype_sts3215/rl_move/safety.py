@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace as _dc_replace
 from typing import Any
 
 import numpy as np
@@ -402,13 +402,65 @@ class SafetyLayer:
         return q, status
 
 
-def action_to_body_offset(action: np.ndarray, cfg: dict) -> BodyOffset:
+def curl_height_cap_frac(curl_frac: float, gate_frac: float,
+                          floor: float) -> float:
+    """Fraction of ``max_height_mm`` reachable at a given curl progress.
+
+    Ramps linearly from ``floor`` (at ``curl_frac<=0``) to ``1.0`` (at
+    ``curl_frac>=gate_frac``); pure function so it is unit-testable
+    without an env. ``gate_frac<=0`` degenerates to "always fully
+    open" (avoids a divide-by-zero misconfiguration silently locking
+    height at ``floor`` forever).
+    """
+    if gate_frac <= 0.0:
+        return 1.0
+    prog = min(max(float(curl_frac) / gate_frac, 0.0), 1.0)
+    f = min(max(float(floor), 0.0), 1.0)
+    return f + (1.0 - f) * prog
+
+
+def action_to_body_offset(action: np.ndarray, cfg: dict,
+                          curl_frac: float | None = None) -> BodyOffset:
     from .body_ik import body_offset_from_action
-    return body_offset_from_action(
+    max_h = float(cfg_get(cfg, "actions", "max_height_mm", default=5)) * 0.001
+    offset = body_offset_from_action(
         action,
         max_roll=math.radians(float(cfg_get(cfg, "actions", "max_roll_deg", default=3))),
         max_pitch=math.radians(float(cfg_get(cfg, "actions", "max_pitch_deg", default=3))),
-        max_h=float(cfg_get(cfg, "actions", "max_height_mm", default=5)) * 0.001,
+        max_h=max_h,
         max_x=float(cfg_get(cfg, "actions", "max_x_mm", default=5)) * 0.001,
         max_y=float(cfg_get(cfg, "actions", "max_y_mm", default=5)) * 0.001,
     )
+    # DYNAMICS-LEVEL rise-height cap keyed on live curl progress (2026-09-14,
+    # walkcurr flat-start-rise: 7/7 reward-shaping levers on this exact
+    # question — current-headroom-gate, geometry/score-income gate,
+    # two-phase-freeze, curl-pretrain, current_pretuck x2, rise_decouple
+    # x2 — all closed FAIL-MECHANISM: pricing the height/current/curl
+    # relationship never stopped the policy from *attempting* a
+    # poor-leverage straight-up push with the feet still splayed, it only
+    # changed how much that attempt cost. This is the pre-registered
+    # non-reward fallback: an explicit ACTION-MAPPING ceiling the policy
+    # cannot out-earn or ignore, because it is enforced before the IK
+    # solve produces a joint target at all, not charged against reward
+    # afterward. Default OFF (``actions.rise_height_curl_gate=0``):
+    # ``curl_frac`` is accepted but unused, offset returned unmodified,
+    # bit-exact with pre-existing behavior. When on, only ever *lowers*
+    # a requested POSITIVE height offset (never touches negative/lower
+    # commands) toward ``curl_height_cap_frac(curl_frac, ...) * max_h`` —
+    # i.e. full commandable height is only unlocked once
+    # ``self.ik.curl_frac`` (the same ratcheted, monotonic, world-FK-
+    # grounded progress variable ``FixedFootBodyIK`` already tracks for
+    # the curl action channel, not a new state) has advanced far enough.
+    gate_on = float(cfg_get(cfg, "actions", "rise_height_curl_gate",
+                            default=0.0)) == 1.0
+    if gate_on and curl_frac is not None and offset.height > 0.0:
+        gate_frac = float(cfg_get(cfg, "actions",
+                                  "rise_height_curl_gate_frac",
+                                  default=0.7))
+        floor = float(cfg_get(cfg, "actions",
+                              "rise_height_curl_gate_floor",
+                              default=0.15))
+        cap_h = curl_height_cap_frac(curl_frac, gate_frac, floor) * max_h
+        if offset.height > cap_h:
+            offset = _dc_replace(offset, height=cap_h)
+    return offset

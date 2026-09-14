@@ -518,7 +518,9 @@ class HexapodBalanceEnv:
             return self._obs(self._state), -pen, True, False, {
                 "termination_reason": bad, **parts}
 
-        offset = action_to_body_offset(clipped, self.cfg)
+        offset = action_to_body_offset(
+            clipped, self.cfg,
+            curl_frac=getattr(self.ik, "curl_frac", None))
         ik = self.ik.solve(offset)
         q_safe, status = self.safety.filter(
             ik.q_rad, self._state, ik_ok=ik.ok, ik_reason=ik.reason,

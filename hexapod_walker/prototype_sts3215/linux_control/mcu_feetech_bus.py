@@ -999,9 +999,9 @@ class McuFeetechBus:
         pos, spd, load = struct.unpack_from("<hhH", rec, 2)
         volt, temp, moving = rec[8], rec[9], rec[10]
         cur, = struct.unpack_from("<h", rec, 11)
-        joint = int(sid) - 2
-        if joint < 0 or joint >= N_JOINTS:
+        if int(sid) not in SERVO_IDS:
             return None
+        joint = joint_of_servo(int(sid))
         # Speed: library already sign-decoded; unit is counts/s (steps/s),
         # so deg/s = counts × 360/4096. (Until 2026-08-07 this used the
         # SCS-series 0.732 rpm/unit convention — a clean 50× inflation:
@@ -1121,13 +1121,12 @@ class McuFeetechBus:
         rn, payload = got
         for k in range(rn):
             sid, ok, pos = struct.unpack_from("<BBh", payload, k * 4)
-            if not ok:
+            if not ok or int(sid) not in SERVO_IDS:
                 continue
-            joint = int(sid) - 2
-            if 0 <= joint < N_JOINTS:
-                deg = count_to_deg(joint, int(pos))
-                out[joint] = deg
-                self._pos_cache[joint] = deg
+            joint = joint_of_servo(int(sid))
+            deg = count_to_deg(joint, int(pos))
+            out[joint] = deg
+            self._pos_cache[joint] = deg
         self._pos_cache_mono = time.monotonic()
         if getattr(self, "_telemetry_sink", None) is not None:
             self._emit_telemetry("positions", {
@@ -1137,8 +1136,8 @@ class McuFeetechBus:
 
     def _read_pos_counts(self, sid: int) -> int | None:
         # Prefer a fresh bulk position cache when possible.
-        joint = int(sid) - 2
-        if (0 <= joint < N_JOINTS
+        joint = joint_of_servo(int(sid)) if int(sid) in SERVO_IDS else None
+        if (joint is not None
                 and time.monotonic() - self._pos_cache_mono < 0.02
                 and joint in self._pos_cache):
             # Reverse via deg_to_count is trim-dependent; fall through to RP

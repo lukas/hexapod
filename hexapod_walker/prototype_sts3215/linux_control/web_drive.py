@@ -1111,7 +1111,20 @@ class Handler(BaseHTTPRequestHandler):
                 pose = body.strip()
             self._json(200, BENCH.go_zero(pose=pose, force=force))
         elif path == "/api/set_zero":
-            self._json(200, BENCH.set_zero_here() if BENCH
+            # Optional JSON body {"ids": [4, 6, 7]} limits the middle-calibrate
+            # to those servo ids; no body keeps the all-servo behaviour.
+            ids = None
+            try:
+                data = json.loads(body or "{}") if body else {}
+                if isinstance(data, dict) and isinstance(data.get("ids"), list):
+                    ids = sorted({int(i) for i in data["ids"]})
+                    if not ids or any(i < 2 or i > 19 for i in ids):
+                        self._json(400, {"ok": False, "error": "ids must be servo ids 2..19"})
+                        return
+            except (ValueError, TypeError):
+                self._json(400, {"ok": False, "error": "bad ids"})
+                return
+            self._json(200, BENCH.set_zero_here(ids=ids) if BENCH
                        else {"ok": False, "error": "no bench"})
         elif path == "/api/touchdown_zero/straight":
             try:

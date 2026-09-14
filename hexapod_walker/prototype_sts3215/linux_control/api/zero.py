@@ -141,8 +141,12 @@ class ZeroApi:
         return {"ok": True, "pose": pose, "demo": self.demo_state(),
                 "robot": self.robot_state()}
 
-    def set_zero_here(self) -> dict:
+    def set_zero_here(self, ids: list[int] | None = None) -> dict:
         """Feetech middle-calibrate: current pose becomes logical 0°.
+
+        ``ids`` limits the calibrate to those servo ids (2..19); default is
+        every live servo. Used to repair a single joint whose zero drifted
+        (e.g. a horn re-seated) without touching the rest of the robot.
 
         This rewrites the absolute joint frame, so any learned plant/home pose
         from the previous frame is invalid and must be cleared immediately.
@@ -168,7 +172,7 @@ class ZeroApi:
             except Exception:
                 pass
             try:
-                result = redefine_zero_here(d.bus)
+                result = redefine_zero_here(d.bus, ids=ids)
             except Exception as e:
                 return {"ok": False, "error": str(e)}
             d.status = (f"zero-here {result.get('ok_n', 0)}/"

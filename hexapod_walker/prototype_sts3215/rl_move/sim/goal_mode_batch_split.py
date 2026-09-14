@@ -80,6 +80,34 @@ RISK CONTAINMENT:
   since the whole minibatch-sourcing loop must change, not just the
   advantages tensor.
 
+RISE-START_KIND SUB-SPLIT (2026-09-14, `train.goal_mode_batch_split_
+rise_start_kind`, default 0 = OFF/bit-exact): the flat-start-rise
+`over_current` residual (`cur_max_a` pinned ~2.55-2.65A, buried-foot
+stall) survived 21/21 independent levers across FOUR mechanism
+families -- cap-based action-gating (10: height-magnitude x9 +
+joint-rate x1... actually 9+2=11 arms across 2 axes), reward-pricing
+(7), reset-distribution timing curricula (2), and per-leg curl-order
+sequencing (2) -- all engaging exactly as designed yet leaving the
+identical fingerprint untouched (see `CURRENT_TRUTHS.md` 2026-09-14
+entries and `rise_leg_stagger_gate`'s own closing verdict). None of
+those 21 levers touched batch COMPOSITION: flat-start rise episodes
+terminate `over_current` almost immediately (a handful of ticks)
+while bridge/crouch starts that succeed run the full episode, so even
+a healthy nominal `goal.rise_flat_frac` reset-mix share dilutes to a
+tiny raw TICK share of the shared `rise` minibatch pool -- the EXACT
+representation-scarcity failure this module was built to fix for
+`hold` (see BACKGROUND above), one level finer (inside `rise`, by
+`start_kind`, instead of across `goal_mode`). When armed, `rise` steps
+are labeled `"rise:<start_kind>"` (via `goal_mode_adv_norm.
+_goal_mode_label`, fed by `sim_env.py`'s new `info["start_kind"]`
+key) before grouping, so `rise:flat` gets its own disjoint,
+undiluted minibatch update (or its own `isolate_modes` slot) instead
+of being averaged away inside a majority-bridge/crouch `rise` batch.
+Same RULE (a) contract (same rollout-collected reward/advantage, only
+minibatch SOURCING changes) and same OFF-path bit-exactness (the flag
+defaults False and `_goal_mode_label` returns plain `"goal_mode"` for
+every mode when it's unset, byte-identical to the pre-09-14 capture).
+
 See rl_move/tests/test_goal_mode_batch_split.py.
 """
 from __future__ import annotations
@@ -101,7 +129,8 @@ GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX = "train/goal_mode_batch_split_"
 
 def attach_goal_mode_batch_split(model, *, enabled: bool,
                                  min_group: int = 8,
-                                 isolate_modes=None) -> None:
+                                 isolate_modes=None,
+                                 rise_start_kind: bool = False) -> None:
     """Sets the attributes `GoalModeBatchSplitPPO.train()` /
     `GoalModeCaptureCallback` read. A no-op when `enabled` is falsy.
 
@@ -114,13 +143,30 @@ def attach_goal_mode_batch_split(model, *, enabled: bool,
     trains its whole buffer (asymmetric split -- see the
     `-isolatehold-` escalation this docstring's caller names: hold's
     tiny episodes get a protected update without starving lower/rise's
-    own larger shared batch the way full N-way splitting did)."""
+    own larger shared batch the way full N-way splitting did).
+
+    `rise_start_kind`: default False (bit-exact legacy: `rise` is one
+    group, same as any other mode). When True, `rise` steps are
+    labeled `"rise:<start_kind>"` instead of plain `"rise"` (see
+    `goal_mode_adv_norm._goal_mode_label`) BEFORE grouping/isolation
+    -- so `rise:flat`/`rise:bridge`/`rise:crouch` each get their own
+    disjoint minibatch group (or their own slot in `isolate_modes`,
+    named explicitly, e.g. `isolate_modes=["rise:flat"]`, to protect
+    ONLY the flat-start sub-population the way `-isolatehold-`
+    protects `hold` alone). The 2026-09-14 flat-start-rise escalation:
+    21/21 prior cap/reward-price/reset-timing/leg-order levers left
+    the identical `over_current` fingerprint untouched; flat-start
+    resets terminate almost immediately (over_current), so even a
+    healthy nominal reset-mix share dilutes to a tiny raw TICK share
+    of the shared `rise` buffer -- the exact scarcity failure this
+    whole module was built to fix for `hold`, one level finer."""
     if not enabled:
         return
     model.goal_mode_batch_split_enabled = True
     model.goal_mode_batch_split_min_group = int(min_group)
     model.goal_mode_batch_split_isolate_modes = (
         frozenset(str(m) for m in isolate_modes) if isolate_modes else None)
+    model.goal_mode_batch_split_rise_start_kind = bool(rise_start_kind)
     if not hasattr(model, "_goal_mode_step_labels"):
         model._goal_mode_step_labels = []
 
@@ -152,6 +198,7 @@ def make_goal_mode_batch_split_ppo_class(base_cls):
         goal_mode_batch_split_enabled: bool = False
         goal_mode_batch_split_min_group: int = 8
         goal_mode_batch_split_isolate_modes = None
+        goal_mode_batch_split_rise_start_kind: bool = False
 
         def train(self) -> None:
             if not getattr(self, "goal_mode_batch_split_enabled", False):
@@ -347,14 +394,19 @@ def make_goal_mode_batch_split_ppo_class(base_cls):
                     GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX + "n_groups",
                     len(groups))
                 for label, idx in groups:
+                    # Composite rise:start_kind labels (rise_start_kind
+                    # sub-flag) use "_" not ":" in the W&B KEY only --
+                    # the raw label string (used for grouping/isolate_
+                    # modes matching above) is untouched.
+                    label_key = str(label).replace(":", "_")
                     logger.record(
-                        f"{GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX}{label}_n",
+                        f"{GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX}{label_key}_n",
                         len(idx))
                     pgs = per_group_pg.get(label) or []
                     if pgs:
                         logger.record(
                             f"{GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX}"
-                            f"{label}_pg_loss", float(np.mean(pgs)))
+                            f"{label_key}_pg_loss", float(np.mean(pgs)))
 
     return GoalModeBatchSplitPPO
 

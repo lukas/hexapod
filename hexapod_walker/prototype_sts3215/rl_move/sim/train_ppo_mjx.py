@@ -3026,13 +3026,25 @@ def main(argv: list[str] | None = None) -> int:
     goal_mode_batch_split_isolate_modes = (
         [m.strip() for m in goal_mode_batch_split_isolate.split(",")
          if m.strip()] if goal_mode_batch_split_isolate else None)
+    # rise-only sub-split (09-14 flat-start-rise escalation, 21/21 prior
+    # cap/reward-price/reset-timing/leg-order levers null): default off
+    # (bit-exact, plain "rise" group); when on, `rise` is labeled
+    # `"rise:<start_kind>"` BEFORE grouping, so flat/bridge/crouch each
+    # get their own disjoint minibatch (or their own isolate_modes slot)
+    # instead of flat's scarce, quickly-terminated ticks being diluted
+    # inside one shared "rise" group/permutation.
+    goal_mode_batch_split_rise_start_kind = bool(int(float(
+        _parse_cfg_set(args.cfg_set).get(
+            "train.goal_mode_batch_split_rise_start_kind", 0.0) or 0.0)))
     if goal_mode_batch_split:
         from .goal_mode_batch_split import (
             make_goal_mode_batch_split_ppo_class)
         algo_cls = make_goal_mode_batch_split_ppo_class(algo_cls)
         print("[mjx-train] per-goal-mode disjoint-minibatch PPO ON "
               f"(min_group={goal_mode_batch_split_min_group}, "
-              f"isolate={goal_mode_batch_split_isolate_modes or 'ALL'})")
+              f"isolate={goal_mode_batch_split_isolate_modes or 'ALL'}, "
+              "rise_start_kind="
+              f"{goal_mode_batch_split_rise_start_kind})")
 
     policy_cls: str | type = "MlpPolicy"
     extra_pk: dict = {}
@@ -4368,7 +4380,8 @@ def main(argv: list[str] | None = None) -> int:
         attach_goal_mode_batch_split(
             model, enabled=goal_mode_batch_split,
             min_group=goal_mode_batch_split_min_group,
-            isolate_modes=goal_mode_batch_split_isolate_modes)
+            isolate_modes=goal_mode_batch_split_isolate_modes,
+            rise_start_kind=goal_mode_batch_split_rise_start_kind)
     # Update-path protection (fb_20260817T005114; default off).
     if args.actor_lr > 0.0:
         from .update_health import (CRITIC_MARKERS,

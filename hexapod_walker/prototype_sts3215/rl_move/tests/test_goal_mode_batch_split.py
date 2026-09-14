@@ -28,6 +28,7 @@ from rl_move.sim.goal_mode_batch_split import (
     GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX,
     _labels_to_flat,
 )
+from rl_move.sim.goal_mode_adv_norm import _goal_mode_label
 
 
 _OBS_DIM = 6
@@ -391,3 +392,213 @@ def test_wandb_payload_only_forwards_prefixed_keys():
         GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX + "applied": 1.0,
         GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX + "hold_n": 12.0,
     }
+
+
+# ---------------------------------------------------------------------
+# 5. rise-start_kind sub-split (2026-09-14 flat-start-rise escalation:
+# 21/21 cap/reward-price/reset-timing/leg-order levers null -- see
+# module docstring). `_goal_mode_label` is the pure helper that turns
+# a `rise` step into `"rise:<start_kind>"`; a tiny fake `model` object
+# (no PPO needed) is enough to test it directly.
+# ---------------------------------------------------------------------
+
+class _FakeModel:
+    def __init__(self, rise_start_kind):
+        self.goal_mode_batch_split_rise_start_kind = rise_start_kind
+
+
+def test_goal_mode_label_default_off_is_plain_mode():
+    m = _FakeModel(False)
+    assert _goal_mode_label(m, {"goal_mode": "rise",
+                                "start_kind": "flat"}) == "rise"
+    assert _goal_mode_label(m, {"goal_mode": "hold"}) == "hold"
+
+
+def test_goal_mode_label_no_attr_at_all_is_plain_mode():
+    # A model that never called attach_goal_mode_batch_split at all
+    # (e.g. only goal_mode_adv_norm is armed) must never see the
+    # composite label -- getattr(..., False) default.
+    class _Bare:
+        pass
+    assert _goal_mode_label(_Bare(), {"goal_mode": "rise",
+                                      "start_kind": "flat"}) == "rise"
+
+
+def test_goal_mode_label_on_composes_rise_with_start_kind():
+    m = _FakeModel(True)
+    assert _goal_mode_label(
+        m, {"goal_mode": "rise", "start_kind": "flat"}) == "rise:flat"
+    assert _goal_mode_label(
+        m, {"goal_mode": "rise", "start_kind": "bridge"}) == "rise:bridge"
+
+
+def test_goal_mode_label_on_non_rise_modes_untouched():
+    m = _FakeModel(True)
+    assert _goal_mode_label(m, {"goal_mode": "hold",
+                                "start_kind": "flat"}) == "hold"
+    assert _goal_mode_label(m, {"goal_mode": "lower"}) == "lower"
+
+
+def test_goal_mode_label_on_missing_start_kind_falls_back_to_plain_rise():
+    m = _FakeModel(True)
+    assert _goal_mode_label(m, {"goal_mode": "rise"}) == "rise"
+    assert _goal_mode_label(
+        m, {"goal_mode": "rise", "start_kind": None}) == "rise"
+    assert _goal_mode_label(
+        m, {"goal_mode": "rise", "start_kind": ""}) == "rise"
+
+
+def test_attach_rise_start_kind_defaults_false():
+    cls = make_goal_mode_batch_split_ppo_class(PPO)
+    m = _make_ppo(cls)
+    attach_goal_mode_batch_split(m, enabled=True, min_group=4)
+    assert m.goal_mode_batch_split_rise_start_kind is False
+
+
+def test_attach_rise_start_kind_true_is_stored():
+    cls = make_goal_mode_batch_split_ppo_class(PPO)
+    m = _make_ppo(cls)
+    attach_goal_mode_batch_split(m, enabled=True, min_group=4,
+                                 rise_start_kind=True)
+    assert m.goal_mode_batch_split_rise_start_kind is True
+
+
+_RISE_KINDS = ("flat", "bridge")
+
+
+class _TinyRiseKindEnv(gym.Env):
+    """Like `_TinyModeEnv`, but every instance is `goal_mode="rise"`
+    with a fixed `start_kind` (alternating flat/bridge by env index),
+    plus one plain `hold` instance -- enough to prove the composite
+    `rise:<start_kind>` grouping actually forms disjoint minibatches
+    when the sub-flag is on, and stays one merged `rise` group when
+    it's off (bit-exact vs the pre-09-14 behavior)."""
+
+    metadata = {}
+
+    def __init__(self, env_idx: int):
+        super().__init__()
+        self.observation_space = spaces.Box(-10, 10, (_OBS_DIM,),
+                                            dtype=np.float32)
+        self.action_space = spaces.Box(-1, 1, (_N_ACT,), dtype=np.float32)
+        if env_idx % 4 == 3:
+            self._mode, self._kind = "hold", None
+        else:
+            self._mode = "rise"
+            self._kind = _RISE_KINDS[env_idx % len(_RISE_KINDS)]
+        self._t = 0
+
+    def reset(self, *, seed=None, options=None):
+        self._t = 0
+        return np.zeros(_OBS_DIM, dtype=np.float32), {}
+
+    def step(self, action):
+        self._t += 1
+        reward = -float(np.mean(np.asarray(action) ** 2))
+        term = self._t >= 8
+        info = {"goal_mode": self._mode}
+        if self._kind is not None:
+            info["start_kind"] = self._kind
+        return (np.zeros(_OBS_DIM, dtype=np.float32), reward, term,
+                False, info)
+
+
+def _make_rise_kind_ppo(cls, n_envs=8, seed=0):
+    venv = DummyVecEnv(
+        [lambda i=i: _TinyRiseKindEnv(i) for i in range(n_envs)])
+    m = cls("MlpPolicy", venv, n_steps=16, batch_size=32, n_epochs=2,
+            seed=seed, device="cpu", policy_kwargs=dict(net_arch=[16]))
+    m.set_random_seed(seed)
+    return m
+
+
+def test_rise_start_kind_off_keeps_rise_as_one_merged_group():
+    """Default (rise_start_kind=False): flat/bridge rise ticks share
+    ONE `rise` group -- matches every pre-09-14 run's behavior."""
+    cls = make_goal_mode_batch_split_ppo_class(PPO)
+    m = _make_rise_kind_ppo(cls, n_envs=8)
+    attach_goal_mode_batch_split(m, enabled=True, min_group=4)
+
+    class _FakeLogger:
+        def __init__(self):
+            self.name_to_value = {}
+
+        def record(self, key, value, **kw):
+            self.name_to_value[key] = value
+
+    fake_logger = _FakeLogger()
+    m.set_logger(fake_logger)
+    _collect(m)
+    m.train()
+    # 2 groups total: plain "rise" (flat+bridge pooled) + "hold".
+    assert fake_logger.name_to_value.get(
+        GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX + "n_groups") == 2
+    assert fake_logger.name_to_value.get(
+        GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX + "rise_n", 0) > 0
+    assert (GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX + "rise_flat_n"
+           ) not in fake_logger.name_to_value
+
+
+def test_rise_start_kind_on_splits_flat_from_bridge():
+    """Armed: `rise:flat` and `rise:bridge` each get their own
+    disjoint minibatch group, on top of `hold` -- 3 groups total, and
+    no minibatch this mechanism builds ever mixes flat with bridge (or
+    either with hold)."""
+    cls = make_goal_mode_batch_split_ppo_class(PPO)
+    m = _make_rise_kind_ppo(cls, n_envs=8)
+    attach_goal_mode_batch_split(m, enabled=True, min_group=4,
+                                 rise_start_kind=True)
+    assert m.goal_mode_batch_split_rise_start_kind is True
+    m.set_logger(configure(None, ["stdout"]))
+    _collect(m)
+
+    labels_flat = _labels_to_flat(
+        m._goal_mode_step_labels, m.rollout_buffer.buffer_size,
+        m.rollout_buffer.n_envs)
+    assert set(labels_flat.tolist()) == {"rise:flat", "rise:bridge",
+                                         "hold"}
+    seen_minibatch_label_sets = []
+    orig_get_samples = m.rollout_buffer._get_samples
+
+    def _spy_get_samples(batch_inds, env=None):
+        seen_minibatch_label_sets.append(
+            set(labels_flat[batch_inds].tolist()))
+        return orig_get_samples(batch_inds, env=env)
+
+    m.rollout_buffer._get_samples = _spy_get_samples
+    m.train()
+
+    assert seen_minibatch_label_sets
+    for label_set in seen_minibatch_label_sets:
+        assert len(label_set) == 1, (
+            f"a minibatch mixed rise start_kinds: {label_set}")
+
+
+def test_rise_start_kind_on_logs_sanitized_colon_free_keys():
+    """W&B metric keys must not contain ':' (the composite label's
+    internal grouping separator) -- `rise:flat` logs as `rise_flat_n`,
+    not `rise:flat_n`."""
+    cls = make_goal_mode_batch_split_ppo_class(PPO)
+    m = _make_rise_kind_ppo(cls, n_envs=8)
+    attach_goal_mode_batch_split(m, enabled=True, min_group=4,
+                                 rise_start_kind=True)
+
+    class _FakeLogger:
+        def __init__(self):
+            self.name_to_value = {}
+
+        def record(self, key, value, **kw):
+            self.name_to_value[key] = value
+
+    fake_logger = _FakeLogger()
+    m.set_logger(fake_logger)
+    _collect(m)
+    m.train()
+    assert fake_logger.name_to_value.get(
+        GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX + "n_groups") == 3
+    assert fake_logger.name_to_value.get(
+        GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX + "rise_flat_n", 0) > 0
+    assert fake_logger.name_to_value.get(
+        GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX + "rise_bridge_n", 0) > 0
+    for key in fake_logger.name_to_value:
+        assert ":" not in key, f"un-sanitized colon in W&B key: {key}"

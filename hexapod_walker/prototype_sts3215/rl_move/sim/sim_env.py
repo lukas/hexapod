@@ -7166,6 +7166,17 @@ class SimHexapodBalanceEnv(_GymBase):
             info["height_mm"] = h_rel * 1000.0
             info["height_ref_mm"] = goal.height_ref * 1000.0
             if self._is_rise:
+                # Per-tick start_kind (flat/bridge/crouch/...), same
+                # attribute eval_checkpoint.py's own `_start_kind()`
+                # already reads off the trajectory for eval reports --
+                # exposed here too (rise only; other modes carry no
+                # such attribute) purely as a labeling channel for
+                # goal_mode_batch_split.py's rise-start_kind sub-split
+                # escalation (2026-09-14): a NEW info key, never read
+                # by reward/obs/termination, inert for every existing
+                # run.
+                info["start_kind"] = getattr(
+                    self._goal_traj, "start_kind", None)
                 # Two-phase rise sub-goal observability
                 # (goal.rise_curl_gate): nonzero whenever the height
                 # ramp's onset is currently being deferred waiting on

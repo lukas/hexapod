@@ -1,5 +1,80 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## Leg-order sequencing CLOSES the flat-start-rise lever hunt at 21/21 null across FOUR independent mechanism families (cap, reward-pricing, reset-timing, leg-order) -- needs a genuinely new structural mechanism, not another dose/seed (2026-09-14 ~07:5x, walkcurr track, triage cycle)
+
+`cw-stance50hz-rlonly-risestagger-{mod,strict}-s1-canary2m`
+(`ik.rise_leg_stagger_gate`: tripod group A curls unconditionally,
+group B is HELD until group A's own mean progress clears a threshold
+-- 0.5 mod / 0.85 strict -- the first lever to make WHICH LEG curls
+first/last a controllable variable, after 19/19 magnitude/reward/
+reset-timing levers left the six-leg-simultaneous-max-current-push
+fingerprint untouched) both CANARY FAIL - MECHANISM. The fixed-seed
+flat-start canary probe (`canary/rise_flat_a`+`_b`) reads 0/2 at BOTH
+the 1.0M and 2.0M checkpoints in BOTH arms, and the full eval-report
+`start_kind` breakdown confirms 0/12 literal flat-start episodes
+succeed across gate(dr=0)+owncfg(dr=0.2)/det+sto in either arm --
+every one terminating `over_current` at the identical
+`cur_max_a`=2.55-2.65A ceiling / `height_err_end_mm`=45-60mm
+fingerprint as all 19 prior closed levers (cap-based action-gating
+10/10, reward-pricing 7/7, reset-distribution-curricula 2/2). Bridge
+(partial-curl) rise holds under the gate(dr=0) config in both arms
+(mod 7/9 combined, strict 7/9 combined, both clear the >=4/6 floor)
+but REGRESSES under the own-DR(0.2) config -- mod collapses hardest
+(0/3 combined) while strict holds up better (3/6, still below the
+floor but a real dose-response: the stronger/closer-to-fully-
+sequential dose partially protects bridge where the gentler dose does
+not). Own-DR hold also slips slightly in both arms (mod 11/12,
+strict 4/6 with one `tilt_roll` fall) -- both below the 6/6-unregressed
+floor, additional negative data points on top of the null. Crouch
+stays protected on the dedicated fixed probe in both arms (2/2,
+clears >=0.9).
+
+**Binding conclusion: this closes leg-order-sequencing 2/2, and with
+it EVERY mechanism family attempted on this residual — cap-based
+action-gating (10), reward-pricing (7), reset-distribution timing (2),
+and leg-order sequencing (2) = 21/21 independent levers, all
+engaging exactly as designed, all leaving the identical flat-start
+`over_current` fingerprint untouched.** Forcing WHICH leg curls
+first/last still lets the policy choose the same simultaneous
+six-leg max-current push once both tripod groups are eventually asked
+to move — the axis was never "which leg, in what order" either. **Do
+not fund another dose, seed, or magnitude/price/timing/order variant
+on this exact flat-start-rise residual without new evidence.** Per the
+09-13 `rl_only` operator clarification's own framing for exhausted
+mechanism classes, this needs a genuinely new STRUCTURAL design, never
+a motion prior/demonstration/reference-trajectory match (ruled out
+regardless of framing, per the `rl_only` clean-lineage contract).
+
+**What this cycle built as the next candidate** (untested, not yet a
+verdict): none of the 21 closed levers touched batch COMPOSITION.
+Flat-start rise episodes terminate `over_current` almost immediately
+(a handful of ticks) while bridge/crouch starts that succeed run the
+full 15s episode — so even a healthy nominal `goal.rise_flat_frac`
+reset-mix share dilutes to a tiny raw TICK share of the shared `rise`
+minibatch pool, the EXACT representation-scarcity failure this same
+codebase already root-caused and FIXED for `hold` via
+`goal_mode_batch_split.py`'s disjoint-minibatch PPO (see that entry's
+own history). Extended `goal_mode_batch_split.py` with a new
+`train.goal_mode_batch_split_rise_start_kind` sub-flag (default OFF,
+bit-exact): when armed, `rise` steps are labeled
+`"rise:<start_kind>"` (new `info["start_kind"]` key added to
+`sim_env.py`'s per-tick info dict, rise-only, inert everywhere else)
+BEFORE grouping, so `rise:flat` gets its own disjoint, undiluted
+minibatch instead of being averaged away inside a majority-bridge/
+crouch `rise` batch. 24 new/extended tests (`test_goal_mode_batch_
+split.py`, `test_sim_env.py`) + 287 targeted-regression tests
+(`test_sim_env.py`, `test_goal_mode_adv_norm.py`, `test_walk_task.py`,
+`test_body_ik.py`, `test_bc_anchor.py`, `test_env_step_all.py`,
+`test_metaagent_unattended_sources.py`) all green. Snapshot recorded
+this same cycle; canary launched off `risecurlpretrain-s1-canary2m`
+(the pre-cap-family/pre-stagger baseline, so only the new batch-split
+lever is under test) -- gate is the same `canary/rise_flat_a`+`_b`
+probe at 1.0M/2.0M, any nonzero success a genuine first positive.
+Evidence: `ops.sh verdict cw-stance50hz-rlonly-risestagger-{mod,
+strict}-s1-canary2m`; `rl_docs/tracks/walkcurr/STATUS.md` 2026-09-14
+~07:5x; `rl_move/sim/goal_mode_batch_split.py`,
+`rl_move/sim/goal_mode_adv_norm.py`, `rl_move/sim/sim_env.py`.
+
 ## Cap-based action-space gating is EXHAUSTED on walkcurr flat-start rise: 10/10 independent levers null, both height-magnitude (9 arms) and joint-rate (2 doses) axes confirmed to engage exactly as designed yet the fingerprint reproduces/worsens (2026-09-14 ~06:4x, walkcurr track, triage cycle)
 `cw-stance50hz-rlonly-curlslewgate-{mod,strict}-s1-canary2m` (RATE-axis
 gate on `safety.max_delta_q_deg`, scaled by live curl progress) both

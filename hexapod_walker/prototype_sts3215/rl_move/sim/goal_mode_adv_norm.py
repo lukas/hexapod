@@ -113,12 +113,42 @@ def _goal_mode_capture_wanted(model) -> bool:
                or getattr(model, "goal_mode_batch_split_enabled", False))
 
 
+def _goal_mode_label(model, info: dict) -> str:
+    """The per-step group label this whole capture pipeline records.
+    Default (and legacy-bit-exact) behavior: plain `info["goal_mode"]`.
+    When `model.goal_mode_batch_split_rise_start_kind` is truthy (new
+    2026-09-14 sub-flag, `goal_mode_batch_split.py`'s rise-only
+    escalation -- see that module's docstring for the motivating
+    hypothesis: flat-start rise episodes terminate `over_current`
+    almost immediately, so even a healthy nominal reset-mix share gets
+    diluted to a tiny raw TICK share of the shared buffer, the exact
+    representation-dilution failure mode this whole capture/split
+    pipeline was built to fix for `hold` -- just one level finer, by
+    `start_kind` INSIDE `rise` instead of by `goal_mode` alone), a
+    `rise` step's label becomes `"rise:<start_kind>"` (e.g.
+    `"rise:flat"`, `"rise:bridge"`, `"rise:crouch"`) whenever
+    `info["start_kind"]` is present and truthy; a rise step with no
+    (or falsy) `start_kind` -- e.g. an older env build that never set
+    the new info key -- falls back to plain `"rise"`, never crashes.
+    Non-rise modes are never touched by this flag."""
+    mode = str(info.get("goal_mode", ""))
+    if (mode == "rise"
+            and getattr(model, "goal_mode_batch_split_rise_start_kind",
+                        False)):
+        sk = info.get("start_kind")
+        if sk:
+            return f"rise:{sk}"
+    return mode
+
+
 class GoalModeCaptureCallback(BaseCallback):
-    """Records this rollout's per-step, per-env `info["goal_mode"]`
-    into `model._goal_mode_step_labels` (a list of length-n_envs lists,
-    one per collected step, reset at the start of every rollout) so
-    `GoalModeAdvNormPPO.train()` / `GoalModeBatchSplitPPO.train()` can
-    group the rollout by mode before `super().train()` consumes the
+    """Records this rollout's per-step, per-env group label (plain
+    `info["goal_mode"]`, or the finer `"rise:<start_kind>"` composite
+    when the rise-start_kind sub-flag is armed -- see `_goal_mode_
+    label`) into `model._goal_mode_step_labels` (a list of length-n_envs
+    lists, one per collected step, reset at the start of every rollout)
+    so `GoalModeAdvNormPPO.train()` / `GoalModeBatchSplitPPO.train()`
+    can group the rollout before `super().train()` consumes the
     buffer. A pure no-op whenever neither consumer is armed (see
     `_goal_mode_capture_wanted`) -- safe to construct unconditionally,
     though callers only append it when at least one cfg flag is on."""
@@ -131,7 +161,7 @@ class GoalModeCaptureCallback(BaseCallback):
         if _goal_mode_capture_wanted(self.model):
             infos = self.locals.get("infos") or ()
             self.model._goal_mode_step_labels.append(
-                [str(info.get("goal_mode", "")) for info in infos])
+                [_goal_mode_label(self.model, info) for info in infos])
         return True
 
 

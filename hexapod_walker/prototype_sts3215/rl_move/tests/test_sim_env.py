@@ -418,6 +418,45 @@ def test_rise_episode_starts_on_belly():
         assert not term, info.get("termination_reason")
 
 
+def test_rise_step_info_carries_start_kind():
+    """goal_mode_batch_split.py's 09-14 rise-start_kind sub-split reads
+    a NEW `info["start_kind"]` key emitted every rise tick (never read
+    by reward/obs/termination -- purely a labeling channel). Must match
+    the live trajectory's own `start_kind` attribute and be present on
+    every step, not just reset."""
+    from rl_move.sim.goal_task import SimHexapodGoalEnv
+
+    env = SimHexapodGoalEnv(seed=24)
+    g = env._goal_gen
+    g.p_hold = g.p_lean = g.p_track = g.p_unload = 0.0
+    g.p_rise = 1.0
+    obs, info = env.reset()
+    assert info["goal_mode"] == "rise"
+    expected_kind = getattr(env._goal_traj, "start_kind", None)
+    for _ in range(5):
+        obs, r, term, trunc, info = env.step(np.zeros(N_ACT))
+        assert info.get("start_kind") == expected_kind
+        if term:
+            break
+
+
+def test_non_rise_step_info_has_no_start_kind_key():
+    """hold/lower steps never carry `start_kind` at all (only `rise`
+    trajectories set the attribute) -- the batch-split label helper's
+    fallback-to-plain-mode path depends on this key being absent, not
+    just falsy, for non-rise modes."""
+    from rl_move.sim.goal_task import SimHexapodGoalEnv
+
+    env = SimHexapodGoalEnv(seed=24)
+    g = env._goal_gen
+    g.p_rise = g.p_lean = g.p_track = g.p_unload = 0.0
+    g.p_hold = 1.0
+    obs, info = env.reset()
+    assert info["goal_mode"] == "hold"
+    obs, r, term, trunc, info = env.step(np.zeros(N_ACT))
+    assert "start_kind" not in info
+
+
 def test_flag_leg_penalty_walk_only_routing():
     """reward.flag_leg_walk_only=1 must gate the charge to walk mode.
 

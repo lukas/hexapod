@@ -1,5 +1,42 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## Structured per-leg MASS/CoM asymmetry (the last DESIGN.md-named untried mechanism family) is a clean NULL for the PS200 roll signature; the speed track's frozen-policy-probe diagnostic sequence is now fully exhausted (2026-09-14 ~14:3x, speed track, refill cycle)
+
+Built `dr.leg_mass_bias_pct`/`dr.leg_mass_bias_group`
+(`rl_move/sim/domain_rand.py`, default off, bit-exact, 9 new tests) —
+a single persistent bias magnitude concentrated onto a named leg
+group's mass+inertia (battery/wiring/print-infill asymmetry story),
+the CONCENTRATED analogue of the existing symmetric `mass_scale`/
+`leg_mass_jitter_pct`/`com_offset_m` knobs, following the exact
+methodology that turned joint backlash from a NULL (uniform) into the
+best-to-date ~29-31% PS200 match (concentrated). Probed with
+`probe_massbias_dose.py` against the frozen `ps200` policy, same
+0.10 m/s / dr_scale=0.0-isolation / 4-seed protocol as every prior
+mechanism in this saga: right (10-50%), left, single-leg, front/rear.
+Result: median peak roll never leaves the undoped baseline's own
+~1.1-1.6 deg noise floor at ANY dose/group, and the signed-roll
+diagnostic does not even move in a consistent direction with
+increasing right-side dose (0.47 -> 0.24 -> 0.17 -> 0.06 -> -0.14,
+i.e. SHRINKING, not growing) — a clean NULL, not an under-dosed one.
+Mechanistic reason: mass bias is a LOAD-domain perturbation the
+existing position-controlled (kp/kv) actuators absorb well within
+their torque budget at this slow gait, so no lasting positional/
+geometric asymmetry is created for the gait cycle to carry forward —
+unlike backlash, a POSITION-domain mechanical dead-zone that directly
+injects a geometric error. This closes the last mechanism family
+DESIGN.md names ("body/link mass, CoM and inertia ... per-leg
+asymmetric manufacturing error") that had only ever been tested in
+symmetric/uniform form. Combined with the already-closed load-coupled
+latency (clean NULL) and per-foot stick-slip (clean NULL), and
+backlash's own partial-but-untrainable match (FAIL-MECHANISM once
+actually trained through, closing DR_JOINT_PANEL_2026-09-13 6/6), the
+speed track's frozen-policy diagnostic sequence has now covered every
+position-domain, force-domain and load-domain mechanism this saga has
+conceived. Remaining options unchanged: (1) fresh Robot Lab telemetry
+(not cloud-side), or (2) a genuinely new structural hypothesis not yet
+conceived. Evidence: `rl_docs/tracks/speed/STATUS.md` 2026-09-14
+~14:3x; `logs/ckpt_eval/massbias_dose_probe_20260914T143105Z/`.
+
 ## Observation-space current-sensing closes flat-start-rise at 23/23 null; the "architecture" idea this itself left open is set aside as disproportionately expensive + likely-null by direct in-track precedent, not attempted; this cycle instead built and launched this doc's own orphaned 06:4x "rate-of-current-rise" reward candidate as the 24th lever (2026-09-14 ~14:0x, walkcurr track, refill cycle)
 `--gru` cannot warm-start from an MLP checkpoint, and the shared base
 checkpoint every closed lever on this residual warm-starts from

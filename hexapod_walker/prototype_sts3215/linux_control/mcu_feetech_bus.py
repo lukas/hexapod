@@ -94,6 +94,9 @@ STREAM_HANDSHAKE_ATTEMPTS = 3
 # Bounded re-send of one W frame (the MCU host-UART ring can drop a frame
 # during an acquisition pass). Each use is printed and counted.
 SYNC_WRITE_ATTEMPTS = 2
+# An all-zero IMU frame with a valid age is an MPU asleep after a power
+# glitch; the host wakes it with ``IMU`` at most this often (see read_imu).
+IMU_WAKE_MIN_INTERVAL_S = 2.0
 
 
 def encode_sync_frame(cmd: int, items: list[tuple[int, int, int, int]]
@@ -230,35 +233,6 @@ def find_usb_bus_port(explicit: str | None = None) -> str | None:
                              or "usbserial" in p) else 1, p),
     )
     return ranked[0] if ranked else None
-
-
-def probe_mcu_bridge(port: str = MCU_PORT_DEFAULT, *,
-                     timeout: float = 1.2) -> bool:
-    if not Path(port).exists():
-        return False
-    try:
-        claim_mcu_port(port)
-        import serial
-        ser = serial.Serial(port, MCU_BAUD, timeout=timeout, write_timeout=1.0)
-        try:
-            ser.reset_input_buffer()
-            ser.write(b"HELLO\n")
-            ser.flush()
-            deadline = time.monotonic() + timeout
-            buf = b""
-            while time.monotonic() < deadline:
-                chunk = ser.read(64)
-                if chunk:
-                    buf += chunk
-                    if HELLO_TOKEN.encode() in buf or b"HELLO" in buf:
-                        return True
-                else:
-                    time.sleep(0.02)
-            return False
-        finally:
-            ser.close()
-    except Exception:
-        return False
 
 
 def open_feetech_bus(port: str | None = None, *, baud: int = BAUD_DEFAULT):
@@ -522,6 +496,8 @@ class McuFeetechBus:
         # ``FeetechBus`` has no such attribute.
         self.streaming = True
         self.sync_write_retries = 0
+        self.imu_wake_attempts = 0
+        self._imu_wake_mono = 0.0
         print("[bus] MCU stream mode ON")
 
     def set_telemetry_sink(self, sink) -> None:
@@ -1024,7 +1000,12 @@ class McuFeetechBus:
 
     def _bin_req(self, cmd: int, ids: list[int] | None, *,
                  timeout: float = 1.2) -> tuple[int, bytes] | None:
-        """Send A5 5A cmd n [ids…] xor; return (n, payload_bytes) of reply."""
+        """Send A5 5A 'F' n [ids…] xor; return (n, payload_bytes) of 'f'.
+
+        Only the full-feedback block remains on this path; positions come
+        from the snapshot ('S'/'s').
+        """
+        assert cmd == ord("F"), cmd
         if ids is None:
             id_bytes = b""
         else:
@@ -1035,9 +1016,7 @@ class McuFeetechBus:
         for b in body:
             x ^= b
         frame = bytes([0xA5, 0x5A]) + body + bytes([x])
-        want = ord("f") if cmd == ord("F") else ord("p")
-        rec_size = 13 if cmd == ord("F") else 4
-        return self._bin_txn(frame, want, rec_size, timeout=timeout)
+        return self._bin_txn(frame, ord("f"), 13, timeout=timeout)
 
     def _fb_dict_from_rec(self, rec: bytes) -> dict | None:
         if len(rec) < 13 or rec[1] == 0:
@@ -1424,14 +1403,39 @@ class McuFeetechBus:
         ``apply_calib``, subtracts rest gyro/accel biases.
 
         Until 2026-09-14 a snapshot without IMU fell through to the ASCII
-        ``IMUR`` read plus an ``IMU`` wake (1 s timeout + sleep): every
-        caller polling the IMU during a dropout blocked the bus for up to
-        ~2 s per call. ``timeout`` is kept for signature compatibility.
+        ``IMUR`` read plus an ``IMU`` wake (1 s timeout + sleep) on EVERY
+        call: during a dropout each poller blocked the bus for up to ~2 s.
+        What that path also did, and what is kept here bounded and loud,
+        is wake a sleeping MPU: after a power glitch the MPU-6050 boots
+        asleep, I2C reads succeed and return zeros, and the firmware caches
+        the zeros as a valid fresh sample (it only re-inits on a FAILED
+        read). ``_snapshot_txn`` reports such a frame as ``imu=None`` with
+        a valid age; on that exact signature one ``IMU`` (WHO_AM_I +
+        PWR_MGMT_1 wake) is sent at most every ``IMU_WAKE_MIN_INTERVAL_S``,
+        printed and counted (``imu_wake_attempts``). This call still returns
+        None; the next snapshot carries the real sample once it is awake.
+        ``timeout`` is kept for signature compatibility.
         """
         del timeout
         snap = self.read_snapshot(apply_calib=apply_calib)
-        if isinstance(snap, dict) and isinstance(snap.get("imu"), dict):
+        if not isinstance(snap, dict):
+            return None
+        if isinstance(snap.get("imu"), dict):
             return snap["imu"]
+        if snap.get("imu_age_ms") != SNAP_AGE_INVALID:
+            now = time.monotonic()
+            last = getattr(self, "_imu_wake_mono", 0.0)
+            if now - last >= IMU_WAKE_MIN_INTERVAL_S:
+                self._imu_wake_mono = now
+                self.imu_wake_attempts = (
+                    getattr(self, "imu_wake_attempts", 0) + 1)
+                print("[bus] WARNING IMU frame all-zero with fresh age "
+                      f"({snap.get('imu_age_ms')} ms): MPU asleep; sending "
+                      f"wake (count {self.imu_wake_attempts})")
+                reply = self._transact("IMU", timeout=1.0)
+                if not reply or not reply.startswith("OK"):
+                    print(f"[bus] WARNING IMU wake not acknowledged: "
+                          f"{reply!r}")
         return None
 
     def _imu_sample(self, ax: int, ay: int, az: int, gx: int, gy: int,

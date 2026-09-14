@@ -1,6 +1,6 @@
 """Off-robot tests for the MCU stream-bridge codec (2026-08-19 upgrade).
 
-Run locally:  uv run python linux_control/test_mcu_stream.py
+Run locally:  uv run pytest linux_control/test_mcu_stream.py -q
 No hardware: a FakeSerial plays the firmware side of the 'S'/'s'
 combined write+snapshot transaction, byte-exact against the framing in
 firmware/feetech_bridge (sendSnapshot / feedHostByte).
@@ -141,6 +141,8 @@ def _mk_bus(reply: bytes) -> McuFeetechBus:
     bus._imu_mount = "normal"
     bus.streaming = True
     bus.sync_write_retries = 0
+    bus.imu_wake_attempts = 0
+    bus._imu_wake_mono = 0.0
     return bus
 
 
@@ -442,7 +444,8 @@ def test_discarded_input_and_ascii_reply_are_retained():
 
 
 def test_read_imu_without_snapshot_imu_returns_none_and_does_not_probe_ascii():
-    # IMU age 0xFFFF = the MCU has no valid sample. Until 2026-09-14 this fell
+    # IMU age 0xFFFF = the MCU has no valid sample (sensor absent / I2C
+    # failing; the firmware owns that retry). Until 2026-09-14 this fell
     # through to ASCII ``IMUR`` + an ``IMU`` wake (1 s timeout + sleep) and
     # blocked the bus for ~2 s per call during an IMU dropout.
     servos = [(2 + j, 1, 2048, 0) for j in range(18)]
@@ -452,6 +455,33 @@ def test_read_imu_without_snapshot_imu_returns_none_and_does_not_probe_ascii():
     bus = _mk_bus(reply + b"OK 1 2 3 4 5 6 7\n")
     assert bus.read_imu() is None
     assert bytes(bus._ser.tx) == encode_sync_frame(ord("S"), [])
+    assert bus.imu_wake_attempts == 0
+
+
+def test_read_imu_wakes_a_sleeping_mpu_once_per_interval(monkeypatch):
+    # Valid fresh age + all-zero frame = MPU asleep after a power glitch. The
+    # firmware caches zeros as a good sample (it only re-inits on a failed
+    # read), so the host sends ONE bounded ``IMU`` wake, prints and counts
+    # it, and does not repeat inside IMU_WAKE_MIN_INTERVAL_S.
+    clock = [50.0]
+    monkeypatch.setattr(mcu_feetech_bus.time, "monotonic", lambda: clock[0])
+    servos = [(2 + j, 1, 2048, 0) for j in range(18)]
+    asleep = _fw_snapshot_frame(
+        _fw_snapshot_payload(4, 2, 3, (0, 0, 0, 0, 0, 0, 0), servos), 18)
+    bus = _mk_bus(asleep + b"OK 0x68\n" + asleep + asleep + b"ERR wake\n")
+
+    assert bus.read_imu() is None
+    assert bus.read_imu() is None          # inside the interval: no resend
+    tx = bytes(bus._ser.tx)
+    assert tx == (encode_sync_frame(ord("S"), []) + b"IMU\n"
+                  + encode_sync_frame(ord("S"), []))
+    assert bus.imu_wake_attempts == 1
+    assert b"IMUR" not in tx
+
+    clock[0] += mcu_feetech_bus.IMU_WAKE_MIN_INTERVAL_S
+    assert bus.read_imu() is None
+    assert bytes(bus._ser.tx).count(b"IMU\n") == 2
+    assert bus.imu_wake_attempts == 2
 
 
 # ---------------------------------------------------------------------------

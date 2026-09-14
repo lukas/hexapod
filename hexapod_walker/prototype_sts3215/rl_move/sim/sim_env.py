@@ -3028,6 +3028,7 @@ class SimHexapodBalanceEnv(_GymBase):
         self.safety.set_nominal(self._q_nom)
         self._cur_filt = None
         self._torque_debt = None
+        self._prev_current_rate = None
         self._imu_prev_v = None
         self._imu_f_accum[:] = 0.0
         self._imu_f_n = 0
@@ -4476,6 +4477,7 @@ class SimHexapodBalanceEnv(_GymBase):
         self._pretuck_latched = False
         self._decouple_latched = False
         self._rise_h_prev = None
+        self._prev_current_rate = None
         # Hold/lower BC anchors mid-sequence use q_nom directly — which
         # the switch just re-based to the CANONICAL plant frame, i.e.
         # exactly the settled-plant base a fresh single-mode hold/lower
@@ -5924,6 +5926,53 @@ class SimHexapodBalanceEnv(_GymBase):
                 r_pretuck = -k_pretuck * float(np.sum(over_pt ** 2))
                 parts["reward_current_pretuck"] = r_pretuck
                 reward += r_pretuck
+        # Current RATE-of-rise penalty (walkcurr rise track, 2026-09-14 --
+        # CURRENT_TRUTHS.md's own named next escalation once the 10/10
+        # cap-based action-space gates (height ceiling + joint-rate/slew
+        # ceiling) closed null: "suppressing the action space ... cannot
+        # fix flat-start rise, because the policy's own chosen bad
+        # trajectory just replays in slow motion under a tighter cap ...
+        # Viable directions stay demonstration-free: a reward term on a
+        # property the POLICY'S OWN rollout can self-referentially
+        # measure (e.g. bounding the rate-of-current-RISE, not matching
+        # a target profile)". Structurally different from every current-
+        # pricing lever already closed (`k_current_hot`/
+        # `k_current_pretuck`/`k_current_income` all price the *level*
+        # of servo_current, or an EMA-scaled level) AND from the closed
+        # cap-based gates (which capped the *rate the JOINT ANGLE can
+        # move*, so a policy that pushes all six legs' current up
+        # together just did it more slowly under a tighter cap -- the
+        # cap cannot tell "six legs slowly" from "one leg quickly"
+        # apart). This instead prices the *rate the CURRENT ITSELF
+        # rises*, tick over tick, directly targeting the confirmed
+        # failure mode (`probe_rise_current_envelope.py`'s per-tick
+        # trace: a simultaneous six-leg max-current push, not a paced
+        # ramp) regardless of how the underlying joint sweep is timed.
+        # Self-referential only (this env's own previous-tick current,
+        # never a scripted/target profile), so this stays `rl_only`-
+        # clean per the same contract `k_current_pretuck` already
+        # satisfies. Bit-exact OFF by default (reward.k_current_rate=0):
+        # no state allocated, no behavior change for any existing
+        # checkpoint/lineage. Enable: --cfg-set reward.k_current_rate=<k>
+        # [--cfg-set reward.current_rate_a_per_s=<threshold A/s>].
+        # Tests: rl_move/tests/test_current_rate_reward.py.
+        k_cur_rate = float(cfg_get(
+            self.cfg, "reward", "k_current_rate", default=0.0))
+        if (k_cur_rate > 0.0 and self._is_rise
+                and self._state.servo_current is not None):
+            _cur_now = self._state.servo_current
+            _prev_cr = getattr(self, "_prev_current_rate", None)
+            if _prev_cr is None or _prev_cr.shape != _cur_now.shape:
+                _prev_cr = _cur_now.copy()
+            _rate = (_cur_now - _prev_cr) / max(self.dt, 1e-6)
+            self._prev_current_rate = _cur_now.copy()
+            rate_a_per_s = float(cfg_get(
+                self.cfg, "reward", "current_rate_a_per_s",
+                default=3.0))
+            over_rate = np.maximum(_rate - rate_a_per_s, 0.0)
+            r_cur_rate = -k_cur_rate * float(np.sum(over_rate ** 2))
+            parts["reward_current_rate"] = r_cur_rate
+            reward += r_cur_rate
         # Income-relative current pricing (standwalk track, 2026-09-12 --
         # see current_income_ema_step's docstring for the full root-cause
         # chain this answers). Structurally DIFFERENT from every lever
@@ -6374,6 +6423,7 @@ class SimHexapodBalanceEnv(_GymBase):
             _keep_keys = (
                 "reward_curl_progress", "reward_curl_milestone",
                 "reward_current_hot", "reward_current_pretuck",
+                "reward_current_rate",
                 "reward_rise_decouple",
                 "reward_current_income",
                 "reward_support_margin", "reward_load_even",

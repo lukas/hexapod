@@ -15,6 +15,8 @@ def validated_standup_frames(keyframes, *, down=False, trims=None):
               for kf in keyframes]
     if not frames:
         raise ValueError("stand-up has no keyframes")
+    if any(not math.isfinite(s) or s <= 0 for _, s in frames):
+        raise ValueError("stand-up durations must be finite and positive")
     if down:
         qs = [q for q, _ in frames]
         ss = [s for _, s in frames]
@@ -47,7 +49,10 @@ class StandupApi:
     def _load_standup(self) -> dict:
         # Read fresh each call (small file) so a re-deployed bake is
         # picked up without restarting the service.
-        return json.loads(self.STANDUP_FILE.read_text())
+        from hexapod_core.joint_frame import require_robot_abs_joint_frame
+        data = json.loads(self.STANDUP_FILE.read_text())
+        require_robot_abs_joint_frame(data, source="stand-up keyframes")
+        return data
 
     def standup_modes(self) -> dict:
         """List the available stand-up strategies (web UI selector)."""

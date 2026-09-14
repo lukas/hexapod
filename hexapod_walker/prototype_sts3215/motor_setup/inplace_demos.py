@@ -56,7 +56,7 @@ from feetech_bus import (  # noqa: E402
     ADDR_TORQUE_ENABLE, BAUD_DEFAULT, COUNTS_PER_DEG, FeetechBus, JOINT_SIGN,
     N_JOINTS, SERVO_IDS, WALK_ACC, WALK_SPEED, count_to_deg, deg_to_count,
     joint_to_servo_id, normalize_acc, normalize_speed, standing_pose_degrees,
-    robot_pose_to_raw_degrees, raw_positions_to_robot_degrees,
+    robot_pose_to_raw_degrees, raw_positions_to_robot_degrees, read_coherent_positions,
 )
 from motion_telemetry import (  # noqa: E402
     MotionLog, default_log_path, joint_name, run_hold_log,
@@ -756,7 +756,8 @@ def _read_pose(bus: FeetechBus, live: set[int]) -> list[float]:
     # MCU stream bridge: one cached bulk transaction beats 18 round trips.
     read_all = getattr(bus, "read_all_positions", None)
     if callable(read_all):
-        bulk = read_all() or {}
+        bulk = read_coherent_positions(bus, required={
+            j for j in range(N_JOINTS) if joint_to_servo_id(j) in live})
     else:
         raw = {}
         for joint in range(N_JOINTS):
@@ -815,8 +816,9 @@ def ease_to_pose(bus: FeetechBus, goal: list[float], *,
         print("  No robot servos on the bus.")
         return False
     check = abort_check or (lambda: False)
-    _enable_torque(bus, live)
     start = _read_pose(bus, live)
+    robot_pose_to_raw_degrees(goal, bus.trims)
+    _enable_torque(bus, live)
     speed, acc = _glide_speed_acc(start, goal, live, seconds)
     print(f"  Gliding to {label} over ~{seconds:.1f}s "
           f"(speed={speed}, acc={acc}; one command, no stream) ...")
@@ -885,8 +887,8 @@ def ease_to_pose(bus: FeetechBus, goal: list[float], *,
     _write_pose(bus, goal, live, speed=ZERO_SPEED, acc=ZERO_ACC)
     if current_tracker is not None:
         current_tracker.sample(bus, live)
-    print(f"  At {label} (timeout — check for binding).")
-    return True
+    raise RuntimeError(f"{label} did not settle before timeout; "
+                       f"worst joint error {worst:.1f} degrees")
 
 
 def go_to_zero_pose(bus: FeetechBus, *,

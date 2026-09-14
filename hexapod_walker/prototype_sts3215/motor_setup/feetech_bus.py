@@ -367,6 +367,28 @@ def raw_positions_to_robot_degrees(positions, trims=None) -> dict[int, float]:
     return out
 
 
+def read_coherent_positions(bus, *, required=None, attempts=3) -> dict[int, float]:
+    """Retry incomplete bulk acquisitions without combining their coordinates.
+
+    For pose transitions, not the real-time policy loop (which owns its
+    deadline). Each read_all_positions call requests a new bus acquisition.
+    Return the final single sample if completeness cannot be established.
+    """
+    needed = set(range(N_JOINTS) if required is None else required)
+    sample = {}
+    for attempt in range(attempts):
+        try:
+            sample = {j: float(v) for j, v in (bus.read_all_positions() or {}).items()
+                      if v is not None and math.isfinite(float(v))}
+        except (OSError, RuntimeError, ValueError):
+            sample = {}
+        if needed.issubset(sample):
+            break
+        if attempt + 1 < attempts:
+            time.sleep(0.02)
+    return sample
+
+
 def raw_feedback_to_robot_feedback(feedback, trims=None) -> dict[int, dict]:
     """Publish logical coordinates without losing physical servo diagnostics."""
     positions = raw_positions_to_robot_degrees(

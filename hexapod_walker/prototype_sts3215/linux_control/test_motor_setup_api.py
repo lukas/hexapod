@@ -263,6 +263,88 @@ class SetupTests(unittest.TestCase):
         self.assertEqual(seen, [39, 0, 39, 39, 39])
         self.assertTrue(result['torque_off'])
 
+    def nudge_health_samples(self, samples, *, during_motion=True):
+        self.nudge_bus()
+        original = self.bus.read1ByteTxRx
+        samples = iter(samples)
+        seen = []
+        pair = None
+        def read(sid, addr):
+            nonlocal pair
+            if addr in (62, 63) and (self.bus.on or not during_motion):
+                if addr == 62:
+                    pair = next(samples)
+                    seen.append(pair)
+                return pair[addr - 62], 0, 0
+            return original(sid, addr)
+        self.bus.read1ByteTxRx = read
+        return seen
+
+    def test_nudge_isolated_health_votes_clear_before_target_completion(self):
+        # The fake reaches its target immediately. Pending health votes
+        # must still force a fresh read; alternating fault types cannot add.
+        samples = [(88, 30), (114, 60), (141, 30), (114, 30)]
+        seen = self.nudge_health_samples(samples)
+        result = self.api.nudge({'joint':0, 'delta_deg':3})
+        self.assertTrue(result['ok'])
+        self.assertEqual(seen, samples)
+        self.assertEqual(result['voltage_fault_reads'], 0)
+        self.assertEqual(result['temperature_fault_reads'], 0)
+        self.assertEqual((result['voltage_v'], result['temp_c']), (11.4, 30))
+        self.assertEqual((result['min_voltage_v'], result['max_voltage_v'], result['max_temp_c']),
+                         (8.8, 14.1, 60))
+        self.assertTrue(result['torque_off'])
+
+    def test_nudge_three_fresh_health_faults_trip_with_actual_values(self):
+        for bad, field, value in (((88, 30), 'voltage', '8.8 V'),
+                                  ((141, 30), 'voltage', '14.1 V'),
+                                  ((114, 60), 'temperature', '60 C')):
+            with self.subTest(bad=bad):
+                samples = [bad, (114, 30), bad, bad, bad]
+                seen = self.nudge_health_samples(samples)
+                original = self.bus.read2ByteTxRx
+                self.bus.read2ByteTxRx = lambda sid, addr: (
+                    (2000, 0, 0) if self.bus.on and addr == 56 else original(sid, addr))
+                result = self.api.nudge({'joint':0, 'delta_deg':3})
+                self.assertFalse(result['ok'])
+                self.assertEqual(seen, samples)
+                self.assertEqual(result[field + '_fault_reads'], 3)
+                other = 'temperature' if field == 'voltage' else 'voltage'
+                self.assertEqual(result[other + '_fault_reads'], 0)
+                self.assertIn(value, result['error'])
+                self.assertIn('3 consecutive fresh reads', result['error'])
+                self.assertEqual((result['voltage_v'], result['temp_c']), (bad[0] / 10, bad[1]))
+                self.assertEqual(self.bus.writes[-2:], [('torque',2,False),('limit',2,500)])
+                self.assertTrue(result['torque_off'])
+            self.api.registry.unlink()
+            self.bus = Bus(); self.drive.bus = self.bus
+
+    def test_nudge_transient_preflight_health_recovers_before_enabling(self):
+        samples = [(88, 60), (114, 30), (114, 30)]
+        seen = self.nudge_health_samples(samples, during_motion=False)
+        original = self.bus.torque
+        def torque(sid, on):
+            if on:
+                self.assertEqual(seen, samples[:2])
+            original(sid, on)
+        self.bus.torque = torque
+        result = self.api.nudge({'joint':0, 'delta_deg':3})
+        self.assertTrue(result['ok'])
+        self.assertEqual(seen, samples)
+
+    def test_nudge_confirmed_preflight_health_fault_never_enables(self):
+        samples = [(114, 61)] * 3
+        seen = self.nudge_health_samples(samples, during_motion=False)
+        result = self.api.nudge({'joint':0, 'delta_deg':3})
+        self.assertFalse(result['ok'])
+        self.assertEqual(seen, samples)
+        self.assertEqual(result['temperature_fault_reads'], 3)
+        self.assertEqual(result['temp_c'], 61)
+        self.assertIn('61 C', result['error'])
+        self.assertFalse(any(w[0] == 'position' or w == ('torque',2,True)
+                             for w in self.bus.writes))
+        self.assertTrue(result['torque_off'])
+
     def test_nudge_failed_torque_off_never_restores_high_limit(self):
         self.nudge_bus()
         original = self.bus.torque

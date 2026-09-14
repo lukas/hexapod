@@ -235,18 +235,20 @@ class MotorSetup:
             if not (0 <= home <= 4095 and 0 <= target <= 4095
                     and lo <= before_deg <= hi and lo <= target_deg <= hi):
                 raise ValueError('Nudge start or target is outside encoder/joint limits.')
-            if not 90 <= read(62, 1) <= 140 or read(63, 1) >= 60:
-                raise ValueError('Check motor voltage and temperature before nudging.')
             limit = read(48)
             result = dict(ok=False, joint=joint, id=sid, before_deg=before_deg,
                           target_deg=target_deg, reached_deg=None, after_deg=None,
-                          peak_current_a=0.0, max_load_pct=0.0, torque_off=False)
-            force_reads = 0
+                          peak_current_a=0.0, max_load_pct=0.0, torque_off=False,
+                          voltage_v=None, temp_c=None, min_voltage_v=None,
+                          max_voltage_v=None, max_temp_c=None,
+                          voltage_fault_reads=0, temperature_fault_reads=0)
+            force_reads = voltage_reads = temperature_reads = 0
 
             def observe():
-                nonlocal force_reads
+                nonlocal force_reads, voltage_reads, temperature_reads
                 # These are fresh servo-register transactions, not cached
-                # /api/feedback snapshots. Isolated bad force samples reset.
+                # /api/feedback snapshots. Each fault votes separately and
+                # resets on its next healthy reading, including preflight.
                 load = (read(60) & 0x3ff) / 10.0
                 current = (read(69) & 0x7fff) * 0.0065
                 result['peak_current_a'] = max(result['peak_current_a'], current)
@@ -254,8 +256,23 @@ class MotorSetup:
                 force_reads = force_reads + 1 if load >= 18 or current >= 0.25 else 0
                 if force_reads >= 3:
                     raise ValueError('Motor met resistance; nudge stopped.')
-                if not 90 <= read(62, 1) <= 140 or read(63, 1) >= 60:
-                    raise ValueError('Motor voltage or temperature unsafe; nudge stopped.')
+                voltage, temperature = read(62, 1) / 10.0, read(63, 1)
+                voltage_reads = voltage_reads + 1 if not 9.0 <= voltage <= 14.0 else 0
+                temperature_reads = temperature_reads + 1 if temperature >= 60 else 0
+                result.update(voltage_v=voltage, temp_c=temperature,
+                              voltage_fault_reads=voltage_reads,
+                              temperature_fault_reads=temperature_reads)
+                for key, value, reduce in (
+                        ('min_voltage_v', voltage, min),
+                        ('max_voltage_v', voltage, max),
+                        ('max_temp_c', temperature, max)):
+                    result[key] = value if result[key] is None else reduce(result[key], value)
+                if voltage_reads >= 3:
+                    raise ValueError(f'Motor voltage unsafe: {voltage:.1f} V outside 9.0..14.0 V '
+                                     'on 3 consecutive fresh reads; nudge stopped.')
+                if temperature_reads >= 3:
+                    raise ValueError(f'Motor temperature unsafe: {temperature:g} C >= 60 C '
+                                     'on 3 consecutive fresh reads; nudge stopped.')
                 position = read(56)
                 if not 0 <= position <= 4095:
                     raise ValueError('Invalid encoder reading; nudge stopped.')
@@ -265,7 +282,7 @@ class MotorSetup:
             self.wiggling = True
             try:
                 observe()
-                while force_reads:
+                while force_reads or voltage_reads or temperature_reads:
                     if self.abort.wait(0.05):
                         raise ValueError('Nudge stopped.')
                     observe()
@@ -285,7 +302,8 @@ class MotorSetup:
                     if self.abort.wait(0.05):
                         raise ValueError('Nudge stopped.')
                     position = observe()
-                    if abs(position - target) <= 3 and force_reads == 0:
+                    if (abs(position - target) <= 3
+                            and not (force_reads or voltage_reads or temperature_reads)):
                         result['ok'] = True
                         break
                     if time.monotonic() >= deadline:

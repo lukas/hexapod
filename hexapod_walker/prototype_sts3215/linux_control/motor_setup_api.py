@@ -340,8 +340,9 @@ class MotorSetup:
         settling admits <=2-degree error, not exact target achievement.
         Explicit l4_30pct effort permits only a single outward L4 knee move
         with all five specified supports; that knee alone is capped at 300.
-        l4_50pct permits up to 10 degrees with that knee alone capped at 500;
-        both explicit profiles retain the 3-second bound and 1 A hard stop.
+        l4_50pct permits up to 10 degrees per move, including two consecutive
+        outward knee-only phases, with that knee alone capped at 500. Both
+        explicit profiles retain the 3-second phase bound and 1 A hard stop.
         This never re-zeros or returns home.
         """
         from feetech_bus import COUNTS_PER_DEG, JOINT_SIGN, count_to_deg, joint_limits
@@ -389,9 +390,11 @@ class MotorSetup:
         moving = set().union(*phase_offsets)
         if moving & set(holds):
             raise ValueError('A joint cannot both move and hold.')
-        if effort_profile and (phased or moving != {14} or phase_deltas[0]['14'] >= 0
+        if effort_profile and ((phased and effort_profile != 'l4_50pct')
+                               or moving != {14} or any(d['14'] >= 0 for d in phase_deltas)
                                or set(holds) != {10, 11, 13, 16, 17}):
-            raise ValueError(f'{effort_profile} requires one outward joint14 move and holds10,11,13,16,17, without phases.')
+            shape = 'one move' if effort_profile == 'l4_30pct' else 'one move or two phases'
+            raise ValueError(f'{effort_profile} requires outward joint14 only, holds10,11,13,16,17, and {shape}.')
         participants = sorted(moving | set(holds))
         if not 1 <= len(participants) <= 6:
             raise ValueError('Choose one to six recovery participants.')
@@ -670,10 +673,11 @@ class MotorSetup:
                                 break
                             # All next endpoints were preflighted while off.
                             # Fresh feedback validates the immutable plan;
-                            # drift must not enlarge a step beyond five degrees.
+                            # Drift must not enlarge a step beyond its profile's
+                            # bound, even though cumulative targets stay fixed.
                             for j in phase_offsets[1]:
-                                if abs(planned_targets[1][j] - positions[j]) > 5 * COUNTS_PER_DEG:
-                                    raise ValueError(f'Joint {j} next phase exceeds five degrees from its actual position.')
+                                if abs(planned_targets[1][j] - positions[j]) > delta_bound * COUNTS_PER_DEG:
+                                    raise ValueError(f'Joint {j} next phase exceeds {delta_bound} degrees from its actual position.')
                             check()
                             transition_time = time.monotonic()
                             if transition_time >= deadline:

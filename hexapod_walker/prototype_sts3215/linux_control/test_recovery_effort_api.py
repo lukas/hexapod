@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import pytest
 
+from feetech_bus import COUNTS_PER_DEG, JOINT_SIGN, STS_CENTRE_COUNT
 from test_recovery_nudge_api import expected_target, rig  # noqa: F401
 
 
@@ -213,7 +214,7 @@ def test_existing_profiles_still_reject_steps_over_five_degrees(rig, profile):
     {**PROFILE, "effort_profile": "l4_50pct", "deltas_deg": {"14": -3, "13": 3}},
     {**PROFILE, "effort_profile": "l4_50pct", "hold_joints": [1, 11, 13, 16, 17]},
     {"effort_profile": "l4_50pct", "hold_joints": HOLDS,
-     "phases": [{"deltas_deg": {"14": -3}}, {"deltas_deg": {"14": -3}}]},
+     "phases": [{"deltas_deg": {"14": -3}}, {"deltas_deg": {"13": -3}}]},
     {"effort_profile": "l4_50pct", "hold_joints": HOLDS, "deltas_deg": {"14": -3},
      "phases": [{"deltas_deg": {"14": -3}}, {"deltas_deg": {"14": -3}}]},
 ])
@@ -267,3 +268,96 @@ def test_50pct_retains_saved_lower_cap_and_three_second_bound(rig):
     assert bus.limit[16] == 350
     assert bus.groups == [{16: (expected_target(14, -10), 90, 4)}]
     assert not bus.on
+
+
+PROFILE_PHASES = {"effort_profile": "l4_50pct", "hold_joints": HOLDS,
+                  "phases": [{"deltas_deg": {"14": -10}},
+                             {"deltas_deg": {"14": -5}}]}
+
+
+def test_50pct_two_phases_retain_support_and_original_goals_with_residual(rig):
+    api, bus, _clock = rig
+    original = bus.txPacket
+    residual = 20 * JOINT_SIGN[14]  # Stable1.76degshort: phase2actualmove≈6.7deg.
+
+    def write():
+        result = original()
+        if len(bus.groups) == 1:
+            bus.position[16] += residual
+        return result
+
+    bus.txPacket = write
+    result = api.recovery_nudge(PROFILE_PHASES)
+    first = expected_target(14, -10)
+    second = first + expected_target(14, -5) - 2000
+    assert result["ok"] and result["torque_off"]
+    assert bus.groups == [{16: (first, 90, 4)}, {16: (second, 90, 4)}]
+    assert result["phases"][1]["start_counts"][14] == first + residual
+    assert result["phases"][1]["target_counts"][14] == second
+    assert 5 < abs(first + residual - second) / COUNTS_PER_DEG <= 10
+    assert [phase["settled"] for phase in result["phases"]] == [True, True]
+    assert [event for event in bus.events if event[0] == "position"] == [
+        ("position", sid, 2000, 90, 4) for sid in IDS]
+    assert [event for event in bus.events if event[0] == "torque" and event[2]] == [
+        ("torque", sid, True) for sid in IDS]
+    first_group, second_group = [i for i, event in enumerate(bus.events) if event[0] == "group"]
+    assert not [event for event in bus.events[first_group + 1:second_group]
+                if event[0] in ("torque", "position")]
+    assert all(bus.goal[j + 2] == 2000 for j in HOLDS)
+    assert all(bus.limit[sid] == 700 for sid in IDS)
+    assert not bus.on
+
+
+def test_50pct_next_phase_actual_movement_over_ten_degrees_is_refused(rig):
+    api, bus, _clock = rig
+    bus.position[16] = STS_CENTRE_COUNT  # Both cumulative endpoints remain within raw limits.
+    original = bus.txPacket
+
+    def write():
+        result = original()
+        if len(bus.groups) == 1:
+            bus.position[16] += 20 * JOINT_SIGN[14]
+        return result
+
+    bus.txPacket = write
+    result = api.recovery_nudge({**PROFILE_PHASES, "phases": [
+        {"deltas_deg": {"14": -10}}, {"deltas_deg": {"14": -10}}]})
+    assert not result["ok"] and result["torque_off"]
+    assert len(bus.groups) == 1
+    assert not bus.on
+
+
+@pytest.mark.parametrize("phase", [1, 2])
+def test_50pct_phase_timeout_stops_without_rearm_and_keeps_total_under_six_seconds(rig, phase):
+    api, bus, clock = rig
+    original = bus.txPacket
+
+    def write():
+        if len(bus.groups) + 1 == phase:
+            bus.stalled.add(16)
+        return original()
+
+    bus.txPacket = write
+    start = clock.now
+    result = api.recovery_nudge(PROFILE_PHASES)
+    assert not result["ok"] and result["torque_off"]
+    assert len(bus.groups) == phase
+    assert 3 <= clock.now - start <= 6
+    assert result["phases"][phase - 1]["elapsed_s"] == pytest.approx(3, abs=.001)
+    assert [event for event in bus.events if event[0] == "torque" and event[2]] == [
+        ("torque", sid, True) for sid in IDS]
+    assert not bus.on
+
+
+@pytest.mark.parametrize("phases", [
+    [{"deltas_deg": {"14": -3}}, {"deltas_deg": {"14": 3}}],
+    [{"deltas_deg": {"14": 3}}, {"deltas_deg": {"14": -3}}],
+    [{"deltas_deg": {"14": -3}}, {"deltas_deg": {"14": -3, "13": 3}}],
+    [{"deltas_deg": {"14": -3}}, {"deltas_deg": {"13": -3}}],
+    [{"deltas_deg": {"14": -3}}, {"deltas_deg": {"14": -10.1}}],
+])
+def test_50pct_phases_reject_wrong_direction_mixed_movers_and_oversized_step(rig, phases):
+    api, bus, _clock = rig
+    with pytest.raises(ValueError):
+        api.recovery_nudge({**PROFILE_PHASES, "phases": phases})
+    assert not [event for event in bus.events if event[0] != "read"]

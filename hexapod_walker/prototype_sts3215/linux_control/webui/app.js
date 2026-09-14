@@ -4988,6 +4988,9 @@ async function refreshRobotState(wantZero){
     if(!r.ok) throw 0;
     const j = await r.json();
     paintRobotActivity(j);
+    // Keep the page's armed flag honest with the robot, so needArm() neither
+    // blocks a truly-armed robot nor claims a limp one is live. Only on change.
+    if(typeof j.armed === 'boolean' && j.armed !== servosArmed) setArmed(!!j.armed);
     if(j.demo){ lastDemo = j.demo; paintDemoStatus(j.demo); }
     if(j.zero){ lastZero = j.zero; paintZeroHint(j.zero); }
   }catch(e){ /* heartbeat covers link loss */ }
@@ -5448,11 +5451,12 @@ $('armbtn').onclick = ()=> servosArmed ? stepLowerThenPowerOff() : armServos();
 $('armzero').onclick = topSafeZero;
 // EMERGENCY STOP is the ONLY instant-limp control (cuts PWM immediately).
 $('estop').onclick  = disarmServos;
-// Enforce the safe default on EVERY page load: show disarmed AND tell the
-// firmware to disarm now — harmless if it just booted disarmed, and it clears
-// any stale ARMED state from a prior session so the page's OFF state is real.
-setArmed(false);
-cmd('X');
+// Reflect the robot's ACTUAL arm state at load instead of forcing a limp.
+// The page used to send `cmd('X')` on every load "to be safe", but that
+// dropped a standing robot the moment anyone reloaded the tab. refreshRobotState
+// reads /api/robot and now mirrors `armed` into the UI (below), and the 2 s
+// poll keeps it in sync. E-STOP is the deliberate limp control, not a reload.
+refreshRobotState(true);
 
 
 // Shared onboarding state. MuJoCo alone does not need physical motor IDs.

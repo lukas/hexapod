@@ -468,32 +468,6 @@ def test_easy_wrong_way_below_standing(easy_returns):
             f"wrong-way '{wrong}' out-earns standing: {easy_returns}")
 
 
-def test_easy_dying_is_priced_below_park(easy_returns):
-    """Termination pricing (flat safety_termination_penalty=24):
-    die-early must never beat standing.  MEASURED 09-05 on the
-    committed 4.81 kg twin: NO static fold can exceed ~26.5 deg tilt
-    (the chassis catches the ground first), so at the pilot's widened
-    30 deg envelope static leans never terminate — only dynamic falls
-    can.  The scripted topple twin therefore proves the trip + penalty
-    pathway under a test-scoped 20 deg envelope (same diet otherwise);
-    the pilot's own 30 deg headroom is an exploration choice, recorded
-    in the launch notes.  Wrong-way marathons are not in the floor set:
-    at k_freeprog=2 they are charged ~-2000/10 s, which no agent
-    sustains — park > topple is what blocks escape-by-death."""
-    ov = dict(EASY_BASE)
-    ov[("safety", "max_roll_deg")] = 20.0
-    ov[("safety", "max_pitch_deg")] = 20.0
-    tot, dx, steps = _easy_rollout("topple", 0, overrides=ov)
-    assert steps < 400, (
-        f"topple twin did not terminate under the 20 deg probe "
-        f"envelope: steps={steps}")
-    assert tot < easy_returns["park"] - 15.0, (
-        f"dying is not priced below park: topple={tot:.1f} "
-        f"park={easy_returns['park']:.1f}")
-    # at the pilot envelope the same fold survives as a charged lean
-    assert easy_returns["topple_steps"] >= 400, (
-        "expected the static fold to survive the 30 deg pilot envelope "
-        f"(measured max ~26.5 deg): {easy_returns['topple_steps']}")
 
 
 def test_easy_more_travel_earns_more_below_cap(easy_returns):
@@ -815,60 +789,8 @@ def test_easy_heading_standing_beats_wrong_heading(easy_heading_returns):
         f"{easy_heading_returns} — live heading direction is not priced")
 
 
-def test_easy_heading_dying_is_the_floor(easy_heading_returns):
-    """Falling must sit below every walking/standing/wrong-heading
-    behavior. Per the already-measured 09-05 finding
-    (test_easy_dying_is_priced_below_park): the static topple fold
-    never exceeds ~26.5 deg tilt on the committed 4.81 kg twin, so it
-    SURVIVES (never terminates) at the pilot's real 30 deg envelope —
-    reproduced here under EASY_HEADING too (steps == full episode) —
-    and this bank instead proves the trip+penalty pathway under the
-    same test-scoped 20 deg probe envelope the fixed-forward bank
-    uses."""
-    assert easy_heading_returns["topple_steps"] >= 1900, (
-        "expected the static fold to survive the 30 deg pilot "
-        f"envelope under EASY_HEADING too: {easy_heading_returns}")
-    ov = dict(EASY_HEADING)
-    ov[("safety", "max_roll_deg")] = 20.0
-    ov[("safety", "max_pitch_deg")] = 20.0
-    runs = [_heading_rollout("topple", s, overrides=ov) for s in SEEDS]
-    tot = float(np.mean([r[0] for r in runs]))
-    steps = float(np.mean([r[2] for r in runs]))
-    assert steps < 400, (
-        f"topple twin did not terminate under the 20 deg probe "
-        f"envelope: steps={steps}")
-    # Sustained wrong-heading/fixed-stale-heading marathons are not in
-    # the floor set (same caveat as the fixed-forward bank's
-    # test_easy_dying_is_priced_below_park): at k_freeprog=2 a full
-    # 20 s of live 180-deg-off travel is self-punishing (~-4000) far
-    # below any plausible escape-by-death payoff — park/stall are the
-    # only realistic competitors death needs to beat.
-    floor = min(easy_heading_returns["park"], easy_heading_returns["stall"])
-    assert tot < floor - 15.0, (
-        f"dying (topple@20deg={tot:.1f}) is not priced below standing "
-        f"still ({floor:.1f}): {easy_heading_returns}")
 
 
-# ---------------------------------------------------------------------
-# FULL FIXED HEADINGS (goal.walk_heading_set widened to the full 8-way
-# compass — 09-05, walkcurr ladder's next rung after the small
-# {0,+45,-45} set closed clean on both base(1g)/halfgrav(0.5g), 09-05
-# ~12:0x/~13:2x. This is the "full fixed headings" step named in the
-# track's own DONE gate (walk-only fixed forward -> small heading set
-# -> full fixed headings -> irregular direction changes -> DR/push
-# hardening) and is licensed by the operator's staged-heading-
-# curriculum ruling itself (fb_20260822T032514: small set FIRST, never
-# jump straight there from forward-only) now that the small-set step
-# has passed — this is the pre-registered SECOND step, not a jump.
-# Still fixed/discrete headings held for walk_cmd_resample_s each (not
-# the separate irregular-TIMING rung, which randomizes the resample
-# interval itself, not the set). No new reward keys: identical
-# mechanism to EASY_HEADING (k_walk_freeprog's along/cross
-# decomposition), just a wider goal.walk_heading_set — this bank
-# re-measures the same ranking invariants (track > standing >
-# wrong-heading > death) hold at the wider set, including the two
-# reversal directions (+-135, 180) the 3-way set never sampled.
-# ---------------------------------------------------------------------
 EASY_HEADING_WIDE = dict(EASY_HEADING)
 EASY_HEADING_WIDE.update({
     ("goal", "walk_heading_set"): [

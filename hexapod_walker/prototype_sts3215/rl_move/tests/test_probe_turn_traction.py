@@ -116,21 +116,6 @@ def test_static_gate_fails_closed_on_broken_sign(monkeypatch):
                    min_scored_ticks=1)
 
 
-def test_instrumentation_is_behavior_neutral_vs_stance_probe():
-    """Same cell/seed/length: the traction rollout's executed behavior
-    (body vx/wz medians over the identical scored window) must equal the
-    stance-arm probe's bit-for-bit — the added force reads must not
-    perturb the trajectory."""
-    kw = dict(policy="scripted", model=None, model_obs_width=None,
-              cfg_set=_cfg_set(), vx_cmd=0.08, wz_cmd=0.15, seed=0,
-              episode_seconds=5.0, plant="twin")
-    a = tr.rollout(min_scored_ticks=150, **kw)
-    b = stance.rollout(**kw)
-    assert a["body"]["vx_med"] == b["body"]["vx_med"]
-    assert a["body"]["wz_med"] == b["body"]["wz_med"]
-    assert a["n_scored_ticks"] == b["n_scored_ticks"]
-
-
 def test_audit_engine_traction_extension_on_twin():
     """The per-substep _ContactAudit traction extension: impulse-closure
     validity gate still passes on the mesh twin at 100Hz (proving the

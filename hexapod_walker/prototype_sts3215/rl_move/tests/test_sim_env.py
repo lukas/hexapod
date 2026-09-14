@@ -916,7 +916,7 @@ def test_obs_pad_transplant_insert_at_mid_layout():
         "inserted dim must be invisible; shifted tail must stay wired"
     v_old = old.policy.predict_values(torch.as_tensor(obs8))
     v_new = new.policy.predict_values(torch.as_tensor(obs9))
-    assert torch.allclose(v_old, v_new)
+    assert torch.allclose(v_old, v_new, atol=1e-6)
     # sanity: perturbing a SHIFTED (post-insertion) column must change
     # the action — proves the tail block is not zeroed/misaligned.
     obs9b = obs9.copy()

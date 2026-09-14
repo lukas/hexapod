@@ -422,8 +422,20 @@ def test_rise_step_info_carries_start_kind():
     """goal_mode_batch_split.py's 09-14 rise-start_kind sub-split reads
     a NEW `info["start_kind"]` key emitted every rise tick (never read
     by reward/obs/termination -- purely a labeling channel). Must match
-    the live trajectory's own `start_kind` attribute and be present on
-    every step, not just reset."""
+    the trajectory's DERIVED start-kind label (rl_move.env.start_kind_of,
+    from start_at/start_curl) and be present on every step, not just
+    reset.
+
+    BUG FOUND 2026-09-14 (walkcurr flat-start-rise 22nd/last "batch-
+    composition" lever): this test originally compared against
+    `getattr(env._goal_traj, "start_kind", None)` -- the SAME always-
+    None derivation `sim_env.py` itself used to build the info key, so
+    it could only ever self-confirm, never catch that neither side
+    read a real value (rise `GoalTrajectory`s never set a literal
+    `.start_kind` attribute at all; only getup/recover do). Fixed to
+    assert the real derived label via the shared helper instead of the
+    since-fixed buggy getattr."""
+    from rl_move.env import start_kind_of
     from rl_move.sim.goal_task import SimHexapodGoalEnv
 
     env = SimHexapodGoalEnv(seed=24)
@@ -432,7 +444,8 @@ def test_rise_step_info_carries_start_kind():
     g.p_rise = 1.0
     obs, info = env.reset()
     assert info["goal_mode"] == "rise"
-    expected_kind = getattr(env._goal_traj, "start_kind", None)
+    expected_kind = start_kind_of(env._goal_traj)
+    assert expected_kind in ("flat", "bridge", "crouch")
     for _ in range(5):
         obs, r, term, trunc, info = env.step(np.zeros(N_ACT))
         assert info.get("start_kind") == expected_kind

@@ -35,7 +35,7 @@ _LINUX = _PROTO / "linux_control"
 
 from rl_move.body_ik import FixedFootBodyIK, N_ACT, fk_all_feet
 from rl_move.config import cfg_get, load_config
-from rl_move.env import build_obs, compute_reward
+from rl_move.env import build_obs, compute_reward, start_kind_of
 from rl_move.robot_state import (
     DEG2RAD, N_JOINTS, RAD2DEG, RobotState,
 )
@@ -2144,6 +2144,14 @@ class SimHexapodBalanceEnv(_GymBase):
         # and judge scheduled runs on measured behavior metrics.
         self._ease_g = 1.0
         self._ease_v = 1.0
+        # Saved pre-easing originals (only populated when the _ep_rand
+        # mutation branch below actually runs) so the new
+        # ease.rise_flat_only gate (see the _is_rise block further
+        # down, once start_kind is known) can UNDO the easing on
+        # episodes that don't qualify, without re-deriving the
+        # unscaled values from scratch.
+        self._ease_orig_gravity_vec = None
+        self._ease_orig_vel_scale = None
         _e_g = float(cfg_get(self.cfg, "ease", "gravity_scale",
                              default=1.0))
         _e_v = float(cfg_get(self.cfg, "ease", "vel_ceiling_scale",
@@ -2154,12 +2162,15 @@ class SimHexapodBalanceEnv(_GymBase):
                                  f"gravity={_e_g} vel_ceiling={_e_v}")
             if self._ep_rand is not None:
                 if _e_g != 1.0:
+                    self._ease_orig_gravity_vec = np.asarray(
+                        self._ep_rand.gravity_vec, float).copy()
                     self._ep_rand.gravity_vec = (
-                        np.asarray(self._ep_rand.gravity_vec, float)
-                        * _e_g)
+                        self._ease_orig_gravity_vec * _e_g)
                 if _e_v != 1.0:
+                    self._ease_orig_vel_scale = float(
+                        self._ep_rand.vel_scale)
                     self._ep_rand.vel_scale = (
-                        float(self._ep_rand.vel_scale) * _e_v)
+                        self._ease_orig_vel_scale * _e_v)
             elif self._owns_model:
                 # randomize=False private-model env (eval harness at
                 # DR-0, viewers): reset() applies the same scales
@@ -3048,6 +3059,45 @@ class SimHexapodBalanceEnv(_GymBase):
         # one step that makes standing possible has zero gradient.
         self._is_rise = (self._goal_traj is not None
                          and getattr(self._goal_traj, "mode", "") == "rise")
+        # ease.rise_flat_only (2026-09-14, walkcurr flat-start-rise
+        # 22/22-closed-lever escalation): scope the pre-existing
+        # generic ease.gravity_scale/vel_ceiling_scale physics-easing
+        # mechanism (08-13, GAIT.md P3 lever 3, built for a different
+        # track's early-training ignition and used so far only as a
+        # STATIC whole-run setting) to ONLY the hardest, still-unsolved
+        # start_kind='flat' rise episodes -- a genuinely new mechanism
+        # FAMILY on this residual (dynamics-parameter easing), distinct
+        # from every already-closed cap/reward-pricing/reset-timing/
+        # leg-order/batch-composition lever (22/22 null, STATUS
+        # 2026-09-14 ~08:3x). Rationale: the 03:1x root-cause read
+        # showed a mesh-native OPEN-LOOP tuck-then-press clears rise at
+        # 2.21A (11% margin under the 2.5A trip) -- over_current is an
+        # RL sequencing/exploration problem, not a physics ceiling, so
+        # temporarily easing gravity (lower effective weight to push
+        # against during exploration) may let PPO discover the correct
+        # low-current curl-then-lift KINEMATIC sequence without
+        # tripping the cap, while non-flat episodes (bridge/crouch/
+        # walk/hold/lower -- all already solved) keep training at
+        # nominal physics so the fix can't be a free lunch that quietly
+        # trades away already-closed behavior. Default OFF (key unset
+        # or 0.0) is bit-exact: the pre-existing unconditional
+        # ease.gravity_scale/vel_ceiling_scale behavior above is
+        # completely untouched. When ON and this episode does NOT
+        # qualify (not rise, or rise but not a flat start), UNDOES any
+        # easing the block above already applied, restoring the exact
+        # pre-easing values so those episodes are bit-exact nominal.
+        if float(cfg_get(self.cfg, "ease", "rise_flat_only",
+                          default=0.0)) == 1.0 and not (
+                self._is_rise
+                and start_kind_of(self._goal_traj) == "flat"):
+            self._ease_g = 1.0
+            self._ease_v = 1.0
+            if self._ep_rand is not None:
+                if self._ease_orig_gravity_vec is not None:
+                    self._ep_rand.gravity_vec = (
+                        self._ease_orig_gravity_vec)
+                if self._ease_orig_vel_scale is not None:
+                    self._ep_rand.vel_scale = self._ease_orig_vel_scale
         # GETUP (recover→stand→walk, 08-11) episode state: mode flag +
         # the staged-progress ratchet baseline. The baseline is seeded
         # on the FIRST post-settle tick (walk_task._post_step) so the
@@ -7166,17 +7216,23 @@ class SimHexapodBalanceEnv(_GymBase):
             info["height_mm"] = h_rel * 1000.0
             info["height_ref_mm"] = goal.height_ref * 1000.0
             if self._is_rise:
-                # Per-tick start_kind (flat/bridge/crouch/...), same
-                # attribute eval_checkpoint.py's own `_start_kind()`
-                # already reads off the trajectory for eval reports --
-                # exposed here too (rise only; other modes carry no
-                # such attribute) purely as a labeling channel for
+                # Per-tick start_kind (flat/bridge/crouch/...), the
+                # SAME shared derivation eval_checkpoint.py's own
+                # `_start_kind()` uses for eval-report labeling
+                # (rl_move.env.start_kind_of, extracted 2026-09-14
+                # after finding this line's original plain
+                # `getattr(self._goal_traj, "start_kind", None)` always
+                # returned None -- rise/lower/hold trajectories never
+                # set a literal `.start_kind` attribute, only getup/
+                # recover do -- silently disabling
                 # goal_mode_batch_split.py's rise-start_kind sub-split
-                # escalation (2026-09-14): a NEW info key, never read
-                # by reward/obs/termination, inert for every existing
-                # run.
-                info["start_kind"] = getattr(
-                    self._goal_traj, "start_kind", None)
+                # the whole time it was "engaged"; see start_kind_of's
+                # own docstring for the full bug writeup). Exposed here
+                # (rise only) purely as a labeling channel for that
+                # lever: a NEW-VALUE info key, never read by reward/
+                # obs/termination, inert (no reward/physics/obs
+                # change) for every run that doesn't consume it.
+                info["start_kind"] = start_kind_of(self._goal_traj)
                 # Two-phase rise sub-goal observability
                 # (goal.rise_curl_gate): nonzero whenever the height
                 # ramp's onset is currently being deferred waiting on

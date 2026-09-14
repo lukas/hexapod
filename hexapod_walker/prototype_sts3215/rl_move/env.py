@@ -66,6 +66,52 @@ class TaskGoal:
 GOAL_DIM = 9
 
 
+def start_kind_of(traj: Any) -> str:
+    """Derive a trajectory's start-pose label (``"flat"``/``"bridge"``/
+    ``"crouch"``/``"plant"``/...) from its ``start_at``/``start_curl``
+    fields — the SAME derivation ``eval_checkpoint.py`` has used for
+    per-start-kind eval report labeling since the rise reverse-
+    curriculum shipped, now shared so the live env info dict
+    (``sim_env.py``) can report the identical label instead of a bare
+    ``getattr(traj, "start_kind", None)`` that always reads ``None``
+    (rise/lower/hold ``GoalTrajectory``/``WalkTrajectory`` objects
+    never set a literal ``.start_kind`` attribute — only the getup/
+    recover tasks do, via their own explicit ``force``/curriculum
+    draw). Bug found 2026-09-14 (walkcurr flat-start-rise 22nd/last
+    "batch-composition" lever): ``goal_mode_batch_split.py``'s rise-
+    start_kind sub-split reads ``info["start_kind"]`` expecting real
+    flat/bridge/crouch labels to form disjoint per-start-kind PPO
+    minibatches, but the info key was silently always ``None`` (the
+    W&B history for that lever's own canary run shows only a single
+    undifferentiated ``train/goal_mode_batch_split_rise_n`` counter,
+    never the designed ``rise:flat``/``rise:bridge`` composite-label
+    split) -- the lever never actually engaged as designed, so its
+    CANARY FAIL - MECHANISM verdict was an untested infrastructure
+    no-op, not a real mechanism test. Fixing the info-side derivation
+    (this function, wired into ``sim_env.py``) makes any FUTURE
+    ``goal_mode_batch_split_rise_start_kind=1`` run a genuine first
+    test of that lever. Duck-typed (works on any object exposing the
+    same optional attributes, no import of a concrete trajectory
+    class) so both ``sim_env.py`` (which cannot import ``goal_task``/
+    ``walk_task`` without a cycle) and ``eval_checkpoint.py`` share
+    ONE implementation instead of two that can drift apart."""
+    explicit = getattr(traj, "start_kind", None)
+    if explicit is not None:
+        return str(explicit)
+    start_at = getattr(traj, "start_at", "plant")
+    if start_at == "crouch":
+        return "crouch"
+    if start_at == "quadstance":
+        return "quadstance"
+    if start_at == "rise_bank":
+        return "post_lower"
+    if getattr(traj, "start_curl", 0.0) > 0:
+        return "bridge"
+    if start_at == "zero":
+        return "flat"
+    return "plant"
+
+
 def build_obs(cfg: dict, state: RobotState, q_nom: np.ndarray,
               prev_action: np.ndarray,
               goal: "TaskGoal | None" = None,

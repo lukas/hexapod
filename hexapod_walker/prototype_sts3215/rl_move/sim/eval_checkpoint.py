@@ -49,6 +49,7 @@ import numpy as np
 _RL = Path(__file__).resolve().parents[1]
 _PROTO = _RL.parent
 
+from rl_move.env import start_kind_of
 from .servo_model import SimServoParams
 from .goal_task import SimHexapodGoalEnv
 from .joint_task import SimHexapodJointGoalEnv
@@ -106,29 +107,13 @@ def model_identity(env) -> dict:
 
 
 def _start_kind(traj) -> str:
-    explicit = getattr(traj, "start_kind", None)
-    if explicit is not None:
-        return str(explicit)
-    start_at = getattr(traj, "start_at", "plant")
-    if start_at == "crouch":
-        return "crouch"
-    if start_at == "quadstance":
-        # goal.quadwalk_start="quad" spawns (08-13). Without this the
-        # report labeled them "plant" — the cw-quadwalk4 triage briefly
-        # read that as "the spawn lever never fired", the same
-        # dishonest-label class as the RSI-masquerading-as-flat bug
-        # documented below in run_episode.
-        return "quadstance"
-    if start_at == "rise_bank":
-        # Harvested lower-endpoint start (goal.rise_start_bank, 08-14).
-        # Label matches the session instrument's post-lower stratum so
-        # per-start-kind eval tables stay honest.
-        return "post_lower"
-    if getattr(traj, "start_curl", 0.0) > 0:
-        return "bridge"
-    if start_at == "zero":
-        return "flat"
-    return "plant"
+    """Thin wrapper -- the actual derivation is shared with the live
+    env info dict (``rl_move.env.start_kind_of``, extracted 2026-09-14
+    so ``sim_env.py`` reports the identical label instead of a
+    since-fixed always-None ``getattr``; see that function's docstring
+    for the bug this closes). Kept as a local name since every caller
+    in this file already spells it ``_start_kind``."""
+    return start_kind_of(traj)
 
 
 # End-posture check (operator directive 2026-08-08 ~20:40Z): a rise/lower

@@ -201,6 +201,22 @@ class Rot60Policy:
     Reads the commanded (vx_ref, vy_ref) straight from the newest obs
     frame (indices 68:70 — scale-invariant for the heading), so it
     needs no side channel and deploys anywhere the obs contract holds.
+
+    Model-agnostic by construction: the wrapper only ever calls
+    ``model.predict(...)`` (never re-derives the network math itself),
+    so it composes transparently with ANY object exposing that method
+    — an SB3 ``PPO`` model (training/eval) or a plain-numpy
+    ``np_policy.NumpyMLPModel``/``NumpyMLPNLayerModel`` (physical/
+    export runtime) alike; the export_policy_np.py parity check
+    (``_parity_mlp``, random-obs elementwise SB3-vs-numpy comparison)
+    already proves the two give identical actions for ANY obs vector,
+    including a rot60-canonicalized one, so wrapping the numpy runtime
+    model needs no separate numerical parity re-check — only this
+    class's own attribute-passthrough (below) so callers that inspect
+    ``.observation_space``/``.meta``/``.hidden`` etc. on the wrapped
+    model (e.g. the interactive web session's model-info endpoint)
+    keep working unchanged (2026-09-14, closes the design note's
+    "np-JSON export/runtime wrapper parity" follow-up item).
     """
 
     def __init__(self, model, *, tilt_scale: float = 0.2):
@@ -208,8 +224,21 @@ class Rot60Policy:
         self.tilt_scale = float(tilt_scale)
         self.k = 0
 
+    def __getattr__(self, name):
+        # Only reached when normal attribute lookup misses (i.e. never
+        # for model/tilt_scale/k/reset/predict, all set in __init__ or
+        # defined below) — transparent passthrough so any OTHER
+        # attribute a caller expects on the wrapped model (observation_
+        # space, action_space, meta, hidden, recurrent, ...) still
+        # resolves through the wrapper without this class needing to
+        # know the wrapped model's concrete type.
+        return getattr(self.model, name)
+
     def reset(self):
         self.k = 0
+        inner_reset = getattr(self.model, "reset", None)
+        if inner_reset is not None:
+            inner_reset()
 
     def predict(self, obs, deterministic: bool = True, **kw):
         obs = np.asarray(obs)

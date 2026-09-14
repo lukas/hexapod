@@ -152,6 +152,18 @@ class SimWebConfig:
     web_frames: bool = True
     phase_obs: bool = False
     phase_hz: float = 0.1666667
+    # Wrap the active walk model in rot60.Rot60Policy (exact-symmetry
+    # heading canonicalization -- a policy that only walks its own
+    # +/-30deg trained wedge cleanly walks every heading through this
+    # fixed obs/action reindex, zero training). Default OFF/bit-exact
+    # (2026-09-14, closes DESIGN_NOTE_2026-09-13_rot60_fullgait_
+    # stance.md's own "runtime wrapper" follow-up: Canary A proved the
+    # mechanism offline via eval_checkpoint.py --rot60, but the
+    # INTERACTIVE joystick sim demo -- the actual RL_GOALS sim-demo
+    # requirement -- never wired it in, so driving bundle_rlonly_v2
+    # off-axis through this session still showed the closed off-axis
+    # LEGPARK-SKATE fingerprint despite the fix existing).
+    rot60_walk: bool = False
     all_models: bool = False
     # ``goal.*``/``reward.*``/``dr.*`` etc. overrides, same ``key=value``
     # strings ``eval_checkpoint.py``/``drive_video.py`` accept via
@@ -374,6 +386,8 @@ class SimWebSession:
             self.walk_kind = self._walk_kind_of(self.n_walk)
             if self.walk_kind == "plain" and self.n_walk > self.n_env:
                 raise ValueError(f"{selected_walk} needs --phase-obs")
+            self.walk = self._maybe_rot60_wrap(
+                self.walk, self.n_walk, selected_walk.stem)
         self.recover = None
         if self.cfg.recover.exists():
             try:
@@ -602,6 +616,34 @@ class SimWebSession:
     @staticmethod
     def _walk_kind_of(width: int) -> str:
         return {1152: "hist", 78: "gru"}.get(width, "plain")
+
+    def _maybe_rot60_wrap(self, model: Any, n_walk: int, stem: str):
+        """Wrap ``model`` in rot60.Rot60Policy when the session was
+        started with ``--rot60-walk``.
+
+        Called right after every walk-model (re)selection, AFTER
+        ``n_walk``/``walk_kind`` are computed from the UNWRAPPED model
+        (Rot60Policy only supports the plain width-72 walk frame --
+        no phase/mode tail -- so the width check has to happen first;
+        ``Rot60Policy.__getattr__`` then transparently proxies
+        ``observation_space``/``action_space``/``meta``/``hidden``
+        etc. back to the wrapped model for every later caller, e.g.
+        ``_model_info``). Default OFF (``self.cfg.rot60_walk`` is
+        False unless the session was booted with the flag) is a
+        bit-exact no-op -- this method returns ``model`` unchanged.
+        """
+        if not self.cfg.rot60_walk or model is None:
+            return model
+        if self.walk_kind != "plain" or n_walk != 72:
+            raise ValueError(
+                f"{stem} needs a plain 72-obs walk model for "
+                "--rot60-walk (gru/hist/phase-tail checkpoints are "
+                "not rot60-canonicalizable)")
+        from .rot60 import Rot60Policy
+        from ..config import cfg_get
+        tilt_scale = float(cfg_get(self.env.cfg, "obs", "tilt_scale",
+                                   default=0.2))
+        return Rot60Policy(model, tilt_scale=tilt_scale)
 
     def _apply_vel_contract(self, stem: str) -> None:
         # An explicit boot-time `--cfg-set goal.walk_obs_body_vel=N` always
@@ -2637,6 +2679,7 @@ class SimWebSession:
         self.walk_kind = self._walk_kind_of(self.n_walk)
         if self.walk_kind == "plain" and self.n_walk > self.n_env:
             raise ValueError(f"{p.stem} needs --phase-obs")
+        self.walk = self._maybe_rot60_wrap(self.walk, self.n_walk, p.stem)
         self._reset_memories(hard=True)
         self._apply_vel_contract(p.stem)
         self.msg = f"walk model -> {p.stem}"

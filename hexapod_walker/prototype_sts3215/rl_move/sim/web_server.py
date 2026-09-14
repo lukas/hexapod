@@ -476,6 +476,16 @@ def build_arg_parser() -> argparse.ArgumentParser:
                     action="store_false",
                     help="disable phase-clock walk observations")
     ap.add_argument("--phase-hz", type=float, default=0.1666667)
+    ap.add_argument("--rot60-walk", action="store_true",
+                    help="wrap the active 72-obs walk policy in the "
+                         "rot60 exact-symmetry canonicalizer "
+                         "(rot60.Rot60Policy) so it walks every "
+                         "heading, not just its own trained wedge -- "
+                         "default off/bit-exact, needs a plain-frame "
+                         "(width-72) walk model; incompatible widths "
+                         "(gru/hist/phase-tail) raise a clear error "
+                         "at boot/selection instead of silently no-"
+                         "op'ing")
     ap.add_argument("--all-models", action="store_true")
     ap.add_argument("--cfg-set", action="append", default=[],
                     help="goal.*/reward.*/dr.* etc. override(s), same "
@@ -538,6 +548,7 @@ def main(session_factory: Callable[..., Any] | None = None) -> None:
             web_frames=_browser_frames(args),
             phase_obs=args.phase_obs,
             phase_hz=args.phase_hz,
+            rot60_walk=args.rot60_walk,
             all_models=args.all_models,
             cfg_overrides=tuple(args.cfg_set),
         )

@@ -312,6 +312,14 @@ def main() -> int:
                          "bias_* values) so the interactive session "
                          "matches the checkpoint's training contract "
                          "instead of bare defaults")
+    ap.add_argument("--rot60-walk", action="store_true",
+                    help="forwarded to web_server.py --rot60-walk -- "
+                         "drive the checkpoint through the rot60 "
+                         "exact-symmetry canonicalizer so a full "
+                         "heading sweep (--script human's own "
+                         "off-axis legs) shows real full-direction "
+                         "walking instead of the closed off-axis "
+                         "LEGPARK-SKATE fingerprint")
     args = ap.parse_args()
 
     ckpt = args.checkpoint
@@ -337,6 +345,8 @@ def main() -> int:
           "--walk", str(ckpt), "--no-vision"]
     for spec in args.cfg_set:
         cmd += ["--cfg-set", spec]
+    if args.rot60_walk:
+        cmd += ["--rot60-walk"]
     print(f"[websession_capture] launching: {' '.join(cmd)}")
     proc = subprocess.Popen(cmd, cwd=str(_PROTO),
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,

@@ -1,5 +1,35 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## Observation-space current-sensing closes flat-start-rise at 23/23 null; the "architecture" idea this itself left open is set aside as disproportionately expensive + likely-null by direct in-track precedent, not attempted; this cycle instead built and launched this doc's own orphaned 06:4x "rate-of-current-rise" reward candidate as the 24th lever (2026-09-14 ~14:0x, walkcurr track, refill cycle)
+`--gru` cannot warm-start from an MLP checkpoint, and the shared base
+checkpoint every closed lever on this residual warm-starts from
+(`risecurlpretrain-s1-canary2m.zip`) is itself the product of a
+multi-stage MLP curriculum built over many prior cycles — a fair
+from-scratch recurrent test of this exact residual would need to
+independently rediscover that whole curriculum first, not a bounded
+2M discovery canary. This track already has direct, transferable
+evidence that architecture is not the fix for a structurally similar
+pathology (a policy pinned against a reward/optimizer constraint):
+`cw-walkcurr-pf-fwd6-gru` and `-rscale50-gru` both concluded "memory
+adds nothing once the optimizer is healthy; the freeze is upstream of
+architecture" on the walk-task rung-1 freeze. Rather than spend a
+cycle on a weak, confounded architecture re-test, this cycle built the
+06:4x entry below's own named-but-never-built candidate instead:
+`reward.k_current_rate`/`current_rate_a_per_s` (default off,
+`rl_move/sim/sim_env.py`) prices the TICK-OVER-TICK RATE a servo's own
+current rises, above a threshold, self-referentially (only this env's
+own previous-tick current, never a scripted/target profile) — a
+different axis from every closed reward-pricing lever (which price
+the *level* of current) and from the closed cap-based gates (which
+throttle joint-angle rate, not current). Launched as a 2-dose canary
+pair off the same shared base, all 23 closed levers OFF:
+`cw-stance50hz-rlonly-currate-{mod,strict}-s1-canary2m`. Gate: the
+same fixed-seed flat-start probe every closed lever used; any nonzero
+success is the first positive in this entire hunt. Evidence:
+`rl_docs/tracks/walkcurr/STATUS.md` 2026-09-14 ~14:0x;
+`rl_move/tests/test_current_rate_reward.py`; `experiments.json`
+(`cw-walkcurr-pf-fwd6-gru`, `-rscale50-gru`).
+
 ## The dynamics-easing (sixth family) flat-start-rise positive does NOT survive the transfer back to true gravity: 3-arm gravity-anneal grid closes 3/3, plus a 2nd straight-continuation seed erodes identically (2026-09-14 ~11:3x, walkcurr track, triage cycle)
 
 One plain sentence: the sixth family's canary-level positive

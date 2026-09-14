@@ -39,6 +39,14 @@ def validated_standup_frames(keyframes, *, down=False, trims=None):
     return frames
 
 
+def descent_frames_from_present(frames, present, *, trims=None):
+    """Begin an approved descent at measured support, without an align move."""
+    from safe_zero import validate_motor_pose_path
+    updated = [(list(present), frames[0][1])] + list(frames[1:])
+    validate_motor_pose_path([q for q, _ in updated], trims)
+    return updated
+
+
 class StandupApi:
     # -- stand-up lab ---------------------------------------------------------
     # Sim-validated stand-up strategies (rl_move/sim/compare_standup.py):
@@ -399,34 +407,15 @@ class StandupApi:
                 q0 = kf_path[0][0]
                 aborted = False
                 t_run0 = time.monotonic()
-                if down and len(kf_path) >= 2:
-                    # Sit starts at the wide (tibia-vertical) stance;
-                    # the feet must come back UNDER the body before
-                    # the fold, and loaded feet can't slide inward —
-                    # re-seat them on the narrow stance by tripods.
-                    # If the robot already stands narrow (old-stance
-                    # or RL walk-ready start) skip the wide frame instead
-                    # of easing outward pointlessly.
-                    with self.drive._lock:
-                        w_wide, _ = (self.drive
-                                     ._max_delta_vs_present(
-                                         kf_path[0][0]))
-                        w_narrow, _ = (self.drive
-                                       ._max_delta_vs_present(
-                                           kf_path[1][0]))
-                    if w_narrow <= w_wide:
-                        kf_path = kf_path[1:]
-                        q0 = kf_path[0][0]
-                    else:
-                        with self._lock:
-                            self._cal_progress = {
-                                "msg": f"{mode} {verb}: re-seating "
-                                       "feet under body"}
-                        if not _replant(kf_path[1][0]):
-                            aborted = True
-                        else:
-                            kf_path = kf_path[1:]
-                            q0 = kf_path[0][0]
+                if down:
+                    # Standing was established before entering this worker.
+                    # Start the descent at the measured pose: trying to drag
+                    # loaded feet back onto a nominal keyframe can stall.
+                    q0, missing = self._present_pose18()
+                    if missing:
+                        raise ValueError(f"missing descent start joints: {missing}")
+                    kf_path = descent_frames_from_present(
+                        kf_path, q0, trims=getattr(d.bus, "trims", None))
                 with self.drive._lock:
                     worst0, _ = self.drive._max_delta_vs_present(q0)
                 if worst0 > 5.0 and not aborted:

@@ -225,6 +225,23 @@ def aggregate_walk_probe(rows: list[dict]) -> dict:
         out[f"{key}_min"] = (float(np.min(arr))
                               if np.all(np.isfinite(arr))
                               else float("nan"))
+    # Per-leg switch-rate breakdown (2026-09-14, assistfade per-leg
+    # residual-fade lever): "foot_sw_per_s" is a length-6 list per row
+    # (walk_task.py's new additive probe key), not a scalar, so it
+    # cannot go through the uniform WALK_PROBE_KEYS loop above (that
+    # loop does float(r[k]), which would crash on a list). A row
+    # missing the key entirely (failed_probe_row's fall-episode rows,
+    # or any pre-09-14 probe payload) makes this round's per-leg read
+    # unmeasurable (nan for every leg) rather than silently averaging
+    # over fewer rows -- same "unmeasurable is not passing" discipline
+    # as every other nan-gated key here.
+    _fsw_rows = [r.get("foot_sw_per_s") for r in rows]
+    if all(v is not None and len(v) == 6 for v in _fsw_rows):
+        out["foot_sw_per_s"] = [
+            float(x) for x in np.mean(np.asarray(_fsw_rows, dtype=float),
+                                      axis=0)]
+    else:
+        out["foot_sw_per_s"] = [float("nan")] * 6
     return out
 
 
@@ -272,3 +289,41 @@ def ignition_gate_pass(m: dict, gate: dict | None = None
         "progress": _ok_min("cmd_prog_frac", gate["cmd_prog_frac_min"]),
     }
     return all(checks.values()), checks
+
+
+def ignition_gate_pass_per_leg(m: dict, gate: dict | None = None
+                               ) -> tuple[list[bool], dict]:
+    """Per-LEG variant of ``ignition_gate_pass`` (2026-09-14, assistfade
+    per-leg residual-fade lever: STATUS.md 09-09's own flagged-but-
+    untried candidate (b), "fade per-JOINT or per-LEG instead of one
+    global blend, so a leg that is still failing keeps more scripted
+    authority while others advance"). The whole-body checks (falls,
+    aggregate contact-switch rate, commanded progress) cannot be
+    decomposed per leg and stay shared gates every leg must also
+    clear; only the six-leg-gait clause is replaced with THAT leg's
+    own ``foot_sw_per_s`` entry instead of the aggregate ``min()``
+    across all six feet (``foot_sw_min_per_s``) — this is what lets a
+    single chronically-stuck leg (e.g. the walkcurr/assistfade
+    off-axis leg-4/leg-5 sacrifice pattern) fail its own gate while
+    five healthy siblings pass and start annealing toward raw-policy
+    authority. Returns (per_leg_passed[6], shared_checks) — nan/
+    missing foot_sw_per_s fails every leg closed, same "unmeasurable
+    is not passing" discipline as the whole-body gate."""
+    if gate is None:
+        gate = IGNITION_GATE
+    def _ok_min(key, lo):
+        v = _nn(m.get(key), float("-inf"))
+        return v >= lo
+    shared = {
+        "no_falls": _nn(m.get("early_term_rate"), 1.0) == 0.0,
+        "contact_sw_per_s": _ok_min("contact_sw_per_s",
+                                    gate["contact_sw_per_s_min"]),
+        "progress": _ok_min("cmd_prog_frac", gate["cmd_prog_frac_min"]),
+    }
+    base_ok = all(shared.values())
+    fsw = m.get("foot_sw_per_s")
+    if fsw is None or len(fsw) != 6:
+        return [False] * 6, shared
+    per_leg = [bool(base_ok and _nn(v, float("-inf"))
+                    >= gate["foot_sw_min_per_s_min"]) for v in fsw]
+    return per_leg, shared

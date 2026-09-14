@@ -3724,6 +3724,7 @@ def main(argv: list[str] | None = None) -> int:
     # — no separate train.* on/off flag, so the two sides cannot
     # disagree about whether the mechanism is armed.
     _rba_gate = False
+    _rba_perleg = False
     _rba_ramp_steps = 4_000_000
     _rba_check_every = 500_000
     _rba_assay_episodes = 8
@@ -3750,10 +3751,26 @@ def main(argv: list[str] | None = None) -> int:
             _rba_reseed = float(_cfg_get_rba(
                 env_kw["cfg"], "train", "residual_anneal_assay_reseed",
                 default=0.0) or 0.0) > 0.0
-    # Mutable holder (not a local, so the two closures below and the
+            # Per-LEG refinement (2026-09-14, assistfade STATUS.md
+            # 09-09's flagged candidate (b) — see sim_env.py's
+            # goal.walk_residual_perleg_gate block for the mechanism:
+            # this makes the ramp six independent per-leg latches
+            # instead of one shared one, each gated by THAT leg's own
+            # foot_sw_per_s instead of the aggregate min-across-legs
+            # value, so a single chronically-stuck leg no longer holds
+            # its five healthy siblings back from annealing toward raw
+            # authority. Single source of truth: env construction
+            # (sim_env.py) already fails closed if this is set without
+            # the base gate above, so no duplicate check needed here.
+            _rba_perleg = float(_cfg_get_rba(
+                env_kw["cfg"], "goal", "walk_residual_perleg_gate",
+                default=0.0) or 0.0) > 0.0
+    # Mutable holders (not locals, so the closures below and the
     # callback class all see the same latch) — pass_step is None until
-    # the ignition-gate callback latches it; never un-latched.
+    # the ignition-gate callback latches it; never un-latched. Per-leg
+    # mode uses a list of six independent latches instead of one.
     _rba_state = {"pass_step": None}
+    _rba_leg_state = {"pass_step": [None] * 6}
 
     def _rba_frac_at(step: int) -> float:
         from .bc_anchor import gated_ramp_frac
@@ -3763,13 +3780,24 @@ def main(argv: list[str] | None = None) -> int:
     def _rba_apply(target_venv, step: int) -> dict | None:
         if not _rba_gate:
             return None
+        if _rba_perleg:
+            from .bc_anchor import gated_ramp_frac
+            fracs = [gated_ramp_frac(_rba_leg_state["pass_step"][i],
+                                     step, _rba_ramp_steps)
+                     for i in range(6)]
+            return target_venv.env_method(
+                "apply_residual_blend_frac_perleg", fracs)[0]
         f = _rba_frac_at(step)
         return target_venv.env_method("apply_residual_blend_frac", f)[0]
 
     if _rba_gate:
         _rba0 = _rba_apply(venv, 0)
-        print("[residual-anneal-gate] armed: held at blend="
-              f"{_rba0['blend']:.3f} until the ignition assay first "
+        _rba0_blend = (
+            f"{_rba0['blend']}" if _rba_perleg
+            else f"{_rba0['blend']:.3f}")
+        print(f"[residual-anneal-gate{'-perleg' if _rba_perleg else ''}]"
+              f" armed: held at blend={_rba0_blend} until the ignition "
+              "assay first "
               f"passes (check every {_rba_check_every:,} steps, "
               f"{_rba_assay_episodes} episodes/round, min_progress="
               f"{_rba_min_progress:.2f}, reseed={_rba_reseed}); once "
@@ -5341,6 +5369,16 @@ def main(argv: list[str] | None = None) -> int:
                 cfg_d.setdefault(
                     "goal", {})["walk_residual_anneal_gate"] = 0.0
                 cfg_d.setdefault("goal", {})["walk_residual_blend"] = 1.0
+                # Forcing the base anneal-gate off above would make a
+                # still-truthy inherited walk_residual_perleg_gate
+                # fail closed at construction (sim_env.py requires the
+                # base gate armed) -- force it off too; irrelevant to
+                # what's measured either way since blend=1.0 already
+                # makes the whole residual-fade mechanism mathematically
+                # inert (raw policy fully in control) regardless of
+                # scalar vs per-leg mode.
+                cfg_d.setdefault(
+                    "goal", {})["walk_residual_perleg_gate"] = 0.0
                 cert_kw = dict(vec_kw)
                 cert_kw.update(env_kwargs=ek, seed=args.seed + 838383,
                                pool_per_env=1, desync_episodes=False)
@@ -5416,8 +5454,21 @@ def main(argv: list[str] | None = None) -> int:
 
             def _on_rollout_start(self) -> None:
                 vals = _rba_apply(venv, self.num_timesteps)
-                if run is not None:
-                    import wandb
+                if run is None:
+                    return
+                import wandb
+                if _rba_perleg:
+                    payload = {"global_step": self.num_timesteps}
+                    for i in range(6):
+                        payload[f"residual_anneal/frac_leg{i}"] = (
+                            float(vals["frac"][i]))
+                        payload[f"residual_anneal/blend_leg{i}"] = (
+                            float(vals["blend"][i]))
+                    payload["residual_anneal/passed_legs"] = float(sum(
+                        p is not None
+                        for p in _rba_leg_state["pass_step"]))
+                    wandb.log(payload)
+                else:
                     wandb.log({
                         "global_step": self.num_timesteps,
                         "residual_anneal/frac": vals["frac"],
@@ -5426,6 +5477,9 @@ def main(argv: list[str] | None = None) -> int:
                             float(_rba_state["pass_step"] is not None)})
 
             def _on_rollout_end(self) -> None:
+                if _rba_perleg:
+                    self._on_rollout_end_perleg()
+                    return
                 if _rba_state["pass_step"] is not None:
                     return  # latched at first pass, never re-armed
                 if self.num_timesteps < self._next:
@@ -5473,6 +5527,76 @@ def main(argv: list[str] | None = None) -> int:
                     if run is not None:
                         run.summary["residual_anneal_pass_step"] = (
                             int(self.num_timesteps))
+
+            def _on_rollout_end_perleg(self) -> None:
+                """Per-LEG ignition check (2026-09-14): SAME assay/
+                cadence as the scalar gate above, but latches six
+                independent per-leg pass_steps off
+                ignition_gate_pass_per_leg instead of one shared
+                pass/fail — see walkcurr_cert.py for why the six-leg-
+                gait clause is the only one that can be decomposed per
+                leg (falls/contact-switch-rate/progress stay shared,
+                whole-episode signals)."""
+                if all(p is not None
+                       for p in _rba_leg_state["pass_step"]):
+                    return  # every leg latched, never re-armed
+                if self.num_timesteps < self._next:
+                    return
+                self._next = ((self.num_timesteps // _rba_check_every)
+                              + 1) * _rba_check_every
+                if self._env is None:
+                    self._env = self._build()
+                t0 = time.time()
+                m = self._assay()
+                from .walkcurr_cert import ignition_gate_pass_per_leg
+                gate = dict(IGNITION_GATE)
+                gate["cmd_prog_frac_min"] = float(_rba_min_progress)
+                per_leg, shared = ignition_gate_pass_per_leg(m, gate)
+                newly = []
+                for i in range(6):
+                    if per_leg[i] and _rba_leg_state["pass_step"][i] is None:
+                        _rba_leg_state["pass_step"][i] = int(
+                            self.num_timesteps)
+                        newly.append(i)
+                passed_so_far = [
+                    i for i, p in enumerate(_rba_leg_state["pass_step"])
+                    if p is not None]
+                fsw = m.get("foot_sw_per_s")
+                fsw_s = (", ".join(f"{v:.2f}" for v in fsw)
+                         if fsw is not None else "n/a")
+                print(f"[residual-anneal-gate-perleg] gate check @ "
+                      f"{self.num_timesteps:,}: passed_legs="
+                      f"{passed_so_far} newly={newly} shared="
+                      f"{ {k: bool(v) for k, v in shared.items()} }"
+                      f" foot_sw_per_s=[{fsw_s}]"
+                      f" ({time.time() - t0:.1f}s)")
+                if run is not None:
+                    import wandb
+                    payload = {
+                        "global_step": self.num_timesteps,
+                        "residual_anneal/n_legs_passed":
+                            float(len(passed_so_far))}
+                    for i in range(6):
+                        payload[f"residual_anneal/gate_pass_leg{i}"] = (
+                            float(per_leg[i]))
+                        if fsw is not None:
+                            payload[
+                                f"residual_anneal/gate_foot_sw_leg{i}"
+                            ] = float(fsw[i])
+                    for k, ok in shared.items():
+                        payload[f"residual_anneal/gate_shared_{k}"] = (
+                            float(bool(ok)))
+                    wandb.log(payload)
+                if newly:
+                    print("[residual-anneal-gate-perleg] legs "
+                          f"{newly} PASSED @ {self.num_timesteps:,} — "
+                          "annealing their blend to target over "
+                          f"{_rba_ramp_steps:,} steps from here")
+                    if run is not None:
+                        run.summary[
+                            f"residual_anneal_pass_step_legs_"
+                            f"{'_'.join(map(str, newly))}"] = int(
+                                self.num_timesteps)
 
             def close(self):
                 if self._env is not None:

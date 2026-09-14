@@ -2072,6 +2072,16 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 if w["stop_ticks"] else nan),
             "foot_sw_min_per_s": (min(w["sw_foot"])
                                   / max(w["n"] * self.dt, 1e-9)),
+            # Per-leg switch-rate breakdown (2026-09-14, assistfade
+            # per-leg residual-fade lever, STATUS.md 09-14 "fade per-
+            # leg instead of one global blend"): the SAME per-foot
+            # tallies foot_sw_min_per_s already reduces via min() --
+            # additive, purely new key, does not change any existing
+            # field. Leg order matches mirror.py's N_LEGS convention
+            # (action index 3*leg + axis), the same order self.
+            # _touch_adr/self._pad_bids already iterate in.
+            "foot_sw_per_s": [s / max(w["n"] * self.dt, 1e-9)
+                             for s in w["sw_foot"]],
             "duty_factor": w["on_ticks"] / max(w["n"] * 6, 1),
         }
 

@@ -1160,6 +1160,37 @@ class SimHexapodBalanceEnv(_GymBase):
             }
             self._residual_blend_override = _rba_start
 
+        # Per-LEG refinement of the residual-anneal gate above
+        # (2026-09-14, assistfade STATUS.md 09-09's own flagged-but-
+        # untried candidate (b): "fade per-JOINT or per-LEG instead of
+        # one global blend, so a leg that is still failing keeps more
+        # scripted authority while others advance" — every reward-side
+        # per-leg addon layered on the SAME single global blend scalar
+        # was closed 6/6; this instead makes the blend ITSELF six
+        # independent scalars, one per leg, each gated by that leg's
+        # OWN ignition assay (walkcurr_cert.ignition_gate_pass_per_leg,
+        # trainer-side). goal.walk_residual_perleg_gate>0 (default 0,
+        # bit-exact off) requires the base anneal-gate above already
+        # armed (fails closed — nothing to refine per-leg otherwise);
+        # when armed, upgrades _residual_blend_override from a float
+        # to a (6,) array (one entry per leg, mirror.py's N_LEGS
+        # ordering: action index 3*leg+axis), all legs starting at the
+        # SAME ramp start until apply_residual_blend_frac_perleg first
+        # diverges them. See that method + the action-blend consumer
+        # below (step()) for the array-vs-scalar broadcast contract.
+        self._residual_perleg_gate = float(cfg_get(
+            self.cfg, "goal", "walk_residual_perleg_gate",
+            default=0.0) or 0.0) > 0.0
+        if self._residual_perleg_gate:
+            if not _rba_gate:
+                raise ValueError(
+                    "goal.walk_residual_perleg_gate is set but goal."
+                    "walk_residual_anneal_gate<=0 — per-leg gating "
+                    "refines the anneal-gate ramp; there is nothing "
+                    "to refine if the base anneal-gate isn't armed")
+            self._residual_blend_override = np.full(
+                6, _rba_start, dtype=np.float64)
+
         # HOLD termination-grace CURRICULUM (2026-09-13, walkcurr
         # track — the sinkfence/holdlowstd joint refutation: 5/5
         # static-cfg-dose levers (base goal-mix, mixreweight exposure,
@@ -3634,6 +3665,36 @@ class SimHexapodBalanceEnv(_GymBase):
         self._residual_blend_ramp["frac"] = f
         return {"frac": f, "blend": self._residual_blend_override}
 
+    def apply_residual_blend_frac_perleg(self, fracs) -> dict:
+        """Per-LEG variant of ``apply_residual_blend_frac`` (see that
+        method's docstring for the shared start/target ramp contract
+        this reuses unchanged — only the FRACTION now varies per leg
+        instead of being one shared scalar). ``fracs`` is a length-6
+        iterable, one independent [0, 1] anneal fraction per leg
+        (mirror.py's N_LEGS ordering: action indices [3*leg, 3*leg+3)
+        — see the action-blend consumer in ``step()``). Requires
+        ``goal.walk_residual_perleg_gate>0`` (the per-leg refinement of
+        the same ramp ``apply_residual_blend_frac`` drives) — raises
+        the same way if unarmed, including when only the plain
+        (non-per-leg) anneal gate is armed instead."""
+        if self._residual_blend_ramp is None or not self._residual_perleg_gate:
+            raise RuntimeError(
+                "apply_residual_blend_frac_perleg called but goal."
+                "walk_residual_perleg_gate is not armed (>0) in this "
+                "env's cfg — the per-leg residual-blend gated anneal "
+                "is not armed")
+        f = np.clip(np.asarray(fracs, dtype=np.float64), 0.0, 1.0)
+        if f.shape != (6,):
+            raise ValueError(
+                "apply_residual_blend_frac_perleg expects 6 fracs (one "
+                f"per leg), got shape {f.shape}")
+        s = self._residual_blend_ramp["start"]
+        t = self._residual_blend_ramp["target"]
+        self._residual_blend_override = s + f * (t - s)
+        self._residual_blend_ramp["frac"] = f.copy()
+        return {"frac": f.tolist(),
+                "blend": self._residual_blend_override.tolist()}
+
     def apply_hold_grace_frac(self, frac: float) -> dict:
         """Move the live HOLD-mode termination envelope to ``frac`` of
         the gated tightening curriculum (0 = the loose ``safety.
@@ -3825,12 +3886,30 @@ class SimHexapodBalanceEnv(_GymBase):
                 and getattr(self, "n_act", 0) == N_JOINTS):
             _res_override = getattr(self, "_residual_blend_override",
                                      None)
-            _res_blend = float(np.clip(
-                _res_override if _res_override is not None
-                else cfg_get(self.cfg, "goal", "walk_residual_blend",
-                            default=1.0),
-                0.0, 1.0))
-            if _res_blend < 1.0:
+            if _res_override is not None and np.ndim(_res_override) > 0:
+                # Per-leg override (goal.walk_residual_perleg_gate,
+                # 2026-09-14): a (6,) array, one blend per leg —
+                # broadcast to the 18-dim action via repeat(3) (leg-
+                # major joint order, mirror.py's N_LEGS convention:
+                # action index 3*leg+axis). _res_blend_active is a
+                # plain bool since "any leg still < 1.0" is what
+                # decides whether the reference-blend math below runs
+                # at all (running it is a no-op, not wrong, when every
+                # leg is already at 1.0 — this just skips the extra
+                # work in that common end-state).
+                _res_blend_perleg = np.clip(
+                    np.asarray(_res_override, dtype=np.float64),
+                    0.0, 1.0)
+                _res_blend = np.repeat(_res_blend_perleg, 3)
+                _res_blend_active = bool(np.any(_res_blend_perleg < 1.0))
+            else:
+                _res_blend = float(np.clip(
+                    _res_override if _res_override is not None
+                    else cfg_get(self.cfg, "goal", "walk_residual_blend",
+                                default=1.0),
+                    0.0, 1.0))
+                _res_blend_active = _res_blend < 1.0
+            if _res_blend_active:
                 _res_goal = self._current_goal()
                 if _res_goal is not None:
                     from .joint_task import q_rad_to_action

@@ -1,5 +1,64 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## The dynamics-easing (sixth family) flat-start-rise positive does NOT survive the transfer back to true gravity: 3-arm gravity-anneal grid closes 3/3, plus a 2nd straight-continuation seed erodes identically (2026-09-14 ~11:3x, walkcurr track, triage cycle)
+
+One plain sentence: the sixth family's canary-level positive
+(`easeriseflatfix-strict`, gravity eased to 40%) only ever worked AT
+the eased setting, and every route tried this cycle to carry it to
+real gravity — a slow anneal, a faster anneal, a slow anneal at lower
+LR, or just more straight-continuation training at the fixed eased
+setting — fails. `anneal4m` (fast schedule) SEED-PRUNED stagnant;
+`anneal8m` (slower schedule, default LR) forgot the skill by 2M steps
+into the ramp; `anneal8m-lowlr` (same schedule, lr 1e-4) retained the
+easy-setting behavior through the FULL 11M-step budget, but its own
+EXPLICIT nominal-gravity probe (ease/sched keys stripped, true
+gravity, n=12 det+sto, run on the pod) reads 0/12, an identical
+`over_current`/~62mm-height fingerprint to the un-annealed baseline —
+despite the schedule having reached v1=1.0 (true gravity) by step
+8.5M, 2.5M steps before the run stopped. Separately,
+`easeriseflatfix-strict-s3-acq15m2` (a straight +11.3M continuation at
+the FIXED 40% easing, no anneal) reproduced `s1-acq15m2`'s own
+late-training erosion almost exactly (periodic canary telemetry
+1/1@6M steps -> 0/0@9M steps, no auto-stop, final held-out gate
+0/6+0/6 on rise det+sto) — continuation-length-alone is now closed
+2/2 seeds too.
+
+**Root cause (binding):** the pre-existing `sched.*` engine drives ONE
+value shared by every parallel env at a given training tick (a
+synchronized global ramp) — this fully retires the easy end of the
+distribution once the ramp passes it, at any LR; a lower LR only slows
+the retirement, it does not prevent it, and the network still never
+gets forced to solve the hard end under continuous reward pressure
+before the schedule finishes. A straight fixed-easy continuation has
+the same failure shape without even a ramp: eventually the easy-only
+skill degrades with nothing in the training distribution to refresh
+it.
+
+**Binding for the next reader:** do not fund another anneal-speed/LR
+dose or continuation-length seed on this exact recipe (schedule-driven
+single global gravity value, or a fixed-easy continuation) — both are
+now closed. The live next mechanism is `ease.gravity_scale_dr_lo`/
+`_hi` (`rl_move/sim/sim_env.py`, 2026-09-14 ~11:3x, 8 new tests,
+snapshot `exp/walkcurr-easeriseflat-gravity-dr-mixture`): each of the
+run's parallel envs independently SAMPLES its own gravity scale
+uniform in `[lo, hi]` every episode reset (same per-env `self.rng`
+every other DR axis already uses), so the hard end is never retired
+from the training distribution — it is trained on, and reward-shaped
+against, every single batch throughout. Default OFF (keys unset) is
+bit-exact; composes with `ease.rise_flat_only` exactly like the
+existing single-value mechanism. A 2M canary pair
+(`easeriseflat-gravmix-s1-canary2m` default LR,
+`easeriseflat-gravmix-lowlr-s1-canary2m` lr 1e-4) is running off the
+same `s1048576` eased-positive warm-start to read this fresh. A
+checkpoint trained under ANY eased-gravity mechanism (schedule or
+mixture) is still not a valid `rl_only` rise until an explicit
+nominal-gravity probe with ease/sched keys stripped actually passes.
+Evidence: `ops.sh entry cw-stance50hz-rlonly-easeriseflat-anneal{4m-s1-acq7m,8m-s1-acq11m,8m-lowlr-s1-acq11m}`;
+`ops.sh entry cw-stance50hz-rlonly-easeriseflatfix-strict-s3-acq15m2`;
+`logs/ckpt_eval/cw_stance50hz_rlonly_easeriseflat_anneal8m_lowlr_s1_acq11m_riseflat_nominal/report.json`
+(this cycle's explicit nominal probe); `rl_move/tests/test_physics_ease_dr.py`;
+`rl_docs/tracks/walkcurr/STATUS.md` 2026-09-14 ~11:3x.
+
 ## CORRECTION + BREAKTHROUGH: the 22/22 batch-composition closure below rested on an infra bug (the sub-split never actually engaged) -- fixed and RE-CONFIRMED null for real this cycle, but a genuinely new SIXTH mechanism family (dynamics-parameter easing, scoped) found the first real positive on this residual, partially replicated (1/2 seeds); an acquisition continuation is running (2026-09-14 ~09:3x-09:4x, walkcurr track, refill cycle)
 
 One plain sentence: the entry below's own "engaged the whole run"

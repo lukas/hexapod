@@ -3134,6 +3134,7 @@ class SimHexapodBalanceEnv(_GymBase):
         self._curl_milestones: set[float] = set()
         self._rise_gate_freeze_ticks = 0
         self._lower_gate_freeze_ticks = 0
+        self._pretuck_latched = False
         self._state = self._read_state()
         self._rec_reset_height_mm = 0.0
         self._rec_reset_tilt_deg = 0.0
@@ -4247,6 +4248,7 @@ class SimHexapodBalanceEnv(_GymBase):
         self._curl_dist_prev = self._curl_dist()
         self._curl_milestones = set()
         self._rise_gate_freeze_ticks = 0
+        self._pretuck_latched = False
         # Hold/lower BC anchors mid-sequence use q_nom directly — which
         # the switch just re-based to the CANONICAL plant frame, i.e.
         # exactly the settled-plant base a fresh single-mode hold/lower
@@ -5577,6 +5579,64 @@ class SimHexapodBalanceEnv(_GymBase):
             r_hot = -k_hot * float(np.sum(over ** 2))
             parts["reward_current_hot"] = r_hot
             reward += r_hot
+        # Pre-tuck current price (walkcurr rise track, 2026-09-14 --
+        # escalation from probe_rise_current_envelope.py's own finding:
+        # the mesh-native scripted rise reference clears the corrected
+        # +66%-mass mesh's over_current trip, with real ~16% margin,
+        # ONLY because it stays near-zero-torque while tucking the feet
+        # under the body and only draws real current AFTER the bridge
+        # pose is reached, then presses. Every rise-pricing lever tried
+        # before this (current-headroom-gate, curl-geometry-gate ON THE
+        # HEIGHT RAMP via `_rise_gate_tick`, two-phase-freeze,
+        # curl-pretrain) targeted "reach the target height/curl
+        # faster/gentler"; none separately priced "don't draw current AT
+        # ALL until tucked" -- the specific sequencing fact the
+        # diagnostic isolated. This term does exactly that, using the
+        # SAME state-conditioned progress signal `_rise_gate_tick`
+        # already reads (`_curl_dist()`, live FK-measured feet-to-plant-
+        # footprint distance -- NOT a scripted clock, NOT a motion
+        # prior): while curl_dist has not yet reached the bridge-pose
+        # threshold, any per-servo current above a TIGHT bar is charged
+        # quadratically (same over-threshold-squared shape as
+        # `k_current_hot` above, just a separate coefficient/threshold
+        # so the two can be tuned independently); once tucked, this term
+        # goes silent for the rest of the episode (a one-way latch, like
+        # the curl gate's own "unlock permanently" rule) so the
+        # legitimate press afterward is untaxed by it -- only the
+        # existing (looser) k_current_hot/current_hot_a price, if any,
+        # still applies during the press. Crouch starts are exempt
+        # (curl_dist already ~0, nothing to gate, matches
+        # `_rise_gate_tick`'s own exemption). Bit-exact OFF by default
+        # (reward.k_current_pretuck=0): no state allocated, no behavior
+        # change for any existing checkpoint/lineage. Enable:
+        # --cfg-set reward.k_current_pretuck=<k>
+        # [--cfg-set reward.current_pretuck_hot_a=<amps>]
+        # [--cfg-set reward.current_pretuck_curl_mm=<mm>].
+        # Tests: rl_move/tests/test_current_pretuck_reward.py.
+        k_pretuck = float(cfg_get(
+            self.cfg, "reward", "k_current_pretuck", default=0.0))
+        if (k_pretuck > 0.0 and self._is_rise
+                and self._state.servo_current is not None
+                and getattr(self._goal_traj, "start_at", None)
+                != "crouch"):
+            if getattr(self, "_pretuck_latched", False):
+                tucked = True
+            else:
+                th_m = float(cfg_get(
+                    self.cfg, "reward", "current_pretuck_curl_mm",
+                    default=40.0)) * 0.001
+                tucked = self._curl_dist() <= th_m
+                if tucked:
+                    self._pretuck_latched = True
+            if not tucked:
+                pretuck_a = float(cfg_get(
+                    self.cfg, "reward", "current_pretuck_hot_a",
+                    default=0.3))
+                over_pt = np.maximum(
+                    self._state.servo_current - pretuck_a, 0.0)
+                r_pretuck = -k_pretuck * float(np.sum(over_pt ** 2))
+                parts["reward_current_pretuck"] = r_pretuck
+                reward += r_pretuck
         # Income-relative current pricing (standwalk track, 2026-09-12 --
         # see current_income_ema_step's docstring for the full root-cause
         # chain this answers). Structurally DIFFERENT from every lever
@@ -6026,7 +6086,8 @@ class SimHexapodBalanceEnv(_GymBase):
                 default=0.0)) == 1.0):
             _keep_keys = (
                 "reward_curl_progress", "reward_curl_milestone",
-                "reward_current_hot", "reward_current_income",
+                "reward_current_hot", "reward_current_pretuck",
+                "reward_current_income",
                 "reward_support_margin", "reward_load_even",
                 "reward_torque_headroom", "reward_action_rate",
                 "reward_stance", "reward_clearance", "reward_flag_leg",

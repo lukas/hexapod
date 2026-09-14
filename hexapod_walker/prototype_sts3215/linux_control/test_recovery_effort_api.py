@@ -175,3 +175,95 @@ def test_same_shape_without_profile_retains_default_caps_and_guards(rig):
     assert len(samples) == 3
     assert all(row["applied_torque_limit"] == 200 for row in result["joints"].values())
     assert not bus.on
+
+
+@pytest.mark.parametrize("delta", [-6, -10])
+def test_50pct_profile_alone_allows_larger_step_and_caps_only_knee(rig, delta):
+    api, bus, _clock = rig
+    result = api.recovery_nudge({**PROFILE, "effort_profile": "l4_50pct",
+                                 "deltas_deg": {"14": delta}})
+    assert result["ok"] and result["torque_off"]
+    assert result["effort_profile"] == "l4_50pct"
+    assert bus.groups == [{16: (expected_target(14, delta), 90, 4)}]
+    for joint in PARTICIPANTS:
+        row = result["joints"][str(joint)]
+        assert row["applied_torque_limit"] == (500 if joint == 14 else 200)
+        assert row["current_soft_limit_a"] == (.75 if joint == 14 else .25)
+        assert row["load_soft_limit_pct"] == (53 if joint == 14 else 23)
+    assert all(bus.limit[sid] == 700 for sid in IDS)
+    assert not bus.on
+
+
+@pytest.mark.parametrize("profile", [None, "l4_30pct"])
+def test_existing_profiles_still_reject_steps_over_five_degrees(rig, profile):
+    api, bus, _clock = rig
+    payload = {"deltas_deg": {"14": -6}, "hold_joints": HOLDS}
+    if profile:
+        payload["effort_profile"] = profile
+    with pytest.raises(ValueError):
+        api.recovery_nudge(payload)
+    assert not [event for event in bus.events if event[0] != "read"]
+
+
+@pytest.mark.parametrize("payload", [
+    {**PROFILE, "effort_profile": "l4_60pct", "deltas_deg": {"14": -6}},
+    {**PROFILE, "effort_profile": "l4_50pct", "deltas_deg": {"14": -10.1}},
+    {**PROFILE, "effort_profile": "l4_50pct", "deltas_deg": {"14": 6}},
+    {**PROFILE, "effort_profile": "l4_50pct", "deltas_deg": {"13": -6}},
+    {**PROFILE, "effort_profile": "l4_50pct", "deltas_deg": {"14": -3, "13": 3}},
+    {**PROFILE, "effort_profile": "l4_50pct", "hold_joints": [1, 11, 13, 16, 17]},
+    {"effort_profile": "l4_50pct", "hold_joints": HOLDS,
+     "phases": [{"deltas_deg": {"14": -3}}, {"deltas_deg": {"14": -3}}]},
+    {"effort_profile": "l4_50pct", "hold_joints": HOLDS, "deltas_deg": {"14": -3},
+     "phases": [{"deltas_deg": {"14": -3}}, {"deltas_deg": {"14": -3}}]},
+])
+def test_50pct_profile_rejects_other_shapes_before_writes(rig, payload):
+    api, bus, _clock = rig
+    with pytest.raises(ValueError):
+        api.recovery_nudge(payload)
+    assert not [event for event in bus.events if event[0] != "read"]
+
+
+@pytest.mark.parametrize("address,value", [(69, 116), (60, 530)])
+def test_50pct_knee_soft_limits_require_three_consecutive_reads(rig, address, value):
+    api, bus, _clock = rig
+    samples = active_fault(bus, 16, address, [value] * 20)
+    result = api.recovery_nudge({**PROFILE, "effort_profile": "l4_50pct"})
+    assert not result["ok"] and result["torque_off"]
+    assert len(samples) == 3
+    assert not bus.on
+
+
+def test_50pct_does_not_raise_support_current_threshold(rig):
+    api, bus, _clock = rig
+    samples = active_fault(bus, 12, 69, [39] * 20)
+    result = api.recovery_nudge({**PROFILE, "effort_profile": "l4_50pct"})
+    assert not result["ok"] and result["torque_off"]
+    assert len(samples) == 3
+    assert result["joints"]["10"]["applied_torque_limit"] == 200
+    assert not bus.on
+
+
+def test_50pct_hard_current_remains_immediate(rig):
+    api, bus, _clock = rig
+    samples = active_fault(bus, 16, 69, [154] * 20)
+    result = api.recovery_nudge({**PROFILE, "effort_profile": "l4_50pct"})
+    assert not result["ok"] and result["torque_off"]
+    assert samples == [154]
+    assert not bus.on
+
+
+def test_50pct_retains_saved_lower_cap_and_three_second_bound(rig):
+    api, bus, clock = rig
+    bus.limit[16] = 350
+    bus.stalled.add(16)
+    start = clock.now
+    result = api.recovery_nudge({**PROFILE, "effort_profile": "l4_50pct",
+                                 "deltas_deg": {"14": -10}})
+    assert not result["ok"] and result["torque_off"]
+    assert result["joints"]["14"]["applied_torque_limit"] == 350
+    assert 3.0 <= clock.now - start < 3.1
+    assert all(event[2] <= 350 for event in bus.events if event[:2] == ("limit", 16))
+    assert bus.limit[16] == 350
+    assert bus.groups == [{16: (expected_target(14, -10), 90, 4)}]
+    assert not bus.on

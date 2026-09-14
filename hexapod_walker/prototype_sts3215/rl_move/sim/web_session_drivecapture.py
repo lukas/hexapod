@@ -298,6 +298,35 @@ def _annotate(frame: np.ndarray, lines: list[str]) -> np.ndarray:
     return _annotate_frame(frame, lines)
 
 
+def server_cmd(python: str, *, bind: str, http_port: int, https_port: int,
+              walk: "Path | str", cfg_set: list[str],
+              rot60_walk: bool) -> list[str]:
+    """Build the ``web_server.py`` subprocess argv this tool boots.
+
+    Pulled out to a standalone function (2026-09-14) so it can be
+    unit-tested against ``web_server.build_arg_parser()`` directly --
+    this tool went stale silently for a real run: it hardcoded
+    ``--no-vision``, a flag ``web_server.py`` dropped when the vision
+    runtime was removed entirely (``e50cc4d4``), so EVERY invocation
+    of this tool (any checkpoint, rot60 or not) has failed at boot
+    with an argparse error since that commit landed -- caught this
+    cycle only because a fresh ``--rot60-walk`` confirmation run
+    actually tried to boot it for the first time since. Fixed by
+    dropping the dead flag (there is no replacement needed: the
+    vision runtime it gated is gone, and ``--browser-frames``'s own
+    default of ``auto`` is already correct for a headless capture).
+    """
+    cmd = [python, "-m", "rl_move.sim.web_server",
+          "--bind", bind,
+          "--http-port", str(http_port), "--https-port", str(https_port),
+          "--walk", str(walk)]
+    for spec in cfg_set:
+        cmd += ["--cfg-set", spec]
+    if rot60_walk:
+        cmd += ["--rot60-walk"]
+    return cmd
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("checkpoint", type=Path)
@@ -339,14 +368,9 @@ def main() -> int:
     frames_dir = out / "frames"
     frames_dir.mkdir(exist_ok=True)
 
-    cmd = [sys.executable, "-m", "rl_move.sim.web_server",
-          "--bind", args.bind,
-          "--http-port", str(http_port), "--https-port", str(https_port),
-          "--walk", str(ckpt), "--no-vision"]
-    for spec in args.cfg_set:
-        cmd += ["--cfg-set", spec]
-    if args.rot60_walk:
-        cmd += ["--rot60-walk"]
+    cmd = server_cmd(sys.executable, bind=args.bind, http_port=http_port,
+                     https_port=https_port, walk=ckpt,
+                     cfg_set=args.cfg_set, rot60_walk=args.rot60_walk)
     print(f"[websession_capture] launching: {' '.join(cmd)}")
     proc = subprocess.Popen(cmd, cwd=str(_PROTO),
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,

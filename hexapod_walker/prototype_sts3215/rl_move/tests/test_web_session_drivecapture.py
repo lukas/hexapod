@@ -10,9 +10,38 @@ from rl_move.sim.web_session_drivecapture import (
     locomotion_fraction,
     net_displacement_fraction,
     policy_identity_ok,
+    server_cmd,
     stalled_phases,
 )
 from rl_move.sim.drive_video import human_drive_phases, _script
+
+
+def test_server_cmd_never_emits_the_removed_vision_flag():
+    # 2026-09-14 regression: this tool hardcoded --no-vision, a flag
+    # web_server.py dropped (e50cc4d4) when the vision runtime was
+    # removed -- every boot of this tool argparse-errored since that
+    # commit until this test/fix.
+    cmd = server_cmd("python3", bind="127.0.0.1", http_port=1, https_port=2,
+                     walk="ckpt.zip", cfg_set=[], rot60_walk=False)
+    assert "--no-vision" not in cmd
+
+
+def test_server_cmd_parses_cleanly_through_web_servers_own_arg_parser():
+    from rl_move.sim.web_server import build_arg_parser
+    cmd = server_cmd("python3", bind="127.0.0.1", http_port=1, https_port=2,
+                     walk="ckpt.zip", cfg_set=["a.b=1", "c.d=2"],
+                     rot60_walk=True)
+    argv = cmd[3:]  # drop [python3, -m, rl_move.sim.web_server]
+    args = build_arg_parser().parse_args(argv)
+    assert str(args.walk) == "ckpt.zip"
+    assert args.rot60_walk is True
+    assert args.cfg_set == ["a.b=1", "c.d=2"]
+
+
+def test_server_cmd_omits_rot60_flag_by_default():
+    cmd = server_cmd("python3", bind="127.0.0.1", http_port=1, https_port=2,
+                     walk="ckpt.zip", cfg_set=[], rot60_walk=False)
+    assert "--rot60-walk" not in cmd
 
 
 def test_policy_identity_ok_accepts_a_real_matching_checkpoint():

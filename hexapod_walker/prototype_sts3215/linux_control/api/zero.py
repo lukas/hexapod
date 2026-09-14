@@ -217,7 +217,8 @@ class ZeroApi:
             return vals, list(range(N_JOINTS))
         try:
             if hasattr(bus, "read_all_positions"):
-                for j, v in (bus.read_all_positions() or {}).items():
+                from feetech_bus import read_coherent_positions
+                for j, v in read_coherent_positions(bus).items():
                     if 0 <= j < N_JOINTS and v is not None:
                         vals[j] = float(v)
                 return vals, [j for j, v in enumerate(vals) if v is None]

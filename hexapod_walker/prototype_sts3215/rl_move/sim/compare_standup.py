@@ -66,6 +66,15 @@ class RealLegFK:
     """
     HIP_LO, HIP_HI = math.radians(-78.0), math.radians(28.0)
     KNEE_LO, KNEE_HI = math.radians(-18.0), math.radians(148.0)
+    # Reserve 12 degrees for the player's hip-6 / tibia+6 replant.
+    HINGE_LO, HINGE_HI = math.radians(-18.0), math.radians(138.0)
+
+    @classmethod
+    def project_angles(cls, hip, tibia):
+        hip = min(max(hip, cls.HIP_LO), cls.HIP_HI)
+        tibia = min(max(tibia, max(cls.KNEE_LO, hip + cls.HINGE_LO)),
+                    min(cls.KNEE_HI, hip + cls.HINGE_HI))
+        return hip, tibia
 
     def __init__(self):
         import mujoco
@@ -84,7 +93,8 @@ class RealLegFK:
         # the Jacobian is ill-conditioned.
         hs = np.arange(self.HIP_LO, self.HIP_HI, math.radians(1.5))
         ks = np.arange(self.KNEE_LO, self.KNEE_HI, math.radians(1.5))
-        grid = [(h, k, *self.fk(h, k)) for h in hs for k in ks]
+        grid = [(h, k, *self.fk(h, k)) for h in hs for k in ks
+                if self.HINGE_LO <= k - h <= self.HINGE_HI]
         arr = np.array(grid)
         self._grid_hk = arr[:, :2]
         self._grid_rz = arr[:, 2:]
@@ -113,6 +123,8 @@ class RealLegFK:
         gi = int(np.argmin((self._grid_rz[:, 0] - r_t) ** 2
                            + (self._grid_rz[:, 1] - z_t) ** 2))
         h, k = self._grid_hk[gi]
+        if seed is not None:
+            seed = self.project_angles(*seed)
         if seed is not None and (self._res(*seed, r_t, z_t)
                                  < self._res(h, k, r_t, z_t)):
             h, k = seed
@@ -135,8 +147,7 @@ class RealLegFK:
                 dh, dk = dh * sc, dk * sc
             improved = False
             for s in (1.0, 0.5, 0.25, 0.125):
-                ht = min(max(h + dh * s, self.HIP_LO), self.HIP_HI)
-                kt = min(max(k + dk * s, self.KNEE_LO), self.KNEE_HI)
+                ht, kt = self.project_angles(h + dh * s, k + dk * s)
                 res = self._res(ht, kt, r_t, z_t)
                 if res < best - 1e-9:
                     h, k, best, improved = ht, kt, res, True
@@ -161,6 +172,8 @@ class RealLegFK:
                 else:
                     hi = mid
             h = 0.5 * (lo + hi)
+            if not self.HINGE_LO <= k - h <= self.HINGE_HI:
+                continue
             r = self.fk(h, k)[0]
             if best is None or r < best[2]:
                 best = (h, k, r)
@@ -388,8 +401,8 @@ def run_once(strategy: str, mu: float | None, plant_z: float,
 
     for ti, q in enumerate(traj):
         env._cmd = q.copy()
-        env._profile.command(q, speed_deg_s=SPEED_DEG_S,
-                             acc_units=env.write_acc_units)
+        env._profile.command_robot_abs(q, speed_deg_s=SPEED_DEG_S,
+                                       acc_units=env.write_acc_units)
         env._advance()
 
         ph = 0 if ti < i_push else 1
@@ -496,8 +509,12 @@ def export_modes(path: Path, fkm: RealLegFK, *,
     env.close()
 
     modes = {}
+    from motor_setup.feetech_bus import robot_pose_to_raw_degrees
+    from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT
     for mode in ("blend", "drag", "tuck", "step"):
         traj, i_push = build_traj(mode, fkm, -z_start, dt)
+        for q in traj:
+            robot_pose_to_raw_degrees(np.asarray(q) * RAD2DEG)
         step_n = max(1, int(round(keyframe_s / dt)))
         idx = list(range(step_n - 1, len(traj), step_n))
         if idx[-1] != len(traj) - 1:
@@ -524,8 +541,9 @@ def export_modes(path: Path, fkm: RealLegFK, *,
             "total_s": round(sum(k["s"] for k in keyframes), 2),
         }
     out = {
-        "generated": "compare_standup.py --export (sim-validated: all "
-                     "modes stand 10/10 under DR 1.0, friction 0.8-2.0)",
+        "generated": "compare_standup.py --export; absolute-tibia IK with physical hinge limits. Performance requires a separate run report.",
+        "joint_frame": FRAME_ROBOT_ABS,
+        "joint_contract": JOINT_CONTRACT,
         "frame": "logical joint degrees (set_zero frame), "
                  "[yaw,hip,knee] x legs 0..5; start pose = zero "
                  "(legs straight out, belly down)",

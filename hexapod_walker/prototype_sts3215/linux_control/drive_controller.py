@@ -352,7 +352,8 @@ class DriveController:
         bulk = getattr(self.bus, "read_all_positions", None)
         if bulk is not None:
             try:
-                pos = bulk()
+                from feetech_bus import read_coherent_positions
+                pos = read_coherent_positions(self.bus)
                 if isinstance(pos, dict):
                     return [pos.get(j) for j in range(N_JOINTS)]
             except Exception:

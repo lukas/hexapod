@@ -195,6 +195,45 @@ def test_pose_readers_never_mix_bulk_sample_with_per_joint_retry():
         _read_pose(bus, {3, 4})
 
 
+def test_pose_readers_recover_whole_sample_after_isolated_miss(monkeypatch):
+    from feetech_bus import read_coherent_positions
+    monkeypatch.setattr('feetech_bus.time.sleep', lambda _: None)
+    samples = iter([{1: 99.}, {j: float(j) for j in range(18)}])
+    bus = SimpleNamespace(read_all_positions=lambda: next(samples))
+    assert read_coherent_positions(bus)[1] == 1.  # never retain the first hip
+
+
+def test_pose_retry_is_bounded_and_never_stitches_samples(monkeypatch):
+    from feetech_bus import read_coherent_positions
+    monkeypatch.setattr('feetech_bus.time.sleep', lambda _: None)
+    samples = iter([{1: 10.}, {2: 20.}, {1: float('nan'), 2: 30.}])
+    bus = SimpleNamespace(read_all_positions=lambda: next(samples))
+    assert read_coherent_positions(bus, required={1, 2}) == {2: 30.}
+
+
+def test_ease_refuses_invalid_target_before_enabling(monkeypatch):
+    import inplace_demos as demos
+    bus = recorded_bus()
+    monkeypatch.setattr(demos, '_live_robot_ids', lambda _: set(range(2, 20)))
+    monkeypatch.setattr(demos, '_read_pose', lambda *_: [0.] * 18)
+    monkeypatch.setattr(demos, '_enable_torque', lambda *_: pytest.fail('armed invalid pose'))
+    with pytest.raises(ValueError, match='raw servo'):
+        demos.ease_to_pose(bus, pose(-78, 148))
+
+
+def test_ease_timeout_is_not_success(monkeypatch):
+    import inplace_demos as demos
+    bus = recorded_bus()
+    clock = [0.]
+    monkeypatch.setattr(demos, 'time', SimpleNamespace(
+        monotonic=lambda: clock[0], sleep=lambda dt: clock.__setitem__(0, clock[0] + dt)))
+    monkeypatch.setattr(demos, '_live_robot_ids', lambda _: set(range(2, 20)))
+    monkeypatch.setattr(demos, '_read_pose', lambda *_: [0.] * 18)
+    monkeypatch.setattr(demos, '_enable_torque', lambda *_: None)
+    with pytest.raises(RuntimeError, match='did not settle'):
+        demos.ease_to_pose(bus, pose(20, 80), seconds=.2)
+
+
 def test_hold_refuses_missing_logical_pose_without_writing():
     drive = DriveController(dry_run=True)
     drive.bus, drive.armed = recorded_bus(), True

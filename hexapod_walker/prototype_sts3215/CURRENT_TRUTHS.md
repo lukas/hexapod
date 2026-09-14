@@ -46,16 +46,27 @@ every other DR axis already uses), so the hard end is never retired
 from the training distribution — it is trained on, and reward-shaped
 against, every single batch throughout. Default OFF (keys unset) is
 bit-exact; composes with `ease.rise_flat_only` exactly like the
-existing single-value mechanism. A 2M canary pair
+existing single-value mechanism. **UPDATE same cycle, ~11:4x**: the
+first dose, a wide `[0.4, 1.0]` 2M canary pair
 (`easeriseflat-gravmix-s1-canary2m` default LR,
-`easeriseflat-gravmix-lowlr-s1-canary2m` lr 1e-4) is running off the
-same `s1048576` eased-positive warm-start to read this fresh. A
-checkpoint trained under ANY eased-gravity mechanism (schedule or
-mixture) is still not a valid `rl_only` rise until an explicit
-nominal-gravity probe with ease/sched keys stripped actually passes.
+`easeriseflat-gravmix-lowlr-s1-canary2m` lr 1e-4), is ALSO CANARY
+FAIL-MECHANISM for both arms — training-time canary never ignited
+(0/0 at both 1.0M/2.0M checkpoints) and each arm's own explicit
+nominal-gravity probe reads 0/12. LR is not the lever (both arms fail
+identically); the wide range's mean difficulty (0.7) appears too hard
+to ignite within a 2M budget, unlike the fixed-0.4 recipe that
+ignited in this exact budget class — a dose-response question, not
+(yet) a refutation of the mixture mechanism itself. A narrower dose
+(`easeriseflat-gravmix-narrow-s1-canary2m`, `[0.4, 0.6]`, mean 0.5,
+default LR) is running to read that. A checkpoint trained under ANY
+eased-gravity mechanism (schedule or mixture) is still not a valid
+`rl_only` rise until an explicit nominal-gravity probe with ease/sched
+keys stripped actually passes.
 Evidence: `ops.sh entry cw-stance50hz-rlonly-easeriseflat-anneal{4m-s1-acq7m,8m-s1-acq11m,8m-lowlr-s1-acq11m}`;
 `ops.sh entry cw-stance50hz-rlonly-easeriseflatfix-strict-s3-acq15m2`;
-`logs/ckpt_eval/cw_stance50hz_rlonly_easeriseflat_anneal8m_lowlr_s1_acq11m_riseflat_nominal/report.json`
+`ops.sh entry cw-stance50hz-rlonly-easeriseflat-gravmix-{s1,lowlr}-s1-canary2m`;
+`logs/ckpt_eval/cw_stance50hz_rlonly_easeriseflat_anneal8m_lowlr_s1_acq11m_riseflat_nominal/report.json`;
+`logs/ckpt_eval/cw_stance50hz_rlonly_easeriseflat_gravmix_{s1,lowlr}_s1_canary2m_riseflat_nominal/report.json`
 (this cycle's explicit nominal probe); `rl_move/tests/test_physics_ease_dr.py`;
 `rl_docs/tracks/walkcurr/STATUS.md` 2026-09-14 ~11:3x.
 

@@ -3071,6 +3071,16 @@ class SimHexapodBalanceEnv(_GymBase):
             nz = np.nonzero(
                 np.abs(np.asarray(self._goal_traj.height)) > 1e-12)[0]
             self._rise_ramp_i0 = int(nz[0]) if len(nz) else 0
+        # First ramp tick of a lower schedule (hold window ends here) —
+        # the `_lower_gate_tick` staged-descent gate's own hold-boundary,
+        # same convention as `_rise_ramp_i0` just above (mirrored, not
+        # shared, so a future rise-only change can't silently affect
+        # lower's freeze window).
+        self._lower_ramp_i0 = 0
+        if self._is_lower_bc:
+            nz = np.nonzero(
+                np.abs(np.asarray(self._goal_traj.height)) > 1e-12)[0]
+            self._lower_ramp_i0 = int(nz[0]) if len(nz) else 0
         # Mode-seq stand anchor (goal.mode_seq): the absolute chassis z
         # of the last COMMANDED standing height. A mid-sequence rise
         # aims back at this (re-anchored per switch — lesson 5 of the
@@ -3091,6 +3101,7 @@ class SimHexapodBalanceEnv(_GymBase):
         self._curl_dist_prev = self._curl_dist()
         self._curl_milestones: set[float] = set()
         self._rise_gate_freeze_ticks = 0
+        self._lower_gate_freeze_ticks = 0
         self._state = self._read_state()
         self._rec_reset_height_mm = 0.0
         self._rec_reset_tilt_deg = 0.0
@@ -3209,7 +3220,14 @@ class SimHexapodBalanceEnv(_GymBase):
     def _current_goal(self):
         if self._goal_traj is None:
             return None
-        idx = self._step_i - getattr(self, "_rise_gate_freeze_ticks", 0)
+        # Only one of the two freeze counters is ever nonzero for a
+        # given episode (rise xor lower mode — see `_is_rise`/
+        # `_is_lower_bc`), so a plain sum is a safe combination; each
+        # gate only ever increments its own counter (`_rise_gate_tick`
+        # / `_lower_gate_tick`).
+        idx = (self._step_i
+               - getattr(self, "_rise_gate_freeze_ticks", 0)
+               - getattr(self, "_lower_gate_freeze_ticks", 0))
         return self._goal_traj.at(idx)
 
     def _rise_gate_tick(self) -> None:
@@ -3268,6 +3286,97 @@ class SimHexapodBalanceEnv(_GymBase):
         if self._curl_dist() <= th_m:
             return  # sub-goal met -- unlock permanently from here on
         self._rise_gate_freeze_ticks = freeze + 1
+
+    def _lower_stage_planted_frac(self, load_ref_n: float) -> float:
+        """Fraction of feet (0..1) measured PLANTED right now: touch
+        force >= ``load_ref_n`` newtons, same sensor read as
+        ``hold_feet_load``/``_minload_min_force_now``; legs with no
+        touch sensor fall back to the geometric clearance test those
+        two use as well (clear <= ``foot_down_mm``). Used only by
+        ``_lower_gate_tick`` — a plain instantaneous measurement, no
+        smoothing, so the gate reacts on the very tick a foot lifts or
+        re-plants."""
+        n_on = 0
+        for i in range(6):
+            if self._touch_adr[i] >= 0:
+                f_n = max(float(
+                    self.data.sensordata[self._touch_adr[i]]), 0.0)
+                on = f_n >= load_ref_n
+            else:
+                clear_i = (float(self.data.xpos[self._pad_bids[i], 2])
+                           - self._pad_z_ref[i])
+                on = clear_i <= PLANT_SPEC["foot_down_mm"] * 0.001
+            if on:
+                n_on += 1
+        return n_on / 6.0
+
+    def _lower_gate_tick(self) -> None:
+        """Staged multi-phase descent (``goal.lower_stage_gate``,
+        default 0 = OFF = bit-exact identical to every prior
+        checkpoint): called once per real tick, right after
+        ``self._step_i`` advances and before the tick's reward/obs
+        goal is read. Mirrors ``_rise_gate_tick``'s index-freeze
+        construction exactly, generalized from a one-shot pre-ramp
+        sub-goal to a CONTINUOUS per-tick condition across the whole
+        descent.
+
+        Escalation context (2026-09-13, walkcurr `lowerscoreprog` /
+        `lowerratchetpartial` / `lowerdenseposture`): three independent
+        REWARD-side levers on the same from-plant lower depth gap
+        (~40mm height_err_end, ~20-30% depth_frac, flat since
+        `lowerscoreprog-{s0,s1}-6m`) all FAIL-MECHANISM at the same
+        magnitude — repricing what depth income PAYS never changes how
+        far the height ramp COMMANDS the policy to go, because
+        ``goal.height_ref`` (the value the policy actually observes
+        via ``TaskGoal.as_obs``; this recipe's own reward terms read
+        ``h_rel``/``self._h_target`` directly and never consume
+        ``height_ref`` at all) advances on a fixed wall-clock schedule
+        (``goal.lower_ramp_s``) regardless of whether the feet are
+        staying planted on the way down — the observed COMMAND has no
+        way to say "you're not ready to go deeper yet". This is not a
+        fourth re-price: it makes the ramp's own advance conditional on
+        a genuine per-tick sub-goal (a measured fraction of feet loaded
+        above ``goal.lower_stage_load_ref_n``), by freezing the
+        trajectory index fed to ``_current_goal()`` for as long as the
+        sub-goal is unmet, up to a capped extra wait
+        (``goal.lower_stage_gate_max_extra_s``) so an episode that
+        never plants still eventually gets scored on the attempt
+        rather than stalling forever. Unlike the rise gate (which only
+        holds the PRE-ramp onset), this re-checks every tick for the
+        whole descent, so a policy that plants, unplants, then
+        replants pauses and resumes rather than losing credit
+        permanently. Pure index-freeze: no new physics, no change to
+        any existing reward term's formula; every other reward/obs
+        path reads whatever ``_current_goal()`` returns exactly as
+        before.
+        Tests: rl_move/tests/test_lower_stage_gate.py.
+        """
+        if not self._is_lower_bc or self._goal_traj is None:
+            return
+        if float(cfg_get(self.cfg, "goal", "lower_stage_gate",
+                          default=0.0)) != 1.0:
+            return
+        hold_n = int(getattr(self, "_lower_ramp_i0", 0))
+        freeze = self._lower_gate_freeze_ticks
+        idx = self._step_i - freeze
+        if idx < hold_n:
+            return  # still inside the natural pre-ramp hold window
+        if idx >= len(self._goal_traj.height) - 1:
+            return  # ramp array already exhausted -- nothing to freeze
+        max_extra_s = float(cfg_get(
+            self.cfg, "goal", "lower_stage_gate_max_extra_s",
+            default=5.0))
+        max_extra_ticks = int(round(max_extra_s / self.dt))
+        if freeze >= max_extra_ticks:
+            return  # capped -- let the ramp proceed ungated from here
+        frac_min = float(cfg_get(
+            self.cfg, "goal", "lower_stage_planted_frac_min",
+            default=0.7))
+        load_ref_n = float(cfg_get(
+            self.cfg, "goal", "lower_stage_load_ref_n", default=1.0))
+        if self._lower_stage_planted_frac(load_ref_n) >= frac_min:
+            return  # sub-goal met this tick -- ramp advances normally
+        self._lower_gate_freeze_ticks = freeze + 1
 
     def _act_to_q(self, clipped: np.ndarray):
         """Map a clipped action to joint targets: (q_rad, ok, reason).
@@ -4087,6 +4196,8 @@ class SimHexapodBalanceEnv(_GymBase):
         self._is_hold_bc = mode in ("hold", "track")
         self._is_lower_bc = mode == "lower"
         self._rise_ramp_i0 = int(ramp_i0)
+        self._lower_ramp_i0 = int(ramp_i0)
+        self._lower_gate_freeze_ticks = 0
         self._rsi_pending = False
         self._rsi_ref_tick0 = None
         self._end_posture_from = None
@@ -4151,6 +4262,7 @@ class SimHexapodBalanceEnv(_GymBase):
         if getattr(self, "_seq_plan", None) is not None:
             self._seq_maybe_switch()
         self._rise_gate_tick()
+        self._lower_gate_tick()
         goal = self._current_goal()
         h_err = None
         h_rel = float(self.data.xpos[self._chassis_bid, 2]) - self._z0
@@ -6802,6 +6914,16 @@ class SimHexapodBalanceEnv(_GymBase):
                 # `risecurlgate-s1-canary2m` run despite being "on".
                 info["rise_gate_freeze_ticks"] = float(
                     self._rise_gate_freeze_ticks)
+            if self._is_lower_bc:
+                # Staged-descent sub-goal observability
+                # (goal.lower_stage_gate): nonzero whenever the height
+                # ramp is currently being deferred waiting on the
+                # planted-fraction sub-goal — the direct telltale that
+                # the mechanism is firing (env/lower_gate_freeze_ticks
+                # in W&B), same convention as the rise gate's own
+                # counter above.
+                info["lower_gate_freeze_ticks"] = float(
+                    self._lower_gate_freeze_ticks)
             if h_err is not None:   # getup mode has no height ref
                 info["height_err_mm"] = h_err * 1000.0
             if unload_f is not None:

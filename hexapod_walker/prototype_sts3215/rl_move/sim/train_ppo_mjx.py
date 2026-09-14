@@ -2987,6 +2987,22 @@ def main(argv: list[str] | None = None) -> int:
         algo_cls = make_heading_adv_norm_ppo_class(algo_cls)
         print("[mjx-train] per-heading advantage normalization ON "
               f"(cos_max={heading_adv_norm_cos_max})")
+    # Per-goal-mode advantage normalization (cfg-gated, default off --
+    # see rl_move/sim/goal_mode_adv_norm.py; the walkcurr hold-collapse
+    # STRUCTURAL fix, 09-13, escalated per tb-holdfee-6m/tb-holdmix-6m
+    # both FAIL-MECHANISM'ing their own dose-shaped repairs). Unlike
+    # heading_adv_norm this has NO obs-layout contract (keys off
+    # info["goal_mode"], not an obs column) so it is NOT gru-restricted.
+    goal_mode_adv_norm = bool(int(float(_parse_cfg_set(args.cfg_set).get(
+        "train.goal_mode_adv_norm", 0.0) or 0.0)))
+    goal_mode_adv_norm_min_group = int(float(_parse_cfg_set(
+        args.cfg_set).get("train.goal_mode_adv_norm_min_group", 8.0)
+        or 8.0))
+    if goal_mode_adv_norm:
+        from .goal_mode_adv_norm import make_goal_mode_adv_norm_ppo_class
+        algo_cls = make_goal_mode_adv_norm_ppo_class(algo_cls)
+        print("[mjx-train] per-goal-mode advantage normalization ON "
+              f"(min_group={goal_mode_adv_norm_min_group})")
 
     policy_cls: str | type = "MlpPolicy"
     extra_pk: dict = {}
@@ -4276,6 +4292,11 @@ def main(argv: list[str] | None = None) -> int:
         attach_heading_adv_norm(
             model, enabled=heading_adv_norm,
             cos_max=heading_adv_norm_cos_max, cfg=env_kw.get("cfg"))
+    if goal_mode_adv_norm:
+        from .goal_mode_adv_norm import attach_goal_mode_adv_norm
+        attach_goal_mode_adv_norm(
+            model, enabled=goal_mode_adv_norm,
+            min_group=goal_mode_adv_norm_min_group)
     # Update-path protection (fb_20260817T005114; default off).
     if args.actor_lr > 0.0:
         from .update_health import (CRITIC_MARKERS,
@@ -4849,6 +4870,11 @@ def main(argv: list[str] | None = None) -> int:
             from .heading_adv_norm import heading_adv_norm_wandb_payload
             payload.update(heading_adv_norm_wandb_payload(
                 getattr(self.model, "logger", None)))
+            # goal_mode_adv_norm diagnostics (walkcurr, 09-13): same
+            # W&B forwarding gap as heading_adv_norm above.
+            from .goal_mode_adv_norm import goal_mode_adv_norm_wandb_payload
+            payload.update(goal_mode_adv_norm_wandb_payload(
+                getattr(self.model, "logger", None)))
             if run is not None:
                 import wandb
                 wandb.log(payload)
@@ -4891,6 +4917,12 @@ def main(argv: list[str] | None = None) -> int:
               f"{population.member}, initial B{initial_bucket}")
 
     callbacks: list = [_Track()]
+    if goal_mode_adv_norm:
+        # Live per-step goal_mode capture -- required because
+        # rollout_buffer never persists per-step infos; GoalModeAdvNormPPO
+        # .train() reads model._goal_mode_step_labels this callback fills.
+        from .goal_mode_adv_norm import GoalModeCaptureCallback
+        callbacks.append(GoalModeCaptureCallback())
     if _prof_ramp_steps > 0:
         class _ProfileRampCb(BaseCallback):
             """Advance the servo-profile ramp once per rollout (see the

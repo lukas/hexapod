@@ -56,6 +56,13 @@ SNAP_ATTRS = (
     # step path tick by _rise_gate_tick -- the exact class of attr this
     # list exists to catch.
     "_rise_gate_freeze_ticks",
+    # Staged multi-phase descent (goal.lower_stage_gate, 2026-09-13
+    # walkcurr lowerdenseposture FAIL-MECHANISM escalation): the lower-
+    # mode mirror of the rise curl-gate pair just above — per-episode
+    # ramp-onset index (`_lower_ramp_i0`) + freeze counter
+    # (`_lower_gate_freeze_ticks`), set in reset/_seq_reset_mode_state,
+    # read/incremented every step-path tick by `_lower_gate_tick`.
+    "_lower_ramp_i0", "_lower_gate_freeze_ticks",
     # HOLD/TRACK BC-anchor eligibility (08-11, RL_PLAN queue 2.3): set
     # in _reset_finalize, read every step-path tick — the exact class
     # of attr this list exists to catch (see comment above).

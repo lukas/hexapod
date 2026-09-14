@@ -1,5 +1,89 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## The walkcurr flat-start-rise "27-lever" hunt was chasing the wrong variable: the over_current SAFETY TRIP itself (2.5A, below the actuator's own benign 2.64A torque rail) has been killing an ALREADY-SUCCESSFUL policy mid-lift all day, not a policy failure -- off-policy diagnostic shows the existing frozen checkpoint(s) already pass flat-start rise 12/12 once evaluated past the miscalibrated trip; two canary arms testing the real fix (raise the trip to cap29's own precedented 2.9A) launched (2026-09-14 ~15:1x, walkcurr track, refill cycle)
+
+One plain sentence: every one of today's 24 reward/curriculum/observation/
+architecture levers plus the 3-arm gravity-easing/mixture family (27 total)
+respec'd off the SAME warm-start checkpoint and were judged by the SAME
+`canary/rise_flat_a`/`_b` training-time metric and the SAME `over_current`
+eval termination -- and this cycle found that metric itself is broken, not
+the policy: `rl_move/safety.py`'s `over_current` trip fires at
+`safety.max_current_a` (default 2.5A) sustained for `over_current_trip_s`
+(0.8s), but the actuator's own forcerange rail saturates at EXACTLY 2.64A
+(2.2 N*m x 1.2 A/N*m -- `audit_over_current.py`'s documented constant, the
+same tool an 09-04 operator directive built and ruled "a bit-exact 2.64A
+pin is the rail image of actuator saturation, not an independently measured
+stall; rail hits alone never fail a run or close a mechanism -- corroborate
+with `audit_over_current.py` (CORROBORATED_STALL vs RAIL_MOVING)"). Because
+2.5 < 2.64, ANY tick where the flat-start lift genuinely needs near-max
+torque on any leg trips the safety layer regardless of whether the leg is
+actually stalled or just working hard and still rising -- and per
+`rl_move/safety.py`'s own code comment, "STS3215s tolerate short excursions
+past 2.5A harmlessly (the cooked knee took minutes at ~7A)", so a few
+seconds at 2.64A is nowhere near a real hardware risk. `standwalk`'s own
+`cap29` lineage already trains and ships at `safety.max_current_a=2.9`
+specifically because at that threshold "the estimator (railing at 2.64) can
+never trip" -- a precedented, already-accepted fix for the identical
+artifact that this walkcurr lineage never adopted.
+
+**This cycle's diagnostic (never previously run on this residual):**
+`rl_move/sim/eval_checkpoint.py --rollout-trace-out` + `audit_over_current.py`
+on 4 flat-start episodes of the SHARED base checkpoint
+(`ppo_goal_cw_stance50hz_rlonly_risecurlpretrain_s1_canary2m.zip`, run with
+`safety.max_current_a=999` to see past the would-be trip): 4/4 classify
+`RAIL_MOVING`, never `CORROBORATED_STALL` -- during the exact window that
+WOULD trip at 2.5A/0.8s (t=1.3-4.8s), the hot joint's median |qvel| is
+0.127-0.128 rad/s (far above the 0.05 rad/s stall floor) and height rises
++76.5mm in that same window (`/tmp/oc_audit_flatstart/audit_trip25.json`).
+At `trip_a=2.9` the same traces read `RAIL_TRANSIENT`, `would_trip=False`
+for all 4 (`audit_trip29.json`) -- confirming the documented cap29 fact
+holds here too. Re-running the SAME checkpoint's own standard flat-start
+probe (`goal.rise_flat_frac=1.0`, `dr_scale=0.0`, n=12 det+sto, true
+gravity, `--cfg-set safety.max_current_a=2.9`, everything else identical to
+every prior "closed" probe on this residual) reads **12/12 SUCCESS**
+(`height_err_end_mm` 0.3-5.5mm, zero terminations, `valid_plant=true`,
+`roll_class=clean` every episode --
+`logs/ckpt_eval/cw_stance50hz_rlonly_risecurlpretrain_s1_canary2m_riseflat_maxcur29_full/report.json`).
+Repeated on `cw-stance50hz-rlonly-currate-mod-s1-canary2m-rr1`'s own final
+checkpoint -- one of TODAY'S OWN "CANARY FAIL - MECHANISM" verdicts --
+with the identical fix: **ALSO 12/12**
+(`logs/ckpt_eval/cw_stance50hz_rlonly_currate_mod_rr1_riseflat_maxcur29/report.json`).
+Both checkpoints were trained entirely under the UNCORRECTED 2.5A trip and
+still already solve flat-start rise once you stop killing the episode
+before it finishes -- the entire 27-lever "hunt" was very likely re-testing
+an already-solved behavior against a broken scoreboard, and each lever's
+declining/negative reward trend is consistent with `term_cost_per_remaining_s`
+(up to 60/episode) repeatedly punishing a policy for a termination it did
+not deserve, which independently explains why so many arms showed reward
+GETTING WORSE with more training (previously unexplained; not investigated
+by any of those triage entries).
+
+**Binding for the next reader:** this does NOT retroactively flip the 27
+recorded verdicts (each was a fair read of the metric as it existed at the
+time; none of the reward/curriculum/architecture levers are shown wrong on
+their own terms, only moot) -- but it DOES mean "flat-start rise at nominal
+gravity" should not be re-attacked with a 28th reward/curriculum lever
+without first re-scoring the existing lineage at the corrected threshold.
+**Launched this cycle** (`rl_move/orchestrator/launch_run.py respec`, no
+code change -- `safety.max_current_a` is a pre-existing cfg key, this is a
+per-run `--cfg` override exactly like cap29's own precedent, not a shared
+default change): `cw-stance50hz-rlonly-currentcap29-{s1,s3}-canary2m`, both
+off `currate-mod-s1-canary2m-rr1`'s own closed-levers-off baseline with
+`k_current_rate` zeroed back out (isolating JUST the threshold fix) and
+`safety.max_current_a=2.9` added, `--phase canary`, gate = the same
+`canary/rise_flat_a`/`_b` metric every prior lever used (first live-training
+positive would close the loop end-to-end, not just off-policy). If this
+canary confirms, the next step is a full acquisition-budget continuation
+(the off-policy evidence above already looks like acquisition-grade
+evidence) and re-scoring whether `hold`/`lower`/subsequent stages also
+benefit from no longer being killed early during the shared rise phase.
+Evidence: `/tmp/oc_audit_flatstart/{audit_trip25,audit_trip29}.json`;
+`logs/ckpt_eval/cw_stance50hz_rlonly_risecurlpretrain_s1_canary2m_riseflat_maxcur29_full/`;
+`logs/ckpt_eval/cw_stance50hz_rlonly_currate_mod_rr1_riseflat_maxcur29/`;
+`rl_move/safety.py` (`max_current`, `over_current_trip_s` comments);
+`rl_move/sim/audit_over_current.py`; `ops.sh entry cw-stance50hz-rlonly-
+currentcap29-{s1,s3}-canary2m`.
+
 ## Structured per-leg MASS/CoM asymmetry (the last DESIGN.md-named untried mechanism family) is a clean NULL for the PS200 roll signature; the speed track's frozen-policy-probe diagnostic sequence is now fully exhausted (2026-09-14 ~14:3x, speed track, refill cycle)
 
 Built `dr.leg_mass_bias_pct`/`dr.leg_mass_bias_group`

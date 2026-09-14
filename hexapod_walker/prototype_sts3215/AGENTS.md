@@ -125,6 +125,14 @@ SSH access.
 
 ## Robot safety
 
+Read [RECOVERY_LESSONS.md](RECOVERY_LESSONS.md) before building another recovery
+routine. Start with proven routes, distinguish raw joint angles from logical
+tibia angles, and verify actual support/body clearance. A commanded five-leg
+stance is not an observed five-leg stand; all-off after each nudge can erase
+every gain. Use the [observation helper](linux_control/ROBOT_OBSERVE.md) for
+repeated evidence collection. Preserve standing authorization and canonical
+hold/controlled-stop/limp decisions below.
+
 The user grants standing authority for bounded physical experiments,
 necessary deployment (including relevant firmware), and routine recovery within
 an active robot task without repeated authorization questions. Work in the

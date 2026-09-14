@@ -89,6 +89,7 @@ files = [
     "linux_control/status_display.py",
     "linux_control/deploy_status_display.py",
     "linux_control/video_contact_sheet.py",
+    "linux_control/robot_observe.py",
     "linux_control/housing_pose.py",
     "linux_control/apriltag_vision.py",
     "linux_control/foot_tip_tracking.py",
@@ -441,6 +442,10 @@ hex_deploy_fast() {
     "$HEX_LC_DIR/deploy_ssh.sh"
 }
 
+hex_observe() {
+  hex_py -m linux_control.robot_observe --robot-url "$HEXAPOD_HOST" "$@"
+}
+
 hex_commit_push() {
   if [ "$#" -lt 2 ]; then
     echo "usage: hex_commit_push 'commit message' path [path ...]" >&2
@@ -463,6 +468,7 @@ Fast hexapod dev-loop helpers:
   hex_unit_check     hex_check plus fake-bus/off-robot unit tests.
   hex_resolve        Refresh/print cached robot IP for hexapod.local.
   hex_status         Read-only /api/ping + compact /api/robot summary.
+  hex_observe        Read-only status/snapshot/watch/trial; --help for arguments.
   hex_deploy         hex_check, deploy_ssh.sh, remote compile, hex_status.
   hex_deploy_fast    hex_check, deploy_ssh.sh only; deploy waits for /api/ping.
   hex_commit_push    Commit/push explicit paths only:
@@ -470,6 +476,7 @@ Fast hexapod dev-loop helpers:
 
 Environment:
   HEXAPOD_HOST       default http://hexapod.local:8080
+  HEXAPOD_CAMERA_URL Camera service URL for hex_observe snapshot (explicit).
   HEXAPOD_SSH        default arduino@hexapod.local
   HEXAPOD_SSH_HOSTKEY_ALIAS default hexapod.local
   HEX_REMOTE_ROOT    default /home/arduino/hexapod_sts
@@ -486,6 +493,7 @@ if [ "$_HEX_EXECUTED" = "1" ]; then
     unit-check) hex_unit_check "$@" ;;
     resolve) hex_resolve "$@" ;;
     status) hex_status "$@" ;;
+    observe) hex_observe "$@" ;;
     deploy) hex_deploy "$@" ;;
     deploy-fast) hex_deploy_fast "$@" ;;
     remote-compile) hex_remote_compile "$@" ;;

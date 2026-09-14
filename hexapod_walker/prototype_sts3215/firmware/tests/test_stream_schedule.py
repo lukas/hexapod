@@ -39,6 +39,10 @@ struct SerialMock {
   int remaining = 0;
   int available() { return remaining; }
   int read() { --remaining; return 'S'; }
+  // loop() drains the host UART TX before a host-triggered refresh pass
+  // (70b8bb569, 2026-09-10); the harness needs the same surface. Not an
+  // acquisition event, so it is not recorded.
+  void flush() {}
 } Serial1;
 void execParked() { events.push_back("parked"); parkedKind = 0; }
 void replyErr() { events.push_back("error"); }

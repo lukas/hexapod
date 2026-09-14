@@ -146,7 +146,7 @@ class DriveController:
         self.gait = self._new_demo_tripod_gait()
         self.armed = False
         self.mode = "idle"  # idle | stand | walk
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._loop_overruns = 0
@@ -262,6 +262,84 @@ class DriveController:
             raise RuntimeError(
                 f"torque {action} not acknowledged for "
                 f"{len(failures)} servo(s): {detail}")
+
+    def arm_at_present(self, torque_limit: int, abort_check=None) -> None:
+        """Preload all raw present counts at limited torque before enabling.
+
+        Only for a disarmed, observed stable robot. This avoids old goals on
+        re-enable; it does not establish pose calibration or support safety.
+        """
+        if type(torque_limit) is not int or not 150 <= torque_limit <= 1000:
+            raise ValueError("arm torque limit must be an integer in 150..1000")
+        with self._lock:
+            if self.armed:
+                raise RuntimeError("arm_at_present requires a disarmed controller")
+            if self.dry_run or self.bus is None:
+                raise RuntimeError("arm_at_present requires the motor bus")
+            bus = self.bus
+            ids = [joint_to_servo_id(j) for j in range(N_JOINTS)]
+            check = abort_check or (lambda: False)
+
+            def aborted():
+                if check():
+                    raise RuntimeError("arming aborted before target motion")
+
+            def read(sid, address, size=2):
+                fn = bus.pkt.read1ByteTxRx if size == 1 else bus.pkt.read2ByteTxRx
+                for _ in range(3):
+                    value, comm, error = fn(sid, address)
+                    if comm == 0 and error == 0:
+                        return value
+                raise RuntimeError(f"servo {sid} register {address} unavailable")
+
+            try:
+                counts = {}
+                for sid in ids:
+                    aborted()
+                    if read(sid, ADDR_TORQUE_ENABLE, 1) != 0:
+                        raise RuntimeError(f"servo {sid} torque is not off before arming")
+                    count = read(sid, 56)
+                    if type(count) is not int or not 0 <= count <= 4095:
+                        raise RuntimeError(f"servo {sid} has an invalid raw encoder count")
+                    counts[sid] = count
+                for sid in ids:
+                    aborted()
+                    _, comm, error = bus.pkt.write2ByteTxRx(sid, 48, torque_limit)
+                    if comm != 0 or error != 0 or read(sid, 48) != torque_limit:
+                        raise RuntimeError(f"servo {sid} torque limit was not verified")
+                for sid in ids:
+                    aborted()
+                    # Raw counts deliberately bypass trims and soft-limit
+                    # clamping: a present-position hold must mean exactly here.
+                    if bus.pkt.WritePosEx(sid, counts[sid], 90, 4) != 0:
+                        raise RuntimeError(f"servo {sid} current-position preload failed")
+                    if read(sid, 42) != counts[sid]:
+                        raise RuntimeError(f"servo {sid} current-position preload unverified")
+                for sid in ids:
+                    aborted()
+                    bus.torque(sid, True)
+                    if read(sid, ADDR_TORQUE_ENABLE, 1) != 1:
+                        raise RuntimeError(f"servo {sid} torque enable was not verified")
+                aborted()
+                self.armed = True
+                self.status = "armed at present pose"
+            except Exception as exc:
+                failures = []
+                for sid in ids:
+                    try:
+                        bus.torque(sid, False)
+                        if read(sid, ADDR_TORQUE_ENABLE, 1) != 0:
+                            raise RuntimeError("torque remains on")
+                    except Exception as stop_exc:
+                        failures.append(f"{sid}: {stop_exc}")
+                self.armed = False
+                self.mode = "idle"
+                self.status = ("arm failed; torque state unverified" if failures
+                               else "arm failed; torque off verified")
+                if failures:
+                    raise RuntimeError(f"{exc}; torque-off unverified: "
+                                       + "; ".join(failures)) from exc
+                raise
 
     def _read_present_pose(self) -> list[float | None]:
         if not self.bus:
@@ -586,8 +664,11 @@ class DriveController:
         cmd = parts[0].upper()
 
         if cmd in ("ARM",):
-            self._torque_all(True)
-            self.armed = True
+            if not self.armed:
+                if self.dry_run:
+                    self.armed = True
+                else:
+                    self.arm_at_present(450)
             self.mode = "idle"
             self.status = "armed"
             return "armed"

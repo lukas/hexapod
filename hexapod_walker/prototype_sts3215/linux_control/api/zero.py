@@ -74,13 +74,12 @@ class ZeroApi:
 
         def _worker():
             d = self.drive
-            with d._lock:
-                d.mode = "demo"
-                if not d.armed:
-                    d._torque_all(True)
-                    d.armed = True
             result: dict = {}
             try:
+                with d._lock:
+                    d.mode = "demo"
+                    if not d.armed:
+                        d.arm_at_present(700, abort_check=self._demo_abort.is_set)
                 self._bus_hot_begin()
 
                 def _prog(p: dict) -> None:
@@ -832,12 +831,6 @@ class ZeroApi:
 
         def _worker():
             d = self.drive
-            with d._lock:
-                d.mode = "demo"
-                d.gait.stop()
-                if not d.armed:
-                    d._torque_all(True)
-                    d.armed = True
             result: dict = {}
             try:
                 from event_log import emit
@@ -849,6 +842,11 @@ class ZeroApi:
             except Exception:
                 pass
             try:
+                with d._lock:
+                    d.mode = "demo"
+                    d.gait.stop()
+                    if not d.armed:
+                        d.arm_at_present(700, abort_check=self._demo_abort.is_set)
                 self._bus_hot_begin()
 
                 def _prog(dct: dict) -> None:
@@ -912,4 +910,3 @@ class ZeroApi:
             "demo": self.demo_state(),
             "robot": self.robot_state(),
         }
-

@@ -793,8 +793,7 @@ class CoreApi:
                 d.mode = "demo"
                 d.gait.stop()
                 if not d.armed:
-                    d._torque_all(True)
-                    d.armed = True
+                    d.arm_at_present(torque, abort_check=self._demo_abort.is_set)
             self._bus_hot_begin()
             live = _live_robot_ids(d.bus)
             if not live:

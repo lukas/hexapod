@@ -189,14 +189,9 @@ class StandupApi:
 
         def _worker():
             d = self.drive
-            with d._lock:
-                d.mode = "demo"
-                d.gait.stop()
-                if not d.armed:
-                    d._torque_all(True)
-                    d.armed = True
             live = _live_robot_ids(d.bus)
             tracker = CurrentPeakTracker()
+            arm_ready = d.armed
             result: dict = {"ok": False, "mode": mode,
                             "direction": direction}
             # Worker-local copy: the down path drops the wide frame
@@ -213,6 +208,12 @@ class StandupApi:
             except Exception:
                 pass
             try:
+                with d._lock:
+                    d.mode = "demo"
+                    d.gait.stop()
+                    if not d.armed:
+                        d.arm_at_present(torque, abort_check=self._demo_abort.is_set)
+                    arm_ready = True
                 self._bus_hot_begin()
 
                 def _acq_prog(p: dict) -> None:
@@ -656,7 +657,10 @@ class StandupApi:
                 if gen != self._demo_gen:
                     return
                 try:
-                    _set_torque_limit(d.bus, live, 1000)
+                    # A failed preparation may have unverified torque-off;
+                    # never raise its limit in the generic worker cleanup.
+                    if arm_ready:
+                        _set_torque_limit(d.bus, live, 1000)
                 except Exception:
                     pass
                 with d._lock:
@@ -712,4 +716,3 @@ class StandupApi:
     MEAS_MAX_HOLD_S = 120.0
     MEAS_TILT_STOP_DEG = 30.0   # working gait rocks ±10-20°; 30 = wrong
     MEAS_POLL_S = 0.3
-

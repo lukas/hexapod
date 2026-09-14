@@ -112,6 +112,33 @@ def start_kind_of(traj: Any) -> str:
     return "plant"
 
 
+def current_sense_obs_dim(cfg: dict) -> int:
+    """Extra obs width contributed by the optional per-joint current-sense
+    channel (see ``build_obs``). ``N_JOINTS`` when ``obs.current_sense=1``,
+    0 (default) otherwise -- callers that size their ``observation_space``
+    off ``N_OBS``/``GOAL_DIM``/etc. must add this so the box width matches
+    what ``build_obs`` actually returns.
+
+    2026-09-14 walkcurr flat-start-rise residual (22/22+3 mechanism
+    families closed on the over_current fingerprint -- reset timing,
+    reward pricing, action gating, leg-order, batch-composition,
+    gravity easing/anneal/persistent-mixture all null, see STATUS.md):
+    every closed lever changed how hard the task is or how the
+    trajectory is priced/sequenced, but none gave the policy the one
+    signal a real servo actually has and the sim already computes every
+    tick (``state.servo_current``, read into reward/safety-termination
+    at ``sim_env.py`` but never into the observation) -- the policy has
+    to infer proximity to the 2.5 A trip purely from joint position/
+    velocity, with no direct proprioceptive load feedback, unlike a real
+    controller with current-limit telemetry. This is observation-space
+    plumbing (task-difficulty/curriculum-adjacent, not a motion prior,
+    teacher, or demonstration), so it stays in scope for `rl_only`
+    lineages under the 2026-09-13 operator clarification. Default OFF
+    (bit-exact obs width/values for every existing cfg)."""
+    return (N_JOINTS if float(cfg_get(
+        cfg, "obs", "current_sense", default=0.0)) == 1.0 else 0)
+
+
 def build_obs(cfg: dict, state: RobotState, q_nom: np.ndarray,
               prev_action: np.ndarray,
               goal: "TaskGoal | None" = None,
@@ -124,6 +151,16 @@ def build_obs(cfg: dict, state: RobotState, q_nom: np.ndarray,
     at an angle, sloped floor) that neither the policy nor the goal refs
     could ever null out. The goal refs use the same tilt scaling, so the
     policy sees reference and measurement in identical units.
+
+    ``obs.current_sense`` (default 0/OFF, bit-exact when off): appends
+    the per-joint servo current (A, see ``state.servo_current`` --
+    already computed every tick from actuator torque/load, just never
+    previously exposed to the policy), scaled by ``obs.current_scale``
+    (default 1.0 A). Falls back to zeros when the state has no current
+    reading (real hardware without a completed full-feedback read) so
+    the obs width stays fixed regardless of feedback availability that
+    tick. See ``current_sense_obs_dim`` for the width contract callers
+    must add to their ``observation_space``.
     """
     qs = float(cfg_get(cfg, "obs", "q_scale", default=1.0))
     qds = float(cfg_get(cfg, "obs", "qd_scale", default=2.0))
@@ -138,6 +175,14 @@ def build_obs(cfg: dict, state: RobotState, q_nom: np.ndarray,
     parts = [q_rel, qd, tilt, gyro, prev_action]
     if goal is not None:
         parts.append(goal.as_obs(cfg))
+    if current_sense_obs_dim(cfg) > 0:
+        cscale = float(cfg_get(cfg, "obs", "current_scale", default=1.0))
+        if state.servo_current is not None:
+            parts.append(
+                np.asarray(state.servo_current, dtype=float)
+                / max(cscale, 1e-6))
+        else:
+            parts.append(np.zeros(N_JOINTS, dtype=float))
     return np.concatenate(parts).astype(np.float32)
 
 

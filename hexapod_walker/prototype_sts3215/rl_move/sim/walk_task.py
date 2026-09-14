@@ -41,7 +41,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from rl_move.config import cfg_get
-from rl_move.env import GOAL_DIM, TaskGoal
+from rl_move.env import GOAL_DIM, TaskGoal, current_sense_obs_dim
 from rl_move.robot_state import DEG2RAD, N_JOINTS
 from .joint_task import SimHexapodJointGoalEnv
 from .goal_task import GoalTrajectory
@@ -1469,7 +1469,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 + (1 if self._yaw_cmd else 0)
                 + (N_MODE_OBS if self._mode_obs else 0)
                 + (N_JOINTS if self._recover_plant_q_obs else 0)
-                + (N_JOINTS if self._fault_obs else 0))
+                + (N_JOINTS if self._fault_obs else 0)
+                + current_sense_obs_dim(self.cfg))
 
     def _augment_obs(self, obs: np.ndarray, *,
                      reset: bool = False) -> np.ndarray:

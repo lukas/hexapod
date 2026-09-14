@@ -3003,6 +3003,24 @@ def main(argv: list[str] | None = None) -> int:
         algo_cls = make_goal_mode_adv_norm_ppo_class(algo_cls)
         print("[mjx-train] per-goal-mode advantage normalization ON "
               f"(min_group={goal_mode_adv_norm_min_group})")
+    # Per-goal-mode DISJOINT-minibatch PPO training (cfg-gated, default
+    # off -- see rl_move/sim/goal_mode_batch_split.py; the walkcurr
+    # hold-collapse escalation named by the goal_mode_adv_norm gate,
+    # 09-14, after scale-parity-alone was refuted at 6M). Mutually
+    # exclusive in intent with goal_mode_adv_norm ("instead of another
+    # shared-batch re-weighting") but both default off/bit-exact so no
+    # hard guard is needed.
+    goal_mode_batch_split = bool(int(float(_parse_cfg_set(args.cfg_set).get(
+        "train.goal_mode_batch_split", 0.0) or 0.0)))
+    goal_mode_batch_split_min_group = int(float(_parse_cfg_set(
+        args.cfg_set).get("train.goal_mode_batch_split_min_group", 8.0)
+        or 8.0))
+    if goal_mode_batch_split:
+        from .goal_mode_batch_split import (
+            make_goal_mode_batch_split_ppo_class)
+        algo_cls = make_goal_mode_batch_split_ppo_class(algo_cls)
+        print("[mjx-train] per-goal-mode disjoint-minibatch PPO ON "
+              f"(min_group={goal_mode_batch_split_min_group})")
 
     policy_cls: str | type = "MlpPolicy"
     extra_pk: dict = {}
@@ -4297,6 +4315,11 @@ def main(argv: list[str] | None = None) -> int:
         attach_goal_mode_adv_norm(
             model, enabled=goal_mode_adv_norm,
             min_group=goal_mode_adv_norm_min_group)
+    if goal_mode_batch_split:
+        from .goal_mode_batch_split import attach_goal_mode_batch_split
+        attach_goal_mode_batch_split(
+            model, enabled=goal_mode_batch_split,
+            min_group=goal_mode_batch_split_min_group)
     # Update-path protection (fb_20260817T005114; default off).
     if args.actor_lr > 0.0:
         from .update_health import (CRITIC_MARKERS,
@@ -4875,6 +4898,12 @@ def main(argv: list[str] | None = None) -> int:
             from .goal_mode_adv_norm import goal_mode_adv_norm_wandb_payload
             payload.update(goal_mode_adv_norm_wandb_payload(
                 getattr(self.model, "logger", None)))
+            # goal_mode_batch_split diagnostics (walkcurr, 09-14): same
+            # W&B forwarding gap as goal_mode_adv_norm above.
+            from .goal_mode_batch_split import (
+                goal_mode_batch_split_wandb_payload)
+            payload.update(goal_mode_batch_split_wandb_payload(
+                getattr(self.model, "logger", None)))
             if run is not None:
                 import wandb
                 wandb.log(payload)
@@ -4917,10 +4946,12 @@ def main(argv: list[str] | None = None) -> int:
               f"{population.member}, initial B{initial_bucket}")
 
     callbacks: list = [_Track()]
-    if goal_mode_adv_norm:
+    if goal_mode_adv_norm or goal_mode_batch_split:
         # Live per-step goal_mode capture -- required because
         # rollout_buffer never persists per-step infos; GoalModeAdvNormPPO
-        # .train() reads model._goal_mode_step_labels this callback fills.
+        # / GoalModeBatchSplitPPO .train() both read
+        # model._goal_mode_step_labels this callback fills. Appended
+        # once even if (unusually) both flags are on.
         from .goal_mode_adv_norm import GoalModeCaptureCallback
         callbacks.append(GoalModeCaptureCallback())
     if _prof_ramp_steps > 0:

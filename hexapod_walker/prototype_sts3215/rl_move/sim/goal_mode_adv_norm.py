@@ -102,23 +102,33 @@ def attach_goal_mode_adv_norm(model, *, enabled: bool,
     model._goal_mode_step_labels = []
 
 
+def _goal_mode_capture_wanted(model) -> bool:
+    """Any consumer of the shared `model._goal_mode_step_labels`
+    capture (currently `goal_mode_adv_norm` and, 09-14,
+    `goal_mode_batch_split`) sets its OWN `..._enabled` flag via its
+    own `attach_...` function; the callback fires if ANY of them is
+    live, so the two mechanisms never need to duplicate capture
+    wiring or know about each other beyond this one flag-name list."""
+    return bool(getattr(model, "goal_mode_adv_norm_enabled", False)
+               or getattr(model, "goal_mode_batch_split_enabled", False))
+
+
 class GoalModeCaptureCallback(BaseCallback):
     """Records this rollout's per-step, per-env `info["goal_mode"]`
     into `model._goal_mode_step_labels` (a list of length-n_envs lists,
     one per collected step, reset at the start of every rollout) so
-    `GoalModeAdvNormPPO.train()` can group `rollout_buffer.advantages`
-    by mode before `super().train()` consumes the buffer. A pure
-    no-op whenever `model.goal_mode_adv_norm_enabled` is not set
-    (`attach_goal_mode_adv_norm` never ran, or ran with enabled=False)
-    -- safe to construct unconditionally, though callers only append
-    it when the cfg flag is on."""
+    `GoalModeAdvNormPPO.train()` / `GoalModeBatchSplitPPO.train()` can
+    group the rollout by mode before `super().train()` consumes the
+    buffer. A pure no-op whenever neither consumer is armed (see
+    `_goal_mode_capture_wanted`) -- safe to construct unconditionally,
+    though callers only append it when at least one cfg flag is on."""
 
     def _on_rollout_start(self) -> None:
-        if getattr(self.model, "goal_mode_adv_norm_enabled", False):
+        if _goal_mode_capture_wanted(self.model):
             self.model._goal_mode_step_labels = []
 
     def _on_step(self) -> bool:
-        if getattr(self.model, "goal_mode_adv_norm_enabled", False):
+        if _goal_mode_capture_wanted(self.model):
             infos = self.locals.get("infos") or ()
             self.model._goal_mode_step_labels.append(
                 [str(info.get("goal_mode", "")) for info in infos])

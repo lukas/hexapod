@@ -356,6 +356,11 @@ class MotorSetup:
         uses cap 500. Only calibrated raw L1 knee (joint5) may start outside
         soft limits: it may hold or move monotonically toward/into range,
         never farther outside. Encoder counts always remain within 0..4095.
+        five_leg_unfold retains those twelve joints and effort limits for
+        exactly two phases: equal 5..10-degree planting moves (knee2
+        negative, knee5/hips7,10,16 positive), then knee14 outward 5..30
+        degrees. Its phases allow 4/6 seconds, 10 total, with 3-degree
+        settling; joint positions alone do not establish foot contact.
         This never re-zeros or returns home.
         """
         from feetech_bus import COUNTS_PER_DEG, JOINT_SIGN, count_to_deg, joint_limits
@@ -365,17 +370,22 @@ class MotorSetup:
         effort_profile = data.get('effort_profile')
         if 'effort_profile' in data and effort_profile not in (
                 'l4_30pct', 'l4_50pct', 'l4_sweep50', 'two_knees_50pct', 'two_knees_sweep50',
-                'five_leg_support'):
+                'five_leg_support', 'five_leg_unfold'):
             raise ValueError('Unknown recovery effort profile.')
-        five_leg_support = effort_profile == 'five_leg_support'
+        five_leg_unfold = effort_profile == 'five_leg_unfold'
+        five_leg_support = effort_profile in ('five_leg_support', 'five_leg_unfold')
         knee_sweep = effort_profile in ('l4_sweep50', 'two_knees_sweep50')
         two_knees = effort_profile in ('two_knees_50pct', 'two_knees_sweep50')
         effort_joints = {2, 14} if two_knees else {14} if effort_profile else set()
-        phase_settle_tolerance = 3. if two_knees else 2.
+        phase_settle_tolerance = 3. if two_knees or five_leg_unfold else 2.
         profile_cap, profile_current, profile_load, delta_bound = (
             (500, .75, 53., 30 if knee_sweep else 10)
             if effort_profile in ('l4_50pct', 'l4_sweep50') or two_knees else (300, .5, 33., 5))
+        if five_leg_unfold:
+            delta_bound = 30
         phased = 'phases' in data
+        if five_leg_unfold and not phased:
+            raise ValueError('five_leg_unfold requires exactly two phases.')
         if knee_sweep and phased:
             raise ValueError(f'{effort_profile} permits one sweep only, without phases.')
         if phased and ('deltas_deg' in data or not isinstance(data['phases'], list)
@@ -395,10 +405,12 @@ class MotorSetup:
                 or len(set(holds)) != len(holds)):
             raise ValueError(f'hold_joints must contain distinct joints from {allowed_names}.')
         phase_offsets, phase_pairs = [], []
-        for deltas in phase_deltas:
-            if (not isinstance(deltas, dict) or len(deltas) > 2 or (phased and not deltas)
+        for phase_number, deltas in enumerate(phase_deltas):
+            max_movers = 5 if five_leg_unfold and phase_number == 0 else 2
+            if (not isinstance(deltas, dict) or len(deltas) > max_movers or (phased and not deltas)
                     or any(key not in allowed_keys for key in deltas)):
-                raise ValueError(f'Choose at most two moving joints from {allowed_names} per phase.')
+                count_name = 'five' if max_movers == 5 else 'two'
+                raise ValueError(f'Choose at most {count_name} moving joints from {allowed_names} per phase.')
             offsets = {}
             for key, delta in deltas.items():
                 if (type(delta) not in (int, float) or not math.isfinite(delta)
@@ -419,7 +431,18 @@ class MotorSetup:
             raise ValueError('A joint cannot both move and hold.')
         if five_leg_support:
             if moving | set(holds) != allowed:
-                raise ValueError('five_leg_support requires all twelve pitch joints as movers or holds.')
+                raise ValueError(f'{effort_profile} requires all twelve pitch joints as movers or holds.')
+            if five_leg_unfold:
+                first, second = phase_deltas
+                if (set(holds) != {1, 4, 8, 11, 13, 17}
+                        or set(first) != {'2', '5', '7', '10', '16'}
+                        or not 5 <= first['5'] <= 10
+                        or any(first[str(j)] != (-first['5'] if j == 2 else first['5'])
+                               for j in (2, 5, 7, 10, 16))
+                        or set(second) != {'14'} or not -30 <= second['14'] <= -5):
+                    raise ValueError('five_leg_unfold requires equal 5..10-degree phase1 moves '
+                                     '(2 negative; 5,7,10,16 positive), phase2 knee14 -30..-5, '
+                                     'and holds1,4,8,11,13,17.')
         elif two_knees:
             if (set(holds) != {1, 13, 16, 17}
                     or any(set(d) != {'2', '14'} or d['2'] != d['14']
@@ -445,7 +468,9 @@ class MotorSetup:
                                     if j in effort_joints else (200, .25, 23.))
         phase_index = 0
         offsets, pair_joints = phase_offsets[0], phase_pairs[0]
-        duration = 6.0 if knee_sweep else 3.0 if offsets else 1.0
+        duration = 4.0 if five_leg_unfold else 6.0 if knee_sweep else 3.0 if offsets else 1.0
+        phase_durations = [4., 6.] if five_leg_unfold else [duration] * len(phase_offsets)
+        total_duration = sum(phase_durations)
         self.abort.clear()
         with self.lock, self.drive._lock:
             bus = self._ready()
@@ -488,7 +513,7 @@ class MotorSetup:
             result = dict(ok=False, joint_frame='servo_relative', joints={}, torque_off=False,
                           active_seconds=0., pair_error_deg=0., max_pair_error_deg=0., pair_fault_reads=0,
                           effort_profile=effort_profile or 'default',
-                          active_time_limit_s=6. if phased else duration,
+                          active_time_limit_s=total_duration,
                           phase_settle_tolerance_deg=phase_settle_tolerance,
                           knee_progress_mismatch_deg=0., max_knee_progress_mismatch_deg=0.,
                           knee_progress_fault_reads=0)
@@ -501,6 +526,9 @@ class MotorSetup:
             if phased:
                 result.update(phase_index=1, phases=[dict(index=i + 1, deltas_deg=dict(d),
                               settled=False) for i, d in enumerate(phase_deltas)])
+                if five_leg_unfold:
+                    for phase, phase_limit in zip(result['phases'], phase_durations):
+                        phase['time_limit_s'] = phase_limit
             homes, targets, limits, pair_homes = {}, {}, {}, {}
             planned_targets = [{} for _ in phase_offsets]
             phase_start = None
@@ -716,7 +744,7 @@ class MotorSetup:
                     result['joints'][str(j)]['accepted_goal_counts'] = homes[j]
                 active_start = time.monotonic()
                 deadline = active_start + duration
-                total_deadline = active_start + 6. if phased else deadline
+                total_deadline = active_start + total_duration
                 phase_start = active_start
                 if phased:
                     result['phases'][0].update(started_active_s=0., start_counts=dict(homes),
@@ -779,7 +807,7 @@ class MotorSetup:
                                 row.update(role='move' if j in offsets else 'hold',
                                            target_counts=targets[j], target_deg=count_to_deg(j, targets[j]))
                             phase_start = transition_time
-                            deadline = min(total_deadline, phase_start + 3.)
+                            deadline = min(total_deadline, phase_start + phase_durations[phase_index])
                             result['phases'][1].update(started_active_s=phase_start - active_start,
                                                       start_counts=dict(positions), target_counts=dict(targets))
                             settled_scans.clear()

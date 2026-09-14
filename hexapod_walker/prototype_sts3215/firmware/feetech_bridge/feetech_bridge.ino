@@ -1707,10 +1707,11 @@ static void execParked() {
 }
 
 void loop() {
-  unsigned long now = millis();
   // A frame parked during the synchronous (non-streaming) 'S' passes
   // must still run; parked work always precedes new ring bytes.
   if (parkedKind != 0) execParked();
+  // Parked execution can pump host bytes and advance their timestamps.
+  unsigned long now = millis();
   // Desync guard: a torn binary frame (host retry after timeout) must
   // not eat the next frame's header as payload.
   if (binState != 0 && now - lastHostMs > HOST_BIN_DESYNC_MS) {
@@ -1779,6 +1780,10 @@ void loop() {
       return;
     }
   }
+  // Acquisition can pump a partial host command without parking it. Its
+  // lastHostMs can then be newer than loop-entry now; refresh before unsigned
+  // elapsed checks or that subtraction wraps and falsely triggers auto-limp.
+  now = millis();
   if (!hostSeen) {
     // Boot counter until Linux first speaks; afterwards the host owns
     // the panel (DX schematic / DJ job screens).

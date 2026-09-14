@@ -2152,8 +2152,66 @@ class SimHexapodBalanceEnv(_GymBase):
         # unscaled values from scratch.
         self._ease_orig_gravity_vec = None
         self._ease_orig_vel_scale = None
-        _e_g = float(cfg_get(self.cfg, "ease", "gravity_scale",
-                             default=1.0))
+        # ease.gravity_scale_dr_{lo,hi} (2026-09-14, walkcurr flat-start-
+        # rise gravity-ANNEAL grid closure): the pre-existing
+        # sched.*-driven ease.gravity_scale ramp is a single GLOBAL
+        # value shared by every one of the run's parallel envs at a
+        # given tick (sched.n_envs converts local ticks to one process-
+        # wide "global step" clock) -- a sequential curriculum that
+        # only ever contains the easy end early and the hard end late.
+        # The 3-arm anneal grid (anneal4m/anneal8m/anneal8m-lowlr, all
+        # warm-started off the eased-gravity flat-start-rise PASS
+        # snapshot s1048576) closed 3/3 at TRUE nominal gravity this
+        # cycle: anneal4m stagnated (SEED-PRUNED), anneal8m forgot the
+        # skill by 2M steps of ramp, anneal8m-lowlr merely forgot more
+        # slowly (retained the 0.4g behavior through all 11M steps) but
+        # its own explicit nominal-gravity probe (ease/sched stripped,
+        # true g, n=12 det+sto) still reads 0/12, identical over_current
+        # fingerprint to the un-annealed baseline -- despite the
+        # schedule having reached v1=1.0 by step 8.5M, 2.5M steps
+        # before the run ended. A synchronized global ramp forgets the
+        # easy end wholesale once it passes, whether slowly (low LR) or
+        # quickly (default LR); it never actually verified the policy
+        # could do the flat-start task at nominal gravity DURING
+        # training, only that it could recite the eased-gravity
+        # solution. This is a genuinely different mechanism, not
+        # another anneal dose: each EPISODE independently samples its
+        # OWN gravity scale uniform in [lo, hi] (via the same per-env
+        # self.rng already used for every other DR axis), so the batch
+        # trains on a persistent MIXTURE of easy and hard gravity every
+        # single step throughout the run -- the easy end is never fully
+        # retired, and the policy is directly, continuously evaluated
+        # (via its own reward) at the hard end the whole time instead of
+        # only after a ramp completes. Default OFF (both keys unset) is
+        # bit-exact: falls through to the existing single-value
+        # ease.gravity_scale/sched.* path below, completely untouched.
+        # Setting only one of the pair or a non-positive/inverted range
+        # raises loudly (mirrors the existing ease.* validation below,
+        # which fires unconditionally on whatever _e_g this block
+        # produces). Composes with ease.rise_flat_only exactly like the
+        # single-value case: the scoping gate downstream (once
+        # start_kind is known) undoes today's episode's draw uniformly,
+        # same as it already undoes a scheduled value.
+        _e_g_dr_lo = cfg_get(self.cfg, "ease", "gravity_scale_dr_lo",
+                             default=None)
+        _e_g_dr_hi = cfg_get(self.cfg, "ease", "gravity_scale_dr_hi",
+                             default=None)
+        if _e_g_dr_lo is not None or _e_g_dr_hi is not None:
+            if _e_g_dr_lo is None or _e_g_dr_hi is None:
+                raise ValueError(
+                    "ease.gravity_scale_dr_lo/hi must both be set "
+                    f"(got lo={_e_g_dr_lo!r} hi={_e_g_dr_hi!r})")
+            _e_g_dr_lo = float(_e_g_dr_lo)
+            _e_g_dr_hi = float(_e_g_dr_hi)
+            if not (0.0 < _e_g_dr_lo <= _e_g_dr_hi):
+                raise ValueError(
+                    "ease.gravity_scale_dr_lo/hi must satisfy "
+                    f"0 < lo <= hi, got lo={_e_g_dr_lo} hi={_e_g_dr_hi}")
+            _e_g = (float(self.rng.uniform(_e_g_dr_lo, _e_g_dr_hi))
+                    if _e_g_dr_lo < _e_g_dr_hi else _e_g_dr_lo)
+        else:
+            _e_g = float(cfg_get(self.cfg, "ease", "gravity_scale",
+                                 default=1.0))
         _e_v = float(cfg_get(self.cfg, "ease", "vel_ceiling_scale",
                              default=1.0))
         if _e_g != 1.0 or _e_v != 1.0:

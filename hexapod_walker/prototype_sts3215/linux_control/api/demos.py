@@ -985,6 +985,7 @@ class DemosApi:
             )
             from rl_walk_start import walk_start_pose_degrees
             from hexapod_core.walk_ready_transition import build_tripod_plant_transition
+            from safe_zero import validate_motor_pose_path
         except ImportError as e:
             return {"ok": False, "error": str(e)}
 
@@ -1005,6 +1006,9 @@ class DemosApi:
             frames = ([] if delta is not None
                       and delta <= self.DIRECT_SETTLE_MAX_DEG
                       else build_tripod_plant_transition(present, target))
+            validate_motor_pose_path(
+                [present, target] + [frame.q_deg for frame in frames],
+                getattr(bus, "trims", None))
         except Exception as e:
             return {"ok": False,
                     "error": f"could not plan walk-ready start step: {e}"}
@@ -1023,6 +1027,9 @@ class DemosApi:
                     "error": (f"only {len(live)}/18 servos live during "
                               "walk-ready start")}
         tracker = CurrentPeakTracker()
+        with self.drive._lock:
+            if not self.drive.armed:
+                self.drive.arm_at_present(1000, abort_check=abort_check)
         _set_torque_limit(bus, live, 1000)
         _enable_torque(bus, live)
         started = time.monotonic()

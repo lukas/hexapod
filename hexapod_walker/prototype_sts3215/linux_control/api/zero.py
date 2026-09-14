@@ -78,8 +78,6 @@ class ZeroApi:
             try:
                 with d._lock:
                     d.mode = "demo"
-                    if not d.armed:
-                        d.arm_at_present(700, abort_check=self._demo_abort.is_set)
                 self._bus_hot_begin()
 
                 def _prog(p: dict) -> None:
@@ -208,7 +206,7 @@ class ZeroApi:
         return result
 
     def _present_pose18(self) -> tuple[list, list[int]]:
-        """All 18 present joint degrees (bulk read + per-joint retry).
+        """All 18 present logical degrees from one coherent bulk read.
 
         Returns ``(values, missing_joint_indices)`` — values contain
         None at the missing slots.
@@ -220,10 +218,11 @@ class ZeroApi:
         try:
             if hasattr(bus, "read_all_positions"):
                 for j, v in (bus.read_all_positions() or {}).items():
-                    if 0 <= j < N_JOINTS:
+                    if 0 <= j < N_JOINTS and v is not None:
                         vals[j] = float(v)
+                return vals, [j for j, v in enumerate(vals) if v is None]
         except Exception:
-            pass
+            return vals, [j for j, v in enumerate(vals) if v is None]
         for j in range(N_JOINTS):
             if vals[j] is None:
                 try:
@@ -232,6 +231,27 @@ class ZeroApi:
                     v = None
                 vals[j] = None if v is None else float(v)
         return vals, [j for j, v in enumerate(vals) if v is None]
+
+    def _untrap_motor_preflight(self, present=None) -> dict | None:
+        """Refuse an unreachable untrap path before its first torque write."""
+        from pinned_tip import FOLD_HIP_DEG, FOLD_KNEE_DEG
+        from safe_zero import validate_motor_pose_path
+        if present is None:
+            present, missing = self._present_pose18()
+            if missing:
+                return {"ok": False, "error": f"missing untrap joints: {missing}"}
+        goal = list(present)
+        for leg in range(6):
+            goal[3 * leg] = max(-35.0, min(35.0, goal[3 * leg]))
+            goal[3 * leg + 1] = FOLD_HIP_DEG
+            goal[3 * leg + 2] = FOLD_KNEE_DEG
+        try:
+            validate_motor_pose_path((present, goal),
+                                     getattr(self.drive.bus, "trims", None))
+        except (TypeError, ValueError) as exc:
+            return {"ok": False, "code": "motor_limits",
+                    "error": f"untrap path is unreachable: {exc}"}
+        return None
 
     def _safe_zero_sync(self, *, abort_check, on_progress=None,
                         allow_loaded_blend: bool = False) -> dict:
@@ -262,6 +282,9 @@ class ZeroApi:
         except Exception:
             verdict = {"pinned": False}
         if verdict.get("pinned"):
+            refusal = self._untrap_motor_preflight()
+            if refusal:
+                return {**refusal, "pinned_tip": verdict}
             try:
                 from event_log import emit
                 emit("pinned_tip", verdict.get("why", "pinned-leg tip"),
@@ -295,9 +318,19 @@ class ZeroApi:
         if not plan["stages"]:
             return {"ok": True, "already_at_zero": True,
                     **({"untrap": untrap} if untrap else {})}
+        def prepare_torque():
+            with self.drive._lock:
+                if not self.drive.armed:
+                    self.drive.arm_at_present(700, abort_check=abort_check)
+
         result = run_safe_zero(self.drive.bus, plan["stages"],
                                abort_check=abort_check,
-                               on_progress=on_progress)
+                               on_progress=on_progress,
+                               prepare_torque=prepare_torque)
+        if result.get("ok"):
+            self.drive.armed = True
+        elif result.get("limp"):
+            self.drive.armed = False
         if untrap is not None:
             result["untrap"] = untrap
         return result
@@ -415,7 +448,21 @@ class ZeroApi:
                                   "check the legs / lower with STEP-down.")}
             return {"ok": True, "acquired": ["glide_unclassified_upright"],
                     "route_why": why, **res}
+        if kind == "stand":
+            # Recovery is the prefix of this whole requested path. Do not
+            # arm for recovery if the later authored rise is unreachable.
+            try:
+                from .standup import validated_standup_frames
+                keyframes = self._load_standup()["modes"]["step"]["keyframes"]
+                validated_standup_frames(
+                    keyframes, trims=getattr(d.bus, "trims", None))
+            except (OSError, KeyError, TypeError, ValueError) as exc:
+                return {"ok": False, "code": "motor_limits",
+                        "acquired": acquired, "error": str(exc)}
         if route == "fold":
+            refusal = self._untrap_motor_preflight()
+            if refusal:
+                return {**refusal, "acquired": acquired}
             try:
                 from pinned_tip import run_untrap_tuck
             except ImportError:
@@ -598,6 +645,10 @@ class ZeroApi:
                               + ") — nothing to untrap. force=true "
                               "runs the fold anyway (watching!).")}
 
+        refusal = self._untrap_motor_preflight()
+        if refusal:
+            return {**refusal, "pinned_tip": verdict}
+
         if self._demo_thread and self._demo_thread.is_alive():
             if not self._preempt_demo_thread(reason="→ untrap",
                                              timeout=5.0):
@@ -637,9 +688,11 @@ class ZeroApi:
                     with self._lock:
                         self._cal_progress = dict(dct)
 
-                result = run_untrap_tuck(
-                    d.bus, abort_check=self._demo_abort.is_set,
-                    on_progress=_prog)
+                result = self._untrap_motor_preflight()
+                if result is None:
+                    result = run_untrap_tuck(
+                        d.bus, abort_check=self._demo_abort.is_set,
+                        on_progress=_prog)
                 result["pinned_tip"] = verdict
             except Exception as e:
                 result = {"ok": False, "error": str(e)}
@@ -664,7 +717,7 @@ class ZeroApi:
                         d.mode = "idle"
                     if limp:
                         d.armed = False
-                    else:
+                    elif result.get("ok"):
                         d.armed = True
                     d.status = st
                 try:
@@ -794,6 +847,10 @@ class ZeroApi:
             plan["tilt_deg"] = round(tilt, 1)
         if pinned and pinned.get("pinned"):
             plan["pinned_tip"] = pinned
+            refusal = self._untrap_motor_preflight(present)
+            if refusal:
+                return {**refusal, "pinned_tip": pinned,
+                        "dry_run": bool(dry_run)}
             if not plan.get("ok"):
                 # A tipped pose can defeat the preview planner (crossed
                 # legs); the worker re-plans on fresh encoders AFTER the
@@ -845,8 +902,6 @@ class ZeroApi:
                 with d._lock:
                     d.mode = "demo"
                     d.gait.stop()
-                    if not d.armed:
-                        d.arm_at_present(700, abort_check=self._demo_abort.is_set)
                 self._bus_hot_begin()
 
                 def _prog(dct: dict) -> None:
@@ -858,7 +913,8 @@ class ZeroApi:
                 # torque-on.
                 result = self._safe_zero_sync(
                     abort_check=self._demo_abort.is_set,
-                    on_progress=_prog)
+                    on_progress=_prog,
+                    allow_loaded_blend=bool(force))
                 if result.get("already_at_zero"):
                     result.setdefault("msg", "already at zero")
             except Exception as e:

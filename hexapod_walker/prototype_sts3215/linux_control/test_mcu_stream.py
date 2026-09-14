@@ -263,18 +263,24 @@ def test_step_all_round_trip():
     snap = bus.step_all(degrees, speed=400, acc=20)
     assert snap is not None
 
-    # TX side: exactly the 'S' frame write_all would have sync-written.
-    want_items = [(joint_to_servo_id(j), deg_to_count(j, degrees[j], 0.0),
+    # The API tibia is absolute; the physical knee hinge is tibia minus hip.
+    want_raw = [d - degrees[j - 1] if j % 3 == 2 else d
+                for j, d in enumerate(degrees)]
+    want_items = [(joint_to_servo_id(j), deg_to_count(j, want_raw[j], 0.0),
                    400, 20) for j in range(N_JOINTS)]
     assert bytes(bus._ser.tx) == encode_sync_frame(ord("S"), want_items)
 
     # RX side: engineering units.
     assert snap["seq"] == 42 and snap["pos_age_ms"] == 4
     for j in range(N_JOINTS):
+        expected = count_to_deg(j, 2048 + 10 * j)
+        if j % 3 == 2:
+            expected += count_to_deg(j - 1, 2048 + 10 * (j - 1))
         assert abs(snap["pos_deg"][j]
-                   - count_to_deg(j, 2048 + 10 * j)) < 1e-9
+                   - expected) < 1e-9
         assert abs(snap["speed_deg_s"][j]
-                   - speed_counts_to_deg_s(40)) < 1e-9
+                   - speed_counts_to_deg_s(80 if j % 3 == 2 else 40)) < 1e-9
+        assert snap['raw_pos_deg'][j] == count_to_deg(j, 2048 + 10 * j)
     imu = snap["imu"]
     assert imu is not None
     assert abs(imu["az_g"] - 1.0) < 1e-6

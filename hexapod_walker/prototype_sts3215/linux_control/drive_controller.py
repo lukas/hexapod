@@ -71,6 +71,7 @@ from feetech_bus import (  # noqa: E402
     ADDR_TORQUE_ENABLE, BAUD_DEFAULT, N_JOINTS, WALK_ACC,
     WALK_SPEED, deg_to_count, joint_to_servo_id, normalize_acc,
     normalize_speed, standing_pose_degrees,
+    robot_pose_to_raw_degrees,
 )
 from cpg_controller_loader import (  # noqa: E402
     list_cpg_controllers as _list_cpg_controllers,
@@ -351,10 +352,10 @@ class DriveController:
         if bulk is not None:
             try:
                 pos = bulk()
-                if isinstance(pos, dict) and pos:
+                if isinstance(pos, dict):
                     return [pos.get(j) for j in range(N_JOINTS)]
             except Exception:
-                pass
+                return [None] * N_JOINTS
         out: list[float | None] = []
         for j in range(N_JOINTS):
             try:
@@ -367,14 +368,18 @@ class DriveController:
                               ) -> tuple[float, int | None]:
         """Largest |goal − present| on live joints that have a reading."""
         present = self._read_present_pose()
+        raw_goal = robot_pose_to_raw_degrees(goal, self.bus.trims)
+        if any(v is None for v in present):
+            raise ValueError('need all 18 coherent angles to check servo travel')
+        raw_present = robot_pose_to_raw_degrees(present, self.bus.trims, validate=False)
         live = self._live_ids()
         worst = 0.0
         worst_j: int | None = None
-        for j, g in enumerate(goal):
+        for j, g in enumerate(raw_goal):
             sid = joint_to_servo_id(j)
             if live and sid not in live:
                 continue
-            p = present[j] if j < len(present) else None
+            p = raw_present[j]
             if p is None:
                 continue
             d = abs(float(g) - float(p))
@@ -401,6 +406,8 @@ class DriveController:
 
     def _write_pose(self, degrees: list[float], *,
                     speed: int = WALK_SPEED, acc: int = WALK_ACC) -> None:
+        raw = robot_pose_to_raw_degrees(
+            degrees, self.bus.trims if self.bus else None)
         self._last_pose = list(degrees)
         if not self.bus or not self.armed:
             return
@@ -411,11 +418,11 @@ class DriveController:
         # the independent feedback guard continues to enforce missing-ID
         # safety during the run.
         live = self._live_ids(allow_stale=self.mode == "walk")
-        for joint, deg in enumerate(degrees):
+        for joint, deg in enumerate(raw):
             sid = joint_to_servo_id(joint)
             if live and sid not in live:
                 continue
-            count = deg_to_count(joint, deg, self.bus.trims[joint])
+            count = deg_to_count(joint, deg, 0.0)
             self.bus.pkt.SyncWritePosEx(sid, count, speed, acc)
         self.bus.pkt.groupSyncWrite.txPacket()
         self.bus.pkt.groupSyncWrite.clearParam()
@@ -424,7 +431,9 @@ class DriveController:
         if not self.bus or not self.armed:
             return
         present = self._read_present_pose()
-        pose = [0.0 if d is None else float(d) for d in present]
+        if any(d is None for d in present):
+            raise ValueError('need all 18 coherent angles to hold')
+        pose = [float(d) for d in present]
         self._write_pose(pose, speed=250, acc=30)
 
     def _sync_gait_walk_stance(self) -> None:

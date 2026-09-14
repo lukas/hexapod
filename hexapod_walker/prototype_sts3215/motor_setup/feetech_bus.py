@@ -72,6 +72,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 import time
 from pathlib import Path
@@ -324,8 +325,78 @@ def deg_to_count(joint: int, deg: float, trim: float) -> int:
 
 
 def count_to_deg(joint: int, count: int) -> float:
-    """Inverse of deg_to_count (ignoring trim) -- for feedback display."""
+    """Raw servo angle, inverse of deg_to_count (ignoring trim)."""
     return JOINT_SIGN[joint] * (count - STS_CENTRE_COUNT) / COUNTS_PER_DEG
+
+
+def robot_pose_to_raw_degrees(degrees, trims=None, *, validate=True) -> list[float]:
+    """Absolute femur/tibia pose -> relative servo angles, including trims.
+
+    Validate the complete packet before queueing any writes. Logical limits
+    and physical hinge limits both apply; clipping a converted knee would
+    silently change the requested foot path.
+    """
+    q = [float(v) for v in degrees]
+    offsets = [0.0] * N_JOINTS if trims is None else [float(v) for v in trims]
+    if len(q) != N_JOINTS or len(offsets) != N_JOINTS:
+        raise ValueError('need all 18 joint angles and trims')
+    if not all(math.isfinite(v) for v in q + offsets):
+        raise ValueError('joint angles and trims must be finite')
+    raw = list(q)
+    for knee in range(2, N_JOINTS, 3):
+        raw[knee] -= q[knee - 1]
+    raw = [v + t for v, t in zip(raw, offsets)]
+    if validate:
+        for j, (logical, servo) in enumerate(zip(q, raw)):
+            lo, hi = joint_limits(j)
+            if not lo <= logical <= hi:
+                raise ValueError(f'logical joint {j} outside limits: {logical:g}')
+            if not lo <= servo <= hi:
+                raise ValueError(f'raw servo joint {j} outside limits: {servo:g}')
+            count = STS_CENTRE_COUNT + JOINT_SIGN[j] * servo * COUNTS_PER_DEG
+            if not 0 <= round(count) < STS_COUNTS_PER_REV:
+                raise ValueError(f'raw servo joint {j} outside encoder range')
+    return raw
+
+
+def raw_positions_to_robot_degrees(positions, trims=None) -> dict[int, float]:
+    """Convert one coherent raw sample; an absent hip makes its knee unknown."""
+    offsets = [0.0] * N_JOINTS if trims is None else trims
+    raw = {j: float(v) - float(offsets[j]) for j, v in positions.items()
+           if v is not None and math.isfinite(float(v))}
+    out = {j: v for j, v in raw.items() if j % 3 != 2}
+    for knee in range(2, N_JOINTS, 3):
+        if knee in raw and knee - 1 in raw:
+            out[knee] = raw[knee] + raw[knee - 1]
+    return out
+
+
+def raw_feedback_to_robot_feedback(feedback, trims=None) -> dict[int, dict]:
+    """Publish logical coordinates without losing physical servo diagnostics."""
+    positions = raw_positions_to_robot_degrees(
+        {j: row.get('deg') for j, row in feedback.items()}, trims)
+    speeds = raw_positions_to_robot_degrees(
+        {j: row.get('speed_deg_s') for j, row in feedback.items()})
+    return {j: dict(row, raw_deg=row.get('deg'),
+                    raw_speed_deg_s=row.get('speed_deg_s'),
+                    deg=positions.get(j), speed_deg_s=speeds.get(j))
+            for j, row in feedback.items()}
+
+
+def raw_degree_to_count(joint: int, deg: float) -> int:
+    """Strict physical servo coordinate; no trim or frame conversion."""
+    value = float(deg)
+    lo, hi = joint_limits(joint)
+    if not math.isfinite(value) or not lo <= value <= hi:
+        raise ValueError(f'raw servo joint {joint} outside limits: {value:g}')
+    return deg_to_count(joint, value, 0.0)
+
+
+def raw_pose_to_counts(degrees) -> list[int]:
+    values = list(degrees)
+    if len(values) != N_JOINTS:
+        raise ValueError('need all 18 raw servo angles')
+    return [raw_degree_to_count(j, value) for j, value in enumerate(values)]
 
 
 # ---------------------------------------------------------------------------
@@ -442,6 +513,7 @@ class FeetechBus:
     def write_joint(self, joint: int, deg: float,
                     speed: int = DEFAULT_SPEED, acc: int = DEFAULT_ACC,
                     *, allow_max_speed: bool = False) -> None:
+        """Raw single-servo bench move; use write_all for logical poses."""
         speed = normalize_speed(speed, allow_max=allow_max_speed)
         acc = normalize_acc(acc)
         count = deg_to_count(joint, deg, self.trims[joint])
@@ -457,9 +529,27 @@ class FeetechBus:
         """
         speed = normalize_speed(speed, allow_max=allow_max_speed)
         acc = normalize_acc(acc)
-        for joint, deg in enumerate(degrees):
-            count = deg_to_count(joint, deg, self.trims[joint])
+        raw = robot_pose_to_raw_degrees(degrees, self.trims)
+        for joint, deg in enumerate(raw):
+            count = deg_to_count(joint, deg, 0.0)
             self.pkt.SyncWritePosEx(joint_to_servo_id(joint), count, speed, acc)
+        self.pkt.groupSyncWrite.txPacket()
+        self.pkt.groupSyncWrite.clearParam()
+
+    def write_raw_joint(self, joint: int, deg: float,
+                        speed: int = DEFAULT_SPEED, acc: int = DEFAULT_ACC) -> None:
+        count = raw_degree_to_count(joint, deg)
+        self.pkt.WritePosEx(joint_to_servo_id(joint), count,
+                            normalize_speed(speed), normalize_acc(acc))
+
+    def write_raw_all(self, degrees, speed: int = DEFAULT_SPEED,
+                      acc: int = DEFAULT_ACC, *, ids=None) -> None:
+        counts = raw_pose_to_counts(degrees)
+        speed, acc = normalize_speed(speed), normalize_acc(acc)
+        for j, count in enumerate(counts):
+            sid = joint_to_servo_id(j)
+            if ids is None or sid in ids:
+                self.pkt.SyncWritePosEx(sid, count, speed, acc)
         self.pkt.groupSyncWrite.txPacket()
         self.pkt.groupSyncWrite.clearParam()
 
@@ -477,14 +567,19 @@ class FeetechBus:
 
         Use this to freeze motion without slamming (never speed=0).
         """
-        pose: list[float] = []
-        for j in range(N_JOINTS):
-            deg = self.read_position_deg(j)
-            if deg is None:
-                deg = 0.0
-            pose.append(deg)
-        self.enable_all_torque(True)
+        positions = self.read_all_positions()
+        if any(positions.get(j) is None for j in range(N_JOINTS)):
+            raise ValueError('need all 18 coherent angles to hold')
+        pose = [positions[j] for j in range(N_JOINTS)]
+        counts = raw_pose_to_counts(robot_pose_to_raw_degrees(pose, self.trims))
+        # A limp servo retains its old goal. Replace every goal and verify
+        # the preload before enabling any servo, so hold cannot chase it.
         self.write_all(pose, speed=speed, acc=acc)
+        for j, expected in enumerate(counts):
+            actual, result, err = self.pkt.read2ByteTxRx(joint_to_servo_id(j), 42)
+            if result != self.scs.COMM_SUCCESS or err or actual != expected:
+                raise RuntimeError(f'hold goal preload unverified for joint {j}')
+        self.enable_all_torque(True)
         return pose
 
     def safe_stop(self, *, limp: bool = False) -> list[float]:
@@ -500,13 +595,25 @@ class FeetechBus:
         return pose
 
     # -- feedback (the reason for the swap) --------------------------------
-    def read_position_deg(self, joint: int) -> float | None:
+    def read_raw_position_deg(self, joint: int) -> float | None:
         pos, result, _err = self.pkt.ReadPos(joint_to_servo_id(joint))
         if result != self.scs.COMM_SUCCESS:
             return None
         return count_to_deg(joint, pos)
 
-    def read_feedback(self, joint: int) -> dict | None:
+    def read_all_raw_positions(self, ids=None) -> dict[int, float]:
+        joints = range(N_JOINTS) if ids is None else [int(sid) - 2 for sid in ids]
+        raw = {j: self.read_raw_position_deg(j) for j in joints}
+        return {j: value for j, value in raw.items() if value is not None}
+
+    def read_all_positions(self, ids=None) -> dict[int, float]:
+        return raw_positions_to_robot_degrees(self.read_all_raw_positions(ids), self.trims)
+
+    def read_position_deg(self, joint: int) -> float | None:
+        joints = [joint - 1, joint] if joint % 3 == 2 else [joint]
+        return self.read_all_positions([joint_to_servo_id(j) for j in joints]).get(joint)
+
+    def read_raw_feedback(self, joint: int) -> dict | None:
         sid = joint_to_servo_id(joint)
         pos, result, _err = self.pkt.ReadPos(sid)
         if result != self.scs.COMM_SUCCESS:
@@ -520,19 +627,36 @@ class FeetechBus:
         load_pct = (load & 0x3FF) / 10.0
         # Present speed unit is counts/s → deg/s = counts × 360/4096.
         if r_sp == self.scs.COMM_SUCCESS:
-            speed_deg_s = speed_counts_to_deg_s(_signed_speed_counts(spd_raw))
+            speed_deg_s = JOINT_SIGN[joint] * speed_counts_to_deg_s(_signed_speed_counts(spd_raw))
         else:
             speed_deg_s = 0.0
         return {
             "joint": joint,
             "id": sid,
             "deg": count_to_deg(joint, pos),
+            "pos_counts": pos,
             "load_pct": load_pct,
             "volt": volt / 10.0,        # 0.1 V units
             "temp_c": temp,             # deg C
             "current_a": cur * 0.0065,  # ~6.5 mA/LSB
             "speed_deg_s": speed_deg_s,
         }
+
+    def read_all_raw_feedback(self, ids=None) -> dict[int, dict]:
+        joints = range(N_JOINTS) if ids is None else [int(sid) - 2 for sid in ids]
+        raw = {}
+        for j in joints:
+            row = self.read_raw_feedback(j)
+            if row is not None:
+                raw[j] = row
+        return raw
+
+    def read_all_feedback(self, ids=None) -> dict[int, dict]:
+        return raw_feedback_to_robot_feedback(self.read_all_raw_feedback(ids), self.trims)
+
+    def read_feedback(self, joint: int) -> dict | None:
+        joints = [joint - 1, joint] if joint % 3 == 2 else [joint]
+        return self.read_all_feedback([joint_to_servo_id(j) for j in joints]).get(joint)
 
     def read_imu(self) -> dict | None:
         """MPU-6050 is MCU-Wire only; USB URT path has no IMU."""
@@ -586,7 +710,10 @@ def cmd_joint(args):
     bus = FeetechBus(args.port, args.baud)
     try:
         if args.sweep:
-            here = bus.read_position_deg(args.joint) or 0.0
+            here = bus.read_raw_position_deg(args.joint)
+            if here is None:
+                raise SystemExit(f"joint {args.joint} no reply")
+            here -= bus.trims[args.joint]
             steps = max(2, int(abs(args.deg - here) / 2.0))
             for k in range(steps + 1):
                 u = k / steps
@@ -638,11 +765,16 @@ def cmd_hold(args):
     bus = FeetechBus(args.port, args.baud)
     try:
         if args.joint is not None:
-            deg = bus.read_position_deg(args.joint)
+            deg = bus.read_raw_position_deg(args.joint)
             if deg is None:
                 raise SystemExit(f"joint {args.joint} no reply")
+            expected = raw_degree_to_count(args.joint, deg)
+            bus.write_raw_joint(args.joint, deg, speed=HOLD_SPEED, acc=HOLD_ACC)
+            actual, result, err = bus.pkt.read2ByteTxRx(
+                joint_to_servo_id(args.joint), 42)
+            if result != bus.scs.COMM_SUCCESS or err or actual != expected:
+                raise RuntimeError(f'hold goal preload unverified for joint {args.joint}')
             bus.torque(joint_to_servo_id(args.joint), True)
-            bus.write_joint(args.joint, deg, speed=HOLD_SPEED, acc=HOLD_ACC)
             print(f"OK hold joint {args.joint} at {deg:+.1f} deg "
                   f"(speed={HOLD_SPEED})")
         else:
@@ -672,7 +804,7 @@ def cmd_feedback(args):
             print("-" * len(hdr))
             for j in range(N_JOINTS):
                 fb = bus.read_feedback(j)
-                if fb is None:
+                if fb is None or fb.get('deg') is None:
                     print(f"{j:>3} {joint_to_servo_id(j):>3} {'--- no reply ---':>30}")
                     continue
                 print(f"{fb['joint']:>3} {fb['id']:>3} {fb['deg']:>8.2f} "

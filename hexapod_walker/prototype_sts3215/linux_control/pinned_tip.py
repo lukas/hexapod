@@ -300,6 +300,13 @@ def run_untrap_tuck(bus, *, abort_check=None, on_progress=None) -> dict:
                 "error": (f"servo IDs {missing} not answering — untrap "
                           "needs all 18 joints for its monitoring")}
 
+    # An already-cancelled recovery must stop before planning or enabling
+    # torque, including when the configured fold itself is unreachable.
+    if check():
+        _limp_all(bus, live)
+        return {"ok": False, "limp": True, "error": "operator abort",
+                "torque_limit": TUCK_TORQUE, "peak_a": 0.0}
+
     # Zero-frame sanity BEFORE any motion (same rule as plan_safe_zero
     # but with the wider UNTRAP_LIMIT_SLOP_DEG — see its comment): an
     # encoder outside its axis range by more than the slop means the

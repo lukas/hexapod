@@ -146,6 +146,9 @@ def test_standup_arm_failure_does_not_restore_full_torque(drive, monkeypatch):
     api = BenchAPI(drive)
     monkeypatch.setattr(api, '_load_standup', lambda: {'modes': {'step': {
         'keyframes': [{'q_deg': [0.0] * 18, 's': 1.0}]}}})
+    # Supply a coherent, admissible pose for the new pre-arm path check;
+    # this test specifically injects a raw goal-preload failure afterward.
+    monkeypatch.setattr(api, '_present_pose18', lambda: ([0.0] * 18, []))
     monkeypatch.setattr(inplace_demos, '_live_robot_ids', lambda _bus: set(range(2, 20)))
     limit_restores = []
     monkeypatch.setattr(inplace_demos, '_set_torque_limit',

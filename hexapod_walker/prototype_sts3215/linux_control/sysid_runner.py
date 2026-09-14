@@ -225,7 +225,11 @@ def run_sysid_protocol(
         DEFAULT_MIN_VOLTAGE_V, DEFAULT_MAX_VOLTAGE_V),
     runtime_state_clock: Callable[[], float] = time.monotonic,
 ) -> dict:
-    """Execute a sysid protocol. Returns a result/summary dict."""
+    """Execute a raw servo-relative sysid protocol, including whole-body steps.
+
+    Protocol coordinates are physical servo angles; this keeps a single-joint
+    probe isolated and gives multi-joint writes exactly the same meaning.
+    """
     abort_check = abort_check or (lambda: False)
     errs = validate(protocol)
     if errs:
@@ -238,10 +242,17 @@ def run_sysid_protocol(
                 "error": "traj (whole-body) segments require force=true "
                          "and live camera/guarded-runner supervision"}
 
+    required = ('read_all_raw_positions', 'read_all_raw_feedback',
+                'write_raw_joint', 'write_raw_all')
+    if (any(not callable(getattr(bus, name, None)) for name in required)
+            or protocol.get('joint_frame', 'servo_relative') != 'servo_relative'):
+        return {'ok': False, 'mode': 'sysid', 'joint_frame': 'servo_relative',
+                'error': 'sysid requires explicit raw servo coordinates and bus methods'}
+
     try:
         from inplace_demos import (
             _enable_torque, _live_robot_ids, _limp_all,
-            _set_torque_limit, _write_pose,
+            _set_torque_limit,
         )
     except ImportError as e:
         return {"ok": False, "mode": "sysid",
@@ -298,7 +309,7 @@ def run_sysid_protocol(
     sum_path = log_dir / f"sysid_{name}_{stamp}_summary.json"
 
     def _read_pose() -> tuple[dict[int, float], list[int]]:
-        pos = bus.read_all_positions()
+        pos = bus.read_all_raw_positions()
         if not isinstance(pos, dict):
             pos = {}
         return pos, [j for j in live_joints if j not in pos]
@@ -333,12 +344,12 @@ def run_sysid_protocol(
 
     def _read_pose_debounced(
             attempts: int = MAX_MISSED_READS) -> tuple[dict[int, float], list[int]]:
-        """Merge fresh pre-command reads so one dropped ID never trips."""
+        """Retry complete raw samples; never construct a pose across times."""
         merged: dict[int, float] = {}
         missing = list(live_joints)
         for attempt in range(attempts):
             sampled, _ = _read_pose()
-            merged.update(sampled)
+            merged = sampled
             missing = [j for j in live_joints if j not in merged]
             if not missing:
                 break
@@ -359,7 +370,6 @@ def run_sysid_protocol(
               f"{telemetry_admission['samples']}x"
               f"{telemetry_admission['servos_per_sample']} passed")
     _set_torque_limit(bus, live_ids, soft_torque)
-    _enable_torque(bus, live_ids)
 
     # Hold pose from successful reads only (motor_dynamics pattern).
     base_pose = [0.0] * N_JOINTS
@@ -368,7 +378,8 @@ def run_sysid_protocol(
         base_pose[j] = float(d)
         hold_ids.add(joint_to_servo_id(j))
     if hold_ids:
-        _write_pose(bus, base_pose, hold_ids, speed=HOLD_SPEED, acc=25)
+        bus.write_raw_all(base_pose, ids=hold_ids, speed=HOLD_SPEED, acc=25)
+    _enable_torque(bus, live_ids)
     time.sleep(0.3)
 
     def _bail(error: str, extra: dict | None = None) -> dict:
@@ -386,11 +397,11 @@ def run_sysid_protocol(
         return res
 
     def _write_active(tick: dict, cmd_abs: list[float]) -> None:
-        if len(tick["active"]) == 1 and hasattr(bus, "write_joint"):
+        if len(tick["active"]) == 1:
             j = tick["active"][0]
-            bus.write_joint(j, cmd_abs[j], speed=write_speed, acc=write_acc)
+            bus.write_raw_joint(j, cmd_abs[j], speed=write_speed, acc=write_acc)
         else:
-            bus.write_all(cmd_abs, speed=write_speed, acc=write_acc)
+            bus.write_raw_all(cmd_abs, speed=write_speed, acc=write_acc)
 
     seg_home: dict[int, list[float]] = {}
     seg_stats: list[dict] = []
@@ -414,7 +425,7 @@ def run_sysid_protocol(
     trip_slew_deg = write_speed * (360.0 / 4096.0) * dt
 
     fields = (["t_s", "tick", "seg", "phase", "joint",
-               "t_send_s", "t_recv_s", "overrun"]
+               "t_send_s", "t_recv_s", "overrun", "joint_frame"]
               + [f"q{j}_deg" for j in range(N_JOINTS)]
               + [f"cmd{j}_deg" for j in range(N_JOINTS)]
               + ["cur_a", "load_pct", "volt", "temp_c"]
@@ -434,7 +445,7 @@ def run_sysid_protocol(
                      cmd_abs: list[float], fb_row: tuple) -> None:
             w.writerow(
                 [f"{t_send:.4f}", k, seg, phase, act_j,
-                 f"{t_send:.4f}", f"{t_recv:.4f}", overrun]
+                 f"{t_send:.4f}", f"{t_recv:.4f}", overrun, 'servo_relative']
                 + [_fmt(last_pose.get(j), 3) for j in range(N_JOINTS)]
                 + [f"{c:.3f}" for c in cmd_abs]
                 + [_fmt(fb_row[0]), _fmt(fb_row[1], 1),
@@ -456,7 +467,7 @@ def run_sysid_protocol(
             fresh = False
             if t_now - last_fb_t >= 1.0 / FEEDBACK_HZ:
                 try:
-                    fb = bus.read_all_feedback()
+                    fb = bus.read_all_raw_feedback()
                     if isinstance(fb, dict) and fb:
                         last_fb = fb
                         last_fb_t = t_now
@@ -576,7 +587,7 @@ def run_sysid_protocol(
                                for j in range(N_JOINTS)]
                     t_send = time.monotonic() - t0
                     try:
-                        bus.write_all(cmd_abs, speed=write_speed,
+                        bus.write_raw_all(cmd_abs, speed=write_speed,
                                       acc=write_acc)
                     except Exception as e:
                         tripped_error = f"bus write failed (glide): {e}"
@@ -773,7 +784,7 @@ def run_sysid_protocol(
         pass
     if hold_servo_ids:
         try:
-            _write_pose(bus, hold_pose, hold_servo_ids, speed=HOLD_SPEED, acc=25)
+            bus.write_raw_all(hold_pose, ids=hold_servo_ids, speed=HOLD_SPEED, acc=25)
             torque_left_on = True
         except Exception:
             torque_left_on = False
@@ -785,6 +796,7 @@ def run_sysid_protocol(
 
     done = sum(s["ticks"] for s in seg_stats)
     result = {
+        "joint_frame": "servo_relative",
         "ok": tripped_error is None and not aborted,
         "mode": "sysid",
         "name": name,

@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import math
 import sys
+from types import SimpleNamespace
 
+import pytest
 
 import pinned_tip
 from feetech_bus import N_JOINTS, joint_to_servo_id
@@ -24,6 +26,25 @@ pinned_tip.TUCK_S = 0.5
 pinned_tip.TUCK_TIMEOUT_S = 3.0
 
 PLANT = _pose(hip=18.0, knee=79.0)     # post-fall pose: fell from stance
+
+
+@pytest.fixture(autouse=True)
+def executor_clock(monkeypatch):
+    now = [100.0]
+    monkeypatch.setattr(pinned_tip, "time", SimpleNamespace(
+        monotonic=lambda: now[0],
+        sleep=lambda dt: now.__setitem__(0, now[0] + dt)))
+
+
+@pytest.fixture
+def reachable_fold(monkeypatch):
+    """Exercise executor mechanics independently of the refused real fold.
+
+    Production hip=-50/knee=140 requires raw knee190 and is unreachable.
+    This test-only hip=-10/knee=140 requires raw knee150; it is not a
+    proposed recovery target or a change to the production configuration.
+    """
+    monkeypatch.setattr(pinned_tip, "FOLD_HIP_DEG", -10.0)
 
 
 class TipBus(FakeBus):
@@ -47,7 +68,8 @@ class TipBus(FakeBus):
 
     def read_imu(self, **kw):
         if self.level_at_knee_deg is not None:
-            knees = [self.pos[j] for j in range(2, N_JOINTS, 3)
+            knees = [self.pos[j] + self.pos[j - 1]
+                     for j in range(2, N_JOINTS, 3)
                      if j not in self.stalled]
             if knees and min(knees) >= self.level_at_knee_deg:
                 self.roll_deg = 3.0
@@ -147,7 +169,7 @@ def test_check_transient_rock_not_pinned():
 # Untrap executor (FakeBus)
 # ---------------------------------------------------------------------------
 
-def test_untrap_success_levels_and_holds_low_torque():
+def test_untrap_success_levels_and_holds_low_torque(reachable_fold):
     bus = TipBus(PLANT, roll_deg=25.0, level_at_knee_deg=120.0)
     res = run_untrap_tuck(bus)
     assert res["ok"], res
@@ -155,7 +177,7 @@ def test_untrap_success_levels_and_holds_low_torque():
     assert res["trapped_joints"] == []
     # every knee actually folded
     for j in range(2, N_JOINTS, 3):
-        assert abs(bus.pos[j] - FOLD_KNEE_DEG) < 6.0
+        assert abs(bus.pos[j] + bus.pos[j - 1] - FOLD_KNEE_DEG) < 6.0
     # success holds (torque ON) at the LOW limit — never restored high
     assert not bus.torque_off
     lims = [v for _, v in bus.torque_limit_writes]
@@ -163,7 +185,7 @@ def test_untrap_success_levels_and_holds_low_torque():
     assert res["torque_limit"] == TUCK_TORQUE
 
 
-def test_untrap_still_trapped_limps_and_names_joint():
+def test_untrap_still_trapped_limps_and_names_joint(reachable_fold):
     # L1 knee (joint 5) pinned QUIETLY (current bounded by the 20%
     # torque limit, as designed); body never levels.
     bus = TipBus(PLANT, roll_deg=25.0, stalled={5}, stall_a=1.0)
@@ -175,7 +197,7 @@ def test_untrap_still_trapped_limps_and_names_joint():
                               for j in range(N_JOINTS)}, "must limp ALL"
 
 
-def test_untrap_surprise_force_limps_with_causes():
+def test_untrap_surprise_force_limps_with_causes(reachable_fold):
     # A stalled joint holding MORE current than the 20% torque limit
     # should allow (jam / wrong zero / limit write failed): limp at
     # once with a descriptive error — do not wait out the fold.
@@ -192,25 +214,19 @@ def test_untrap_surprise_force_limps_with_causes():
 def test_untrap_suspect_zero_refused_without_motion():
     # Encoder far outside its axis range: the logical zero frame is
     # untrustworthy — refuse BEFORE limping or commanding anything.
-    # (FakeBus ReadPos encodes through deg_to_count, which clamps to
-    # the axis limit — a real present-position read does not — so feed
-    # the raw out-of-range count directly for the L2 knee. 210° is
+    # Inject the bad encoder through the coherent logical snapshot. 210° is
     # 60° past the knee's +150° limit: beyond even the widened 40°
     # untrap slop, i.e. a genuinely wild zero frame, not the
-    # weight-shoved-past-soft-limit case the slop exists to allow.)
-    from feetech_bus import COUNTS_PER_DEG, JOINT_SIGN, STS_CENTRE_COUNT
+    # weight-shoved-past-soft-limit case the classifier distinguishes).
     bus = TipBus(PLANT, roll_deg=25.0)
-    sid_l2_knee = joint_to_servo_id(8)
-    raw = int(round(STS_CENTRE_COUNT + JOINT_SIGN[8] * 210.0
-                    * COUNTS_PER_DEG))
-    orig_read = bus.pkt.ReadPos
+    orig_read = bus.read_all_positions
 
-    def _rp(sid):
-        if sid == sid_l2_knee:
-            return raw, 0, 0
-        return orig_read(sid)
+    def _positions():
+        values = orig_read()
+        values[8] = 210.0
+        return values
 
-    bus.pkt.ReadPos = _rp
+    bus.read_all_positions = _positions
     before = list(bus.target)
     res = run_untrap_tuck(bus)
     assert not res["ok"] and res.get("code") == "suspect_zero", res
@@ -219,35 +235,24 @@ def test_untrap_suspect_zero_refused_without_motion():
     assert not bus.torque_off, "refusal is read-only (no limp needed)"
 
 
-def test_untrap_accepts_weight_shoved_hip():
+def test_untrap_weight_shoved_hip_is_refused_before_motion():
     # Live regression (08-11 21:05): body weight shoved the pinned L3
     # hip to +58° — 18° past its +40° soft limit. That is the trapped
-    # state itself, NOT a wrong zero; the (wider) untrap slop must let
-    # the fold run instead of refusing suspect_zero. FakeBus ReadPos
-    # clamps through deg_to_count, so encode this joint's raw count
-    # unclamped (as a real servo reports) throughout the run.
-    from feetech_bus import COUNTS_PER_DEG, JOINT_SIGN, STS_CENTRE_COUNT
+    # state itself, not proof of a wrong zero. It still exceeds physical
+    # limits: the API preflight must refuse before torque, regardless of
+    # the executor's older, wider zero-sanity slop.
+    from api.zero import ZeroApi
     q = list(PLANT)
     q[10] = 58.1                                # L3 hip
-    bus = TipBus(q, roll_deg=13.0, level_at_knee_deg=120.0)
-    sid_l3_hip = joint_to_servo_id(10)
-    orig_read = bus.pkt.ReadPos
-
-    def _rp(sid):
-        if sid == sid_l3_hip:
-            bus._advance()
-            raw = int(round(STS_CENTRE_COUNT
-                            + JOINT_SIGN[10] * bus.pos[10] * COUNTS_PER_DEG))
-            return raw, 0, 0
-        return orig_read(sid)
-
-    bus.pkt.ReadPos = _rp
-    res = run_untrap_tuck(bus)
-    assert res.get("code") != "suspect_zero", res
-    assert res["ok"], res
+    api = ZeroApi()
+    api.drive = SimpleNamespace(bus=SimpleNamespace(trims=None), armed=False)
+    res = api._untrap_motor_preflight(q)
+    assert res["ok"] is False and res["code"] == "motor_limits"
+    assert "joint 10" in res["error"]
+    assert not api.drive.armed
 
 
-def test_untrap_flat_on_clutter_is_success_not_reposition():
+def test_untrap_flat_on_clutter_is_success_not_reposition(reachable_fold):
     # Live regression (09-11 00:57, run 9cbefa822ce1): the fold took the
     # body from 14.7° to 8.58° with L1/L4 knees stalled short, and the
     # old 8.0° success line called that "still tipped 9° — reposition by
@@ -260,14 +265,21 @@ def test_untrap_flat_on_clutter_is_success_not_reposition():
     assert not bus.torque_off, "success holds the fold at the low limit"
 
 
-def test_untrap_never_levels_no_stall_still_limps():
+def test_untrap_never_levels_no_stall_still_limps(reachable_fold):
     bus = TipBus(PLANT, roll_deg=25.0)     # folds fine, stays tipped
     res = run_untrap_tuck(bus)
     assert not res["ok"] and res.get("limp")
     assert "still tipped" in res["error"]
 
 
-def test_untrap_abort_limps():
+def test_untrap_abort_limps(monkeypatch):
+    import inplace_demos
+
+    def must_not_start(*args, **kwargs):
+        raise AssertionError("an aborted untrap must not plan, arm, or write")
+
+    for name in ("_enable_torque", "_glide_speed_acc", "_write_pose"):
+        monkeypatch.setattr(inplace_demos, name, must_not_start)
     bus = TipBus(PLANT, roll_deg=25.0, level_at_knee_deg=120.0)
     res = run_untrap_tuck(bus, abort_check=lambda: True)
     assert not res["ok"] and res.get("limp")
@@ -276,15 +288,4 @@ def test_untrap_abort_limps():
 
 
 if __name__ == "__main__":
-    fns = [(n, f) for n, f in sorted(globals().items())
-           if n.startswith("test_") and callable(f)]
-    failed = 0
-    for name, fn in fns:
-        try:
-            fn()
-            print(f"  ok    {name}")
-        except AssertionError as e:
-            failed += 1
-            print(f"  FAIL  {name}: {e}")
-    print(f"{len(fns) - failed}/{len(fns)} passed")
-    sys.exit(1 if failed else 0)
+    sys.exit(pytest.main([__file__, "-q"]))

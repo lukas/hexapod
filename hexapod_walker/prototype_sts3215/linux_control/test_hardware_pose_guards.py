@@ -81,6 +81,22 @@ def test_standup_validates_optional_replant():
         validated_standup_frames([{"q_deg": pose(-10, 130), "s": 1}])
 
 
+def test_descent_starts_at_measured_support_and_preserves_waypoints():
+    from api.standup import descent_frames_from_present
+    frames = [(pose(20, 80), .8), (pose(10, 40), 2), (pose(), 2)]
+    measured = pose(18, 87)
+    result = descent_frames_from_present(frames, measured)
+    assert result[0][0] == measured
+    assert result[1:] == frames[1:]
+    assert frames[0][0] == pose(20, 80)
+
+
+def test_descent_refuses_unreachable_measured_pose():
+    from api.standup import descent_frames_from_present
+    with pytest.raises(ValueError):
+        descent_frames_from_present([(pose(), 1)], pose(-78, 148))
+
+
 def test_standup_refuses_authored_path_before_acquisition(no_motion):
     api = StandupApi()
     api.drive = SimpleNamespace(bus=SimpleNamespace(trims=None), dry_run=False)

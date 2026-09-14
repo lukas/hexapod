@@ -431,11 +431,19 @@ class MotorSetup:
                     voltage_v=None, temp_c=None, min_voltage_v=None, max_voltage_v=None,
                     max_temp_c=None, support_drift_deg=0., max_support_drift_deg=0.,
                     force_fault_reads=0, voltage_fault_reads=0,
-                    temperature_fault_reads=0, support_drift_fault_reads=0, samples=0)
+                    temperature_fault_reads=0, support_drift_fault_reads=0, samples=0,
+                    torque_enabled=None, servo_status=None, seen_statuses=[], moving=None,
+                    accepted_goal_counts=None, observed_goal_counts=None,
+                    observed_torque_limit=None, last_sample_monotonic_s=None, active_sample_s=None)
                 set_start(j, read(j + 2, 56))
                 limits[j] = read(j + 2, 48)
                 result['joints'][str(j)].update(saved_torque_limit=limits[j],
                                                 applied_torque_limit=None)
+                result['joints'][str(j)]['protection_config'] = {
+                    name: read(j + 2, addr, size) for name, addr, size in (
+                        ('unload_mask', 19, 1), ('current_protection_raw', 28, 2),
+                        ('mode', 33, 1), ('protection_torque_raw', 34, 1),
+                        ('protection_time_raw', 35, 1), ('overload_torque_raw', 36, 1))}
 
             def pending():
                 return result['pair_fault_reads'] or any(
@@ -449,6 +457,24 @@ class MotorSetup:
                 positions = {}
                 for j in participants:
                     sid, row = j + 2, result['joints'][str(j)]
+                    if active_start is not None:
+                        row['servo_status'] = read(sid, 65, 1)
+                        if row['servo_status'] not in row['seen_statuses']:
+                            row['seen_statuses'].append(row['servo_status'])
+                        row['moving'] = read(sid, 66, 1)
+                        row['torque_enabled'] = read(sid, 40, 1)
+                        row['last_sample_monotonic_s'] = time.monotonic()
+                        row['active_sample_s'] = row['last_sample_monotonic_s'] - active_start
+                        if row['torque_enabled'] != 1:
+                            raise ValueError(f'Joint {j} torque unexpectedly off '
+                                             f'(value={row["torque_enabled"]}, status={row["servo_status"]}).')
+                        row['observed_goal_counts'] = read(sid, 42)
+                        if row['observed_goal_counts'] != targets[j]:
+                            raise ValueError(f'Joint {j} goal changed: {row["observed_goal_counts"]}, expected {targets[j]}.')
+                        row['observed_torque_limit'] = read(sid, 48)
+                        if row['observed_torque_limit'] != row['applied_torque_limit']:
+                            raise ValueError(f'Joint {j} torque limit changed: {row["observed_torque_limit"]}, '
+                                             f'expected {row["applied_torque_limit"]}.')
                     current = (read(sid, 69) & 0x7fff) * .0065
                     row.update(current_a=current, peak_current_a=max(row['peak_current_a'], current))
                     partial_bad_health |= current >= .25
@@ -525,6 +551,7 @@ class MotorSetup:
                         raise ValueError(f'Joint {j} present-position preload failed.')
                     if read(sid, 42) != homes[j]:
                         raise ValueError(f'Joint {j} present-position preload unverified.')
+                    result['joints'][str(j)]['accepted_goal_counts'] = homes[j]
                 active_start = time.monotonic()
                 deadline = active_start + duration
                 for j in participants:
@@ -544,6 +571,11 @@ class MotorSetup:
                             raise ValueError('Recovery coordinated target write failed.')
                     finally:
                         group.clearParam()
+                    for j in sorted(offsets):
+                        accepted = read(j + 2, 42)
+                        result['joints'][str(j)]['accepted_goal_counts'] = accepted
+                        if accepted != targets[j]:
+                            raise ValueError(f'Joint {j} recovery target not accepted: {accepted}, expected {targets[j]}.')
                 while True:
                     positions = observe()
                     if offsets and not pending() and all(abs(positions[j] - targets[j]) <= 3 for j in offsets):

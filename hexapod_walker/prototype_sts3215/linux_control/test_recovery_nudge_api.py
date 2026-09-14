@@ -75,7 +75,8 @@ class RawBus:
                 return value if isinstance(value, tuple) else (value, 0, 0)
         value = {40: int(sid in self.on), 42: self.goal[sid],
                  48: self.limit[sid], 56: self.position[sid],
-                 60: 0, 69: 0, 62: 114, 63: 30}[address]
+                 19: 44, 28: 500, 33: 0, 34: 20, 35: 50, 36: 80,
+                 60: 0, 69: 0, 62: 114, 63: 30, 65: 0, 66: 0}[address]
         return value, 0, 0
 
     read1ByteTxRx = read2ByteTxRx = _read
@@ -155,6 +156,7 @@ def test_recovery_preloads_all_before_enabling_and_only_groups_deltas(rig, paylo
     before = bus.events[:first_enable]
     assert all(("read", sid, 40) in before for sid in range(2, 20))
     for sid in ids:
+        assert all(('read', sid, address) in before for address in (19, 28, 33, 34, 35, 36))
         assert ("position", sid, 2000, 90, 4) in before
         assert ("limit", sid, 90 if sid == 6 else 200) in before
         preload = before.index(("position", sid, 2000, 90, 4))
@@ -180,6 +182,9 @@ def test_recovery_preloads_all_before_enabling_and_only_groups_deltas(rig, paylo
         row = result["joints"][str(joint)]
         assert row["saved_torque_limit"] == (90 if joint == 4 else 700)
         assert row["applied_torque_limit"] == (90 if joint == 4 else 200)
+        assert row['protection_config'] == dict(
+            unload_mask=44, current_protection_raw=500, mode=0,
+            protection_torque_raw=20, protection_time_raw=50, overload_torque_raw=80)
 
 
 @pytest.mark.parametrize('holds', [[4, 5], [4, 5, 16, 17]])
@@ -205,18 +210,26 @@ def test_l5_bounded_placement_uses_raw_pitch_targets_only(rig):
 
 
 def add_active_read_latency(bus, clock, *, bad_register=None):
-    """A final scan starts at .918s and crosses 1s before its position read."""
+    """24ms reads; an injected bad read expires the next partial scan."""
     original = bus._read
     active_start = []
     active_reads = []
+    bad_register_reads = 0
     bus.after_enable = lambda sid: active_start.append(clock.now) if not active_start else None
 
     def read(sid, address):
+        nonlocal bad_register_reads
         if bus.on:
             clock.sleep(.024)
             elapsed = clock.now - active_start[0]
+            if sid == 6 and address == bad_register:
+                bad_register_reads += 1
+                if bad_register_reads == 2:
+                    # One complete healthy active scan precedes this fault.
+                    clock.now = max(clock.now, active_start[0] + .999)
+                    elapsed = clock.now - active_start[0]
             active_reads.append((sid, address, elapsed))
-            if sid == 6 and address == bad_register and elapsed > .9:
+            if sid == 6 and address == bad_register and bad_register_reads == 2:
                 return (39 if address == 69 else 80), 0, 0
         return original(sid, address)
 
@@ -294,6 +307,72 @@ def test_unverified_preload_or_limit_never_enables(rig, bad_register):
     assert not result["ok"]
     assert not [event for event in bus.events if event[0] == "torque" and event[2]]
     assert not bus.groups
+
+
+def test_sync_target_must_be_read_back_from_moving_servo(rig):
+    api, bus, _clock = rig
+    original = bus.txPacket
+    def drop_target():
+        original()
+        bus.goal[3] = 2000
+        return 0  # Bridge ACK alone does not establish servo acceptance.
+    bus.txPacket = drop_target
+    result = api.recovery_nudge(REQUEST)
+    assert not result['ok'] and result['torque_off']
+    assert 'target not accepted' in result['error']
+    assert result['joints']['1']['accepted_goal_counts'] == 2000
+    assert len(bus.groups) == 1 and not bus.on
+
+
+@pytest.mark.parametrize('address,value,message,field', [
+    (40, 0, 'torque unexpectedly off', 'torque_enabled'),
+    (42, 2001, 'goal changed', 'observed_goal_counts'),
+    (48, 201, 'torque limit changed', 'observed_torque_limit'),
+])
+@pytest.mark.parametrize('joint', [1, 4])
+def test_active_command_mutation_stops_without_reenable_or_rewrite(rig, address, value, message, field, joint):
+    api, bus, _clock = rig
+    sid = joint + 2
+    reads = []
+    def fault(b):
+        if b.groups:
+            reads.append(True)
+            # Goal's first read verifies the synchronized target. Corrupt
+            # the following ACTIVE observation to model a later rewrite.
+            if address != 42 or joint == 4 or len(reads) >= 2:
+                if address == 40:
+                    b.on.discard(sid)
+                return value
+        return None
+    bus.faults[(sid, address)] = fault
+    bus.faults[(sid, 65)] = lambda b: 32 if b.groups else None
+    result = api.recovery_nudge(REQUEST)
+    row = result['joints'][str(joint)]
+    assert not result['ok'] and result['torque_off']
+    assert message in result['error']
+    assert row[field] == value
+    assert row['servo_status'] == 32 and row['seen_statuses'] == [32]
+    assert row['last_sample_monotonic_s'] is not None and row['active_sample_s'] >= 0
+    assert len(bus.groups) == 1 and not bus.on
+    assert [e for e in bus.events if e[0] == 'torque' and e[2]] == [
+        ('torque', sid, True) for sid in (3, 4, 6, 7)]
+    assert len([e for e in bus.events if e[0] == 'position']) == 4
+
+
+def test_active_status_history_and_accepted_goals_are_retained(rig):
+    api, bus, _clock = rig
+    statuses, forces = iter([0, 8]), iter([39, 0])
+    bus.faults[(3, 65)] = lambda b: next(statuses, 8) if b.groups else None
+    bus.faults[(3, 69)] = lambda b: next(forces, 0) if b.groups else None
+    bus.faults[(3, 66)] = lambda b: 1 if b.groups else None
+    result = api.recovery_nudge(REQUEST)
+    row = result['joints']['1']
+    assert result['ok'] and result['torque_off']
+    assert row['seen_statuses'] == [0, 8] and row['servo_status'] == 8
+    assert row['moving'] == row['torque_enabled'] == 1
+    assert row['active_sample_s'] == pytest.approx(.05)
+    assert row['accepted_goal_counts'] == row['observed_goal_counts'] == expected_target(1, -3)
+    assert row['observed_torque_limit'] == row['applied_torque_limit'] == 200
 
 
 def test_abort_during_enable_prevents_movement_and_cleans_every_participant(rig):

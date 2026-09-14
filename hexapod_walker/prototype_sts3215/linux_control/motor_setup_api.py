@@ -432,7 +432,7 @@ class MotorSetup:
                     max_temp_c=None, support_drift_deg=0., max_support_drift_deg=0.,
                     force_fault_reads=0, voltage_fault_reads=0,
                     temperature_fault_reads=0, support_drift_fault_reads=0, samples=0,
-                    torque_enabled=None, servo_status=None, seen_statuses=[], moving=None,
+                    torque_enabled=None, torque_read_values=[], servo_status=None, seen_statuses=[], moving=None,
                     accepted_goal_counts=None, observed_goal_counts=None,
                     observed_torque_limit=None, last_sample_monotonic_s=None, active_sample_s=None)
                 set_start(j, read(j + 2, 56))
@@ -463,6 +463,16 @@ class MotorSetup:
                             row['seen_statuses'].append(row['servo_status'])
                         row['moving'] = read(sid, 66, 1)
                         row['torque_enabled'] = read(sid, 40, 1)
+                        row['torque_read_values'].append(row['torque_enabled'])
+                        # One corrupt status byte must not masquerade as a
+                        # lost support. Confirm with fresh register reads;
+                        # never re-enable or rewrite a goal in this path.
+                        for _ in range(2):
+                            if row['torque_enabled'] == 1:
+                                break
+                            partial_bad_health = True
+                            row['torque_enabled'] = read(sid, 40, 1)
+                            row['torque_read_values'].append(row['torque_enabled'])
                         row['last_sample_monotonic_s'] = time.monotonic()
                         row['active_sample_s'] = row['last_sample_monotonic_s'] - active_start
                         if row['torque_enabled'] != 1:

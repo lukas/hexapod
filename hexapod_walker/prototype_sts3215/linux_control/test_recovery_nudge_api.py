@@ -351,12 +351,29 @@ def test_active_command_mutation_stops_without_reenable_or_rewrite(rig, address,
     assert not result['ok'] and result['torque_off']
     assert message in result['error']
     assert row[field] == value
+    if address == 40:
+        assert row['torque_read_values'][-3:] == [0, 0, 0]
     assert row['servo_status'] == 32 and row['seen_statuses'] == [32]
     assert row['last_sample_monotonic_s'] is not None and row['active_sample_s'] >= 0
     assert len(bus.groups) == 1 and not bus.on
     assert [e for e in bus.events if e[0] == 'torque' and e[2]] == [
         ('torque', sid, True) for sid in (3, 4, 6, 7)]
     assert len([e for e in bus.events if e[0] == 'position']) == 4
+
+
+def test_single_bad_torque_status_is_confirmed_without_reenabling(rig):
+    api, bus, _clock = rig
+    offered = []
+    def fault(b):
+        if b.groups and not offered:
+            offered.append(True)
+            return 0
+        return None
+    bus.faults[(3, 40)] = fault
+    result = api.recovery_nudge(REQUEST)
+    assert result['ok'] and result['torque_off']
+    assert result['joints']['1']['torque_read_values'][:2] == [0, 1]
+    assert sum(e == ('torque', 3, True) for e in bus.events) == 1
 
 
 def test_active_status_history_and_accepted_goals_are_retained(rig):

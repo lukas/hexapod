@@ -2219,6 +2219,65 @@ class SimHexapodBalanceEnv(_GymBase):
         self._goal_traj = self._sample_goal()
         start_at = ("plant" if self._goal_traj is None
                     else getattr(self._goal_traj, "start_at", "plant"))
+        # ease.rise_flat_only (2026-09-14, walkcurr flat-start-rise
+        # 22/22-closed-lever escalation): scope the pre-existing
+        # generic ease.gravity_scale/vel_ceiling_scale physics-easing
+        # mechanism (08-13, GAIT.md P3 lever 3, built for a different
+        # track's early-training ignition and used so far only as a
+        # STATIC whole-run setting) to ONLY the hardest, still-unsolved
+        # start_kind='flat' rise episodes -- a genuinely new mechanism
+        # FAMILY on this residual (dynamics-parameter easing), distinct
+        # from every already-closed cap/reward-pricing/reset-timing/
+        # leg-order/batch-composition lever (22/22 null, STATUS
+        # 2026-09-14 ~08:3x). Rationale: the 03:1x root-cause read
+        # showed a mesh-native OPEN-LOOP tuck-then-press clears rise at
+        # 2.21A (11% margin under the 2.5A trip) -- over_current is an
+        # RL sequencing/exploration problem, not a physics ceiling, so
+        # temporarily easing gravity (lower effective weight to push
+        # against during exploration) may let PPO discover the correct
+        # low-current curl-then-lift KINEMATIC sequence without
+        # tripping the cap, while non-flat episodes (bridge/crouch/
+        # walk/hold/lower -- all already solved) keep training at
+        # nominal physics so the fix can't be a free lunch that quietly
+        # trades away already-closed behavior. Default OFF (key unset
+        # or 0.0) is bit-exact: the pre-existing unconditional
+        # ease.gravity_scale/vel_ceiling_scale behavior above is
+        # completely untouched. When ON and this episode does NOT
+        # qualify (not rise, or rise but not a flat start), UNDOES any
+        # easing the block above already applied, restoring the exact
+        # pre-easing values so those episodes are bit-exact nominal.
+        #
+        # MUST run HERE (inside _reset_begin, right after the goal is
+        # known) and NOT later in _reset_finalize (where self._is_rise
+        # is normally set): this method's caller (reset()) calls
+        # self._ep_rand.apply_to_model(...), which is what actually
+        # copies _ep_rand.gravity_vec onto model.opt.gravity, almost
+        # immediately after _reset_begin returns and LONG before
+        # _reset_finalize ever runs. A first version of this gate lived
+        # in _reset_finalize and correctly reverted _ep_rand.gravity_vec
+        # on paper, but apply_to_model had already baked the EASED
+        # value into model.opt.gravity by then, so gravity easing
+        # silently leaked into every non-flat-rise episode (hold/
+        # bridge/crouch/walk/lower) despite the field-level revert
+        # looking right in isolation -- found this cycle via a direct
+        # model.opt.gravity vs _ep_rand.gravity_vec comparison after
+        # the mod/strict canaries both showed an unexplained hold-
+        # canary regression vs their own parent. _goal_traj.mode/
+        # start_kind_of are used directly (self._is_rise doesn't exist
+        # yet at this point in _reset_begin).
+        if float(cfg_get(self.cfg, "ease", "rise_flat_only",
+                          default=0.0)) == 1.0 and not (
+                self._goal_traj is not None
+                and getattr(self._goal_traj, "mode", "") == "rise"
+                and start_kind_of(self._goal_traj) == "flat"):
+            self._ease_g = 1.0
+            self._ease_v = 1.0
+            if self._ep_rand is not None:
+                if self._ease_orig_gravity_vec is not None:
+                    self._ep_rand.gravity_vec = (
+                        self._ease_orig_gravity_vec)
+                if self._ease_orig_vel_scale is not None:
+                    self._ep_rand.vel_scale = self._ease_orig_vel_scale
         # Reference state initialization (RSI, DeepMimic-style; operator
         # 08-10 late). The 08-10 forensic ladder (score1 -> scoreref1 ->
         # -dr0 -> -dr0-lowlr -> -dr0-riseonly) proved the rise reward
@@ -3059,45 +3118,6 @@ class SimHexapodBalanceEnv(_GymBase):
         # one step that makes standing possible has zero gradient.
         self._is_rise = (self._goal_traj is not None
                          and getattr(self._goal_traj, "mode", "") == "rise")
-        # ease.rise_flat_only (2026-09-14, walkcurr flat-start-rise
-        # 22/22-closed-lever escalation): scope the pre-existing
-        # generic ease.gravity_scale/vel_ceiling_scale physics-easing
-        # mechanism (08-13, GAIT.md P3 lever 3, built for a different
-        # track's early-training ignition and used so far only as a
-        # STATIC whole-run setting) to ONLY the hardest, still-unsolved
-        # start_kind='flat' rise episodes -- a genuinely new mechanism
-        # FAMILY on this residual (dynamics-parameter easing), distinct
-        # from every already-closed cap/reward-pricing/reset-timing/
-        # leg-order/batch-composition lever (22/22 null, STATUS
-        # 2026-09-14 ~08:3x). Rationale: the 03:1x root-cause read
-        # showed a mesh-native OPEN-LOOP tuck-then-press clears rise at
-        # 2.21A (11% margin under the 2.5A trip) -- over_current is an
-        # RL sequencing/exploration problem, not a physics ceiling, so
-        # temporarily easing gravity (lower effective weight to push
-        # against during exploration) may let PPO discover the correct
-        # low-current curl-then-lift KINEMATIC sequence without
-        # tripping the cap, while non-flat episodes (bridge/crouch/
-        # walk/hold/lower -- all already solved) keep training at
-        # nominal physics so the fix can't be a free lunch that quietly
-        # trades away already-closed behavior. Default OFF (key unset
-        # or 0.0) is bit-exact: the pre-existing unconditional
-        # ease.gravity_scale/vel_ceiling_scale behavior above is
-        # completely untouched. When ON and this episode does NOT
-        # qualify (not rise, or rise but not a flat start), UNDOES any
-        # easing the block above already applied, restoring the exact
-        # pre-easing values so those episodes are bit-exact nominal.
-        if float(cfg_get(self.cfg, "ease", "rise_flat_only",
-                          default=0.0)) == 1.0 and not (
-                self._is_rise
-                and start_kind_of(self._goal_traj) == "flat"):
-            self._ease_g = 1.0
-            self._ease_v = 1.0
-            if self._ep_rand is not None:
-                if self._ease_orig_gravity_vec is not None:
-                    self._ep_rand.gravity_vec = (
-                        self._ease_orig_gravity_vec)
-                if self._ease_orig_vel_scale is not None:
-                    self._ep_rand.vel_scale = self._ease_orig_vel_scale
         # GETUP (recover→stand→walk, 08-11) episode state: mode flag +
         # the staged-progress ratchet baseline. The baseline is seeded
         # on the FIRST post-settle tick (walk_task._post_step) so the

@@ -136,7 +136,12 @@ def test_ease_rise_flat_only_eases_flat_rise_but_not_bridge():
     the flat-start-rise lever hunt (dynamics-parameter easing, scoped
     to the exact still-unsolved sub-population, distinct from every
     already-closed cap/reward-pricing/reset-timing/leg-order/batch-
-    composition lever)."""
+    composition lever). Uses the randomize=False (private-model)
+    path -- self._ease_g/_ease_v -- which is the fallback for a DR-0
+    env; the randomize=True/_ep_rand path is covered separately below
+    since it is a DIFFERENT code branch with its own bug history (see
+    test_ease_rise_flat_only_reverts_model_gravity_not_just_ep_rand_
+    field)."""
     from rl_move.sim.joint_task import SimHexapodJointGoalEnv
 
     cfg = _rise_only_cfg()
@@ -151,3 +156,55 @@ def test_ease_rise_flat_only_eases_flat_rise_but_not_bridge():
     env_bridge._goal_gen.force_rise_start = "bridge"
     env_bridge.reset()
     assert env_bridge._ease_g == 1.0
+
+
+def test_ease_rise_flat_only_reverts_model_gravity_not_just_ep_rand_field():
+    """Regression for a real bug found this cycle (DR-ON / _ep_rand
+    path, the one every actual training run uses): a first version of
+    this gate lived in _reset_finalize (where self._is_rise is
+    normally set) and correctly reverted _ep_rand.gravity_vec back to
+    nominal for a non-flat-rise episode, but by the time
+    _reset_finalize runs, reset() has ALREADY called
+    _ep_rand.apply_to_model(...) (which copies gravity_vec onto the
+    real model.opt.gravity) using the STILL-EASED value -- so the
+    field-level revert looked correct in isolation while the actual
+    physics silently stayed eased on hold/bridge/crouch/walk/lower
+    episodes too. Caught by a live mod/strict canary pair both
+    showing an unexplained hold-canary regression vs their shared
+    parent. Fixed by moving the gate into _reset_begin (right after
+    the goal is sampled, well before apply_to_model runs). This test
+    checks the ACTUAL model.opt.gravity the physics step will use, on
+    the randomize=True path real training exercises, not just the
+    intermediate _ep_rand field."""
+    from rl_move.sim.joint_task import SimHexapodJointGoalEnv
+
+    cfg_hold = {"goal": {"p_hold": 1.0, "p_lean": 0.0, "p_track": 0.0,
+                        "p_unload": 0.0, "p_raise": 0.0, "p_rise": 0.0,
+                        "p_lower": 0.0},
+               "ease": {"gravity_scale": 0.6, "rise_flat_only": 1.0}}
+    env_hold = SimHexapodJointGoalEnv(randomize=True, dr_scale=0.2,
+                                      cfg=cfg_hold)
+    for _ in range(3):
+        env_hold.reset()
+        assert abs(float(env_hold.model.opt.gravity[2])
+                   - float(env_hold._ep_rand.gravity_vec[2])) < 1e-9
+        # Nominal (unscaled) magnitude -- NOT 0.6x -9.806.
+        assert float(env_hold.model.opt.gravity[2]) < -9.0
+    env_hold.close()
+
+    env_rise = SimHexapodJointGoalEnv(
+        randomize=True, dr_scale=0.2,
+        cfg=_rise_only_cfg(**{
+            **{},
+        }) | {"ease": {"gravity_scale": 0.6, "rise_flat_only": 1.0}})
+    env_rise._goal_gen.force_rise_start = "flat"
+    env_rise.reset()
+    # Eased: magnitude clearly below nominal (0.6 * 9.806 ~= 5.88).
+    assert -6.5 < float(env_rise.model.opt.gravity[2]) < -5.0
+    assert abs(float(env_rise.model.opt.gravity[2])
+               - float(env_rise._ep_rand.gravity_vec[2])) < 1e-9
+
+    env_rise._goal_gen.force_rise_start = "bridge"
+    env_rise.reset()
+    assert float(env_rise.model.opt.gravity[2]) < -9.0
+    env_rise.close()

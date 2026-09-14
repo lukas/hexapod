@@ -1570,7 +1570,11 @@ class SimHexapodBalanceEnv(_GymBase):
         ext_push_owns_row = (not limp and self._ep_rand is not None
                              and self._ep_rand.ext_push_peak_n != 0.0)
         for _ in range(self._substeps):
-            target = self._profile.tick(h)
+            # load_nm feeds BOTH the dynamic backlash (if active) and the
+            # load-coupled latency (if active) -- same one-substep-lagged
+            # |actuator force| reading, harmless (unread) when neither
+            # mechanism is enabled this episode.
+            target = self._profile.tick(h, load_nm=self._backlash_prev_force)
             if not limp and self._backlash is not None:
                 # Dynamic joint backlash (dr.joint_backlash_deg, see
                 # domain_rand.JointBacklash): the effective target lags
@@ -1616,9 +1620,13 @@ class SimHexapodBalanceEnv(_GymBase):
                 self.data.xfrc_applied[self._chassis_bid, 0:3] = (
                     push_fx, push_fy, 0.0)
             mujoco.mj_step(self.model, self.data)
-            if self._backlash is not None:
-                self._backlash_prev_force[:] = np.abs(
-                    self.data.actuator_force[self._pos_act])
+            # Unconditional (was gated on self._backlash is not None):
+            # the load-coupled latency mechanism (ServoProfile.tick's
+            # load_nm) also reads this lagged reading, and computing it
+            # is cheap/inert when neither mechanism is enabled -- no
+            # physics/reward path consumes it in that case.
+            self._backlash_prev_force[:] = np.abs(
+                self.data.actuator_force[self._pos_act])
             # Accumulate the IMU-point specific force at the physics rate
             # (exact velocities, one FD) — includes the lever-arm
             # acceleration of an off-center IMU without tick-rate
@@ -2788,6 +2796,9 @@ class SimHexapodBalanceEnv(_GymBase):
             deadband_scale=1.0 if er is None else er.deadband_scale,
             vel_scale=((1.0 if er is None else er.vel_scale)
                        * self._ease_v),
+            latency_load_gain=None if er is None else er.latency_load_gain,
+            latency_load_ref_nm=(
+                1.2 if er is None else er.latency_load_ref_nm),
         )
         if er is not None and np.any(er.joint_backlash_gap_rad > 0.0):
             self._backlash = JointBacklash(
@@ -4075,6 +4086,10 @@ class SimHexapodBalanceEnv(_GymBase):
                 deadband_scale=1.0 if er is None else er.deadband_scale,
                 vel_scale=((1.0 if er is None else er.vel_scale)
                            * self._ease_v),
+                latency_load_gain=(
+                    None if er is None else er.latency_load_gain),
+                latency_load_ref_nm=(
+                    1.2 if er is None else er.latency_load_ref_nm),
             )
             if er is not None and np.any(er.joint_backlash_gap_rad > 0.0):
                 self._backlash = JointBacklash(

@@ -92,33 +92,36 @@ _BACKLASH_LEG_GROUPS = {
 _BACKLASH_AXIS_GROUPS = {"yaw": 0, "pitch": 1, "knee": 2}
 
 
-def backlash_group_mask(group: str) -> np.ndarray:
-    """(N_JOINTS,) bool mask for ``dr.joint_backlash_group``.
+def dof_group_mask(group: str, *, param_name: str = "joint_backlash_group"
+                    ) -> np.ndarray:
+    """(N_JOINTS,) bool mask for a named leg/axis/compound joint group.
 
-    "" -> all-True (legacy: every joint independently dosed). Leg groups
-    ("left"/"right"/"front"/"rear"/"legN") set all 3 axes of the named
-    leg(s); axis groups ("yaw"/"pitch"/"knee") set that axis across all
-    6 legs. A "leg_group+axis_group" compound name (2026-09-14, speed
-    track — the asymmetric-backlash probe's own named next escalation:
-    "a combined right-side AND knee-or-pitch-only intersection ... could
-    concentrate the SAME total per-side dose onto fewer joints per leg")
+    Generic form of the mask ``dr.joint_backlash_group`` introduced
+    (2026-09-14): "" -> all-True (legacy: every joint independently
+    dosed). Leg groups ("left"/"right"/"front"/"rear"/"legN") set all 3
+    axes of the named leg(s); axis groups ("yaw"/"pitch"/"knee") set that
+    axis across all 6 legs. A "leg_group+axis_group" compound name
     intersects the two masks, e.g. "right+knee" = only the knee joint of
     the 3 right legs (3 of 18 joints, not 9). Raises on an unrecognized
-    name -- fail loud, never silently dose nothing.
+    name -- fail loud, never silently dose nothing. ``param_name`` is
+    only used to name the offending cfg field in the error message (so a
+    caller other than joint_backlash_group, e.g. latency_load_group,
+    reports itself correctly); the group vocabulary/semantics are shared.
     """
     if not group:
         return np.ones(N_JOINTS, dtype=bool)
     if "+" in group:
         parts = group.split("+")
         if len(parts) != 2:
-            raise ValueError(f"unknown joint_backlash_group: {group!r}")
+            raise ValueError(f"unknown {param_name}: {group!r}")
         leg_part, axis_part = parts
         if leg_part not in _BACKLASH_LEG_GROUPS and not (
                 leg_part.startswith("leg") and leg_part[3:].isdigit()):
-            raise ValueError(f"unknown joint_backlash_group: {group!r}")
+            raise ValueError(f"unknown {param_name}: {group!r}")
         if axis_part not in _BACKLASH_AXIS_GROUPS:
-            raise ValueError(f"unknown joint_backlash_group: {group!r}")
-        return backlash_group_mask(leg_part) & backlash_group_mask(axis_part)
+            raise ValueError(f"unknown {param_name}: {group!r}")
+        return (dof_group_mask(leg_part, param_name=param_name)
+                & dof_group_mask(axis_part, param_name=param_name))
     mask = np.zeros(N_JOINTS, dtype=bool)
     if group in _BACKLASH_LEG_GROUPS:
         for leg in _BACKLASH_LEG_GROUPS[group]:
@@ -128,11 +131,22 @@ def backlash_group_mask(group: str) -> np.ndarray:
     elif group.startswith("leg") and group[3:].isdigit():
         leg = int(group[3:])
         if not (0 <= leg < N_LEGS):
-            raise ValueError(f"joint_backlash_group leg index out of range: {group!r}")
+            raise ValueError(f"{param_name} leg index out of range: {group!r}")
         mask[3 * leg:3 * leg + 3] = True
     else:
-        raise ValueError(f"unknown joint_backlash_group: {group!r}")
+        raise ValueError(f"unknown {param_name}: {group!r}")
     return mask
+
+
+def backlash_group_mask(group: str) -> np.ndarray:
+    """(N_JOINTS,) bool mask for ``dr.joint_backlash_group``.
+
+    Thin wrapper around ``dof_group_mask`` kept for the original call
+    sites/tests -- see that function's docstring for the group
+    vocabulary. Error messages are byte-identical to the pre-refactor
+    version (both name ``joint_backlash_group``).
+    """
+    return dof_group_mask(group, param_name="joint_backlash_group")
 
 # Adaptive/adversarial hard-case sampler (dr.struct_dr_adaptive, speed
 # track, 2026-09-14 — the DR-composition panel's own next-named lever
@@ -435,6 +449,34 @@ class RandRanges:
     # multiply) so enabling/disabling this field never shifts any other
     # draw for a given seed.
     joint_backlash_group: str = ""
+    # latency_load_gain / latency_load_ref_nm / latency_load_group
+    # (2026-09-14, speed track): the SAME load-coupled, concentrated-
+    # group recipe as joint_backlash_* above, applied to ServoProfile's
+    # per-joint COMMAND LATENCY instead of positional play -- the design
+    # note's OTHER named untried dynamic-mechanism candidate ("load-
+    # coupled control-latency") after the backlash right-side/
+    # intersection ladder plateaued at ~29-31% of the PS200 signature
+    # (STATUS.md 2026-09-14 ~03:5x). Physical picture: a heavily loaded
+    # joint's own position-sense-to-motion loop (SyncWrite backlog,
+    # current-limited slew before the servo even begins moving) responds
+    # SLOWER than an unloaded one, so bus/motion-start latency is not a
+    # fixed per-episode draw but grows under load -- and concentrating
+    # that growth on one side (heterogeneity, not global scale, per the
+    # panel's own strongest roll correlate) is untried. Fraction the
+    # per-joint latency WIDENS per unit of |actuator_force|/
+    # latency_load_ref_nm (capped at servo_model.LATENCY_LOAD_FRAC_CAP).
+    # (0.0, 0.0) = OFF, guarded (no rng consumed), bit-exact.
+    latency_load_gain: tuple[float, float] = (0.0, 0.0)
+    # Reference |force| mapping to "1 unit" of load -- a modeling
+    # constant, not scaled by dr-scale (same convention as
+    # joint_backlash_load_ref_nm/zero_drift_cmd_frame).
+    latency_load_ref_nm: float = 1.2
+    # "" (default) = every joint's load-coupling gain drawn independently
+    # (bit-exact no-op at gain 0, same guarded-last-draw convention as
+    # joint_backlash_deg); else one of BACKLASH_GROUPS (shared vocabulary,
+    # see dof_group_mask) -- concentrates the SAME per-joint gain draw
+    # onto a named leg/axis subset instead of spreading it across all 18.
+    latency_load_group: str = ""
     # Adaptive/adversarial hard-case sampler (2026-09-14, speed track —
     # the DR-composition panel's next-named lever after CTRL/WIDE/
     # STRUCT/COMBO all missed the held-out >=30% roll-reduction floor,
@@ -552,6 +594,14 @@ class RandRanges:
             # WHICH joints get dosed does not shrink with the
             # curriculum, only the probability/dose menus do.
             joint_backlash_group=self.joint_backlash_group,
+            # Same convention as joint_backlash_deg/-load_gain/-group
+            # immediately above: magnitude ranges follow the curriculum,
+            # the load-reference constant and categorical group name do
+            # not.
+            latency_load_gain=(self.latency_load_gain[0] * s,
+                                self.latency_load_gain[1] * s),
+            latency_load_ref_nm=self.latency_load_ref_nm,
+            latency_load_group=self.latency_load_group,
         )
 
 
@@ -652,6 +702,14 @@ class EpisodeRandomization:
         default_factory=lambda: np.zeros(N_JOINTS))
     joint_backlash_load_gain: float = 0.0
     joint_backlash_load_ref_nm: float = 1.2
+    # Dynamic, load-coupled COMMAND LATENCY (dr.latency_load_gain /
+    # dr.latency_load_group, see RandRanges). All-zero gain (the
+    # default) = OFF, byte-exact (ServoProfile treats an all-zero/None
+    # gain array as a pure static latency, identical to every
+    # pre-2026-09-14 profile).
+    latency_load_gain: np.ndarray = field(
+        default_factory=lambda: np.zeros(N_JOINTS))
+    latency_load_ref_nm: float = 1.2
     struct_dr_mode: str = ""
     # "" = no structured overlay this episode; else one of
     # domain_rand.STRUCT_STORIES — the granular key the adaptive
@@ -859,6 +917,8 @@ class EpisodeRandomization:
                 float(np.max(self.joint_backlash_gap_rad)) / DEG2RAD, 2),
             "joint_backlash_load_gain": round(
                 self.joint_backlash_load_gain, 2),
+            "latency_load_gain_max": round(
+                float(np.max(self.latency_load_gain)), 3),
         }
 
 
@@ -1380,4 +1440,18 @@ class DomainRandomizer:
                 joint_backlash_gap_rad=gap_deg * DEG2RAD,
                 joint_backlash_load_gain=float(load_gain),
                 joint_backlash_load_ref_nm=float(r.joint_backlash_load_ref_nm))
+        # Load-coupled latency: drawn LAST (guarded), same convention as
+        # joint_backlash_deg immediately above -- default (0.0, 0.0)
+        # never consumes rng and leaves every earlier draw byte-exact.
+        if max(r.latency_load_gain) > 0.0:
+            lg_vec = u(r.latency_load_gain[0], r.latency_load_gain[1],
+                       N_JOINTS)
+            if r.latency_load_group:
+                lg_vec = lg_vec * dof_group_mask(
+                    r.latency_load_group,
+                    param_name="latency_load_group").astype(float)
+            ep = replace(
+                ep,
+                latency_load_gain=lg_vec,
+                latency_load_ref_nm=float(r.latency_load_ref_nm))
         return ep

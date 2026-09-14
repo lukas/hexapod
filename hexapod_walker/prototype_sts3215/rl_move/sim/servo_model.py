@@ -775,6 +775,13 @@ def joint_ids(model) -> np.ndarray:
 # Feetech acc register unit: 100 counts/s² = 8.789 °/s².
 ACC_UNIT_DEG_S2 = 100.0 * 360.0 / 4096.0
 
+# Cap on |load|/load_ref before it stops widening a load-coupled effect
+# (matches domain_rand.JOINT_BACKLASH_LOAD_CAP's value/purpose -- kept as
+# an independent constant here, not imported, to avoid a servo_model <->
+# domain_rand import cycle: domain_rand already imports N_JOINTS/AXES
+# from this module).
+LATENCY_LOAD_FRAC_CAP = 4.0
+
 
 class ServoProfile:
     """Latency + trapezoidal profile + deadband for all 18 joints.
@@ -792,8 +799,22 @@ class ServoProfile:
     def __init__(self, params: SimServoParams, q0_rad: np.ndarray, *,
                  latency_scale: float = 1.0,
                  deadband_scale: float = 1.0,
-                 vel_scale: float = 1.0):
+                 vel_scale: float = 1.0,
+                 latency_load_gain: np.ndarray | None = None,
+                 latency_load_ref_nm: float = 1.2):
         self._latency_s = params.per_joint("latency_ms") / 1000.0 * latency_scale
+        # Dynamic, load-coupled COMMAND LATENCY (speed track, 2026-09-14 —
+        # the joint_backlash_load_gain/-group recipe's other named
+        # untried dynamic-mechanism form, applied to the profile's own
+        # bus/motion-start delay instead of positional play). None or an
+        # all-zero gain array (the default, every pre-2026-09-14 caller)
+        # keeps `_latency_s` fixed for the episode -- byte-identical to
+        # before this axis existed.
+        gain = None if latency_load_gain is None else np.asarray(
+            latency_load_gain, dtype=float).reshape(N_JOINTS)
+        self._latency_load_gain = (
+            None if gain is None or not np.any(gain != 0.0) else gain)
+        self._latency_load_ref_nm = max(float(latency_load_ref_nm), 1e-9)
         self._deadband = params.per_joint("deadband_deg") * DEG2RAD * deadband_scale
         # Exposed so the env can apply the same dead-zone at the physics
         # level (real firmware outputs no torque inside the deadband).
@@ -852,15 +873,29 @@ class ServoProfile:
         self.command(robot_abs_rad_to_mujoco_rel_rad(q_robot_abs_rad),
                      speed_deg_s=speed_deg_s, acc_units=acc_units)
 
-    def tick(self, dt: float) -> np.ndarray:
-        """Advance one physics step; returns the (18,) profile target."""
+    def tick(self, dt: float, load_nm: np.ndarray | None = None) -> np.ndarray:
+        """Advance one physics step; returns the (18,) profile target.
+
+        ``load_nm`` (optional, one-tick-lagged per-joint |actuator
+        force| — same no-look-ahead convention as ``JointBacklash.apply``)
+        drives the load-coupled latency widening when this profile was
+        built with a nonzero ``latency_load_gain``; ``None`` or an inert
+        gain leaves ``_latency_s`` exactly as sampled (static latency).
+        """
         self._t += dt
+        latency_s = self._latency_s
+        if self._latency_load_gain is not None and load_nm is not None:
+            load_frac = np.clip(
+                np.abs(np.asarray(load_nm, dtype=float).reshape(N_JOINTS))
+                / self._latency_load_ref_nm,
+                0.0, LATENCY_LOAD_FRAC_CAP)
+            latency_s = latency_s * (1.0 + self._latency_load_gain * load_frac)
         # Apply, oldest → newest, every write whose per-joint latency has
         # matured; the newest matured write wins per joint. Entries are
         # dropped only once matured for ALL joints (idempotent re-apply).
         keep_from = 0
         for i, (t_w, q, vel, acc) in enumerate(self._queue):
-            matured = (self._t - t_w) >= self._latency_s
+            matured = (self._t - t_w) >= latency_s
             if not np.any(matured):
                 break
             self.goal = np.where(matured, q, self.goal)

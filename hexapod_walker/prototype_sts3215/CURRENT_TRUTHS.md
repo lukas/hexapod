@@ -24,13 +24,20 @@ lever approach: 9 height-magnitude arms (`riseheightcap-*`) + this
 2-arm rate pair (`curlslewgate-*`) = 10 independent mechanisms, all
 null on the same signature. Do not fund another dose/seed on either
 cap family. The next escalation must reward or curriculum-shape the
-trajectory itself: a reward/pricing term scoring the tuck-then-lift
-CURRENT PROFILE directly (mirroring `probe_rise_current_envelope.py`'s
-scripted 2.21A/0-trip reference trace), or a curl-state-conditioned
-exploration/curriculum change biasing early rollouts toward a
-tuck-first order (the per-tick trace already pinned a simultaneous
-six-leg max-current push as the actual failure mode, not a paced
-sequence). Evidence: `ops.sh verdict cw-stance50hz-rlonly-
+trajectory itself, NOT price it against the scripted probe's own
+current trace: `probe_rise_current_envelope.py`'s reference is a
+diagnostic ceiling-check (confirms the physics allows a paced clear),
+never a training target — pricing a reward against it would make the
+scripted trace a de facto motion prior/demonstration, which the
+`rl_only` clean-lineage contract forbids regardless of how the term is
+framed. Viable directions stay demonstration-free: a reward term on a
+property the POLICY'S OWN rollout can self-referentially measure (e.g.
+bounding the rate-of-current-RISE, not matching a target profile), or
+a curl-state-conditioned exploration/curriculum change biasing early
+rollouts toward a tuck-first order (the per-tick trace already pinned
+a simultaneous six-leg max-current push as the actual failure mode,
+not a paced sequence) — never an imitation/matching term keyed to the
+scripted reference. Evidence: `ops.sh verdict cw-stance50hz-rlonly-
 curlslewgate-{mod,strict}-s1-canary2m`; `rl_docs/tracks/walkcurr/
 STATUS.md` 2026-09-14 ~06:4x.
 

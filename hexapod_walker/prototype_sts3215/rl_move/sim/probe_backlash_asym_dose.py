@@ -64,6 +64,15 @@ DOSES = [
     ("single_leg_extreme", "leg0", 16.0, 3.0),
     ("knee_only", "knee", 4.0, 0.0),
     ("pitch_only", "pitch", 4.0, 0.0),
+    # Escalation once right_static/right_static_hi showed a genuine
+    # monotonic SIGNED bias (unlike any uniform dose): push the same
+    # concentrated-on-one-side mechanism further to find where it
+    # plateaus/reverses before funding anything.
+    ("right_12", "right", 12.0, 0.0),
+    ("right_16", "right", 16.0, 0.0),
+    ("right_24", "right", 24.0, 0.0),
+    ("right_16_load2", "right", 16.0, 2.0),
+    ("right_24_load3", "right", 24.0, 3.0),
 ]
 
 

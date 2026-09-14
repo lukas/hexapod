@@ -60,6 +60,7 @@ import _verify_prototype as V
 import fastener_registry as FR
 from motor_setup import wire_harness_plan as WHP
 from motor_setup.feetech_bus import joint_to_servo_id
+from hexapod_core.joint_frame import joint_index
 
 OUT_DIR = _HERE.parent / "full_robot_viz"
 STL_DIR = OUT_DIR / "stl"
@@ -1519,9 +1520,10 @@ def _build_routes(chassis_lift: float, legs: list[int],
             })
 
     for leg in legs:
-        sid_yaw = joint_to_servo_id(3 * leg)
-        sid_hip = joint_to_servo_id(3 * leg + 1)
-        sid_knee = joint_to_servo_id(3 * leg + 2)
+        j_yaw, j_hip, j_knee = (joint_index(leg, ax) for ax in ("yaw", "hip", "knee"))
+        sid_yaw = joint_to_servo_id(j_yaw)
+        sid_hip = joint_to_servo_id(j_hip)
+        sid_knee = joint_to_servo_id(j_knee)
 
         # The tail lead's SOURCE is the leg's underside data-Wago splice, so
         # that Wago is a terminal (declared pass-through), not an obstruction.
@@ -1530,19 +1532,19 @@ def _build_routes(chassis_lift: float, legs: list[int],
         # Terminal servos are declared per route: the lead SEATS into the
         # recessed 5264 cluster, so endpoint contact with the case is
         # intended (same exemption as connector seating).
-        add(leg, f"route-j{3 * leg:02d}", "tail",
+        add(leg, f"route-j{j_yaw:02d}", "tail",
             (f"L{leg} DATA entry: data Wago -> drop slot -> down retainer "
              f"window -> YAW ID {sid_yaw} BACK-face 5264 ports "
              f"(S+GND only; V+ arrives via the hip tee)"),
             ids(leg, "chassis_bottom", "yaw_servo_retainer", "yaw_servo")
             + tail_wagos)
-        add(leg, f"route-j{3 * leg + 1:02d}", "yaw_hip",
+        add(leg, f"route-j{j_hip:02d}", "yaw_hip",
             (f"L{leg} daisy: YAW ID {sid_yaw} -> HIP ID {sid_hip} "
              f"(BACK ports, out the saddle's open +X end, up past the "
              f"bearing cap)"),
             ids(leg, "chassis_bottom", "yaw_servo_retainer", "yaw_servo",
                 "hip_servo"))
-        add(leg, f"route-j{3 * leg + 2:02d}", "hip_knee",
+        add(leg, f"route-j{j_knee:02d}", "hip_knee",
             (f"L{leg} daisy: HIP ID {sid_hip} -> KNEE ID {sid_knee} "
              f"(BACK ports, festooned across the femur's inboard face, "
              f"under the passive-horn yoke arm)"),

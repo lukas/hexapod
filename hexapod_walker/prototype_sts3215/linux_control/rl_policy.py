@@ -2092,10 +2092,7 @@ def _set_weight_bearing_torque(bus) -> None:
     """Best-effort full torque limit + torque-enable for RL body support."""
     if bus is None:
         return
-    try:
-        from feetech_bus import joint_to_servo_id as _sid_for_joint
-    except Exception:  # pragma: no cover - deployed buses use feetech_bus
-        _sid_for_joint = lambda j: j + 2
+    from hexapod_core.joint_frame import servo_id as _sid_for_joint
     pkt = getattr(bus, "pkt", None)
     if pkt is not None:
         for joint in range(N_JOINTS):

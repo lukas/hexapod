@@ -125,6 +125,7 @@ if str(_PROTOTYPE_DIR) not in sys.path:
     sys.path.insert(0, str(_PROTOTYPE_DIR))
 
 import hexapod_prototype as hp  # noqa: E402
+from hexapod_core.joint_frame import servo_id  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -351,8 +352,7 @@ def joint_to_servo_id(joint: int) -> int:
     never assigned -- it is the STS3215 factory default, kept free so a
     fresh servo can join a live daisy-chain without colliding.
     """
-    assert 0 <= joint <= 17
-    return joint + 2
+    return servo_id(joint)
 
 
 # ---------------------------------------------------------------------------

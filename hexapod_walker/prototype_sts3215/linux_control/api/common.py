@@ -28,6 +28,7 @@ if _PARENT not in sys.path:
     sys.path.insert(0, _PARENT)
 
 from motor_setup.feetech_bus import N_JOINTS, joint_limits, joint_to_servo_id
+from hexapod_core.joint_frame import SERVO_IDS, joint_index, joint_of_servo
 
 if TYPE_CHECKING:
     from drive_controller import DriveController

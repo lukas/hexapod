@@ -429,6 +429,7 @@ def bake_demo(name: str, *, title: str | None = None,
     stand-ups are captured in order.
     """
     from motor_setup import inplace_demos as ID
+    from hexapod_core.joint_frame import SERVO_IDS
 
     if name not in ID.DEMOS:
         raise SystemExit(f"unknown demo {name!r}")
@@ -528,7 +529,7 @@ def bake_demo(name: str, *, title: str | None = None,
         "_limp_all": rec_limp,
         "_enable_torque": lambda *a, **k: None,
         "_hold_here": lambda *a, **k: None,
-        "_live_robot_ids": lambda bus: set(range(2, 20)),
+        "_live_robot_ids": lambda bus: set(SERVO_IDS),
         "configure_stream_profile": lambda bus: False,
         "CurrentPeakTracker": _DummyTracker,
     }

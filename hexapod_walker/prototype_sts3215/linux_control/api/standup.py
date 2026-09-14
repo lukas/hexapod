@@ -326,8 +326,8 @@ class StandupApi:
                             return False
                         q_lift = list(target_q)
                         for lg in legs:
-                            q_lift[3 * lg + 1] -= 6.0
-                            q_lift[3 * lg + 2] += 6.0
+                            q_lift[joint_index(lg, "hip")] -= 6.0
+                            q_lift[joint_index(lg, "knee")] += 6.0
                         _write_pose(d.bus, q_lift, live,
                                     speed=400, acc=50)
                         time.sleep(0.4)
@@ -422,7 +422,8 @@ class StandupApi:
                                 zip(qs[-1], q_deg))
                     hips_moving = sum(
                         1 for lg in range(6)
-                        if abs(q_deg[3 * lg + 1] - qs[-1][3 * lg + 1]) > 2.0)
+                        if abs(q_deg[joint_index(lg, "hip")]
+                               - qs[-1][joint_index(lg, "hip")]) > 2.0)
                     is_loaded = hips_moving >= 5
                     loaded_seg.append(is_loaded)
                     seg_rate = LOADED_RATE_DPS if is_loaded else RATE_DPS

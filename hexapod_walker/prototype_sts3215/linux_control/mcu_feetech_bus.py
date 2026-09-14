@@ -44,8 +44,10 @@ from feetech_bus import (  # noqa: E402
     BAUD_DEFAULT,
     FeetechBus,
     N_JOINTS,
+    SERVO_IDS,
     count_to_deg,
     deg_to_count,
+    joint_of_servo,
     joint_to_servo_id,
     load_trims,
     normalize_acc,
@@ -559,9 +561,9 @@ class McuFeetechBus:
         speeds: list[int | None] = [None] * N_JOINTS
         accelerations: list[int | None] = [None] * N_JOINTS
         for sid, count, speed, acc in items:
-            joint = int(sid) - 2
-            if not 0 <= joint < N_JOINTS:
+            if int(sid) not in SERVO_IDS:
                 continue
+            joint = joint_of_servo(int(sid))
             # count_to_deg ignores trim; undo the trim that deg_to_count
             # added so the logged target stays in logical robot degrees.
             command[joint] = (
@@ -598,7 +600,7 @@ class McuFeetechBus:
             "position_deg": [positions.get(j) for j in range(N_JOINTS)],
             "speed_deg_s": [speeds.get(j) for j in range(N_JOINTS)],
             "servo_reports": snapshot.get("servo_reports", []),
-            "missing_servo_ids": [j + 2 for j in range(N_JOINTS)
+            "missing_servo_ids": [joint_to_servo_id(j) for j in range(N_JOINTS)
                                   if j not in positions],
             "imu": dict(snapshot["imu"])
             if isinstance(snapshot.get("imu"), dict) else None,

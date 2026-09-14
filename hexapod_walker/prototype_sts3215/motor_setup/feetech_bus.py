@@ -82,7 +82,7 @@ if str(_PROTO_ROOT) not in sys.path:
 
 from hexapod_core.joint_frame import (  # noqa: F401 (re-exported)
     FACTORY_SERVO_ID, FRAME_ROBOT_ABS, JOINT_CONTRACT, N_JOINTS,
-    SERVO_ID_OFFSET, SERVO_IDS, servo_id)
+    SERVO_ID_OFFSET, SERVO_IDS, joint_of_servo, servo_id)
 
 # ---------------------------------------------------------------------------
 # Joint model (mirrors firmware/prototype_servo_bridge.ino and mujoco_prototype)

@@ -1,5 +1,39 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## Cap-based action-space gating is EXHAUSTED on walkcurr flat-start rise: 10/10 independent levers null, both height-magnitude (9 arms) and joint-rate (2 doses) axes confirmed to engage exactly as designed yet the fingerprint reproduces/worsens (2026-09-14 ~06:4x, walkcurr track, triage cycle)
+`cw-stance50hz-rlonly-curlslewgate-{mod,strict}-s1-canary2m` (RATE-axis
+gate on `safety.max_delta_q_deg`, scaled by live curl progress) both
+CANARY FAIL - MECHANISM. Achieved per-tick joint rate matched each
+dose formula to 3 sig figs (mod: 13.13 deg/s = 0.35*37.5 in 12/12
+episodes; strict: 5.63 deg/s = 0.15*37.5 in 12/12 episodes) — the
+mechanism engaged perfectly, ruling out "under-dosed" as an
+explanation this time (unlike the earlier height-cap family, this is
+directly measured achieved-dq, not the blunter `slew_sat_frac` field,
+which reads vs the static base cap and reads 0 by construction once
+the effective ceiling drops below it). Despite perfect engagement, the
+flat-start over_current fingerprint (buried foot ~-38mm, over_current
+trip) reproduced identically and its footprint_err_end_mm roughly
+DOUBLED at both doses vs the ungated parent; the strict dose also
+regressed bridge stability below the family's own floor. **Binding
+conclusion: suppressing the action space (whether the height ceiling
+or the joint-rate ceiling) cannot fix flat-start rise, because the
+policy's own chosen bad trajectory just replays in slow motion under
+a tighter cap — the axis was never "how much/how fast can it move,"
+it is which SEQUENCE it moves in.** This closes the entire cap-based
+lever approach: 9 height-magnitude arms (`riseheightcap-*`) + this
+2-arm rate pair (`curlslewgate-*`) = 10 independent mechanisms, all
+null on the same signature. Do not fund another dose/seed on either
+cap family. The next escalation must reward or curriculum-shape the
+trajectory itself: a reward/pricing term scoring the tuck-then-lift
+CURRENT PROFILE directly (mirroring `probe_rise_current_envelope.py`'s
+scripted 2.21A/0-trip reference trace), or a curl-state-conditioned
+exploration/curriculum change biasing early rollouts toward a
+tuck-first order (the per-tick trace already pinned a simultaneous
+six-leg max-current push as the actual failure mode, not a paced
+sequence). Evidence: `ops.sh verdict cw-stance50hz-rlonly-
+curlslewgate-{mod,strict}-s1-canary2m`; `rl_docs/tracks/walkcurr/
+STATUS.md` 2026-09-14 ~06:4x.
+
 ## SPEED PRIORITY: make the fast gait survive hardware through evidence-bounded wider DR (2026-09-13, operator)
 
 - The fast frontier is no longer judged by simulation speed alone. The current

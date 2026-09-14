@@ -98,11 +98,27 @@ def backlash_group_mask(group: str) -> np.ndarray:
     "" -> all-True (legacy: every joint independently dosed). Leg groups
     ("left"/"right"/"front"/"rear"/"legN") set all 3 axes of the named
     leg(s); axis groups ("yaw"/"pitch"/"knee") set that axis across all
-    6 legs. Raises on an unrecognized name -- fail loud, never silently
-    dose nothing.
+    6 legs. A "leg_group+axis_group" compound name (2026-09-14, speed
+    track — the asymmetric-backlash probe's own named next escalation:
+    "a combined right-side AND knee-or-pitch-only intersection ... could
+    concentrate the SAME total per-side dose onto fewer joints per leg")
+    intersects the two masks, e.g. "right+knee" = only the knee joint of
+    the 3 right legs (3 of 18 joints, not 9). Raises on an unrecognized
+    name -- fail loud, never silently dose nothing.
     """
     if not group:
         return np.ones(N_JOINTS, dtype=bool)
+    if "+" in group:
+        parts = group.split("+")
+        if len(parts) != 2:
+            raise ValueError(f"unknown joint_backlash_group: {group!r}")
+        leg_part, axis_part = parts
+        if leg_part not in _BACKLASH_LEG_GROUPS and not (
+                leg_part.startswith("leg") and leg_part[3:].isdigit()):
+            raise ValueError(f"unknown joint_backlash_group: {group!r}")
+        if axis_part not in _BACKLASH_AXIS_GROUPS:
+            raise ValueError(f"unknown joint_backlash_group: {group!r}")
+        return backlash_group_mask(leg_part) & backlash_group_mask(axis_part)
     mask = np.zeros(N_JOINTS, dtype=bool)
     if group in _BACKLASH_LEG_GROUPS:
         for leg in _BACKLASH_LEG_GROUPS[group]:

@@ -240,6 +240,46 @@ def test_all_named_groups_are_registered_and_valid():
         assert mask.any()
 
 
+# ------------------------------------------------- compound leg+axis group
+# "leg_group+axis_group" (2026-09-14, asymmetric-probe follow-up): the
+# per-side backlash probe's own named next escalation -- intersect a leg
+# group with an axis group to concentrate the dose onto FEWER joints per
+# leg (e.g. "right+knee" = only the knee of the 3 right legs, 3 of 18
+# joints) instead of all 3 axes of the side ("right" alone = 9 joints).
+
+def test_compound_group_intersects_leg_and_axis():
+    mask = backlash_group_mask("right+knee")
+    assert mask.sum() == 3
+    expect = backlash_group_mask("right") & backlash_group_mask("knee")
+    assert np.array_equal(mask, expect)
+    assert np.all(np.where(mask)[0] % 3 == 2)
+    assert np.all(np.where(mask)[0] // 3 == np.array([3, 4, 5]))
+
+
+def test_compound_group_single_leg_plus_axis():
+    mask = backlash_group_mask("leg0+pitch")
+    assert mask.sum() == 1
+    assert mask[1]  # leg0's pitch joint is index 1 (3*0 + 1)
+
+
+def test_compound_group_unknown_parts_raise():
+    with pytest.raises(ValueError):
+        backlash_group_mask("bogus+knee")
+    with pytest.raises(ValueError):
+        backlash_group_mask("right+bogus")
+    with pytest.raises(ValueError):
+        backlash_group_mask("right+knee+extra")
+
+
+def test_compound_group_cfg_override_string_passthrough():
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+    cfg = {"dr": {"joint_backlash_deg": "4.0,8.0",
+                  "joint_backlash_group": "right+pitch"}}
+    env = SimHexapodJointWalkEnv(cfg=cfg, randomize=True, dr_scale=1.0)
+    assert env.randomizer.ranges.joint_backlash_group == "right+pitch"
+    env.reset(seed=0)  # must not raise: "+" compound resolves at reset too
+
+
 def test_group_mask_is_bit_exact_noop_when_unset():
     # Empty group must leave the per-joint draw byte-identical to the
     # pre-2026-09-14 behavior for the SAME rng stream.

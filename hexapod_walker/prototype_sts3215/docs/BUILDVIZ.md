@@ -79,3 +79,51 @@ npx buildviz init
   update `scene.json` with real transforms from the CAD/export pipeline.
 
 Build name: prototype
+
+## Catalog discipline (moved here from the root AGENTS.md, 2026-09-14)
+
+Start with MCP `list_catalog({collection:"hexapods"})`, then
+`get_catalog_item({id:"..."})`, before choosing or creating a build. CLI
+fallback: `buildviz catalog list --collection hexapods --json` and
+`buildviz catalog show <id>`. Read the returned source and children rather
+than inferring identity from an old project name or version count.
+
+Robot entries on the cloud hub (`https://buildviz.cwd1f0-new-cluster.coreweave.app/?catalog=<id>`):
+
+- `hexapod-1`: original RobotLab STS assembly; as-built pinned to
+  `prototype_sts3215/hexapod-v1`, branch `main`, version `2026-08-07-f9c91cf`.
+- `hexapod-2`: three-bearing STS build (two lower, one upper bearing, spacer
+  retrofit `sts-horn-compression-study` in progress); per-leg state in
+  `robots/hexapod-2.yaml`. The bundled `buildviz/hexapod-2` scene does not
+  identify this robot.
+- `hexapod-metal`: planned purchased-56 mm-bracket build from
+  `prototype_sts3215/premade-chorn-56`; CNC and split-clamp alternatives are
+  studies beneath it.
+
+Rules:
+
+- `create_view` for an inspection selection of existing geometry, pinned to
+  an exact source branch and revision. A view does not create a robot.
+- `publish_revision` for geometry changes under the existing identity;
+  alternatives, coupons, loading setups and comparisons are studies with an
+  explicit parent. Every revision carries a one or two sentence message.
+- Keep CAD `source` separate from `asBuilt`; record installed hardware only
+  from evidence. Version numbers have been reused; sequence by timestamp.
+- Preserve old source IDs, branches and URLs; archive obsolete entries
+  instead of deleting histories.
+- Mirror to the cloud hub after a local publish (`make verify-buildviz` does
+  this; standalone `make push-cloud`). Auth is `X-API-Key` = `BUILDVIZ_API_KEY`
+  from the CoreWeave secret `buildviz-api-key`. A dead network must never
+  fail the local publish.
+
+Hub build ids: `prototype_sts3215` (full robot, motion baked into its
+scene.json) with sibling builds `prototype_sts3215/rigid-hip`,
+`cnc-chorn-overhead`, `chassis-reinforcement-test`,
+`tibia-yoke-reinforcement-test`, `cnc-chorn-two-piece`, `fsr-sensor-foot`,
+`horn-compression-limiters`, `premade-chorn-56` (see `concepts/README.md`),
+plus `hexapod-prototype` (prototype_v1). Stale copies of retired ids
+(`cnc_chorn_overhead`, `sts3215-rigid-hip`, `sts3215-rigid-hip-step`) linger
+on the cloud hub, which has no delete endpoint; ignore them. List live builds
+with `npx buildviz hub status`. Reference: `/Users/Shared/buildviz/README.md`
+and `BUILDVIZ_LLM_INTERFACE.md`; if the package is not on npm's path, run
+`/Users/Shared/buildviz/bin/buildviz.mjs` directly.

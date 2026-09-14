@@ -5,11 +5,9 @@ alwaysApply: true
 
 # Hexapod STS3215 — hardware safety (non-negotiable)
 
-Incident 2026-08-06: wrong logical zeros + unsupervised stand/plant blends
-tipped the robot, browned out the Uno Q, held stilts at ~7 A, and cooked
-a knee servo. Do not repeat. (Hardware fully resolved 2026-08-09: servo
-replaced, bus verified 18/18 healthy — never resurface it as an open
-issue; only the process lessons below remain.)
+These rules exist because wrong logical zeros plus an unobserved stand/plant
+blend once tipped the robot and cooked a servo (2026-08-06, hardware long
+since repaired). The rules are what remain.
 
 ## Standing task authority
 

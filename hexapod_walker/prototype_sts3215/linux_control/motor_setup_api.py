@@ -365,6 +365,12 @@ class MotorSetup:
         support drift uses their frozen achieved positions while the
         original goals remain commanded and both errors are reported.
         Joint positions alone do not establish foot contact.
+        five_leg_plant_unfold instead plants hips1,4,7,10 positive and
+        knee17 negative, then opens knee14, with the same finite timing
+        and handoff rules. Only this explicit profile uses support cap
+        500/1 A/53% and knee14 cap700/2 A/73%, confirmed by three fresh
+        force samples; it has no single-sample 1 A cutoff. Other health,
+        drift, status and abort guards still apply.
         This never re-zeros or returns home.
         """
         from feetech_bus import COUNTS_PER_DEG, JOINT_SIGN, count_to_deg, joint_limits
@@ -374,10 +380,11 @@ class MotorSetup:
         effort_profile = data.get('effort_profile')
         if 'effort_profile' in data and effort_profile not in (
                 'l4_30pct', 'l4_50pct', 'l4_sweep50', 'two_knees_50pct', 'two_knees_sweep50',
-                'five_leg_support', 'five_leg_unfold'):
+                'five_leg_support', 'five_leg_unfold', 'five_leg_plant_unfold'):
             raise ValueError('Unknown recovery effort profile.')
-        five_leg_unfold = effort_profile == 'five_leg_unfold'
-        five_leg_support = effort_profile in ('five_leg_support', 'five_leg_unfold')
+        firm_plant = effort_profile == 'five_leg_plant_unfold'
+        five_leg_unfold = effort_profile in ('five_leg_unfold', 'five_leg_plant_unfold')
+        five_leg_support = effort_profile == 'five_leg_support' or five_leg_unfold
         knee_sweep = effort_profile in ('l4_sweep50', 'two_knees_sweep50')
         two_knees = effort_profile in ('two_knees_50pct', 'two_knees_sweep50')
         effort_joints = {2, 14} if two_knees else {14} if effort_profile else set()
@@ -389,7 +396,7 @@ class MotorSetup:
             delta_bound = 30
         phased = 'phases' in data
         if five_leg_unfold and not phased:
-            raise ValueError('five_leg_unfold requires exactly two phases.')
+            raise ValueError(f'{effort_profile} requires exactly two phases.')
         if knee_sweep and phased:
             raise ValueError(f'{effort_profile} permits one sweep only, without phases.')
         if phased and ('deltas_deg' in data or not isinstance(data['phases'], list)
@@ -438,15 +445,18 @@ class MotorSetup:
                 raise ValueError(f'{effort_profile} requires all twelve pitch joints as movers or holds.')
             if five_leg_unfold:
                 first, second = phase_deltas
-                if (set(holds) != {1, 4, 8, 11, 13, 17}
-                        or set(first) != {'2', '5', '7', '10', '16'}
-                        or not 5 <= first['5'] <= 10
-                        or any(first[str(j)] != (-first['5'] if j == 2 else first['5'])
-                               for j in (2, 5, 7, 10, 16))
+                first_joints = (1, 4, 7, 10, 17) if firm_plant else (2, 5, 7, 10, 16)
+                amplitude_joint, negative_joint = ('1', 17) if firm_plant else ('5', 2)
+                required_holds = {2, 5, 8, 11, 13, 16} if firm_plant else {1, 4, 8, 11, 13, 17}
+                if (set(holds) != required_holds
+                        or set(first) != {str(j) for j in first_joints}
+                        or not 5 <= first[amplitude_joint] <= 10
+                        or any(first[str(j)] != (-first[amplitude_joint] if j == negative_joint
+                                                else first[amplitude_joint]) for j in first_joints)
                         or set(second) != {'14'} or not -30 <= second['14'] <= -5):
-                    raise ValueError('five_leg_unfold requires equal 5..10-degree phase1 moves '
-                                     '(2 negative; 5,7,10,16 positive), phase2 knee14 -30..-5, '
-                                     'and holds1,4,8,11,13,17.')
+                    raise ValueError(f'{effort_profile} requires equal 5..10-degree phase1 moves '
+                                     f'on {first_joints}, only joint{negative_joint} negative; '
+                                     f'phase2 knee14 -30..-5 and holds{sorted(required_holds)}.')
         elif two_knees:
             if (set(holds) != {1, 13, 16, 17}
                     or any(set(d) != {'2', '14'} or d['2'] != d['14']
@@ -465,7 +475,9 @@ class MotorSetup:
             raise ValueError('Choose one to six recovery participants.')
         effort_limits = {}
         for j in participants:
-            if five_leg_support:
+            if firm_plant:
+                effort_limits[j] = (700, 2., 73.) if j == 14 else (500, 1., 53.)
+            elif five_leg_support:
                 effort_limits[j] = (500, .75, 53.) if j == 14 else (300, .5, 33.)
             else:
                 effort_limits[j] = ((profile_cap, profile_current, profile_load)
@@ -517,6 +529,7 @@ class MotorSetup:
             result = dict(ok=False, joint_frame='servo_relative', joints={}, torque_off=False,
                           active_seconds=0., pair_error_deg=0., max_pair_error_deg=0., pair_fault_reads=0,
                           effort_profile=effort_profile or 'default',
+                          single_sample_current_limit_a=None if firm_plant else 1.,
                           active_time_limit_s=total_duration,
                           phase_settle_tolerance_deg=phase_settle_tolerance,
                           knee_progress_mismatch_deg=0., max_knee_progress_mismatch_deg=0.,
@@ -642,7 +655,7 @@ class MotorSetup:
                     current = (read(sid, 69) & 0x7fff) * .0065
                     row.update(current_a=current, peak_current_a=max(row['peak_current_a'], current))
                     partial_bad_health |= current >= row['current_soft_limit_a']
-                    if current >= 1.0:
+                    if current >= 1.0 and not firm_plant:
                         raise ValueError(f'Joint {j} hard current {current:.3f} A >= 1 A.')
                     load = (read(sid, 60) & 0x3ff) / 10.
                     row.update(load_pct=load, max_load_pct=max(row['max_load_pct'], load))

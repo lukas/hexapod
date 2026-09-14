@@ -338,12 +338,17 @@ class MotorSetup:
         enabled between phases, each bounded to 3 seconds (6 seconds total).
         Phase targets are cumulative raw deltas from the initial pose;
         settling admits <=2-degree error, not exact target achievement.
+        Explicit l4_30pct effort permits only a single outward L4 knee move
+        with all five specified supports; that knee alone is capped at 300.
         This never re-zeros or returns home.
         """
         from feetech_bus import COUNTS_PER_DEG, JOINT_SIGN, count_to_deg, joint_limits
 
-        if not isinstance(data, dict) or set(data) - {'deltas_deg', 'hold_joints', 'phases'}:
-            raise ValueError('Recovery accepts deltas_deg or phases, plus hold_joints.')
+        if not isinstance(data, dict) or set(data) - {'deltas_deg', 'hold_joints', 'phases', 'effort_profile'}:
+            raise ValueError('Recovery accepts deltas_deg or phases, hold_joints, and optional effort_profile.')
+        effort_profile = data.get('effort_profile')
+        if 'effort_profile' in data and effort_profile != 'l4_30pct':
+            raise ValueError('Unknown recovery effort profile.')
         phased = 'phases' in data
         if phased and ('deltas_deg' in data or not isinstance(data['phases'], list)
                        or len(data['phases']) != 2
@@ -380,6 +385,9 @@ class MotorSetup:
         moving = set().union(*phase_offsets)
         if moving & set(holds):
             raise ValueError('A joint cannot both move and hold.')
+        if effort_profile and (phased or moving != {14} or phase_deltas[0]['14'] >= 0
+                               or set(holds) != {10, 11, 13, 16, 17}):
+            raise ValueError('l4_30pct requires one outward joint14 move and holds10,11,13,16,17, without phases.')
         participants = sorted(moving | set(holds))
         if not 1 <= len(participants) <= 6:
             raise ValueError('Choose one to six recovery participants.')
@@ -426,7 +434,8 @@ class MotorSetup:
             if any(read(sid, 40, 1) != 0 for sid in range(2, 20)):
                 raise ValueError('All 18 motors must have torque off before recovery.')
             result = dict(ok=False, joint_frame='servo_relative', joints={}, torque_off=False,
-                          active_seconds=0., pair_error_deg=0., max_pair_error_deg=0., pair_fault_reads=0)
+                          active_seconds=0., pair_error_deg=0., max_pair_error_deg=0., pair_fault_reads=0,
+                          effort_profile=effort_profile or 'default')
             if phased:
                 result.update(phase_index=1, phases=[dict(index=i + 1, deltas_deg=dict(d),
                               settled=False) for i, d in enumerate(phase_deltas)])
@@ -459,6 +468,8 @@ class MotorSetup:
                     max_temp_c=None, support_drift_deg=0., max_support_drift_deg=0.,
                     force_fault_reads=0, voltage_fault_reads=0,
                     temperature_fault_reads=0, support_drift_fault_reads=0, samples=0,
+                    current_soft_limit_a=.5 if effort_profile and j == 14 else .25,
+                    load_soft_limit_pct=33. if effort_profile and j == 14 else 23.,
                     torque_enabled=None, torque_read_values=[], servo_status=None, seen_statuses=[], moving=None,
                     accepted_goal_counts=None, observed_goal_counts=None,
                     observed_torque_limit=None, last_sample_monotonic_s=None, active_sample_s=None)
@@ -488,7 +499,7 @@ class MotorSetup:
                         row['servo_status'] = read(sid, 65, 1)
                         if row['servo_status'] not in row['seen_statuses']:
                             row['seen_statuses'].append(row['servo_status'])
-                        if phased and row['servo_status'] != 0:
+                        if (phased or effort_profile) and row['servo_status'] != 0:
                             raise ValueError(f'Joint {j} servo status fault {row["servo_status"]} during recovery phase.')
                         row['moving'] = read(sid, 66, 1)
                         row['torque_enabled'] = read(sid, 40, 1)
@@ -516,12 +527,12 @@ class MotorSetup:
                                              f'expected {row["applied_torque_limit"]}.')
                     current = (read(sid, 69) & 0x7fff) * .0065
                     row.update(current_a=current, peak_current_a=max(row['peak_current_a'], current))
-                    partial_bad_health |= current >= .25
+                    partial_bad_health |= current >= row['current_soft_limit_a']
                     if current >= 1.0:
                         raise ValueError(f'Joint {j} hard current {current:.3f} A >= 1 A.')
                     load = (read(sid, 60) & 0x3ff) / 10.
                     row.update(load_pct=load, max_load_pct=max(row['max_load_pct'], load))
-                    partial_bad_health |= load >= 23.
+                    partial_bad_health |= load >= row['load_soft_limit_pct']
                     voltage = read(sid, 62, 1) / 10.
                     row['voltage_v'] = voltage
                     row['min_voltage_v'] = voltage if row['min_voltage_v'] is None else min(row['min_voltage_v'], voltage)
@@ -544,7 +555,8 @@ class MotorSetup:
                     row.update(reached_deg=angle, reached_counts=count, support_drift_deg=drift,
                                max_support_drift_deg=max(row['max_support_drift_deg'], drift),
                                samples=row['samples'] + 1)
-                    faults = {'force': current >= .25 or load >= 23.,
+                    faults = {'force': current >= row['current_soft_limit_a']
+                                      or load >= row['load_soft_limit_pct'],
                               'voltage': not 9. <= voltage <= 14.,
                               'temperature': temperature >= 60,
                               'support_drift': drift > 3.}
@@ -603,7 +615,7 @@ class MotorSetup:
                     set_start(j, read(j + 2, 56))
                 for j in participants:
                     sid = j + 2
-                    applied = min(limits[j], 200)
+                    applied = min(limits[j], 300 if effort_profile and j == 14 else 200)
                     write_limit(sid, applied)
                     result['joints'][str(j)]['applied_torque_limit'] = applied
                     check()

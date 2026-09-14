@@ -74,6 +74,23 @@ _STRUCT_RIGHT = (3, 4, 5)
 _STRUCT_FRONT = (0, 5)
 _STRUCT_REAR = (2, 3)
 
+# Adaptive/adversarial hard-case sampler (dr.struct_dr_adaptive, speed
+# track, 2026-09-14 — the DR-composition panel's own next-named lever
+# after CTRL/WIDE/STRUCT/COMBO all closed, see STATUS.md 09-13 ~21:5x):
+# named "stories" the struct overlay can draw, granular enough to bias
+# sampling toward whichever region the CURRENT policy is currently
+# worst on (an online per-episode regret bandit), rather than a fixed
+# offline hard region. "correlated" collapses the panel's battery-sag/
+# worn-leg/mass/floor latent story into one bucket (it does not itself
+# subdivide); "asymmetric" splits by the group actually perturbed so a
+# single systematically-bad group (e.g. one side) can be up-weighted
+# independently of the others. Order is arbitrary but fixed (used as a
+# stable dict key set, never as an index).
+STRUCT_STORIES = (
+    "correlated",
+    "asym_left", "asym_right", "asym_front", "asym_rear", "asym_single",
+)
+
 # Frozen-joint DOF damping (N·m·s/rad). Seized-gearbox approximation:
 # implicit (unconditionally stable) viscous lock. Against the fitted
 # joint kv range (0.02-3.0) this is a 150-25000x stiffening; measured
@@ -307,6 +324,21 @@ class RandRanges:
     # forced ON for the overlaid episode). 0.0 (default) = OFF, guarded
     # draw at the very END of sample() so the base stream is bit-exact.
     struct_dr_prob: float = 0.0
+    # Adaptive/adversarial hard-case sampler (2026-09-14, speed track —
+    # the DR-composition panel's next-named lever after CTRL/WIDE/
+    # STRUCT/COMBO all missed the held-out >=30% roll-reduction floor,
+    # STATUS.md 09-13 ~21:5x). False (default) = OFF: the struct overlay
+    # draws its mode/group uniformly exactly as before (bit-exact, no
+    # extra rng draws, no regret bookkeeping touched). True: the overlay
+    # draws from DomainRandomizer.struct_story_weights() instead of a
+    # flat 50/50 + uniform-group draw, biasing training toward whichever
+    # STRUCT_STORIES region the running policy currently survives worst
+    # (DomainRandomizer.record_struct_outcome, fed by each episode's own
+    # peak roll — see walk_task._post_step). A bool, not a probability:
+    # it changes HOW the overlay's own mode/group is chosen, not whether
+    # it fires (struct_dr_prob still owns that). Not scaled by .scaled()
+    # (a boolean mechanism switch, like zero_drift_cmd_frame below).
+    struct_dr_adaptive: bool = False
 
     def scaled(self, s: float) -> "RandRanges":
         """Curriculum knob: shrink every range toward nominal by ``s``.
@@ -395,6 +427,7 @@ class RandRanges:
             foot_friction_scale=pair(*self.foot_friction_scale),
             leg_torque_scale=pair(*self.leg_torque_scale),
             struct_dr_prob=self.struct_dr_prob * s,
+            struct_dr_adaptive=self.struct_dr_adaptive,
         )
 
 
@@ -486,6 +519,14 @@ class EpisodeRandomization:
     # "asymmetric" (diagnostics only — the fields above already carry
     # the overlay's values).
     struct_dr_mode: str = ""
+    # "" = no structured overlay this episode; else one of
+    # domain_rand.STRUCT_STORIES — the granular key the adaptive
+    # sampler (dr.struct_dr_adaptive) tracks and rewards/regrets
+    # against. Set whenever the overlay fires, regardless of whether
+    # adaptive selection is on, so walk_task._post_step always has a
+    # story to report the episode's outcome against once the run turns
+    # adaptivity on (diagnostics-only otherwise, mirrors struct_dr_mode).
+    struct_dr_story: str = ""
 
     def fault_health(self) -> np.ndarray:
         """(18,) health vector per AMP brief §8.2: 1.0 healthy, 0.0
@@ -675,6 +716,7 @@ class EpisodeRandomization:
                       f"{self.fault_mode}:j{list(self.fault_joints)}"
                       f"@{round(self.fault_scale, 2)}"),
             "struct_dr": self.struct_dr_mode or "none",
+            "struct_dr_story": self.struct_dr_story or "none",
             "foot_friction_min": round(
                 float(np.min(self.foot_friction_scale)), 3),
             "leg_torque_min": round(
@@ -693,7 +735,8 @@ def _struct_gravity(rng: np.random.Generator) -> np.ndarray:
 
 
 def _sample_struct_overlay(rng: np.random.Generator,
-                           ep: EpisodeRandomization) -> EpisodeRandomization:
+                           ep: EpisodeRandomization,
+                           story: str | None = None) -> EpisodeRandomization:
     """Overlay one structured hard-region ensemble on a base episode.
 
     Port of the frozen joint panel's correlated/asymmetric samplers
@@ -705,9 +748,17 @@ def _sample_struct_overlay(rng: np.random.Generator,
     torque asymmetry. Doses come from the module STRUCT_* constants
     (PanelBounds provenance). Draws happen only when the overlay fires,
     after every base-sample draw — the OFF path never reaches here.
+
+    ``story`` (one of ``STRUCT_STORIES``) forces the mode/group instead
+    of drawing it — the adaptive sampler's hook (dr.struct_dr_adaptive).
+    None (default, every pre-2026-09-14 caller) reproduces the original
+    draw exactly: same rng calls in the same order, bit-exact.
     """
     u = rng.uniform
-    mode = "correlated" if rng.random() < 0.5 else "asymmetric"
+    if story is None:
+        mode = "correlated" if rng.random() < 0.5 else "asymmetric"
+    else:
+        mode = "correlated" if story == "correlated" else "asymmetric"
 
     # Hard-region core (both modes): the panel's strongest roll drivers.
     kp = u(1.0 - STRUCT_KP_PCT, 1.0 + STRUCT_KP_PCT, N_JOINTS)
@@ -749,10 +800,24 @@ def _sample_struct_overlay(rng: np.random.Generator,
         over["friction_scale"] = float(
             1.0 - f * (1.0 - STRUCT_FRICTION[0]))
         stiff = float(1.0 - f * (1.0 - STRUCT_CONTACT_STIFF[0]))
+        story_out = "correlated"
     else:
         # Systematic per-side / per-leg-group manufacturing+wear asymmetry.
-        group = [_STRUCT_LEFT, _STRUCT_RIGHT, _STRUCT_FRONT, _STRUCT_REAR,
-                 (int(rng.integers(0, N_LEGS)),)][int(rng.integers(0, 5))]
+        if story is None:
+            _group_opts = [_STRUCT_LEFT, _STRUCT_RIGHT, _STRUCT_FRONT,
+                          _STRUCT_REAR, (int(rng.integers(0, N_LEGS)),)]
+            _idx = int(rng.integers(0, 5))
+            group = _group_opts[_idx]
+            story_out = ("asym_left", "asym_right", "asym_front",
+                        "asym_rear", "asym_single")[_idx]
+        elif story == "asym_single":
+            group = (int(rng.integers(0, N_LEGS)),)
+            story_out = story
+        else:
+            group = {"asym_left": _STRUCT_LEFT, "asym_right": _STRUCT_RIGHT,
+                     "asym_front": _STRUCT_FRONT,
+                     "asym_rear": _STRUCT_REAR}[story]
+            story_out = story
         g = float(u(0.4, 1.0))
         lms = np.asarray(ep.leg_mass_scale, dtype=float).copy()
         for leg in group:
@@ -779,7 +844,7 @@ def _sample_struct_overlay(rng: np.random.Generator,
         com_offset_m=com, cmd_drop_prob=cmd_drop,
         contact_stiff_scale=stiff, gravity_vec=gravity,
         foot_friction_scale=foot, leg_torque_scale=leg_t,
-        struct_dr_mode=mode, **over)
+        struct_dr_mode=mode, struct_dr_story=story_out, **over)
 
 
 class DomainRandomizer:
@@ -793,6 +858,55 @@ class DomainRandomizer:
         # 0 degrees = +X, 90 degrees = +Y.
         self.ground_tilt_base_deg = 0.0
         self.ground_azimuth_base_deg = 0.0
+        # Adaptive/adversarial struct-DR regret (dr.struct_dr_adaptive,
+        # 2026-09-14). One EMA "badness" score per STRUCT_STORIES key,
+        # updated only via record_struct_outcome (walk_task._post_step,
+        # guarded by the same cfg flag) — a randomizer built with the
+        # flag off never touches this dict, so it costs nothing when
+        # inert. Seeded at 1.0 (neutral prior: every story equally
+        # unproven-hard) rather than 0.0 so struct_story_weights() never
+        # divides by an all-zero vector before the first outcome lands.
+        self._struct_regret = {k: 1.0 for k in STRUCT_STORIES}
+
+    def record_struct_outcome(self, story: str, badness: float,
+                              decay: float = 0.9) -> None:
+        """EMA-update one story's regret from an episode's own outcome.
+
+        ``badness`` is any nonnegative scalar where BIGGER = the policy
+        did WORSE under that story this episode (walk_task feeds peak
+        roll magnitude in degrees) — struct_story_weights() then biases
+        future draws toward whichever story currently has the highest
+        EMA, i.e. the region the CURRENT policy survives worst, not a
+        fixed offline hard region.
+        """
+        if story not in self._struct_regret:
+            return
+        d = float(np.clip(decay, 0.0, 0.999))
+        prev = self._struct_regret[story]
+        self._struct_regret[story] = d * prev + (1.0 - d) * max(
+            0.0, float(badness))
+
+    def struct_story_weights(self, explore_floor: float = 0.15) -> dict:
+        """Sampling distribution over STRUCT_STORIES from tracked regret.
+
+        A pure regret-proportional draw can starve a story to ~0 mass
+        the moment it looks easy, which would stop the very re-checks
+        that would notice it got hard again — so ``explore_floor`` mixes
+        in a uniform floor (default 15%, same spirit as every other
+        guarded-curriculum floor in this file) on top of the
+        regret-weighted 85%.
+        """
+        keys = list(STRUCT_STORIES)
+        reg = np.array([max(0.0, self._struct_regret.get(k, 1.0))
+                        for k in keys], dtype=float)
+        total = float(reg.sum())
+        reg_w = (reg / total) if total > 0.0 else (
+            np.ones(len(keys)) / len(keys))
+        n = len(keys)
+        floor = float(np.clip(explore_floor, 0.0, 1.0))
+        w = floor / n + (1.0 - floor) * reg_w
+        w = w / w.sum()
+        return {k: float(v) for k, v in zip(keys, w)}
 
     def set_ground_slope(self, *, tilt_deg: float,
                          downhill_azimuth_deg: float) -> None:
@@ -1025,5 +1139,18 @@ class DomainRandomizer:
             ep = replace(ep, leg_torque_scale=u(
                 r.leg_torque_scale[0], r.leg_torque_scale[1], N_LEGS))
         if r.struct_dr_prob > 0.0 and rng.random() < r.struct_dr_prob:
-            ep = _sample_struct_overlay(rng, ep)
+            story = None
+            if r.struct_dr_adaptive:
+                # Adaptive hard-case draw (2026-09-14): pick the
+                # overlay's story from the running regret distribution
+                # instead of letting _sample_struct_overlay's own
+                # internal flat 50/50 + uniform-group draw pick it.
+                # Only reached when dr.struct_dr_adaptive is on, so the
+                # default (off) path never takes this branch and stays
+                # bit-exact with the pre-2026-09-14 stream.
+                weights = self.struct_story_weights()
+                keys = list(weights.keys())
+                probs = np.asarray([weights[k] for k in keys], dtype=float)
+                story = str(rng.choice(keys, p=probs))
+            ep = _sample_struct_overlay(rng, ep, story=story)
         return ep

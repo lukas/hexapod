@@ -7450,6 +7450,30 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # info dict. Zero effect on obs/reward/rng.
             self._walk_probe_tick(float(reward), bool(term),
                                   bool(trunc), info)
+        # Adaptive/adversarial struct-DR feedback (dr.struct_dr_adaptive,
+        # 2026-09-14 speed track — see domain_rand.DomainRandomizer.
+        # record_struct_outcome/struct_story_weights): track this
+        # episode's own peak roll and, on its last tick, report it back
+        # to the SAME randomizer instance that drew the struct overlay,
+        # tagged with the story that instance actually used — the only
+        # write path into its regret state. Guarded on the cfg flag
+        # (default off): this whole block is then one getattr check and
+        # a no-op every tick, zero effect on obs/reward/rng in the
+        # default (off) path.
+        _rnd = self.randomizer
+        if _rnd is not None and bool(
+                getattr(_rnd.ranges, "struct_dr_adaptive", False)):
+            self._struct_ep_peak_roll_deg = max(
+                getattr(self, "_struct_ep_peak_roll_deg", 0.0),
+                abs(float(info.get("roll_deg", 0.0))))
+            if term or trunc:
+                _er = self._ep_rand
+                _story = (getattr(_er, "struct_dr_story", "")
+                         if _er is not None else "")
+                if _story:
+                    _rnd.record_struct_outcome(
+                        _story, self._struct_ep_peak_roll_deg)
+                self._struct_ep_peak_roll_deg = 0.0
         return obs, reward, term, trunc, info
 
     def _quad_income(self, reward: float, info: dict) -> tuple:

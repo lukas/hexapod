@@ -1,5 +1,33 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## CORRECTION (same cycle, ~30min later): the `hold_grace_curriculum` hypothesis immediately below is REFUTED by its own control — the real lever is LR, matching this track's own anneal8m-lowlr precedent
+
+One plain sentence: both `-gracefix` arms (`currentcap29-{s1,s3}-acq15m-
+gracefix`, `safety.hold_grace_curriculum=0`) were launched to test the
+hypothesis in the entry directly below, and BOTH still collapse at the
+identical step window (`canary/rise_flat_a/b` 1M positive -> 0/0 by ~3.0M,
+`terminations/hold_low_height` still spiking to double digits in the same
+2-3M window) with the curriculum fully disabled — the curriculum was never
+the cause, only a coincidental correlate. Both killed/verdicted
+FAIL-MECHANISM (hypothesis refuted, not a re-closure of the trip fix, which
+stands). Corrected: this track's own already-established retention lever
+(`easeriseflat-anneal8m-lowlr-s1-acq11m`'s verdict, "LR is the retention
+lever, not anneal-class structure" — a DIFFERENT prior mechanism's
+continuation also forgot by ~2M at default LR 3e-4 and was RETAINED through
+a full 11M budget at LR 1e-4) had not yet been tried on THIS mechanism.
+Launched `currentcap29-{s1,s3}-acq15m-lowlr` (plain `--lr=1e-4`, curriculum
+back to its normal default-on setting since it's now proven not causal, off
+the same proven canary2m parents) — both VERIFIED RUNNING
+(`hexapod-mjx-train-{0,1}`). Leaving the entry below UNCORRECTED in place
+(append-only) per its own evidence-at-the-time; this note is the live
+standing correction for any reader.
+
+Evidence: `ops.sh entry cw-stance50hz-rlonly-currentcap29-{s1,s3}-acq15m-
+gracefix` (both FAIL-MECHANISM verdicts, full data); `ops.sh entry
+cw-stance50hz-rlonly-currentcap29-{s1,s3}-acq15m-lowlr` (hypothesis/gate);
+`logs/experiments/cw-stance50hz-rlonly-currentcap29-{s1,s3}-acq15m-
+gracefix/wandb_history.csv`.
+
 ## The over_current-trip fix's own acquisition continuation (`currentcap29-s1-acq15m`) collapsed rise_flat_success from a real 50-100% pass rate back to 0% by step ~3M -- root cause is `safety.hold_grace_curriculum`'s mid-training hold-envelope tightening destabilizing the shared network, NOT a re-closure of the trip fix; corrected pair launched with the curriculum disabled (2026-09-14 refill cycle, walkcurr track)
 
 One plain sentence: the just-confirmed over_current-trip fix (2.5A->2.9A)

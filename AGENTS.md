@@ -22,8 +22,8 @@ accumulation. So:
 - Do not add to this file, `RESEARCH_RULES.md` or `.cursor/rules` because of
   an incident. Put the lesson in the fix.
 - Nothing generated goes in git: logs, artifacts, media, ledgers, run stories.
-  Orchestrator state is the `lukas/hexapod-state` repo at `<checkout>/.state`
-  (`rl_move/orchestrator/state_dir.py`).
+  Orchestrator state is the plain directory `<checkout>/.state`, mirrored to the
+  `hexapod-state` PVC by `state_sync.sh` (`rl_move/orchestrator/state_dir.py`).
 
 ## Goals
 

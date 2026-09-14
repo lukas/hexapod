@@ -73,6 +73,21 @@ DOSES = [
     ("right_24", "right", 24.0, 0.0),
     ("right_16_load2", "right", 16.0, 2.0),
     ("right_24_load3", "right", 24.0, 3.0),
+    # Intersection escalation (2026-09-14, ~03:5x): the right-side ladder's
+    # own plateau/reversal past 16 deg (STATUS ~02:4x) named this as the
+    # untried next form -- concentrate the SAME per-joint gap onto only
+    # ONE axis of the 3 right legs (domain_rand's new "leg+axis" compound
+    # group) instead of all 3 axes, on the theory that the yaw joint's own
+    # (uninjured) degrees of freedom may be compensating away part of the
+    # knee/pitch-driven moment when all 3 axes are dosed together.
+    ("right_16_knee", "right+knee", 16.0, 0.0),
+    ("right_16_pitch", "right+pitch", 16.0, 0.0),
+    # Same joint-count reduction (9 -> 3 joints) but a HIGHER per-joint gap
+    # to test whether the narrower mechanism can be pushed further before
+    # its own speed-collapse ceiling, now that only 1/3 as many joints are
+    # loaded with backlash.
+    ("right_32_knee", "right+knee", 32.0, 0.0),
+    ("right_32_pitch", "right+pitch", 32.0, 0.0),
 ]
 
 
@@ -144,10 +159,19 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=None)
     ap.add_argument("--policy", default="ps200")
+    ap.add_argument("--doses", default=None,
+                     help="comma-separated dose names to run (default: all)")
     args = ap.parse_args()
+    doses = DOSES
+    if args.doses:
+        names = set(args.doses.split(","))
+        doses = [d for d in DOSES if d[0] in names]
+        missing = names - {d[0] for d in doses}
+        if missing:
+            raise SystemExit(f"unknown dose name(s): {sorted(missing)}")
 
     rows = []
-    for dose in DOSES:
+    for dose in doses:
         for seed in SEEDS:
             print(f"[dose] {args.policy} {dose[0]} seed={seed}")
             rows.append(rollout_dose(args.policy, dose=dose, seed=seed))
@@ -162,7 +186,7 @@ def main() -> int:
     lines = ["| dose | group | gap | load_gain | median peak roll | "
              "median signed roll | recurrent>=5deg | falls | speed m/s |",
              "|---|---|---:|---:|---:|---:|---:|---:|---:|"]
-    for dose in DOSES:
+    for dose in doses:
         name = dose[0]
         group = [r for r in rows if r["dose"] == name]
         peaks = [r["peak_abs_roll_deg"] for r in group]

@@ -343,6 +343,10 @@ class MotorSetup:
         l4_50pct permits up to 10 degrees per move, including two consecutive
         outward knee-only phases, with that knee alone capped at 500. Both
         explicit profiles retain the 3-second phase bound and 1 A hard stop.
+        two_knees_50pct moves only L0/L4 knees equally outward by 5..10
+        degrees per phase, at cap 500 with the specified hips/L5 held at 200.
+        Its phase settling tolerance is 3 degrees, with observed knee
+        progress mismatch guarded independently of the commanded targets.
         This never re-zeros or returns home.
         """
         from feetech_bus import COUNTS_PER_DEG, JOINT_SIGN, count_to_deg, joint_limits
@@ -350,10 +354,13 @@ class MotorSetup:
         if not isinstance(data, dict) or set(data) - {'deltas_deg', 'hold_joints', 'phases', 'effort_profile'}:
             raise ValueError('Recovery accepts deltas_deg or phases, hold_joints, and optional effort_profile.')
         effort_profile = data.get('effort_profile')
-        if 'effort_profile' in data and effort_profile not in ('l4_30pct', 'l4_50pct'):
+        if 'effort_profile' in data and effort_profile not in ('l4_30pct', 'l4_50pct', 'two_knees_50pct'):
             raise ValueError('Unknown recovery effort profile.')
+        two_knees = effort_profile == 'two_knees_50pct'
+        effort_joints = {2, 14} if two_knees else {14} if effort_profile else set()
+        phase_settle_tolerance = 3. if two_knees else 2.
         profile_cap, profile_current, profile_load, delta_bound = (
-            (500, .75, 53., 10) if effort_profile == 'l4_50pct' else (300, .5, 33., 5))
+            (500, .75, 53., 10) if effort_profile in ('l4_50pct', 'two_knees_50pct') else (300, .5, 33., 5))
         phased = 'phases' in data
         if phased and ('deltas_deg' in data or not isinstance(data['phases'], list)
                        or len(data['phases']) != 2
@@ -390,7 +397,13 @@ class MotorSetup:
         moving = set().union(*phase_offsets)
         if moving & set(holds):
             raise ValueError('A joint cannot both move and hold.')
-        if effort_profile and ((phased and effort_profile != 'l4_50pct')
+        if two_knees:
+            if (set(holds) != {1, 13, 16, 17}
+                    or any(set(d) != {'2', '14'} or d['2'] != d['14']
+                           or not -10 <= d['2'] <= -5 for d in phase_deltas)):
+                raise ValueError('two_knees_50pct requires equal outward joints2/14 deltas '
+                                 'within -10..-5 degrees and holds1,13,16,17.')
+        elif effort_profile and ((phased and effort_profile != 'l4_50pct')
                                or moving != {14} or any(d['14'] >= 0 for d in phase_deltas)
                                or set(holds) != {10, 11, 13, 16, 17}):
             shape = 'one move' if effort_profile == 'l4_30pct' else 'one move or two phases'
@@ -442,7 +455,13 @@ class MotorSetup:
                 raise ValueError('All 18 motors must have torque off before recovery.')
             result = dict(ok=False, joint_frame='servo_relative', joints={}, torque_off=False,
                           active_seconds=0., pair_error_deg=0., max_pair_error_deg=0., pair_fault_reads=0,
-                          effort_profile=effort_profile or 'default')
+                          effort_profile=effort_profile or 'default',
+                          phase_settle_tolerance_deg=phase_settle_tolerance,
+                          knee_progress_mismatch_deg=0., max_knee_progress_mismatch_deg=0.,
+                          knee_progress_fault_reads=0)
+            if two_knees:
+                result.update(knee_progress_soft_limit_deg=3., knee_progress_hard_limit_deg=5.,
+                              knee_progress_fault_reads_required=3)
             if phased:
                 result.update(phase_index=1, phases=[dict(index=i + 1, deltas_deg=dict(d),
                               settled=False) for i, d in enumerate(phase_deltas)])
@@ -475,8 +494,8 @@ class MotorSetup:
                     max_temp_c=None, support_drift_deg=0., max_support_drift_deg=0.,
                     force_fault_reads=0, voltage_fault_reads=0,
                     temperature_fault_reads=0, support_drift_fault_reads=0, samples=0,
-                    current_soft_limit_a=profile_current if effort_profile and j == 14 else .25,
-                    load_soft_limit_pct=profile_load if effort_profile and j == 14 else 23.,
+                    current_soft_limit_a=profile_current if j in effort_joints else .25,
+                    load_soft_limit_pct=profile_load if j in effort_joints else 23.,
                     torque_enabled=None, torque_read_values=[], servo_status=None, seen_statuses=[], moving=None,
                     accepted_goal_counts=None, observed_goal_counts=None,
                     observed_torque_limit=None, last_sample_monotonic_s=None, active_sample_s=None)
@@ -491,7 +510,7 @@ class MotorSetup:
                         ('protection_time_raw', 35, 1), ('overload_torque_raw', 36, 1))}
 
             def pending():
-                return result['pair_fault_reads'] or any(
+                return result['pair_fault_reads'] or result['knee_progress_fault_reads'] or any(
                     row[key] for row in result['joints'].values() for key in (
                         'force_fault_reads', 'voltage_fault_reads',
                         'temperature_fault_reads', 'support_drift_fault_reads'))
@@ -584,6 +603,18 @@ class MotorSetup:
                         result['pair_fault_reads'] = result['pair_fault_reads'] + 1 if abs(error) > 1.5 else 0
                         if abs(error) > 2.5 or result['pair_fault_reads'] >= 3:
                             raise ValueError(f'L{pair_joints[0] // 3} hip/knee actual pair mismatch {error:.2f} deg.')
+                    if two_knees and active_start is not None and j == 14:
+                        # Compare fresh raw knee changes, not different absolute
+                        # knee poses, against this phase's measured entrance.
+                        mismatch = ((count_to_deg(2, positions[2]) - count_to_deg(2, pair_homes[2]))
+                                    - (angle - count_to_deg(14, pair_homes[14])))
+                        result['knee_progress_mismatch_deg'] = mismatch
+                        result['max_knee_progress_mismatch_deg'] = max(
+                            result['max_knee_progress_mismatch_deg'], abs(mismatch))
+                        result['knee_progress_fault_reads'] = (
+                            result['knee_progress_fault_reads'] + 1 if abs(mismatch) > 3. else 0)
+                        if abs(mismatch) > 5. or result['knee_progress_fault_reads'] >= 3:
+                            raise ValueError(f'L0/L4 actual knee progress mismatch {mismatch:.2f} deg.')
                 if active_start is not None:
                     active_healthy_scan = not pending()
                 return positions
@@ -622,7 +653,7 @@ class MotorSetup:
                     set_start(j, read(j + 2, 56))
                 for j in participants:
                     sid = j + 2
-                    applied = min(limits[j], profile_cap if effort_profile and j == 14 else 200)
+                    applied = min(limits[j], profile_cap if j in effort_joints else 200)
                     write_limit(sid, applied)
                     result['joints'][str(j)]['applied_torque_limit'] = applied
                     check()
@@ -655,7 +686,7 @@ class MotorSetup:
                                      elapsed_s=time.monotonic() - phase_start)
                         if (not pending() and not partial_bad_health
                                 and all(row['servo_status'] == 0 for row in result['joints'].values())
-                                and all(abs(positions[j] - targets[j]) <= 2 * COUNTS_PER_DEG
+                                and all(abs(positions[j] - targets[j]) <= phase_settle_tolerance * COUNTS_PER_DEG
                                         for j in offsets)):
                             settled_scans.append(dict(counts=positions,
                                                       active_s=time.monotonic() - active_start))
@@ -687,6 +718,8 @@ class MotorSetup:
                             offsets, pair_joints = phase_offsets[1], phase_pairs[1]
                             targets.update(planned_targets[1])
                             pair_homes.update(positions)
+                            if two_knees:
+                                result.update(knee_progress_mismatch_deg=0., knee_progress_fault_reads=0)
                             for j, row in ((int(key), value) for key, value in result['joints'].items()):
                                 row.update(role='move' if j in offsets else 'hold',
                                            target_counts=targets[j], target_deg=count_to_deg(j, targets[j]))

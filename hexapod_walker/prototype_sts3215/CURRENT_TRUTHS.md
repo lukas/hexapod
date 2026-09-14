@@ -41,6 +41,51 @@ scripted reference. Evidence: `ops.sh verdict cw-stance50hz-rlonly-
 curlslewgate-{mod,strict}-s1-canary2m`; `rl_docs/tracks/walkcurr/
 STATUS.md` 2026-09-14 ~06:4x.
 
+## Reset-distribution curricula are EXHAUSTED on walkcurr flat-start rise too: 2/2 doses null, joining cap-based gating (10/10) and reward-shaping (7/7) — 19/19 levers now null on the identical flat-start over_current signature (2026-09-14 ~07:1x, walkcurr track, triage cycle)
+`cw-stance50hz-rlonly-risestartramp-{mod,strict}-s1-canary2m` (a
+curl-state-conditioned RESET-DISTRIBUTION curriculum: ramp the rise
+flat/partial start-mix from a loose bridge/crouch-heavy diet up to the
+cfg target over 1.0M/1.8M steps, deferring true flat-belly starts —
+the first lever that changes WHICH STATES get visited early rather
+than capping what the policy can command once there) both CANARY FAIL
+- MECHANISM. The ramp telemetry engaged exactly as designed in both
+arms (`rise_start_ramp/flat_frac`+`partial_frac` trend perfectly
+linearly from the loose start to the 0.5/0.5 cfg target, landing
+dead-on at the spec'd step in each arm; no NaN/finite issues). Despite
+that, the SAME fixed-seed flat-start canary probe used to score the
+parent (`canary/rise_flat_a`+`_b`) reproduces IDENTICALLY: 0/2
+successes at the ramp midpoint AND at the final checkpoint, in BOTH
+arms — bit-identical to the parent's own 0/2 baseline. Not one flat
+start ever succeeds, at any point in training, regardless of dose.
+Worse, both arms wrecked bridge (partial-curl) rise stability well
+below the pre-registered >=4/6 floor (mod: 1/5-1/8 combined; strict:
+0/2-1/3 combined, vs the parent's own ~4/5 baseline) — the strict
+arm's near-pure-crouch-only diet protected crouch (10/10) exactly as
+warned but starved bridge practice for nearly the whole run. Reward
+was rising in the strict arm (quarters -5.6/-3.0/18.5/57.5) but this
+run's own pre-registered gate names the flat-start fingerprint and
+bridge floor, not aggregate reward, as the mechanism-health metric —
+the rising reward reflects the crouch-heavy diet making crouch
+episodes cheap to farm, not the targeted axis moving. **Binding
+conclusion: WHEN a flat start is introduced during training does not
+matter either — reset-distribution curricula, like action-space
+capping and reward-shaping before them, cannot induce the tuck-then-
+lift sequence from a true flat-belly start.** This closes
+reset-distribution curricula as a family (2/2 null), joining
+cap-based action-gating (10/10 null) and reward-shaping (7/7 null):
+19 independent mechanisms, three entirely different axes (how much/
+fast it can move; how the reward prices it; which states it starts
+from), all null on the identical signature. The untried axis is now
+narrower: WHICH ORDER the six legs individually curl/tuck within a
+single flat-start episode (e.g. per-leg staggered/tripod-order curl
+sequencing — never tried; every closed lever so far treated all six
+legs' curl timing as a single undifferentiated action-space/reward/
+start-state object) — or Robot Lab ground-truth on whether the sim
+flat-belly rise reference is achievable at all given the corrected
+mesh mass/geometry. Evidence: `ops.sh verdict cw-stance50hz-rlonly-
+risestartramp-{mod,strict}-s1-canary2m`; `rl_docs/tracks/walkcurr/
+STATUS.md` 2026-09-14 ~07:1x.
+
 ## SPEED PRIORITY: make the fast gait survive hardware through evidence-bounded wider DR (2026-09-13, operator)
 
 - The fast frontier is no longer judged by simulation speed alone. The current

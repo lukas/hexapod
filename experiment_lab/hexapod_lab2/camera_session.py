@@ -7,7 +7,8 @@ capture times, and publishes detections and floor poses into a directory:
     <run_dir>/camera/state.json         seq, per-camera detections, poses (old server shapes)
     <run_dir>/camera/latest_<role>.jpg  the newest frame, for the look and the recovery stills
     <run_dir>/camera/vision.jsonl       one line per state
-    <run_dir>/camera/<role>.mp4         + <role>_timestamps.csv
+    <run_dir>/camera/<role>.mov         native video with embedded frame timestamps
+    <run_dir>/camera/<role>.mp4         older/fallback video + <role>_timestamps.csv
 
 The loop starts one before the pre-run look and stops it after the run's
 video has been described. The child is tied to our stdin pipe, so if this
@@ -114,8 +115,12 @@ class CameraSession:
         return self.latest_path(role).read_bytes()
 
     def video_path(self, role: Optional[str] = None) -> Optional[Path]:
-        p = self.dir / f"{role or self.roles.split(',')[0].strip()}.mp4"
-        return p if p.exists() else None
+        name = role or self.roles.split(',')[0].strip()
+        for suffix in ("mov", "mp4"):
+            p = self.dir / f"{name}.{suffix}"
+            if p.exists():
+                return p
+        return None
 
     @property
     def camera_dir(self) -> Optional[Path]:

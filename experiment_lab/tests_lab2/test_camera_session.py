@@ -7,6 +7,8 @@ import subprocess
 import threading
 from pathlib import Path
 
+import pytest
+
 from hexapod_lab2 import camera_session, eyes, loop, recovery, runner, walk, zero_check
 
 JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 64 + b"\xff\xd9"
@@ -94,6 +96,11 @@ def test_session_starts_in_the_tracker_checkout_waits_for_state_and_stops_cleanl
     assert cam.latest() == JPEG + b"\x01" and cam.latest_path().name == "latest_top.jpg"
     cam.stop()
     assert proc.returncode == 0 and cam.video_path().name == "top.mp4" and cam.proc is None
+    (cam.dir / "top.mov").write_bytes(b"native video")
+    assert cam.video_path().name == "top.mov"
+    assert cam.video_path("side") is None
+    (cam.dir / "side.mov").write_bytes(b"side video")
+    assert cam.video_path("side").name == "side.mov"
 
 
 def test_session_reports_a_child_that_dies_or_never_writes(settings, tmp_path):
@@ -159,7 +166,8 @@ def test_wide_capture_copies_new_stills_from_the_session_file(tmp_path):
     assert frames[1].read_bytes().endswith(b"2")
 
 
-def test_ready_to_move_reads_the_session_still_and_see_run_links_the_real_video(settings, store, tmp_path, monkeypatch):
+@pytest.mark.parametrize("video_suffix", ["mp4", "mov"])
+def test_ready_to_move_reads_the_session_still_and_see_run_links_the_real_video(settings, store, tmp_path, monkeypatch, video_suffix):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
     still = tmp_path / "latest_top.jpg"
     still.write_bytes(JPEG)
@@ -181,11 +189,12 @@ def test_ready_to_move_reads_the_session_still_and_see_run_links_the_real_video(
         (run_dir / "wide" / f"{i:05d}.jpg").write_bytes(JPEG)
     (run_dir / "camera").mkdir()
     (run_dir / "camera" / "top.mp4").write_bytes(b"real video")
+    (run_dir / "camera" / f"top.{video_suffix}").write_bytes(b"real video")
     store.finish_run(rid, status="ok", exit_code=0, run_dir=str(run_dir), summary={}, log_tail="")
     monkeypatch.setattr(eyes, "describe", lambda *a, **k: ("moved a bit", 0.001))
     monkeypatch.setattr(eyes, "make_video", lambda *a, **k: (_ for _ in ()).throw(AssertionError("stitched jpegs instead of using the recording")))
     eyes.see_run(settings, store, rid, "ctx", log=lambda m: None)
-    assert json.loads(store.run(rid)["summary_json"])["video"] == "camera/top.mp4"
+    assert json.loads(store.run(rid)["summary_json"])["video"] == f"camera/top.{video_suffix}"
 
 
 def test_recovery_recorder_takes_stills_from_the_session(tmp_path):

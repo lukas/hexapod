@@ -265,7 +265,8 @@ def see_run(settings: Settings, store: Store, run_id: str, context: str, *, log=
     if not frames:
         return ""
     # The camera session recorded real video; the 1 Hz stills are only for the eyes.
-    recorded = sorted((run_dir / "camera").glob("*.mp4")) if (run_dir / "camera").exists() else []
+    camera = run_dir / "camera"
+    recorded = sorted(camera.glob("*.mov")) or sorted(camera.glob("*.mp4"))
     video = f"camera/{recorded[0].name}" if recorded else ("wide.mp4" if make_video(wide, run_dir / "wide.mp4") else None)
     api_key = os.getenv("ANTHROPIC_API_KEY", "")
     if not api_key:

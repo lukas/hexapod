@@ -347,6 +347,8 @@ class MotorSetup:
         degrees per phase, at cap 500 with the specified hips/L5 held at 200.
         Its phase settling tolerance is 3 degrees, with observed knee
         progress mismatch guarded independently of the commanded targets.
+        two_knees_sweep50 uses the same knees, supports and effort guards
+        for one 5..30-degree outward sweep lasting at most 6 seconds.
         This never re-zeros or returns home.
         """
         from feetech_bus import COUNTS_PER_DEG, JOINT_SIGN, count_to_deg, joint_limits
@@ -354,14 +356,19 @@ class MotorSetup:
         if not isinstance(data, dict) or set(data) - {'deltas_deg', 'hold_joints', 'phases', 'effort_profile'}:
             raise ValueError('Recovery accepts deltas_deg or phases, hold_joints, and optional effort_profile.')
         effort_profile = data.get('effort_profile')
-        if 'effort_profile' in data and effort_profile not in ('l4_30pct', 'l4_50pct', 'two_knees_50pct'):
+        if 'effort_profile' in data and effort_profile not in (
+                'l4_30pct', 'l4_50pct', 'two_knees_50pct', 'two_knees_sweep50'):
             raise ValueError('Unknown recovery effort profile.')
-        two_knees = effort_profile == 'two_knees_50pct'
+        knee_sweep = effort_profile == 'two_knees_sweep50'
+        two_knees = effort_profile in ('two_knees_50pct', 'two_knees_sweep50')
         effort_joints = {2, 14} if two_knees else {14} if effort_profile else set()
         phase_settle_tolerance = 3. if two_knees else 2.
         profile_cap, profile_current, profile_load, delta_bound = (
-            (500, .75, 53., 10) if effort_profile in ('l4_50pct', 'two_knees_50pct') else (300, .5, 33., 5))
+            (500, .75, 53., 30 if knee_sweep else 10)
+            if effort_profile == 'l4_50pct' or two_knees else (300, .5, 33., 5))
         phased = 'phases' in data
+        if knee_sweep and phased:
+            raise ValueError('two_knees_sweep50 permits one sweep only, without phases.')
         if phased and ('deltas_deg' in data or not isinstance(data['phases'], list)
                        or len(data['phases']) != 2
                        or any(not isinstance(p, dict) or set(p) != {'deltas_deg'}
@@ -400,9 +407,9 @@ class MotorSetup:
         if two_knees:
             if (set(holds) != {1, 13, 16, 17}
                     or any(set(d) != {'2', '14'} or d['2'] != d['14']
-                           or not -10 <= d['2'] <= -5 for d in phase_deltas)):
-                raise ValueError('two_knees_50pct requires equal outward joints2/14 deltas '
-                                 'within -10..-5 degrees and holds1,13,16,17.')
+                           or not -delta_bound <= d['2'] <= -5 for d in phase_deltas)):
+                raise ValueError(f'{effort_profile} requires equal outward joints2/14 deltas '
+                                 f'within -{delta_bound}..-5 degrees and holds1,13,16,17.')
         elif effort_profile and ((phased and effort_profile != 'l4_50pct')
                                or moving != {14} or any(d['14'] >= 0 for d in phase_deltas)
                                or set(holds) != {10, 11, 13, 16, 17}):
@@ -413,7 +420,7 @@ class MotorSetup:
             raise ValueError('Choose one to six recovery participants.')
         phase_index = 0
         offsets, pair_joints = phase_offsets[0], phase_pairs[0]
-        duration = 3.0 if offsets else 1.0
+        duration = 6.0 if knee_sweep else 3.0 if offsets else 1.0
         self.abort.clear()
         with self.lock, self.drive._lock:
             bus = self._ready()
@@ -456,6 +463,7 @@ class MotorSetup:
             result = dict(ok=False, joint_frame='servo_relative', joints={}, torque_off=False,
                           active_seconds=0., pair_error_deg=0., max_pair_error_deg=0., pair_fault_reads=0,
                           effort_profile=effort_profile or 'default',
+                          active_time_limit_s=6. if phased else duration,
                           phase_settle_tolerance_deg=phase_settle_tolerance,
                           knee_progress_mismatch_deg=0., max_knee_progress_mismatch_deg=0.,
                           knee_progress_fault_reads=0)

@@ -226,3 +226,120 @@ def test_lower_saved_knee_limit_and_failed_cleanup_preserve_low_limits(rig):
     assert {event[1] for event in bus.events if event[0] == "torque" and not event[2]} == set(IDS)
     assert all(bus.limit[j + 2] == 200 for j in HOLDS)
     assert bus.on == {16}
+
+
+SWEEP = {**PROFILE, "effort_profile": "two_knees_sweep50",
+         "deltas_deg": {"2": -30, "14": -30}}
+
+
+def sweep_raw_starts(bus):
+    """Keep the entire thirty-degree sweep inside physical raw limits."""
+    starts = {j: round(STS_CENTRE_COUNT + 40 * COUNTS_PER_DEG * JOINT_SIGN[j])
+              for j in (2, 14)}
+    for joint, count in starts.items():
+        bus.position[joint + 2] = count
+    return starts
+
+
+def test_sweep50_accepts_valid_thirty_degree_endpoints_and_restores_after_all_off(rig):
+    api, bus, _clock = rig
+    starts = sweep_raw_starts(bus)
+    result = api.recovery_nudge(SWEEP)
+    assert result["ok"] and result["torque_off"]
+    assert result["effort_profile"] == "two_knees_sweep50"
+    assert result["active_time_limit_s"] == 6
+    assert bus.groups == [{j + 2: (starts[j] + expected_target(j, -30) - 2000, 90, 4)
+                           for j in (2, 14)}]
+    for joint in JOINTS:
+        row = result["joints"][str(joint)]
+        knee = joint in (2, 14)
+        assert row["applied_torque_limit"] == (500 if knee else 200)
+        assert row["current_soft_limit_a"] == (.75 if knee else .25)
+        assert row["load_soft_limit_pct"] == (53 if knee else 23)
+    last_disable = max(i for i, event in enumerate(bus.events)
+                       if event[0] == "torque" and not event[2])
+    assert not [event for event in bus.events[:last_disable]
+                if event[0] == "limit" and event[2] == 700]
+    assert all(bus.limit[sid] == 700 for sid in IDS)
+    assert not bus.on
+
+
+@pytest.mark.parametrize("payload", [
+    {**SWEEP, "deltas_deg": {"2": -30.1, "14": -30.1}},
+    {**SWEEP, "deltas_deg": {"2": -4.9, "14": -4.9}},
+    {**SWEEP, "deltas_deg": {"2": 5, "14": 5}},
+    {**SWEEP, "deltas_deg": {"2": -20, "14": -21}},
+    {**SWEEP, "hold_joints": [1, 13, 16]},
+    {**SWEEP, "hold_joints": [1, 10, 16, 17]},
+    {**PHASES, "effort_profile": "two_knees_sweep50"},
+    {**SWEEP, "effort_profile": "two_knees_50pct",
+     "deltas_deg": {"2": -10.1, "14": -10.1}},
+])
+def test_sweep50_strict_shape_and_existing_ten_degree_cap(rig, payload):
+    api, bus, _clock = rig
+    sweep_raw_starts(bus)
+    with pytest.raises(ValueError):
+        api.recovery_nudge(payload)
+    assert not [event for event in bus.events if event[0] != "read"]
+
+
+def test_sweep50_larger_allowance_does_not_bypass_raw_endpoint_limits(rig):
+    api, bus, _clock = rig
+    # The default fixture is already at -4.2 degrees: a -30-degree
+    # request must refuse rather than crossing or clipping the -20 limit.
+    with pytest.raises(ValueError):
+        api.recovery_nudge(SWEEP)
+    assert not [event for event in bus.events if event[0] != "read"]
+
+
+def test_existing_two_knee_profile_keeps_three_second_balanced_stall_bound(rig):
+    api, bus, clock = rig
+    bus.stalled.update((4, 16))
+    start = clock.now
+    result = api.recovery_nudge(PROFILE)
+    assert not result["ok"] and result["torque_off"]
+    assert result["active_time_limit_s"] == 3
+    assert 3 <= clock.now - start < 3.1
+    assert not bus.on
+
+
+def test_sweep50_balanced_stall_times_out_at_six_seconds_with_all_off(rig):
+    api, bus, clock = rig
+    sweep_raw_starts(bus)
+    bus.stalled.update((4, 16))
+    start = clock.now
+    result = api.recovery_nudge(SWEEP)
+    assert not result["ok"] and result["torque_off"]
+    assert 6 <= clock.now - start < 6.1
+    assert result["active_time_limit_s"] == 6
+    assert result["max_knee_progress_mismatch_deg"] == 0
+    assert len(bus.groups) == 1
+    assert all(bus.limit[sid] == 700 for sid in IDS)
+    assert not bus.on
+
+
+@pytest.mark.parametrize("raw_current,votes", [(116, 3), (154, 1)])
+def test_sweep50_current_guards_stop_before_six_second_window(rig, raw_current, votes):
+    api, bus, clock = rig
+    sweep_raw_starts(bus)
+    samples = active_fault(bus, 16, 69, [raw_current] * 20)
+    start = clock.now
+    result = api.recovery_nudge(SWEEP)
+    assert not result["ok"] and result["torque_off"]
+    assert len(samples) == votes
+    assert clock.now - start < 6
+    assert not bus.on
+
+
+@pytest.mark.parametrize("delta,votes", [(-5, 3), (-30, 1)])
+def test_sweep50_keeps_actual_progress_mismatch_guards(rig, delta, votes):
+    api, bus, clock = rig
+    sweep_raw_starts(bus)
+    bus.stalled.add(4)
+    start = clock.now
+    result = api.recovery_nudge({**SWEEP, "deltas_deg": {"2": delta, "14": delta}})
+    assert not result["ok"] and result["torque_off"]
+    assert result["knee_progress_fault_reads"] == votes
+    assert result["max_knee_progress_mismatch_deg"] > (3 if votes == 3 else 5)
+    assert clock.now - start < 6
+    assert not bus.on

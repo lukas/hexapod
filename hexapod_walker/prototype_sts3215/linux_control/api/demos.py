@@ -876,8 +876,8 @@ class DemosApi:
         if len(present) != N_JOINTS:
             return None
         try:
-            hips = [float(present[3 * leg + 1]) for leg in range(6)]
-            knees = [float(present[3 * leg + 2]) for leg in range(6)]
+            hips = [float(present[joint_index(leg, "hip")]) for leg in range(6)]
+            knees = [float(present[joint_index(leg, "knee")]) for leg in range(6)]
         except (TypeError, ValueError):
             return None
         hip_med = self._median(hips)

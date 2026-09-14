@@ -55,6 +55,7 @@ from pathlib import Path
 import numpy as np
 
 
+from hexapod_core.joint_frame import AXES, joint_index, leg_slice
 from rl_move.robot_state import DEG2RAD
 from rl_move.sim import probe_turn_authority as pta
 from rl_move.sim.eval_checkpoint import CONTACT_N, model_identity
@@ -76,7 +77,7 @@ def fk_body_xy(q18: np.ndarray) -> np.ndarray:
     'pad' stage read straight from MuJoCo."""
     out = np.zeros((6, 2))
     for i, a in enumerate(LEG_ANGLES):
-        yaw, hip, knee = q18[3 * i], q18[3 * i + 1], q18[3 * i + 2]
+        yaw, hip, knee = q18[leg_slice(i)]
         reach = COXA + FEMUR * math.cos(hip) + TIBIA * math.cos(knee)
         th = a + yaw
         out[i, 0] = LEG_RADIAL * math.cos(a) + reach * math.cos(th)
@@ -86,7 +87,8 @@ def fk_body_xy(q18: np.ndarray) -> np.ndarray:
 
 def fk_body_z(q18: np.ndarray) -> np.ndarray:
     return np.array([
-        -FEMUR * math.sin(q18[3 * i + 1]) - TIBIA * math.sin(q18[3 * i + 2])
+        -FEMUR * math.sin(q18[joint_index(i, "hip")])
+        - TIBIA * math.sin(q18[joint_index(i, "knee")])
         for i in range(6)])
 
 
@@ -217,9 +219,7 @@ def rollout(*, policy: str, model, model_obs_width, cfg_set: list[str],
                if rows[0]["plan_stance"] is not None else None)
 
     # --- per-joint-class angular rates per stage -------------------------
-    cls = {"yaw": [3 * l for l in range(6)],
-           "hip": [3 * l + 1 for l in range(6)],
-           "knee": [3 * l + 2 for l in range(6)]}
+    cls = {ax: [joint_index(l, ax) for l in range(6)] for ax in AXES}
     vel_ceiling = float(contract["resolved_vel_max_deg_s_min"]) * DEG2RAD
     slew_rad_s = float(contract["slew_limit_deg_s"]) * DEG2RAD
     rates = {}

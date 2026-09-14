@@ -37,6 +37,7 @@ from dataclasses import dataclass, field, replace
 import numpy as np
 
 from .servo_model import AXES, N_JOINTS, SimServoParams
+from hexapod_core.joint_frame import leg_joints
 
 DEG2RAD = math.pi / 180.0
 N_LEGS = 6
@@ -917,7 +918,7 @@ class EpisodeRandomization:
             s = float(lts[leg])
             if s == 1.0:
                 continue
-            for j in (3 * leg, 3 * leg + 1, 3 * leg + 2):
+            for j in leg_joints(leg):
                 pa = _act_id(model, names[j])
                 va = _act_id(model, names[j] + "_d")
                 model.actuator_forcerange[pa] *= s
@@ -1187,7 +1188,7 @@ def _sample_struct_overlay(rng: np.random.Generator,
             1.0 + g * (STRUCT_LATENCY[1] - 1.0) * u(0.3, 1.0))
         w = int(rng.integers(0, N_LEGS))  # one worn leg
         wg = float(u(0.0, 1.0))
-        for j in (3 * w, 3 * w + 1, 3 * w + 2):
+        for j in leg_joints(w):
             kp[j] *= 1.0 - wg * STRUCT_KP_PCT
             zb[j] = float(u(-1.0, 1.0)) * wg * STRUCT_ZERO_BIAS_DEG * DEG2RAD
         leg_t[w] = 1.0 - wg * (1.0 - STRUCT_LEG_TORQUE[0])
@@ -1224,7 +1225,7 @@ def _sample_struct_overlay(rng: np.random.Generator,
         g = float(u(0.4, 1.0))
         lms = np.asarray(ep.leg_mass_scale, dtype=float).copy()
         for leg in group:
-            for j in (3 * leg, 3 * leg + 1, 3 * leg + 2):
+            for j in leg_joints(leg):
                 kp[j] = 1.0 - g * STRUCT_KP_PCT * u(0.5, 1.0)
                 kv[j] = 1.0 + g * STRUCT_KV_PCT * u(-1.0, 1.0)
                 zb[j] = g * STRUCT_ZERO_BIAS_DEG * u(-1.0, 1.0) * DEG2RAD
@@ -1442,7 +1443,7 @@ class DomainRandomizer:
             else:
                 fault_mode = "leg"
                 leg = int(rng.integers(N_LEGS))
-                fault_joints = (3 * leg, 3 * leg + 1, 3 * leg + 2)
+                fault_joints = leg_joints(leg)
                 fault_scale = 0.0
 
         # Mid-episode external push: same guarded-draw convention

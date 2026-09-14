@@ -110,6 +110,7 @@ import numpy as np
 
 
 from rl_move.config import load_config
+from hexapod_core.joint_frame import AXES, joint_index
 from rl_move.robot_state import DEG2RAD
 from .servo_model import SimServoParams
 from .walk_task import SimHexapodJointWalkEnv
@@ -603,9 +604,7 @@ class _ContactAudit:
                         if "slew_sat" in j]
             sat = (np.stack(sat_rows) if sat_rows
                    else np.zeros((1, 18), dtype=bool))
-            cls = {"yaw": [3 * l for l in range(6)],
-                   "hip": [3 * l + 1 for l in range(6)],
-                   "knee": [3 * l + 2 for l in range(6)]}
+            cls = {ax: [joint_index(l, ax) for l in range(6)] for ax in AXES}
             out["joints"] = {
                 k: {"clip_gap_med_rad": round(
                         float(np.median(clip[:, idx])), 5),

@@ -95,6 +95,7 @@ from rl_move.body_ik import (  # noqa: E402
     N_JOINTS, ik_leg_from_foot_body, leg_azimuths,
 )
 from rl_move.robot_state import DEG2RAD, RAD2DEG  # noqa: E402
+from hexapod_core.joint_frame import SIM_JOINT_NAMES  # noqa: E402
 from rl_move.safety import AXIS_LIMITS_DEG  # noqa: E402
 
 FRONT_LEGS = (0, 5)
@@ -465,8 +466,8 @@ def run_walk(args) -> None:
     max_cur_t = 0.0
     min_margin_swing = 1.0
     vadr = np.array([model.jnt_dofadr[mujoco.mj_name2id(
-        model, mujoco.mjtObj.mjOBJ_JOINT, f"L{i}_{ax}")]
-        for i in range(6) for ax in ("yaw", "pitch", "knee")])
+        model, mujoco.mjtObj.mjOBJ_JOINT, name)]
+        for name in SIM_JOINT_NAMES])
     x0 = float(data.qpos[0])
     for i in range(n_ticks):
         t = i / ctrl_hz

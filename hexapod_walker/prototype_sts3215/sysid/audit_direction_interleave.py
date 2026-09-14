@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from hexapod_core.joint_frame import joint_index
 from linux_control.sysid_protocol import materialize, protocol_hash, validate
 
 FEMUR_MM = 90.0
@@ -49,7 +50,7 @@ def _foot_x(command: tuple[float, float]) -> float:
 def _active_leg(rows: list[list[float]]) -> int:
     moving = []
     for leg in range(6):
-        joints = (3 * leg + 1, 3 * leg + 2)
+        joints = (joint_index(leg, "hip"), joint_index(leg, "knee"))
         span = sum(
             max(row[j] for row in rows) - min(row[j] for row in rows) for j in joints
         )
@@ -61,7 +62,7 @@ def _active_leg(rows: list[list[float]]) -> int:
 
 
 def _plateaus(rows: list[list[float]], leg: int) -> list[Plateau]:
-    joints = (3 * leg + 1, 3 * leg + 2)
+    joints = (joint_index(leg, "hip"), joint_index(leg, "knee"))
     commands = [tuple(float(row[j]) for j in joints) for row in rows]
     result: list[Plateau] = []
     start = 0

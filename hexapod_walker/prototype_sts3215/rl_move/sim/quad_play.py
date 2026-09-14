@@ -49,7 +49,8 @@ import mujoco  # noqa: E402
 from eval_dances import (CTRL_HZ, STREAM_ACC_UNITS,  # noqa: E402
                          clip_limits, place_at_plant, up_z)
 from hexapod_core.joint_frame import (  # noqa: E402
-    robot_abs_deg_to_mujoco_rel_rad, robot_stand_degrees,
+    SIM_JOINT_NAMES, joint_index, robot_abs_deg_to_mujoco_rel_rad,
+    robot_stand_degrees,
 )
 from rl_move.sim.servo_model import (SIM_MODEL_PATH, ServoProfile,  # noqa: E402
                                      SimServoParams, apply_params_to_model,
@@ -74,9 +75,9 @@ def apply_plant_override(pl: "Player", *,
     plant = list(pl.robot_plant_deg)
     for leg in range(6):
         if hip_deg is not None:
-            plant[3 * leg + 1] = float(hip_deg)
+            plant[joint_index(leg, "hip")] = float(hip_deg)
         if knee_deg is not None:
-            plant[3 * leg + 2] = float(knee_deg)
+            plant[joint_index(leg, "knee")] = float(knee_deg)
     pl.robot_plant_deg = plant
     pl.q_plant_abs = clip_limits(np.radians(plant))
     pl.q_plant = robot_abs_deg_to_mujoco_rel_rad(
@@ -128,8 +129,8 @@ class Player:
         self.chassis = mujoco.mj_name2id(
             self.model, mujoco.mjtObj.mjOBJ_BODY, "chassis")
         self.vadr = np.array([self.model.jnt_dofadr[mujoco.mj_name2id(
-            self.model, mujoco.mjtObj.mjOBJ_JOINT, f"L{i}_{ax}")]
-            for i in range(6) for ax in ("yaw", "pitch", "knee")])
+            self.model, mujoco.mjtObj.mjOBJ_JOINT, name)]
+            for name in SIM_JOINT_NAMES])
         self.robot_plant_deg = robot_stand_degrees()
         self.q_plant_abs = clip_limits(np.radians(self.robot_plant_deg))
         self.q_plant = robot_abs_deg_to_mujoco_rel_rad(

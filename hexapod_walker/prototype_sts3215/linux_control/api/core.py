@@ -596,7 +596,7 @@ class CoreApi:
                             "id": sid, "ok": False, "error": str(e),
                         })
                         continue
-                    joint = sid - 2 if 2 <= sid <= 19 else None
+                    joint = joint_of_servo(sid) if sid in SERVO_IDS else None
                     motors.append({
                         "id": sid,
                         "ok": True,

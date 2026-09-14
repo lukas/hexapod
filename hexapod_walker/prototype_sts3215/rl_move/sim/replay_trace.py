@@ -51,7 +51,8 @@ from .joint_series_flex import (
     from_cfg as joint_series_flex_from_cfg,
 )
 from hexapod_core.joint_frame import (
-    mujoco_rel_rad_to_robot_abs_rad, robot_abs_rad_to_mujoco_rel_rad,
+    joint_index, mujoco_rel_rad_to_robot_abs_rad,
+    robot_abs_rad_to_mujoco_rel_rad,
 )
 
 DEG2RAD = math.pi / 180.0
@@ -433,8 +434,8 @@ class _ReplaySim:
                     / SimHexapodBalanceEnv.TIP_ROLL_PER_FOLD * DEG2RAD)
             legs = (3, 4, 5) if fold_roll_deg > 0 else (0, 1, 2)
             for leg in legs:
-                fold_dq[3 * leg + 1] -= fold
-                fold_dq[3 * leg + 2] += 0.5 * fold
+                fold_dq[joint_index(leg, "hip")] -= fold
+                fold_dq[joint_index(leg, "knee")] += 0.5 * fold
         q0 = tr["q"][0] * DEG2RAD
         self.place(q0)
         dt = self.model.opt.timestep

@@ -53,6 +53,7 @@ import numpy as np
 _RL = Path(__file__).resolve().parents[1]
 _PROTO = _RL.parent
 
+from hexapod_core.joint_frame import AXES, leg_joints
 from rl_move.robot_state import DEG2RAD
 from rl_move.sim import probe_turn_authority as pta
 from rl_move.sim.eval_checkpoint import CONTACT_N, model_identity
@@ -447,8 +448,7 @@ def rollout(*, policy: str, model, model_obs_width, cfg_set, vx_cmd, wz_cmd,
         e = {}
         if plan_sw is not None:
             qd = np.stack([r["q_des"] for r in rows])
-            for nm, j in (("yaw", 3 * f), ("hip", 3 * f + 1),
-                          ("knee", 3 * f + 2)):
+            for nm, j in zip(AXES, leg_joints(f)):
                 dd = np.diff(qd[:, j]); da = np.diff(qa[:, j])
                 e[f"lag_{nm}_ms"] = 10 * xcorr_lag_ticks(dd, da, max_lag)
             # contact-timing lag: how much "airborne" LAGS planned swing

@@ -6,7 +6,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-AXES = ('yaw', 'hip', 'knee')
+from hexapod_core.joint_frame import AXES, axis_of, leg_of, servo_id
 
 
 class MotorSetup:
@@ -29,10 +29,10 @@ class MotorSetup:
         reg = self._registry()
         slots = []
         for j in range(18):
-            sid = j + 2
+            sid = servo_id(j)
             entry = reg['servos'].get(str(sid), {})
-            slots.append(dict(id=sid, joint=j, leg=j // 3, axis=AXES[j % 3],
-                              name=f'L{j // 3} {AXES[j % 3]}',
+            slots.append(dict(id=sid, joint=j, leg=leg_of(j), axis=axis_of(j),
+                              name=f'L{leg_of(j)} {axis_of(j)}',
                               saved=bool(entry), verified=bool(entry.get('web_verified_at'))))
         assigned = sum(slot["saved"] for slot in slots)
         return dict(ok=True, slots=slots, assigned=assigned, required=18, ready=assigned == 18)
@@ -83,7 +83,7 @@ class MotorSetup:
             raise ValueError('Source ID must be between 1 and 30.')
         if type(joint) is not int or not 0 <= joint < 18:
             raise ValueError('Choose one of the 18 joints.')
-        target = joint + 2
+        target = servo_id(joint)
         with self.lock, self.drive._lock:
             bus = self._ready()
             reg = self._registry()
@@ -110,9 +110,9 @@ class MotorSetup:
             if self._scan(bus) != sorted((set(before) - {sid}) | {target}):
                 raise ValueError('Unexpected bus inventory after assignment. Rescan before retrying.')
             now = datetime.now(timezone.utc).isoformat()
-            name = f'L{joint // 3} {AXES[joint % 3]}'
-            reg['servos'][str(target)] = dict(id=target, joint=joint, leg=joint // 3,
-                axis=AXES[joint % 3], name=name, from_id=sid, named_at=now, web_verified_at=now)
+            name = f'L{leg_of(joint)} {axis_of(joint)}'
+            reg['servos'][str(target)] = dict(id=target, joint=joint, leg=leg_of(joint),
+                axis=axis_of(joint), name=name, from_id=sid, named_at=now, web_verified_at=now)
             reg['updated'] = now
             self.registry.parent.mkdir(parents=True, exist_ok=True)
             tmp = self.registry.with_suffix('.json.tmp')
@@ -125,7 +125,7 @@ class MotorSetup:
         joint = data.get('joint')
         if type(joint) is not int or not 0 <= joint < 18:
             raise ValueError('Choose one of the 18 joints.')
-        sid = joint + 2
+        sid = servo_id(joint)
         self.abort.clear()
         with self.lock, self.drive._lock:
             bus = self._ready()
@@ -174,7 +174,7 @@ class MotorSetup:
                             break
                         if time.monotonic() >= deadline:
                             raise ValueError('Motor did not reach the small identification target.')
-                return dict(ok=True, message=f'L{joint // 3} {AXES[joint % 3]} identified; torque off.')
+                return dict(ok=True, message=f'L{leg_of(joint)} {axis_of(joint)} identified; torque off.')
             finally:
                 try:
                     bus.torque(sid, False)

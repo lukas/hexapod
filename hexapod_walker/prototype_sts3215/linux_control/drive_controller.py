@@ -68,7 +68,7 @@ for p in reversed((str(VENDOR), str(MOTOR_SETUP), str(HERE), str(ROOT))):
         sys.path.insert(0, p)
 
 from feetech_bus import (  # noqa: E402
-    ADDR_TORQUE_ENABLE, BAUD_DEFAULT, N_JOINTS, WALK_ACC,
+    ADDR_TORQUE_ENABLE, BAUD_DEFAULT, N_JOINTS, SERVO_IDS, WALK_ACC,
     WALK_SPEED, deg_to_count, joint_to_servo_id, normalize_acc,
     normalize_speed, standing_pose_degrees,
 )
@@ -212,7 +212,7 @@ class DriveController:
                      or now - self._live_ids_t < LIVE_SCAN_PERIOD_S)):
             return self._live_ids_cache
         try:
-            self._live_ids_cache = {sid for sid in self.bus.scan(range(2, 20))}
+            self._live_ids_cache = {sid for sid in self.bus.scan(SERVO_IDS)}
             self._live_ids_t = now
         except Exception:
             pass

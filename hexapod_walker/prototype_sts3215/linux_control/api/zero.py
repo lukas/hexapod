@@ -549,8 +549,8 @@ class ZeroApi:
     def _folded_under_signature(present: list) -> bool:
         """Median hip negative AND median knee deep: legs tucked under."""
         try:
-            hips = sorted(float(present[3 * leg + 1]) for leg in range(6))
-            knees = sorted(float(present[3 * leg + 2]) for leg in range(6))
+            hips = sorted(float(present[joint_index(leg, "hip")]) for leg in range(6))
+            knees = sorted(float(present[joint_index(leg, "knee")]) for leg in range(6))
         except (TypeError, ValueError):
             return False
         hip_med = (hips[2] + hips[3]) / 2.0

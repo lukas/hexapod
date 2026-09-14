@@ -25,6 +25,8 @@ import numpy as np
 from hexapod_core.joint_frame import (
     JOINT_CONTRACT,
     FRAME_ROBOT_ABS,
+    joint_index,
+    leg_slice,
     mujoco_rel_rad_to_robot_abs_rad,
     robot_abs_rad_to_mujoco_rel_rad,
 )
@@ -1807,8 +1809,8 @@ class SimHexapodBalanceEnv(_GymBase):
         legs = (3, 4, 5) if roll > 0 else (0, 1, 2)
         q = q_start.copy()
         for leg in legs:
-            q[3 * leg + 1] -= fold
-            q[3 * leg + 2] += 0.5 * fold
+            q[joint_index(leg, "hip")] -= fold
+            q[joint_index(leg, "knee")] += 0.5 * fold
         self._tipped_applied = True
         return q
 
@@ -1858,8 +1860,8 @@ class SimHexapodBalanceEnv(_GymBase):
         legs = (3, 4, 5) if roll > 0 else (0, 1, 2)
         dq = np.zeros(N_JOINTS, dtype=float)
         for leg in legs:
-            dq[3 * leg + 1] -= fold
-            dq[3 * leg + 2] += 0.5 * fold
+            dq[joint_index(leg, "hip")] -= fold
+            dq[joint_index(leg, "knee")] += 0.5 * fold
         return dq
 
     def _walk_kick_offset(self) -> np.ndarray | None:
@@ -1893,8 +1895,8 @@ class SimHexapodBalanceEnv(_GymBase):
         legs = (3, 4, 5) if roll > 0 else (0, 1, 2)
         dq = np.zeros(N_JOINTS, dtype=float)
         for leg in legs:
-            dq[3 * leg + 1] -= fold
-            dq[3 * leg + 2] += 0.5 * fold
+            dq[joint_index(leg, "hip")] -= fold
+            dq[joint_index(leg, "knee")] += 0.5 * fold
         return dq
 
     def _walk_stop_freeze_override(self, q_safe):
@@ -2669,9 +2671,9 @@ class SimHexapodBalanceEnv(_GymBase):
                 tripod = ((1, 3, 5) if self.rng.random() < 0.5
                           else (0, 2, 4))
                 for leg in tripod:
-                    q_start[3 * leg + 1] -= float(
+                    q_start[joint_index(leg, "hip")] -= float(
                         self.rng.uniform(10.0, 25.0)) * DEG2RAD
-                    q_start[3 * leg + 2] += float(
+                    q_start[joint_index(leg, "knee")] += float(
                         self.rng.uniform(-5.0, 10.0)) * DEG2RAD
             elif kind in ("onefoot_micro", "onefoot_mid", "onefoot"):
                 # Progressive one-foot correction rungs.  They use the
@@ -2689,9 +2691,9 @@ class SimHexapodBalanceEnv(_GymBase):
                 else:
                     hip_deg = self.rng.uniform(15.0, 30.0)
                     knee_deg = self.rng.uniform(-5.0, 12.0)
-                q_start[3 * leg + 1] -= float(
+                q_start[joint_index(leg, "hip")] -= float(
                     hip_deg) * DEG2RAD
-                q_start[3 * leg + 2] += float(knee_deg) * DEG2RAD
+                q_start[joint_index(leg, "knee")] += float(knee_deg) * DEG2RAD
             elif kind in ("repair_one", "repair_two"):
                 # Terminal contact-repair rungs. Keep the chassis on a
                 # plant support polygon while one/two legs begin folded
@@ -2715,18 +2717,18 @@ class SimHexapodBalanceEnv(_GymBase):
                     legs = (first, int(self.rng.choice(candidates)))
                 for leg in np.asarray(legs, dtype=int):
                     sign = -1.0 if self.rng.random() < 0.5 else 1.0
-                    q_start[3 * leg] += sign * float(
+                    q_start[joint_index(leg, "yaw")] += sign * float(
                         self.rng.uniform(15.0, 35.0)) * DEG2RAD
                     # The quadstance feasibility sweep's tucked claw is
                     # known to stay clear while the other four feet form
                     # a support polygon. Small jitter keeps this a family,
                     # not one memorized target.
-                    q_start[3 * leg + 1] = (_QUAD_TUCK_ROBOT_RAD[1]
-                                             + self.rng.uniform(-3.0, 3.0)
-                                             * DEG2RAD)
-                    q_start[3 * leg + 2] = (_QUAD_TUCK_ROBOT_RAD[2]
-                                             + self.rng.uniform(-4.0, 4.0)
-                                             * DEG2RAD)
+                    q_start[joint_index(leg, "hip")] = (
+                        _QUAD_TUCK_ROBOT_RAD[1]
+                        + self.rng.uniform(-3.0, 3.0) * DEG2RAD)
+                    q_start[joint_index(leg, "knee")] = (
+                        _QUAD_TUCK_ROBOT_RAD[2]
+                        + self.rng.uniform(-4.0, 4.0) * DEG2RAD)
             elif kind == "bank":
                 # RECOVER family 2: harvested post-lower/interrupted
                 # poses (goal.recover_start_bank npz, key q_rad
@@ -2799,9 +2801,9 @@ class SimHexapodBalanceEnv(_GymBase):
                 q_start = (self._plant_deg * DEG2RAD).copy()
                 tripod = (1, 3, 5) if self.rng.random() < 0.5 else (0, 2, 4)
                 for leg in tripod:
-                    q_start[3 * leg + 1] -= float(
+                    q_start[joint_index(leg, "hip")] -= float(
                         self.rng.uniform(10.0, 25.0)) * DEG2RAD
-                    q_start[3 * leg + 2] += float(
+                    q_start[joint_index(leg, "knee")] += float(
                         self.rng.uniform(-5.0, 10.0)) * DEG2RAD
             if self._ep_rand is not None:
                 q_start = q_start + self._ep_rand.start_offset_rad
@@ -2843,7 +2845,7 @@ class SimHexapodBalanceEnv(_GymBase):
             lift = tuple(getattr(self._goal_traj, "lift_legs", None)
                          or (0, 5))
             for leg in lift:
-                q_start[3 * leg: 3 * leg + 3] = _QUAD_TUCK_ROBOT_RAD
+                q_start[leg_slice(leg)] = _QUAD_TUCK_ROBOT_RAD
             q_start += self.rng.uniform(-2.0, 2.0, N_JOINTS) * DEG2RAD
             if self._ep_rand is not None:
                 q_start = q_start + self._ep_rand.start_offset_rad

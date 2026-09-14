@@ -21,6 +21,8 @@ from pathlib import Path
 
 import numpy as np
 
+from hexapod_core.joint_frame import joint_index
+
 from .trace import load
 
 
@@ -54,7 +56,7 @@ def _parse_leg(value: int | str) -> int:
 def _infer_leg(cmd: np.ndarray) -> int:
     scores = []
     for leg in range(6):
-        hip, knee = 3 * leg + 1, 3 * leg + 2
+        hip, knee = joint_index(leg, "hip"), joint_index(leg, "knee")
         score = float(np.ptp(cmd[:, hip]) + np.ptp(cmd[:, knee]))
         scores.append(score)
     moving = [leg for leg, score in enumerate(scores) if score > 0.1]
@@ -100,7 +102,7 @@ def _extract_cycles(
     *,
     command_match_atol_deg: float = COMMAND_MATCH_ATOL_DEG,
 ) -> list[dict]:
-    hip_joint, knee_joint = 3 * leg + 1, 3 * leg + 2
+    hip_joint, knee_joint = joint_index(leg, "hip"), joint_index(leg, "knee")
     plateaus = _plateaus(cmd[:, [hip_joint, knee_joint]])
     cycles: list[dict] = []
 
@@ -283,8 +285,8 @@ def analyze_hysteresis(
         "profile": resolved_profile,
         "leg": resolved_leg,
         "leg_name": f"L{resolved_leg}",
-        "hip_joint": 3 * resolved_leg + 1,
-        "knee_joint": 3 * resolved_leg + 2,
+        "hip_joint": joint_index(resolved_leg, "hip"),
+        "knee_joint": joint_index(resolved_leg, "knee"),
         "method": "matched_midpoint_dwells_excluding_arrival_endpoint_v1",
         "segmentation_source": segmentation_source,
         "command_match_tolerance_deg": command_match_tolerance_deg,

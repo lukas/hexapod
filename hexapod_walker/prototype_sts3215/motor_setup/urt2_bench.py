@@ -12,7 +12,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from feetech_bus import (
-    ADDR_TORQUE_ENABLE, COUNTS_PER_DEG, FeetechBus, STS_CENTRE_COUNT,
+    ADDR_TORQUE_ENABLE, COUNTS_PER_DEG, FeetechBus, SERVO_IDS, STS_CENTRE_COUNT,
 )
 
 # STS3215 EEPROM: operating mode (0 = position/servo, 1 = wheel, 2 = PWM, 3 = step).
@@ -251,7 +251,7 @@ def redefine_zero_here(bus: FeetechBus,
 
     Limps first, calibrates each, leaves torque OFF.  Motors do not move.
     """
-    live = sorted(bus.scan(range(2, 20)) if ids is None else ids)
+    live = sorted(bus.scan(SERVO_IDS) if ids is None else ids)
     results = []
     ok_n = 0
     for sid in live:

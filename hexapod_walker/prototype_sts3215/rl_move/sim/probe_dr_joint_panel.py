@@ -57,6 +57,7 @@ from statistics import median
 
 import numpy as np
 
+from hexapod_core.joint_frame import leg_joints
 from rl_move.np_policy import load_np_policy
 from rl_move.sim.domain_rand import (DEG2RAD, G0, N_LEGS, DomainRandomizer,
                                      EpisodeRandomization)
@@ -165,7 +166,7 @@ def neutral_params() -> dict:
 
 
 def _leg_joints(leg: int) -> tuple[int, int, int]:
-    return (3 * leg, 3 * leg + 1, 3 * leg + 2)
+    return leg_joints(leg)
 
 
 def _sample_independent(rng: np.random.Generator, b: PanelBounds) -> dict:

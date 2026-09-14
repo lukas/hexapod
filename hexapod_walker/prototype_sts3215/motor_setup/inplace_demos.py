@@ -54,7 +54,7 @@ for _p in (_HERE, _ROOT, _ROOT / "linux_control"):
 
 from feetech_bus import (  # noqa: E402
     ADDR_TORQUE_ENABLE, BAUD_DEFAULT, COUNTS_PER_DEG, FeetechBus, JOINT_SIGN,
-    N_JOINTS, WALK_ACC, WALK_SPEED, count_to_deg, deg_to_count,
+    N_JOINTS, SERVO_IDS, WALK_ACC, WALK_SPEED, count_to_deg, deg_to_count,
     joint_to_servo_id, normalize_acc, normalize_speed, standing_pose_degrees,
 )
 from motion_telemetry import (  # noqa: E402
@@ -308,7 +308,7 @@ def _planted_legs_up(hip: float, knee: float, legs: list[int], *,
 
 
 def _live_robot_ids(bus: FeetechBus) -> set[int]:
-    ids = {sid for sid in bus.scan(range(2, 20))}
+    ids = {sid for sid in bus.scan(SERVO_IDS)}
     if not ids:
         # One transient EMPTY scan aborted a dance mid-show (08-22,
         # dance_encore act III): a single MCU-link hiccup reported zero
@@ -322,7 +322,7 @@ def _live_robot_ids(bus: FeetechBus) -> set[int]:
                 except Exception:
                     pass
         time.sleep(0.25)
-        ids = {sid for sid in bus.scan(range(2, 20))}
+        ids = {sid for sid in bus.scan(SERVO_IDS)}
     return ids
 
 

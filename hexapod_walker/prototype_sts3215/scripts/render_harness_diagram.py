@@ -60,11 +60,11 @@ from wire_harness_plan import (
     STOCK_PIGTAIL_MM,
     WIRE_HARNESS_PLAN,
 )
+from hexapod_core.joint_frame import N_LEGS, leg_joints, servo_id
 
 FIRMWARE_DIR = _PROTOTYPE_DIR / "firmware"
 HARNESS_YML = FIRMWARE_DIR / "harness.yml"
 
-N_LEGS = 6
 _AXIS_LABEL = {"yaw": "yaw", "hip_pitch": "hip", "knee": "knee"}
 
 # Stock FEETECH 3-pin lead / jumper lengths (m).  All 18 joints fit the
@@ -245,7 +245,7 @@ def build_harness() -> dict:
     for leg in range(N_LEGS):
         # As-built bus IDs run 2..19: leg 0 = 2/3/4 … leg 5 = 17/18/19
         # (WIRING.md § intro; L5 knee = ID 19).
-        ids = [leg * 3 + 2, leg * 3 + 3, leg * 3 + 4]  # yaw, hip, knee
+        ids = [servo_id(j) for j in leg_joints(leg)]  # yaw, hip, knee
 
         # 18x STS3215 (Molex 5264 3-pin: black GND, red V+, white SIG).
         for sid, axis in zip(ids, ("yaw", "hip_pitch", "knee")):

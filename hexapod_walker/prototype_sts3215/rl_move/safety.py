@@ -7,6 +7,8 @@ from typing import Any
 
 import numpy as np
 
+from hexapod_core.joint_frame import axis_of, leg_of
+
 from .body_ik import BodyOffset, N_ACT, N_JOINTS
 from .config import cfg_get
 from .robot_state import RobotState, DEG2RAD, RAD2DEG
@@ -35,7 +37,6 @@ class SafetyStatus:
     held: bool = False
 
 
-_AXIS_NAMES = ("yaw", "hip", "knee")
 _JOINT_LIMIT_LO_RAD = np.array(
     [AXIS_LIMITS_DEG[j % 3][0] * DEG2RAD for j in range(N_JOINTS)],
     dtype=float,
@@ -47,7 +48,7 @@ _JOINT_LIMIT_HI_RAD = np.array(
 
 
 def _joint_name(j: int) -> str:
-    return f"L{j // 3} {_AXIS_NAMES[j % 3]}"
+    return f"L{leg_of(j)} {axis_of(j)}"
 
 
 class SafetyLayer:

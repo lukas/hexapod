@@ -161,6 +161,14 @@ class IKResult:
     reason: str = ""
 
 
+# Tripod leg-index split used by the ``rise_leg_stagger_gate`` mechanism
+# (walkcurr, 2026-09-14): alternating legs around the body, matching the
+# standard tripod-gait grouping (``leg_azimuths()`` orders legs 0..5 at
+# 60-degree spacing starting at 30 degrees, so alternating indices are the
+# two diagonally-interleaved tripods).
+STAGGER_GROUPS_TRIPOD = ((0, 2, 4), (1, 3, 5))
+
+
 class FixedFootBodyIK:
     """Freeze world feet at reset; map body offsets → joint targets.
 
@@ -171,6 +179,19 @@ class FixedFootBodyIK:
     ``CURL_RATE_PER_TICK * curl`` and it never decreases. curl=1 held
     for ~2.5 s reaches the footprint. When the robot already starts at
     the plant, the channel is close to inert.
+
+    ``rise_leg_stagger_gate`` (default OFF, ``cfg["ik"]``): when a ``cfg``
+    is supplied and the gate is on, the single global ``curl_frac`` ratchet
+    is split into a per-leg ``curl_frac_per_leg`` array and one tripod
+    group ("A") is allowed to ratchet unconditionally while the other
+    group ("B") is HELD at its current value until group A's own mean
+    progress clears ``rise_leg_stagger_threshold`` -- a structural,
+    demonstration-free bias toward a staggered/sequential curl ORDER
+    (never a magnitude cap on all legs alike, and never priced against any
+    reference trajectory). ``curl_frac`` (the legacy scalar other gates
+    read) becomes ``min(curl_frac_per_leg)`` so it still reads "progress
+    of the least-advanced leg". Default OFF (no ``cfg`` or gate unset) is
+    bit-exact: all six legs share one ratchet, exactly as before.
     """
 
     # Fraction of the start→plant travel per solve() at curl=1.
@@ -178,12 +199,20 @@ class FixedFootBodyIK:
     # matching the rise task's 3 s hold phase.
     CURL_RATE_PER_TICK = 0.016
 
-    def __init__(self):
+    def __init__(self, cfg: dict | None = None):
         self.q_nominal = np.zeros(N_JOINTS, dtype=float)
         self.feet_world = np.zeros((N_LEGS, 3), dtype=float)
         self.feet_plant_xy: np.ndarray | None = None
         self.curl_frac = 0.0
+        self.curl_frac_per_leg = np.zeros(N_LEGS, dtype=float)
         self._ready = False
+        from .config import cfg_get  # local import: avoid a cycle at module load
+        self.stagger_gate = bool(cfg is not None and int(cfg_get(
+            cfg, "ik", "rise_leg_stagger_gate", default=0) or 0) == 1)
+        self.stagger_threshold = float(cfg_get(
+            cfg, "ik", "rise_leg_stagger_threshold", default=0.5)
+            if cfg is not None else 0.5)
+        self.stagger_groups = STAGGER_GROUPS_TRIPOD
 
     @property
     def ready(self) -> bool:
@@ -201,12 +230,13 @@ class FixedFootBodyIK:
         else:
             self.feet_plant_xy = None
         self.curl_frac = 0.0
+        self.curl_frac_per_leg = np.zeros(N_LEGS, dtype=float)
         self._ready = True
 
     def _anchor(self, i: int) -> np.ndarray:
         p = self.feet_world[i].copy()
-        if self.feet_plant_xy is not None and self.curl_frac > 0.0:
-            c = self.curl_frac
+        c = self.curl_frac_per_leg[i]
+        if self.feet_plant_xy is not None and c > 0.0:
             p[:2] = (1.0 - c) * p[:2] + c * self.feet_plant_xy[i]
         return p
 
@@ -216,9 +246,21 @@ class FixedFootBodyIK:
         # Ratchet: positive curl advances the anchors toward the plant
         # footprint; nothing ever slides them back out.
         if offset.curl > 0.0 and self.feet_plant_xy is not None:
-            self.curl_frac = min(
-                self.curl_frac
-                + self.CURL_RATE_PER_TICK * min(offset.curl, 1.0), 1.0)
+            inc = self.CURL_RATE_PER_TICK * min(offset.curl, 1.0)
+            if self.stagger_gate:
+                group_a, group_b = self.stagger_groups
+                for i in group_a:
+                    self.curl_frac_per_leg[i] = min(
+                        self.curl_frac_per_leg[i] + inc, 1.0)
+                a_prog = float(np.mean(self.curl_frac_per_leg[list(group_a)]))
+                if a_prog >= self.stagger_threshold:
+                    for i in group_b:
+                        self.curl_frac_per_leg[i] = min(
+                            self.curl_frac_per_leg[i] + inc, 1.0)
+            else:
+                self.curl_frac_per_leg = np.minimum(
+                    self.curl_frac_per_leg + inc, 1.0)
+            self.curl_frac = float(np.min(self.curl_frac_per_leg))
         az = leg_azimuths()
         q = np.zeros(N_JOINTS, dtype=float)
         for i in range(N_LEGS):

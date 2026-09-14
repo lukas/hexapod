@@ -1024,7 +1024,7 @@ class SimHexapodBalanceEnv(_GymBase):
         self._plant_deg = (np.asarray(plant_deg, dtype=float).reshape(N_JOINTS)
                            if plant_deg is not None else _default_plant_deg())
 
-        self.ik = FixedFootBodyIK()
+        self.ik = FixedFootBodyIK(cfg=self.cfg)
         self.safety = SafetyLayer(self.cfg)
         if self._deployed_transport is not None:
             # Async hardware current dwell consumes physical frames, not

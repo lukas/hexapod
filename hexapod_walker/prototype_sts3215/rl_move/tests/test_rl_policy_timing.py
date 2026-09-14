@@ -137,8 +137,6 @@ def _snapshot(seq, *, gx_dps=0.0, pos_age_ms=1.0, imu_age_ms=1.0):
 
 
 class _AsyncHealthBus(_FakeBus):
-    has_stream = True
-
     def __init__(self, seqs=None, *, current=0.4):
         super().__init__()
         self.seqs = list(seqs or range(1, 1000))
@@ -161,8 +159,6 @@ class _AsyncHealthBus(_FakeBus):
 
 
 class _FakeStepBus(_FakeBus):
-    has_stream = True
-
     def __init__(self, snaps=None):
         super().__init__()
         self.steps = 0
@@ -385,8 +381,12 @@ class _PreflightBus:
     def __init__(self, q_deg):
         self.q_deg = list(q_deg)
 
-    def read_all_positions(self):
-        return {j: float(v) for j, v in enumerate(self.q_deg)}
+    def read_snapshot(self):
+        return {
+            "seq": 1, "pos_age_ms": 1, "imu_age_ms": 1,
+            "pos_deg": {j: float(v) for j, v in enumerate(self.q_deg)},
+            "imu": self.read_imu(),
+        }
 
     def read_imu(self, *, apply_calib=True):
         return {
@@ -893,11 +893,6 @@ def test_async_sampler_requires_advancing_wrap_aware_mcu_sequence_and_age():
                 "snapshot_seq": 1,
                 "pos_age_ms": 1.0,
             })))
-    # ASCII legacy IMUR has no sensor sequence/age; a host request alone
-    # cannot prove that its physical cache advanced.
-    assert "no physical freshness proof" in (  # noqa: SLF001
-        sampler._physical_state_error_locked(
-            _state(timing={"source": "legacy_read"})))
     # Simulation/fake estimators may still use host-side acquisitions.
     assert sampler._physical_state_error_locked(  # noqa: SLF001
         _state(timing={"source": "fake_async"})) == ""
@@ -939,8 +934,6 @@ def test_frozen_mcu_sequence_never_completes_async_readiness():
 def test_frozen_gyro_snapshot_is_rejected_before_stateful_recovery_update(
         monkeypatch):
     class _SequenceBus(_FakeBus):
-        has_stream = True
-
         def __init__(self):
             super().__init__()
             self.snaps = [
@@ -1006,19 +999,22 @@ def test_partial_feedback_is_not_published_as_complete_servo_health():
 
     class _FeedbackBus:
         def __init__(self):
+            self.seq = 0
             self.frames = [
                 frame(range(17), current_base=0.1),
                 frame(range(18), current_base=0.2),
                 frame(range(17), current_base=9.0),
             ]
 
-        def read_all_positions(self):
-            return {j: 0.0 for j in range(rl_policy.N_JOINTS)}
-
-        def read_imu(self, *, apply_calib=True):
+        def read_snapshot(self):
+            self.seq += 1
             return {
-                "ax_g": 0.0, "ay_g": 0.0, "az_g": 1.0,
-                "gx_dps": 0.0, "gy_dps": 0.0, "gz_dps": 0.0,
+                "seq": self.seq, "pos_age_ms": 1, "imu_age_ms": 1,
+                "pos_deg": {j: 0.0 for j in range(rl_policy.N_JOINTS)},
+                "imu": {
+                    "ax_g": 0.0, "ay_g": 0.0, "az_g": 1.0,
+                    "gx_dps": 0.0, "gy_dps": 0.0, "gz_dps": 0.0,
+                },
             }
 
         def read_all_feedback(self):
@@ -1867,42 +1863,6 @@ def test_drive_waits_quietly_before_first_walk_command():
     )
 
 
-def test_stream_target_tolerates_short_feedback_dropouts():
-    bus = _FakeBus()
-    good0 = _state()
-    good1 = _state()
-    est = _FakeEstimator([
-        _state(bus_ok=False),
-        _state(bus_ok=False),
-        good1,
-        _state(),
-    ])
-
-    out = rl_policy._stream_target(  # noqa: SLF001
-        bus,
-        est,
-        np.zeros(rl_policy.N_JOINTS),
-        np.ones(rl_policy.N_JOINTS) * 0.1,
-        t_next=0.0,
-        inner_steps=4,
-        inner_dt=0.0,
-        write_speed=100,
-        write_acc=20,
-        abort_check=lambda: False,
-        last_good_state=good0,
-        stale_ticks=0,
-        max_stale_ticks=3,
-    )
-
-    state, _t_next, _overruns, err, stale_ticks, stale_samples, _timing = out
-    assert err == ""
-    assert state.bus_ok is True
-    assert not rl_policy._stream_state_is_stale(state)  # noqa: SLF001
-    assert stale_ticks == 0
-    assert stale_samples == 2
-    assert bus.writes == 4
-
-
 def test_stream_target_prefers_combined_step_all_snapshot():
     bus = _FakeStepBus()
     est = _FakeEstimator([_state() for _ in range(4)])
@@ -2513,7 +2473,9 @@ def test_stream_target_treats_stream_step_all_miss_as_stale_sample():
     diag = state.timing["stale_diag"]
     assert diag["transport"] == "step_all"
     assert diag["step_all_none"] is True
-    assert diag["fallback_suppressed"] == "stream_firmware"
+    # No legacy write+read re-send exists any more; the miss is a stale
+    # sample handled by the bounded pending path.
+    assert "fallback" not in diag and "fallback_suppressed" not in diag
     assert diag["stale_ticks_after"] == 1
     assert diag["max_stale_ticks"] == 3
     assert diag["last_good_source"] == "fake_state"
@@ -2522,32 +2484,3 @@ def test_stream_target_treats_stream_step_all_miss_as_stale_sample():
     assert stale_samples == 1
     assert bus.steps == 1
     assert bus.writes == 0
-
-
-def test_stream_target_stops_after_stale_feedback_limit():
-    bus = _FakeBus()
-    good0 = _state()
-    est = _FakeEstimator([_state(bus_ok=False) for _ in range(4)])
-
-    out = rl_policy._stream_target(  # noqa: SLF001
-        bus,
-        est,
-        np.zeros(rl_policy.N_JOINTS),
-        np.ones(rl_policy.N_JOINTS) * 0.1,
-        t_next=0.0,
-        inner_steps=4,
-        inner_dt=0.0,
-        write_speed=100,
-        write_acc=20,
-        abort_check=lambda: False,
-        last_good_state=good0,
-        stale_ticks=0,
-        max_stale_ticks=3,
-    )
-
-    (_state_out, _t_next, _overruns, err, stale_ticks, stale_samples,
-     _timing) = out
-    assert err == "feedback stale during stream"
-    assert stale_ticks == 4
-    assert stale_samples == 4
-    assert bus.writes == 4

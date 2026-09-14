@@ -46,6 +46,7 @@ def imu_harness(tmp_path_factory):
 static const uint8_t MPU_REG_ACCEL_XOUT_H = 0x3B;
 static bool mpuReady = true;
 static unsigned long imuRetryMs = 0;
+static unsigned long imuRetryBackoffMs = 1000;  // 0b38e2a42 (2026-09-13)
 static uint8_t streamImuReadFailStreak = 0;
 static unsigned long streamImuFirstFailMs = 0;
 static uint32_t dbgStreamImuReadFailures = 0;

@@ -12,6 +12,11 @@ def _sample(*, count: int = 18, voltage: float = 12.0) -> dict[int, dict]:
     return {joint: {"volt": voltage} for joint in range(count)}
 
 
+def _snap(pos_deg: dict[int, float]) -> dict:
+    return {"seq": 1, "pos_age_ms": 1, "imu_age_ms": 1, "imu": None,
+            "pos_deg": dict(pos_deg)}
+
+
 class _Bus:
     def __init__(self, samples):
         self.samples = iter(samples)
@@ -144,7 +149,7 @@ def test_remote_abort_ends_holding_the_present_pose_not_limp(monkeypatch, tmp_pa
         },
     )
     bus = _Bus([_sample(), _sample(), _sample()])
-    bus.read_all_positions = lambda: {joint: 0.0 for joint in range(18)}
+    bus.read_snapshot = lambda: _snap({joint: 0.0 for joint in range(18)})
 
     result = run_sysid_protocol(
         bus,
@@ -193,7 +198,7 @@ def _runtime_stream_run(monkeypatch, tmp_path, *, glide: bool):
     )
     monkeypatch.setattr(sysid_runner.time, "sleep", lambda _seconds: None)
     bus = _Bus([_sample(), _sample(), _sample()])
-    bus.read_all_positions = lambda: {joint: 0.0 for joint in range(18)}
+    bus.read_snapshot = lambda: _snap({joint: 0.0 for joint in range(18)})
     # Baseline advances.  In trajectory mode the segment-start sample also
     # advances.  The first post-command sample then repeats its predecessor.
     timestamps = iter(
@@ -299,7 +304,7 @@ def _glide_current_run(monkeypatch, tmp_path, *, hot_joint: int,
     bus = _Bus([])
     bus.read_all_feedback = _feedback
     pose = {joint: 0.0 for joint in range(18)}
-    bus.read_all_positions = lambda: dict(pose)
+    bus.read_snapshot = lambda: _snap(dict(pose))
 
     def _write_all(target, **kwargs):
         bus.writes.append(("all", list(target)))
@@ -431,7 +436,7 @@ def test_hold_write_failure_falls_back_to_limp(monkeypatch, tmp_path):
                           "ticks": [{"active": [0], "cmd": [0.0] * 18,
                                      "mode": "rel", "seg": 0, "phase": "test"}]})
     bus = _Bus([_sample(), _sample(), _sample()])
-    bus.read_all_positions = lambda: {joint: 0.0 for joint in range(18)}
+    bus.read_snapshot = lambda: _snap({joint: 0.0 for joint in range(18)})
     result = run_sysid_protocol(
         bus, {"name": "hold_fail", "segments": [{"kind": "step"}]},
         abort_check=lambda: True, log_dir=tmp_path)

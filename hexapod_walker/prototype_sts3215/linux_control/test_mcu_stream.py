@@ -1,6 +1,6 @@
 """Off-robot tests for the MCU stream-bridge codec (2026-08-19 upgrade).
 
-Run locally:  uv run python linux_control/test_mcu_stream.py
+Run locally:  uv run pytest linux_control/test_mcu_stream.py -q
 No hardware: a FakeSerial plays the firmware side of the 'S'/'s'
 combined write+snapshot transaction, byte-exact against the framing in
 firmware/feetech_bridge (sendSnapshot / feedHostByte).
@@ -14,9 +14,13 @@ from unittest.mock import patch
 
 from feetech_bus import (N_JOINTS, count_to_deg, deg_to_count,
                          joint_to_servo_id, speed_counts_to_deg_s)
+import pytest
+
+import mcu_feetech_bus
 from mcu_feetech_bus import (SNAP_AGE_INVALID, SNAP_HEAD_LEN, SNAP_REC_LEN,
-                             McuFeetechBus, encode_sync_frame,
-                             parse_snapshot_payload)
+                             STREAM_HANDSHAKE_ATTEMPTS, SYNC_WRITE_ATTEMPTS,
+                             McuBridgeError, McuFeetechBus, McuFirmwareError,
+                             encode_sync_frame, parse_snapshot_payload)
 
 
 # ---------------------------------------------------------------------------
@@ -135,8 +139,10 @@ def _mk_bus(reply: bytes) -> McuFeetechBus:
     bus._live_cache_t = 0.0
     bus._imu_calib = None
     bus._imu_mount = "normal"
-    bus.has_stream = True
     bus.streaming = True
+    bus.sync_write_retries = 0
+    bus.imu_wake_attempts = 0
+    bus._imu_wake_mono = 0.0
     return bus
 
 
@@ -212,6 +218,8 @@ def test_sync_write_trace_preserves_ack_and_retry():
         assert trace["write_flush_ms"] == 63.0
     assert first["ack_wait_ms"] == 44.0
     assert second["ack_wait_ms"] == 33.0
+    # The bounded re-send is counted so it can never be a quiet habit.
+    assert bus.sync_write_retries == 1
 
 
 class SnapshotSink:
@@ -369,27 +377,19 @@ def test_read_imu_prefers_stream_snapshot():
     assert bytes(bus._ser.tx) == encode_sync_frame(ord("S"), [])
 
 
-def test_flush_sync_raises_when_every_fallback_fails():
-    bus = _mk_bus(b"ERR\nERR\nERR\nERR\n")
-    bus._pending = [(2, 2048, 400, 20)]
-    try:
+def test_flush_sync_raises_after_bounded_binary_retry():
+    # Two identical W frames, then a loud failure. The ASCII ``SW`` re-encode
+    # and the per-servo ``WP`` glide that used to follow are gone: they
+    # re-sent the same goals through slower paths and hid a dropping link.
+    item = (2, 2048, 2239, 200)
+    bus = _mk_bus(b"ERR\n" * 6 + b"OK\n")
+    bus._pending = [item]
+    with pytest.raises(RuntimeError, match="SyncWrite failed after 2"):
         bus._flush_sync()
-    except RuntimeError as e:
-        assert "SyncWrite failed" in str(e)
-    else:
-        raise AssertionError("expected SyncWrite failure to raise")
-
-
-def test_flush_sync_uses_wp_fallback_when_sync_failure_persists():
-    bus = _mk_bus(b"ERR\nERR\nERR\nOK\n")
-    bus._pending = [(2, 2048, 2239, 200)]
-
-    bus._flush_sync()
-
     tx = bytes(bus._ser.tx)
-    assert tx.count(encode_sync_frame(ord("W"), [(2, 2048, 2239, 200)])) == 2
-    assert b"SW 1 2 2048 2239 200\n" in tx
-    assert b"WP 2 2048 2239 200\n" in tx
+    assert tx == encode_sync_frame(ord("W"), [item]) * SYNC_WRITE_ATTEMPTS
+    assert b"SW " not in tx and b"WP " not in tx
+    assert bus.sync_write_retries == 0
 
 
 def test_recording_preserves_sync_write_bytes_and_does_not_request_snapshot():
@@ -443,19 +443,141 @@ def test_discarded_input_and_ascii_reply_are_retained():
     assert b"".join(p["data"] for k, p in sink.offered if k == "serial_rx") == b"OK 18\r\n"
 
 
-def test_flush_sync_chunks_ascii_fallback_after_full_sw_fails():
-    items = [(2 + j, 2048 + j, 600, 40) for j in range(12)]
-    want_frame = encode_sync_frame(ord("W"), items)
-    bus = _mk_bus(b"ERR\nERR\nERR\nOK\nOK\n")
-    bus._pending = list(items)
+def test_read_imu_without_snapshot_imu_returns_none_and_does_not_probe_ascii():
+    # IMU age 0xFFFF = the MCU has no valid sample (sensor absent / I2C
+    # failing; the firmware owns that retry). Until 2026-09-14 this fell
+    # through to ASCII ``IMUR`` + an ``IMU`` wake (1 s timeout + sleep) and
+    # blocked the bus for ~2 s per call during an IMU dropout.
+    servos = [(2 + j, 1, 2048, 0) for j in range(18)]
+    reply = _fw_snapshot_frame(
+        _fw_snapshot_payload(3, 2, SNAP_AGE_INVALID,
+                             (0, 0, 0, 0, 0, 0, 0), servos), 18)
+    bus = _mk_bus(reply + b"OK 1 2 3 4 5 6 7\n")
+    assert bus.read_imu() is None
+    assert bytes(bus._ser.tx) == encode_sync_frame(ord("S"), [])
+    assert bus.imu_wake_attempts == 0
 
-    bus._flush_sync()
 
+def test_read_imu_wakes_a_sleeping_mpu_once_per_interval(monkeypatch):
+    # Valid fresh age + all-zero frame = MPU asleep after a power glitch. The
+    # firmware caches zeros as a good sample (it only re-inits on a failed
+    # read), so the host sends ONE bounded ``IMU`` wake, prints and counts
+    # it, and does not repeat inside IMU_WAKE_MIN_INTERVAL_S.
+    clock = [50.0]
+    monkeypatch.setattr(mcu_feetech_bus.time, "monotonic", lambda: clock[0])
+    servos = [(2 + j, 1, 2048, 0) for j in range(18)]
+    asleep = _fw_snapshot_frame(
+        _fw_snapshot_payload(4, 2, 3, (0, 0, 0, 0, 0, 0, 0), servos), 18)
+    bus = _mk_bus(asleep + b"OK 0x68\n" + asleep + asleep + b"ERR wake\n")
+
+    assert bus.read_imu() is None
+    assert bus.read_imu() is None          # inside the interval: no resend
     tx = bytes(bus._ser.tx)
-    assert tx.count(want_frame) == 2
-    assert b"SW 12 " in tx
-    assert tx.count(b"SW 6 ") == 2
-    assert b"WP " not in tx
+    assert tx == (encode_sync_frame(ord("S"), []) + b"IMU\n"
+                  + encode_sync_frame(ord("S"), []))
+    assert bus.imu_wake_attempts == 1
+    assert b"IMUR" not in tx
+
+    clock[0] += mcu_feetech_bus.IMU_WAKE_MIN_INTERVAL_S
+    assert bus.read_imu() is None
+    assert bytes(bus._ser.tx).count(b"IMU\n") == 2
+    assert bus.imu_wake_attempts == 2
+
+
+# ---------------------------------------------------------------------------
+# open(): the STREAM handshake is mandatory and its failure is loud
+# ---------------------------------------------------------------------------
+
+class _ScriptedSerial(FakeSerial):
+    """Answers each written line with the next scripted reply."""
+
+    def __init__(self, replies: list[bytes], clock: list[float]):
+        super().__init__(b"")
+        self.replies = list(replies)
+        self.clock = clock
+        self.lines: list[bytes] = []
+        self.closed = False
+
+    def write(self, data):
+        super().write(data)
+        self.lines.append(bytes(data))
+        if self.replies:
+            self._rx.extend(self.replies.pop(0))
+
+    def read(self, n: int = 1) -> bytes:
+        out = super().read(n)
+        if not out:
+            # Idle link: let the driver's deadline expire without waiting.
+            self.clock[0] += 0.05
+        return out
+
+    def close(self):
+        self.closed = True
+
+
+def _open_with_replies(monkeypatch, replies: list[bytes]) -> tuple:
+    clock = [100.0]
+    ser = _ScriptedSerial(replies, clock)
+    import serial
+    monkeypatch.setattr(serial, "Serial", lambda *a, **k: ser)
+    monkeypatch.setattr(mcu_feetech_bus.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(mcu_feetech_bus.time, "sleep",
+                        lambda dt: clock.__setitem__(0, clock[0] + dt))
+    return ser, clock
+
+
+def test_open_accepts_stream_firmware(monkeypatch):
+    ser, _clock = _open_with_replies(
+        monkeypatch, [b"HELLO feetech_bridge v3\n", b"OK STREAM 1\n"])
+    bus = McuFeetechBus("/dev/fake", claim=False)
+    assert bus.streaming is True
+    assert ser.lines == [b"HELLO\n", b"STREAM 1\n"]
+    assert not hasattr(bus, "has_stream")
+
+
+@pytest.mark.parametrize("reply", [b"ERR\n", b"OK STREAM 0\n", b"OK\n"])
+def test_open_refuses_pre_stream_firmware_and_names_the_flash_script(
+        monkeypatch, reply):
+    # An explicit reply that is not ``OK STREAM 1`` is the wrong sketch:
+    # no silent legacy path, no retry, one clear error naming the fix.
+    ser, _clock = _open_with_replies(
+        monkeypatch, [b"HELLO feetech_bridge\n", reply])
+    with pytest.raises(McuFirmwareError) as info:
+        McuFeetechBus("/dev/fake", claim=False)
+    msg = str(info.value)
+    assert "firmware/flash_feetech_bridge.sh arduino@<robot>.local" in msg
+    assert reply.strip().decode() in msg
+    assert ser.lines.count(b"STREAM 1\n") == 1
+    assert ser.closed
+
+
+def test_open_retries_empty_stream_reply_then_fails_as_boot_race(monkeypatch):
+    # bb2071e98: a just-booted bridge can answer HELLO and then say nothing
+    # to STREAM 1. Retry a bounded number of times; if it never answers this
+    # is a bridge/boot fault (McuBridgeError), NOT a firmware mismatch.
+    ser, _clock = _open_with_replies(
+        monkeypatch, [b"HELLO feetech_bridge\n"])
+    with pytest.raises(McuBridgeError) as info:
+        McuFeetechBus("/dev/fake", claim=False)
+    assert not isinstance(info.value, McuFirmwareError)
+    assert "no reply to STREAM 1" in str(info.value)
+    assert ser.lines.count(b"STREAM 1\n") == STREAM_HANDSHAKE_ATTEMPTS
+    assert ser.closed
+
+
+def test_open_recovers_when_a_later_stream_attempt_answers(monkeypatch):
+    ser, _clock = _open_with_replies(
+        monkeypatch, [b"HELLO feetech_bridge\n", b"", b"OK STREAM 1\n"])
+    bus = McuFeetechBus("/dev/fake", claim=False)
+    assert bus.streaming is True
+    assert ser.lines.count(b"STREAM 1\n") == 2
+
+
+def test_no_stream_opt_out_is_gone():
+    assert "HEXAPOD_NO_STREAM" not in mcu_feetech_bus.__doc__
+    assert not hasattr(McuFeetechBus, "read_all_positions")
+    assert not hasattr(McuFeetechBus, "_flush_sync_ascii_fallback")
+    assert not hasattr(McuFeetechBus, "_flush_sync_slow_wp_fallback")
 
 
 def _main() -> int:

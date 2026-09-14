@@ -920,10 +920,6 @@ def _probe_async_transport(bus, *, samples: int = 3,
         out.update(source="unsupported",
                    error="read_snapshot unavailable")
         return out
-    if getattr(bus, "has_stream", None) is False:
-        out.update(source="legacy_read",
-                   error="MCU sequenced snapshot mode unavailable")
-        return out
 
     seqs: list[int] = []
     pos_ages: list[float] = []
@@ -1036,9 +1032,7 @@ def _stream_target(bus, est: RobotStateEstimator,
     q_from = np.asarray(q_from_robot, dtype=float)
     q_to = np.asarray(q_to_robot, dtype=float)
     steps = max(1, int(inner_steps))
-    step_all = getattr(bus, "step_all", None)
-    can_step_all = callable(step_all)
-    stream_firmware = bool(getattr(bus, "has_stream", False))
+    step_all = bus.step_all
     last_diag: dict | None = None
 
     def snapshot_freshness_error(snap, diag: dict) -> str:
@@ -1128,118 +1122,104 @@ def _stream_target(bus, est: RobotStateEstimator,
         est.set_commanded(q_cmd)
         q_cmd_deg = (q_cmd * RAD2DEG).tolist()
         state_robot = None
-        step_all_attempted = False
         diag = {
-            "transport": "legacy_write_read",
+            "transport": "step_all",
             "substep": sub,
             "inner_steps": steps,
             "stale_ticks_before": stale_ticks,
-            "stream_firmware": stream_firmware,
-            "step_all_available": can_step_all,
             "write_speed": int(write_speed),
             "write_acc": int(write_acc),
         }
-        if can_step_all:
-            step_all_attempted = True
-            diag["transport"] = "step_all"
-            op_t = time.monotonic()
-            try:
-                snap = step_all(q_cmd_deg, speed=write_speed,
-                                acc=write_acc)
-                if snap is not None and on_write_success is not None:
-                    on_write_success(q_cmd)
-            except Exception as e:
-                diag["transport_error"] = repr(e)
-                snap = None
-            write_s += time.monotonic() - op_t
-            if snap is not None and max_state_age_s is not None:
-                # A missing position slot must not zero-fill the velocity
-                # filter or advance another learned target. Hold this target
-                # and retry read-only snapshots; three fresh misses confirm
-                # a missing servo. Invalid/stale metadata is a separate stop.
-                previous_seq = prior_timing.get("snapshot_seq")
-                persistently_missing = set(range(N_JOINTS))
-                for position_attempt in range(3):
-                    try:
-                        seq = int(snap["seq"]) & 0xFFFF
-                        ages = [float(snap[key]) for key in
-                                ("pos_age_ms", "imu_age_ms")]
-                        valid = (_u16_seq_advanced(seq, int(previous_seq))
-                                 and all(math.isfinite(age) and
-                                         0.0 <= age <= max_state_age_s * 1000.0
-                                         for age in ages))
-                    except (KeyError, TypeError, ValueError):
-                        valid = False
-                    if not valid:
-                        diag["snapshot_freshness_rejected"] = True
-                        snap = None
-                        break
-                    previous_seq = seq
-                    positions = snap.get("pos_deg") or {}
-                    missing = [j for j in range(N_JOINTS) if j not in positions]
-                    if not missing:
-                        break
-                    persistently_missing.intersection_update(missing)
-                    diag["position_missing_ids"] = missing
-                    diag["position_missing_samples"] = position_attempt + 1
-                    if position_attempt == 2:
-                        if persistently_missing:
-                            return (last_good_state, t_next, overruns,
-                                    "persistent missing servo positions: "
-                                    f"{sorted(persistently_missing)}",
-                                    stale_ticks + 3, stale_samples + 3,
-                                    stream_timing())
-                        # Different isolated slot misses do not identify a
-                        # persistently missing servo. End the bounded retry
-                        # as a recoverable transport stop, retaining torque.
-                        snap = None
-                        break
-                    time.sleep(inner_dt)
-                    op_t = time.monotonic()
-                    try:
-                        snap = bus.read_snapshot()
-                    except Exception as e:
-                        diag["position_retry_error"] = repr(e)
-                        snap = None
-                    read_s += time.monotonic() - op_t
-            if snap is not None:
-                if isinstance(snap, dict):
-                    diag["snapshot_seq"] = snap.get("seq")
-                    diag["pos_age_ms"] = snap.get("pos_age_ms")
-                    diag["imu_age_ms"] = snap.get("imu_age_ms")
-                else:
-                    diag["snapshot_type"] = type(snap).__name__
-                freshness_error = snapshot_freshness_error(snap, diag)
-                if freshness_error:
-                    # A duplicate/old/malformed MCU cache is missing
-                    # feedback, not a new observation.  In particular, do
-                    # not let update_from_snapshot advance qd/attitude
-                    # filters before the bounded stale path handles it.
-                    diag["snapshot_rejected"] = True
-                    diag["snapshot_freshness_error"] = freshness_error
-                else:
-                    diag["snapshot_freshness_ok"] = True
-                    update_from_snapshot = getattr(
-                        est, "update_from_snapshot", None)
-                    if callable(update_from_snapshot):
-                        state_robot = update_from_snapshot(snap)
-                    else:
-                        diag["snapshot_consumer"] = "est.update_fallback"
-                        state_robot = est.update()
-            elif not stream_firmware:
-                diag["step_all_none"] = True
-                diag["fallback"] = "legacy_write_read"
-                step_all_attempted = False
-            else:
-                diag["step_all_none"] = True
-                diag["fallback_suppressed"] = "stream_firmware"
-        if not step_all_attempted:
-            diag["transport"] = "legacy_write_read"
-            op_t = time.monotonic()
-            bus.write_all(q_cmd_deg, speed=write_speed, acc=write_acc)
-            if on_write_success is not None:
+        op_t = time.monotonic()
+        try:
+            snap = step_all(q_cmd_deg, speed=write_speed,
+                            acc=write_acc)
+            if snap is not None and on_write_success is not None:
                 on_write_success(q_cmd)
-            write_s += time.monotonic() - op_t
+        except Exception as e:
+            diag["transport_error"] = repr(e)
+            snap = None
+        write_s += time.monotonic() - op_t
+        if snap is not None and max_state_age_s is not None:
+            # A missing position slot must not zero-fill the velocity
+            # filter or advance another learned target. Hold this target
+            # and retry read-only snapshots; three fresh misses confirm
+            # a missing servo. Invalid/stale metadata is a separate stop.
+            previous_seq = prior_timing.get("snapshot_seq")
+            persistently_missing = set(range(N_JOINTS))
+            for position_attempt in range(3):
+                try:
+                    seq = int(snap["seq"]) & 0xFFFF
+                    ages = [float(snap[key]) for key in
+                            ("pos_age_ms", "imu_age_ms")]
+                    valid = (_u16_seq_advanced(seq, int(previous_seq))
+                             and all(math.isfinite(age) and
+                                     0.0 <= age <= max_state_age_s * 1000.0
+                                     for age in ages))
+                except (KeyError, TypeError, ValueError):
+                    valid = False
+                if not valid:
+                    diag["snapshot_freshness_rejected"] = True
+                    snap = None
+                    break
+                previous_seq = seq
+                positions = snap.get("pos_deg") or {}
+                missing = [j for j in range(N_JOINTS) if j not in positions]
+                if not missing:
+                    break
+                persistently_missing.intersection_update(missing)
+                diag["position_missing_ids"] = missing
+                diag["position_missing_samples"] = position_attempt + 1
+                if position_attempt == 2:
+                    if persistently_missing:
+                        return (last_good_state, t_next, overruns,
+                                "persistent missing servo positions: "
+                                f"{sorted(persistently_missing)}",
+                                stale_ticks + 3, stale_samples + 3,
+                                stream_timing())
+                    # Different isolated slot misses do not identify a
+                    # persistently missing servo. End the bounded retry
+                    # as a recoverable transport stop, retaining torque.
+                    snap = None
+                    break
+                time.sleep(inner_dt)
+                op_t = time.monotonic()
+                try:
+                    snap = bus.read_snapshot()
+                except Exception as e:
+                    diag["position_retry_error"] = repr(e)
+                    snap = None
+                read_s += time.monotonic() - op_t
+        if snap is not None:
+            if isinstance(snap, dict):
+                diag["snapshot_seq"] = snap.get("seq")
+                diag["pos_age_ms"] = snap.get("pos_age_ms")
+                diag["imu_age_ms"] = snap.get("imu_age_ms")
+            else:
+                diag["snapshot_type"] = type(snap).__name__
+            freshness_error = snapshot_freshness_error(snap, diag)
+            if freshness_error:
+                # A duplicate/old/malformed MCU cache is missing
+                # feedback, not a new observation.  In particular, do
+                # not let update_from_snapshot advance qd/attitude
+                # filters before the bounded stale path handles it.
+                diag["snapshot_rejected"] = True
+                diag["snapshot_freshness_error"] = freshness_error
+            else:
+                diag["snapshot_freshness_ok"] = True
+                update_from_snapshot = getattr(
+                    est, "update_from_snapshot", None)
+                if callable(update_from_snapshot):
+                    state_robot = update_from_snapshot(snap)
+                else:
+                    diag["snapshot_consumer"] = "est.update_fallback"
+                    state_robot = est.update()
+        else:
+            # A framing/checksum miss on the combined transaction. The goal
+            # may or may not have been applied; the sample is missing and is
+            # handled by the bounded stale path below. There is no re-send
+            # through a separate write + read path any more.
+            diag["step_all_none"] = True
 
         t_next += inner_dt
         lag = time.monotonic() - t_next
@@ -1251,14 +1231,6 @@ def _stream_target(bus, est: RobotStateEstimator,
         else:
             time.sleep(-lag)
 
-        if state_robot is None and not step_all_attempted:
-            op_t = time.monotonic()
-            try:
-                state_robot = est.update()
-            except Exception as e:
-                diag["est_update_error"] = repr(e)
-                state_robot = None
-            read_s += time.monotonic() - op_t
         if state_robot is not None:
             timing = dict(getattr(state_robot, "timing", {}) or {})
             diag["state_source"] = timing.get("source")
@@ -1294,7 +1266,7 @@ def _stream_target(bus, est: RobotStateEstimator,
             diag["stale_samples_total"] = stale_samples
             diag["max_stale_ticks"] = max_stale_ticks
             pending = bool(
-                step_all_attempted and last_good_state is not None
+                last_good_state is not None
                 and stale_ticks <= max_stale_ticks)
             if pending:
                 # step_all has already sent q_cmd.  Stop interpolation at that
@@ -1617,16 +1589,9 @@ class _AsyncSnapshotSampler:
         stream_state = raw_seq is not None or source in {
             "read_snapshot", "step_all"}
         if not stream_state:
-            if source == "legacy_read":
-                # ASCII IMUR carries only seven values: it has no MCU sample
-                # sequence or age. A host transaction/timestamp therefore
-                # cannot distinguish a live stationary IMU from a frozen
-                # bridge/cache. Async learned motion requires the sequenced
-                # snapshot protocol rather than guessing from value changes.
-                return "legacy feedback has no physical freshness proof"
             # Synthetic/simulation estimators without MCU cache metadata use
-            # a new host acquisition sequence. The real legacy hardware path
-            # is explicitly rejected above.
+            # a new host acquisition sequence. The hardware estimator only
+            # produces sequenced snapshot sources (rl_move/robot_state.py).
             return ""
         if raw_seq is None:
             return "stream snapshot missing snapshot_seq"
@@ -2896,10 +2861,11 @@ def _read_q_deg(bus) -> tuple[np.ndarray | None, str]:
     vals: list[float | None] = [None] * N_JOINTS
     errors: list[str] = []
     try:
-        pos = bus.read_all_positions()
+        snap = bus.read_snapshot()
     except Exception as e:
-        pos = None
+        snap = None
         errors.append(str(e))
+    pos = snap.get("pos_deg") if isinstance(snap, dict) else None
     if isinstance(pos, dict):
         for j, v in pos.items():
             jj = int(j)
@@ -3057,55 +3023,6 @@ def _max_pose_delta_deg(q_robot_rad: np.ndarray,
     return float(dq[worst]) if len(dq) else 0.0, worst
 
 
-def _direct_start_state(bus, target_robot: np.ndarray,
-                        refresh: dict) -> RobotState | None:
-    """Build a start RobotState from direct reads when stream snapshots stall."""
-    q_deg, err = _read_q_deg(bus)
-    if q_deg is None:
-        refresh["fallback_error"] = err
-        return None
-    try:
-        imu = bus.read_imu(apply_calib=True)
-    except Exception as e:
-        imu = None
-        refresh["fallback_imu_error"] = str(e)
-    imu_ok = isinstance(imu, dict) and "ax_g" in imu
-    if imu_ok:
-        ax = float(imu.get("ax_g", 0.0))
-        ay = float(imu.get("ay_g", 0.0))
-        az = float(imu.get("az_g", 0.0))
-        roll = math.atan2(ay, az)
-        pitch = math.atan2(-ax, math.hypot(ay, az))
-        gyro = np.array([
-            float(imu.get("gx_dps", 0.0)) * DEG2RAD,
-            float(imu.get("gy_dps", 0.0)) * DEG2RAD,
-            float(imu.get("gz_dps", 0.0)) * DEG2RAD,
-        ], dtype=float)
-        accel = np.array([ax * 9.80665, ay * 9.80665, az * 9.80665],
-                         dtype=float)
-    else:
-        roll = pitch = 0.0
-        gyro = np.zeros(3, dtype=float)
-        accel = np.zeros(3, dtype=float)
-    refresh["fallback"] = "direct_position_read"
-    return RobotState(
-        timestamp=time.monotonic(),
-        joint_position=np.asarray(q_deg, dtype=float) * DEG2RAD,
-        joint_velocity=np.zeros(N_JOINTS, dtype=float),
-        imu_roll=float(roll),
-        imu_pitch=float(pitch),
-        imu_yaw=0.0,
-        imu_gyro=gyro,
-        imu_accel=accel,
-        commanded_position=np.asarray(target_robot, dtype=float).copy(),
-        bus_ok=True,
-        imu_ok=bool(imu_ok),
-        dt=0.0,
-        timing={"fallback": "direct_position_read",
-                "stale_feedback": True},
-    )
-
-
 def _refresh_verified_start_pose(
         bus, est: RobotStateEstimator, target_deg: np.ndarray, *,
         timing, write_speed: int, write_acc: int, abort_check,
@@ -3167,17 +3084,16 @@ def _refresh_verified_start_pose(
         "stale_samples": stale_samples,
     })
     if state_robot is None or not state_robot.bus_ok:
-        state_robot = _direct_start_state(bus, target_robot, refresh)
-        if debug is not None:
-            debug.event("start_refresh_fallback",
-                        refresh=refresh,
-                        state=_state_debug(state_robot,
-                                           target_robot=target_robot))
-    if state_robot is None or not state_robot.bus_ok:
+        # No synthesized start state from direct reads any more: that path
+        # fabricated roll = pitch = 0 when the IMU was missing and the tilt
+        # reference was seeded from it. A start without a complete, fresh
+        # snapshot is refused; the servos keep holding the start pose.
         if debug is not None:
             debug.event("start_refresh_failed", refresh=refresh)
         return (state_robot, refresh,
-                "feedback unavailable during start refresh")
+                "feedback unavailable during start refresh "
+                f"({snapshot_samples} complete / {stale_samples} stale "
+                "snapshots)")
 
     delta, joint = _max_pose_delta_deg(state_robot.joint_position,
                                        target_robot)
@@ -3497,24 +3413,19 @@ def _run_policy_move_impl(drive, mode: str, *, on_progress=None,
         else:
             warmup_stale += 1
         time.sleep(timing.policy_dt)
-    if state_robot is None or not state_robot.bus_ok:
-        warmup_refresh: dict = {}
-        state_robot = _direct_start_state(bus, q_nom_robot, warmup_refresh)
-        if state_robot is None:
-            return _finish_debug(
-                debug, {"ok": False,
-                        "error": "feedback unavailable during start warmup",
-                        "preflight": details,
-                        "start_warmup": warmup_refresh})
-        details["start_warmup_fallback"] = warmup_refresh
     if warmup_stale:
         details["start_warmup"] = {
             "snapshot_samples": warmup_good,
             "stale_samples": warmup_stale,
         }
+    if state_robot is None or not state_robot.bus_ok:
+        return _finish_debug(
+            debug, {"ok": False,
+                    "error": "feedback unavailable during start warmup",
+                    "preflight": details,
+                    "start_warmup": details.get("start_warmup")})
     debug.event("start_warmup_done", state=_state_debug(state_robot),
-                warmup=details.get("start_warmup"),
-                fallback=details.get("start_warmup_fallback"))
+                warmup=details.get("start_warmup"))
     async_sampler: _AsyncSnapshotSampler | None = None
     async_sampler_last_stats: dict | None = None
     async_feedback_hz: float | None = direct_feedback_hz
@@ -4232,23 +4143,16 @@ def benchmark_drive_hot_path(drive, *, walk_weights: Path | None = None,
         else:
             read_errors += 1
     if state_robot is None:
-        fallback: dict = {}
-        q_deg, err = _read_q_deg(bus)
-        if q_deg is None:
-            return {"ok": False,
-                    "error": f"feedback unavailable: {err}",
-                    "snapshot_read": _ms_stats(read_times),
-                    "snapshot_read_errors": read_errors,
-                    "async_transport": async_probe}
-        state_robot = _direct_start_state(
-            bus, np.asarray(q_deg, dtype=float) * DEG2RAD, fallback)
-        if state_robot is None:
-            return {"ok": False,
-                    "error": "feedback unavailable",
-                    "snapshot_read": _ms_stats(read_times),
-                    "snapshot_read_errors": read_errors,
-                    "async_transport": async_probe,
-                    "fallback": fallback}
+        # The probe measures the snapshot transport; without one complete
+        # snapshot there is nothing honest to time the policy against.
+        _q_deg, err = _read_q_deg(bus)
+        return {"ok": False,
+                "error": ("no complete snapshot in "
+                          f"{len(read_times)} reads"
+                          + (f"; {err}" if err else "")),
+                "snapshot_read": _ms_stats(read_times),
+                "snapshot_read_errors": read_errors,
+                "async_transport": async_probe}
 
     state = _state_for_policy_frame(state_robot, joint_frame)
     q_nom = state.joint_position.copy()
@@ -4668,26 +4572,21 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
         else:
             warmup_stale += 1
         time.sleep(timing.policy_dt)
-    if state_robot is None or not state_robot.bus_ok:
-        warmup_refresh: dict = {}
-        state_robot = _direct_start_state(bus, q_nom_robot, warmup_refresh)
-        if state_robot is None:
-            return _finish_debug(
-                debug, {"ok": False,
-                        "error": "feedback unavailable during start warmup",
-                        "held_pose": True,
-                        "limped": False,
-                        "preflight": details,
-                        "start_warmup": warmup_refresh})
-        details["start_warmup_fallback"] = warmup_refresh
     if warmup_stale:
         details["start_warmup"] = {
             "snapshot_samples": warmup_good,
             "stale_samples": warmup_stale,
         }
+    if state_robot is None or not state_robot.bus_ok:
+        return _finish_debug(
+            debug, {"ok": False,
+                    "error": "feedback unavailable during start warmup",
+                    "held_pose": True,
+                    "limped": False,
+                    "preflight": details,
+                    "start_warmup": details.get("start_warmup")})
     debug.event("start_warmup_done", state=_state_debug(state_robot),
-                warmup=details.get("start_warmup"),
-                fallback=details.get("start_warmup_fallback"))
+                warmup=details.get("start_warmup"))
     state = _state_for_policy_frame(state_robot, joint_frame)
     tilt_ref0 = (state.imu_roll, state.imu_pitch)
     safety.set_nominal(q_nom)

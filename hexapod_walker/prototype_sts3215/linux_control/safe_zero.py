@@ -1335,5 +1335,8 @@ def run_safe_zero(bus, stages: list[dict], *,
     finally:
         try:
             _set_torque_limit(bus, live, 1000)
-        except Exception:
-            pass
+        except Exception as e:
+            # The servos would stay at the reduced safe-zero torque limit
+            # (default 1000 = full) for the next stand. Say so.
+            print(f"[safe_zero] WARNING could not restore torque limit "
+                  f"to 1000 after safe zero: {e!r}")

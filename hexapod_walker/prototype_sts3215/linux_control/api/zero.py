@@ -218,13 +218,12 @@ class ZeroApi:
         vals: list = [None] * N_JOINTS
         if bus is None:
             return vals, list(range(N_JOINTS))
-        try:
-            if hasattr(bus, "read_all_positions"):
-                for j, v in (bus.read_all_positions() or {}).items():
-                    if 0 <= j < N_JOINTS:
-                        vals[j] = float(v)
-        except Exception:
-            pass
+        read_snapshot = getattr(bus, "read_snapshot", None)
+        if callable(read_snapshot):
+            snap = read_snapshot()
+            for j, v in ((snap or {}).get("pos_deg") or {}).items():
+                if 0 <= j < N_JOINTS:
+                    vals[j] = float(v)
         for j in range(N_JOINTS):
             if vals[j] is None:
                 try:

@@ -24,8 +24,9 @@ class _PoseBus:
         self.pose = list(pose)
         self.calls: list[tuple] = []
 
-    def read_all_positions(self):
-        return {j: v for j, v in enumerate(self.pose)}
+    def read_snapshot(self):
+        return {"seq": 1, "pos_age_ms": 1, "imu_age_ms": 1, "imu": None,
+                "pos_deg": {j: v for j, v in enumerate(self.pose)}}
 
     def read_position_deg(self, joint: int):
         return self.pose[joint]

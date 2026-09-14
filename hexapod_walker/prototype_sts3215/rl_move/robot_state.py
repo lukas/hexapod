@@ -327,45 +327,28 @@ class RobotStateEstimator:
         timing = AcquisitionTiming()
 
         # --- positions + IMU ---
-        # Fast path (stream firmware): ONE host<->MCU round trip returns
-        # cached positions + IMU ('S' n=0 snapshot; caches are refreshed
-        # by the MCU's free-running acquisition loop at ~150-250 Hz).
-        # Legacy path: separate read_all_positions + read_imu
-        # transactions, each blocking on the servo bus.
+        # ONE host<->MCU round trip returns cached positions + IMU ('S' n=0
+        # snapshot; caches are refreshed by the MCU's free-running
+        # acquisition loop at ~150-250 Hz). A None snapshot (framing error /
+        # timeout) yields a state with bus_ok=False and imu_ok=False; there
+        # is no separate read_all_positions + read_imu path any more.
+        # Bus exceptions (e.g. the async-reader quarantine) propagate.
         pos_deg: dict | None = None
         imu = None
-        snap = None
-        source = "legacy_read"
         snap_meta = None
-        read_snap = getattr(self.bus, "read_snapshot", None)
-        if read_snap is not None:
-            t_a = time.monotonic()
-            try:
-                snap = read_snap()
-            except Exception:
-                snap = None
-            if snap is not None:
-                timing.t_pos = time.monotonic() - t_a
-                pos_deg = snap["pos_deg"]
-                imu = snap["imu"]
-                source = "read_snapshot"
-                snap_meta = {
-                    "snapshot_seq": snap.get("seq"),
-                    "pos_age_ms": snap.get("pos_age_ms"),
-                    "imu_age_ms": snap.get("imu_age_ms"),
-                }
-        if snap is None:
-            t_a = time.monotonic()
-            pos_deg = self.bus.read_all_positions()
-            timing.t_pos = time.monotonic() - t_a
-            t_b = time.monotonic()
-            try:
-                imu = self.bus.read_imu(apply_calib=True)
-            except Exception:
-                imu = None
-            timing.t_imu = time.monotonic() - t_b
+        t_a = time.monotonic()
+        snap = self.bus.read_snapshot()
+        timing.t_pos = time.monotonic() - t_a
+        if snap is not None:
+            pos_deg = snap["pos_deg"]
+            imu = snap["imu"]
+            snap_meta = {
+                "snapshot_seq": snap.get("seq"),
+                "pos_age_ms": snap.get("pos_age_ms"),
+                "imu_age_ms": snap.get("imu_age_ms"),
+            }
 
         return self._state_from_sample(
             pos_deg, imu, t0=t0, timing=timing,
-            want_full_feedback=want_full_feedback, source=source,
+            want_full_feedback=want_full_feedback, source="read_snapshot",
             snapshot_meta=snap_meta)

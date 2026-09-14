@@ -503,6 +503,11 @@ class CoreApi:
             armed = False
             activity = "error"
             detail = str(bus_state.get("error") or "serial bus quarantined")
+        bus_error = getattr(d, "bus_error", None)
+        if bus_error:
+            armed = False
+            activity = "error"
+            detail = bus_error
 
         out = {
             "activity": activity,
@@ -518,6 +523,8 @@ class CoreApi:
             "telemetry": self._telemetry_recorder.status(),
             **bus_state,
         }
+        if bus_error:
+            out["bus_error"] = bus_error
         if self._servo_watch is not None:
             out["servo"] = self._servo_watch.state()
         if check_zero:
@@ -623,7 +630,7 @@ class CoreApi:
                     "demo": self.demo_state(),
                     "robot": self.robot_state(),
                 }
-        return {
+        out = {
             "port": port,
             "dry_run": dry,
             "armed": armed,
@@ -634,6 +641,10 @@ class CoreApi:
             "demo": self.demo_state(),
             "robot": self.robot_state(),
         }
+        bus_error = getattr(d, "bus_error", None)
+        if bus_error:
+            out["bus_error"] = bus_error
+        return out
 
     def pose(self) -> dict:
         """Fast present-angle snapshot for the live schematic (no health scan).

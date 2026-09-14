@@ -3791,7 +3791,7 @@ class SimHexapodBalanceEnv(_GymBase):
                         self._deployed_transport.safety_state(self._state))
         q_safe, status = self.safety.filter(
             q_prop, safety_state, ik_ok=q_ok, ik_reason=q_reason,
-            action=clipped)
+            action=clipped, curl_frac=getattr(self.ik, "curl_frac", None))
         # Structural stop-hold override (goal.walk_stop_freeze_s,
         # default 0.0 = off, bit-exact identity) -- see
         # _walk_stop_freeze_override for why this runs here (after

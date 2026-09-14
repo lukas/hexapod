@@ -524,7 +524,7 @@ class HexapodBalanceEnv:
         ik = self.ik.solve(offset)
         q_safe, status = self.safety.filter(
             ik.q_rad, self._state, ik_ok=ik.ok, ik_reason=ik.reason,
-            action=clipped)
+            action=clipped, curl_frac=getattr(self.ik, "curl_frac", None))
 
         t_cmd0 = time.monotonic()
         terminated = bool(status.terminate)

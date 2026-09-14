@@ -76,6 +76,31 @@ class SafetyLayer:
             float(cfg_get(cfg, "safety", "entry_slew_start_deg",
                           default=0.25)))
         self._entry_ticks = 0
+        # Curl-phase slew gate (2026-09-14, walkcurr flat-start-rise:
+        # riseheightcap-{mod,strict} closed the height-CAP family 9/9
+        # with the SAME fingerprint every reward-shaping/height-cap
+        # lever hit -- and this run's own telemetry named the actual
+        # culprit as RATE, not magnitude: `slew_sat_frac` 0.76-0.994,
+        # i.e. the policy commands close to the FULL per-tick rate
+        # limit on nearly every flat-start tick, current already
+        # pegged mid-curl. The mesh-native scripted reference clears
+        # the same flat start at 2.21A/0 trips by pacing the curl ramp
+        # over ~4.9s -- same lockstep leg sequencing as the RL policy,
+        # only the RATE differs. This is the non-reward fallback named
+        # by that closure: a hard per-tick rate CEILING (not a price)
+        # that is tightest at curl_frac<=0 and relaxes linearly to the
+        # ordinary ``max_delta_q_deg`` once curl_frac>=gate_frac --
+        # reusing the same ``curl_height_cap_frac`` ramp the height-cap
+        # family already used, applied to the RATE axis instead of the
+        # MAGNITUDE axis. Default OFF (``safety.rise_curl_slew_gate``
+        # unset/0): ``curl_frac`` accepted but unused, ``max_dq``
+        # unchanged, bit-exact with pre-existing behavior.
+        self.curl_slew_gate = (float(cfg_get(
+            cfg, "safety", "rise_curl_slew_gate", default=0.0)) == 1.0)
+        self.curl_slew_gate_frac = float(cfg_get(
+            cfg, "safety", "rise_curl_slew_gate_frac", default=1.0))
+        self.curl_slew_gate_floor = float(cfg_get(
+            cfg, "safety", "rise_curl_slew_gate_floor", default=0.3))
         self.imu_stale_s = float(
             cfg_get(cfg, "safety", "imu_stale_ms", default=100)) / 1000.0
         self.max_temp = float(cfg_get(cfg, "safety", "max_temp_c", default=65))
@@ -133,6 +158,12 @@ class SafetyLayer:
         self.entry_start_dq = math.radians(
             float(cfg_get(self.cfg, "safety", "entry_slew_start_deg",
                           default=0.25)))
+        self.curl_slew_gate = (float(cfg_get(
+            self.cfg, "safety", "rise_curl_slew_gate", default=0.0)) == 1.0)
+        self.curl_slew_gate_frac = float(cfg_get(
+            self.cfg, "safety", "rise_curl_slew_gate_frac", default=1.0))
+        self.curl_slew_gate_floor = float(cfg_get(
+            self.cfg, "safety", "rise_curl_slew_gate_floor", default=0.3))
 
     def set_tilt_reference(self, roll: float, pitch: float) -> None:
         """Anchor the tilt trip to the episode's starting attitude.
@@ -313,7 +344,9 @@ class SafetyLayer:
 
     def filter(self, proposed_q: np.ndarray, state: RobotState,
                *, ik_ok: bool = True, ik_reason: str = "",
-               action: np.ndarray | None = None) -> tuple[np.ndarray, SafetyStatus]:
+               action: np.ndarray | None = None,
+               curl_frac: float | None = None
+               ) -> tuple[np.ndarray, SafetyStatus]:
         status = SafetyStatus(ok=True, clipped_action=action)
 
         if self._estop:
@@ -390,6 +423,17 @@ class SafetyLayer:
                 f = t / self.entry_ramp_s
                 max_dq = min(self.max_dq, self.entry_start_dq
                              + f * (self.max_dq - self.entry_start_dq))
+        # Curl-phase rate ceiling (see __init__ note): composes
+        # MULTIPLICATIVELY with the entry ramp above (both are legit
+        # simultaneously -- e.g. episode start during an uncurled rise
+        # attempt) rather than replacing it. curl_frac=None (caller
+        # never wired it, e.g. a raw joint-space env with no IK) makes
+        # this branch a no-op regardless of the gate cfg -- "no gating
+        # information available" is never treated as "curl_frac=0".
+        if self.curl_slew_gate and curl_frac is not None:
+            max_dq = max_dq * curl_height_cap_frac(
+                curl_frac, self.curl_slew_gate_frac,
+                self.curl_slew_gate_floor)
         self._entry_ticks += 1
         dq = q - self._last_safe
         dq = np.clip(dq, -max_dq, max_dq)

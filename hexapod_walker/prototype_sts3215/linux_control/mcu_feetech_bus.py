@@ -275,7 +275,11 @@ def open_feetech_bus(port: str | None = None, *, baud: int = BAUD_DEFAULT):
         mcu = explicit if (force_mcu and explicit
                            and str(explicit).startswith("/dev/")) \
             else find_mcu_port()
-        if mcu and (force_mcu or probe_mcu_bridge(mcu)):
+        if mcu:
+            # An MCU port exists: this is the robot. Open it (the
+            # constructor owns the boot-time HELLO retries) and never
+            # drift onto a USB adapter if it fails -- that silently swapped
+            # transports and hid a dead/old bridge behind a slower one.
             print(f"[bus] MCU Feetech bridge on {mcu}")
             return McuFeetechBus(mcu), mcu
 
@@ -644,8 +648,13 @@ class McuFeetechBus:
         try:
             from imu_calibrate import load_imu_calib
             self._imu_calib = load_imu_calib()
-        except Exception:
+        except Exception as exc:
+            # load_imu_calib returns None for a missing/invalid file; an
+            # exception here is a code/import fault and must not read as
+            # "robot has no calibration".
             self._imu_calib = None
+            print(f"[bus] WARNING IMU calibration unavailable: {exc!r} "
+                  "(samples will be uncalibrated)")
         return self._imu_calib
 
     def reload_imu_mount(self) -> str:
@@ -662,14 +671,19 @@ class McuFeetechBus:
         rest (scale quirk); the rest calib absorbs it as z bias.
         """
         mount = "normal"
-        try:
-            d = json.loads((Path(__file__).resolve().parent / "logs"
-                            / "imu_mount.json").read_text())
-            m = str(d.get("mount", "normal")).lower()
-            if m in ("normal", "flip_x", "flip_y", "flip_z"):
-                mount = m
-        except Exception:
-            pass
+        path = Path(__file__).resolve().parent / "logs" / "imu_mount.json"
+        if path.is_file():
+            try:
+                d = json.loads(path.read_text())
+                m = str(d.get("mount", "normal")).lower()
+                if m in ("normal", "flip_x", "flip_y", "flip_z"):
+                    mount = m
+                else:
+                    print(f"[bus] WARNING {path.name}: unknown mount {m!r}; "
+                          "using 'normal'")
+            except Exception as exc:
+                print(f"[bus] WARNING {path.name} unreadable ({exc!r}); "
+                      "using mount 'normal'")
         self._imu_mount = mount
         return mount
 
@@ -1455,7 +1469,16 @@ class McuFeetechBus:
             try:
                 from imu_calibrate import apply_imu_calib
                 return apply_imu_calib(sample, self._imu_calib)
-            except Exception:
+            except Exception as exc:
+                # A calibration that cannot be applied is a code/data bug;
+                # count it and say so instead of quietly returning an
+                # uncalibrated sample that still claims to be the IMU.
+                self.imu_calib_apply_errors = (
+                    getattr(self, "imu_calib_apply_errors", 0) + 1)
+                if self.imu_calib_apply_errors in (1, 10, 100, 1000):
+                    print(f"[bus] WARNING IMU calibration not applied "
+                          f"({exc!r}); count "
+                          f"{self.imu_calib_apply_errors}")
                 return sample
         return sample
 

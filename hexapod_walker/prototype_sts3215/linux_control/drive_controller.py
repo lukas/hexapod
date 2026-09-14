@@ -160,6 +160,8 @@ class DriveController:
         self._live_ids_cache: set[int] = set()
         self._live_ids_t = 0.0
         self.present_pose_slow_reads = 0
+        self.live_scan_errors = 0
+        self.torque_bulk_failures = 0
         # Set when the bus could not be opened because the MCU runs the
         # wrong firmware; web_drive keeps serving so the operator sees it.
         self.bus_error: str | None = None
@@ -232,8 +234,14 @@ class DriveController:
         try:
             self._live_ids_cache = {sid for sid in self.bus.scan(range(2, 20))}
             self._live_ids_t = now
-        except Exception:
-            pass
+        except Exception as e:
+            # Keep serving the previous scan (motion loops must not block on
+            # a SCAN retry) but never quietly: count and print it.
+            self.live_scan_errors += 1
+            print(f"[drive] WARNING servo SCAN failed ({e!r}); using "
+                  f"{sorted(self._live_ids_cache)} from "
+                  f"{now - self._live_ids_t:.1f} s ago "
+                  f"(count {self.live_scan_errors})")
         return self._live_ids_cache
 
     def _torque_all(self, on: bool) -> None:
@@ -246,6 +254,15 @@ class DriveController:
                 return
             except Exception as e:
                 bulk_error = e
+                # The per-servo pass below is a real need (a TA timeout
+                # leaves every servo's torque state unknown and each must be
+                # certified), but a bulk command that fails is a bus fault
+                # worth seeing even when the per-servo pass then succeeds.
+                self.torque_bulk_failures += 1
+                print(f"[drive] WARNING bulk torque "
+                      f"{'enable' if on else 'disable'} failed ({e!r}); "
+                      f"certifying per servo "
+                      f"(count {self.torque_bulk_failures})")
         torque = getattr(self.bus, "torque", None)
         failures: list[str] = []
         # A failed bulk attempt leaves every configured servo's state unknown.

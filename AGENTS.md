@@ -357,6 +357,14 @@ still apply.
 
 ## Hexapod STS3215 (`prototype_sts3215`) — hardware
 
+**Read the [2026-09-14 recovery lessons](hexapod_walker/prototype_sts3215/RECOVERY_LESSONS.md)
+before designing another recovery sequence.** Inventory proven routines first;
+verify foot contact, body lift and retained support rather than treating encoder
+motion as success. Repeated nudges followed by all-off lost hours and support.
+Use the [observation helper](hexapod_walker/prototype_sts3215/linux_control/ROBOT_OBSERVE.md)
+for recurring evidence collection. These lessons add no permission gate and do
+not replace the canonical emergency handling below.
+
 **2026-08-06 incident:** agents drove stand/plant with wrong logical zeros
 (straight-out legs already read knee ≈ −80°). That caused tip/brownout,
 ~7 A stilt holds, and a cooked knee servo. Hardware is FULLY RESOLVED

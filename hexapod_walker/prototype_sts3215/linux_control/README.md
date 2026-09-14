@@ -251,6 +251,11 @@ in [`hexapod-tracker/docs/LLM_HANDOFF.md`](../hexapod-tracker/docs/LLM_HANDOFF.m
 
 ## Fast test / deploy loop
 
+For repeated camera/telemetry snapshots, bounded passive recording, and offline
+recovery-trial summaries, use [the observation helpers](ROBOT_OBSERVE.md):
+`uv run python -m linux_control.robot_observe --help`, or `hex_observe` after
+sourcing the dev-loop script below. These helpers only observe; they never change torque.
+
 For UI and controller edits, use the local helper instead of retyping the
 whole cautious sequence. These commands do not move the robot; only
 `hex_deploy` restarts the web service.

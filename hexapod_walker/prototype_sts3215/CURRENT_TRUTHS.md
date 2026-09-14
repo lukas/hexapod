@@ -1,5 +1,71 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## The over_current-trip fix's own acquisition continuation (`currentcap29-s1-acq15m`) collapsed rise_flat_success from a real 50-100% pass rate back to 0% by step ~3M -- root cause is `safety.hold_grace_curriculum`'s mid-training hold-envelope tightening destabilizing the shared network, NOT a re-closure of the trip fix; corrected pair launched with the curriculum disabled (2026-09-14 refill cycle, walkcurr track)
+
+One plain sentence: the just-confirmed over_current-trip fix (2.5A->2.9A)
+genuinely works at 2M (both canaries PASS, 9-11/12 flat-start), but its own
+15M acquisition continuation (`currentcap29-s1-acq15m`) was mechanically
+SEED-PRUNED (reward EMA slope negligible/declining, `ep_rew_mean` quarters
+-101/-212/-470/-522) -- and re-scanning that run's own saved 500k-step
+snapshots plus its `wandb_history.csv` shows this is a sharp, diagnosable
+CLIFF, not generic drift: `canary/rise_flat_a/_b` reads 1/0 (score 0.5) at
+step 1.0M, both 0/0 by step 3.0M; an explicit flat-only n=6 det+sto probe on
+saved snapshots confirms the same window numerically (`s2097152` @2.1M:
+5/6 det + 6/6 sto; `s3145728` @3.1M: 0/6 both). This is the EXACT step
+window `safety.hold_grace_curriculum` (armed by every arm in this lineage,
+`train.hold_grace_ramp_steps=3500000`) is linearly tightening
+`hold_max_height_drop_mm` from a loose 40mm start toward the strict 15mm
+cfg target (the gate latches almost immediately on a warm-started,
+already-hold-competent policy, so the ramp begins near step 0 regardless of
+real difficulty) -- and `terminations/hold_min_load` spikes 1->3->4->18->
+23->30->33 while `terminations/hold_low_height` appears from 0 to
+double-digits across exactly steps 2.7M-3.8M, the same window rise_flat
+died. Shared-network interference (goal-mix hold=0.15/rise=0.75/lower=0.10,
+one policy/value net) is the most parsimonious explanation: hold suddenly
+getting much harder mid-training destabilizes gradients that also corrupt
+the fragile, just-unlocked rise-flat skill.
+
+**Not a re-closure of the trip fix** -- the trip-threshold mechanism itself
+(2.5A->2.9A) is unaffected by this finding and stays TRUE; this is a
+second, independent training-stability bug the trip fix's own first full
+acquisition attempt happened to be the one to expose (previous arms never
+trained this lineage past ~2M cumulative steps under this exact curriculum).
+**Launched the corrected fix, not another dose:** respec'd both proven
+canary parents (`currentcap29-{s1,s3}-canary2m`) with
+`safety.hold_grace_curriculum=0` (fixed strict `hold_max_height_drop_mm=15`
+from step 0 -- what the eval harness already enforces at deployment and
+what this lineage already passes hold under in every held-out gate, so the
+loose-start ramp is hypothesized to be unnecessary friction for a
+warm-started-already-hold-competent policy, not a required scaffold) --
+`cw-stance50hz-rlonly-currentcap29-{s1,s3}-acq15m-gracefix`, both VERIFIED
+RUNNING (`hexapod-mjx-train-{0,1}`), same 15M budget, same closed-levers-off
+recipe otherwise. Gate: training-time `canary/rise_flat_a+b` nonzero at
+EVERY checkpoint through the full budget (not just early -- the specific
+failure mode under test), final-checkpoint flat-only probe >=11/12, and
+`terminations/hold_min_load`/`hold_low_height` staying at the low baseline
+rate seen in the first 2M steps (no mid-training spike).
+
+**Cross-track check (bounded, zero GPU spend, no reopening):** the
+`joystick` track's independently-closed `k_walk_move_current`/movecur1
+lever also fails via `over_current` terminations on the identical default
+2.5A trip (never overridden in that lineage) -- checked whether it was the
+SAME trip-miscalibration artifact before assuming the walkcurr fix
+generalizes. It is NOT: re-evaluating `movecur1-dose5x-acq1`'s own frozen
+checkpoint with the trip fully disabled (`safety.max_current_a=999`) still
+reads 0/4 det+sto walk success, `gait_valid` 2/4 and 0/4, explicit
+`sacrificed legs [3,5]` in the eval's own diagnostic string -- i.e. this is
+a genuine leg-sacrifice/rearing POLICY topology, not a trip artifact; the
+joystick closure stands, no relaunch warranted. (`/tmp/joy_movecur1_trace.
+json`, `/tmp/joy_movecur1_notrip/report.json`.)
+
+Evidence: `logs/experiments/cw-stance50hz-rlonly-currentcap29-s1-acq15m/
+wandb_history.csv` (canary/rise_flat_*, hold_grace/*, terminations/hold_*);
+`/tmp/probe_snaps_out.log` (per-snapshot flat-only probe); `ops.sh entry
+cw-stance50hz-rlonly-currentcap29-s1-acq15m` (SEED-PRUNED verdict); `ops.sh
+entry cw-stance50hz-rlonly-currentcap29-{s1,s3}-acq15m-gracefix`
+(hypothesis/gate); `rl_move/sim/sim_env.py` (`apply_hold_grace_frac`);
+`rl_move/sim/train_ppo_mjx.py` (`_HoldGraceGateCb`).
+
 ## The walkcurr flat-start-rise "27-lever" hunt was chasing the wrong variable: the over_current SAFETY TRIP itself (2.5A, below the actuator's own benign 2.64A torque rail) has been killing an ALREADY-SUCCESSFUL policy mid-lift all day, not a policy failure -- off-policy diagnostic shows the existing frozen checkpoint(s) already pass flat-start rise 12/12 once evaluated past the miscalibrated trip; two canary arms testing the real fix (raise the trip to cap29's own precedented 2.9A) launched (2026-09-14 ~15:1x, walkcurr track, refill cycle)
 
 One plain sentence: every one of today's 24 reward/curriculum/observation/

@@ -334,40 +334,57 @@ class MotorSetup:
         At most two joints move by <=5 degrees while selected joints hold
         their freshly read positions. The 200/1000 torque cap, 90 speed,
         4 acceleration and 3-second active bound are fixed; a hold-only
-        probe lasts one second. This never re-zeros or returns home.
+        probe lasts one second. An optional two-phase plan keeps supports
+        enabled between phases, each bounded to 3 seconds (6 seconds total).
+        Phase targets are cumulative raw deltas from the initial pose;
+        settling admits <=2-degree error, not exact target achievement.
+        This never re-zeros or returns home.
         """
         from feetech_bus import COUNTS_PER_DEG, JOINT_SIGN, count_to_deg, joint_limits
 
-        if not isinstance(data, dict) or set(data) - {'deltas_deg', 'hold_joints'}:
-            raise ValueError('Recovery accepts only deltas_deg and hold_joints.')
-        deltas, holds = data.get('deltas_deg', {}), data.get('hold_joints', [])
+        if not isinstance(data, dict) or set(data) - {'deltas_deg', 'hold_joints', 'phases'}:
+            raise ValueError('Recovery accepts deltas_deg or phases, plus hold_joints.')
+        phased = 'phases' in data
+        if phased and ('deltas_deg' in data or not isinstance(data['phases'], list)
+                       or len(data['phases']) != 2
+                       or any(not isinstance(p, dict) or set(p) != {'deltas_deg'}
+                              for p in data['phases'])):
+            raise ValueError('Provide exactly two phases with deltas_deg, without top-level deltas_deg.')
+        phase_deltas = ([p['deltas_deg'] for p in data['phases']] if phased
+                        else [data.get('deltas_deg', {})])
+        holds = data.get('hold_joints', [])
         allowed = {1, 2, 4, 5, 16, 17}
-        if (not isinstance(deltas, dict) or len(deltas) > 2
-                or any(key not in {'1', '2', '4', '5', '16', '17'} for key in deltas)):
-            raise ValueError('Choose at most two moving joints from 1,2,4,5,16,17.')
         if (not isinstance(holds, list) or any(type(j) is not int or j not in allowed for j in holds)
                 or len(set(holds)) != len(holds)):
             raise ValueError('hold_joints must contain distinct joints from 1,2,4,5,16,17.')
-        offsets = {}
-        for key, delta in deltas.items():
-            if (type(delta) not in (int, float) or not math.isfinite(delta)
-                    or not 0 < abs(delta) <= 5):
-                raise ValueError('Each raw delta must be finite, nonzero and within -5..5 degrees.')
-            joint = int(key)
-            offset = math.trunc(delta * COUNTS_PER_DEG * JOINT_SIGN[joint])
-            if not offset:
-                raise ValueError('Recovery delta is smaller than one encoder count.')
-            offsets[joint] = offset
-        if set(offsets) & set(holds):
+        phase_offsets, phase_pairs = [], []
+        for deltas in phase_deltas:
+            if (not isinstance(deltas, dict) or len(deltas) > 2 or (phased and not deltas)
+                    or any(key not in {'1', '2', '4', '5', '16', '17'} for key in deltas)):
+                raise ValueError('Choose at most two moving joints from 1,2,4,5,16,17 per phase.')
+            offsets = {}
+            for key, delta in deltas.items():
+                if (type(delta) not in (int, float) or not math.isfinite(delta)
+                        or not 0 < abs(delta) <= 5):
+                    raise ValueError('Each raw delta must be finite, nonzero and within -5..5 degrees.')
+                joint = int(key)
+                offset = math.trunc(delta * COUNTS_PER_DEG * JOINT_SIGN[joint])
+                if not offset:
+                    raise ValueError('Recovery delta is smaller than one encoder count.')
+                offsets[joint] = offset
+            phase_offsets.append(offsets)
+            phase_pairs.append(next(((hip, hip + 1) for hip in (1, 4, 16)
+                if hip in offsets and hip + 1 in offsets
+                and deltas[str(hip)] * deltas[str(hip + 1)] < 0
+                and math.isclose(deltas[str(hip)] + deltas[str(hip + 1)], 0., abs_tol=.1)), None))
+        moving = set().union(*phase_offsets)
+        if moving & set(holds):
             raise ValueError('A joint cannot both move and hold.')
-        participants = sorted(set(offsets) | set(holds))
+        participants = sorted(moving | set(holds))
         if not 1 <= len(participants) <= 6:
             raise ValueError('Choose one to six recovery participants.')
-        pair_joints = next(((hip, hip + 1) for hip in (1, 4, 16)
-                            if hip in offsets and hip + 1 in offsets
-                            and deltas[str(hip)] * deltas[str(hip + 1)] < 0
-                            and math.isclose(deltas[str(hip)] + deltas[str(hip + 1)],
-                                             0., abs_tol=.1)), None)
+        phase_index = 0
+        offsets, pair_joints = phase_offsets[0], phase_pairs[0]
         duration = 3.0 if offsets else 1.0
         self.abort.clear()
         with self.lock, self.drive._lock:
@@ -410,18 +427,28 @@ class MotorSetup:
                 raise ValueError('All 18 motors must have torque off before recovery.')
             result = dict(ok=False, joint_frame='servo_relative', joints={}, torque_off=False,
                           active_seconds=0., pair_error_deg=0., max_pair_error_deg=0., pair_fault_reads=0)
-            homes, targets, limits = {}, {}, {}
+            if phased:
+                result.update(phase_index=1, phases=[dict(index=i + 1, deltas_deg=dict(d),
+                              settled=False) for i, d in enumerate(phase_deltas)])
+            homes, targets, limits, pair_homes = {}, {}, {}, {}
+            planned_targets = [{} for _ in phase_offsets]
+            phase_start = None
 
             def set_start(j, count):
-                target = count + offsets.get(j, 0)
-                before, goal = count_to_deg(j, count), count_to_deg(j, target)
+                before = count_to_deg(j, count)
                 lo, hi = joint_limits(j)
-                if not (0 <= count <= 4095 and 0 <= target <= 4095
-                        and lo <= before <= hi and lo <= goal <= hi):
+                if not (0 <= count <= 4095 and lo <= before <= hi):
                     raise ValueError(f'Joint {j} recovery start or target outside raw limits.')
-                homes[j], targets[j] = count, target
+                target = count
+                for i, changes in enumerate(phase_offsets):
+                    target += changes.get(j, 0)
+                    if not (0 <= target <= 4095 and lo <= count_to_deg(j, target) <= hi):
+                        raise ValueError(f'Joint {j} recovery start or target outside raw limits.')
+                    planned_targets[i][j] = target
+                homes[j], pair_homes[j], targets[j] = count, count, planned_targets[0][j]
+                goal = count_to_deg(j, targets[j])
                 result['joints'][str(j)].update(before_deg=before, target_deg=goal,
-                                                before_counts=count, target_counts=target)
+                                                before_counts=count, target_counts=targets[j])
 
             for j in participants:
                 result['joints'][str(j)] = dict(
@@ -461,6 +488,8 @@ class MotorSetup:
                         row['servo_status'] = read(sid, 65, 1)
                         if row['servo_status'] not in row['seen_statuses']:
                             row['seen_statuses'].append(row['servo_status'])
+                        if phased and row['servo_status'] != 0:
+                            raise ValueError(f'Joint {j} servo status fault {row["servo_status"]} during recovery phase.')
                         row['moving'] = read(sid, 66, 1)
                         row['torque_enabled'] = read(sid, 40, 1)
                         row['torque_read_values'].append(row['torque_enabled'])
@@ -507,7 +536,10 @@ class MotorSetup:
                         raise ValueError(f'Joint {j} invalid raw encoder reading.')
                     positions[j] = count
                     angle = count_to_deg(j, count)
-                    drift = abs(angle - row['before_deg']) if j in holds else 0.
+                    # A prior phase's mover becomes a support without losing
+                    # its command. Anchor to that goal, not a sagged reading.
+                    anchor = row['target_deg'] if phased else row['before_deg']
+                    drift = abs(angle - anchor) if j not in offsets else 0.
                     partial_bad_health |= drift > 3.
                     row.update(reached_deg=angle, reached_counts=count, support_drift_deg=drift,
                                max_support_drift_deg=max(row['max_support_drift_deg'], drift),
@@ -527,7 +559,7 @@ class MotorSetup:
                         # Both moving-joint reads are fresh now: check their
                         # coupling before spending time on support telemetry.
                         error = sum(result['joints'][str(k)]['reached_deg']
-                                    - result['joints'][str(k)]['before_deg'] for k in pair_joints)
+                                    - count_to_deg(k, pair_homes[k]) for k in pair_joints)
                         result['pair_error_deg'] = error
                         result['max_pair_error_deg'] = max(result['max_pair_error_deg'], abs(error))
                         result['pair_fault_reads'] = result['pair_fault_reads'] + 1 if abs(error) > 1.5 else 0
@@ -536,6 +568,24 @@ class MotorSetup:
                 if active_start is not None:
                     active_healthy_scan = not pending()
                 return positions
+
+            def write_targets():
+                group = bus.pkt.groupSyncWrite
+                group.clearParam()
+                try:
+                    for j in sorted(offsets):
+                        check()
+                        bus.pkt.SyncWritePosEx(j + 2, targets[j], 90, 4)
+                    check()
+                    if group.txPacket() not in (None, 0):
+                        raise ValueError('Recovery coordinated target write failed.')
+                finally:
+                    group.clearParam()
+                for j in sorted(offsets):
+                    accepted = read(j + 2, 42)
+                    result['joints'][str(j)]['accepted_goal_counts'] = accepted
+                    if accepted != targets[j]:
+                        raise ValueError(f'Joint {j} recovery target not accepted: {accepted}, expected {targets[j]}.')
 
             self.wiggling = True
             try:
@@ -564,31 +614,70 @@ class MotorSetup:
                     result['joints'][str(j)]['accepted_goal_counts'] = homes[j]
                 active_start = time.monotonic()
                 deadline = active_start + duration
+                total_deadline = active_start + 6. if phased else deadline
+                phase_start = active_start
+                if phased:
+                    result['phases'][0].update(started_active_s=0., start_counts=dict(homes),
+                                               target_counts=dict(targets))
                 for j in participants:
                     check()
                     bus.torque(j + 2, True)
                     if read(j + 2, 40, 1) != 1:
                         raise ValueError(f'Joint {j} torque enable unverified.')
                 if offsets:
-                    group = bus.pkt.groupSyncWrite
-                    group.clearParam()
-                    try:
-                        for j in sorted(offsets):
-                            check()
-                            bus.pkt.SyncWritePosEx(j + 2, targets[j], 90, 4)
-                        check()
-                        if group.txPacket() not in (None, 0):
-                            raise ValueError('Recovery coordinated target write failed.')
-                    finally:
-                        group.clearParam()
-                    for j in sorted(offsets):
-                        accepted = read(j + 2, 42)
-                        result['joints'][str(j)]['accepted_goal_counts'] = accepted
-                        if accepted != targets[j]:
-                            raise ValueError(f'Joint {j} recovery target not accepted: {accepted}, expected {targets[j]}.')
+                    write_targets()
+                settled_scans = []
                 while True:
                     positions = observe()
-                    if offsets and not pending() and all(abs(positions[j] - targets[j]) <= 3 for j in offsets):
+                    if phased:
+                        check()
+                        phase = result['phases'][phase_index]
+                        phase.update(reached_counts=dict(positions),
+                                     elapsed_s=time.monotonic() - phase_start)
+                        if (not pending() and not partial_bad_health
+                                and all(row['servo_status'] == 0 for row in result['joints'].values())
+                                and all(abs(positions[j] - targets[j]) <= 2 * COUNTS_PER_DEG
+                                        for j in offsets)):
+                            settled_scans.append(dict(counts=positions,
+                                                      active_s=time.monotonic() - active_start))
+                            settled_scans = settled_scans[-3:]
+                        else:
+                            settled_scans.clear()
+                        if len(settled_scans) == 3 and all(
+                                max(scan['counts'][j] for scan in settled_scans)
+                                - min(scan['counts'][j] for scan in settled_scans) <= 3
+                                for j in participants):
+                            phase['settled'] = True
+                            phase['settle_scans'] = list(settled_scans)
+                            if phase_index == 1:
+                                result['ok'] = True
+                                break
+                            # All next endpoints were preflighted while off.
+                            # Fresh feedback validates the immutable plan;
+                            # drift must not enlarge a step beyond five degrees.
+                            for j in phase_offsets[1]:
+                                if abs(planned_targets[1][j] - positions[j]) > 5 * COUNTS_PER_DEG:
+                                    raise ValueError(f'Joint {j} next phase exceeds five degrees from its actual position.')
+                            check()
+                            transition_time = time.monotonic()
+                            if transition_time >= deadline:
+                                raise ActiveDeadline('Recovery active time limit reached before phase transition.')
+                            phase_index = 1
+                            result['phase_index'] = 2
+                            offsets, pair_joints = phase_offsets[1], phase_pairs[1]
+                            targets.update(planned_targets[1])
+                            pair_homes.update(positions)
+                            for j, row in ((int(key), value) for key, value in result['joints'].items()):
+                                row.update(role='move' if j in offsets else 'hold',
+                                           target_counts=targets[j], target_deg=count_to_deg(j, targets[j]))
+                            phase_start = transition_time
+                            deadline = min(total_deadline, phase_start + 3.)
+                            result['phases'][1].update(started_active_s=phase_start - active_start,
+                                                      start_counts=dict(positions), target_counts=dict(targets))
+                            settled_scans.clear()
+                            write_targets()
+                            continue
+                    elif offsets and not pending() and all(abs(positions[j] - targets[j]) <= 3 for j in offsets):
                         check()
                         result['ok'] = True
                         break
@@ -617,6 +706,10 @@ class MotorSetup:
             except Exception as exc:
                 result['error'] = str(exc)
             finally:
+                if phased and phase_start is not None:
+                    result['phases'][phase_index]['elapsed_s'] = time.monotonic() - phase_start
+                    if result.get('error'):
+                        result['phases'][phase_index]['error'] = result['error']
                 errors = []
                 # Off commands for ALL participants precede any verification
                 # or limit restoration. One failed servo cannot skip others.

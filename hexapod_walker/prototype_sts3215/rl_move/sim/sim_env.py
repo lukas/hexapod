@@ -41,7 +41,8 @@ from rl_move.robot_state import (
 )
 from rl_move.safety import SafetyLayer, action_to_body_offset
 
-from .domain_rand import DomainRandomizer, EpisodeRandomization, JointBacklash
+from .domain_rand import (DomainRandomizer, EpisodeRandomization,
+                           JointBacklash, stickslip_friction_mult)
 from .deployed_transport import DeployedTransport
 from .servo_model import (
     ServoProfile, SimServoParams, apply_params_to_model, build_model,
@@ -891,6 +892,23 @@ class SimHexapodBalanceEnv(_GymBase):
             for i in range(6)]
         self._pad_z_ref: np.ndarray | None = None
         self._end_posture_from: int | None = None
+        # Foot geoms + sites (constant across the model's lifetime) —
+        # per-tick stick-slip friction modulation (dr.foot_stickslip_gain,
+        # see domain_rand.stickslip_friction_mult / sim_env's
+        # _apply_foot_stickslip). Both families define these names (see
+        # mujoco_prototype.py / mesh_mujoco XML), so this is never -1 in
+        # practice; guarded at use-site anyway (fail loud, not silent).
+        self._stickslip_foot_gids = [mujoco.mj_name2id(
+            self.model, mujoco.mjtObj.mjOBJ_GEOM, f"L{i}_foot")
+            for i in range(6)]
+        self._stickslip_foot_sids = [mujoco.mj_name2id(
+            self.model, mujoco.mjtObj.mjOBJ_SITE, f"L{i}_foot_site")
+            for i in range(6)]
+        self._stickslip_gain = np.zeros(6, dtype=float)
+        self._stickslip_vel_ref_mps = 0.02
+        self._stickslip_base_mu = np.zeros(6, dtype=float)
+        self._stickslip_prev_xy: np.ndarray | None = None
+        self._stickslip_active = False
 
         # Soften the foot contacts: the CAD model's solref (0.01 s) is
         # near-rigid, so mm-scale randomized leg-length differences make
@@ -2719,6 +2737,25 @@ class SimHexapodBalanceEnv(_GymBase):
             self._ep_rand.apply_asym_to_model(self.model)
         else:
             apply_params_to_model(self.model, self.params)
+        # Stick-slip baseline: capture THIS episode's post-DR (static
+        # foot_friction_scale-dosed) foot coefficients as the KINETIC/
+        # baseline value the per-tick mechanism ramps away from -- must
+        # run AFTER apply_to_model (which sets the static per-foot
+        # asymmetry) and BEFORE anything reads geom_friction below (the
+        # slip-settle override restores from ``fr`` afterward, not from
+        # this baseline, so order there is unaffected).
+        self._stickslip_base_mu = self.model.geom_friction[
+            self._stickslip_foot_gids, 0].copy()
+        er_ss = self._ep_rand
+        self._stickslip_active = (
+            er_ss is not None and bool(np.any(er_ss.foot_stickslip_gain > 0.0)))
+        self._stickslip_gain = (
+            er_ss.foot_stickslip_gain.copy() if self._stickslip_active
+            else np.zeros(6, dtype=float))
+        self._stickslip_vel_ref_mps = (
+            float(er_ss.foot_stickslip_vel_ref_mps)
+            if er_ss is not None else 0.02)
+        self._stickslip_prev_xy = None
         self._apply_struct_compliance_to_model(self.model)
         if self._ease_g != 1.0:
             # Physics-easing fallback for randomize=False private-model
@@ -3794,10 +3831,49 @@ class SimHexapodBalanceEnv(_GymBase):
                     acc_units=self.write_acc_units)
         return None, (clipped, terminated, status, pen)
 
+    def _apply_foot_stickslip(self) -> None:
+        """Per-CONTROL-TICK Coulomb stick-slip friction update
+        (dr.foot_stickslip_gain, see domain_rand.stickslip_friction_mult).
+
+        Guarded no-op whenever this episode drew all-zero gain (the
+        default) -- costs one attribute check, no array ops, no rng.
+        Deliberately called ONCE per real env.step() (not per physics
+        substep, and NOT from ``_settle``/``_seq_capture_frames``): a
+        tick-rate update is cheap and matches the existing per-foot XY
+        slip-velocity convention (walk_task's own k_tslip finite-
+        difference uses the SAME env.dt cadence, a separate independent
+        cache -- no shared state, no risk of the two mechanisms
+        interfering). Deliberately does NOT touch ``_advance``'s substep
+        loop or the reset-time SLIP_MU settle override, which
+        temporarily replaces ALL geom_friction wholesale -- rewriting
+        just the foot rows there would silently fight that override.
+
+        Uses THIS tick's foot XY position vs. LAST tick's (one-tick
+        lagged, never a look-ahead -- same convention as
+        ``_backlash_prev_force``) to estimate sliding speed, then sets
+        ``model.geom_friction[foot_gids, 0]`` to the per-episode KINETIC
+        baseline (captured at reset, after the static foot_friction_scale
+        dose) times the live stick-slip multiplier.
+        """
+        if not self._stickslip_active:
+            return
+        cur_xy = self.data.site_xpos[self._stickslip_foot_sids, :2].copy()
+        if self._stickslip_prev_xy is None:
+            speed = np.zeros(6, dtype=float)
+        else:
+            speed = (np.linalg.norm(cur_xy - self._stickslip_prev_xy, axis=-1)
+                      / max(self.dt, 1e-9))
+        self._stickslip_prev_xy = cur_xy
+        mult = stickslip_friction_mult(
+            speed, self._stickslip_vel_ref_mps, self._stickslip_gain)
+        self.model.geom_friction[self._stickslip_foot_gids, 0] = (
+            self._stickslip_base_mu * mult)
+
     def step(self, action):
         early, ctx = self._step_begin(action)
         if early is not None:
             return self._post_step(early)
+        self._apply_foot_stickslip()
         self._advance()
         return self._post_step(self._step_finish(ctx))
 

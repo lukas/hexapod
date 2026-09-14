@@ -148,6 +148,61 @@ def backlash_group_mask(group: str) -> np.ndarray:
     """
     return dof_group_mask(group, param_name="joint_backlash_group")
 
+
+def leg_group_mask(group: str, *, param_name: str = "foot_stickslip_group"
+                    ) -> np.ndarray:
+    """(N_LEGS,) bool mask for a named LEG-only group.
+
+    Per-foot mechanisms (friction, not a joint axis) have no "yaw/pitch/
+    knee" concept -- only the leg groups from ``dof_group_mask``'s
+    vocabulary apply (left/right/front/rear/legN). "" -> all-True (every
+    leg drawn independently, the historical default). Raises on an
+    axis-only or compound name -- fail loud rather than silently
+    stripping the axis part.
+    """
+    if not group:
+        return np.ones(N_LEGS, dtype=bool)
+    if group in _BACKLASH_LEG_GROUPS:
+        mask = np.zeros(N_LEGS, dtype=bool)
+        for leg in _BACKLASH_LEG_GROUPS[group]:
+            mask[leg] = True
+        return mask
+    if group.startswith("leg") and group[3:].isdigit():
+        leg = int(group[3:])
+        if not (0 <= leg < N_LEGS):
+            raise ValueError(f"{param_name} leg index out of range: {group!r}")
+        mask = np.zeros(N_LEGS, dtype=bool)
+        mask[leg] = True
+        return mask
+    raise ValueError(f"unknown {param_name}: {group!r} (leg groups only: "
+                      "left/right/front/rear/leg0..leg5)")
+
+
+def stickslip_friction_mult(speed_mps, vel_ref_mps: float, gain):
+    """Coulomb stick-slip friction multiplier for a foot's ground contact.
+
+    Classic textbook picture: STATIC friction (foot planted, near-zero
+    sliding speed) exceeds KINETIC friction (foot actively sliding) by a
+    fraction ``gain``. ``dr.foot_friction_scale`` already carries the
+    per-episode KINETIC/baseline coefficient (the historical, always-on
+    mechanism); this returns the EXTRA multiplier on top of that
+    baseline, ramping from ``1+gain`` at zero sliding speed down to
+    exactly ``1.0`` (pure baseline) once ``|speed|>=vel_ref_mps`` --
+    linear ramp, mirrors ``curl_height_cap_frac``'s own ramp shape/
+    testability convention. ``vel_ref_mps<=0`` degenerates to the SAFE
+    (inert) value -- always ``1.0``, never a permanently-stuck extra
+    boost -- consistent with every other guard in this module resolving
+    a misconfiguration toward the historical no-op rather than an
+    extreme.
+    """
+    speed = np.asarray(speed_mps, dtype=float)
+    gain = np.asarray(gain, dtype=float)
+    if vel_ref_mps <= 0.0:
+        frac = np.zeros_like(speed)
+    else:
+        frac = np.clip(1.0 - np.abs(speed) / float(vel_ref_mps), 0.0, 1.0)
+    return 1.0 + gain * frac
+
 # Adaptive/adversarial hard-case sampler (dr.struct_dr_adaptive, speed
 # track, 2026-09-14 — the DR-composition panel's own next-named lever
 # after CTRL/WIDE/STRUCT/COMBO all closed, see STATUS.md 09-13 ~21:5x):
@@ -477,6 +532,35 @@ class RandRanges:
     # see dof_group_mask) -- concentrates the SAME per-joint gain draw
     # onto a named leg/axis subset instead of spreading it across all 18.
     latency_load_group: str = ""
+    # foot_stickslip_gain / foot_stickslip_vel_ref_mps / foot_stickslip_group
+    # (2026-09-14, speed track): the structurally-different mechanism
+    # family named after BOTH prior dynamic candidates closed -- per-side
+    # concentrated joint backlash plateaued at ~29-31% of the PS200
+    # signature (STATUS.md ~03:5x) and load-coupled command latency was a
+    # clean NULL (~04:4x, no roll effect at any dose: this slow creep
+    # gait's trapezoidal profile always catches up within the gait's own
+    # phase duration regardless of latency, so no static position error
+    # is created). This candidate targets a DIFFERENT physical channel --
+    # the FOOT-GROUND CONTACT itself, not the actuator chain: real rubber
+    # feet exhibit classic Coulomb stick-slip (static friction while
+    # planted/near-zero sliding speed EXCEEDS kinetic friction once
+    # actively sliding), which MuJoCo's constant-coefficient contact
+    # model does not express at all. A concentrated stick-slip
+    # differential (e.g. one side's feet "stickier" than the other) is a
+    # genuinely different persistent-moment-arm story than either prior
+    # mechanism. (0.0, 0.0) = OFF, guarded (no rng consumed), bit-exact
+    # -- see ``stickslip_friction_mult``.
+    foot_stickslip_gain: tuple[float, float] = (0.0, 0.0)
+    # Sliding speed (m/s) at which the extra stick boost has fully
+    # decayed to the baseline (kinetic) coefficient -- a modeling
+    # constant, not scaled by dr-scale (same convention as
+    # joint_backlash_load_ref_nm / latency_load_ref_nm).
+    foot_stickslip_vel_ref_mps: float = 0.02
+    # "" (default) = every leg's gain drawn independently (bit-exact
+    # no-op at gain 0, same guarded-last-draw convention as
+    # latency_load_group); else a LEG-only group name (see
+    # ``leg_group_mask`` -- no axis groups, friction has no joint axis).
+    foot_stickslip_group: str = ""
     # Adaptive/adversarial hard-case sampler (2026-09-14, speed track —
     # the DR-composition panel's next-named lever after CTRL/WIDE/
     # STRUCT/COMBO all missed the held-out >=30% roll-reduction floor,
@@ -602,6 +686,13 @@ class RandRanges:
                                 self.latency_load_gain[1] * s),
             latency_load_ref_nm=self.latency_load_ref_nm,
             latency_load_group=self.latency_load_group,
+            # Same convention: magnitude range follows the curriculum,
+            # the velocity-reference constant and categorical group name
+            # do not.
+            foot_stickslip_gain=(self.foot_stickslip_gain[0] * s,
+                                  self.foot_stickslip_gain[1] * s),
+            foot_stickslip_vel_ref_mps=self.foot_stickslip_vel_ref_mps,
+            foot_stickslip_group=self.foot_stickslip_group,
         )
 
 
@@ -710,6 +801,13 @@ class EpisodeRandomization:
     latency_load_gain: np.ndarray = field(
         default_factory=lambda: np.zeros(N_JOINTS))
     latency_load_ref_nm: float = 1.2
+    # Per-foot Coulomb stick-slip (dr.foot_stickslip_gain / -group, see
+    # RandRanges + domain_rand.stickslip_friction_mult). All-zero gain
+    # (the default) = OFF, byte-exact (sim_env's per-tick friction hook
+    # is a guarded no-op whenever every leg's gain is 0).
+    foot_stickslip_gain: np.ndarray = field(
+        default_factory=lambda: np.zeros(N_LEGS))
+    foot_stickslip_vel_ref_mps: float = 0.02
     struct_dr_mode: str = ""
     # "" = no structured overlay this episode; else one of
     # domain_rand.STRUCT_STORIES — the granular key the adaptive
@@ -919,6 +1017,8 @@ class EpisodeRandomization:
                 self.joint_backlash_load_gain, 2),
             "latency_load_gain_max": round(
                 float(np.max(self.latency_load_gain)), 3),
+            "foot_stickslip_gain_max": round(
+                float(np.max(self.foot_stickslip_gain)), 3),
         }
 
 
@@ -1454,4 +1554,19 @@ class DomainRandomizer:
                 ep,
                 latency_load_gain=lg_vec,
                 latency_load_ref_nm=float(r.latency_load_ref_nm))
+        # Per-foot stick-slip: drawn LAST (guarded), same convention as
+        # latency_load_gain/joint_backlash_deg immediately above --
+        # default (0.0, 0.0) never consumes rng and leaves every earlier
+        # draw byte-exact.
+        if max(r.foot_stickslip_gain) > 0.0:
+            ss_gain = u(r.foot_stickslip_gain[0], r.foot_stickslip_gain[1],
+                        N_LEGS)
+            if r.foot_stickslip_group:
+                ss_gain = ss_gain * leg_group_mask(
+                    r.foot_stickslip_group,
+                    param_name="foot_stickslip_group").astype(float)
+            ep = replace(
+                ep,
+                foot_stickslip_gain=ss_gain,
+                foot_stickslip_vel_ref_mps=float(r.foot_stickslip_vel_ref_mps))
         return ep

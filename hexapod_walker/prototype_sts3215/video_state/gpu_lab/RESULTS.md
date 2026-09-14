@@ -198,7 +198,8 @@ Same splits as E1. MAE in degrees.
 | by run | E1 DINOv2-g probe, 640 px | 0.94 | 0.99 | 1.18 | 4.13 | 7.95 | 4.07 | 21 ms |
 | by run | E1 StateCNN, 160 px | 0.83 | 1.06 | 0.74 | 3.39 | 8.05 | 3.75 | |
 | by run | E5 StateCNN, crops 704x176 | 0.61 | 0.77 | 0.74 | 2.72 | 6.77 | 3.14 | 0.4 ms |
-| by run | **E5 DINOv2-base fine-tuned, crops** | **0.58** | **0.69** | **0.62** | **2.03** | **3.89** | **2.03** | 3.4 ms |
+| by run | E5 DINOv2-base fine-tuned, crops | 0.58 | 0.69 | 0.62 | 2.03 | 3.89 | 2.03 | 3.4 ms |
+| by run | **E5 DINOv2-large fine-tuned, crops** | **0.56** | **0.68** | **0.60** | **1.96** | **3.57** | **1.90** | 6.0 ms |
 | by family | mean baseline | 1.36 | 3.05 | 1.75 | 12.09 | 41.66 | 16.87 | |
 | by family | E1 DINOv2-g probe | 1.66 | 1.71 | 1.93 | 4.64 | 12.93 | 6.02 | |
 | by family | E1 StateCNN | 1.41 | 1.68 | 1.49 | 4.15 | 10.42 | 4.97 | |
@@ -206,7 +207,8 @@ Same splits as E1. MAE in degrees.
 | by family | E5 DINOv2-base fine-tuned | 0.99 | 1.22 | 1.46 | 3.46 | 10.31 | 4.68 | |
 
 Per-leg knee MAE, fine-tuned DINOv2-base, by run: L0 5.0, L1 2.6, L2 2.9,
-L3 2.3, L4 5.2, L5 5.4. The legs the camera sees are now at 2-3 deg; the
+L3 2.3, L4 5.2, L5 5.4 (DINOv2-large: 4.7 / 2.7 / 2.5 / 1.9 / 4.5 / 5.0;
+the large model buys 0.1 deg overall for 3x the compute, 85 min for 5 folds). The legs the camera sees are now at 2-3 deg; the
 far-side legs at ~5 deg are being inferred from symmetry and context.
 
 By-family per held-out family (all-20 MAE): single_leg 5.6 (trained on only

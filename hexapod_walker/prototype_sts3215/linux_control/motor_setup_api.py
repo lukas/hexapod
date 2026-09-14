@@ -1,5 +1,6 @@
 """Incremental servo commissioning and small identification movements."""
 import json
+import math
 import os
 import threading
 import time
@@ -183,3 +184,128 @@ class MotorSetup:
                     write(48, limit)
                 finally:
                     self.wiggling = False
+
+    def nudge(self, data):
+        """One relative, low-torque servo move, then torque off; never re-zero.
+
+        Requires camera-confirmed support/clearance. The electrical guards do
+        not establish a collision-free path or correct encoder calibration.
+        """
+        from feetech_bus import COUNTS_PER_DEG, JOINT_SIGN, count_to_deg, joint_limits
+
+        if set(data) - {'joint', 'delta_deg'}:
+            raise ValueError('Nudge accepts only joint and delta_deg; its guards are fixed.')
+        joint, delta = data.get('joint'), data.get('delta_deg')
+        if type(joint) is not int or not 0 <= joint < 18:
+            raise ValueError('Choose one of the 18 joints.')
+        if (type(delta) not in (int, float) or not math.isfinite(delta)
+                or not 0 < abs(delta) <= 10):
+            raise ValueError('delta_deg must be finite, nonzero, and within -10..10.')
+        # Round toward zero so quantization never enlarges the requested move.
+        delta_counts = math.trunc(delta * COUNTS_PER_DEG * JOINT_SIGN[joint])
+        if not delta_counts:
+            raise ValueError('delta_deg is smaller than one encoder count.')
+        sid = joint + 2
+        self.abort.clear()
+        with self.lock, self.drive._lock:
+            bus = self._ready()
+            if str(sid) not in self._registry()['servos']:
+                raise ValueError('Assign this motor before nudging it.')
+
+            def read(addr, size=2, motor=sid):
+                fn = bus.pkt.read1ByteTxRx if size == 1 else bus.pkt.read2ByteTxRx
+                for _ in range(3):
+                    value, comm, err = fn(motor, addr)
+                    if comm == 0 and err == 0:
+                        return value
+                raise ValueError('Motor feedback unavailable; nudge stopped.')
+
+            def write_limit(value):
+                _, comm, err = bus.pkt.write2ByteTxRx(sid, 48, value)
+                if comm != 0 or err != 0:
+                    raise ValueError('Motor torque limit write failed.')
+
+            # Software disarmed state alone does not prove the other 17 are off.
+            if any(read(40, 1, motor) != 0 for motor in range(2, 20)):
+                raise ValueError('All 18 motors must have torque off before nudging.')
+            home = read(56)
+            target = home + delta_counts
+            before_deg, target_deg = count_to_deg(joint, home), count_to_deg(joint, target)
+            lo, hi = joint_limits(joint)
+            if not (0 <= home <= 4095 and 0 <= target <= 4095
+                    and lo <= before_deg <= hi and lo <= target_deg <= hi):
+                raise ValueError('Nudge start or target is outside encoder/joint limits.')
+            if not 90 <= read(62, 1) <= 140 or read(63, 1) >= 60:
+                raise ValueError('Check motor voltage and temperature before nudging.')
+            limit = read(48)
+            result = dict(ok=False, joint=joint, id=sid, before_deg=before_deg,
+                          target_deg=target_deg, reached_deg=None, after_deg=None,
+                          peak_current_a=0.0, max_load_pct=0.0, torque_off=False)
+            force_reads = 0
+
+            def observe():
+                nonlocal force_reads
+                # These are fresh servo-register transactions, not cached
+                # /api/feedback snapshots. Isolated bad force samples reset.
+                load = (read(60) & 0x3ff) / 10.0
+                current = (read(69) & 0x7fff) * 0.0065
+                result['peak_current_a'] = max(result['peak_current_a'], current)
+                result['max_load_pct'] = max(result['max_load_pct'], load)
+                force_reads = force_reads + 1 if load >= 18 or current >= 0.25 else 0
+                if force_reads >= 3:
+                    raise ValueError('Motor met resistance; nudge stopped.')
+                if not 90 <= read(62, 1) <= 140 or read(63, 1) >= 60:
+                    raise ValueError('Motor voltage or temperature unsafe; nudge stopped.')
+                position = read(56)
+                if not 0 <= position <= 4095:
+                    raise ValueError('Invalid encoder reading; nudge stopped.')
+                result['reached_deg'] = count_to_deg(joint, position)
+                return position
+
+            self.wiggling = True
+            try:
+                observe()
+                while force_reads:
+                    if self.abort.wait(0.05):
+                        raise ValueError('Nudge stopped.')
+                    observe()
+                write_limit(min(limit, 150))
+                # Clear an old servo goal before enabling this one motor.
+                if bus.pkt.WritePosEx(sid, home, 90, 4) != 0:
+                    raise ValueError('Motor did not accept the current-position preload.')
+                if self.abort.is_set():
+                    raise ValueError('Nudge stopped.')
+                bus.torque(sid, True)
+                if self.abort.is_set():
+                    raise ValueError('Nudge stopped.')
+                if bus.pkt.WritePosEx(sid, target, 90, 4) != 0:
+                    raise ValueError('Motor did not accept the nudge target.')
+                deadline = time.monotonic() + 3.0
+                while True:
+                    if self.abort.wait(0.05):
+                        raise ValueError('Nudge stopped.')
+                    position = observe()
+                    if abs(position - target) <= 3 and force_reads == 0:
+                        result['ok'] = True
+                        break
+                    if time.monotonic() >= deadline:
+                        raise ValueError('Motor did not reach the small nudge target.')
+            except Exception as exc:
+                result['error'] = str(exc)
+            finally:
+                try:
+                    bus.torque(sid, False)
+                    if read(40, 1) != 0:
+                        raise ValueError('Could not verify torque off after nudge.')
+                    result['torque_off'] = True
+                    write_limit(limit)
+                    after = read(56)
+                    if not 0 <= after <= 4095:
+                        raise ValueError('Invalid post-nudge encoder reading.')
+                    result['after_deg'] = count_to_deg(joint, after)
+                except Exception as exc:
+                    result['ok'] = False
+                    result['error'] = '; '.join(filter(None, (result.get('error'), str(exc))))
+                finally:
+                    self.wiggling = False
+            return result

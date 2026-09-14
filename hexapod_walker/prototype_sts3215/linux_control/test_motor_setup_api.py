@@ -1,4 +1,6 @@
 import json, sys, tempfile, threading, unittest
+from io import BytesIO
+from unittest.mock import patch
 from pathlib import Path
 from types import SimpleNamespace
 from motor_setup_api import MotorSetup
@@ -132,6 +134,178 @@ class SetupTests(unittest.TestCase):
         self.api.bench._demo_thread=SimpleNamespace(is_alive=lambda:True)
         with self.assertRaises(ValueError): self.api.assign(self.data)
         self.assertEqual(self.bus.writes,[])
+
+    def nudge_bus(self):
+        self.wiggle_bus()
+        self.bus.ids = list(range(2, 20))
+        self.bus.on = set()
+        self.bus.current = self.bus.load = 0
+        def torque(sid, on):
+            self.bus.writes.append(('torque', sid, on))
+            self.bus.on.add(sid) if on else self.bus.on.discard(sid)
+        self.bus.torque = torque
+        self.bus.read1ByteTxRx = lambda sid, addr: (
+            {40: int(sid in self.bus.on), 62:114, 63:30}[addr], 0, 0)
+        self.bus.read2ByteTxRx = lambda sid, addr: (
+            {56:self.bus.pos, 48:self.bus.limit, 60:self.bus.load,
+             69:self.bus.current}[addr], 0, 0)
+
+    def test_nudge_preloads_only_selected_servo_without_returning_home(self):
+        self.nudge_bus()
+        result = self.api.nudge({'joint': 0, 'delta_deg': 3.0})
+        self.assertTrue(result['ok'])
+        self.assertEqual(self.bus.writes, [
+            ('limit', 2, 150), ('position', 2, 2000), ('torque', 2, True),
+            ('position', 2, 2034), ('torque', 2, False), ('limit', 2, 500)])
+        self.assertEqual(result['reached_deg'], result['after_deg'])
+        self.assertEqual(result['target_deg'], result['after_deg'])
+        self.assertGreater(result['after_deg'], result['before_deg'])
+        self.assertTrue(result['torque_off'])
+        self.assertFalse(self.bus.on)
+
+    def test_nudge_preserves_lower_torque_and_negative_delta(self):
+        self.nudge_bus()
+        self.bus.limit = 90
+        result = self.api.nudge({'joint': 0, 'delta_deg': -3})
+        self.assertTrue(result['ok'])
+        self.assertEqual(self.bus.writes[0], ('limit', 2, 90))
+        self.assertEqual(self.bus.pos, 1966)
+
+    def test_nudge_rejects_invalid_input_and_out_of_limit_target_without_writes(self):
+        self.nudge_bus()
+        for data in ({'joint':True, 'delta_deg':3}, {'joint':18, 'delta_deg':3},
+                     *({'joint':0, 'delta_deg':v} for v in
+                       [None, True, '3', 0, .001, 10.1, float('nan'), float('inf')]),
+                     {'joint':0, 'delta_deg':3, 'force':True}):
+            with self.subTest(data=data), self.assertRaises(ValueError):
+                self.api.nudge(data)
+        self.bus.pos = 2440  # yaw near +35 degrees
+        with self.assertRaisesRegex(ValueError, 'limits'):
+            self.api.nudge({'joint':0, 'delta_deg':3})
+        self.assertEqual(self.bus.writes, [])
+
+    def test_nudge_requires_other_servos_off(self):
+        self.nudge_bus()
+        self.bus.on.add(19)
+        with self.assertRaisesRegex(ValueError, 'All 18'):
+            self.api.nudge({'joint':0, 'delta_deg':3})
+        self.assertEqual(self.bus.writes, [])
+
+    def test_nudge_resistance_records_fault_and_disables_before_restoring_limit(self):
+        for current, load in [(39, 0), (0, 180)]:
+            self.nudge_bus()
+            original = self.bus.WritePosEx
+            def position(sid, pos, speed, acc):
+                response = original(sid, pos, speed, acc)
+                if pos != 2000:
+                    self.bus.current, self.bus.load = current, load
+                return response
+            self.bus.WritePosEx = position
+            result = self.api.nudge({'joint':0, 'delta_deg':3})
+            self.assertFalse(result['ok'])
+            self.assertIn('resistance', result['error'])
+            self.assertEqual(result['peak_current_a'], current * .0065)
+            self.assertEqual(result['max_load_pct'], load / 10)
+            self.assertEqual(self.bus.writes[-2:], [('torque',2,False),('limit',2,500)])
+            self.assertFalse(self.bus.on)
+            self.api.registry.unlink()
+            self.bus = Bus(); self.drive.bus = self.bus
+
+    def test_nudge_abort_prevents_target_and_disables_servo(self):
+        self.nudge_bus()
+        original = self.bus.torque
+        def torque(sid, on):
+            original(sid, on)
+            if on:
+                self.api.require_setup_for('/cmd', 'X')
+        self.bus.torque = torque
+        result = self.api.nudge({'joint':0, 'delta_deg':3})
+        self.assertFalse(result['ok'])
+        self.assertIn('stopped', result['error'])
+        self.assertEqual([w[2] for w in self.bus.writes if w[0]=='position'], [2000])
+        self.assertFalse(self.bus.on)
+
+    def test_nudge_isolated_force_sample_clears_instead_of_ending_move(self):
+        self.nudge_bus()
+        original = self.bus.read2ByteTxRx
+        force_samples = iter([39, 0])
+        seen = []
+        def read(sid, addr):
+            if self.bus.on and addr == 69:
+                value = next(force_samples)
+                seen.append(value)
+                return value, 0, 0
+            return original(sid, addr)
+        self.bus.read2ByteTxRx = read
+        result = self.api.nudge({'joint':0, 'delta_deg':3})
+        self.assertTrue(result['ok'])
+        self.assertEqual(seen, [39, 0])
+        self.assertGreater(result['peak_current_a'], .25)
+        self.assertTrue(result['torque_off'])
+
+    def test_nudge_force_vote_resets_and_requires_three_consecutive_reads(self):
+        self.nudge_bus()
+        original = self.bus.read2ByteTxRx
+        force_samples = iter([39, 0, 39, 39, 39])
+        seen = []
+        def read(sid, addr):
+            if self.bus.on and addr == 69:
+                value = next(force_samples)
+                seen.append(value)
+                return value, 0, 0
+            if self.bus.on and addr == 56:
+                return 2000, 0, 0  # not yet at target when sample clears
+            return original(sid, addr)
+        self.bus.read2ByteTxRx = read
+        result = self.api.nudge({'joint':0, 'delta_deg':3})
+        self.assertFalse(result['ok'])
+        self.assertIn('resistance', result['error'])
+        self.assertEqual(seen, [39, 0, 39, 39, 39])
+        self.assertTrue(result['torque_off'])
+
+    def test_nudge_failed_torque_off_never_restores_high_limit(self):
+        self.nudge_bus()
+        original = self.bus.torque
+        self.bus.torque = lambda sid, on: original(sid, on) if on else None
+        result = self.api.nudge({'joint':0, 'delta_deg':3})
+        self.assertFalse(result['ok'])
+        self.assertFalse(result['torque_off'])
+        self.assertIn('verify torque off', result['error'])
+        self.assertEqual(self.bus.limit, 150)
+
+    def test_nudge_feedback_failure_stops_and_keeps_cleanup(self):
+        self.nudge_bus()
+        original = self.bus.read2ByteTxRx
+        self.bus.read2ByteTxRx = lambda sid, addr: (
+            (0, -1, 0) if self.bus.on and addr == 60 else original(sid, addr))
+        result = self.api.nudge({'joint':0, 'delta_deg':3})
+        self.assertFalse(result['ok'])
+        self.assertIn('feedback unavailable', result['error'])
+        self.assertTrue(result['torque_off'])
+        self.assertEqual(self.bus.limit, 500)
+
+    def test_nudge_http_route_and_quarantine(self):
+        import web_drive
+        calls = []
+        setup = SimpleNamespace(require_setup_for=lambda *args: None,
+                                nudge=lambda data: calls.append(data) or {'ok': True})
+        def request(quarantined=False):
+            handler = web_drive.Handler.__new__(web_drive.Handler)
+            data = json.dumps({'joint':4, 'delta_deg':3}).encode()
+            handler.path = '/api/setup/nudge'; handler.command = 'POST'
+            handler.headers = {'Content-Length': str(len(data))}
+            handler.rfile = BytesIO(data); handler._peer = lambda: 'test'
+            responses = []
+            handler._json = lambda code, obj, **kw: responses.append((code, obj))
+            with patch.object(web_drive, 'SETUP', setup), patch.object(
+                    web_drive, 'BENCH', SimpleNamespace(bus_access_state=lambda **kw:
+                        {'bus_quarantined': True} if quarantined else None)):
+                handler.do_POST()
+            return responses
+        self.assertEqual(request(), [(200, {'ok':True})])
+        self.assertEqual(calls, [{'joint':4, 'delta_deg':3}])
+        self.assertEqual(request(True)[0][0], 503)
+        self.assertEqual(len(calls), 1)
 
 if __name__ == '__main__':
     unittest.main()

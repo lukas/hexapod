@@ -311,6 +311,7 @@ BUS_REQUIRED_GET = frozenset({
     "/api/pinned_tip",
 })
 BUS_REQUIRED_POST = frozenset({
+    "/api/setup/nudge",
     "/api/tft/ready",
     "/api/tft/recover",
     "/api/tft/selftest",
@@ -852,12 +853,19 @@ class Handler(BaseHTTPRequestHandler):
         if (path != "/cmd" and self._request_requires_bus()
                 and self._reject_quarantined_bus()):
             return
-        if path in ("/api/setup/scan", "/api/setup/assign", "/api/setup/wiggle"):
+        if path in ("/api/setup/scan", "/api/setup/assign", "/api/setup/wiggle", "/api/setup/nudge"):
             try:
                 data = json.loads(body or "{}")
                 if not isinstance(data, dict):
                     raise ValueError("Expected a JSON object")
-                result = SETUP.scan() if path.endswith("/scan") else (SETUP.wiggle(data) if path.endswith("/wiggle") else SETUP.assign(data))
+                if path.endswith("/scan"):
+                    result = SETUP.scan()
+                elif path.endswith("/wiggle"):
+                    result = SETUP.wiggle(data)
+                elif path.endswith("/nudge"):
+                    result = SETUP.nudge(data)
+                else:
+                    result = SETUP.assign(data)
                 self._json(200, result)
             except Exception as e:
                 self._json(400, {"ok": False, "error": str(e)})

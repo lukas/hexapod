@@ -1,5 +1,49 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
+## Batch-composition CLOSES the flat-start-rise lever hunt at 22/22 null across FIVE independent mechanism families (cap, reward-pricing, reset-timing, leg-order, batch-composition) -- needs a genuinely new structural mechanism, not another dose/seed/representation-fix (2026-09-14 ~08:3x, walkcurr track, triage cycle)
+
+`cw-stance50hz-rlonly-risebatchsplit-s1-canary2m`
+(`train.goal_mode_batch_split_rise_start_kind`: gives flat-start rise
+steps their own disjoint, undiluted `rise:flat` PPO minibatch instead
+of being averaged away inside a majority-bridge/crouch `rise` batch --
+the exact representation-scarcity fix this codebase already used for
+`hold`) is CANARY FAIL - MECHANISM, a clean null. The fixed-seed
+flat-start canary probe (`canary/rise_flat_a`+`_b`) reads 0/2 at BOTH
+the 1.0M and 2.0M checkpoints (global_step 1003520/2007040) -- the
+22nd closed lever, and the mechanism is confirmed to have actually
+engaged the whole run (`train/goal_mode_batch_split_applied`=1 and
+`rise_n` nonzero on every logged update, so this is a genuine null,
+not an unengaged-mechanism infra miss). Guardrails held on the
+gate(dr=0) config: bridge combined (rise/det) 4/6 ok (clears the
+>=4/6 floor), crouch 2/2=1.0 (clears >=0.9), hold/det 6/6 ok
+unregressed. Own-DR(owncfg=0.2) shows additional negative drift on
+top of the null (rise/det 2/6, rise/sto 1/6, hold/sto 5/6 with one
+`hold_min_load` term) -- the same shape as the leg-order canary
+before it: giving flat-start its own undiluted batch slice does not
+change the outcome once the policy is fully committed. The frame
+strip (`rise_det_2.png`, gate) shows the identical over_current
+collapse fingerprint as all 21 prior closed levers -- flat/splayed,
+never curls into the tripod rise.
+
+**Binding conclusion: this closes batch-composition 1/1, and with it
+EVERY mechanism family attempted on this residual — cap-based
+action-gating (10), reward-pricing (7), reset-distribution timing (2),
+leg-order sequencing (2), and batch-composition (1) = 22/22
+independent levers, all engaging exactly as designed, all leaving the
+identical flat-start `over_current` fingerprint untouched.** Giving
+flat-start rise its own representation inside the PPO batch was the
+last "how the data is fed to the optimizer" axis available; it does
+not change what the optimizer converges to. **Do not fund another
+dose, seed, magnitude/price/timing/order/batch-composition variant on
+this exact flat-start-rise residual without new evidence.** Per the
+09-13 `rl_only` operator clarification's own framing for exhausted
+mechanism classes, this needs a genuinely new STRUCTURAL design, never
+a motion prior/demonstration/reference-trajectory match (ruled out
+regardless of framing, per the `rl_only` clean-lineage contract).
+Evidence: `ops.sh verdict cw-stance50hz-rlonly-risebatchsplit-s1-canary2m`;
+`rl_docs/tracks/walkcurr/STATUS.md` 2026-09-14 ~08:3x;
+`logs/ckpt_eval/cw_stance50hz_rlonly_risebatchsplit_s1_canary2m_{gate,owncfg}/report.json`.
+
 ## Leg-order sequencing CLOSES the flat-start-rise lever hunt at 21/21 null across FOUR independent mechanism families (cap, reward-pricing, reset-timing, leg-order) -- needs a genuinely new structural mechanism, not another dose/seed (2026-09-14 ~07:5x, walkcurr track, triage cycle)
 
 `cw-stance50hz-rlonly-risestagger-{mod,strict}-s1-canary2m`

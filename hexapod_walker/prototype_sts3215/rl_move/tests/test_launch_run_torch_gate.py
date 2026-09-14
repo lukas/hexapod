@@ -59,6 +59,7 @@ def _patch_common(monkeypatch):
     monkeypatch.setattr(lr, "wandb_name_exists", lambda run: False)
     monkeypatch.setattr(lr, "wandb_running_runs", lambda: {})
     monkeypatch.setattr(lr, "upsert_entry", lambda entry: None)
+    monkeypatch.setattr(lr, "load_ledger", lambda: [])   # explicit empty ledger
 
     class _NeverExists:
         def exists(self):

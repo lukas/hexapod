@@ -16,6 +16,12 @@ class Principal:
     role: str
 
 
+def is_mcp_key_request(request: Request) -> bool:
+    """URL credentials are supported only by the MCP POST endpoint."""
+    return (request.method == "POST" and request.url.path == "/mcp"
+            and "key" in request.query_params)
+
+
 class TokenAuth:
     def __init__(self, records: str):
         self._tokens: Dict[str, Principal] = {}
@@ -65,4 +71,22 @@ class TokenAuth:
             if ROLE_LEVEL[principal.role] < ROLE_LEVEL[minimum_role]:
                 raise HTTPException(403, "Insufficient role")
             return principal
+        return verify
+
+    def mcp_dependency(self):
+        viewer = self.dependency("viewer")
+
+        def verify(request: Request, authorization: str = Header(default="")) -> Principal:
+            if not is_mcp_key_request(request):
+                return viewer(request, authorization)
+            # Fail closed on ambiguous credentials. In particular, neither an
+            # operator header nor a browser cookie can promote a URL viewer.
+            keys = request.query_params.getlist("key")
+            if len(keys) != 1 or not keys[0] or "authorization" in request.headers:
+                raise HTTPException(401, "Supply one MCP URL key without an Authorization header")
+            principal = self.authenticate("Bearer " + keys[0])
+            if principal.role != "viewer":
+                raise HTTPException(403, "MCP URL keys must have the viewer role")
+            return principal
+
         return verify

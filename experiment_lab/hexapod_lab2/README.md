@@ -67,6 +67,21 @@ protocol `2025-03-26`, `ping`, `notifications/initialized`, `tools/list`,
 `get_experiment` are aliases for assistants that learned the old names.
 Assistants' MCP config: `deploy/claude-mcp.json` entry `robot_lab`.
 
+For ChatGPT's **No Authentication** connection option, use the private URL
+`https://robot-lab.cwd1f0-new-cluster.coreweave.app/mcp?key=<viewer-token>`.
+The server still authenticates that key against the existing `HEXAPOD_API_KEYS`
+viewer record (the Mac launcher's `Hexapod Research Mobile` Keychain item,
+account `viewer`). This URL grants only the seven reading tools, marked
+`readOnlyHint`; direct calls to operator tools are also rejected. Keep the
+complete URL private, just like the token. Normal Uvicorn access logging is
+disabled so it cannot record URL credentials.
+
+URL keys work only on `POST /mcp`, not dashboard, artifact, or JSON API URLs.
+Operator/admin/automation keys, duplicate or empty keys, and requests mixing
+a URL key with an Authorization header are rejected. Browser cookies cannot
+promote the URL key's role. Existing header and browser sign-in methods remain
+available without a URL key.
+
 ## The loop
 
 `loop.py` is the whole design; read it top to bottom.

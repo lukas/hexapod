@@ -17,7 +17,7 @@ from urllib.parse import parse_qs, quote, urlsplit
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
-from .auth import Principal, TokenAuth
+from .auth import Principal, TokenAuth, is_mcp_key_request
 from .sso import COOKIE_NAME as SSO_COOKIE_NAME, SsoAuth
 
 
@@ -137,6 +137,13 @@ def install_browser_auth(
 
     @app.middleware("http")
     async def browser_session(request: Request, call_next):
+        if is_mcp_key_request(request):
+            # The endpoint validates the URL key itself, including invalid and
+            # mixed credentials. Cookies must neither elevate it nor require
+            # a browser Origin header from a remote MCP client.
+            response = private_response(await call_next(request))
+            response.headers["Referrer-Policy"] = "no-referrer"
+            return response
         session = get_session(request)
         principal = session.principal if session else None
         # Explicit API credentials retain their own identity/role. A browser

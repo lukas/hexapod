@@ -119,3 +119,7 @@ hold versus controlled stop versus limp. Detail:
    from the in-loop trips. Do not add pre-run audits, hash checks, rituals or
    camera checks before motion. Planning takes two minutes with a five minute
    hard wall.
+6. Before designing another recovery sequence read
+   `hexapod_walker/prototype_sts3215/RECOVERY_LESSONS.md` and collect evidence
+   with `linux_control/ROBOT_OBSERVE.md`; verify foot contact and body lift,
+   not encoder motion.

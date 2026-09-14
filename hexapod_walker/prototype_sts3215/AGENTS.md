@@ -2,7 +2,8 @@
 
 The repo-root `AGENTS.md` governs everything here: subtract first, goals
 (`RL_GOALS.md`, `RL_PLAN.md`), worktrees, `uv`, tests, standing authorization
-and hardware safety (`EMERGENCY_HANDLING.md`). Orchestrator state lives in
+and hardware safety (`EMERGENCY_HANDLING.md`; before a new recovery routine also
+`RECOVERY_LESSONS.md` and `linux_control/ROBOT_OBSERVE.md`). Orchestrator state lives in
 `.state/` (`rl_move/orchestrator/state_dir.py`), not in this tree.
 
 ## MuJoCo robot simulation

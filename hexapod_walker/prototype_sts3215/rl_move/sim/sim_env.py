@@ -5927,7 +5927,7 @@ class SimHexapodBalanceEnv(_GymBase):
                 r_ref *= parts.get("rise_feet_factor", 1.0)
                 parts["reward_rise_ref"] = r_ref
                 reward += r_ref
-        # Per-servo hot-current penalty (archive/RL_PLAN_NEXT.md §4, default OFF).
+        # Per-servo hot-current penalty (RL_PLAN_NEXT.md §4 in git history, default OFF).
         # The aggregate current penalty lets the policy park all load on
         # one knee; visual eval of the cw champions found tripod stances
         # with one servo above 1.5 A for most of the episode. Charge

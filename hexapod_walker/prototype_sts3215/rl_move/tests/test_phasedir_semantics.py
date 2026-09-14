@@ -250,7 +250,7 @@ def _phasedir_rollout(drive: str, seed: int, heading_rad: float,
                       overrides: dict, noise_std: float = 0.0,
                       collect: dict | None = None) -> float:
     # RAW module on purpose — the clone lineage's dialect (see header).
-    from tripod_gait import TripodGait
+    from hexapod_core.tripod_gait import TripodGait
 
     env = _make_walk_env(seed, overrides)
     env.reset()
@@ -482,7 +482,7 @@ def test_course_charge_spares_honest_sway_charges_wrongway():
     averages out over the 0.75 s EMA) and expensive for command-
     ignoring travel; and with k_walk_course=0 no course info keys leak
     (default-off hygiene)."""
-    from sim_gait_compat import TripodGait
+    from hexapod_core.sim_gait_compat import TripodGait
 
     def course_sum(drive: str, k: float) -> tuple[float, int]:
         stack = dict(PHASEDIR2_STACK)
@@ -783,7 +783,7 @@ def _overspeed_sum_low_cmd(drive_speed: float, cmd_speed: float,
     drive_speed against a +x command pinned at cmd_speed — the
     low-command tick class is the scripted stand-in for ramp ticks
     (same s_ref scale, same charge formula)."""
-    from tripod_gait import TripodGait
+    from hexapod_core.tripod_gait import TripodGait
 
     stack = dict(PHASEDIR8_STACK)
     stack[("goal", "walk_speed_min_m_s")] = cmd_speed

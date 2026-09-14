@@ -70,8 +70,8 @@ def test_endpoint_private_kinematics_ignores_stale_solve_transforms():
 
 @pytest.mark.parametrize("plant", ["twin", "full_mesh"])
 def test_actual_rollout_endpoint_reads_preserve_every_physics_tick(monkeypatch, plant):
-    root = Path(__file__).resolve().parents[4]
-    report = json.loads((root / "artifacts/rl_watchdog/root_fullcone_20260908/scripted_audit_fm.json").read_text())
+    fixture = Path(__file__).resolve().parent / "fixtures" / "root_fullcone_20260908_scripted_audit_fm.json"
+    report = json.loads(fixture.read_text())
     cfg = report["cfg_set"]
     if plant == "full_mesh":
         path = os.environ.get("HEXAPOD_TWISTFIT_TEST_MESH_ROOT")

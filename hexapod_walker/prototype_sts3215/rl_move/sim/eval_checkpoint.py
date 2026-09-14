@@ -1,5 +1,5 @@
 """Exact-path checkpoint evaluation — the exact-path eval harness
-(spec: archive/RL_PLAN_NEXT.md §2; current plan: RL_PLAN.md §11).
+(spec: RL_PLAN_NEXT.md §2, retired with archive/ 2026-09-14 -- see git history; current plan: RL_PLAN.md §11).
 
 Loads a checkpoint through the IDENTICAL env/reset path automated eval
 uses and runs per-mode deterministic episodes with:

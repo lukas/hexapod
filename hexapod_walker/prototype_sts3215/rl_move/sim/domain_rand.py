@@ -561,6 +561,28 @@ class RandRanges:
     # latency_load_group); else a LEG-only group name (see
     # ``leg_group_mask`` -- no axis groups, friction has no joint axis).
     foot_stickslip_group: str = ""
+    # Structured, concentrated PER-LEG MASS asymmetry (2026-09-14, speed
+    # track). DESIGN.md's own mechanism inventory ("body/link mass, CoM
+    # and inertia ... link length and per-leg asymmetric manufacturing
+    # error") has only ever been exercised as SYMMETRIC, per-leg-
+    # independent noise (``mass_scale``/``leg_mass_jitter_pct``/
+    # ``com_offset_m`` above) -- a real build/assembly defect (battery
+    # or wiring routed to one side, uneven print infill between the
+    # left/right leg sets) is a genuinely different, PERSISTENT-BIAS
+    # story, exactly the "uniform vs. concentrated" split that turned
+    # joint backlash from a clean NULL into the best-to-date (~29-31%)
+    # PS200 roll-signature match. (0.0, 0.0) = OFF, guarded (no rng
+    # consumed, no earlier draw shifted), bit-exact -- draws a SINGLE
+    # scalar magnitude (not independent per leg, unlike
+    # ``leg_mass_jitter_pct``) applied as ``1 + magnitude`` to every
+    # masked leg's mass+inertia, on top of (not instead of) the existing
+    # per-leg jitter.
+    leg_mass_bias_pct: tuple[float, float] = (0.0, 0.0)
+    # "" (default) = every leg biased identically (degenerates to a
+    # symmetric global mass bump, bit-exact no-op at magnitude 0); else
+    # a LEG-only group name (see ``leg_group_mask`` -- mass has no
+    # joint axis, same vocabulary as ``foot_stickslip_group``).
+    leg_mass_bias_group: str = ""
     # Adaptive/adversarial hard-case sampler (2026-09-14, speed track —
     # the DR-composition panel's next-named lever after CTRL/WIDE/
     # STRUCT/COMBO all missed the held-out >=30% roll-reduction floor,
@@ -693,6 +715,11 @@ class RandRanges:
                                   self.foot_stickslip_gain[1] * s),
             foot_stickslip_vel_ref_mps=self.foot_stickslip_vel_ref_mps,
             foot_stickslip_group=self.foot_stickslip_group,
+            # Same convention: magnitude range follows the curriculum,
+            # the categorical group name does not.
+            leg_mass_bias_pct=(self.leg_mass_bias_pct[0] * s,
+                                self.leg_mass_bias_pct[1] * s),
+            leg_mass_bias_group=self.leg_mass_bias_group,
         )
 
 
@@ -808,6 +835,11 @@ class EpisodeRandomization:
     foot_stickslip_gain: np.ndarray = field(
         default_factory=lambda: np.zeros(N_LEGS))
     foot_stickslip_vel_ref_mps: float = 0.02
+    # Structured per-leg mass/inertia bias (dr.leg_mass_bias_pct /
+    # -group, see RandRanges). All-ones (the default) = OFF, byte-exact
+    # (multiplying by 1.0 in apply_to_model is a pure no-op).
+    leg_mass_bias_scale: np.ndarray = field(
+        default_factory=lambda: np.ones(N_LEGS))
     struct_dr_mode: str = ""
     # "" = no structured overlay this episode; else one of
     # domain_rand.STRUCT_STORIES — the granular key the adaptive
@@ -941,6 +973,11 @@ class EpisodeRandomization:
             for k, b in enumerate((b_yaw, b_fem, b_tib)):
                 model.body_mass[b] *= self.leg_mass_scale[i, k]
                 model.body_inertia[b] *= self.leg_mass_scale[i, k]
+                # Structured per-leg bias (dr.leg_mass_bias_pct/-group):
+                # a SECOND, persistent multiplier on top of the above
+                # per-part jitter -- 1.0 (default) is a bit-exact no-op.
+                model.body_mass[b] *= self.leg_mass_bias_scale[i]
+                model.body_inertia[b] *= self.leg_mass_bias_scale[i]
 
         # Ground: sliding friction, contact compliance, slope (via gravity).
         model.geom_friction[:, 0] *= self.friction_scale
@@ -1569,4 +1606,18 @@ class DomainRandomizer:
                 ep,
                 foot_stickslip_gain=ss_gain,
                 foot_stickslip_vel_ref_mps=float(r.foot_stickslip_vel_ref_mps))
+        # Structured per-leg mass bias: drawn LAST (guarded), same
+        # convention as foot_stickslip_gain immediately above -- default
+        # (0.0, 0.0) never consumes rng and leaves every earlier draw
+        # byte-exact. A SINGLE scalar magnitude (not independent per
+        # leg, unlike leg_mass_jitter_pct) so a masked group gets one
+        # consistent, persistent bias rather than more symmetric noise.
+        if max(r.leg_mass_bias_pct) > 0.0:
+            bias_mag = float(u(*r.leg_mass_bias_pct))
+            bias_vec = np.full(N_LEGS, bias_mag)
+            if r.leg_mass_bias_group:
+                bias_vec = bias_vec * leg_group_mask(
+                    r.leg_mass_bias_group,
+                    param_name="leg_mass_bias_group").astype(float)
+            ep = replace(ep, leg_mass_bias_scale=1.0 + bias_vec)
         return ep

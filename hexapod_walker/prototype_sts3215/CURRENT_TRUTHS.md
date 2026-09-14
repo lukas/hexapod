@@ -1,6 +1,88 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
-## Batch-composition CLOSES the flat-start-rise lever hunt at 22/22 null across FIVE independent mechanism families (cap, reward-pricing, reset-timing, leg-order, batch-composition) -- needs a genuinely new structural mechanism, not another dose/seed/representation-fix (2026-09-14 ~08:3x, walkcurr track, triage cycle)
+## CORRECTION + BREAKTHROUGH: the 22/22 batch-composition closure below rested on an infra bug (the sub-split never actually engaged) -- fixed and RE-CONFIRMED null for real this cycle, but a genuinely new SIXTH mechanism family (dynamics-parameter easing, scoped) found the first real positive on this residual, partially replicated (1/2 seeds); an acquisition continuation is running (2026-09-14 ~09:3x-09:4x, walkcurr track, refill cycle)
+
+One plain sentence: the entry below's own "engaged the whole run"
+check (`train/goal_mode_batch_split_applied=1`, `rise_n` nonzero) was
+NOT sufficient evidence that the `rise:flat`/`rise:bridge` SUB-split
+itself ever formed -- it never did, because `info["start_kind"]` for
+every rise tick was silently always `None` (rise/lower/hold
+trajectories never set a literal `.start_kind` attribute anywhere in
+the codebase; only getup/recover do), so `goal_mode_adv_norm.
+_goal_mode_label`'s documented fallback ("a rise step with no start_
+kind falls back to plain 'rise'") fired on 100% of rise ticks, every
+run, since the sub-flag was built. The W&B history for the original
+`risebatchsplit-s1-canary2m` run proves this directly: it logged only
+ONE undifferentiated `train/goal_mode_batch_split_rise_n` counter,
+never the designed `rise:flat`/`rise:bridge` composite-label pair --
+the "22nd lever" was never actually tested.
+
+**Fixed this cycle** (`rl_move/env.py:start_kind_of`, shared by
+`sim_env.py`'s live info dict and `eval_checkpoint.py`'s own eval-
+report labeling helper -- one derivation, not two that can drift):
+derives the real label from `start_at`/`start_curl` instead of the
+always-missing attribute. This immediately exposed a SECOND dormant
+bug once real `rise:flat`/`rise:bridge` labels finally populated: SB3
+`HumanOutputFormat`'s fixed 36-char console-table truncation collided
+two different logged keys (`rise_bridge_n` / `rise_bridge_pg_loss`),
+crashing training -- fixed via abbreviated W&B keys
+(`goal_mode_batch_split._group_label_key`). **Re-tested for real**
+(`cw-stance50hz-rlonly-risebatchsplitfix{,2}-s1-canary2m{,-rr1-rr1}`,
+two `min_group` doses, both clean 2.0M-step completions with W&B
+history confirming genuine per-start-kind engagement this time --
+`rise_f_n`/`rise_b_n` both nonzero and DISTINCT throughout): **the
+null holds** (`canary/rise_flat_a+b`=0/2 both doses, `hold`
+unregressed 1/1). The factual 22/22 conclusion below is CORRECT, but
+was previously ASSUMED, not proven; it is now proven.
+
+**Separately, a genuinely new mechanism family was built and tried
+the same cycle** (the "needs a new structural design" bar the 22/22
+closure named): `ease.rise_flat_only` scopes the pre-existing generic
+`ease.gravity_scale`/`vel_ceiling_scale` physics-easing engine (built
+08-13 for a different track, previously only used as a static whole-
+run setting) to ONLY `start_kind=='flat'` rise episodes -- bridge/
+crouch/walk/hold/lower all train at nominal physics throughout, so any
+effect can't be a global-easing free lunch. First attempt had its own
+timing bug (the scoping revert ran in `_reset_finalize`, AFTER
+`reset()` already baked the eased gravity into the real
+`model.opt.gravity` via `apply_to_model` -- so gravity easing leaked
+into every mode, confirmed by an unexplained `hold` canary regression,
+1/1 -> 0/0, with no scoping mechanism that should ever touch hold).
+Fixed by moving the gate into `_reset_begin` (before `apply_to_model`
+runs), verified via a direct `model.opt.gravity` probe. **Re-run under
+the fix**: `cw-stance50hz-rlonly-easeriseflatfix-strict-s1-canary2m`
+(gravity eased to 40% of nominal) is **CANARY PASS** --
+`canary/rise_flat_a+b`=1/1 (nonzero success at BOTH the 1.0M and 2.0M
+checkpoints, the FIRST genuine positive across cap/reward-pricing/
+reset-timing/leg-order/batch-composition, all null) with `hold`
+correctly unregressed (1/1, matching the parent -- confirming the leak
+is really fixed, not just moved). The milder 60% dose
+(`easeriseflatfix-mod`) stayed null (dose-responsive, not free). A
+seed-2 replicate (`easeriseflatfix-strict-s2-canary2m`) came back
+NULL -- **the positive is 1/2 seeds so far, a real but not yet
+seed-general effect**, same fragility shape as most levers in this
+saga before they either consolidated or closed. An acquisition
+continuation (`cw-stance50hz-rlonly-easeriseflatfix-strict-s1-acq15m2`,
++13M steps) is running to see whether real held-out skill (not just
+the 2-episode canary probe) emerges with budget on the s1 seed.
+
+**Binding for the next reader:** do NOT re-cite the "22/22, needs a
+genuinely new structural mechanism, none found" framing as still fully
+open -- a sixth family (dynamics-parameter easing) now has real,
+bug-fix-confirmed, partially-replicated positive evidence, and an
+acquisition run is in flight. Do not fund a further easing-dose canary
+on the SAME static 40%/flat-only recipe without reading the acq15m2
+continuation and the seed-2 null together first; the open questions
+are seed-robustness at this exact dose and whether the mechanism
+survives annealing back toward nominal gravity, not "is there a new
+mechanism" (there is one, partially working). Evidence: `ops.sh entry`
+for each run named above; `rl_move/env.py:start_kind_of`;
+`rl_move/sim/goal_mode_batch_split.py:_group_label_key`;
+`rl_move/sim/sim_env.py` (`ease.rise_flat_only`, moved into
+`_reset_begin`); `rl_move/tests/test_start_kind_of.py`;
+`rl_docs/tracks/walkcurr/STATUS.md` 2026-09-14 ~09:3x-09:4x.
+
+## Batch-composition CLOSES the flat-start-rise lever hunt at 22/22 null across FIVE independent mechanism families (cap, reward-pricing, reset-timing, leg-order, batch-composition) -- needs a genuinely new structural mechanism, not another dose/seed/representation-fix (2026-09-14 ~08:3x, walkcurr track, triage cycle) [SUPERSEDED -- see the correction entry immediately above: this closure's own evidence check was never actually engaged; re-tested for real and re-confirmed null, but a new mechanism family has since found a real, partially-replicated positive]
 
 `cw-stance50hz-rlonly-risebatchsplit-s1-canary2m`
 (`train.goal_mode_batch_split_rise_start_kind`: gives flat-start rise

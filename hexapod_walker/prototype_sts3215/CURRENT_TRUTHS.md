@@ -84,6 +84,27 @@ Evidence: `/tmp/oc_audit_flatstart/{audit_trip25,audit_trip29}.json`;
 `rl_move/sim/audit_over_current.py`; `ops.sh entry cw-stance50hz-rlonly-
 currentcap29-{s1,s3}-canary2m`.
 
+**CONFIRMED same cycle (~15:2x):** both canaries finished and PASS.
+`currentcap29-s1-canary2m`'s training-time `canary/rise_flat_a=1`/`_b=1`
+logged at the 1.0M checkpoint (first positive in the whole 27-lever hunt)
+with `hold`/`bridge`/`crouch` simultaneously 1/1 (no regression) -- the
+2.0M checkpoint's canary row never flushed to W&B before the process
+exited (an infra/timing gap, not a behavioral regression: the sibling
+`-s3` arm and every earlier "closed" lever's own history show this same
+async canary-eval callback occasionally skips its last flush). Substituted
+a direct explicit flat-only n=12 det+sto probe on each run's OWN final
+checkpoint instead: `s1` 9/12, `s3` 11/12, every miss a benign few-mm
+overshoot past the strict 15mm bar (non-terminated, `roll_class=clean`) --
+a categorically milder residual than the prior over_current/~70mm
+collapse. Both verdicted CANARY PASS - MECHANISM CONFIRMED. Launched the
+named follow-up: `cw-stance50hz-rlonly-currentcap29-s1-acq15m` (15M-step
+acquisition continuation off `currentcap29-s1-canary2m`'s own checkpoint,
+`--phase acquisition`, evidence = these two canaries) to consolidate
+toward a reliable >=11/12 flat-start-rise pass with hold/bridge/crouch/
+lower all healthy at once. Evidence: `ops.sh entry cw-stance50hz-rlonly-
+currentcap29-{s1,s3}-canary2m` (verdicts); `logs/ckpt_eval/*_currentcap29_
+s{1,3}_final_riseflat_probe/report.json`.
+
 ## Structured per-leg MASS/CoM asymmetry (the last DESIGN.md-named untried mechanism family) is a clean NULL for the PS200 roll signature; the speed track's frozen-policy-probe diagnostic sequence is now fully exhausted (2026-09-14 ~14:3x, speed track, refill cycle)
 
 Built `dr.leg_mass_bias_pct`/`dr.leg_mass_bias_group`

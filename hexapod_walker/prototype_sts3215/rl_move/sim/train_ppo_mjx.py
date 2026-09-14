@@ -3015,12 +3015,24 @@ def main(argv: list[str] | None = None) -> int:
     goal_mode_batch_split_min_group = int(float(_parse_cfg_set(
         args.cfg_set).get("train.goal_mode_batch_split_min_group", 8.0)
         or 8.0))
+    # Asymmetric variant (09-14, after the naive all-modes-disjoint
+    # combo with lower_stage_gate starved lower's own gradient share):
+    # comma-separated goal-mode labels to isolate into their own
+    # disjoint group; every other mode pools into one shared `_merged`
+    # group instead of also being split out. Empty/unset = isolate ALL
+    # modes, the original bit-exact behavior.
+    goal_mode_batch_split_isolate = str(_parse_cfg_set(args.cfg_set).get(
+        "train.goal_mode_batch_split_isolate", "") or "").strip()
+    goal_mode_batch_split_isolate_modes = (
+        [m.strip() for m in goal_mode_batch_split_isolate.split(",")
+         if m.strip()] if goal_mode_batch_split_isolate else None)
     if goal_mode_batch_split:
         from .goal_mode_batch_split import (
             make_goal_mode_batch_split_ppo_class)
         algo_cls = make_goal_mode_batch_split_ppo_class(algo_cls)
         print("[mjx-train] per-goal-mode disjoint-minibatch PPO ON "
-              f"(min_group={goal_mode_batch_split_min_group})")
+              f"(min_group={goal_mode_batch_split_min_group}, "
+              f"isolate={goal_mode_batch_split_isolate_modes or 'ALL'})")
 
     policy_cls: str | type = "MlpPolicy"
     extra_pk: dict = {}
@@ -4319,7 +4331,8 @@ def main(argv: list[str] | None = None) -> int:
         from .goal_mode_batch_split import attach_goal_mode_batch_split
         attach_goal_mode_batch_split(
             model, enabled=goal_mode_batch_split,
-            min_group=goal_mode_batch_split_min_group)
+            min_group=goal_mode_batch_split_min_group,
+            isolate_modes=goal_mode_batch_split_isolate_modes)
     # Update-path protection (fb_20260817T005114; default off).
     if args.actor_lr > 0.0:
         from .update_health import (CRITIC_MARKERS,

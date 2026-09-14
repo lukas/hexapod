@@ -240,6 +240,133 @@ def test_small_groups_below_min_group_fall_back_to_plain_train():
 
 
 # ---------------------------------------------------------------------
+# 3b. Asymmetric isolate-modes variant (09-14 escalation: only isolate
+# the named mode(s), pool everything else into one `_merged` group).
+# ---------------------------------------------------------------------
+
+def test_isolate_modes_default_none_isolates_everything():
+    """Unset isolate_modes must reproduce the original all-modes-split
+    behavior bit-for-bit (n_groups == number of distinct modes, no
+    `_merged` group)."""
+    cls = make_goal_mode_batch_split_ppo_class(PPO)
+    m = _make_ppo(cls, n_envs=8)
+    attach_goal_mode_batch_split(m, enabled=True, min_group=4,
+                                 isolate_modes=None)
+    assert m.goal_mode_batch_split_isolate_modes is None
+
+    class _FakeLogger:
+        def __init__(self):
+            self.name_to_value = {}
+
+        def record(self, key, value, **kw):
+            self.name_to_value[key] = value
+
+    fake_logger = _FakeLogger()
+    m.set_logger(fake_logger)
+    _collect(m)
+    m.train()
+    assert fake_logger.name_to_value.get(
+        GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX + "n_groups") == len(_MODES)
+    for mode in _MODES:
+        assert fake_logger.name_to_value.get(
+            f"{GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX}{mode}_n", 0) > 0
+    assert (GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX + "_merged_n"
+           ) not in fake_logger.name_to_value
+
+
+def test_isolate_one_mode_pools_the_rest_into_merged_group():
+    """isolate_modes=['hold'] must isolate ONLY hold; 'lower' samples
+    must land in a single shared `_merged` group, and every minibatch
+    trained must still be single-mode-only WITHIN the isolated group
+    (the merged group is allowed to mix its own pooled modes -- that's
+    the point -- but 'hold' must never appear inside a merged batch)."""
+    cls = make_goal_mode_batch_split_ppo_class(PPO)
+    m = _make_ppo(cls, n_envs=8)
+    attach_goal_mode_batch_split(m, enabled=True, min_group=4,
+                                 isolate_modes=["hold"])
+    assert m.goal_mode_batch_split_isolate_modes == frozenset({"hold"})
+    m.set_logger(configure(None, ["stdout"]))
+    _collect(m)
+
+    labels_flat = _labels_to_flat(
+        m._goal_mode_step_labels, m.rollout_buffer.buffer_size,
+        m.rollout_buffer.n_envs)
+    seen_minibatch_label_sets = []
+    orig_get_samples = m.rollout_buffer._get_samples
+
+    def _spy_get_samples(batch_inds, env=None):
+        seen_minibatch_label_sets.append(
+            set(labels_flat[batch_inds].tolist()))
+        return orig_get_samples(batch_inds, env=env)
+
+    m.rollout_buffer._get_samples = _spy_get_samples
+    m.train()
+
+    assert seen_minibatch_label_sets
+    for label_set in seen_minibatch_label_sets:
+        if "hold" in label_set:
+            assert label_set == {"hold"}, (
+                f"hold leaked into a mixed minibatch: {label_set}")
+
+
+def test_isolate_one_mode_logs_merged_group_and_two_groups_total():
+    cls = make_goal_mode_batch_split_ppo_class(PPO)
+    m = _make_ppo(cls, n_envs=8)
+    attach_goal_mode_batch_split(m, enabled=True, min_group=4,
+                                 isolate_modes=["hold"])
+
+    class _FakeLogger:
+        def __init__(self):
+            self.name_to_value = {}
+
+        def record(self, key, value, **kw):
+            self.name_to_value[key] = value
+
+    fake_logger = _FakeLogger()
+    m.set_logger(fake_logger)
+    _collect(m)
+    m.train()
+    assert fake_logger.name_to_value.get(
+        GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX + "applied") == 1
+    # hold isolated (1 group) + everything else pooled (1 "_merged"
+    # group) == 2 groups total, regardless of how many other distinct
+    # modes exist.
+    assert fake_logger.name_to_value.get(
+        GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX + "n_groups") == 2
+    assert fake_logger.name_to_value.get(
+        GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX + "hold_n", 0) > 0
+    assert fake_logger.name_to_value.get(
+        GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX + "_merged_n", 0) > 0
+
+
+def test_isolate_unknown_mode_pools_everything_into_merged():
+    """Naming a mode that never appears this rollout must not crash --
+    it just never forms its own group, and everything falls into
+    `_merged` (same effect as isolate_modes=() in practice for that
+    rollout)."""
+    cls = make_goal_mode_batch_split_ppo_class(PPO)
+    m = _make_ppo(cls, n_envs=8)
+    attach_goal_mode_batch_split(m, enabled=True, min_group=4,
+                                 isolate_modes=["nonexistent_mode"])
+
+    class _FakeLogger:
+        def __init__(self):
+            self.name_to_value = {}
+
+        def record(self, key, value, **kw):
+            self.name_to_value[key] = value
+
+    fake_logger = _FakeLogger()
+    m.set_logger(fake_logger)
+    _collect(m)
+    m.train()  # must not raise
+    assert fake_logger.name_to_value.get(
+        GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX + "n_groups") == 1
+    assert fake_logger.name_to_value.get(
+        GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX + "_merged_n", 0) > 0
+
+
+# ---------------------------------------------------------------------
 # 4. W&B payload forwarding.
 # ---------------------------------------------------------------------
 

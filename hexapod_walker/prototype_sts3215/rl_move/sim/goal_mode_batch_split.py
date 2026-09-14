@@ -100,13 +100,27 @@ GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX = "train/goal_mode_batch_split_"
 
 
 def attach_goal_mode_batch_split(model, *, enabled: bool,
-                                 min_group: int = 8) -> None:
+                                 min_group: int = 8,
+                                 isolate_modes=None) -> None:
     """Sets the attributes `GoalModeBatchSplitPPO.train()` /
-    `GoalModeCaptureCallback` read. A no-op when `enabled` is falsy."""
+    `GoalModeCaptureCallback` read. A no-op when `enabled` is falsy.
+
+    `isolate_modes`: optional iterable of goal-mode label strings. When
+    falsy/None (the default), EVERY mode gets its own disjoint group --
+    the original 09-14 behavior, bit-exact. When non-empty, only the
+    named modes get their own disjoint groups; every OTHER mode's
+    samples are pooled into one shared `_merged` group and trained
+    together in the SAME single-permutation-per-epoch way plain PPO
+    trains its whole buffer (asymmetric split -- see the
+    `-isolatehold-` escalation this docstring's caller names: hold's
+    tiny episodes get a protected update without starving lower/rise's
+    own larger shared batch the way full N-way splitting did)."""
     if not enabled:
         return
     model.goal_mode_batch_split_enabled = True
     model.goal_mode_batch_split_min_group = int(min_group)
+    model.goal_mode_batch_split_isolate_modes = (
+        frozenset(str(m) for m in isolate_modes) if isolate_modes else None)
     if not hasattr(model, "_goal_mode_step_labels"):
         model._goal_mode_step_labels = []
 
@@ -137,6 +151,7 @@ def make_goal_mode_batch_split_ppo_class(base_cls):
     class GoalModeBatchSplitPPO(base_cls):
         goal_mode_batch_split_enabled: bool = False
         goal_mode_batch_split_min_group: int = 8
+        goal_mode_batch_split_isolate_modes = None
 
         def train(self) -> None:
             if not getattr(self, "goal_mode_batch_split_enabled", False):
@@ -174,12 +189,33 @@ def make_goal_mode_batch_split_ppo_class(base_cls):
                 buf.generator_ready = True
             min_group = int(getattr(
                 self, "goal_mode_batch_split_min_group", 8))
+            isolate_modes = getattr(
+                self, "goal_mode_batch_split_isolate_modes", None)
+            labels_str = labels_flat.astype(str)
             groups = []
-            for label in sorted(set(str(x) for x in labels_flat.tolist())):
-                idx = np.nonzero(
-                    labels_flat.astype(str) == label)[0]
-                if len(idx) >= min_group:
-                    groups.append((label, idx))
+            if isolate_modes:
+                # Asymmetric split: only the named modes get their own
+                # disjoint group; everything else pools into one
+                # `_merged` group (same single-shared-minibatch
+                # training the pre-batch-split code path used for the
+                # whole buffer, just scoped to the non-isolated modes).
+                merged_parts = []
+                for label in sorted(set(labels_str.tolist())):
+                    idx = np.nonzero(labels_str == label)[0]
+                    if label in isolate_modes:
+                        if len(idx) >= min_group:
+                            groups.append((label, idx))
+                    else:
+                        merged_parts.append(idx)
+                if merged_parts:
+                    merged_idx = np.concatenate(merged_parts)
+                    if len(merged_idx) >= min_group:
+                        groups.append(("_merged", merged_idx))
+            else:
+                for label in sorted(set(labels_str.tolist())):
+                    idx = np.nonzero(labels_str == label)[0]
+                    if len(idx) >= min_group:
+                        groups.append((label, idx))
             if not groups:
                 if logger is not None:
                     logger.record(

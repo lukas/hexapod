@@ -126,6 +126,44 @@ __all__ = [
 
 GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX = "train/goal_mode_batch_split_"
 
+# Composite "rise:<start_kind>" label -> SHORT key-safe suffix (2026-
+# 09-14, found the same cycle as the info["start_kind"] producer bug
+# in rl_move.env.start_kind_of -- fixing that bug made this the FIRST
+# run to ever actually populate a real rise:flat / rise:bridge label
+# here, which immediately crashed training: SB3's HumanOutputFormat
+# console writer strips the "train/" tag, prepends 3 indent spaces,
+# then truncates to 36 chars total -- "goal_mode_batch_split_rise_
+# bridge_pg_loss" (44 chars w/ indent) and "..._rise_bridge_n" both
+# truncate to the SAME 33-char prefix, and SB3 raises ValueError on
+# any such key collision (dump_logs -> logger.dump -> write). Spelled-
+# out start_kind names were never long-lived before because the start_
+# kind sub-flag never actually engaged until that same-cycle fix, so
+# this exact collision could never have fired on any prior run.
+# Single/two-letter codes keep every "_n"/"_pg_loss" pair distinct
+# post-truncation (verified by hand for all 4 real rise start kinds --
+# see rl_move.env.start_kind_of; "plant"/"quadstance" cannot occur for
+# goal_mode=="rise" so are not included).
+_START_KIND_WANDB_ABBREV = {
+    "flat": "f", "bridge": "b", "crouch": "c", "post_lower": "pl",
+}
+
+
+def _group_label_key(label: str) -> str:
+    """W&B/console-safe key fragment for a batch-split group label.
+    Plain (non-composite) labels are untouched (str(label), no ":").
+    Composite "rise:<start_kind>" labels get an ABBREVIATED start_kind
+    suffix instead of the raw spelled-out kind -- see
+    _START_KIND_WANDB_ABBREV's comment for why. An unrecognized kind
+    (future start_kind_of addition) falls back to the raw string
+    truncated to 2 chars -- still short enough to avoid the collision
+    class this closes, just less readable; add it to the map above
+    when it shows up."""
+    s = str(label)
+    if ":" not in s:
+        return s
+    base, kind = s.split(":", 1)
+    return f"{base}_{_START_KIND_WANDB_ABBREV.get(kind, kind[:2])}"
+
 
 def attach_goal_mode_batch_split(model, *, enabled: bool,
                                  min_group: int = 8,
@@ -395,10 +433,11 @@ def make_goal_mode_batch_split_ppo_class(base_cls):
                     len(groups))
                 for label, idx in groups:
                     # Composite rise:start_kind labels (rise_start_kind
-                    # sub-flag) use "_" not ":" in the W&B KEY only --
-                    # the raw label string (used for grouping/isolate_
-                    # modes matching above) is untouched.
-                    label_key = str(label).replace(":", "_")
+                    # sub-flag) get an ABBREVIATED, collision-safe W&B
+                    # KEY (_group_label_key) -- the raw label string
+                    # (used for grouping/isolate_modes matching above)
+                    # is untouched.
+                    label_key = _group_label_key(label)
                     logger.record(
                         f"{GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX}{label_key}_n",
                         len(idx))

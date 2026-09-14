@@ -576,8 +576,18 @@ def test_rise_start_kind_on_splits_flat_from_bridge():
 
 def test_rise_start_kind_on_logs_sanitized_colon_free_keys():
     """W&B metric keys must not contain ':' (the composite label's
-    internal grouping separator) -- `rise:flat` logs as `rise_flat_n`,
-    not `rise:flat_n`."""
+    internal grouping separator) -- `rise:flat` logs as `rise_f_n`,
+    not `rise:flat_n`.
+
+    Abbreviated 2026-09-14 (see _group_label_key / _START_KIND_WANDB_
+    ABBREV in goal_mode_batch_split.py): the first run to ever
+    actually exercise this composite-label path (immediately after
+    the info["start_kind"] producer bug was fixed -- rise:flat/
+    rise:bridge previously never occurred at all) crashed with a real
+    SB3 HumanOutputFormat console-table key collision between the
+    spelled-out `rise_bridge_n`/`rise_bridge_pg_loss` truncated to the
+    same 36-char console width. Short codes keep every real rise
+    start-kind's `_n`/`_pg_loss` pair distinct post-truncation."""
     cls = make_goal_mode_batch_split_ppo_class(PPO)
     m = _make_rise_kind_ppo(cls, n_envs=8)
     attach_goal_mode_batch_split(m, enabled=True, min_group=4,
@@ -597,8 +607,42 @@ def test_rise_start_kind_on_logs_sanitized_colon_free_keys():
     assert fake_logger.name_to_value.get(
         GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX + "n_groups") == 3
     assert fake_logger.name_to_value.get(
-        GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX + "rise_flat_n", 0) > 0
+        GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX + "rise_f_n", 0) > 0
     assert fake_logger.name_to_value.get(
-        GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX + "rise_bridge_n", 0) > 0
+        GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX + "rise_b_n", 0) > 0
     for key in fake_logger.name_to_value:
         assert ":" not in key, f"un-sanitized colon in W&B key: {key}"
+
+
+def test_group_label_key_has_no_sb3_console_collision():
+    """Direct regression for the crash this cycle found: every
+    key/suffix pairing this module can emit for a real rise start_kind
+    must survive SB3 HumanOutputFormat's exact truncation rule (strip
+    the "train/" tag, prepend 3 indent spaces, truncate the remainder
+    to 36 chars) WITHOUT two different (label, suffix) pairs landing
+    on the same truncated string -- reproducing the exact collision
+    class (not just re-asserting the specific fixed pair)."""
+    from rl_move.sim.goal_mode_batch_split import _group_label_key
+
+    def sb3_truncate(key: str, max_length: int = 36) -> str:
+        # Mirrors HumanOutputFormat.write()'s tag-strip + 3-space
+        # indent + _truncate, for the "train/" tag this module always
+        # uses.
+        tag = "train/"
+        indented = f"{'':3}{key[len(tag):]}" if key.startswith(tag) \
+            else key
+        return (indented if len(indented) <= max_length
+                else indented[: max_length - 3] + "...")
+
+    kinds = ["flat", "bridge", "crouch", "post_lower"]
+    seen = {}
+    for kind in kinds:
+        label_key = _group_label_key(f"rise:{kind}")
+        for suffix in ("_n", "_pg_loss"):
+            full = (GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX
+                    + label_key + suffix)
+            truncated = sb3_truncate(full)
+            assert truncated not in seen or seen[truncated] == full, (
+                f"{full!r} and {seen.get(truncated)!r} both truncate "
+                f"to {truncated!r} -- SB3 console-table collision")
+            seen[truncated] = full

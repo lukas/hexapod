@@ -2630,44 +2630,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # tip_frac and gait_start_frac together).
             vx_t = 0.0
             vy_t = 0.0
-            # Command-magnitude curriculum (09-13, walkcurr tkn1
-            # FAIL-MECHANISM: the base-kernel stillness subsidy was
-            # confirmed removed -- reward_walk pinned at 0.0 for the
-            # entire run, per env/reward_walk in wandb_history.csv --
-            # yet wz_med stayed at the ~1e-7 rad/s noise floor in both
-            # signs, both seeds, the 19th independently-tested
-            # mechanism class on this exact freeze (price/dose/budget/
-            # risk-curriculum-ramp/direct-freeze-charge/4 RND variants
-            # on the sibling dualbc lineage; obs-pad-transplant/
-            # scratch-init/scratch-init+full-exposure/kernel-neutral on
-            # this rl_only lineage). A scripted TripodGait replay of
-            # this EXACT cfg (probe_turn_authority.py --policy
-            # scripted) achieves wz_med=+-0.098 rad/s -- above this
-            # gate's own 0.07 rad/s pass floor -- proving the turn IS
-            # mechanically achievable in this env/cfg and the failure
-            # is a pure RL discovery/credit-assignment gap, not a sim
-            # defect. Every prior lever tuned INCOME pricing, risk, or
-            # exploration around a FIXED command magnitude drawn
-            # uniform(0.5, 1.0)*wz_max (i.e. 0.15-0.30 rad/s at the
-            # default wz_max=0.3) -- never tried is EASING THE TASK
-            # ITSELF via the command-magnitude curriculum flagged (but
-            # not yet built) in the tip1 FAIL-MECHANISM verdict:
-            # goal.walk_turn_in_place_mag_min_frac/_max_frac (default
-            # 0.5/1.0 = bit-exact legacy band) let a canary command a
-            # much smaller, easier-to-discover wz target instead of
-            # always drawing near-max. Allowed per the 09-13 rl_only
-            # operator clarification ("curricula...are allowed") --
-            # this changes ONLY the command DIFFICULTY, not reward
-            # pricing, termination risk, or exploration noise. See
-            # test_walk_turn_in_place_mag_frac.py.
-            _tip_mag_min = float(cfg_get(
-                self.cfg, "goal", "walk_turn_in_place_mag_min_frac",
-                default=0.5))
-            _tip_mag_max = float(cfg_get(
-                self.cfg, "goal", "walk_turn_in_place_mag_max_frac",
-                default=1.0))
-            mag = float(rng.uniform(_tip_mag_min * wz_max,
-                                    _tip_mag_max * wz_max))
+            mag = float(rng.uniform(0.5 * wz_max, wz_max))
             wz_t = mag if rng.random() < 0.5 else -mag
             wz = np.full(n, wz_t)
             wz[:hold_n] = 0.0
@@ -7192,8 +7155,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         r_hold = 0.0
         r_walk = 0.0
         if s_ref <= 1e-3:
-            k_hold = float(cfg_get(self.cfg, "reward", "getup_k_hold",
-                                   default=0.8))
+            k_hold = 0.8
             sig_qd = 0.3
             qd2 = float(np.mean(np.square(self._state.joint_velocity)))
             still = math.exp(-qd2 / (2.0 * sig_qd ** 2))

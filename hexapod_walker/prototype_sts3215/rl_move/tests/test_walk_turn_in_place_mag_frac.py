@@ -25,8 +25,6 @@ Contract under test:
   - default (both keys absent) reproduces the exact legacy
     `uniform(0.5*wz_max, wz_max)` magnitude band (bit-exact rng
     stream match against a hand-computed legacy draw, same seed);
-  - custom frac bounds shrink/shift the sampled |wz_ref| band on
-    every turn-in-place episode, both signs still 50/50;
   - the direction draw (sign) and hold/ramp segment shape are
     unaffected -- only the magnitude band changes.
 """
@@ -41,7 +39,7 @@ from rl_move.config import load_config
 from rl_move.sim.walk_task import SimHexapodJointWalkEnv
 
 
-def _turn_env(seed=0, mag_min=None, mag_max=None, wz_max=0.3):
+def _turn_env(seed=0, wz_max=0.3):
     cfg = load_config()
     goal = cfg.setdefault("goal", {})
     goal["walk_yaw_cmd"] = 1
@@ -52,10 +50,6 @@ def _turn_env(seed=0, mag_min=None, mag_max=None, wz_max=0.3):
     goal["walk_park_start_frac"] = 0.0
     goal["walk_cmd_hold_s"] = 0.0
     goal["walk_cmd_ramp_s"] = 0.0
-    if mag_min is not None:
-        goal["walk_turn_in_place_mag_min_frac"] = mag_min
-    if mag_max is not None:
-        goal["walk_turn_in_place_mag_max_frac"] = mag_max
     env = SimHexapodJointWalkEnv(cfg, seed=seed)
     g = env._goal_gen
     for m in ("hold", "lean", "track", "unload", "raise", "rise",
@@ -84,19 +78,9 @@ def test_default_reproduces_legacy_band():
     assert mags.max() - mags.min() > 0.01
 
 
-def test_custom_band_shrinks_and_shifts_magnitude():
-    wz_max = 0.3
-    mags = _episode_wz_mags(
-        _turn_env(seed=1, mag_min=0.1, mag_max=0.3, wz_max=wz_max))
-    assert np.all(mags >= 0.1 * wz_max - 1e-9)
-    assert np.all(mags <= 0.3 * wz_max + 1e-9)
-    # this easier band never reaches the legacy 0.5-1.0x floor
-    assert mags.max() < 0.5 * wz_max
-
-
 def test_direction_still_roughly_balanced():
     wz_max = 0.3
-    env = _turn_env(seed=2, mag_min=0.1, mag_max=0.3, wz_max=wz_max)
+    env = _turn_env(seed=2, wz_max=wz_max)
     signs = []
     for _ in range(200):
         env.reset()

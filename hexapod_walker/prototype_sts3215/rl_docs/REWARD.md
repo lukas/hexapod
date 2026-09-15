@@ -208,7 +208,6 @@ only counts when carried by MEASURED foot load. All factors are fades
 | `getup_level_deg` | 20.0 | `f_level` linear fade of true (gravity) attitude. |
 | `getup_fp_ok_mm` / `getup_fp_hi_mm` | 40 / 120 | `f_footprint` fade of mean foot-XY distance to the plant anchors (PLANT_SPEC footprint bar, with slope). |
 | `getup_flag_mm` | 60.0 | `f_flag` fade of the pad-height SPREAD (highest−lowest pad, world z — ground-reference-free so arbitrary spawns work) over [60, 120] mm: honest gait swings (~25-40 mm) keep 1.0, the video-confirmed 100-160 mm flag/tripod poses fade to ~0. |
-| `getup_k_hold` | 0.8 | zero-command ticks: +k·S³·stillness Gaussian (`still_sigma_rad_s`) — quiet honest stands earn a living, partial/flagged stands earn scraps with a downhill slope. |
 | (walk income, commanded ticks) | K_WALK/K_PROG | `S_gait·(kernel·clip(prog,0,1) + K_PROG·min(prog,1.25))` with `S_gait = f_h·f_level·f_fp·f_flag·min(load_sat/3,1)²` — a loaded tripod is full credit mid-stride; a belly-shuffle earns ~0 through f_h regardless of progress; a parked robot earns ~0 through the built-in progress gate. |
 
 Per-tick metrics logged: `getup_S/P/best`, `getup_feet_loaded`,

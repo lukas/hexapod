@@ -1,7 +1,7 @@
-# hexapod prototype CAD pipeline.
+# hexapod prototype: tests, orchestrator state, robot deploy, Mac hub.
+# The CAD/print/BuildViz pipeline lives in https://github.com/lukas/hexapod-cad.
 #
-# All targets shell out to ../../run.sh where possible, so Python
-# invocations go through uv and the shared repo-root venv (created from the
+# Python runs through uv and the shared repo-root venv (created from the
 # repo-root pyproject.toml / uv.lock by `uv sync`).
 
 REPO_ROOT := $(abspath $(CURDIR)/../..)
@@ -9,8 +9,6 @@ RUN       := $(REPO_ROOT)/run.sh
 
 # ``mujoco.viewer.launch_passive`` requires ``mjpython`` on macOS (it
 # needs to own the main thread for Cocoa to spin up an NSApplication).
-# ``uv run`` resolves the repo-root project env from any cwd in the
-# checkout; mjpython is installed into it by the mujoco wheel.
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
 MJ_PY  := uv run mjpython
@@ -18,11 +16,7 @@ else
 MJ_PY  := uv run python
 endif
 
-.PHONY: test test-fast state check-cad check-cad-fast check-strength prepare-onshape-strength buildviz-chassis-reinforcement buildviz-tibia-yoke-reinforcement buildviz-horn-compression-limiters buildviz-premade-chorn-56 validate render build step-export verify-prototype verify-fast verify-changed clean-artifacts view view-static view-build view-buildviz verify-buildviz regen-fasteners bom-fasteners robot-video robot-check robot-unit-check robot-resolve robot-status robot-deploy robot-deploy-fast web-8898 web-8898-start web-8898-stop web-8898-restart web-8898-status web-8898-logs vision-check cameras help
-
-# Path to the BuildViz web inspector (https://github.com/lukas/buildviz).
-# Override with `make view-buildviz BUILDVIZ_ROOT=/path/to/buildviz`.
-BUILDVIZ_ROOT ?= $(HOME)/buildviz
+.PHONY: test test-fast state view view-static robot-video robot-check robot-unit-check robot-resolve robot-status robot-deploy robot-deploy-fast web-8898 web-8898-start web-8898-stop web-8898-restart web-8898-status web-8898-logs vision-check cameras help
 
 # Orchestrator runtime state (ledger directory, run stories, RL_LOG.md) is a
 # plain directory at <checkout>/.state (or $HEXAPOD_STATE_DIR), not a git
@@ -36,45 +30,18 @@ state:
 # runs in parallel (pytest-xdist is in the dev group). `make test` is the
 # whole suite. Rules for adding tests: RESEARCH_RULES.md "Tests".
 test-fast:
-	uv run pytest -q -n auto -m "not slow" rl_move/tests linux_control robots
+	uv run pytest -q -n auto -m "not slow" rl_move/tests linux_control robots firmware/tests sysid/tests
 
 test:
-	uv run pytest -q -n auto rl_move/tests linux_control robots
+	uv run pytest -q -n auto rl_move/tests linux_control robots firmware/tests sysid/tests
 
 help:
-	@echo "Hexapod prototype CAD targets:"
-	@echo "  check-cad         Build STLs, validate against design_spec.yaml, render views, write cad_report.md."
-	@echo "  check-cad-fast    Same as check-cad but skip the slow workspace-sweep collision check."
-	@echo "  check-strength    OPT-IN failure-point check (Gmsh + CalculiX FEA + closed-form beam bending)."
-	@echo "                    Not wired into check-cad.  Example:  make check-strength MATERIAL=petg"
-	@echo "  prepare-onshape-strength"
-	@echo "                    Repeatable MuJoCo stand/walk/rise/lower load extraction + full-chassis STEP"
-	@echo "                    + Onshape study manifest. Add ONSHAPE_STUDY_ARGS=--upload to push STEP."
-	@echo "  buildviz-chassis-reinforcement"
-	@echo "                    Regenerate + push the BuildViz chassis reinforcement concept test."
-	@echo "  buildviz-tibia-yoke-reinforcement"
-	@echo "                    Regenerate + push the evidence-backed tibia/yoke load-path concept test."
-	@echo "  buildviz-horn-compression-limiters"
-	@echo "                    Generate + check + push hip/knee/yaw metal compression-limiter test parts."
-	@echo "  buildviz-premade-chorn-56"
-	@echo "                    Generate + check + push the rigid-bearing robot with 12 premade 56 mm C horns."
-	@echo "  validate          Run scripts/validate_geometry.py only (no renders, no report)."
-	@echo "  render            Run scripts/render_views.py only."
-	@echo "  build             Re-run build_all.py → step_prototype/ (BREP STEP truth) + stl_prototype/ + stl_reference/."
-	@echo "  step-export       Run ONLY the STEP-first BREP exporter + print-set install (no visuals rebuild)."
-	@echo "  verify-prototype  Run the legacy _verify_prototype.main() directly (full suite, ~95-270 s)."
-	@echo "  verify-fast       Run _verify_prototype.py --fast (5 essential checks, ~5-15 s)."
-	@echo "  verify-changed    Run _verify_prototype.py --changed (only checks affected by git diff vs origin/main)."
-	@echo "  view              Open the interactive MuJoCo viewer with the prototype walking in tripod gait."
-	@echo "  view-static       Same viewer, but freeze the legs in the standing-pose keyframe (--no-gait)."
-	@echo "  view-build        Open a PyVista build inspector with colored, labeled parts and an exploded-view slider."
-	@echo "  view-buildviz     Re-export + REGISTER into the central BuildViz hub, open http://127.0.0.1:5183/?build=hexapod-prototype."
-	@echo "  verify-buildviz   Regenerate full_robot_viz/scene.json (ONE scene, motion baked in), run the BuildViz"
-	@echo "                    verifier + cheap validate, and BUMP a new versioned snapshot into the hub cache"
-	@echo "                    (buildviz push --bump; keep BUILDVIZ_KEEP).  Pass SWEEP=1 for the ~13 s swept motion test."
-	@echo "  regen-fasteners   Regenerate fasteners/<P/N>.cache.stl from real STEPs or parametric fallback."
-	@echo "  bom-fasteners     Inject the auto-derived fastener BOM into docs/BOM.md."
-	@echo "  clean-artifacts   Delete artifacts/ (renders + cad_report.md)."
+	@echo "Hexapod prototype targets:"
+	@echo "  test-fast         Parallel suite without @slow rollouts (the developer loop)."
+	@echo "  test              Whole suite."
+	@echo "  state             Pull the orchestrator's live state dir (ledger, journals) into .state."
+	@echo "  view              Open the interactive MuJoCo viewer with the primitive model walking in tripod gait."
+	@echo "  view-static       Same viewer, legs frozen in the standing-pose keyframe (--no-gait)."
 	@echo "  robot-check       Fast linux_control syntax/JS/diff checks; no robot access."
 	@echo "  robot-unit-check  robot-check plus fake-bus/off-robot control tests."
 	@echo "  robot-resolve     Refresh/print cached robot IP for hexapod.local."
@@ -86,272 +53,17 @@ help:
 	@echo "  vision-check      Run the hexapod-tracker checks and the off-robot gait-survey tests."
 	@echo "  cameras           Open the camera server page at http://localhost:8766/."
 	@echo "  robot-video       Contact sheet from a diagnosis MOV/MP4: make robot-video VIDEO=/path/movie.mov."
+	@echo "  CAD, BOM, printing, BuildViz: https://github.com/lukas/hexapod-cad"
 
-check-cad:
-	$(RUN) hexapod_walker/prototype_sts3215/scripts/check_cad.py
-
-check-cad-fast:
-	$(RUN) hexapod_walker/prototype_sts3215/scripts/check_cad.py --fast
-
-# Opt-in strength / failure-point pipeline.  NOT a dependency of
-# check-cad: this is a separate observation-only pass that runs
-# Gmsh + CalculiX (and a closed-form Euler-Bernoulli beam-bending
-# sanity check) over the structural printed parts and writes
-# ``artifacts/strength_report.md`` (with per-part stress-field PNGs
-# under artifacts/strength/).  Install ``ccx`` and ``gmsh`` via
-# Homebrew on macOS (see PROTOTYPE.md "Opt-in strength check"
-# section) -- if either is missing the run falls back to the beam
-# check alone and notes the missing solver in the report.
-#
-# Usage:
-#   make check-strength                       # PETG default
-#   make check-strength MATERIAL=pla          # PLA derated yield
-#   make check-strength PARTS=tibia_link,femur_link SOLVER=beam
-MATERIAL ?= petg
-PARTS    ?=
-SOLVER   ?= both
-STRENGTH_ARGS := --material $(MATERIAL) --solver $(SOLVER)
-ifneq ($(strip $(PARTS)),)
-STRENGTH_ARGS += --parts $(PARTS)
-endif
-check-strength:
-	$(RUN) hexapod_walker/prototype_sts3215/strength/__main__.py $(STRENGTH_ARGS)
-
-ONSHAPE_STUDY_ARGS ?=
-prepare-onshape-strength:
-	cd "$$(pwd)/../.." && uv run \
-		python hexapod_walker/prototype_sts3215/strength/prepare_onshape_study.py $(ONSHAPE_STUDY_ARGS)
-
-buildviz-chassis-reinforcement:
-	cd "$$(pwd)/../.." && uv run \
-		python hexapod_walker/prototype_sts3215/concepts/chassis_reinforcement/make_chassis_reinforcement_concept.py
-	cd "$$(pwd)/../.." && buildviz push \
-		--build-id prototype_sts3215/chassis-reinforcement-test \
-		--scene hexapod_walker/prototype_sts3215/concepts/chassis_reinforcement/scene.json \
-		--design-spec hexapod_walker/prototype_sts3215/concepts/chassis_reinforcement/design_spec.yaml \
-		--name "STS3215 chassis reinforcement test kit" \
-		--bump --upload-assets \
-		--message "regenerate chassis/yaw-pocket reinforcement concept"
-
-buildviz-tibia-yoke-reinforcement:
-	cd "$$(pwd)/../.." && uv run \
-		python hexapod_walker/prototype_sts3215/concepts/tibia_yoke_reinforcement/make_tibia_yoke_reinforcement_concept.py
-	cd "$$(pwd)/../.." && buildviz push \
-		--build-id prototype_sts3215/tibia-yoke-reinforcement-test \
-		--scene hexapod_walker/prototype_sts3215/concepts/tibia_yoke_reinforcement/scene.json \
-		--design-spec hexapod_walker/prototype_sts3215/concepts/tibia_yoke_reinforcement/design_spec.yaml \
-		--name "STS3215 tibia/yoke reinforcement load-path test" \
-		--bump --upload-assets \
-		--message "focused tibia/yoke load-path reinforcement concept"
-
-buildviz-horn-compression-limiters:
-	cd "$$(pwd)/../.." && uv run \
-		python hexapod_walker/prototype_sts3215/concepts/horn_compression_limiters/make_horn_compression_limiter_concept.py
-	$(RUN) hexapod_walker/prototype_sts3215/concepts/horn_compression_limiters/verify_workspace_variant.py
-	$(RUN) hexapod_walker/prototype_sts3215/tools/buildviz_checks.py \
-		$(CURDIR)/concepts/horn_compression_limiters/scene.json \
-		--pitch 0.4 --emit --json
-	cd "$$(pwd)/../.." && npx buildviz push \
-		--build-id prototype_sts3215/horn-compression-limiters \
-		--scene hexapod_walker/prototype_sts3215/concepts/horn_compression_limiters/scene.json \
-		--design-spec hexapod_walker/prototype_sts3215/concepts/horn_compression_limiters/design_spec.yaml \
-		--name "STS3215 horn compression-limiter experiment" \
-		--bump --upload-assets \
-		--message "load spacer dimensions from editable config; retain coupon-tested bore"
-	-$(RUN) tools/push_cloud_buildviz.py \
-		--build-id prototype_sts3215/horn-compression-limiters || \
-		echo "    WARNING: cloud mirror failed; local compression-limiter build is unaffected"
-
-buildviz-premade-chorn-56:
-	cd $(CURDIR) && uv run \
-		python concepts/premade_chorn_56/build_premade_chorn_hardware_step.py
-	cd "$$(pwd)/../.." && uv run \
-		python hexapod_walker/prototype_sts3215/concepts/premade_chorn_56/make_premade_chorn_56_variant.py
-	cd "$$(pwd)/../.." && npx buildviz check \
-		hexapod_walker/prototype_sts3215/concepts/premade_chorn_56 \
-		--checks mesh_overlap,declared_interference,scene_meta,disconnected_components \
-		--max-pairs 1000 --emit
-	jq -e '.summary.fail == 0' \
-		$(CURDIR)/concepts/premade_chorn_56/buildviz_checks.json >/dev/null
-	cd "$$(pwd)/../.." && npx buildviz push \
-		--build-id prototype_sts3215/premade-chorn-56 \
-		--scene hexapod_walker/prototype_sts3215/concepts/premade_chorn_56/scene.json \
-		--design-spec hexapod_walker/prototype_sts3215/concepts/premade_chorn_56/design_spec.yaml \
-		--name "STS3215 premade 56 mm C-horn experiment" \
-		--bump --upload-assets \
-		--message "reinforce tibia root and upper-bearing load path; add rear carrier fastener"
-	-$(RUN) tools/push_cloud_buildviz.py \
-		--build-id prototype_sts3215/premade-chorn-56 || \
-		echo "    WARNING: cloud mirror failed; local premade-chorn build is unaffected"
-
-validate:
-	$(RUN) hexapod_walker/prototype_sts3215/scripts/validate_geometry.py
-
-render:
-	$(RUN) hexapod_walker/prototype_sts3215/scripts/render_views.py
-
-build:
-	$(RUN) hexapod_walker/prototype_sts3215/build_all.py --skip-assembly
-
-# STEP-first print set only: run the BREP exporter (build123d, a project
-# dependency -- the project pins Python 3.12 for it) + install the healed
-# tessellations into stl_prototype/.  `make build` includes this; use
-# step-export when iterating on a BREP builder without rebuilding the visuals.
-step-export:
-	cd $(CURDIR) && uv run python build_step_prototype.py
-	cd $(CURDIR) && uv run python -c \
-		"import step_pipeline; step_pipeline.install_printables()"
-
-verify-prototype:
-	$(RUN) hexapod_walker/prototype_sts3215/_verify_prototype.py
-
-# Inner-loop verifier: skip the 12 slow checks (workspace sweep,
-# screwdriver-access ray cones, voxelised thin-sheet / flimsy-joint
-# passes, ...) and run only the 5 ESSENTIAL invariants that catch
-# ~80% of regressions in ~15% of the wall time.  Use this between
-# every edit; gate commits on the full verify-prototype.
-verify-fast:
-	$(RUN) hexapod_walker/prototype_sts3215/_verify_prototype.py --fast
-
-# Smart-selection verifier: only run the checks whose static
-# input dependency set intersects what `git diff origin/main`
-# changed.  Rebuilds STLs in-memory to detect which printed parts
-# actually changed bytes (so a cosmetic comment-only edit to
-# hexapod_prototype.py runs ~0 checks).  Combine with the cache
-# from a previous full pass to skip everything else.
-verify-changed:
-	$(RUN) hexapod_walker/prototype_sts3215/_verify_prototype.py --changed
-
-# Open the interactive MuJoCo viewer (passive mode) with the prototype
-# walker in the procedurally generated terrain + obstacle world.  Mouse
-# orbits; right-click drag applies an external force; Space pauses;
-# Backspace snaps back to the keyframe.  Forward `make view ARGS=...`
-# any extra CLI flag from mujoco_prototype.py, e.g.:
+# Open the interactive MuJoCo viewer (passive mode) with the primitive
+# model in the procedurally generated terrain + obstacle world.  Forward
+# `make view ARGS=...` any extra CLI flag from mujoco_prototype.py, e.g.:
 #   make view ARGS="--vx 0.20 --no-terrain --obstacles 0"
 view:
 	cd $(REPO_ROOT) && $(MJ_PY) hexapod_walker/prototype_sts3215/mujoco_prototype.py $(ARGS)
 
-# Same viewer but with the gait disabled: the prototype freezes in its
-# stance-pose keyframe so you can orbit and inspect part fitment without
-# the legs cycling underneath you.
 view-static:
 	cd $(REPO_ROOT) && $(MJ_PY) hexapod_walker/prototype_sts3215/mujoco_prototype.py --no-gait --no-terrain --obstacles 0 $(ARGS)
-
-# PyVista build inspector: every printable part placed at the assembled
-# pose, colored by part type (matching the MuJoCo viewer's palette),
-# with floating role labels, an exploded-view slider, and per-part-type
-# hide/show checkboxes.  PyVista does not need mjpython; run it through
-# uv.  Forward ARGS=... for things like
-#   make view-build ARGS="--screenshot /tmp/build.png --explode 0.8"
-view-build:
-	cd $(REPO_ROOT) && uv run python hexapod_walker/prototype_sts3215/scripts/inspect_build.py $(ARGS)
-
-# Browser-based build inspector (https://github.com/lukas/buildviz).  To VIEW
-# the sts3215 full robot, publish it into the ONE machine-wide BuildViz hub
-# (default port 5183) with `make verify-buildviz` (buildviz push --bump), then
-# open http://127.0.0.1:5183/?build=prototype_sts3215 .  Never start a
-# per-project Vite dev server on 5173/etc -- the hub serves every build at once.
-#
-# This legacy target exports the prototype_v1 hexapod-prototype build and opens
-# it in the central hub (kept for parity with prototype_v1/Makefile).  Override
-# the BuildViz checkout location with:
-#   make view-buildviz BUILDVIZ_ROOT=/path/to/buildviz
-view-buildviz:
-	@if [ ! -d "$(BUILDVIZ_ROOT)" ]; then \
-		echo "Error: BUILDVIZ_ROOT=$(BUILDVIZ_ROOT) not found."; \
-		echo "Clone with: gh repo clone lukas/buildviz $(BUILDVIZ_ROOT)"; \
-		exit 1; \
-	fi
-	@if [ ! -d "$(BUILDVIZ_ROOT)/node_modules" ]; then \
-		echo ">>> Installing buildviz npm deps in $(BUILDVIZ_ROOT)..."; \
-		cd $(BUILDVIZ_ROOT) && npm install; \
-	fi
-	cd $(BUILDVIZ_ROOT) && WEIRD_OBJECTS_ROOT=$(REPO_ROOT) npm run export:hexapod
-	cd $(BUILDVIZ_ROOT) && npx buildviz register public/builds/hexapod-prototype --build-id hexapod-prototype
-	@echo ">>> Central BuildViz hub: http://127.0.0.1:5183/?build=hexapod-prototype"
-	@command -v open >/dev/null 2>&1 && open "http://127.0.0.1:5183/?build=hexapod-prototype" || true
-
-# Versioned BuildViz publish: regenerate the full-robot scene (ONE scene.json
-# that now bakes in the BuildViz motion blocks -- joints[]/poses[]/animations[] --
-# alongside the static geometry; there is no separate scene_motion.json or
-# prototype_sts3215_motion build any more), run the generic geometry verifier
-# (tools/buildviz_checks.py), then BUMP a brand-new version into the machine-wide
-# BuildViz hub cache via `buildviz push --bump`.  Every run archives the
-# just-verified revision as the next v<N> (newest = default) -- ONE bump per push
-# for the ONE build -- so `buildviz versions prototype_sts3215` and the hub
-# accumulate history with no manual bookkeeping.  `--upload-assets` makes the
-# pushed build self-contained (relative STL bytes are uploaded + content-deduped);
-# BUILDVIZ_KEEP caps how many versions are retained (oldest non-default pruned).
-#
-# Motion cost (measured Jul 2026): baking joints/poses/animations is ~0.01 s on
-# top of the ~4 s STL rebuild (free), so motion is ALWAYS generated + published.
-# Every push also runs the CHEAP `buildviz validate` (~1 s) which confirms the
-# baked joints/poses are well-formed.  The one EXPENSIVE motion test is the swept
-# self-overlap check (`buildviz sweep` ~13 s -- 3x the whole build), so it is
-# OPT-IN: pass SWEEP=1 to run it (e.g. before shipping a kinematics change).
-#
-#   make -C hexapod_walker/prototype_sts3215 verify-buildviz            # fast: build+validate+push
-#   make -C hexapod_walker/prototype_sts3215 verify-buildviz SWEEP=1    # + swept self-overlap test (~13 s)
-#   make -C hexapod_walker/prototype_sts3215 verify-buildviz BUILDVIZ_KEEP=10
-BUILDVIZ_BUILD_ID ?= prototype_sts3215
-BUILDVIZ_KEEP     ?= 20
-SWEEP             ?=
-verify-buildviz:
-	$(RUN) hexapod_walker/prototype_sts3215/tools/full_robot_viz_build.py
-	$(RUN) hexapod_walker/prototype_sts3215/tools/buildviz_checks.py \
-		$(CURDIR)/full_robot_viz/scene.json \
-		--emit --publish --build-id $(BUILDVIZ_BUILD_ID) --keep $(BUILDVIZ_KEEP)
-	@echo ">>> Validating published build (cheap motion + manifest check)..."
-	npx buildviz validate $(BUILDVIZ_BUILD_ID) --json >/dev/null && \
-		echo "    buildviz validate: OK"
-	@if [ -n "$(SWEEP)" ]; then \
-		echo ">>> SWEEP=1: running swept self-overlap motion test (~13 s)..."; \
-		npx buildviz sweep $(BUILDVIZ_BUILD_ID) --json >/dev/null && \
-			echo "    buildviz sweep: OK"; \
-	else \
-		echo ">>> (skipping expensive swept self-overlap test; pass SWEEP=1 to run it)"; \
-	fi
-	@echo ">>> Mirroring the new default version to the CLOUD hub (standing convention, Aug 2026)..."
-	-$(RUN) tools/push_cloud_buildviz.py \
-		--build-id $(BUILDVIZ_BUILD_ID) || \
-		echo "    WARNING: cloud mirror failed (offline / no BUILDVIZ_API_KEY?) -- local publish is unaffected; run 'make push-cloud' later"
-
-# Mirror the current local default version to the CoreWeave cloud hub by hand
-# (verify-buildviz already does this automatically at the end).
-push-cloud:
-	$(RUN) tools/push_cloud_buildviz.py \
-		--build-id $(BUILDVIZ_BUILD_ID)
-
-# ---------------------------------------------------------------------------
-# Fastener pipeline (May 2026 -- see fastener_registry.py + fasteners/README.md)
-# ---------------------------------------------------------------------------
-
-# Regenerate fasteners/<P/N>.cache.stl for every unique part number in
-# fastener_registry.build_all_fastener_instances().  Source priority:
-# real McMaster STEP -> user STL -> NopSCADlib via OpenSCAD CLI ->
-# parametric fallback.  Both inspect_build.py and the verifier's
-# check_screwdriver_access consume the cache STLs.  Run this whenever
-# you drop a real STEP into fasteners/, edit a fasteners/scad/*.scad
-# file, or upgrade NopSCADlib.  See fasteners/README.md for the
-# install commands (openscad CLI + NopSCADlib clone).
-regen-fasteners:
-	$(RUN) hexapod_walker/prototype_sts3215/scripts/make_fastener_meshes.py
-
-# Auto-derive the fastener BOM table from fastener_registry and inject
-# it (between the BEGIN FASTENERS / END FASTENERS markers) into the
-# user-facing BOM docs.  Run after editing fastener_registry.py.
-#
-# Paths must be absolute because run.sh cd's into the script's own
-# directory before executing -- a path relative to the repo root
-# (e.g. ``hexapod_walker/prototype_sts3215/docs/BOM.md``) would
-# then resolve against ``prototype_sts3215/scripts/``, where the BOM
-# file does not live.
-bom-fasteners:
-	$(RUN) hexapod_walker/prototype_sts3215/scripts/render_fastener_bom.py \
-		--inject $(CURDIR)/docs/BOM.md
-
-clean-artifacts:
-	rm -rf $(CURDIR)/artifacts
 
 robot-video:
 	@if [ -z "$(VIDEO)" ]; then echo "usage: make robot-video VIDEO=/path/movie.mov [TIMES=0,8,16] [CROP=.0,.33,1,.98]" >&2; exit 2; fi

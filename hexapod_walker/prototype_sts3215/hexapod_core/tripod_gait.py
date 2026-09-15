@@ -7,11 +7,11 @@ from __future__ import annotations
 
 import math
 
-# Geometry (mm) — keep in sync with hexapod_prototype / mujoco_prototype.
+# Geometry (mm) — keep in sync with hexapod_core.geometry / mujoco_prototype.
 COXA_MM = 12.5
 FEMUR_MM = 90.0
 TIBIA_MM = 150.0
-CHASSIS_FLAT_TO_FLAT_MM = 200.0  # matches hexapod_prototype.CHASSIS_FLAT_TO_FLAT
+CHASSIS_FLAT_TO_FLAT_MM = 200.0  # matches hexapod_core.geometry.CHASSIS_FLAT_TO_FLAT
 KNEE_ANGLE_CONVENTION = "absolute_tibia"
 # Fallback stand home if feetech_bus / learned plant cannot be loaded.
 STANCE_FEMUR_DEG = 19.0

@@ -12,7 +12,7 @@ point for the one you're working on:
 
 | You are here to… | Start at |
 |------------------|----------|
-| Design/print/assemble the robot (CAD, BOM) | [`PROTOTYPE.md`](PROTOTYPE.md) |
+| Design/print/assemble the robot (CAD, BOM) | separate repo: [lukas/hexapod-cad](https://github.com/lukas/hexapod-cad) (`PROTOTYPE.md` there) |
 | Run the physical robot (firmware, control, safety) | `firmware/`, `linux_control/`, `rl_move/API.md` — **read the hardware-safety rules in the repo root `AGENTS.md` first** |
 | Train it in simulation (RL campaign + autonomous agent loop) | [`RL_GOALS.md`](RL_GOALS.md) — the two goals in plain English; then [`rl_docs/README.md`](rl_docs/README.md) (doc index), `RL_PLAN.md`, `RL_LOG.md` |
 | See and steer either goal in simulation | [`sim_viewer/README.md`](sim_viewer/README.md) — viewer/joystick controls; verify the selected policy and configuration against the goal's demo evidence |
@@ -34,21 +34,13 @@ point for the one you're working on:
 
 | Path | What |
 |------|------|
-| `hexapod_prototype.py` | Parametric constants + trimesh twins (probes, MuJoCo, BuildViz) |
-| `cad_step_test/build_step_first_test.py` | Printable BREP builders (STEP-first geometry source) |
-| `build_step_prototype.py` / `step_pipeline.py` | Print-set exporter + equivalence gates / shared plumbing |
-| `design_spec.yaml` | Human-readable geometry contract |
-| `build_all.py` / `Makefile` | Regenerate STEP + STLs + common targets |
-| [`docs/`](docs/) | Maintained design-document index: BOM, CAD workflow, BuildViz, and variant notes |
-| `concepts/` | Isolated mechanical and sensing experiments; see the [`concept catalog`](concepts/README.md) before choosing a variant |
-| `scripts/` | CLI helpers (verify helpers, renders, print orientation, inspect) |
-| `tools/` | Hexapod-specific BuildViz and diagnostic utilities; shared utilities live at the repository root `tools/` |
-| `step_prototype/` | Per-printable `.step` CAD truth + BREP tessellations + manifest |
-| `stl_prototype/` | Slicer-ready printables (healed BREP tessellations) |
-| `stl_reference/` | Sim / viz meshes (not for printing) |
+| `hexapod_core/` | The executable contracts every layer shares: `joint_frame.py` (joint order, names, servo ids), `geometry.py` (frozen CAD dimensions), gaits |
+| `mujoco_prototype.py` | MuJoCo primitive model of the robot, built from `hexapod_core/geometry.py` |
+| `mesh_mujoco/` | As-built MuJoCo mesh model; the STL assets and XML are tracked build products of [lukas/hexapod-cad](https://github.com/lukas/hexapod-cad) |
+| [`docs/`](docs/) | Robot-side design notes still referenced by code; CAD, BOM and BuildViz docs live in hexapod-cad |
+| `Makefile` | Tests, state pull, robot deploy, Mac hub |
 | `firmware/` / `linux_control/` / `motor_setup/` | On-robot software |
 | `hexapod-tracker/` | Git submodule containing AprilTag tracking, camera server/UI, configs, and off-robot vision tests |
-| `full_robot_viz/` | BuildViz scene + local `buildviz` npm dep |
 | `rl_docs/` | RL campaign docs index: goal, operator wishlist, commands, log conventions |
 | `RL_PLAN.md` / `RL_LOG.md` | Current RL plan + condensed campaign history (full history in `archive/`) |
 | `rl_move/` | RL code: `sim/` (MuJoCo/MJX envs + training), `orchestrator/` (autonomous loop: watcher, launcher, guardrails), robot-side control |

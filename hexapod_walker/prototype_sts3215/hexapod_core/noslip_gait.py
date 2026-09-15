@@ -81,7 +81,7 @@ YAW_LIM = math.radians(35.0)
 HIP_LIM = (math.radians(-80.0), math.radians(40.0))
 KNEE_LIM = (math.radians(-20.0), math.radians(150.0))
 
-# Tangential hip-pitch-axis offset (m): hexapod_prototype.COXA_HIP_ANCHOR_Y
+# Tangential hip-pitch-axis offset (m): hexapod_core.geometry.COXA_HIP_ANCHOR_Y
 # (-25.65 mm, the documented pinwheel). The femur/tibia plane rides at this
 # constant lateral offset in the yaw frame, and the offset's world direction
 # ROTATES with the yaw joint — the planar IK that tripod_gait/body_ik use

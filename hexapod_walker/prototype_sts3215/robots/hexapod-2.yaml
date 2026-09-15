@@ -33,7 +33,7 @@ as_built_reference:
 design_lineage:
   candidate: early_rigid_yaw_support
   evidence: inferred
-  reference: concepts/rigid_hip/README.md
+  reference: https://github.com/lukas/hexapod-cad/blob/main/concepts/rigid_hip/README.md
   historical_saved_reference:
     catalog_item: hexapod-2-bearing-layout-reference
     url: https://buildviz.cwd1f0-new-cluster.coreweave.app/?catalog=hexapod-2-bearing-layout-reference
@@ -52,7 +52,7 @@ retrofits:
     owner_intent: "Switching it to all the parts with the spacers."
     target_catalog_item: sts-horn-compression-study
     target_name: "Spacer-equipped joint parts"
-    design_reference: concepts/horn_compression_limiters/README.md
+    design_reference: https://github.com/lukas/hexapod-cad/blob/main/concepts/horn_compression_limiters/README.md
     source_build_id: prototype_sts3215/horn-compression-limiters
     source_revision: unrecorded
     installed_parts: unrecorded

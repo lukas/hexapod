@@ -33,7 +33,7 @@ from feetech_bus import (
     standing_pose_degrees,
 )
 
-# Link lengths (mm) — match tripod_gait / hexapod_prototype.
+# Link lengths (mm) — match tripod_gait / hexapod_core.geometry.
 COXA_MM = 12.5
 FEMUR_MM = 90.0
 TIBIA_MM = 150.0

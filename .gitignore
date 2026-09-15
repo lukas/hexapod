@@ -12,6 +12,8 @@ venv/
 
 # Generated 3D / build artifacts (rebuild via `./run.sh <project>/<script>.py`)
 *.stl
+# The as-built MuJoCo mesh model is a tracked build product of lukas/hexapod-cad.
+!hexapod_walker/prototype_sts3215/mesh_mujoco/assets/*.stl
 *.step
 *.ply
 *.dxf

@@ -25,7 +25,7 @@ uv sync --group fea              # + gmsh/pygmsh/meshio for make check-strength
 direnv, no activation, no `VIRTUAL_ENV`). The prototype packages are
 installed editable with `hexapod_walker/prototype_sts3215`,
 `linux_control`, `motor_setup`, and `rl_move/orchestrator` on the import
-path, so `import rl_move`, `import hexapod_core`, `import hexapod_prototype`
+path, so `import rl_move`, `import hexapod_core`, `import mujoco_prototype`
 and the bare-module style (`import feetech_bus`, `import safe_zero`) all
 work without `sys.path` shims.
 

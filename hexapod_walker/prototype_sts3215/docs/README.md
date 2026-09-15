@@ -1,30 +1,16 @@
 # STS3215 design documents
 
-This directory is the maintained index for mechanical-design documentation.
-Generated reports and historical campaign notes belong elsewhere; follow the
-ownership map below before adding another top-level Markdown file.
+Mechanical design, CAD, BOM, printing and BuildViz moved to their own repo on
+2026-09-15: https://github.com/lukas/hexapod-cad (`PROTOTYPE.md` there is the
+build entry point). This directory keeps the robot-side notes that code or the
+orchestrator still reference.
 
-## Production design
-
-- [`../PROTOTYPE.md`](../PROTOTYPE.md) — current mechanical design, build
-  workflow, printing, and assembly entry point.
-- [`BOM.md`](BOM.md) — production bill of materials and generated fastener
-  table.
-- [`CAD_WORKFLOW.md`](CAD_WORKFLOW.md) — STEP-first source-of-truth and export
-  workflow.
-- [`CAD_AGENT_INSTRUCTIONS.md`](CAD_AGENT_INSTRUCTIONS.md) — constraints for
-  agents editing production CAD.
 - [`../JOINT_COORDINATES.md`](../JOINT_COORDINATES.md) — joint signs, frames,
-  and pose conventions shared by CAD, simulation, and control.
-
-## Visualization and variants
-
-- [`BUILDVIZ.md`](BUILDVIZ.md) — current full-robot BuildViz contract and
-  publish flow.
-- [`CHORN_VARIANT.md`](CHORN_VARIANT.md) — C-horn variant notes that still
-  apply to the production design.
-- [`../concepts/README.md`](../concepts/README.md) — catalog of isolated
-  mechanical and sensing experiments.
+  and pose conventions shared by CAD, simulation, and control; the executable
+  form is `hexapod_core/joint_frame.py`.
+- Dated `*_2026-09-*.md` notes here are referenced from tracks or code; new
+  journal entries go to the state directory (`RL_LOG.md`, `CURRENT_TRUTHS.md`,
+  `rl_docs/meta/`), not here.
 
 ## Other work areas
 

@@ -1,0 +1,428 @@
+<mujoco model="hexapod_sts3215_mesh">
+  <compiler angle="radian" coordinate="local" autolimits="true" meshdir="assets"/>
+  <option gravity="0 0 -9.81" timestep="0.002" iterations="50" solver="Newton" cone="elliptic"/>
+  <visual>
+    <global offwidth="1920" offheight="1200"/>
+    <quality shadowsize="4096"/>
+  </visual>
+
+  <default>
+    <joint armature="0.0004" damping="0.01" limited="true"/>
+    <geom solref="0.006 1" solimp="0.95 0.99 0.001"/>
+    <default class="part">
+      <geom type="mesh" group="1" condim="3" friction="1.0 0.02 0.0001"/>
+    </default>
+    <default class="legpart">
+      <!-- leg-link parts pair ONLY with the flat floor plane
+           (conaffinity=5), mirroring the legacy sim's legcol contact
+           plan: no leg-leg / leg-chassis hull contacts by default.
+           servo_model.build_model(leg_chassis_collision=1) rewrites
+           this line to contype="1" conaffinity="1" (full self-collision). -->
+      <geom type="mesh" contype="4" conaffinity="0" group="1" condim="3" friction="1.0 0.02 0.0001"/>
+    </default>
+    <default class="visual">
+      <geom type="mesh" contype="0" conaffinity="0" group="2" density="0"/>
+    </default>
+    <default class="foot">
+      <geom type="mesh" group="1" condim="6" friction="2.0 0.1 0.001"
+            solref="0.01 1" solimp="0.95 0.99 0.001"/>
+    </default>
+  </default>
+
+  <asset>
+    <texture name="skybox" type="skybox" builtin="gradient" rgb1="0.7 0.85 1.0" rgb2="0.4 0.5 0.7" width="256" height="256"/>
+    <texture name="grid" type="2d" builtin="checker" rgb1="0.25 0.3 0.35" rgb2="0.18 0.22 0.27" width="300" height="300"/>
+    <material name="grid" texture="grid" texrepeat="6 6" reflectance="0.15"/>
+    <texture name="terrain_tex" type="2d" builtin="checker" rgb1="0.34 0.45 0.30" rgb2="0.26 0.36 0.22" width="320" height="320"/>
+    <material name="terrain_mat" texture="terrain_tex" texrepeat="12 12" reflectance="0.05" shininess="0.0"/>
+    <hfield name="terrain" nrow="128" ncol="128" size="2.5 2.5 0.018 0.08"/>
+    <material name="mat_breakout" rgba="0.0510 0.5800 0.5330 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_chassis_bottom" rgba="0.4750 0.6900 0.8820 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_chassis_standoff" rgba="0.7098 0.5843 0.1843 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_chassis_top" rgba="0.1220 0.4670 0.7060 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_coxa_link" rgba="0.1730 0.6270 0.1730 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_disc_horn_hip" rgba="0.7216 0.7216 0.7529 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_disc_horn_knee" rgba="0.7216 0.7216 0.7529 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_disc_horn_yaw" rgba="0.7216 0.7216 0.7529 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_femur_link" rgba="0.8390 0.1530 0.1570 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_foot_boot" rgba="0.5490 0.3370 0.2940 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_hex_mount_plate" rgba="0.5800 0.6390 0.7220 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_hex_post_magnet" rgba="0.1180 0.1610 0.2310 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_hex_post_standoff" rgba="0.6590 0.6350 0.6200 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_hex_post_thumb_nut" rgba="0.4710 0.4430 0.4240 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_hex_raised_platform" rgba="0.3920 0.4550 0.5450 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_hip_clamp_cap" rgba="0.2902 0.5647 0.8510 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_hip_servo" rgba="0.2275 0.2275 0.2510 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_knee_clamp_cap" rgba="0.2902 0.5647 0.8510 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_knee_servo" rgba="0.2745 0.2745 0.3020 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_lipo_battery" rgba="0.8392 0.1529 0.1569 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_motor_controller" rgba="0.7060 0.3250 0.0350 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_mpu6050" rgba="0.4780 0.3610 0.7690 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_passive_horn_hip" rgba="0.7216 0.7216 0.7529 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_passive_horn_knee" rgba="0.7216 0.7216 0.7529 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_screen" rgba="0.1450 0.3880 0.9220 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_switch_holster" rgba="0.7686 0.4157 0.1216 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_tibia_knee_yoke" rgba="0.1216 0.4667 0.7059 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_tibia_tube" rgba="0.1686 0.1686 0.1686 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_uno_q" rgba="0.1060 0.4780 0.2390 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_wago_data" rgba="0.1330 0.7730 0.3690 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_wago_power" rgba="0.9370 0.2670 0.2670 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_wago_trunk" rgba="0.9180 0.3450 0.0470 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_wago_v33" rgba="0.9765 0.4510 0.0863 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_yaw_bearing_cap" rgba="0.4196 0.3098 0.6275 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_yaw_bearing_lower" rgba="0.8314 0.6863 0.2157 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_yaw_bearing_upper" rgba="1.0000 0.8510 0.4000 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_yaw_servo" rgba="0.1804 0.1804 0.2000 1" specular="0.3" shininess="0.3"/>
+    <material name="mat_yaw_servo_retainer" rgba="0.8902 0.4667 0.7608 1" specular="0.3" shininess="0.3"/>
+    <mesh name="breakout" file="breakout.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="chassis_bottom" file="chassis_bottom.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="chassis_standoff" file="chassis_standoff.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="chassis_top" file="chassis_top.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="coxa_link" file="coxa_link.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="disc_horn" file="disc_horn.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="femur_link" file="femur_link.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="foot_boot" file="foot_boot.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="hex_mount_plate" file="hex_mount_plate.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="hex_post_magnet" file="hex_post_magnet.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="hex_post_standoff" file="hex_post_standoff.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="hex_post_thumb_nut" file="hex_post_thumb_nut.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="hex_raised_platform" file="hex_raised_platform.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="hip_clamp_cap" file="hip_clamp_cap.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="hip_servo" file="hip_servo.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="knee_clamp_cap" file="knee_clamp_cap.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="knee_servo" file="knee_servo.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="lipo_battery" file="lipo_battery.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="motor_controller" file="motor_controller.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="mpu6050" file="mpu6050.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="screen" file="screen.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="switch_holster" file="switch_holster.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="tibia_knee_yoke" file="tibia_knee_yoke.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="tibia_tube" file="tibia_tube.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="uno_q" file="uno_q.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="wago_data" file="wago_data.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="wago_power" file="wago_power.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="wago_trunk" file="wago_trunk.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="wago_v33" file="wago_v33.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="yaw_bearing_cap" file="yaw_bearing_cap.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="yaw_bearing_lower" file="yaw_bearing_lower.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="yaw_bearing_upper" file="yaw_bearing_upper.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="yaw_servo" file="yaw_servo.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="yaw_servo_retainer" file="yaw_servo_retainer.stl" scale="0.001 0.001 0.001"/>
+  </asset>
+
+  <worldbody>
+    <light name="sun" pos="2 -1.5 2.2" dir="-0.6 0.4 -1" castshadow="true"/>
+    <geom name="floor" type="plane" size="8 8 0.05" pos="0 0 -0.001" material="grid" friction="1.5 0.05 0.0001" conaffinity="5"/>
+    <geom name="terrain" type="hfield" hfield="terrain" material="terrain_mat" friction="1.5 0.05 0.0001" condim="4"/>
+
+    <body name="chassis" pos="0 0 0.125420">
+      <freejoint name="root"/>
+      <site name="chassis_imu" pos="0.002000 -0.043000 0.024800" size="0.008"/>
+      <geom class="part" name="L0_yaw_servo" mesh="yaw_servo" pos="0.075777 0.043750 -0.024050" quat="0.96592583 0.00000000 0.00000000 0.25881905" material="mat_yaw_servo" mass="0.061000"/>
+      <geom class="part" name="L1_yaw_servo" mesh="yaw_servo" pos="0.000000 0.087500 -0.024050" quat="0.70710678 0.00000000 0.00000000 0.70710678" material="mat_yaw_servo" mass="0.061000"/>
+      <geom class="part" name="L2_yaw_servo" mesh="yaw_servo" pos="-0.075777 0.043750 -0.024050" quat="0.25881905 0.00000000 0.00000000 0.96592583" material="mat_yaw_servo" mass="0.061000"/>
+      <geom class="part" name="L3_yaw_servo" mesh="yaw_servo" pos="-0.075777 -0.043750 -0.024050" quat="0.25881905 0.00000000 0.00000000 -0.96592583" material="mat_yaw_servo" mass="0.061000"/>
+      <geom class="part" name="L4_yaw_servo" mesh="yaw_servo" pos="-0.000000 -0.087500 -0.024050" quat="0.70710678 0.00000000 0.00000000 -0.70710678" material="mat_yaw_servo" mass="0.061000"/>
+      <geom class="part" name="L5_yaw_servo" mesh="yaw_servo" pos="0.075777 -0.043750 -0.024050" quat="0.96592583 0.00000000 0.00000000 -0.25881905" material="mat_yaw_servo" mass="0.061000"/>
+      <geom class="part" name="L0_yaw_servo_retainer" mesh="yaw_servo_retainer" pos="0.086603 0.050000 0.000000" quat="0.96592583 0.00000000 0.00000000 0.25881905" material="mat_yaw_servo_retainer" mass="0.023275"/>
+      <geom class="part" name="L1_yaw_servo_retainer" mesh="yaw_servo_retainer" pos="0.000000 0.100000 0.000000" quat="0.70710678 0.00000000 0.00000000 0.70710678" material="mat_yaw_servo_retainer" mass="0.023275"/>
+      <geom class="part" name="L2_yaw_servo_retainer" mesh="yaw_servo_retainer" pos="-0.086603 0.050000 0.000000" quat="0.25881905 0.00000000 0.00000000 0.96592583" material="mat_yaw_servo_retainer" mass="0.023275"/>
+      <geom class="part" name="L3_yaw_servo_retainer" mesh="yaw_servo_retainer" pos="-0.086603 -0.050000 0.000000" quat="0.25881905 0.00000000 0.00000000 -0.96592583" material="mat_yaw_servo_retainer" mass="0.023275"/>
+      <geom class="part" name="L4_yaw_servo_retainer" mesh="yaw_servo_retainer" pos="-0.000000 -0.100000 0.000000" quat="0.70710678 0.00000000 0.00000000 -0.70710678" material="mat_yaw_servo_retainer" mass="0.023275"/>
+      <geom class="part" name="L5_yaw_servo_retainer" mesh="yaw_servo_retainer" pos="0.086603 -0.050000 0.000000" quat="0.96592583 0.00000000 0.00000000 -0.25881905" material="mat_yaw_servo_retainer" mass="0.023275"/>
+      <geom class="part" name="chassis_bottom_1" mesh="chassis_bottom" pos="0.000000 0.000000 0.000000" material="mat_chassis_bottom" mass="0.347626"/>
+      <geom class="part" name="chassis_top_1" mesh="chassis_top" pos="0.000000 0.000000 0.023000" material="mat_chassis_top" mass="0.021275"/>
+      <geom class="part" name="switch_holster_1" mesh="switch_holster" pos="0.066500 0.000000 0.024000" material="mat_switch_holster" mass="0.006968"/>
+      <geom class="visual" name="wago_trunk_1" mesh="wago_trunk" pos="0.016000 -0.016000 0.024000" material="mat_wago_trunk" mass="0.009300"/>
+      <geom class="visual" name="wago_trunk_2" mesh="wago_trunk" pos="0.016000 0.016000 0.024000" material="mat_wago_trunk" mass="0.009300"/>
+      <geom class="visual" name="motor_controller_1" mesh="motor_controller" pos="-0.024000 0.000000 0.024000" quat="0.70710678 0.00000000 0.00000000 0.70710678" material="mat_motor_controller" mass="0.022000"/>
+      <geom class="visual" name="chassis_standoff_1" mesh="chassis_standoff" pos="0.031113 0.031113 0.002000" material="mat_chassis_standoff" mass="0.002000"/>
+      <geom class="visual" name="chassis_standoff_2" mesh="chassis_standoff" pos="-0.031113 0.031113 0.002000" material="mat_chassis_standoff" mass="0.002000"/>
+      <geom class="visual" name="chassis_standoff_3" mesh="chassis_standoff" pos="-0.031113 -0.031113 0.002000" material="mat_chassis_standoff" mass="0.002000"/>
+      <geom class="visual" name="chassis_standoff_4" mesh="chassis_standoff" pos="0.031113 -0.031113 0.002000" material="mat_chassis_standoff" mass="0.002000"/>
+      <geom class="visual" name="hex_post_standoff_1" mesh="hex_post_standoff" pos="0.031113 0.031113 0.024000" material="mat_hex_post_standoff" mass="0.002000"/>
+      <geom class="visual" name="hex_post_thumb_nut_1" mesh="hex_post_thumb_nut" pos="0.031113 0.031113 0.044000" material="mat_hex_post_thumb_nut" mass="0.000203"/>
+      <geom class="visual" name="hex_post_magnet_1" mesh="hex_post_magnet" pos="0.031113 0.031113 0.046500" material="mat_hex_post_magnet" mass="0.003000"/>
+      <geom class="visual" name="hex_post_standoff_2" mesh="hex_post_standoff" pos="-0.031113 0.031113 0.024000" material="mat_hex_post_standoff" mass="0.002000"/>
+      <geom class="visual" name="hex_post_thumb_nut_2" mesh="hex_post_thumb_nut" pos="-0.031113 0.031113 0.044000" material="mat_hex_post_thumb_nut" mass="0.000203"/>
+      <geom class="visual" name="hex_post_magnet_2" mesh="hex_post_magnet" pos="-0.031113 0.031113 0.046500" material="mat_hex_post_magnet" mass="0.003000"/>
+      <geom class="visual" name="hex_post_standoff_3" mesh="hex_post_standoff" pos="-0.031113 -0.031113 0.024000" material="mat_hex_post_standoff" mass="0.002000"/>
+      <geom class="visual" name="hex_post_thumb_nut_3" mesh="hex_post_thumb_nut" pos="-0.031113 -0.031113 0.044000" material="mat_hex_post_thumb_nut" mass="0.000203"/>
+      <geom class="visual" name="hex_post_magnet_3" mesh="hex_post_magnet" pos="-0.031113 -0.031113 0.046500" material="mat_hex_post_magnet" mass="0.003000"/>
+      <geom class="visual" name="hex_post_standoff_4" mesh="hex_post_standoff" pos="0.031113 -0.031113 0.024000" material="mat_hex_post_standoff" mass="0.002000"/>
+      <geom class="visual" name="hex_post_thumb_nut_4" mesh="hex_post_thumb_nut" pos="0.031113 -0.031113 0.044000" material="mat_hex_post_thumb_nut" mass="0.000203"/>
+      <geom class="visual" name="hex_post_magnet_4" mesh="hex_post_magnet" pos="0.031113 -0.031113 0.046500" material="mat_hex_post_magnet" mass="0.003000"/>
+      <geom class="visual" name="hex_mount_plate_1" mesh="hex_mount_plate" pos="0.000000 0.000000 0.055500" material="mat_hex_mount_plate" mass="0.021757"/>
+      <geom class="visual" name="wago_v33_1" mesh="wago_v33" pos="0.000000 -0.036000 0.046100" quat="0.70710678 0.00000000 0.00000000 -0.70710678" material="mat_wago_v33" mass="0.009300"/>
+      <geom class="visual" name="uno_q_1" mesh="uno_q" pos="0.000000 -0.012000 0.056500" material="mat_uno_q" mass="0.042000"/>
+      <geom class="visual" name="breakout_1" mesh="breakout" pos="0.000000 0.036000 0.056500" material="mat_breakout" mass="0.008000"/>
+      <geom class="visual" name="hex_raised_platform_1" mesh="hex_raised_platform" pos="0.000000 0.000000 0.056500" material="mat_hex_raised_platform" mass="0.033400"/>
+      <geom class="visual" name="screen_1" mesh="screen" pos="0.000000 0.000000 0.086500" material="mat_screen" mass="0.040000"/>
+      <geom class="visual" name="mpu6050_1" mesh="mpu6050" pos="0.002000 -0.043000 0.024800" quat="0.70710678 0.00000000 0.00000000 0.70710678" material="mat_mpu6050" mass="0.001500"/>
+      <geom class="visual" name="wago_power_1" mesh="wago_power" pos="0.088375 0.000000 0.002000" material="mat_wago_power" mass="0.009300"/>
+      <geom class="visual" name="wago_power_2" mesh="wago_power" pos="0.044188 0.076535 0.002000" quat="0.86602540 0.00000000 0.00000000 0.50000000" material="mat_wago_power" mass="0.009300"/>
+      <geom class="visual" name="wago_power_3" mesh="wago_power" pos="-0.044187 0.076535 0.002000" quat="0.50000000 0.00000000 0.00000000 0.86602540" material="mat_wago_power" mass="0.009300"/>
+      <geom class="visual" name="wago_power_4" mesh="wago_power" pos="-0.088375 0.000000 0.002000" quat="0.00000000 0.00000000 0.00000000 1.00000000" material="mat_wago_power" mass="0.009300"/>
+      <geom class="visual" name="wago_power_5" mesh="wago_power" pos="-0.044188 -0.076535 0.002000" quat="0.50000000 0.00000000 0.00000000 -0.86602540" material="mat_wago_power" mass="0.009300"/>
+      <geom class="visual" name="wago_power_6" mesh="wago_power" pos="0.044188 -0.076535 0.002000" quat="0.86602540 0.00000000 0.00000000 -0.50000000" material="mat_wago_power" mass="0.009300"/>
+      <geom class="visual" name="wago_data_1" mesh="wago_data" pos="0.070000 0.000000 -0.011000" material="mat_wago_data" mass="0.005000"/>
+      <geom class="visual" name="wago_data_2" mesh="wago_data" pos="0.035000 0.060622 -0.011000" material="mat_wago_data" mass="0.005000"/>
+      <geom class="visual" name="wago_data_3" mesh="wago_data" pos="-0.035000 0.060622 -0.011000" material="mat_wago_data" mass="0.005000"/>
+      <geom class="visual" name="wago_data_4" mesh="wago_data" pos="-0.070000 0.000000 -0.011000" material="mat_wago_data" mass="0.005000"/>
+      <geom class="visual" name="wago_data_5" mesh="wago_data" pos="-0.035000 -0.060622 -0.011000" material="mat_wago_data" mass="0.005000"/>
+      <geom class="visual" name="wago_data_6" mesh="wago_data" pos="0.035000 -0.060622 -0.011000" material="mat_wago_data" mass="0.005000"/>
+      <geom class="part" name="lipo_battery_1" mesh="lipo_battery" pos="0.009500 -0.016454 -0.019250" quat="0.96592583 0.00000000 0.00000000 0.25881905" material="mat_lipo_battery" mass="0.140000"/>
+      <geom class="part" name="lipo_battery_2" mesh="lipo_battery" pos="-0.009500 0.016454 -0.019250" quat="0.96592583 0.00000000 0.00000000 0.25881905" material="mat_lipo_battery" mass="0.140000"/>
+
+      <body name="L0_yaw" pos="0.086603 0.050000 0.015250" quat="0.96592583 0 0 0.25881905">
+        <joint name="L0_yaw" type="hinge" axis="0 0 1" range="-0.61 0.61"/>
+        <geom class="legpart" name="L0_coxa_link" mesh="coxa_link" pos="-0.000000 0.000000 0.000000" material="mat_coxa_link" mass="0.052223"/>
+        <geom class="visual" name="L0_yaw_bearing_cap" mesh="yaw_bearing_cap" pos="-0.000000 0.000000 0.000000" material="mat_yaw_bearing_cap" mass="0.005318"/>
+        <geom class="visual" name="L0_yaw_bearing_lower" mesh="yaw_bearing_lower" pos="-0.000000 0.000000 0.000000" material="mat_yaw_bearing_lower" mass="0.010000"/>
+        <geom class="visual" name="L0_yaw_bearing_upper" mesh="yaw_bearing_upper" pos="-0.000000 0.000000 0.000000" material="mat_yaw_bearing_upper" mass="0.010000"/>
+        <geom class="legpart" name="L0_hip_servo" mesh="hip_servo" pos="0.000000 0.015650 0.038400" quat="0.70710678 0.70710678 -0.00000000 -0.00000000" material="mat_hip_servo" mass="0.061000"/>
+        <geom class="legpart" name="L0_hip_clamp_cap" mesh="hip_clamp_cap" pos="0.000000 0.015650 0.038400" quat="0.70710678 0.70710678 -0.00000000 -0.00000000" material="mat_hip_clamp_cap" mass="0.018412"/>
+        <geom class="visual" name="L0_disc_horn_yaw" mesh="disc_horn" pos="-0.000000 0.000000 -0.009000" material="mat_disc_horn_yaw" mass="0.004000"/>
+        <body name="L0_femur" pos="0.012500 -0.025650 0.038400">
+          <joint name="L0_pitch" type="hinge" axis="0 1 0" range="-1.4 0.52"/>
+          <geom class="legpart" name="L0_femur_link" mesh="femur_link" pos="-0.012500 0.041300 0.000000" quat="0.70710678 0.70710678 -0.00000000 0.00000000" material="mat_femur_link" mass="0.055006"/>
+          <geom class="legpart" name="L0_knee_servo" mesh="knee_servo" pos="0.077500 0.041300 -0.000000" quat="0.70710678 0.70710678 -0.00000000 0.00000000" material="mat_knee_servo" mass="0.061000"/>
+          <geom class="legpart" name="L0_knee_clamp_cap" mesh="knee_clamp_cap" pos="0.077500 0.041300 -0.000000" quat="0.70710678 0.70710678 -0.00000000 0.00000000" material="mat_knee_clamp_cap" mass="0.018539"/>
+          <geom class="visual" name="L0_disc_horn_hip" mesh="disc_horn" pos="0.000000 0.007000 0.000000" quat="0.64085638 0.64085638 0.29883624 -0.29883624" material="mat_disc_horn_hip" mass="0.004000"/>
+          <geom class="visual" name="L0_passive_horn_hip" mesh="disc_horn" pos="0.000000 0.041300 0.000000" quat="0.64085638 -0.64085638 0.29883624 0.29883624" material="mat_passive_horn_hip" mass="0.004000"/>
+          <body name="L0_tibia" pos="0.090000 0 0">
+            <joint name="L0_knee" type="hinge" axis="0 1 0" range="-0.35 2.62"/>
+            <geom class="legpart" name="L0_tibia_knee_yoke" mesh="tibia_knee_yoke" pos="-0.012500 0.041300 -0.000000" quat="0.70710678 0.70710678 0.00000000 0.00000000" material="mat_tibia_knee_yoke" mass="0.017227"/>
+            <geom class="visual" name="L0_disc_horn_knee" mesh="disc_horn" pos="-0.000000 0.007000 0.000000" quat="0.18301270 0.18301270 -0.68301270 0.68301270" material="mat_disc_horn_knee" mass="0.004000"/>
+            <geom class="visual" name="L0_passive_horn_knee" mesh="disc_horn" pos="-0.000000 0.041300 -0.000000" quat="0.18301270 -0.18301270 -0.68301270 -0.68301270" material="mat_passive_horn_knee" mass="0.004000"/>
+            <geom class="legpart" name="L0_tibia_tube" mesh="tibia_tube" pos="0.000000 0.000000 0.000000" material="mat_tibia_tube" mass="0.004500"/>
+            <body name="L0_pad" pos="0.142000 0.024150 0.000000">
+              <geom class="foot" name="L0_foot" mesh="foot_boot" material="mat_foot_boot" mass="0.003000"/>
+              <site name="L0_foot_site" pos="0.003500 0 0" size="0.018" group="4" rgba="1 1 1 0.05"/>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="L1_yaw" pos="0.000000 0.100000 0.015250" quat="0.70710678 0 0 0.70710678">
+        <joint name="L1_yaw" type="hinge" axis="0 0 1" range="-0.61 0.61"/>
+        <geom class="legpart" name="L1_coxa_link" mesh="coxa_link" pos="-0.000000 0.000000 0.000000" material="mat_coxa_link" mass="0.052223"/>
+        <geom class="visual" name="L1_yaw_bearing_cap" mesh="yaw_bearing_cap" pos="-0.000000 0.000000 0.000000" material="mat_yaw_bearing_cap" mass="0.005318"/>
+        <geom class="visual" name="L1_yaw_bearing_lower" mesh="yaw_bearing_lower" pos="-0.000000 0.000000 0.000000" material="mat_yaw_bearing_lower" mass="0.010000"/>
+        <geom class="visual" name="L1_yaw_bearing_upper" mesh="yaw_bearing_upper" pos="-0.000000 0.000000 0.000000" material="mat_yaw_bearing_upper" mass="0.010000"/>
+        <geom class="legpart" name="L1_hip_servo" mesh="hip_servo" pos="0.000000 0.015650 0.038400" quat="0.70710678 0.70710678 -0.00000000 -0.00000000" material="mat_hip_servo" mass="0.061000"/>
+        <geom class="legpart" name="L1_hip_clamp_cap" mesh="hip_clamp_cap" pos="0.000000 0.015650 0.038400" quat="0.70710678 0.70710678 -0.00000000 -0.00000000" material="mat_hip_clamp_cap" mass="0.018412"/>
+        <geom class="visual" name="L1_disc_horn_yaw" mesh="disc_horn" pos="-0.000000 0.000000 -0.009000" material="mat_disc_horn_yaw" mass="0.004000"/>
+        <body name="L1_femur" pos="0.012500 -0.025650 0.038400">
+          <joint name="L1_pitch" type="hinge" axis="0 1 0" range="-1.4 0.52"/>
+          <geom class="legpart" name="L1_femur_link" mesh="femur_link" pos="-0.012500 0.041300 0.000000" quat="0.70710678 0.70710678 -0.00000000 0.00000000" material="mat_femur_link" mass="0.055006"/>
+          <geom class="legpart" name="L1_knee_servo" mesh="knee_servo" pos="0.077500 0.041300 -0.000000" quat="0.70710678 0.70710678 -0.00000000 0.00000000" material="mat_knee_servo" mass="0.061000"/>
+          <geom class="legpart" name="L1_knee_clamp_cap" mesh="knee_clamp_cap" pos="0.077500 0.041300 -0.000000" quat="0.70710678 0.70710678 -0.00000000 0.00000000" material="mat_knee_clamp_cap" mass="0.018539"/>
+          <geom class="visual" name="L1_disc_horn_hip" mesh="disc_horn" pos="0.000000 0.007000 0.000000" quat="0.64085638 0.64085638 0.29883624 -0.29883624" material="mat_disc_horn_hip" mass="0.004000"/>
+          <geom class="visual" name="L1_passive_horn_hip" mesh="disc_horn" pos="0.000000 0.041300 0.000000" quat="0.64085638 -0.64085638 0.29883624 0.29883624" material="mat_passive_horn_hip" mass="0.004000"/>
+          <body name="L1_tibia" pos="0.090000 0 0">
+            <joint name="L1_knee" type="hinge" axis="0 1 0" range="-0.35 2.62"/>
+            <geom class="legpart" name="L1_tibia_knee_yoke" mesh="tibia_knee_yoke" pos="-0.012500 0.041300 -0.000000" quat="0.70710678 0.70710678 0.00000000 0.00000000" material="mat_tibia_knee_yoke" mass="0.017227"/>
+            <geom class="visual" name="L1_disc_horn_knee" mesh="disc_horn" pos="-0.000000 0.007000 0.000000" quat="0.18301270 0.18301270 -0.68301270 0.68301270" material="mat_disc_horn_knee" mass="0.004000"/>
+            <geom class="visual" name="L1_passive_horn_knee" mesh="disc_horn" pos="-0.000000 0.041300 -0.000000" quat="0.18301270 -0.18301270 -0.68301270 -0.68301270" material="mat_passive_horn_knee" mass="0.004000"/>
+            <geom class="legpart" name="L1_tibia_tube" mesh="tibia_tube" pos="0.000000 0.000000 0.000000" material="mat_tibia_tube" mass="0.004500"/>
+            <body name="L1_pad" pos="0.142000 0.024150 0.000000">
+              <geom class="foot" name="L1_foot" mesh="foot_boot" material="mat_foot_boot" mass="0.003000"/>
+              <site name="L1_foot_site" pos="0.003500 0 0" size="0.018" group="4" rgba="1 1 1 0.05"/>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="L2_yaw" pos="-0.086603 0.050000 0.015250" quat="0.25881905 0 0 0.96592583">
+        <joint name="L2_yaw" type="hinge" axis="0 0 1" range="-0.61 0.61"/>
+        <geom class="legpart" name="L2_coxa_link" mesh="coxa_link" pos="-0.000000 0.000000 0.000000" material="mat_coxa_link" mass="0.052223"/>
+        <geom class="visual" name="L2_yaw_bearing_cap" mesh="yaw_bearing_cap" pos="-0.000000 0.000000 0.000000" material="mat_yaw_bearing_cap" mass="0.005318"/>
+        <geom class="visual" name="L2_yaw_bearing_lower" mesh="yaw_bearing_lower" pos="-0.000000 0.000000 0.000000" material="mat_yaw_bearing_lower" mass="0.010000"/>
+        <geom class="visual" name="L2_yaw_bearing_upper" mesh="yaw_bearing_upper" pos="-0.000000 0.000000 0.000000" material="mat_yaw_bearing_upper" mass="0.010000"/>
+        <geom class="legpart" name="L2_hip_servo" mesh="hip_servo" pos="0.000000 0.015650 0.038400" quat="0.70710678 0.70710678 -0.00000000 -0.00000000" material="mat_hip_servo" mass="0.061000"/>
+        <geom class="legpart" name="L2_hip_clamp_cap" mesh="hip_clamp_cap" pos="0.000000 0.015650 0.038400" quat="0.70710678 0.70710678 -0.00000000 -0.00000000" material="mat_hip_clamp_cap" mass="0.018412"/>
+        <geom class="visual" name="L2_disc_horn_yaw" mesh="disc_horn" pos="-0.000000 0.000000 -0.009000" material="mat_disc_horn_yaw" mass="0.004000"/>
+        <body name="L2_femur" pos="0.012500 -0.025650 0.038400">
+          <joint name="L2_pitch" type="hinge" axis="0 1 0" range="-1.4 0.52"/>
+          <geom class="legpart" name="L2_femur_link" mesh="femur_link" pos="-0.012500 0.041300 0.000000" quat="0.70710678 0.70710678 -0.00000000 0.00000000" material="mat_femur_link" mass="0.055006"/>
+          <geom class="legpart" name="L2_knee_servo" mesh="knee_servo" pos="0.077500 0.041300 -0.000000" quat="0.70710678 0.70710678 -0.00000000 0.00000000" material="mat_knee_servo" mass="0.061000"/>
+          <geom class="legpart" name="L2_knee_clamp_cap" mesh="knee_clamp_cap" pos="0.077500 0.041300 -0.000000" quat="0.70710678 0.70710678 -0.00000000 0.00000000" material="mat_knee_clamp_cap" mass="0.018539"/>
+          <geom class="visual" name="L2_disc_horn_hip" mesh="disc_horn" pos="0.000000 0.007000 0.000000" quat="0.64085638 0.64085638 0.29883624 -0.29883624" material="mat_disc_horn_hip" mass="0.004000"/>
+          <geom class="visual" name="L2_passive_horn_hip" mesh="disc_horn" pos="0.000000 0.041300 0.000000" quat="0.64085638 -0.64085638 0.29883624 0.29883624" material="mat_passive_horn_hip" mass="0.004000"/>
+          <body name="L2_tibia" pos="0.090000 0 0">
+            <joint name="L2_knee" type="hinge" axis="0 1 0" range="-0.35 2.62"/>
+            <geom class="legpart" name="L2_tibia_knee_yoke" mesh="tibia_knee_yoke" pos="-0.012500 0.041300 -0.000000" quat="0.70710678 0.70710678 0.00000000 0.00000000" material="mat_tibia_knee_yoke" mass="0.017227"/>
+            <geom class="visual" name="L2_disc_horn_knee" mesh="disc_horn" pos="-0.000000 0.007000 0.000000" quat="0.18301270 0.18301270 -0.68301270 0.68301270" material="mat_disc_horn_knee" mass="0.004000"/>
+            <geom class="visual" name="L2_passive_horn_knee" mesh="disc_horn" pos="-0.000000 0.041300 -0.000000" quat="0.18301270 -0.18301270 -0.68301270 -0.68301270" material="mat_passive_horn_knee" mass="0.004000"/>
+            <geom class="legpart" name="L2_tibia_tube" mesh="tibia_tube" pos="0.000000 0.000000 0.000000" material="mat_tibia_tube" mass="0.004500"/>
+            <body name="L2_pad" pos="0.142000 0.024150 0.000000">
+              <geom class="foot" name="L2_foot" mesh="foot_boot" material="mat_foot_boot" mass="0.003000"/>
+              <site name="L2_foot_site" pos="0.003500 0 0" size="0.018" group="4" rgba="1 1 1 0.05"/>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="L3_yaw" pos="-0.086603 -0.050000 0.015250" quat="-0.25881905 0 0 0.96592583">
+        <joint name="L3_yaw" type="hinge" axis="0 0 1" range="-0.61 0.61"/>
+        <geom class="legpart" name="L3_coxa_link" mesh="coxa_link" pos="-0.000000 0.000000 0.000000" material="mat_coxa_link" mass="0.052223"/>
+        <geom class="visual" name="L3_yaw_bearing_cap" mesh="yaw_bearing_cap" pos="-0.000000 0.000000 0.000000" material="mat_yaw_bearing_cap" mass="0.005318"/>
+        <geom class="visual" name="L3_yaw_bearing_lower" mesh="yaw_bearing_lower" pos="-0.000000 0.000000 0.000000" material="mat_yaw_bearing_lower" mass="0.010000"/>
+        <geom class="visual" name="L3_yaw_bearing_upper" mesh="yaw_bearing_upper" pos="-0.000000 0.000000 0.000000" material="mat_yaw_bearing_upper" mass="0.010000"/>
+        <geom class="legpart" name="L3_hip_servo" mesh="hip_servo" pos="0.000000 0.015650 0.038400" quat="0.70710678 0.70710678 -0.00000000 -0.00000000" material="mat_hip_servo" mass="0.061000"/>
+        <geom class="legpart" name="L3_hip_clamp_cap" mesh="hip_clamp_cap" pos="0.000000 0.015650 0.038400" quat="0.70710678 0.70710678 -0.00000000 -0.00000000" material="mat_hip_clamp_cap" mass="0.018412"/>
+        <geom class="visual" name="L3_disc_horn_yaw" mesh="disc_horn" pos="-0.000000 0.000000 -0.009000" material="mat_disc_horn_yaw" mass="0.004000"/>
+        <body name="L3_femur" pos="0.012500 -0.025650 0.038400">
+          <joint name="L3_pitch" type="hinge" axis="0 1 0" range="-1.4 0.52"/>
+          <geom class="legpart" name="L3_femur_link" mesh="femur_link" pos="-0.012500 0.041300 0.000000" quat="0.70710678 0.70710678 -0.00000000 0.00000000" material="mat_femur_link" mass="0.055006"/>
+          <geom class="legpart" name="L3_knee_servo" mesh="knee_servo" pos="0.077500 0.041300 -0.000000" quat="0.70710678 0.70710678 -0.00000000 0.00000000" material="mat_knee_servo" mass="0.061000"/>
+          <geom class="legpart" name="L3_knee_clamp_cap" mesh="knee_clamp_cap" pos="0.077500 0.041300 -0.000000" quat="0.70710678 0.70710678 -0.00000000 0.00000000" material="mat_knee_clamp_cap" mass="0.018539"/>
+          <geom class="visual" name="L3_disc_horn_hip" mesh="disc_horn" pos="0.000000 0.007000 0.000000" quat="0.64085638 0.64085638 0.29883624 -0.29883624" material="mat_disc_horn_hip" mass="0.004000"/>
+          <geom class="visual" name="L3_passive_horn_hip" mesh="disc_horn" pos="0.000000 0.041300 0.000000" quat="0.64085638 -0.64085638 0.29883624 0.29883624" material="mat_passive_horn_hip" mass="0.004000"/>
+          <body name="L3_tibia" pos="0.090000 0 0">
+            <joint name="L3_knee" type="hinge" axis="0 1 0" range="-0.35 2.62"/>
+            <geom class="legpart" name="L3_tibia_knee_yoke" mesh="tibia_knee_yoke" pos="-0.012500 0.041300 -0.000000" quat="0.70710678 0.70710678 0.00000000 0.00000000" material="mat_tibia_knee_yoke" mass="0.017227"/>
+            <geom class="visual" name="L3_disc_horn_knee" mesh="disc_horn" pos="-0.000000 0.007000 0.000000" quat="0.18301270 0.18301270 -0.68301270 0.68301270" material="mat_disc_horn_knee" mass="0.004000"/>
+            <geom class="visual" name="L3_passive_horn_knee" mesh="disc_horn" pos="-0.000000 0.041300 -0.000000" quat="0.18301270 -0.18301270 -0.68301270 -0.68301270" material="mat_passive_horn_knee" mass="0.004000"/>
+            <geom class="legpart" name="L3_tibia_tube" mesh="tibia_tube" pos="0.000000 0.000000 0.000000" material="mat_tibia_tube" mass="0.004500"/>
+            <body name="L3_pad" pos="0.142000 0.024150 0.000000">
+              <geom class="foot" name="L3_foot" mesh="foot_boot" material="mat_foot_boot" mass="0.003000"/>
+              <site name="L3_foot_site" pos="0.003500 0 0" size="0.018" group="4" rgba="1 1 1 0.05"/>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="L4_yaw" pos="-0.000000 -0.100000 0.015250" quat="-0.70710678 0 0 0.70710678">
+        <joint name="L4_yaw" type="hinge" axis="0 0 1" range="-0.61 0.61"/>
+        <geom class="legpart" name="L4_coxa_link" mesh="coxa_link" pos="-0.000000 0.000000 0.000000" material="mat_coxa_link" mass="0.052223"/>
+        <geom class="visual" name="L4_yaw_bearing_cap" mesh="yaw_bearing_cap" pos="-0.000000 0.000000 0.000000" material="mat_yaw_bearing_cap" mass="0.005318"/>
+        <geom class="visual" name="L4_yaw_bearing_lower" mesh="yaw_bearing_lower" pos="-0.000000 0.000000 0.000000" material="mat_yaw_bearing_lower" mass="0.010000"/>
+        <geom class="visual" name="L4_yaw_bearing_upper" mesh="yaw_bearing_upper" pos="-0.000000 0.000000 0.000000" material="mat_yaw_bearing_upper" mass="0.010000"/>
+        <geom class="legpart" name="L4_hip_servo" mesh="hip_servo" pos="0.000000 0.015650 0.038400" quat="0.70710678 0.70710678 -0.00000000 -0.00000000" material="mat_hip_servo" mass="0.061000"/>
+        <geom class="legpart" name="L4_hip_clamp_cap" mesh="hip_clamp_cap" pos="0.000000 0.015650 0.038400" quat="0.70710678 0.70710678 -0.00000000 -0.00000000" material="mat_hip_clamp_cap" mass="0.018412"/>
+        <geom class="visual" name="L4_disc_horn_yaw" mesh="disc_horn" pos="-0.000000 0.000000 -0.009000" material="mat_disc_horn_yaw" mass="0.004000"/>
+        <body name="L4_femur" pos="0.012500 -0.025650 0.038400">
+          <joint name="L4_pitch" type="hinge" axis="0 1 0" range="-1.4 0.52"/>
+          <geom class="legpart" name="L4_femur_link" mesh="femur_link" pos="-0.012500 0.041300 0.000000" quat="0.70710678 0.70710678 -0.00000000 0.00000000" material="mat_femur_link" mass="0.055006"/>
+          <geom class="legpart" name="L4_knee_servo" mesh="knee_servo" pos="0.077500 0.041300 -0.000000" quat="0.70710678 0.70710678 -0.00000000 0.00000000" material="mat_knee_servo" mass="0.061000"/>
+          <geom class="legpart" name="L4_knee_clamp_cap" mesh="knee_clamp_cap" pos="0.077500 0.041300 -0.000000" quat="0.70710678 0.70710678 -0.00000000 0.00000000" material="mat_knee_clamp_cap" mass="0.018539"/>
+          <geom class="visual" name="L4_disc_horn_hip" mesh="disc_horn" pos="0.000000 0.007000 0.000000" quat="0.64085638 0.64085638 0.29883624 -0.29883624" material="mat_disc_horn_hip" mass="0.004000"/>
+          <geom class="visual" name="L4_passive_horn_hip" mesh="disc_horn" pos="0.000000 0.041300 0.000000" quat="0.64085638 -0.64085638 0.29883624 0.29883624" material="mat_passive_horn_hip" mass="0.004000"/>
+          <body name="L4_tibia" pos="0.090000 0 0">
+            <joint name="L4_knee" type="hinge" axis="0 1 0" range="-0.35 2.62"/>
+            <geom class="legpart" name="L4_tibia_knee_yoke" mesh="tibia_knee_yoke" pos="-0.012500 0.041300 -0.000000" quat="0.70710678 0.70710678 0.00000000 0.00000000" material="mat_tibia_knee_yoke" mass="0.017227"/>
+            <geom class="visual" name="L4_disc_horn_knee" mesh="disc_horn" pos="-0.000000 0.007000 0.000000" quat="0.18301270 0.18301270 -0.68301270 0.68301270" material="mat_disc_horn_knee" mass="0.004000"/>
+            <geom class="visual" name="L4_passive_horn_knee" mesh="disc_horn" pos="-0.000000 0.041300 -0.000000" quat="0.18301270 -0.18301270 -0.68301270 -0.68301270" material="mat_passive_horn_knee" mass="0.004000"/>
+            <geom class="legpart" name="L4_tibia_tube" mesh="tibia_tube" pos="0.000000 0.000000 0.000000" material="mat_tibia_tube" mass="0.004500"/>
+            <body name="L4_pad" pos="0.142000 0.024150 0.000000">
+              <geom class="foot" name="L4_foot" mesh="foot_boot" material="mat_foot_boot" mass="0.003000"/>
+              <site name="L4_foot_site" pos="0.003500 0 0" size="0.018" group="4" rgba="1 1 1 0.05"/>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="L5_yaw" pos="0.086603 -0.050000 0.015250" quat="-0.96592583 0 0 0.25881905">
+        <joint name="L5_yaw" type="hinge" axis="0 0 1" range="-0.61 0.61"/>
+        <geom class="legpart" name="L5_coxa_link" mesh="coxa_link" pos="-0.000000 0.000000 0.000000" material="mat_coxa_link" mass="0.052223"/>
+        <geom class="visual" name="L5_yaw_bearing_cap" mesh="yaw_bearing_cap" pos="-0.000000 0.000000 0.000000" material="mat_yaw_bearing_cap" mass="0.005318"/>
+        <geom class="visual" name="L5_yaw_bearing_lower" mesh="yaw_bearing_lower" pos="-0.000000 0.000000 0.000000" material="mat_yaw_bearing_lower" mass="0.010000"/>
+        <geom class="visual" name="L5_yaw_bearing_upper" mesh="yaw_bearing_upper" pos="-0.000000 0.000000 0.000000" material="mat_yaw_bearing_upper" mass="0.010000"/>
+        <geom class="legpart" name="L5_hip_servo" mesh="hip_servo" pos="0.000000 0.015650 0.038400" quat="0.70710678 0.70710678 -0.00000000 -0.00000000" material="mat_hip_servo" mass="0.061000"/>
+        <geom class="legpart" name="L5_hip_clamp_cap" mesh="hip_clamp_cap" pos="0.000000 0.015650 0.038400" quat="0.70710678 0.70710678 -0.00000000 -0.00000000" material="mat_hip_clamp_cap" mass="0.018412"/>
+        <geom class="visual" name="L5_disc_horn_yaw" mesh="disc_horn" pos="-0.000000 0.000000 -0.009000" material="mat_disc_horn_yaw" mass="0.004000"/>
+        <body name="L5_femur" pos="0.012500 -0.025650 0.038400">
+          <joint name="L5_pitch" type="hinge" axis="0 1 0" range="-1.4 0.52"/>
+          <geom class="legpart" name="L5_femur_link" mesh="femur_link" pos="-0.012500 0.041300 0.000000" quat="0.70710678 0.70710678 -0.00000000 0.00000000" material="mat_femur_link" mass="0.055006"/>
+          <geom class="legpart" name="L5_knee_servo" mesh="knee_servo" pos="0.077500 0.041300 -0.000000" quat="0.70710678 0.70710678 -0.00000000 0.00000000" material="mat_knee_servo" mass="0.061000"/>
+          <geom class="legpart" name="L5_knee_clamp_cap" mesh="knee_clamp_cap" pos="0.077500 0.041300 -0.000000" quat="0.70710678 0.70710678 -0.00000000 0.00000000" material="mat_knee_clamp_cap" mass="0.018539"/>
+          <geom class="visual" name="L5_disc_horn_hip" mesh="disc_horn" pos="0.000000 0.007000 0.000000" quat="0.64085638 0.64085638 0.29883624 -0.29883624" material="mat_disc_horn_hip" mass="0.004000"/>
+          <geom class="visual" name="L5_passive_horn_hip" mesh="disc_horn" pos="0.000000 0.041300 0.000000" quat="0.64085638 -0.64085638 0.29883624 0.29883624" material="mat_passive_horn_hip" mass="0.004000"/>
+          <body name="L5_tibia" pos="0.090000 0 0">
+            <joint name="L5_knee" type="hinge" axis="0 1 0" range="-0.35 2.62"/>
+            <geom class="legpart" name="L5_tibia_knee_yoke" mesh="tibia_knee_yoke" pos="-0.012500 0.041300 -0.000000" quat="0.70710678 0.70710678 0.00000000 0.00000000" material="mat_tibia_knee_yoke" mass="0.017227"/>
+            <geom class="visual" name="L5_disc_horn_knee" mesh="disc_horn" pos="-0.000000 0.007000 0.000000" quat="0.18301270 0.18301270 -0.68301270 0.68301270" material="mat_disc_horn_knee" mass="0.004000"/>
+            <geom class="visual" name="L5_passive_horn_knee" mesh="disc_horn" pos="-0.000000 0.041300 -0.000000" quat="0.18301270 -0.18301270 -0.68301270 -0.68301270" material="mat_passive_horn_knee" mass="0.004000"/>
+            <geom class="legpart" name="L5_tibia_tube" mesh="tibia_tube" pos="0.000000 0.000000 0.000000" material="mat_tibia_tube" mass="0.004500"/>
+            <body name="L5_pad" pos="0.142000 0.024150 0.000000">
+              <geom class="foot" name="L5_foot" mesh="foot_boot" material="mat_foot_boot" mass="0.003000"/>
+              <site name="L5_foot_site" pos="0.003500 0 0" size="0.018" group="4" rgba="1 1 1 0.05"/>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <position name="L0_yaw" joint="L0_yaw" kp="18.0" forcerange="-2.2 2.2"/>
+    <position name="L0_pitch" joint="L0_pitch" kp="26.0" forcerange="-2.2 2.2"/>
+    <position name="L0_knee" joint="L0_knee" kp="24.0" forcerange="-2.2 2.2"/>
+    <velocity name="L0_yaw_d" joint="L0_yaw" kv="0.35" forcerange="-2.2 2.2"/>
+    <velocity name="L0_pitch_d" joint="L0_pitch" kv="0.45" forcerange="-2.2 2.2"/>
+    <velocity name="L0_knee_d" joint="L0_knee" kv="0.4" forcerange="-2.2 2.2"/>
+    <position name="L1_yaw" joint="L1_yaw" kp="18.0" forcerange="-2.2 2.2"/>
+    <position name="L1_pitch" joint="L1_pitch" kp="26.0" forcerange="-2.2 2.2"/>
+    <position name="L1_knee" joint="L1_knee" kp="24.0" forcerange="-2.2 2.2"/>
+    <velocity name="L1_yaw_d" joint="L1_yaw" kv="0.35" forcerange="-2.2 2.2"/>
+    <velocity name="L1_pitch_d" joint="L1_pitch" kv="0.45" forcerange="-2.2 2.2"/>
+    <velocity name="L1_knee_d" joint="L1_knee" kv="0.4" forcerange="-2.2 2.2"/>
+    <position name="L2_yaw" joint="L2_yaw" kp="18.0" forcerange="-2.2 2.2"/>
+    <position name="L2_pitch" joint="L2_pitch" kp="26.0" forcerange="-2.2 2.2"/>
+    <position name="L2_knee" joint="L2_knee" kp="24.0" forcerange="-2.2 2.2"/>
+    <velocity name="L2_yaw_d" joint="L2_yaw" kv="0.35" forcerange="-2.2 2.2"/>
+    <velocity name="L2_pitch_d" joint="L2_pitch" kv="0.45" forcerange="-2.2 2.2"/>
+    <velocity name="L2_knee_d" joint="L2_knee" kv="0.4" forcerange="-2.2 2.2"/>
+    <position name="L3_yaw" joint="L3_yaw" kp="18.0" forcerange="-2.2 2.2"/>
+    <position name="L3_pitch" joint="L3_pitch" kp="26.0" forcerange="-2.2 2.2"/>
+    <position name="L3_knee" joint="L3_knee" kp="24.0" forcerange="-2.2 2.2"/>
+    <velocity name="L3_yaw_d" joint="L3_yaw" kv="0.35" forcerange="-2.2 2.2"/>
+    <velocity name="L3_pitch_d" joint="L3_pitch" kv="0.45" forcerange="-2.2 2.2"/>
+    <velocity name="L3_knee_d" joint="L3_knee" kv="0.4" forcerange="-2.2 2.2"/>
+    <position name="L4_yaw" joint="L4_yaw" kp="18.0" forcerange="-2.2 2.2"/>
+    <position name="L4_pitch" joint="L4_pitch" kp="26.0" forcerange="-2.2 2.2"/>
+    <position name="L4_knee" joint="L4_knee" kp="24.0" forcerange="-2.2 2.2"/>
+    <velocity name="L4_yaw_d" joint="L4_yaw" kv="0.35" forcerange="-2.2 2.2"/>
+    <velocity name="L4_pitch_d" joint="L4_pitch" kv="0.45" forcerange="-2.2 2.2"/>
+    <velocity name="L4_knee_d" joint="L4_knee" kv="0.4" forcerange="-2.2 2.2"/>
+    <position name="L5_yaw" joint="L5_yaw" kp="18.0" forcerange="-2.2 2.2"/>
+    <position name="L5_pitch" joint="L5_pitch" kp="26.0" forcerange="-2.2 2.2"/>
+    <position name="L5_knee" joint="L5_knee" kp="24.0" forcerange="-2.2 2.2"/>
+    <velocity name="L5_yaw_d" joint="L5_yaw" kv="0.35" forcerange="-2.2 2.2"/>
+    <velocity name="L5_pitch_d" joint="L5_pitch" kv="0.45" forcerange="-2.2 2.2"/>
+    <velocity name="L5_knee_d" joint="L5_knee" kv="0.4" forcerange="-2.2 2.2"/>
+  </actuator>
+
+  <sensor>
+    <jointpos name="L0_yaw_p" joint="L0_yaw"/>
+    <jointpos name="L0_pitch_p" joint="L0_pitch"/>
+    <jointpos name="L0_knee_p" joint="L0_knee"/>
+    <touch name="L0_foot_t" site="L0_foot_site"/>
+    <jointpos name="L1_yaw_p" joint="L1_yaw"/>
+    <jointpos name="L1_pitch_p" joint="L1_pitch"/>
+    <jointpos name="L1_knee_p" joint="L1_knee"/>
+    <touch name="L1_foot_t" site="L1_foot_site"/>
+    <jointpos name="L2_yaw_p" joint="L2_yaw"/>
+    <jointpos name="L2_pitch_p" joint="L2_pitch"/>
+    <jointpos name="L2_knee_p" joint="L2_knee"/>
+    <touch name="L2_foot_t" site="L2_foot_site"/>
+    <jointpos name="L3_yaw_p" joint="L3_yaw"/>
+    <jointpos name="L3_pitch_p" joint="L3_pitch"/>
+    <jointpos name="L3_knee_p" joint="L3_knee"/>
+    <touch name="L3_foot_t" site="L3_foot_site"/>
+    <jointpos name="L4_yaw_p" joint="L4_yaw"/>
+    <jointpos name="L4_pitch_p" joint="L4_pitch"/>
+    <jointpos name="L4_knee_p" joint="L4_knee"/>
+    <touch name="L4_foot_t" site="L4_foot_site"/>
+    <jointpos name="L5_yaw_p" joint="L5_yaw"/>
+    <jointpos name="L5_pitch_p" joint="L5_pitch"/>
+    <jointpos name="L5_knee_p" joint="L5_knee"/>
+    <touch name="L5_foot_t" site="L5_foot_site"/>
+    <accelerometer name="chassis_acc" site="chassis_imu"/>
+    <gyro name="chassis_gyro" site="chassis_imu"/>
+    <framepos name="chassis_pos" objtype="body" objname="chassis"/>
+    <framezaxis name="chassis_up" objtype="body" objname="chassis"/>
+  </sensor>
+
+  <keyframe>
+    <key name="plant" qpos="0 0 0.125420 1 0 0 0 0.000000 0.349066 1.396263 0.000000 0.349066 1.396263 0.000000 0.349066 1.396263 0.000000 0.349066 1.396263 0.000000 0.349066 1.396263 0.000000 0.349066 1.396263" ctrl="0.000000 0.349066 1.396263 0 0 0 0.000000 0.349066 1.396263 0 0 0 0.000000 0.349066 1.396263 0 0 0 0.000000 0.349066 1.396263 0 0 0 0.000000 0.349066 1.396263 0 0 0 0.000000 0.349066 1.396263 0 0 0"/>
+    <key name="stance" qpos="0 0 0.040500 1 0 0 0 0.000000 -0.436332 1.308997 0.000000 -0.436332 1.308997 0.000000 -0.436332 1.308997 0.000000 -0.436332 1.308997 0.000000 -0.436332 1.308997 0.000000 -0.436332 1.308997" ctrl="0.000000 -0.436332 1.308997 0 0 0 0.000000 -0.436332 1.308997 0 0 0 0.000000 -0.436332 1.308997 0 0 0 0.000000 -0.436332 1.308997 0 0 0 0.000000 -0.436332 1.308997 0 0 0 0.000000 -0.436332 1.308997 0 0 0"/>
+  </keyframe>
+</mujoco>

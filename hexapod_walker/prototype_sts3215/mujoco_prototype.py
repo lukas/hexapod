@@ -21,7 +21,7 @@ import time
 import mujoco
 import numpy as np
 
-import hexapod_prototype as HP
+from hexapod_core import geometry as HP
 from part_palette import PART_COLORS
 
 
@@ -145,7 +145,7 @@ YAW_HORN_DZ = ((HP.SERVO_BODY_H - HP.WELL_RIM_Z) + HP.SERVO_OUTPUT_H) * M
 # SERVO_OUTPUT_H), hip_drop) -- after the rotation, that lands the spline
 # tip on the joint axis at the chosen drop.
 PITCH_ARM_T = HP.COXA_ARM_T     # MUST match make_coxa_link()'s arm_t
-# Single source of truth: ``hexapod_prototype.COXA_HIP_DROP`` already
+# Single source of truth: ``hexapod_core.geometry.COXA_HIP_DROP`` already
 # includes the ``WELL_Z_DROP_EXTRA = 4 mm`` extra well drop that landed
 # in the spar-clearance / horn-stack-clearance fix.  Re-deriving the
 # formula here lost the +4 mm offset and made the rendered hip-servo

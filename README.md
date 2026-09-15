@@ -23,9 +23,10 @@ layout kept the extraction risk-free.
 
 The current robot is
 [`hexapod_walker/prototype_sts3215/`](hexapod_walker/prototype_sts3215/): an
-18-servo Feetech STS3215 hexapod with CAD, MuJoCo/RL, robot control, and an
+18-servo Feetech STS3215 hexapod with MuJoCo/RL, robot control, and an
 AprilTag tracker submodule. Start with that project's `README.md` and
-`AGENTS.md`.
+`AGENTS.md`. The mechanical design (CAD, BOM, printing, BuildViz) is the
+separate repo [lukas/hexapod-cad](https://github.com/lukas/hexapod-cad).
 
 The hexapod has [two parallel walking goals](hexapod_walker/prototype_sts3215/RL_GOALS.md):
 smooth joystick control in simulation and on the physical robot by any

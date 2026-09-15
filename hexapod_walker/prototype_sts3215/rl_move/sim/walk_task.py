@@ -792,8 +792,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
     MJX_SNAPSHOT_EXTRA = ("_foot_on", "_liftoff_xy", "_liftoff_step",
                           "_foot_prev_xy", "_foot_prev_force",
                           "_foot_tan_slip_m", "_duty_hist",
-                          "_dgate_hist", "_swing_gate_hist",
-                          "_dbandgate_hist", "_phase",
+                          "_dgate_hist", "_swing_gate_hist", "_phase",
                           "_anchor_xy", "_anchor_prev_on",
                           "_walk_bucket", "_step_disp_bank",
                           "_ls_prev_xy", "_ls_prev_on",
@@ -890,13 +889,6 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # kept SEPARATE from _dgate_hist/_duty_hist so the three
         # mechanisms cannot perturb each other's windows.
         self._swing_gate_hist: list = []
-        # Per-leg contact-duty TWO-SIDED BAND income gate history
-        # (09-07, reward.walk_duty_band_gate): trailing window of six
-        # contact booleans per commanded tick, own state so this gate
-        # never shares a window with the (closed) floor-only
-        # walk_duty_gate or walk_swing_gate. See the gate's own
-        # comment block near its cfg reads for the design rationale.
-        self._dbandgate_hist: list = []
         # Anchored-stance income gate bookkeeping (cycle 30): per-foot
         # world XY at touchdown ("anchor point") and its own prev-contact
         # state, kept SEPARATE from the step-event vars above so the two
@@ -1135,50 +1127,6 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 "start_m": _da_start_mm / 1000.0,
                 "target_m": _da_target_mm / 1000.0,
                 "frac": 1.0,
-            }
-        # Termination-penalty RAMP (08-22, freeprog-term400-stall dig-in
-        # follow-up): term_penalty=400 correctly killed the suicide
-        # exploit (cw-amp-m2-freeprog-{noamp,style05}FAIL, dig-in
-        # 08-22) but the term400 fix pair's own dig-in found a NEW
-        # tension — env/reward_walk_freeprog_pen sits at a sustained
-        # ~-1.4 to -1.8/tick cross-track charge (six legs cycling but
-        # marching in place, near-zero along-command travel) for the
-        # WHOLE 2M budget with terminations mostly SURVIVED (truncated-
-        # dominant), i.e. the policy is choosing a known, bounded-cost
-        # micro-stepping basin over the unknown, front-loaded risk of
-        # a -400 charge while it is still unskilled at real strides.
-        # Symmetric fix to the drag-allow ramp above: start the
-        # termination charge LOW (reward.term_penalty_ramp_init, cheap
-        # to fall while still learning to move) and anneal it UP to
-        # the validated reward.term_penalty target over
-        # reward.term_penalty_ramp_steps global env steps — so early
-        # exploration of real strides is not front-loaded with the
-        # full anti-suicide cost, while the final regime still prices
-        # death at the validated deterrent level. Same cfg-armed /
-        # trainer-driven / default-OFF contract; armed-but-unbroadcast
-        # sits at the TARGET (full) penalty, so eval_checkpoint / play
-        # always judge the validated deterrent even mid-ramp cfg.
-        self._term_penalty_ramp: dict | None = None
-        self._term_penalty_override: float | None = None
-        _tp_ramp_steps = int(float(cfg_get(
-            self.cfg, "reward", "term_penalty_ramp_steps",
-            default=0) or 0))
-        if _tp_ramp_steps > 0:
-            _tp_target = float(cfg_get(self.cfg, "reward",
-                                       "term_penalty", default=0.0))
-            _tp_start = float(cfg_get(
-                self.cfg, "reward", "term_penalty_ramp_init",
-                default=0.0))
-            if _tp_start > _tp_target:
-                raise ValueError(
-                    "reward.term_penalty_ramp_init "
-                    f"({_tp_start:g}) must be <= the target "
-                    f"reward.term_penalty ({_tp_target:g}) — the ramp "
-                    "only ever raises, never lowers, the termination "
-                    "charge below the validated deterrent")
-            self._term_penalty_ramp = {
-                "steps": _tp_ramp_steps, "start": _tp_start,
-                "target": _tp_target, "frac": 1.0,
             }
         # Dense walk-charge RAMP (08-23, walkcurr fwd1/fwd2 dig-in):
         # from-scratch PPO froze into a tilt-safe splayed crouch for
@@ -1645,7 +1593,6 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._duty_hist = []
         self._dgate_hist = []
         self._swing_gate_hist = []
-        self._dbandgate_hist = []
         self._anchor_xy = [None] * 6
         self._anchor_prev_on = [False] * 6
         self._step_disp_bank = 0.0
@@ -2223,31 +2170,12 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._drag_allow_ramp["frac"] = f
         return {"frac": f, "allow_mm": self._drag_allow_override_m * 1000.0}
 
-    def apply_term_penalty_frac(self, frac: float) -> dict:
-        """Move the live termination penalty to ``frac`` of the ramp
-        (0 = lenient start, 1 = the validated cfg target); trainer-
-        driven — see the ``reward.term_penalty_ramp_steps`` block in
-        ``__init__``. Mirrors ``apply_drag_allow_frac``'s contract
-        exactly: raises when the ramp is not armed.
-        """
-        if self._term_penalty_ramp is None:
-            raise RuntimeError(
-                "apply_term_penalty_frac called but reward."
-                "term_penalty_ramp_steps is not set (>0) in this "
-                "env's cfg — the term-penalty ramp is not armed")
-        f = min(max(float(frac), 0.0), 1.0)
-        s = self._term_penalty_ramp["start"]
-        t = self._term_penalty_ramp["target"]
-        self._term_penalty_override = s + f * (t - s)
-        self._term_penalty_ramp["frac"] = f
-        return {"frac": f, "term_penalty": self._term_penalty_override}
-
     def apply_walk_charge_frac(self, frac: float) -> dict:
         """Move the live dense-walk-charge scale to ``frac`` of the
         ramp (0 = walk_charge_ramp_min_frac of every scaled charge,
         1 = the full bank-proven dose); trainer-driven — see the
         ``reward.walk_charge_ramp_steps`` block in ``__init__``.
-        Mirrors ``apply_term_penalty_frac``'s contract exactly:
+        Mirrors ``apply_drag_allow_frac``'s contract exactly:
         raises when the ramp is not armed, so a broadcast that
         silently no-ops is never a hidden failure mode.
         """
@@ -3659,7 +3587,6 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._duty_hist = []
         self._dgate_hist = []
         self._swing_gate_hist = []
-        self._dbandgate_hist = []
         self._anchor_xy = [None] * 6
         self._anchor_prev_on = [False] * 6
         self._step_disp_bank = 0.0
@@ -4873,72 +4800,6 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     r_cmd_track *= dg_factor
                 info["walk_duty_min"] = d_score
                 info["walk_duty_gate_factor"] = dg_factor
-            # Per-leg contact-DUTY TWO-SIDED BAND income gate (09-07,
-            # walkcurr item(1)/item(4) structural diagnostic follow-up
-            # -- CURRENT_TRUTHS.md 09-05 ~22:3x named the shared root
-            # cause behind BOTH the walk_duty_gate closure (9/9 FAIL,
-            # a fully-planted/vibrating leg trivially clears any
-            # FLOOR-only duty price since duty=1.0 always beats a
-            # floor <1.0) and the walk_swing_gate closure (5/5 FAIL,
-            # a leg that toe-taps with frequent real-stride swings but
-            # never bears load/propels clears a swing-COUNT floor
-            # while running near-zero duty the rest of the time): both
-            # closed mechanisms only ever priced ONE side of duty
-            # (more is better, or more swings is better). A genuine
-            # tripod gait's per-leg duty sits in a MIDDLE band
-            # (~0.4-0.6, alternating stance/swing); this gate scores
-            # BOTH tails as violations -- MIN over support legs of a
-            # trapezoid membership: score=duty/floor below the floor
-            # (closes the skate/toe-tap exploit, same slope as
-            # walk_duty_gate), score=(1-duty)/(1-ceil) above the
-            # ceiling (closes the freeze/vibrate exploit walk_duty_gate
-            # could never reach), score=1.0 inside [floor, ceil]. A
-            # healthy tripod leg (duty ~0.4-0.6) sits deep inside the
-            # band and scores 1.0 regardless of dose; only a leg that
-            # has drifted to EITHER extreme is charged. Own trailing
-            # window/history (_dbandgate_hist), independent of the two
-            # closed gates' state so this arm's dose can be swept
-            # without perturbing them (both default 0 = inert).
-            # Default 0 = off: no state writes, no info keys, legacy
-            # bit-exact. cfg: reward.walk_duty_band_gate in [0,1],
-            # reward.duty_band_window_s (3.0), reward.duty_band_floor
-            # (0.15, matches walk_duty_gate's own floor),
-            # reward.duty_band_ceil (0.85).
-            g_dband = float(cfg_get(self.cfg, "reward",
-                                    "walk_duty_band_gate", default=0.0))
-            if g_dband > 0.0 and s_ref > 1e-3:
-                n_dbwin = max(1, int(round(float(cfg_get(
-                    self.cfg, "reward", "duty_band_window_s",
-                    default=3.0)) / self.dt)))
-                db_score = 1.0
-                if len(self._dbandgate_hist) >= n_dbwin:
-                    db_floor = float(cfg_get(self.cfg, "reward",
-                                              "duty_band_floor",
-                                              default=0.15))
-                    db_ceil = float(cfg_get(self.cfg, "reward",
-                                             "duty_band_ceil",
-                                             default=0.85))
-                    duty_b = np.mean(self._dbandgate_hist, axis=0)
-                    for f in range(6):
-                        if f in lift:
-                            continue
-                        du = float(duty_b[f])
-                        if du < db_floor:
-                            sc = du / max(db_floor, 1e-6)
-                        elif du > db_ceil:
-                            sc = (1.0 - du) / max(1.0 - db_ceil, 1e-6)
-                        else:
-                            sc = 1.0
-                        db_score = min(db_score, min(max(sc, 0.0), 1.0))
-                dbg_factor = (1.0 - g_dband) + g_dband * db_score
-                r_walk *= dbg_factor
-                support_gate *= dbg_factor
-                if r_prog > 0.0:
-                    r_prog *= dbg_factor
-                if r_cmd_track > 0.0:
-                    r_cmd_track *= dbg_factor
-                info["walk_duty_band_min"] = db_score
-                info["walk_duty_band_gate_factor"] = dbg_factor
             # Per-leg swing-RATE income gate (09-05, closing two prior
             # anti-park exploits together after both were confirmed
             # gameable end-to-end, 6/6 and 9/9 FAIL respectively --
@@ -6548,7 +6409,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     or k_drag > 0.0
                     or k_park > 0.0 or k_ds > 0.0
                     or g_gait > 0.0 or g_duty > 0.0 or g_swing > 0.0
-                    or g_dband > 0.0 or g_ratio > 0.0 or g_lsratio > 0.0
+                    or g_ratio > 0.0 or g_lsratio > 0.0
                     or g_swinggap > 0.0 or g_swinit > 0.0
                     or k_tslip > 0.0 or k_wts > 0.0
                     or contact_diag) and s_ref > 1e-3:
@@ -6935,19 +6796,6 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     if len(self._swing_gate_hist) > n_swin:
                         self._swing_gate_hist = (
                             self._swing_gate_hist[-n_swin:])
-                if g_dband > 0.0:
-                    # walk_duty_band_gate bookkeeping (09-07): own
-                    # trailing contact-duty window, independent of
-                    # walk_duty_gate's _dgate_hist so this arm's dose
-                    # sweep can run standalone (both default-off).
-                    self._dbandgate_hist.append(
-                        [1.0 if c else 0.0 for c in contacts])
-                    n_dbwin = max(1, int(round(float(cfg_get(
-                        self.cfg, "reward", "duty_band_window_s",
-                        default=3.0)) / self.dt)))
-                    if len(self._dbandgate_hist) > n_dbwin:
-                        self._dbandgate_hist = (
-                            self._dbandgate_hist[-n_dbwin:])
                 if g_ratio > 0.0:
                     # walk_leg_duty_ratio_charge bookkeeping (09-08):
                     # own EMA, independent of every other gate's
@@ -7175,11 +7023,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # Default 0.0 = bit-exact legacy. Eval/cert envs leave it 0
         # (evals run the raw reward, same rule as the transfer trainer).
         if term and not trunc:
-            if self._term_penalty_override is not None:
-                _tp = self._term_penalty_override
-            else:
-                _tp = float(cfg_get(self.cfg, "reward", "term_penalty",
-                                    default=0.0))
+            _tp = float(cfg_get(self.cfg, "reward", "term_penalty",
+                                default=0.0))
             # reward.walk_idle_terminate_penalty (2026-08-24): the
             # sustained-idle boundary (safety.walk_idle_terminate_s)
             # fires on the SAME code path as every other termination,

@@ -64,19 +64,18 @@ only; they are not included in any encoder input set.
 
 ## Rules of the road
 
-- **Do not connect PPO until gate G1 passes** (`eval_model` prints
-  PASS/FAIL): the model must beat persistence AND the linear predictor
-  at every horizon on held-out test windows. This is the brief's hard gate.
+- **Do not connect PPO until gate G1 passes**: the model must beat
+  persistence AND the linear predictor at every horizon on held-out test
+  windows. This is the brief's hard gate. The `eval_model` gate tool was
+  retired with the idle track on 2026-09-15; rebuild a gate before any new
+  pretraining is connected to PPO.
 - The split is a stable whole-episode 80/10/10 hash. Normalization and
   optimization use train only; checkpoint selection uses validation only;
   test is evaluated only after selecting the checkpoint. Training refuses a
   corpus whose validation or test split omits any collected actor, DR level,
   or mode.
-- Transfer cohorts currently run through pod scripts, not
-  `launch_run.py`; until they are launcher-wired, every launch must
-  write `rl_move/dynamics/logs/<cohort>_manifest.jsonl`, and a cycle
-  may call it launched only after `check_cohort.py` sees either live
-  `train_ppo_transfer` processes or a final `done` event.
+- Transfer cohorts launch only through `launch_run.py` (the pod_*.sh
+  cohort scripts and `check_cohort.py` were retired 2026-09-15).
 - The PPO encoder can only use the `obs` input set (59 policy-visible
   dims). Train the transfer candidate with `--input-set obs`; the
   default `full` set (currents, contacts, accel) is for the

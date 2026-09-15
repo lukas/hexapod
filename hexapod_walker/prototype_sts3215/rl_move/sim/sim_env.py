@@ -3494,8 +3494,8 @@ class SimHexapodBalanceEnv(_GymBase):
         (`goal.rise_ramp_s` after `goal.rise_hold_s`) regardless of
         whether the feet ever curled in. This is not another re-price:
         it makes the height ramp's own onset CONDITIONAL on a genuine
-        intermediate sub-goal (feet within `rise_curl_gate_threshold_mm`
-        of the plant footprint, i.e. curl-to-bridge-pose), by freezing
+        intermediate sub-goal (feet within 40 mm of the plant
+        footprint, i.e. curl-to-bridge-pose), by freezing
         the trajectory index fed to ``_current_goal()`` at the last
         pre-ramp (height==0) tick for as long as the sub-goal is unmet,
         up to a capped extra wait (`rise_curl_gate_max_extra_s`) so an
@@ -3527,10 +3527,7 @@ class SimHexapodBalanceEnv(_GymBase):
         max_extra_ticks = int(round(max_extra_s / self.dt))
         if freeze >= max_extra_ticks:
             return  # capped -- let the ramp proceed without the curl
-        th_m = float(cfg_get(
-            self.cfg, "goal", "rise_curl_gate_threshold_mm",
-            default=40.0)) * 0.001
-        if self._curl_dist() <= th_m:
+        if self._curl_dist() <= 40.0 * 0.001:
             return  # sub-goal met -- unlock permanently from here on
         self._rise_gate_freeze_ticks = freeze + 1
 
@@ -3583,10 +3580,10 @@ class SimHexapodBalanceEnv(_GymBase):
         way to say "you're not ready to go deeper yet". This is not a
         fourth re-price: it makes the ramp's own advance conditional on
         a genuine per-tick sub-goal (a measured fraction of feet loaded
-        above ``goal.lower_stage_load_ref_n``), by freezing the
+        above 1 N), by freezing the
         trajectory index fed to ``_current_goal()`` for as long as the
         sub-goal is unmet, up to a capped extra wait
-        (``goal.lower_stage_gate_max_extra_s``) so an episode that
+        (5 s) so an episode that
         never plants still eventually gets scored on the attempt
         rather than stalling forever. Unlike the rise gate (which only
         holds the PRE-ramp onset), this re-checks every tick for the
@@ -3610,18 +3607,10 @@ class SimHexapodBalanceEnv(_GymBase):
             return  # still inside the natural pre-ramp hold window
         if idx >= len(self._goal_traj.height) - 1:
             return  # ramp array already exhausted -- nothing to freeze
-        max_extra_s = float(cfg_get(
-            self.cfg, "goal", "lower_stage_gate_max_extra_s",
-            default=5.0))
-        max_extra_ticks = int(round(max_extra_s / self.dt))
+        max_extra_ticks = int(round(5.0 / self.dt))
         if freeze >= max_extra_ticks:
             return  # capped -- let the ramp proceed ungated from here
-        frac_min = float(cfg_get(
-            self.cfg, "goal", "lower_stage_planted_frac_min",
-            default=0.7))
-        load_ref_n = float(cfg_get(
-            self.cfg, "goal", "lower_stage_load_ref_n", default=1.0))
-        if self._lower_stage_planted_frac(load_ref_n) >= frac_min:
+        if self._lower_stage_planted_frac(1.0) >= 0.7:
             return  # sub-goal met this tick -- ramp advances normally
         self._lower_gate_freeze_ticks = freeze + 1
 
@@ -4704,7 +4693,7 @@ class SimHexapodBalanceEnv(_GymBase):
         # the paying plant -- same story as hold_low_height/walk_idle_
         # terminate: "absorbing states beat prices; must come WITH a
         # termination, never instead of one" (op ruling 08-24). An EMA
-        # (tau hold_min_load_terminate_tau_s) smooths sensor/contact
+        # (tau 0.25 s) smooths sensor/contact
         # chatter so one missed-contact tick can't false-trigger. A
         # foot with no touch sensor (adr<0) falls back to the
         # clearance test used elsewhere in this file (clear >
@@ -4748,9 +4737,7 @@ class SimHexapodBalanceEnv(_GymBase):
                 and (minload_cont
                      or (not terminated and hold_minload_term_s > 0.0
                          and minload_in_hold))):
-            minload_tau_s = max(float(cfg_get(
-                self.cfg, "safety", "hold_min_load_terminate_tau_s",
-                default=0.25)), self.dt)
+            minload_tau_s = max(0.25, self.dt)
             min_force_now = self._minload_min_force_now(minload_floor_n)
             self._hold_minload_ema += (self.dt / minload_tau_s) * (
                 min_force_now - self._hold_minload_ema)
@@ -4816,9 +4803,7 @@ class SimHexapodBalanceEnv(_GymBase):
             idle_floor = max(float(cfg_get(
                 self.cfg, "safety", "walk_idle_terminate_qvel_deg_s",
                 default=2.0)) * DEG2RAD, 1e-9)
-            idle_tau = max(float(cfg_get(
-                self.cfg, "safety", "walk_idle_terminate_tau_s",
-                default=0.25)), self.dt)
+            idle_tau = max(0.25, self.dt)
             qvel_now = float(np.mean(np.abs(self.data.qvel[self._vadr])))
             self._walk_qvel_ema += (self.dt / idle_tau) * (
                 qvel_now - self._walk_qvel_ema)
@@ -4920,9 +4905,6 @@ class SimHexapodBalanceEnv(_GymBase):
             # record. Default 0.0 = OFF, bit-exact legacy: the
             # `effective_floor` reduces to plain `ldt_floor` and no new
             # arithmetic touches the existing absolute-floor path.
-            ldt_floor_rel_frac = float(cfg_get(
-                self.cfg, "safety", "walk_leg_duty_terminate_floor_rel_frac",
-                default=0.0))
             in_grace = ((self._step_i - self._seg_entry_step) * self.dt
                         < ldt_grace_s)
             on_now = []
@@ -4936,7 +4918,7 @@ class SimHexapodBalanceEnv(_GymBase):
              worst_low_s) = walk_legduty_term_tick(
                 self._walk_legduty_ema, self._walk_legduty_low_s,
                 on=on_now, dt=self.dt, tau_s=ldt_tau, floor=ldt_floor,
-                floor_rel_frac=ldt_floor_rel_frac, in_grace=in_grace)
+                floor_rel_frac=0.0, in_grace=in_grace)
             if worst_low_s >= walk_ldt_s:
                 terminated = True
                 status.ok = False
@@ -5579,9 +5561,7 @@ class SimHexapodBalanceEnv(_GymBase):
                 # gate off, headroom_f==1.0 always and
                 # `_score_best += delta_s * 1.0 == max(_score_best,
                 # s_now)`, identical to the pre-existing line. Enable:
-                # --cfg-set reward.rise_score_income_headroom_gate=1
-                # [--cfg-set reward.rise_score_headroom_cap_a=<a>]
-                # [--cfg-set reward.rise_score_headroom_margin_a=<a>].
+                # --cfg-set reward.rise_score_income_headroom_gate=1.
                 headroom_f = 1.0
                 gate_income = float(cfg_get(
                     self.cfg, "reward",
@@ -5589,16 +5569,10 @@ class SimHexapodBalanceEnv(_GymBase):
                     default=0.0)) == 1.0
                 if (gate_income and delta_s > 0.0
                         and self._state.servo_current is not None):
-                    cap_a = float(cfg_get(
-                        self.cfg, "reward",
-                        "rise_score_headroom_cap_a", default=2.64))
-                    margin_a = float(cfg_get(
-                        self.cfg, "reward",
-                        "rise_score_headroom_margin_a", default=0.3))
                     cur_peak = float(np.max(np.abs(
                         self._state.servo_current)))
                     headroom_f = current_headroom_income_factor(
-                        cur_peak, cap_a, margin_a)
+                        cur_peak, 2.64, 0.3)
                     parts["rise_score_headroom_factor"] = headroom_f
                 # Curl-distance-gated rise_score_prog income (2026-09-13,
                 # riseheadroomgate-s1 CANARY FAIL-MECHANISM escalation:
@@ -5628,23 +5602,15 @@ class SimHexapodBalanceEnv(_GymBase):
                 # cheaper. Bit-exact OFF by default
                 # (reward.rise_score_income_curl_gate=0): curl_f==1.0
                 # always, identical to the pre-existing line. Enable:
-                # --cfg-set reward.rise_score_income_curl_gate=1
-                # [--cfg-set reward.rise_score_curl_cap_m=<m>]
-                # [--cfg-set reward.rise_score_curl_margin_m=<m>].
+                # --cfg-set reward.rise_score_income_curl_gate=1.
                 curl_f = 1.0
                 gate_curl = float(cfg_get(
                     self.cfg, "reward",
                     "rise_score_income_curl_gate",
                     default=0.0)) == 1.0
                 if gate_curl and delta_s > 0.0:
-                    cap_m = float(cfg_get(
-                        self.cfg, "reward",
-                        "rise_score_curl_cap_m", default=0.176))
-                    margin_m = float(cfg_get(
-                        self.cfg, "reward",
-                        "rise_score_curl_margin_m", default=0.066))
                     curl_f = current_headroom_income_factor(
-                        self._curl_dist(), cap_m, margin_m)
+                        self._curl_dist(), 0.176, 0.066)
                     parts["rise_score_curl_factor"] = curl_f
                 gate_f = headroom_f * curl_f
                 r_sp = 30.0 * delta_s * gate_f

@@ -81,9 +81,7 @@ def test_curl_income_factor_always_unit_clamped():
 # Wired integration: rise/score-income env, true flat start
 
 
-def _rise_score_env(seed: int, curl_gate: float = 0.0,
-                     cap_m: float | None = None,
-                     margin_m: float | None = None) -> SimHexapodGoalEnv:
+def _rise_score_env(seed: int, curl_gate: float = 0.0) -> SimHexapodGoalEnv:
     cfg = load_config()
     cfg.setdefault("actions", {})["max_height_mm"] = 115
     cfg.setdefault("goal", {})["rise_height_mm"] = [90, 90]
@@ -93,10 +91,6 @@ def _rise_score_env(seed: int, curl_gate: float = 0.0,
     cfg.setdefault("reward", {})["rise_score_income"] = 1.0
     if curl_gate:
         cfg["reward"]["rise_score_income_curl_gate"] = curl_gate
-        if cap_m is not None:
-            cfg["reward"]["rise_score_curl_cap_m"] = cap_m
-        if margin_m is not None:
-            cfg["reward"]["rise_score_curl_margin_m"] = margin_m
     env = SimHexapodGoalEnv(cfg=cfg, seed=seed)
     g = env._goal_gen
     for m in ("hold", "lean", "track", "unload", "raise", "rise",
@@ -128,18 +122,28 @@ def test_default_off_never_exposes_the_factor_key():
     assert not any("rise_score_curl_factor" in i for i in infos)
 
 
-def test_gate_on_factor_always_unit_range_and_discounts_at_least_once():
-    # cap/margin chosen from a probed trace of this exact seed/action
-    # (0.8 constant, true flat start): reward_rise_score_prog first
-    # turns nonzero once curl_dist has already fallen to ~74-80mm (the
-    # env's own posture/feet gates hold the score at exactly 0 before
-    # that, regardless of curl distance) -- an 80mm cap / 20mm margin
-    # sits squarely across that observed 74-80mm firing band, so the
-    # very first scoring ticks are the ones under test, not the
-    # production default (0.176m/0.066m, calibrated to the flat/bridge
-    # curl-distance gap the real training corridor sees over a full
-    # rise attempt, not this short synthetic probe).
-    env = _rise_score_env(seed=3, curl_gate=1.0, cap_m=0.08, margin_m=0.02)
+def _tight_curl(monkeypatch):
+    """Pin the gate's cap/margin (fixed at 0.176m/0.066m in sim_env,
+    calibrated to the flat/bridge curl-distance gap the real training
+    corridor sees over a full rise attempt) to 80mm/20mm, chosen from a
+    probed trace of seed 3 / action 0.8 (true flat start):
+    reward_rise_score_prog first turns nonzero once curl_dist has
+    already fallen to ~74-80mm (the env's own posture/feet gates hold
+    the score at exactly 0 before that, regardless of curl distance),
+    so 80mm/20mm sits squarely across that observed firing band and the
+    very first scoring ticks of this short synthetic probe are the ones
+    under test."""
+    import rl_move.sim.sim_env as sim_env_mod
+    monkeypatch.setattr(
+        sim_env_mod, "current_headroom_income_factor",
+        lambda dist, cap, margin: current_headroom_income_factor(
+            dist, 0.08, 0.02))
+
+
+def test_gate_on_factor_always_unit_range_and_discounts_at_least_once(
+        monkeypatch):
+    _tight_curl(monkeypatch)
+    env = _rise_score_env(seed=3, curl_gate=1.0)
     action = np.full(env.action_space.shape, 0.8, dtype=np.float32)
     infos = _run(env, 450, action)
     env.close()
@@ -151,7 +155,9 @@ def test_gate_on_factor_always_unit_range_and_discounts_at_least_once():
     assert min(seen) < 1.0, "gate never actually discounted a tick"
 
 
-def test_gate_never_pays_more_lifetime_income_than_ungated_twin():
+def test_gate_never_pays_more_lifetime_income_than_ungated_twin(
+        monkeypatch):
+    _tight_curl(monkeypatch)
     # Same invariant as the current-headroom gate: a discounted tick's
     # unpaid remainder stays available for a later low-curl-distance
     # tick to collect (banked, not confiscated), so per-tick income can
@@ -160,8 +166,7 @@ def test_gate_never_pays_more_lifetime_income_than_ungated_twin():
     # envs see an identical physical trajectory.
     off = _run(_rise_score_env(seed=3), 450,
                np.full((6,), 0.8, dtype=np.float32))
-    on = _run(_rise_score_env(seed=3, curl_gate=1.0, cap_m=0.08,
-                              margin_m=0.02), 450,
+    on = _run(_rise_score_env(seed=3, curl_gate=1.0), 450,
               np.full((6,), 0.8, dtype=np.float32))
     assert len(off) == len(on)
     cum_off = cum_on = 0.0
@@ -172,4 +177,4 @@ def test_gate_never_pays_more_lifetime_income_than_ungated_twin():
         assert cum_on <= cum_off + 1e-6
         if cum_on < cum_off - 1e-6:
             any_strict = True
-    assert any_strict, "default cap/margin never discounted lifetime income"
+    assert any_strict, "tight cap/margin never discounted lifetime income"

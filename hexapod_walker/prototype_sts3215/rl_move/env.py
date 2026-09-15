@@ -246,7 +246,7 @@ def compute_reward(cfg: dict, state: RobotState, action: np.ndarray,
     # "3-leg stand while the free legs thrash" artifact: thrashing
     # zeroes this bonus even though it never moves the body.
     ks = float(cfg_get(cfg, "reward", "k_still", default=0.0))
-    sig_qd = float(cfg_get(cfg, "reward", "still_sigma_rad_s", default=0.3))
+    sig_qd = 0.3   # still_sigma_rad_s: never set by any run; fixed 2026-09-15
     ku = float(cfg_get(cfg, "reward", "k_unload", default=0.2))
     alive = float(cfg_get(cfg, "reward", "alive", default=0.0))
     sig_t = math.radians(float(cfg_get(

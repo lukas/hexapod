@@ -7446,8 +7446,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 load_sat += min(t_n, 1.0)
         f_feet = (load_sat / 6.0) ** 2
         z_plant, weight_n = self._getup_geom()
-        z_belly = float(cfg_get(self.cfg, "reward", "getup_z_belly_mm",
-                                default=38.0)) * 0.001
+        z_belly = 38.0 * 0.001
         z = float(self.data.xpos[self._chassis_bid, 2])
         # Full height credit at a FRACTION of the rigid-FK plant span:
         # servo/contact compliance sags the physical stance ~15-25 mm
@@ -7578,8 +7577,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         if s_ref <= 1e-3:
             k_hold = float(cfg_get(self.cfg, "reward", "getup_k_hold",
                                    default=0.8))
-            sig_qd = float(cfg_get(self.cfg, "reward",
-                                   "still_sigma_rad_s", default=0.3))
+            sig_qd = 0.3
             qd2 = float(np.mean(np.square(self._state.joint_velocity)))
             still = math.exp(-qd2 / (2.0 * sig_qd ** 2))
             r_hold = k_hold * (s_stand ** 3) * still
@@ -7687,8 +7685,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         cos_t = math.cos(t_roll) * math.cos(t_pitch)
         feat_u = min(max((1.0 + cos_t) / 2.0, 0.0), 1.0)
         z_plant, _weight_n = self._getup_geom()
-        z_belly = float(cfg_get(self.cfg, "reward", "getup_z_belly_mm",
-                                default=38.0)) * 0.001
+        z_belly = 38.0 * 0.001
         z_full = z_belly + 0.80 * max(z_plant - z_belly, 1e-3)
         z = float(self.data.xpos[self._chassis_bid, 2])
         feat_h = min(max((z - z_belly) / max(z_full - z_belly, 1e-3),

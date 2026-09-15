@@ -491,33 +491,6 @@ def set_foot_ground_friction(model, mu_slide: float) -> None:
             model.geom_friction[gid, 0] = float(mu_slide)
 
 
-def set_foot_ground_torsion_friction(model, mu_torsion: float) -> None:
-    """Set the foot-ground TORSIONAL friction (geom_friction[:, 1]) to a
-    probe/diagnostic value. cfg ``env.foot_friction_torsion`` (0 = keep
-    the XML default, currently foot mu_t=0.1 m / floor mu_t=0.05 m).
-
-    Built 2026-09-08 for the walkcurr slip-floor structural-lever
-    question (STATUS.md cross-link from the todaypolicy traction
-    diagnostic, ``artifacts/rl_watchdog/turn_traction_20260908/``):
-    that diagnostic measured the mesh family's foot torsional mu_t=0.1
-    as ~20x a physical boot estimate (~0.005 m) and found it carries
-    the ENTIRE net turn drive at the probed cells. This setter exists
-    to test whether the same channel explains walkcurr's own
-    independently-closed ~5-6/m straight-walk slip floor (9 reward-
-    pricing arms, all converging on the same floor, all demanding a
-    structural — not reward — lever next). Same floor/feet
-    combining-rule caveat as ``set_foot_ground_friction`` applies.
-    Default 0.0 leaves the model untouched (bit-exact off)."""
-    import mujoco
-    names = ["floor", "terrain"]
-    for i in range(6):
-        names += [f"L{i}_foot", f"L{i}_pad_col"]
-    for gname in names:
-        gid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, gname)
-        if gid >= 0:
-            model.geom_friction[gid, 1] = float(mu_torsion)
-
-
 def set_foot_geom_radius(model, radius_m: float) -> None:
     """Reject unsafe in-place resizing of a compiled model.
 
@@ -930,13 +903,6 @@ class SimHexapodBalanceEnv(_GymBase):
                                 default=0.0))
             if _mu > 0.0:
                 set_foot_ground_friction(self.model, _mu)
-            # Diagnostic-only torsional friction override (default 0 =
-            # keep XML default, bit-exact off) — see
-            # set_foot_ground_torsion_friction.
-            _mu_t = float(cfg_get(self.cfg, "env", "foot_friction_torsion",
-                                  default=0.0))
-            if _mu_t > 0.0:
-                set_foot_ground_torsion_friction(self.model, _mu_t)
 
         # Pristine copies for DR restore at every reset.
         self._base_body_mass = self.model.body_mass.copy()
@@ -1305,25 +1271,15 @@ class SimHexapodBalanceEnv(_GymBase):
         # current_hot_bootstrap_steps is 0/absent — the debt array and
         # override stay unallocated/None, k_current_hot reads exactly
         # as before). Enable: --cfg-set reward.k_current_hot=<final
-        # dose> --cfg-set reward.current_hot_bootstrap_steps=<N>
-        # [--cfg-set reward.current_hot_bootstrap_min_frac=<0..1>].
+        # dose> --cfg-set reward.current_hot_bootstrap_steps=<N>.
         self._current_hot_bootstrap: dict | None = None
         self._current_hot_bootstrap_override: float | None = None
         _chb_steps = int(float(cfg_get(
             self.cfg, "reward", "current_hot_bootstrap_steps",
             default=0) or 0))
         if _chb_steps > 0:
-            _chb_min = float(cfg_get(
-                self.cfg, "reward", "current_hot_bootstrap_min_frac",
-                default=0.30))
-            if not 0.0 <= _chb_min <= 1.0:
-                raise ValueError(
-                    "reward.current_hot_bootstrap_min_frac "
-                    f"({_chb_min:g}) must be in [0, 1] — the "
-                    "bootstrap only ever anneals k_current_hot UP to "
-                    "the full cfg dose")
             self._current_hot_bootstrap = {
-                "steps": _chb_steps, "min_frac": _chb_min, "frac": 0.0,
+                "steps": _chb_steps, "min_frac": 0.30, "frac": 0.0,
             }
 
         # Income-relative current-price EMA state (reward.
@@ -3713,7 +3669,7 @@ class SimHexapodBalanceEnv(_GymBase):
 
     def apply_current_hot_bootstrap_frac(self, frac: float) -> dict:
         """Move the live ``k_current_hot`` scale to ``frac`` of the
-        bootstrap (0 = ``reward.current_hot_bootstrap_min_frac`` of
+        bootstrap (0 = 0.30 of
         the cfg dose, 1 = full dose); trainer-driven — see the
         ``reward.current_hot_bootstrap_steps`` block in ``__init__``.
         Mirrors ``apply_loadslip_bootstrap_frac``'s contract exactly:
@@ -6719,7 +6675,7 @@ class SimHexapodBalanceEnv(_GymBase):
         # orientation/height/contact — not nearest-q alone). Same
         # nearest-q + lookahead emit as getup, but ELIGIBILITY-GATED:
         # the target only fires when the body is upright-ish (true
-        # tilt <= train.bc_anchor_recover_tilt_deg), at/below plant
+        # tilt <= 25 deg), at/below plant
         # height (no stilt supervision), and with real ground reaction
         # through the feet — a side/back/flipped robot is never pulled
         # toward rise poses it cannot reach from there. Cfg-gated by
@@ -6736,9 +6692,6 @@ class SimHexapodBalanceEnv(_GymBase):
             if _bc_ref_path:
                 _r, _p = self._true_roll_pitch()
                 _tilt = max(abs(_r), abs(_p)) * 180.0 / math.pi
-                _tilt_max = float(cfg_get(
-                    self.cfg, "train", "bc_anchor_recover_tilt_deg",
-                    default=25.0))
                 _touch_n = 0.0
                 for _f in range(6):
                     _adr = self._touch_adr[_f]
@@ -6747,7 +6700,7 @@ class SimHexapodBalanceEnv(_GymBase):
                             float(self.data.sensordata[_adr]), 0.0)
                 _z_now = float(self.data.xpos[self._chassis_bid, 2])
                 _z_pl, _ = self._getup_geom()
-                if (_tilt <= _tilt_max and _touch_n >= 0.5
+                if (_tilt <= 25.0 and _touch_n >= 0.5
                         and _z_now <= _z_pl + 0.02):
                     info["recover_bc_eligible"] = 1.0
                     from .joint_task import q_rad_to_action
@@ -6765,14 +6718,9 @@ class SimHexapodBalanceEnv(_GymBase):
                     # two state dimensions from the directive.
                     _bc_hnow = None
                     if "h" in _bc_ref:
-                        _z_belly = float(cfg_get(
-                            self.cfg, "reward", "getup_z_belly_mm",
-                            default=38.0)) * 1e-3
+                        _z_belly = 38.0 * 1e-3
                         _bc_hnow = max(_z_now - _z_belly, 0.0)
-                        _h_tol = float(cfg_get(
-                            self.cfg, "train",
-                            "bc_anchor_recover_height_match_mm",
-                            default=25.0)) * 1e-3
+                        _h_tol = 25.0 * 1e-3
                         _height_rows = np.flatnonzero(
                             np.abs(_bc_ref["h"] - _bc_hnow) <= _h_tol)
                     else:
@@ -6891,9 +6839,7 @@ class SimHexapodBalanceEnv(_GymBase):
             if (_tc > 0.0 and self._goal_traj is not None
                     and self._goal_traj.mode == "hold"
                     and self._q_nom is not None):
-                _dead = float(cfg_get(
-                    self.cfg, "train", "bc_anchor_tilt_deadband_deg",
-                    default=1.5)) * DEG2RAD
+                _dead = 1.5 * DEG2RAD
                 # Cap default 6.0: measured expressibility boundary —
                 # the counter-rotated pose from a settled hold stance
                 # round-trips the [-1,1] action space EXACTLY up to 6
@@ -6901,9 +6847,7 @@ class SimHexapodBalanceEnv(_GymBase):
                 # target must be a pose the policy can actually
                 # command; a clipped target supervises garbage on the
                 # saturated joints).
-                _maxc = float(cfg_get(
-                    self.cfg, "train", "bc_anchor_tilt_max_deg",
-                    default=6.0)) * DEG2RAD
+                _maxc = 6.0 * DEG2RAD
 
                 def _soft(x: float) -> float:
                     return math.copysign(max(abs(x) - _dead, 0.0), x)

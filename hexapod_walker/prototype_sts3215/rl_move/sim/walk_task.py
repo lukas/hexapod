@@ -2848,27 +2848,17 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         rear-four gait out-earns a six-leg walk, a fronts-down drag
         and a freeze — pinned by the QUADWALK semantics bank.
 
-        Discovery-scope defaults, all cfg-overridable: slower command
-        band than walk (four feet, smaller support polygon), forward
-        only, a longer settle head (the fronts must lift before the
-        ramp — matches goal.quad_grace_s + ramp), heading-hold yaw,
-        no mid-episode resample.
+        Fixed command shape: slower command band than walk (0.02-0.05
+        m/s; four feet, smaller support polygon), forward only, a 2 s
+        settle head (the fronts must lift before the ramp — matches
+        goal.quad_grace_s + ramp), heading-hold yaw, no mid-episode
+        resample.
         """
         n = self.episode_steps + 1
         rng = self.rng
-        s_lo = float(cfg_get(self.cfg, "goal", "quadwalk_speed_min_m_s",
-                             default=0.02))
-        s_hi = float(cfg_get(self.cfg, "goal", "quadwalk_speed_max_m_s",
-                             default=0.05))
-        h_max = float(cfg_get(self.cfg, "goal", "quadwalk_heading_max_rad",
-                              default=0.0))
-        hold_s = float(cfg_get(self.cfg, "goal", "quadwalk_hold_s",
-                               default=2.0))
-        speed = float(rng.uniform(s_lo, s_hi))
-        ang = 0.0 if h_max <= 0.0 else float(rng.uniform(-h_max, h_max))
-        vx_t = speed * math.cos(ang)
-        vy_t = speed * math.sin(ang)
-        hold_n = max(1, int(round(hold_s / self.dt)))
+        vx_t = float(rng.uniform(0.02, 0.05))
+        vy_t = 0.0
+        hold_n = max(1, int(round(2.0 / self.dt)))
         ramp_n = max(1, int(round(1.0 / self.dt)))
         vx = np.full(n, vx_t)
         vy = np.full(n, vy_t)
@@ -2957,29 +2947,10 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # starts (a belly rise alone takes ~5-8 s through the servo
             # profile). Commands arriving before the robot is up simply
             # earn nothing (the S gate), so an early head is not fatal.
-            q_lo = float(cfg_get(self.cfg, "goal", "getup_quiet_s_min",
-                                 default=4.0))
-            q_hi = float(cfg_get(self.cfg, "goal", "getup_quiet_s_max",
-                                 default=8.0))
-            s_lo = float(cfg_get(self.cfg, "goal", "getup_speed_min_m_s",
-                                 default=0.03))
-            s_hi = float(cfg_get(self.cfg, "goal", "getup_speed_max_m_s",
-                                 default=0.08))
-            stop_frac = float(cfg_get(self.cfg, "goal", "getup_stop_frac",
-                                      default=0.35))
-            seg_lo = float(cfg_get(self.cfg, "goal", "getup_seg_s_min",
-                                   default=3.0))
-            seg_hi = float(cfg_get(self.cfg, "goal", "getup_seg_s_max",
-                                   default=6.0))
-            # goal.getup_forward_only=1 (RISE_WALK_NEXT_48H P1): the
-            # minimal unified rise->walk task — commands are forward
-            # or stop ONLY, no lateral/diagonal targets. The angle
-            # draws still happen (and are discarded) so rng streams —
-            # and hence start kinds, stop patterns, DR — are seed-
-            # identical to the full task for A/B. Default 0 bit-exact.
-            fwd_only = bool(int(cfg_get(self.cfg, "goal",
-                                        "getup_forward_only",
-                                        default=0)))
+            q_lo, q_hi = 4.0, 8.0
+            s_lo, s_hi = 0.03, 0.08
+            stop_frac = 0.35
+            seg_lo, seg_hi = 3.0, 6.0
             i = max(1, int(round(float(rng.uniform(q_lo, q_hi)) / dt)))
             cvx = cvy = 0.0
             blend_n = max(1, int(round(1.0 / dt)))
@@ -2991,8 +2962,6 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     ang = (0.0 if rng.random() < 0.60
                            else float(rng.uniform(-math.pi / 4,
                                                   math.pi / 4)))
-                    if fwd_only:
-                        ang = 0.0
                     tvx, tvy = sp * math.cos(ang), sp * math.sin(ang)
                 end_b = min(i + blend_n, n)
                 vx[i:end_b] = np.linspace(cvx, tvx, end_b - i)
@@ -3129,12 +3098,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         allocate a bounded replay slice but can never certify a bucket.
         """
         n = max(1, int(self._rec_active_n if n is None else n))
-        min_episodes = max(1, int(float(cfg_get(
-            self.cfg, "goal", "recover_training_error_min_episodes",
-            default=8))))
-        power = max(0.0, float(cfg_get(
-            self.cfg, "goal", "recover_training_error_power",
-            default=2.0)))
+        min_episodes = 8
+        power = 2.0
         priority = np.zeros(n, dtype=float)
         for bucket in range(n):
             error, episodes = self._rec_training_error_stats.get(
@@ -3148,9 +3113,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
 
     def apply_recover_training_error_batch(self, rows: dict) -> None:
         """Fold global non-RSI training outcomes into sampler-only EMAs."""
-        beta = float(np.clip(cfg_get(
-            self.cfg, "goal", "recover_training_error_ema_beta",
-            default=0.25), 0.0, 1.0))
+        beta = 0.25
         for raw_bucket, values in rows.items():
             bucket = int(raw_bucket)
             if not 0 <= bucket < len(self.RECOVER_FAMILIES):
@@ -3228,10 +3191,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             w[focus] += uniform_mass
         w /= w.sum()
         error_distribution = self._recover_training_error_distribution(n)
-        error_mix = float(np.clip(cfg_get(
-            self.cfg, "goal", "recover_training_error_mix", default=0.10),
-            0.0, 1.0))
-        if error_distribution is not None and error_mix > 0.0:
+        error_mix = 0.10
+        if error_distribution is not None:
             w = (1.0 - error_mix) * w + error_mix * error_distribution
         return w / w.sum()
 
@@ -3252,8 +3213,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._rec_focus_bucket = self._rec_active_n - 1
         admit_n = int(float(cfg_get(
             self.cfg, "goal", "recover_admit_n", default=4)))
-        threshold = float(cfg_get(
-            self.cfg, "goal", "recover_admit_fraction", default=0.8))
+        threshold = 0.8
         bucket_rows = {}
         for bucket in range(self._rec_active_n):
             kinds = self._recover_family_kinds(bucket)
@@ -3458,7 +3418,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # RECOVER RSI (08-16, zero-family mechanism fix after
         # cw-recover-any8/any9 both stalled on B11): with probability
         # goal.recover_rsi_frac, an episode whose kind was NATURALLY
-        # drawn from goal.recover_rsi_kinds (default "zero") spawns ON
+        # drawn as "zero" spawns ON
         # the demonstrated belly->plant path instead of the family
         # pose (sim_env._reset_begin builds the waypoint — the same
         # proven goal.rise_rsi_frac lever, extended to recover). The
@@ -3471,10 +3431,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         _rsi_f = float(cfg_get(self.cfg, "goal", "recover_rsi_frac",
                                default=0.0))
         if _rsi_f > 0.0 and force is None:
-            _rsi_kinds = [k.strip() for k in str(cfg_get(
-                self.cfg, "goal", "recover_rsi_kinds",
-                default="zero")).split(",") if k.strip()]
-            if kind in _rsi_kinds and float(self.rng.random()) < _rsi_f:
+            if kind == "zero" and float(self.rng.random()) < _rsi_f:
                 traj.recover_rsi = True
         # RECOVER RSI, HARVESTED-BANK variant (08-16, tangle-wall
         # mechanism fix after any7/any11/any12's 3rd matching miss on
@@ -7308,7 +7265,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         terms, no new charges — the level kernel, current charge
         and tilt trip already price the failure modes:
           k_quad_clear: pay each LIFT leg's height above its
-            episode-start pad z, clipped at quad_clear_cap_mm,
+            episode-start pad z, clipped at 30 mm,
             and only while that foot is OFF the ground (a loaded
             "lifted" leg earns nothing by construction).
           k_quad_plant: pay the loaded fraction of the four
@@ -7321,7 +7278,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         the learned quad HOLD stance creeping ~0.33 m/15 s — stillness
         was never priced; hold_still_gate is scoped hold/track and
         exempts quad by design): per-tick charge on body planar speed
-        above quad_still_floor_m_s, applied ONLY while no velocity is
+        above a 5 mm/s floor, applied ONLY while no velocity is
         commanded (s_ref ~ 0) so it can never fight a quadwalk
         command. Default 0 = off, legacy exact.
 
@@ -7348,9 +7305,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                              default=0.0))
         if lift and self._step_i > grace_n and (k_qc > 0.0
                                                 or k_qp > 0.0):
-            cap_m = float(cfg_get(self.cfg, "reward",
-                                  "quad_clear_cap_mm",
-                                  default=30.0)) / 1000.0
+            cap_m = 30.0 / 1000.0
             clear_sum = 0.0
             clear_mm = 0.0
             fronts_off = 0
@@ -7411,10 +7366,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                    getattr(goal, "vy_ref", 0.0)))
             if s_ref <= 1e-3:
                 sp = float(np.hypot(*self._body_vel_xy()))
-                floor = float(cfg_get(self.cfg, "reward",
-                                      "quad_still_floor_m_s",
-                                      default=0.005))
-                r_qs = -k_qs * max(sp - floor, 0.0)
+                r_qs = -k_qs * max(sp - 0.005, 0.0)
                 reward = float(reward) + r_qs
                 info["reward_quad_still"] = r_qs
                 info["quad_body_speed"] = sp

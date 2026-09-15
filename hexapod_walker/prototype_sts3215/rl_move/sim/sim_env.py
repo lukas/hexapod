@@ -1977,7 +1977,6 @@ class SimHexapodBalanceEnv(_GymBase):
             return self._rise_bank_cache
         path = cfg_get(self.cfg, "goal", "rise_start_bank", default=None)
         bank = None
-        self._rise_bank_full = None
         if path:
             arr, npz = _load_robot_abs_q_npz(
                 str(path), source="rise_start_bank")
@@ -1986,17 +1985,6 @@ class SimHexapodBalanceEnv(_GymBase):
                     f"rise_start_bank {path}: expected (K,{N_JOINTS}) "
                     f"q_rad, got {arr.shape}")
             bank = arr
-            # Full-state twin (08-14 postlower2 dig-in): newer banks also
-            # carry the exact settled qpos/qvel; goal.rise_start_bank_exact
-            # (default OFF) restores them verbatim instead of the
-            # joints-only _place_at_plant reconstruction, which proved
-            # off-distribution (parent 0/12 from reconstruction vs
-            # 0.801/0.967 from real in-session post-lower states).
-            if "qpos_full" in npz.files and "qvel_full" in npz.files:
-                qp = np.asarray(npz["qpos_full"], dtype=float)
-                qv = np.asarray(npz["qvel_full"], dtype=float)
-                if len(qp) == len(arr) and len(qv) == len(arr):
-                    self._rise_bank_full = (qp, qv)
             npz.close()
         self._rise_bank_cache = bank
         return bank
@@ -2447,24 +2435,10 @@ class SimHexapodBalanceEnv(_GymBase):
                     "start_at='rise_bank' requires goal.rise_start_bank")
             bi = int(self.rng.integers(len(bank)))
             q_start = bank[bi].copy()
-            exact = (float(cfg_get(self.cfg, "goal",
-                                   "rise_start_bank_exact",
-                                   default=0.0)) > 0.0
-                     and getattr(self, "_rise_bank_full", None) is not None)
-            if exact:
-                # Exact-restore mode (08-14, default OFF): spawn IS the
-                # harvested settled state, verbatim — no jitter, no
-                # start-offset, no re-plant/settle choreography. The
-                # joints-only reconstruction proved off-distribution
-                # (see _rise_start_bank docstring).
-                qp, qv = self._rise_bank_full
-                self._exact_start_pending = (qp[bi].copy(), qv[bi].copy())
-                q_start = self._clip_to_joint_limits(q_start)
-            else:
-                q_start += self.rng.uniform(-2.0, 2.0, N_JOINTS) * DEG2RAD
-                if self._ep_rand is not None:
-                    q_start = q_start + self._ep_rand.start_offset_rad
-                q_start = self._clip_to_joint_limits(q_start)
+            q_start += self.rng.uniform(-2.0, 2.0, N_JOINTS) * DEG2RAD
+            if self._ep_rand is not None:
+                q_start = q_start + self._ep_rand.start_offset_rad
+            q_start = self._clip_to_joint_limits(q_start)
         elif start_at == "gait":
             # Mid-stride TALL spawn (TALL LADDER T6: RSI-for-walk, see
             # walk_task._sample_walk). Scripted tripod-gait pose at a
@@ -2836,52 +2810,7 @@ class SimHexapodBalanceEnv(_GymBase):
                      or self._ease_g != 1.0 or self._ease_v != 1.0)):
             self._seq_capture_frames()
 
-        exact_start = getattr(self, "_exact_start_pending", None)
-        self._exact_start_pending = None
-        if exact_start is not None:
-            # Exact-restore spawn (08-14, rise_start_bank_exact): the
-            # harvested settled state IS the episode start — restore it
-            # verbatim (servos holding, contacts as-settled) instead of
-            # re-planting at foot height and re-settling, which distorts
-            # deep post-lower poses into an unreal family.
-            qp, qv = exact_start
-            if (qp.shape != (self.model.nq,)
-                    or qv.shape != (self.model.nv,)):
-                # Existing exact-state banks predate hidden compliance
-                # coordinates. Their named 18 servo joints are unambiguous,
-                # so preserve root + encoder state and initialize any new
-                # passive coordinates at model qpos0/zero velocity. Named
-                # addresses handle both the six mount hinges and a selected
-                # 1..18 post-encoder series topology.
-                if ((self._leg_mount_flex_addrs is not None
-                     or self._joint_series_flex_addrs is not None)
-                        and qp.shape == (25,) and qv.shape == (24,)):
-                    qp_flex = self.model.qpos0.copy()
-                    qp_flex[:7] = qp[:7]
-                    qp_flex[self._qadr] = qp[7:25]
-                    qv_flex = np.zeros(self.model.nv, dtype=float)
-                    qv_flex[:6] = qv[:6]
-                    qv_flex[self._vadr] = qv[6:24]
-                    qp, qv = qp_flex, qv_flex
-                else:
-                    raise ValueError(
-                        "rise_start_bank_exact full-state topology "
-                        f"{qp.shape}/{qv.shape} does not match model "
-                        f"nq/nv={self.model.nq}/{self.model.nv}; re-harvest "
-                        "the bank for this model topology or disable "
-                        "goal.rise_start_bank_exact")
-            self._mujoco.mj_resetData(self.model, self.data)
-            self.data.qpos[:] = qp
-            # Recenter horizontally: harvest episodes drift in x/y and
-            # dynamics are translation-invariant; keeps eval odometry
-            # (forward_dist) comparable with every other spawn.
-            self.data.qpos[0:2] = 0.0
-            self.data.qvel[:] = qv
-            self.data.ctrl[:] = 0.0
-            self.data.ctrl[self._pos_act] = q_start
-            self._mujoco.mj_forward(self.model, self.data)
-        else:
-            self._place_at_plant(q_start)
+        self._place_at_plant(q_start)
         er = self._ep_rand
         self._profile = ServoProfile(
             self.params, q_start,
@@ -2903,18 +2832,17 @@ class SimHexapodBalanceEnv(_GymBase):
             self._backlash = None
         self._backlash_prev_force[:] = 0.0
         self._cmd = self._mujoco_to_logical_q(q_start)
-        if exact_start is None:
-            # Settle with slippery feet AND limp servos first: when a
-            # human sets the robot down (torque off), feet micro-slip and
-            # joints sag until the structure reaches a passive
-            # equilibrium — otherwise randomized geometry + pinned
-            # contacts leave the legs isometrically preloaded at 2-3 A
-            # from step 0.
-            fr = self.model.geom_friction[:, 0].copy()
-            self.model.geom_friction[:, 0] = self.SLIP_MU
-            self._settle(0.4)      # stiff: reach the commanded pose
-            self._settle(0.5, limp=True)  # limp: bleed contact preload
-            self.model.geom_friction[:, 0] = fr
+        # Settle with slippery feet AND limp servos first: when a
+        # human sets the robot down (torque off), feet micro-slip and
+        # joints sag until the structure reaches a passive
+        # equilibrium — otherwise randomized geometry + pinned
+        # contacts leave the legs isometrically preloaded at 2-3 A
+        # from step 0.
+        fr = self.model.geom_friction[:, 0].copy()
+        self.model.geom_friction[:, 0] = self.SLIP_MU
+        self._settle(0.4)      # stiff: reach the commanded pose
+        self._settle(0.5, limp=True)  # limp: bleed contact preload
+        self.model.geom_friction[:, 0] = fr
 
         # Hold-current semantics, same as the hardware env: nominal is the
         # pose the robot actually SETTLED at (however badly it was placed),

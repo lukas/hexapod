@@ -884,7 +884,7 @@ class CoreApi:
         """Keep re-holding the sim walk-ready stance after planted demos."""
         d = self.drive
         try:
-            from rl_walk_start import walk_start_pose_degrees
+            from hexapod_core.joint_frame import walk_start_pose_degrees
             stand = walk_start_pose_degrees()
         except Exception:
             stand = None

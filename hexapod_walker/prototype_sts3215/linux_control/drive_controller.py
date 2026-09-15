@@ -94,17 +94,10 @@ from hexapod_core.demo_tripod import (  # noqa: E402
 )
 from hexapod_core.middle_tuck_quad_gait import MiddleTuckQuadGait  # noqa: E402
 
-try:
-    from rl_walk_start import (  # noqa: E402
-        SIM_WALK_START_HIP_DEG, SIM_WALK_START_KNEE_DEG,
-        walk_start_pose_degrees,
-    )
-except Exception:  # pragma: no cover - deploy bundle always ships it
-    SIM_WALK_START_HIP_DEG = 20.0
-    SIM_WALK_START_KNEE_DEG = 80.0
-
-    def walk_start_pose_degrees() -> list[float]:
-        return [0.0, SIM_WALK_START_HIP_DEG, SIM_WALK_START_KNEE_DEG] * 6
+from hexapod_core.joint_frame import (  # noqa: E402
+    WALK_START_HIP_ABS_DEG, WALK_START_TIBIA_ABS_DEG,
+    walk_start_pose_degrees,
+)
 
 # Scripted gait and MuJoCo share this 100 Hz contract.  The MCU stream bridge
 # reduced a full SyncWrite to ~1-2 ms, leaving margin inside the 10 ms budget.
@@ -441,7 +434,7 @@ class DriveController:
     def _sync_gait_walk_stance(self) -> None:
         """Make scripted gaits use the same tall pose as Stand/RL walk."""
         self.gait.sync_plant_stance(
-            SIM_WALK_START_HIP_DEG, SIM_WALK_START_KNEE_DEG)
+            WALK_START_HIP_ABS_DEG, WALK_START_TIBIA_ABS_DEG)
 
     def _walk_start_delta_vs_present(self) -> tuple[float | None, int | None]:
         if not self.bus:

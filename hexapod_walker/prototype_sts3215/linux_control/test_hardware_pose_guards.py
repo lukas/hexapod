@@ -180,10 +180,10 @@ def test_stand_acquisition_checks_later_rise_before_safe_zero(no_motion, monkeyp
 
 
 def test_walk_ready_checks_all_planned_frames_before_arm(no_motion, monkeypatch):
-    import rl_walk_start
+    from hexapod_core import joint_frame
     import hexapod_core.walk_ready_transition as transition
 
-    monkeypatch.setattr(rl_walk_start, "walk_start_pose_degrees", lambda: pose())
+    monkeypatch.setattr(joint_frame, "walk_start_pose_degrees", lambda: pose())
     monkeypatch.setattr(transition, "build_tripod_plant_transition", lambda *args: [
         SimpleNamespace(q_deg=pose()), SimpleNamespace(q_deg=pose(-78, 148))])
     monkeypatch.setattr(inplace_demos, "_live_robot_ids", forbid)

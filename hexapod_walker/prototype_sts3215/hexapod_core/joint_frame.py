@@ -29,6 +29,16 @@ RAD2DEG = 180.0 / math.pi
 FRAME_ROBOT_ABS = "robot_abs"
 JOINT_CONTRACT = "robot_abs_tibia_v2"
 
+# The historical MuJoCo plant is hip=20, relative knee=80. Hardware and
+# policy coordinates describe the absolute tibia: 20 + 80 = 100 degrees.
+WALK_START_HIP_ABS_DEG = 20.0
+WALK_START_TIBIA_ABS_DEG = 100.0
+
+
+def walk_start_pose_degrees() -> list[float]:
+    """Default walk reset in robot_abs, shared by sim and hardware."""
+    return [0.0, WALK_START_HIP_ABS_DEG, WALK_START_TIBIA_ABS_DEG] * 6
+
 
 def _as_joint_array(q: np.ndarray | list[float] | tuple[float, ...]) -> np.ndarray:
     return np.asarray(q, dtype=float).reshape(N_JOINTS).copy()

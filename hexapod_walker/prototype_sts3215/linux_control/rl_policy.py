@@ -3004,7 +3004,7 @@ def _expected_start_options_deg(
     # letting it redefine q_nom made the hardware drive into a too-low stance.
     options: list[tuple[str, np.ndarray, float]] = []
     try:
-        from rl_walk_start import walk_start_pose_degrees
+        from hexapod_core.joint_frame import walk_start_pose_degrees
         options.append(("sim_walk_start",
                         np.asarray(walk_start_pose_degrees(), dtype=float),
                         WALK_START_TOL_DEG if mode == "walk"

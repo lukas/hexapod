@@ -60,12 +60,15 @@ def test_hardware_walk_20_80_is_mujoco_20_60_not_20_80():
     )
 
 
-@pytest.mark.xfail(strict=False, reason="knee abs value drifts 80->100 through the policy surface; third joint-frame instance, see OPERATOR_QUESTIONS 2026-09-03 -- needs a hexapod_core owner decision, not a test tweak")
-def test_joint_policy_surface_is_robot_abs_while_mujoco_stays_private():
+def test_joint_policy_surface_is_robot_abs_while_mujoco_stays_private(monkeypatch):
     from rl_move.sim.joint_task import (
         SimHexapodJointGoalEnv, action_to_q_rad, q_rad_to_action,
     )
     from rl_move.sim.sim_env import _default_plant_deg
+    import feetech_bus
+    from hexapod_core.joint_frame import walk_start_pose_degrees
+
+    monkeypatch.setattr(feetech_bus, "load_plant_pose", lambda: {"learned": False})
 
     q_abs = np.radians(np.asarray([0.0, 20.0, 80.0] * 6))
     np.testing.assert_allclose(
@@ -77,7 +80,23 @@ def test_joint_policy_surface_is_robot_abs_while_mujoco_stays_private():
     np.testing.assert_allclose(env._mujoco_to_logical_q(q_mujoco),
                                q_abs, atol=1e-12)
     np.testing.assert_allclose(_default_plant_deg(),
-                               [0.0, 20.0, 80.0] * 6, atol=1e-9)
+                               walk_start_pose_degrees(), atol=1e-9)
+    np.testing.assert_allclose(
+        np.degrees(robot_abs_rad_to_mujoco_rel_rad(
+            np.radians(walk_start_pose_degrees()))),
+        [0.0, 20.0, 80.0] * 6, atol=1e-9)
+
+
+def test_hardware_walk_preflight_accepts_verified_step_stand():
+    options, error = rl_policy._expected_start_options_deg("walk")
+    assert error == ""
+    label, target, tolerance = options[0]
+    assert label == "sim_walk_start"
+    # Recorded STEP completion: its 106-degree absolute tibia was rejected
+    # against the old relative-80 target, prompting an unnecessary replant.
+    step_stand = np.asarray([0.0, 21.0, 106.0] * 6)
+    assert np.max(np.abs(step_stand - target)) == 6.0
+    assert np.max(np.abs(step_stand - target)) <= tolerance
 
 
 def test_policy_artifacts_must_declare_robot_abs():

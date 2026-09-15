@@ -53,7 +53,8 @@ echo ">> pushing code + vendored SDK → $REMOTE"
 # rm -rf clears the retired urt2_setup bundles (push does not delete
 # stale remote files).
 adb shell "mkdir -p '$REMOTE' && \
-  rm -rf '$REMOTE/urt2_setup' '$REMOTE/linux_control/urt2_setup'"
+  rm -rf '$REMOTE/urt2_setup' '$REMOTE/linux_control/urt2_setup' && \
+  rm -f '$REMOTE/linux_control/rl_walk_start.py'"
 adb push "$STAGE/." "$REMOTE/"
 
 BUS_ARGS=""

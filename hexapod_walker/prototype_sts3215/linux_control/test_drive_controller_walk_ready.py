@@ -14,7 +14,7 @@ from drive_controller import (
     DEMO_TRIPOD_MAX_VY_MPS,
     DEMO_TRIPOD_PERIOD_S,
     DEMO_TRIPOD_STRIDE_SCALE,
-    DT, DriveController, SIM_WALK_START_HIP_DEG, SIM_WALK_START_KNEE_DEG,
+    DT, DriveController, WALK_START_HIP_ABS_DEG, WALK_START_TIBIA_ABS_DEG,
     _advance_periodic_deadline,
     walk_start_pose_degrees,
 )
@@ -82,8 +82,8 @@ def test_default_scripted_gait_uses_tall_walk_ready_stance():
     drive = DriveController(dry_run=True)
 
     assert drive._last_pose == walk_start_pose_degrees()  # noqa: SLF001
-    assert drive.gait.plant_hip_deg == SIM_WALK_START_HIP_DEG
-    assert drive.gait.plant_knee_deg == SIM_WALK_START_KNEE_DEG
+    assert drive.gait.plant_hip_deg == WALK_START_HIP_ABS_DEG
+    assert drive.gait.plant_knee_deg == WALK_START_TIBIA_ABS_DEG
     assert drive.gait.period == DEMO_TRIPOD_PERIOD_S
     assert drive.gait.lift == DEMO_TRIPOD_LIFT_M
     assert drive.gait.stride_scale == DEMO_TRIPOD_STRIDE_SCALE
@@ -111,7 +111,7 @@ def test_moving_j_starts_from_walk_ready_pose():
     assert result == "J"
     assert drive.mode == "walk"
     assert drive._vx == 0.03  # noqa: SLF001
-    assert drive.gait.plant_knee_deg == SIM_WALK_START_KNEE_DEG
+    assert drive.gait.plant_knee_deg == WALK_START_TIBIA_ABS_DEG
 
 
 def test_j_can_select_gait_while_starting_from_stand():
@@ -253,7 +253,7 @@ def test_middle_tuck_quad_gait_id_tucks_middle_legs_with_ramp():
     for leg in (1, 4):
         off = 3 * leg
         assert q0[off:off + 3] == [
-            0.0, SIM_WALK_START_HIP_DEG, SIM_WALK_START_KNEE_DEG]
+            0.0, WALK_START_HIP_ABS_DEG, WALK_START_TIBIA_ABS_DEG]
         assert q2[off:off + 3] == list(TUCK_DEG)
 
 

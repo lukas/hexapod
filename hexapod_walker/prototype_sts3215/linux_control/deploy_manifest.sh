@@ -24,7 +24,7 @@ LC_FILES=(
   status_display.py deploy_status_display.py servo_watch.py
   mpu_probe.py rl_policy.py safe_zero.py pinned_tip.py
   sysid_protocol.py sysid_runner.py motor_dynamics.py
-  bus_bench.py touchdown_zero.py rl_walk_start.py
+  bus_bench.py touchdown_zero.py
   standup_modes.json
 )
 

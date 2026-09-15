@@ -527,12 +527,12 @@ def test_walk_start_options_use_sim_start_only():
     assert "sim_walk_start" in names
     assert names == ["sim_walk_start"]
     pose = dict((name, pose) for name, pose, _tol in options)["sim_walk_start"]
-    assert pose.tolist() == pytest.approx([0.0, 20.0, 80.0] * 6)
+    assert pose.tolist() == pytest.approx([0.0, 20.0, 100.0] * 6)
 
 
 def test_walk_preflight_reports_sim_walk_start():
     ok, reason, details = rl_policy.preflight(
-        _PreflightBus([0.0, 20.0, 80.0] * 6), "walk")
+        _PreflightBus([0.0, 20.0, 100.0] * 6), "walk")
 
     assert ok, reason
     assert details["start_pose"] == "sim_walk_start"

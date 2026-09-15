@@ -919,12 +919,25 @@ def test_frozen_mcu_sequence_never_completes_async_readiness():
     sampler = rl_policy._AsyncSnapshotSampler(  # noqa: SLF001
         _AsyncHealthBus(seqs=[23]), {}, hz=100.0, max_age_s=0.15)
     sampler.start()
+    # The bus serves seq 23 once and then freezes. Wait for the sampler
+    # thread to have seen the frozen sequence at least once before the
+    # readiness wait, so the outcome does not depend on the thread being
+    # scheduled inside the 80 ms window (it was not, under xdist load).
+    deadline = time.monotonic() + 2.0
+    while (sampler.stats()["physical_rejects"] < 1
+           and time.monotonic() < deadline):
+        time.sleep(0.001)
     _state_out, details, err = rl_policy._await_async_sampler_ready(  # noqa: SLF001
         sampler, lambda: False, min_good_samples=3, timeout_s=0.08)
     stats = sampler.stats()
     sampler.stop()
 
-    assert "snapshot_seq did not advance" in err
+    # Readiness must fail, and the frozen sequence must be the recorded
+    # reason: in the readiness error when a reject landed inside the wait
+    # window, otherwise in the sampler's own last_error (the one good
+    # sample came first, so nothing clears it afterwards).
+    assert err.startswith("async feedback not ready")
+    assert "snapshot_seq did not advance" in (err + str(stats["last_error"]))
     assert details["consecutive_healthy"] < 3
     assert stats["physical_rejects"] >= 1
     assert stats["good_samples"] == 1

@@ -7431,8 +7431,6 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # 2) Supported-stand score S in [0, 1] — the structural
         #    height<->contact coupling. Every factor is a fade with a
         #    downhill slope; only genuinely carried height scores.
-        load_n = float(cfg_get(self.cfg, "reward", "getup_load_n",
-                               default=1.0))
         # Graded per-foot load saturation (bank-measured: an honest
         # plant carries its light tripod at only ~0.7-1.2 N, so a hard
         # threshold reads a REAL stand as 4/6 feet). An airborne flag
@@ -7445,7 +7443,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             if adr >= 0:
                 t_n = max(float(self.data.sensordata[adr]), 0.0)
                 touch_sum_n += t_n
-                load_sat += min(t_n / max(load_n, 1e-6), 1.0)
+                load_sat += min(t_n, 1.0)
         f_feet = (load_sat / 6.0) ** 2
         z_plant, weight_n = self._getup_geom()
         z_belly = float(cfg_get(self.cfg, "reward", "getup_z_belly_mm",
@@ -7455,9 +7453,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # servo/contact compliance sags the physical stance ~15-25 mm
         # below the FK height (bank-measured 148.5 vs 170.8 mm), and a
         # real stand must be able to score 1.0.
-        z_frac = float(cfg_get(self.cfg, "reward", "getup_z_full_frac",
-                               default=0.80))
-        z_full = z_belly + z_frac * max(z_plant - z_belly, 1e-3)
+        z_full = z_belly + 0.80 * max(z_plant - z_belly, 1e-3)
         f_h = min(max((z - z_belly) / max(z_full - z_belly, 1e-3),
                       0.0), 1.0)
         # Symmetric ceiling: a stilt pop overshoots the plant height —
@@ -7467,15 +7463,11 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         if over > 0.0:
             f_h *= min(max(1.0 - over / 0.06, 0.0), 1.0)
         t_roll, t_pitch = self._true_roll_pitch()
-        lev_deg = float(cfg_get(self.cfg, "reward", "getup_level_deg",
-                                default=20.0))
         tilt_deg = max(abs(t_roll), abs(t_pitch)) * 180.0 / math.pi
-        f_level = min(max(1.0 - tilt_deg / max(lev_deg, 1e-6), 0.0), 1.0)
+        f_level = min(max(1.0 - tilt_deg / 20.0, 0.0), 1.0)
         curl = self._curl_dist()
-        fp_ok = float(cfg_get(self.cfg, "reward", "getup_fp_ok_mm",
-                              default=40.0)) * 0.001
-        fp_hi = float(cfg_get(self.cfg, "reward", "getup_fp_hi_mm",
-                              default=120.0)) * 0.001
+        fp_ok = 40.0 * 0.001
+        fp_hi = 120.0 * 0.001
         f_fp = min(max((fp_hi - curl) / max(fp_hi - fp_ok, 1e-6),
                        0.0), 1.0)
         # No-flag fade on the pad-height SPREAD (highest minus lowest
@@ -7489,8 +7481,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         pad_z = np.array([float(self.data.xpos[b, 2])
                           for b in self._pad_bids])
         spread = float(np.max(pad_z) - np.min(pad_z))
-        flag_m = float(cfg_get(self.cfg, "reward", "getup_flag_mm",
-                               default=60.0)) * 0.001
+        flag_m = 60.0 * 0.001
         f_flag = min(max((2.0 * flag_m - spread) / max(flag_m, 1e-6),
                          0.0), 1.0)
         s_stand = f_h * f_feet * f_level * f_fp * f_flag
@@ -7502,17 +7493,10 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         #    one-shot ratchet income. The baseline seeds at the
         #    episode's FIRST tick so the spawn posture is never income
         #    (the _score_best convention).
-        w_z = float(cfg_get(self.cfg, "reward", "getup_w_zero",
-                            default=0.15))
-        w_l = float(cfg_get(self.cfg, "reward", "getup_w_load",
-                            default=0.25))
-        w_s = float(cfg_get(self.cfg, "reward", "getup_w_stand",
-                            default=0.60))
-        unt_deg = float(cfg_get(self.cfg, "reward", "getup_untangle_deg",
-                                default=60.0))
+        w_z, w_l, w_s = 0.15, 0.25, 0.60
         q_now = self._mujoco_to_logical_q(self.data.qpos[self._qadr])
         mean_q_deg = float(np.mean(np.abs(q_now))) * 180.0 / math.pi
-        f_unt = min(max(1.0 - mean_q_deg / max(unt_deg, 1e-6), 0.0), 1.0)
+        f_unt = min(max(1.0 - mean_q_deg / 60.0, 0.0), 1.0)
         # Middle stage = fraction of BODY WEIGHT carried by the feet
         # (measured ground reaction, saturating at 85% of m*g — the
         # honest plant's tripod imbalance never quite reads 100%).
@@ -7575,9 +7559,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # GETUP bank ordering stays intact at this value (replay/
         # flagleg/stilt/thrash margins all widen, swept 250->350;
         # ratchet `best` fractions are potential-only and untouched).
-        k_prog = float(cfg_get(self.cfg, "reward", "getup_k_progress",
-                               default=350.0))
-        r_prog = k_prog * d_p
+        r_prog = 350.0 * d_p
 
         # 4) Gated steady income. Zero-command ticks: quiet-stand pay,
         #    gated hard (S^3) so partial/flagged stands earn scraps
@@ -7666,16 +7648,16 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
              recur by construction
           P  nominal-footprint closeness (the getup f_footprint fade)
           Phi = wU*U + wL*g(U)*L + wH*g(U)*L*H + wM*g(U)*g(H)*M
-                + wP*g(U)*g(H)*P            (defaults .15/.15/.30/.30/.10)
+                + wP*g(U)*g(H)*P            (weights .15/.15/.30/.30/.10)
         Success = 0.5 s CONTINUOUS hold of: |z - z_full| <= 15 mm,
-        tilt <= 6 deg, every foot's load fraction >= rec_load_min AND
+        tilt <= 6 deg, every foot's load fraction >= 0.35 AND
         pad spread small (all six near the ground and loaded — no
         mean-only loophole), footprint closeness >= 0.5 (support
         proxy), low joint/body velocity, and no current violation.
         Falls are NOT terminal; the episode ends only on held success
         (one-shot bonus, term=True), timeout, or the safety envelope.
-        A non-success termination pays fail_cost >= the maximum
-        remaining time tax, so early abort can never out-earn trying.
+        A non-success termination pays 1.25x the full-episode time
+        tax, so early abort can never out-earn trying.
         PBRS telescopes over the episode, so the spawn potential is
         never income and re-farming a feature pays 0 by construction.
         """
@@ -7690,17 +7672,14 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             info["reward_pitch"] = 0.0
 
         # 2) Bounded features.
-        load_n = float(cfg_get(self.cfg, "reward", "rec_load_n",
-                               default=1.0))
         x = np.zeros(6)
         for f in range(6):
             adr = self._touch_adr[f]
             if adr >= 0:
                 t_n = max(float(self.data.sensordata[adr]), 0.0)
-                x[f] = min(t_n / max(load_n, 1e-6), 1.0)
+                x[f] = min(t_n, 1.0)
         feat_l = float(np.mean(x))
-        tau = float(cfg_get(self.cfg, "reward", "rec_min_tau",
-                            default=0.15))
+        tau = 0.15
         feat_m = float(min(max(
             -tau * math.log(float(np.mean(np.exp(-x / tau)))),
             0.0), 1.0))
@@ -7710,9 +7689,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         z_plant, _weight_n = self._getup_geom()
         z_belly = float(cfg_get(self.cfg, "reward", "getup_z_belly_mm",
                                 default=38.0)) * 0.001
-        z_frac = float(cfg_get(self.cfg, "reward", "getup_z_full_frac",
-                               default=0.80))
-        z_full = z_belly + z_frac * max(z_plant - z_belly, 1e-3)
+        z_full = z_belly + 0.80 * max(z_plant - z_belly, 1e-3)
         z = float(self.data.xpos[self._chassis_bid, 2])
         feat_h = min(max((z - z_belly) / max(z_full - z_belly, 1e-3),
                          0.0), 1.0)
@@ -7720,52 +7697,28 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         if over > 0.0:
             feat_h *= min(max(1.0 - over / 0.06, 0.0), 1.0)
         curl = self._curl_dist()
-        fp_ok = float(cfg_get(self.cfg, "reward", "getup_fp_ok_mm",
-                              default=40.0)) * 0.001
-        fp_hi = float(cfg_get(self.cfg, "reward", "getup_fp_hi_mm",
-                              default=120.0)) * 0.001
+        fp_ok = 40.0 * 0.001
+        fp_hi = 120.0 * 0.001
         feat_p = min(max((fp_hi - curl) / max(fp_hi - fp_ok, 1e-6),
                          0.0), 1.0)
         g_u = self._rec_gate(feat_u)
         g_h = self._rec_gate(feat_h)
-        w_u = float(cfg_get(self.cfg, "reward", "rec_w_u", default=0.15))
-        w_l = float(cfg_get(self.cfg, "reward", "rec_w_l", default=0.15))
-        w_h = float(cfg_get(self.cfg, "reward", "rec_w_h", default=0.30))
-        w_m = float(cfg_get(self.cfg, "reward", "rec_w_m", default=0.30))
-        w_p = float(cfg_get(self.cfg, "reward", "rec_w_p", default=0.10))
-        phi = (w_u * feat_u + w_l * g_u * feat_l
-               + w_h * g_u * feat_l * feat_h
-               + w_m * g_u * g_h * feat_m
-               + w_p * g_u * g_h * feat_p)
+        phi = (0.15 * feat_u + 0.15 * g_u * feat_l
+               + 0.30 * g_u * feat_l * feat_h
+               + 0.30 * g_u * g_h * feat_m
+               + 0.10 * g_u * g_h * feat_p)
 
         # 3) Potential difference (PBRS). Seeded at the first
         #    post-settle tick — no income for the spawn posture.
-        k_pot = float(cfg_get(self.cfg, "reward", "rec_k_pot",
-                              default=20.0))
-        gam = float(cfg_get(self.cfg, "reward", "rec_gamma",
-                            default=0.995))
         r_pot = 0.0
         if self._rec_phi_prev is not None:
-            r_pot = k_pot * (gam * phi - self._rec_phi_prev)
+            r_pot = 20.0 * (0.995 * phi - self._rec_phi_prev)
         self._rec_phi_prev = phi
         reward += r_pot
 
         # 4) Success detection + 0.5 s continuous hold.
-        h_tol = float(cfg_get(self.cfg, "reward", "rec_h_tol_mm",
-                              default=15.0)) * 0.001
-        lev_deg = float(cfg_get(self.cfg, "reward", "rec_level_deg",
-                                default=6.0))
-        load_min = float(cfg_get(self.cfg, "reward", "rec_load_min",
-                                 default=0.35))
-        spread_max = float(cfg_get(self.cfg, "reward",
-                                   "rec_pad_spread_mm",
-                                   default=30.0)) * 0.001
-        qd_max = float(cfg_get(self.cfg, "reward", "rec_qd_max_rad_s",
-                               default=0.7))
-        v_max = float(cfg_get(self.cfg, "reward", "rec_v_max_m_s",
-                              default=0.08))
-        cur_max = float(cfg_get(self.cfg, "reward", "rec_cur_max_a",
-                                default=3.0))
+        h_tol = 15.0 * 0.001
+        spread_max = 30.0 * 0.001
         tilt_deg = max(abs(t_roll), abs(t_pitch)) * 180.0 / math.pi
         pad_z = np.array([float(self.data.xpos[b, 2])
                           for b in self._pad_bids])
@@ -7774,34 +7727,28 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             np.square(self._state.joint_velocity))))
         v = self._body_vel_xy()
         cur = getattr(self._state, "servo_current", None)
-        cur_ok = (cur is None or cur_max <= 0.0
-                  or float(np.max(cur)) <= cur_max)
+        cur_ok = cur is None or float(np.max(cur)) <= 3.0
         ok = (abs(z - z_full) <= h_tol
-              and tilt_deg <= lev_deg
-              and float(np.min(x)) >= load_min
+              and tilt_deg <= 6.0
+              and float(np.min(x)) >= 0.35
               and spread <= spread_max
               and feat_p >= 0.5
-              and qd_rms <= qd_max
-              and float(np.hypot(v[0], v[1])) <= v_max
+              and qd_rms <= 0.7
+              and float(np.hypot(v[0], v[1])) <= 0.08
               and cur_ok)
         self._rec_hold_n = self._rec_hold_n + 1 if ok else 0
-        hold_need = max(int(round(float(cfg_get(
-            self.cfg, "reward", "rec_hold_s", default=0.5))
-            / self.dt)), 1)
+        hold_need = max(int(round(0.5 / self.dt)), 1)
         success = self._rec_hold_n >= hold_need
 
         # 5) Time tax — every tick until termination, INCLUDING the
         #    success hold (the directive's speed incentive; a normal
         #    ~4 s recovery costs ~8% of the success bonus at defaults).
-        c_time = float(cfg_get(self.cfg, "reward", "rec_c_time",
-                               default=1.0))
-        reward -= c_time * self.dt
+        reward -= self.dt
 
         # 6) Terminal handling.
         r_bonus = 0.0
         if success:
-            r_bonus = float(cfg_get(self.cfg, "reward",
-                                    "rec_b_success", default=50.0))
+            r_bonus = 50.0
             reward += r_bonus
             term = True
             info["termination_reason"] = "recover_success"
@@ -7809,10 +7756,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # timeout / safety-envelope end without success: pay at
             # least the maximum remaining time tax so aborting early
             # (or coasting into the horizon) never beats recovering.
-            fail = float(cfg_get(self.cfg, "reward", "rec_fail_cost",
-                                 default=0.0))
-            if fail <= 0.0:
-                fail = 1.25 * c_time * self.episode_steps * self.dt
+            fail = 1.25 * self.episode_steps * self.dt
             reward -= fail
             info["reward_recover_fail"] = -fail
         if term or trunc:
@@ -7880,7 +7824,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
 
         info["reward_recover_pot"] = r_pot
         info["reward_recover_bonus"] = r_bonus
-        info["reward_recover_time"] = -c_time * self.dt
+        info["reward_recover_time"] = -self.dt
         info["recover_phi"] = phi
         info["recover_U"] = feat_u
         info["recover_L"] = feat_l

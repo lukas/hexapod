@@ -666,13 +666,13 @@ class SimHexapodBalanceEnv(_GymBase):
                 raise ValueError("sched.n_envs must be >= 1")
 
         # Physics easing (2026-08-13, GAIT.md P3 lever 3, nobc track):
-        # ease.gravity_scale / ease.vel_ceiling_scale multiply THIS
-        # EPISODE's gravity magnitude and servo velocity ceiling. Both
-        # are read from cfg at EVERY reset (see _reset_begin) so the
-        # sched.* engine above — which writes its target cfg path each
-        # tick — can anneal them across a run (eased physics early,
-        # nominal by the end); within an episode physics never changes.
-        # Default (keys unset / 1.0) is bit-exact legacy: no draw, no
+        # ease.gravity_scale multiplies THIS EPISODE's gravity
+        # magnitude. It is read from cfg at EVERY reset (see
+        # _reset_begin) so the sched.* engine above — which writes its
+        # target cfg path each tick — can anneal it across a run (eased
+        # physics early, nominal by the end); within an episode physics
+        # never changes.
+        # Default (key unset / 1.0) is bit-exact legacy: no draw, no
         # mutation, no extra code path. Application point is the
         # episode's DR draw (_ep_rand) — the one object BOTH trainer
         # stacks consume (private model: EpisodeRand.apply_to_model;
@@ -682,7 +682,10 @@ class SimHexapodBalanceEnv(_GymBase):
         # fields hold the randomize=False PRIVATE-model fallback used
         # by reset(); shared-model shims without DR raise instead
         # (per-world model fields are the only route to eased gravity
-        # in the batched path).
+        # in the batched path). _ease_v is a constant 1.0: the servo
+        # velocity-ceiling easing it once carried was never configured
+        # and is gone; the attribute stays because mjx_host.SNAP_ATTRS
+        # names it.
         self._ease_g = 1.0
         self._ease_v = 1.0
 
@@ -2081,9 +2084,9 @@ class SimHexapodBalanceEnv(_GymBase):
         else:
             self._struct_comp_k = None
 
-        # Physics easing (see __init__): scale this episode's gravity /
-        # servo velocity ceiling by the CURRENT cfg values, so an
-        # active sched.* ramp moves the physics episode-by-episode.
+        # Physics easing (see __init__): scale this episode's gravity
+        # by the CURRENT cfg value, so an active sched.* ramp moves the
+        # physics episode-by-episode.
         # Batched-pool note: pooled resets restore entries minted at
         # choreography time, so under an active schedule an episode's
         # eased physics can lag the schedule by up to the pool depth
@@ -2098,7 +2101,6 @@ class SimHexapodBalanceEnv(_GymBase):
         # episodes that don't qualify, without re-deriving the
         # unscaled values from scratch.
         self._ease_orig_gravity_vec = None
-        self._ease_orig_vel_scale = None
         # ease.gravity_scale_dr_{lo,hi} (2026-09-14, walkcurr flat-start-
         # rise gravity-ANNEAL grid closure): the pre-existing
         # sched.*-driven ease.gravity_scale ramp is a single GLOBAL
@@ -2159,28 +2161,20 @@ class SimHexapodBalanceEnv(_GymBase):
         else:
             _e_g = float(cfg_get(self.cfg, "ease", "gravity_scale",
                                  default=1.0))
-        _e_v = float(cfg_get(self.cfg, "ease", "vel_ceiling_scale",
-                             default=1.0))
-        if _e_g != 1.0 or _e_v != 1.0:
-            if _e_g <= 0.0 or _e_v <= 0.0:
+        if _e_g != 1.0:
+            if _e_g <= 0.0:
                 raise ValueError("ease.* scales must be > 0, got "
-                                 f"gravity={_e_g} vel_ceiling={_e_v}")
+                                 f"gravity={_e_g}")
             if self._ep_rand is not None:
-                if _e_g != 1.0:
-                    self._ease_orig_gravity_vec = np.asarray(
-                        self._ep_rand.gravity_vec, float).copy()
-                    self._ep_rand.gravity_vec = (
-                        self._ease_orig_gravity_vec * _e_g)
-                if _e_v != 1.0:
-                    self._ease_orig_vel_scale = float(
-                        self._ep_rand.vel_scale)
-                    self._ep_rand.vel_scale = (
-                        self._ease_orig_vel_scale * _e_v)
+                self._ease_orig_gravity_vec = np.asarray(
+                    self._ep_rand.gravity_vec, float).copy()
+                self._ep_rand.gravity_vec = (
+                    self._ease_orig_gravity_vec * _e_g)
             elif self._owns_model:
                 # randomize=False private-model env (eval harness at
-                # DR-0, viewers): reset() applies the same scales
-                # directly to the model / servo profile.
-                self._ease_g, self._ease_v = _e_g, _e_v
+                # DR-0, viewers): reset() applies the same scale
+                # directly to the model.
+                self._ease_g = _e_g
             else:
                 raise ValueError(
                     "ease.* on a shared-model shim env needs "
@@ -2226,7 +2220,7 @@ class SimHexapodBalanceEnv(_GymBase):
                     else getattr(self._goal_traj, "start_at", "plant"))
         # ease.rise_flat_only (2026-09-14, walkcurr flat-start-rise
         # 22/22-closed-lever escalation): scope the pre-existing
-        # generic ease.gravity_scale/vel_ceiling_scale physics-easing
+        # generic ease.gravity_scale physics-easing
         # mechanism (08-13, GAIT.md P3 lever 3, built for a different
         # track's early-training ignition and used so far only as a
         # STATIC whole-run setting) to ONLY the hardest, still-unsolved
@@ -2246,7 +2240,7 @@ class SimHexapodBalanceEnv(_GymBase):
         # nominal physics so the fix can't be a free lunch that quietly
         # trades away already-closed behavior. Default OFF (key unset
         # or 0.0) is bit-exact: the pre-existing unconditional
-        # ease.gravity_scale/vel_ceiling_scale behavior above is
+        # ease.gravity_scale behavior above is
         # completely untouched. When ON and this episode does NOT
         # qualify (not rise, or rise but not a flat start), UNDOES any
         # easing the block above already applied, restoring the exact
@@ -2276,13 +2270,10 @@ class SimHexapodBalanceEnv(_GymBase):
                 and getattr(self._goal_traj, "mode", "") == "rise"
                 and start_kind_of(self._goal_traj) == "flat"):
             self._ease_g = 1.0
-            self._ease_v = 1.0
             if self._ep_rand is not None:
                 if self._ease_orig_gravity_vec is not None:
                     self._ep_rand.gravity_vec = (
                         self._ease_orig_gravity_vec)
-                if self._ease_orig_vel_scale is not None:
-                    self._ep_rand.vel_scale = self._ease_orig_vel_scale
         # Reference state initialization (RSI, DeepMimic-style; operator
         # 08-10 late). The 08-10 forensic ladder (score1 -> scoreref1 ->
         # -dr0 -> -dr0-lowlr -> -dr0-riseonly) proved the rise reward
@@ -2807,7 +2798,7 @@ class SimHexapodBalanceEnv(_GymBase):
                               default=0.0)) > 0.0)
                 and (self._seq_frames is None
                      or self._ep_rand is not None
-                     or self._ease_g != 1.0 or self._ease_v != 1.0)):
+                     or self._ease_g != 1.0)):
             self._seq_capture_frames()
 
         self._place_at_plant(q_start)

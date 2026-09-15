@@ -1921,31 +1921,11 @@ class SimHexapodBalanceEnv(_GymBase):
         return (math.atan2(f[1], f[2]),
                 math.atan2(-f[0], math.hypot(f[1], f[2])))
 
-    def _walk_park_bank(self) -> np.ndarray | None:
-        """Harvested own-park poses (cycle 27). Lazy-loads the npz named
-        by cfg goal.walk_park_bank (key ``q_rad``, shape (K,18)); caches
-        None when unset so the legacy path costs one attribute check."""
-        if hasattr(self, "_park_bank_cache"):
-            return self._park_bank_cache
-        path = cfg_get(self.cfg, "goal", "walk_park_bank", default=None)
-        bank = None
-        if path:
-            arr, npz = _load_robot_abs_q_npz(
-                str(path), source="walk_park_bank")
-            npz.close()
-            if arr.ndim != 2 or arr.shape[1] != N_JOINTS or len(arr) == 0:
-                raise ValueError(
-                    f"walk_park_bank {path}: expected (K,{N_JOINTS}) "
-                    f"q_rad, got {arr.shape}")
-            bank = arr
-        self._park_bank_cache = bank
-        return bank
-
     def _recover_start_bank(self) -> np.ndarray | None:
         """Harvested recover-mode start poses (08-15, recover_to_plant
         family 2). Lazy-loads the npz named by cfg
         goal.recover_start_bank (key ``q_rad``, shape (K,18)); caches
-        None when unset. Same contract as _walk_park_bank."""
+        None when unset."""
         if hasattr(self, "_rec_bank_cache"):
             return self._rec_bank_cache
         path = cfg_get(self.cfg, "goal", "recover_start_bank",
@@ -1969,7 +1949,7 @@ class SimHexapodBalanceEnv(_GymBase):
         sim_env spawn branch and walk_task._sample_recover). Lazy-
         loads the npz named by cfg goal.recover_rsi_bank_path (key
         ``q_rad``, shape (K,18)); caches None when unset. Same
-        contract as _recover_start_bank / _walk_park_bank."""
+        contract as _recover_start_bank."""
         if hasattr(self, "_rec_rsi_bank_cache"):
             return self._rec_rsi_bank_cache
         path = cfg_get(self.cfg, "goal", "recover_rsi_bank_path",
@@ -1992,7 +1972,7 @@ class SimHexapodBalanceEnv(_GymBase):
         rise exposure — SESSION_BULK_GATE's named boundary). Lazy-loads
         the npz named by cfg goal.rise_start_bank (key ``q_rad``, shape
         (K,18)); caches None when unset so the legacy path costs one
-        attribute check. Same contract as _walk_park_bank."""
+        attribute check."""
         if hasattr(self, "_rise_bank_cache"):
             return self._rise_bank_cache
         path = cfg_get(self.cfg, "goal", "rise_start_bank", default=None)
@@ -2738,29 +2718,13 @@ class SimHexapodBalanceEnv(_GymBase):
             # camera, duty ~[0.9,0.1,0.9,0.1,0.9,0.1]) plus small knee
             # jitter. The policy must step OUT of the park to earn; see
             # walk_task._sample_walk for the rationale.
-            # HARVESTED bank (cycle 27): synthetic tripods taught exits
-            # from synthetic parks while the policy's OWN park survived
-            # (dose refuted at update parity). cfg goal.walk_park_bank
-            # (npz path with q_rad (K,18), built by harvest_park_states)
-            # + goal.walk_park_bank_frac f: with prob f a park start is
-            # drawn from the bank (+-2 deg jitter) instead of synthetic.
-            # Bank checks are short-circuited so the legacy rng stream
-            # is untouched when no bank is configured.
-            bank = self._walk_park_bank()
-            bank_frac = float(cfg_get(self.cfg, "goal",
-                                      "walk_park_bank_frac", default=0.5))
-            if bank is not None and self.rng.random() < bank_frac:
-                q_start = bank[int(self.rng.integers(len(bank)))].copy()
-                q_start += self.rng.uniform(
-                    -2.0, 2.0, N_JOINTS) * DEG2RAD
-            else:
-                q_start = (self._plant_deg * DEG2RAD).copy()
-                tripod = (1, 3, 5) if self.rng.random() < 0.5 else (0, 2, 4)
-                for leg in tripod:
-                    q_start[joint_index(leg, "hip")] -= float(
-                        self.rng.uniform(10.0, 25.0)) * DEG2RAD
-                    q_start[joint_index(leg, "knee")] += float(
-                        self.rng.uniform(-5.0, 10.0)) * DEG2RAD
+            q_start = (self._plant_deg * DEG2RAD).copy()
+            tripod = (1, 3, 5) if self.rng.random() < 0.5 else (0, 2, 4)
+            for leg in tripod:
+                q_start[joint_index(leg, "hip")] -= float(
+                    self.rng.uniform(10.0, 25.0)) * DEG2RAD
+                q_start[joint_index(leg, "knee")] += float(
+                    self.rng.uniform(-5.0, 10.0)) * DEG2RAD
             if self._ep_rand is not None:
                 q_start = q_start + self._ep_rand.start_offset_rad
             q_start = self._apply_tipped_start(q_start)

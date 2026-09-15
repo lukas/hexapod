@@ -100,33 +100,18 @@ def test_armed_unbroadcast_sits_at_full_charge():
 
 
 def test_frac_mapping_and_clamping():
-    keys = dict(BOOT_KEYS)
-    keys[("reward", "walk_loadslip_bootstrap_min_frac")] = 0.2
-    env = _env(keys)
+    # min_frac is the fixed 0.65 floor (measured separately from the
+    # walk-charge ramp's 0.40; see the module docstring / retired
+    # pre-v2 semantics bank)
+    env = _env(BOOT_KEYS)
     out = env.apply_loadslip_bootstrap_frac(0.0)
-    assert out["excess_scale"] == pytest.approx(0.2)
+    assert out["excess_scale"] == pytest.approx(0.65)
     out = env.apply_loadslip_bootstrap_frac(0.5)
-    assert out["excess_scale"] == pytest.approx(0.6)
+    assert out["excess_scale"] == pytest.approx(0.825)
     out = env.apply_loadslip_bootstrap_frac(2.0)   # clamps
     assert out["excess_scale"] == pytest.approx(1.0)
     out = env.apply_loadslip_bootstrap_frac(-1.0)  # clamps
-    assert out["excess_scale"] == pytest.approx(0.2)
-    assert env._loadslip_excess_scale() == pytest.approx(0.2)
-    # default min_frac when the key is absent (0.65 — measured
-    # separately from the walk-charge ramp's 0.40; see the
-    # module docstring / retired pre-v2 semantics bank)
-    env2 = _env(BOOT_KEYS)
-    out2 = env2.apply_loadslip_bootstrap_frac(0.0)
-    assert out2["excess_scale"] == pytest.approx(0.65)
-
-
-def test_bad_min_frac_fails_closed():
-    keys = dict(BOOT_KEYS)
-    keys[("reward", "walk_loadslip_bootstrap_min_frac")] = 1.5
-    with pytest.raises(ValueError, match="must be in"):
-        _env(keys)
-    keys[("reward", "walk_loadslip_bootstrap_min_frac")] = -0.1
-    with pytest.raises(ValueError, match="must be in"):
-        _env(keys)
+    assert out["excess_scale"] == pytest.approx(0.65)
+    assert env._loadslip_excess_scale() == pytest.approx(0.65)
 
 

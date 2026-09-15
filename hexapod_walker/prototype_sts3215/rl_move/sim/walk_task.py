@@ -799,7 +799,6 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           "_ls_prev_xy", "_ls_prev_on",
                           "_ls_slip_m", "_ls_prog_m",
                           "_ls_slip_ema", "_ls_prog_ema",
-                          "_lsh_prev_xy", "_lsh_prev_planted",
                           "_yaw_still_ema", "_yaw_prog_ema", "_stance_slip_acc",
                           "_walk_idle_ema", "_walk_idle_low_s",
                           "_walk_stop_cmd_s",
@@ -935,15 +934,6 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # episode-cumulative ratio stays bit-exact when off.
         self._ls_slip_ema = 0.0
         self._ls_prog_ema = 0.0
-        # Foot-slip-height bookkeeping (walkcurr item(4), 2026-09-06,
-        # CONTACT-INDEPENDENT follow-up to the closed tangent-contact
-        # lever — reward.k_foot_slip_height in the walk-shaping block).
-        # Deliberately its own prev-XY/gate latch, NOT shared with
-        # _foot_prev_xy/_foot_on (the contact-sensor-gated mechanism):
-        # gating is a kinematic ground-clearance check against
-        # _pad_z_ref, never reads self.data.sensordata.
-        self._lsh_prev_xy = [None] * 6
-        self._lsh_prev_planted = [False] * 6
         # Anti-park travel-floor EMA (reward.k_walk_idle_charge);
         # per-episode/per-segment, snapshot via MJX_SNAPSHOT_EXTRA.
         self._walk_idle_ema = 0.0
@@ -1285,17 +1275,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             self.cfg, "reward", "walk_loadslip_bootstrap_steps",
             default=0) or 0))
         if _lsb_steps > 0:
-            _lsb_min = float(cfg_get(
-                self.cfg, "reward", "walk_loadslip_bootstrap_min_frac",
-                default=0.65))
-            if not 0.0 <= _lsb_min <= 1.0:
-                raise ValueError(
-                    "reward.walk_loadslip_bootstrap_min_frac "
-                    f"({_lsb_min:g}) must be in [0, 1] — the bootstrap "
-                    "only ever anneals k_loadslip_excess UP to the "
-                    "bank-proven full dose")
             self._ls_bootstrap = {
-                "steps": _lsb_steps, "min_frac": _lsb_min, "frac": 1.0,
+                "steps": _lsb_steps, "min_frac": 0.65, "frac": 1.0,
             }
         # All-support-legs gait gate bookkeeping (08-13, quad track,
         # reward.walk_gait_gate): per-leg COMMANDED-tick index of the
@@ -1414,8 +1395,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # (gru_policy.DualGruActorCriticPolicy gates on the obs tail).
         # With this flag, walk-FAMILY ticks light the slot from the
         # LIVE blended command instead: a commanded stop (all of
-        # |vx_ref|,|vy_ref| <= obs.mode_cmd_stop_m_s and |wz_ref| <=
-        # obs.mode_cmd_stop_rad_s) lights "hold" (stance core), any
+        # |vx_ref|,|vy_ref| <= 0.005 m/s and |wz_ref| <= 0.02 rad/s)
+        # lights "hold" (stance core), any
         # motion command lights "walk" (locomotion core). Non-walk
         # modes are untouched; no effect unless obs.mode_onehot=1.
         # Default OFF = bit-exact obs for every existing lineage.
@@ -1605,13 +1586,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     if goal is not None else 0.0
                 wz = float(getattr(goal, "wz_ref", 0.0)) \
                     if goal is not None else 0.0
-                eps_v = float(cfg_get(self.cfg, "obs", "mode_cmd_stop_m_s",
-                                      default=0.005))
-                eps_w = float(cfg_get(self.cfg, "obs",
-                                      "mode_cmd_stop_rad_s",
-                                      default=0.02))
-                stopped = (abs(vx) <= eps_v and abs(vy) <= eps_v
-                           and abs(wz) <= eps_w)
+                stopped = (abs(vx) <= 0.005 and abs(vy) <= 0.005
+                           and abs(wz) <= 0.02)
                 obs = np.concatenate(
                     [obs, mode_onehot("hold" if stopped else "walk")])
             elif (self._mode_turn_cmd
@@ -1622,9 +1598,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 # partition — pure-turn ticks (not stop ticks) get
                 # their own "turn" bit, matching sim_env.py's
                 # _bc_pure_turn threshold exactly (1e-3, not the
-                # obs.mode_cmd_stop_* knobs, which are a separate,
-                # coarser stop-detection tuned for the hold/walk
-                # split above).
+                # 0.005 m/s / 0.02 rad/s stop thresholds, which are a
+                # separate, coarser stop-detection tuned for the
+                # hold/walk split above).
                 goal = self._current_goal()
                 vx = float(getattr(goal, "vx_ref", 0.0)) \
                     if goal is not None else 0.0
@@ -1684,15 +1660,6 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # episode-cumulative ratio stays bit-exact when off.
         self._ls_slip_ema = 0.0
         self._ls_prog_ema = 0.0
-        # Foot-slip-height bookkeeping (walkcurr item(4), 2026-09-06,
-        # CONTACT-INDEPENDENT follow-up to the closed tangent-contact
-        # lever — reward.k_foot_slip_height in the walk-shaping block).
-        # Deliberately its own prev-XY/gate latch, NOT shared with
-        # _foot_prev_xy/_foot_on (the contact-sensor-gated mechanism):
-        # gating is a kinematic ground-clearance check against
-        # _pad_z_ref, never reads self.data.sensordata.
-        self._lsh_prev_xy = [None] * 6
-        self._lsh_prev_planted = [False] * 6
         # Anti-park travel-floor EMA (reward.k_walk_idle_charge);
         # per-episode/per-segment, snapshot via MJX_SNAPSHOT_EXTRA.
         self._walk_idle_ema = 0.0
@@ -2881,27 +2848,17 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         rear-four gait out-earns a six-leg walk, a fronts-down drag
         and a freeze — pinned by the QUADWALK semantics bank.
 
-        Discovery-scope defaults, all cfg-overridable: slower command
-        band than walk (four feet, smaller support polygon), forward
-        only, a longer settle head (the fronts must lift before the
-        ramp — matches goal.quad_grace_s + ramp), heading-hold yaw,
-        no mid-episode resample.
+        Fixed command shape: slower command band than walk (0.02-0.05
+        m/s; four feet, smaller support polygon), forward only, a 2 s
+        settle head (the fronts must lift before the ramp — matches
+        goal.quad_grace_s + ramp), heading-hold yaw, no mid-episode
+        resample.
         """
         n = self.episode_steps + 1
         rng = self.rng
-        s_lo = float(cfg_get(self.cfg, "goal", "quadwalk_speed_min_m_s",
-                             default=0.02))
-        s_hi = float(cfg_get(self.cfg, "goal", "quadwalk_speed_max_m_s",
-                             default=0.05))
-        h_max = float(cfg_get(self.cfg, "goal", "quadwalk_heading_max_rad",
-                              default=0.0))
-        hold_s = float(cfg_get(self.cfg, "goal", "quadwalk_hold_s",
-                               default=2.0))
-        speed = float(rng.uniform(s_lo, s_hi))
-        ang = 0.0 if h_max <= 0.0 else float(rng.uniform(-h_max, h_max))
-        vx_t = speed * math.cos(ang)
-        vy_t = speed * math.sin(ang)
-        hold_n = max(1, int(round(hold_s / self.dt)))
+        vx_t = float(rng.uniform(0.02, 0.05))
+        vy_t = 0.0
+        hold_n = max(1, int(round(2.0 / self.dt)))
         ramp_n = max(1, int(round(1.0 / self.dt)))
         vx = np.full(n, vx_t)
         vy = np.full(n, vy_t)
@@ -2990,29 +2947,10 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # starts (a belly rise alone takes ~5-8 s through the servo
             # profile). Commands arriving before the robot is up simply
             # earn nothing (the S gate), so an early head is not fatal.
-            q_lo = float(cfg_get(self.cfg, "goal", "getup_quiet_s_min",
-                                 default=4.0))
-            q_hi = float(cfg_get(self.cfg, "goal", "getup_quiet_s_max",
-                                 default=8.0))
-            s_lo = float(cfg_get(self.cfg, "goal", "getup_speed_min_m_s",
-                                 default=0.03))
-            s_hi = float(cfg_get(self.cfg, "goal", "getup_speed_max_m_s",
-                                 default=0.08))
-            stop_frac = float(cfg_get(self.cfg, "goal", "getup_stop_frac",
-                                      default=0.35))
-            seg_lo = float(cfg_get(self.cfg, "goal", "getup_seg_s_min",
-                                   default=3.0))
-            seg_hi = float(cfg_get(self.cfg, "goal", "getup_seg_s_max",
-                                   default=6.0))
-            # goal.getup_forward_only=1 (RISE_WALK_NEXT_48H P1): the
-            # minimal unified rise->walk task — commands are forward
-            # or stop ONLY, no lateral/diagonal targets. The angle
-            # draws still happen (and are discarded) so rng streams —
-            # and hence start kinds, stop patterns, DR — are seed-
-            # identical to the full task for A/B. Default 0 bit-exact.
-            fwd_only = bool(int(cfg_get(self.cfg, "goal",
-                                        "getup_forward_only",
-                                        default=0)))
+            q_lo, q_hi = 4.0, 8.0
+            s_lo, s_hi = 0.03, 0.08
+            stop_frac = 0.35
+            seg_lo, seg_hi = 3.0, 6.0
             i = max(1, int(round(float(rng.uniform(q_lo, q_hi)) / dt)))
             cvx = cvy = 0.0
             blend_n = max(1, int(round(1.0 / dt)))
@@ -3024,8 +2962,6 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     ang = (0.0 if rng.random() < 0.60
                            else float(rng.uniform(-math.pi / 4,
                                                   math.pi / 4)))
-                    if fwd_only:
-                        ang = 0.0
                     tvx, tvy = sp * math.cos(ang), sp * math.sin(ang)
                 end_b = min(i + blend_n, n)
                 vx[i:end_b] = np.linspace(cvx, tvx, end_b - i)
@@ -3162,12 +3098,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         allocate a bounded replay slice but can never certify a bucket.
         """
         n = max(1, int(self._rec_active_n if n is None else n))
-        min_episodes = max(1, int(float(cfg_get(
-            self.cfg, "goal", "recover_training_error_min_episodes",
-            default=8))))
-        power = max(0.0, float(cfg_get(
-            self.cfg, "goal", "recover_training_error_power",
-            default=2.0)))
+        min_episodes = 8
+        power = 2.0
         priority = np.zeros(n, dtype=float)
         for bucket in range(n):
             error, episodes = self._rec_training_error_stats.get(
@@ -3181,9 +3113,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
 
     def apply_recover_training_error_batch(self, rows: dict) -> None:
         """Fold global non-RSI training outcomes into sampler-only EMAs."""
-        beta = float(np.clip(cfg_get(
-            self.cfg, "goal", "recover_training_error_ema_beta",
-            default=0.25), 0.0, 1.0))
+        beta = 0.25
         for raw_bucket, values in rows.items():
             bucket = int(raw_bucket)
             if not 0 <= bucket < len(self.RECOVER_FAMILIES):
@@ -3261,10 +3191,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             w[focus] += uniform_mass
         w /= w.sum()
         error_distribution = self._recover_training_error_distribution(n)
-        error_mix = float(np.clip(cfg_get(
-            self.cfg, "goal", "recover_training_error_mix", default=0.10),
-            0.0, 1.0))
-        if error_distribution is not None and error_mix > 0.0:
+        error_mix = 0.10
+        if error_distribution is not None:
             w = (1.0 - error_mix) * w + error_mix * error_distribution
         return w / w.sum()
 
@@ -3285,8 +3213,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._rec_focus_bucket = self._rec_active_n - 1
         admit_n = int(float(cfg_get(
             self.cfg, "goal", "recover_admit_n", default=4)))
-        threshold = float(cfg_get(
-            self.cfg, "goal", "recover_admit_fraction", default=0.8))
+        threshold = 0.8
         bucket_rows = {}
         for bucket in range(self._rec_active_n):
             kinds = self._recover_family_kinds(bucket)
@@ -3491,7 +3418,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # RECOVER RSI (08-16, zero-family mechanism fix after
         # cw-recover-any8/any9 both stalled on B11): with probability
         # goal.recover_rsi_frac, an episode whose kind was NATURALLY
-        # drawn from goal.recover_rsi_kinds (default "zero") spawns ON
+        # drawn as "zero" spawns ON
         # the demonstrated belly->plant path instead of the family
         # pose (sim_env._reset_begin builds the waypoint — the same
         # proven goal.rise_rsi_frac lever, extended to recover). The
@@ -3504,10 +3431,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         _rsi_f = float(cfg_get(self.cfg, "goal", "recover_rsi_frac",
                                default=0.0))
         if _rsi_f > 0.0 and force is None:
-            _rsi_kinds = [k.strip() for k in str(cfg_get(
-                self.cfg, "goal", "recover_rsi_kinds",
-                default="zero")).split(",") if k.strip()]
-            if kind in _rsi_kinds and float(self.rng.random()) < _rsi_f:
+            if kind == "zero" and float(self.rng.random()) < _rsi_f:
                 traj.recover_rsi = True
         # RECOVER RSI, HARVESTED-BANK variant (08-16, tangle-wall
         # mechanism fix after any7/any11/any12's 3rd matching miss on
@@ -3752,15 +3676,6 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # episode-cumulative ratio stays bit-exact when off.
         self._ls_slip_ema = 0.0
         self._ls_prog_ema = 0.0
-        # Foot-slip-height bookkeeping (walkcurr item(4), 2026-09-06,
-        # CONTACT-INDEPENDENT follow-up to the closed tangent-contact
-        # lever — reward.k_foot_slip_height in the walk-shaping block).
-        # Deliberately its own prev-XY/gate latch, NOT shared with
-        # _foot_prev_xy/_foot_on (the contact-sensor-gated mechanism):
-        # gating is a kinematic ground-clearance check against
-        # _pad_z_ref, never reads self.data.sensordata.
-        self._lsh_prev_xy = [None] * 6
-        self._lsh_prev_planted = [False] * 6
         # Anti-park travel-floor EMA (reward.k_walk_idle_charge);
         # per-episode/per-segment, snapshot via MJX_SNAPSHOT_EXTRA.
         self._walk_idle_ema = 0.0
@@ -4046,13 +3961,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # command" without inventing a new reward term. Legacy
             # fixed-speed / wide-band recipes are unaffected (default
             # 0.0 keeps SIGMA_V exactly).
-            sigma_v = float(cfg_get(self.cfg, "reward",
-                                    "walk_kernel_sigma_v_m_s",
-                                    default=0.0))
-            if sigma_v <= 0.0:
-                sigma_v = SIGMA_V
-            info["walk_kernel_sigma_v_m_s"] = sigma_v
-            r_walk = K_WALK * math.exp(-(err ** 2) / (2.0 * sigma_v ** 2))
+            info["walk_kernel_sigma_v_m_s"] = SIGMA_V
+            r_walk = K_WALK * math.exp(-(err ** 2) / (2.0 * SIGMA_V ** 2))
             # Linear progress: fraction of the commanded speed achieved
             # along the commanded direction. Negative when moving against
             # the command, capped so overspeeding isn't a strategy.
@@ -4210,8 +4120,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                   default=0.0))
             if self._yaw_cmd and k_yaw > 0.0:
                 wz = self._body_wz()
-                sig_w = float(cfg_get(self.cfg, "reward",
-                                      "yaw_sigma_rad_s", default=0.15))
+                sig_w = 0.15
                 # Stride-EMA yaw kernel (08-23, hold/forward income-
                 # dominance audit, probe_walk_income yawcmd0 stack): the
                 # SAME sway-tax defect the walk_kernel_vel_ema fix
@@ -5471,10 +5380,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         reward = float(reward) + r_over
                         info["reward_walk_overspeed"] = r_over
                 if k_head > 0.0:
-                    v_min = float(cfg_get(
-                        self.cfg, "reward",
-                        "walk_heading_min_speed_m_s", default=0.01))
-                    if spd_now >= v_min:
+                    if spd_now >= 0.01:
                         cos_h = max(-1.0, min(1.0, float(
                             v[0] * goal.vx_ref + v[1] * goal.vy_ref)
                             / (spd_now * s_ref)))
@@ -5568,12 +5474,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     and not (self._yaw_cmd
                              and abs(float(getattr(goal, "wz_ref", 0.0)
                                            or 0.0)) > 1e-3)):
-                scale_sc = max(float(cfg_get(
-                    self.cfg, "reward", "walk_stop_scale_m_s",
-                    default=0.015)), 1e-6)
-                cap_sc = float(cfg_get(self.cfg, "reward",
-                                       "walk_stop_charge_cap",
-                                       default=4.0))
+                scale_sc = 0.015
+                cap_sc = 4.0
                 # Settle-grace (2026-08-24, joyfullcurr7 dig-in): the
                 # plain charge above priced the UNAVOIDABLE physical
                 # deceleration transient right after a stop command as
@@ -5640,12 +5542,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                            or 0.0)) > 1e-3)):
                 cur_sc = getattr(self._state, "servo_current", None)
                 if cur_sc is not None:
-                    thr_cur = float(cfg_get(self.cfg, "reward",
-                                            "walk_stop_current_a",
-                                            default=1.5))
-                    cap_cur = float(cfg_get(self.cfg, "reward",
-                                            "walk_stop_current_cap",
-                                            default=4.0))
+                    thr_cur = 1.5
+                    cap_cur = 4.0
                     grace_s_cur = float(cfg_get(self.cfg, "reward",
                                                 "walk_stop_grace_s",
                                                 default=0.0))
@@ -5706,12 +5604,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             if k_movecur > 0.0 and s_ref > 1e-3:
                 cur_mv = getattr(self._state, "servo_current", None)
                 if cur_mv is not None:
-                    thr_mv = float(cfg_get(self.cfg, "reward",
-                                           "walk_move_current_a",
-                                           default=2.2))
-                    cap_mv = float(cfg_get(self.cfg, "reward",
-                                           "walk_move_current_cap",
-                                           default=4.0))
+                    thr_mv = 2.2
+                    cap_mv = 4.0
                     over_mv = np.maximum(
                         np.abs(np.asarray(cur_mv, dtype=float)) - thr_mv,
                         0.0)
@@ -6032,10 +5926,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # cfg: reward.k_walk_course_income,
             # reward.walk_course_income_window_s (0.75 = teacher gait
             # period), reward.walk_course_income_deadband_deg (6),
-            # reward.walk_course_income_sigma_deg (20),
-            # reward.walk_course_income_min_speed_m_s (0.01),
-            # reward.walk_course_income_support_gate (1 = use the
-            # support product; 0 = ungated, for controlled A/B only).
+            # reward.walk_course_income_sigma_deg (20). The net-motion
+            # floor is a fixed 0.01 m/s and the support product always
+            # gates the income.
             #
             # Excess-sway charge (item 4): RMS perpendicular deviation
             # of the body path around the commanded-course line through
@@ -6139,12 +6032,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         dx_w, dy_w, dcx_w, dcy_w = w
                         d_cmd_w = math.hypot(dcx_w, dcy_w)
                         d_w = math.hypot(dx_w, dy_w)
-                        v_min_ci = float(cfg_get(
-                            self.cfg, "reward",
-                            "walk_course_income_min_speed_m_s",
-                            default=0.01))
                         if (d_cmd_w > 1e-9
-                                and d_w >= v_min_ci * win_inc_s):
+                                and d_w >= 0.01 * win_inc_s):
                             cos_ci = max(-1.0, min(1.0, (
                                 dx_w * dcx_w + dy_w * dcy_w)
                                 / (d_w * d_cmd_w)))
@@ -6170,22 +6059,11 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                             # band also pays the course_disp overspeed
                             # twin when armed.
                             ratio_w = along_w / d_cmd_w
-                            over_tol = float(cfg_get(
-                                self.cfg, "reward",
-                                "walk_course_income_over_tol",
-                                default=0.05))
-                            over_ramp = max(float(cfg_get(
-                                self.cfg, "reward",
-                                "walk_course_income_over_ramp",
-                                default=0.5)), 1e-6)
                             exceed_w = max(
-                                ratio_w - (1.0 + over_tol), 0.0)
+                                ratio_w - (1.0 + 0.05), 0.0)
                             speed_f = max(min(ratio_w, 1.0)
-                                          - exceed_w / over_ramp, 0.0)
-                            s_gate = support_gate if float(cfg_get(
-                                self.cfg, "reward",
-                                "walk_course_income_support_gate",
-                                default=1.0)) == 1.0 else 1.0
+                                          - exceed_w / 0.5, 0.0)
+                            s_gate = support_gate
                             r_cinc = k_cinc * s_gate * angle_f * speed_f
                             # ACHIEVED-YAW gate on combined-tick course
                             # income (2026-09-07, yawref-cont8m FAIL-
@@ -6268,12 +6146,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                             cos_s = max(-1.0, min(1.0, (
                                 dx_s * dcx_s + dy_s * dcy_s)
                                 / (d_s * d_cmd_s)))
-                            cap = float(cfg_get(
-                                self.cfg, "reward",
-                                "walk_sway_course_cap_deg",
-                                default=60.0))
                             cap_ok = (math.degrees(math.acos(cos_s))
-                                      <= cap)
+                                      <= 60.0)
                         if cap_ok:
                             ux_s, uy_s = dcx_s / d_cmd_s, dcy_s / d_cmd_s
                             pts = list(whist)[-1 - n_sway:]
@@ -6378,9 +6252,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             _add_walk_direction_info(
                 info, float(v[0]), float(v[1]),
                 float(goal.vx_ref), float(goal.vy_ref),
-                min_speed_m_s=float(cfg_get(
-                    self.cfg, "goal", "walk_direction_min_speed_m_s",
-                    default=WALK_DIRECTION_MIN_SPEED_M_S)))
+                min_speed_m_s=WALK_DIRECTION_MIN_SPEED_M_S)
             # Raw commanded-direction speed telemetry (08-15, operator
             # directive fb_20260815T114414: judge command-following by
             # RAW SIGNED m/s along the requested direction, never by
@@ -6506,16 +6378,14 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # own leg kinematics (~2.6 cm over a full episode) that a
             # zero-floor linear taper pays MORE than an honest tiny
             # forward-only partial stride, breaking the wrong-way-
-            # earns-nothing ordering. step_partial_deadband_mm holds
+            # earns-nothing ordering. A fixed 2 mm deadband holds
             # the taper at exactly 0 for any along_f at or below the
-            # deadband (default 2 mm, comfortably above the measured
+            # deadband (comfortably above the measured
             # sideways-twin per-swing leak) and only ramps 0->k_step
             # across (deadband, 10mm).
             k_step_partial = float(cfg_get(self.cfg, "reward",
                                            "k_step_partial", default=0.0))
-            step_partial_deadband_m = float(cfg_get(
-                self.cfg, "reward", "step_partial_deadband_mm",
-                default=2.0)) / 1000.0
+            step_partial_deadband_m = 2.0 / 1000.0
             k_drag = float(cfg_get(self.cfg, "reward", "k_drag_loaded",
                                    default=0.0))
             # Deadband was a bare 0.5mm/tick literal calibrated at the
@@ -6618,56 +6488,6 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 default=0.015))
             tslip_cap = float(cfg_get(
                 self.cfg, "reward", "foot_slip_max_m_s", default=0.25))
-            # CONTACT-INDEPENDENT foot-slip charge (walkcurr item(4),
-            # 2026-09-06 — the tangent-contact lever above (this same
-            # sensing modality: touch-sensor-gated foot XY delta) is
-            # CLOSED 4/4 doses/accountings, all null on held-out slip/m
-            # (rl_docs/tracks/walkcurr/STATUS.md 09-06 ~19:1x..~22:4x).
-            # This charge never reads self.data.sensordata: a foot
-            # counts as "quasi-planted" purely from KINEMATIC ground
-            # clearance (xpos z vs the already-proven-safe _pad_z_ref
-            # reference the rise/lower posture gates use), independent
-            # of the touch sensor's own threshold/deadband/timing. Its
-            # own prev-XY/gate latch (_lsh_prev_xy/_lsh_prev_planted)
-            # is never shared with the tangent mechanism's
-            # _foot_prev_xy/_foot_on, so this genuinely cannot inherit
-            # the contact-sensor blind spot (e.g. a foot skimming just
-            # above the sensor's force threshold). Structurally
-            # mirrors k_foot_slip_tangent (deadband + cap on excess
-            # horizontal velocity while gated, averaged across gated
-            # feet, default-off, walk-mode only, lift legs exempt).
-            # cfg: reward.k_foot_slip_height,
-            # reward.foot_slip_height_thresh_m,
-            # reward.foot_slip_height_deadband_m_s,
-            # reward.foot_slip_height_max_m_s.
-            # BANK FINDING (09-06, test_task_semantics.py
-            # WALKCURR_ITEM4_FOOTSLIP_HEIGHT_OVERRIDES — read that
-            # comment before reaching for a dose retune here): a NAIVE
-            # current-tick clearance threshold is REFUTED as an
-            # anti-slip lever — it does not widen item(4)'s gait-vs-
-            # skate margin at ANY dose 3-35, because the scripted
-            # teacher's own honest stance-phase feet drift at the SAME
-            # order of magnitude (~0.03 m/s) this gate reads for
-            # skate, unlike the tangent-contact mechanism's own
-            # measurement of the identical rollout (gait 0.017 vs
-            # skate 0.021 m/s) — the touch-sensor path's implicit use
-            # of ground-reaction FORCE turns out to reject compliance/
-            # settling jitter this pure position gate cannot. Kept as
-            # tested, default-off infrastructure; do not launch a
-            # canary on this cfg without a genuinely different signal
-            # (e.g. explicit swing-phase/duty context, not a threshold
-            # retune of current-tick clearance alone).
-            k_fsh = float(cfg_get(self.cfg, "reward",
-                                  "k_foot_slip_height", default=0.0))
-            fsh_thresh = float(cfg_get(
-                self.cfg, "reward", "foot_slip_height_thresh_m",
-                default=0.006))
-            fsh_deadband = float(cfg_get(
-                self.cfg, "reward", "foot_slip_height_deadband_m_s",
-                default=0.015))
-            fsh_cap = float(cfg_get(
-                self.cfg, "reward", "foot_slip_height_max_m_s",
-                default=0.25))
             # TRANSITION-WINDOW slip charge (2026-09-07, walkcurr
             # phase-binned slip audit follow-up:
             # rl_docs/tracks/walkcurr/STATUS.md 09-07 ~18:2x). Every
@@ -6730,7 +6550,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     or g_gait > 0.0 or g_duty > 0.0 or g_swing > 0.0
                     or g_dband > 0.0 or g_ratio > 0.0 or g_lsratio > 0.0
                     or g_swinggap > 0.0 or g_swinit > 0.0
-                    or k_tslip > 0.0 or k_fsh > 0.0 or k_wts > 0.0
+                    or k_tslip > 0.0 or k_wts > 0.0
                     or contact_diag) and s_ref > 1e-3:
                 if budget_m > 0.0:
                     # `along` here is still the BODY along-command
@@ -6778,10 +6598,6 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 tangent_vels = [0.0] * 6
                 measured_tangent_vels = []
                 tangent_excess = []
-                fsh_quasi_planted_flags = [False] * 6
-                fsh_vels = [0.0] * 6
-                fsh_measured_vels = []
-                fsh_excess = []
                 for f in range(6):
                     adr = self._touch_adr[f]
                     force = (max(0.0, float(self.data.sensordata[adr]))
@@ -6795,29 +6611,6 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     wts_meaningful = (k_wts > 0.0
                                        and on and force >= wts_contact_n)
                     xy = self.data.xpos[self._pad_bids[f], :2]
-                    if k_fsh > 0.0 and f not in lift:
-                        # Kinematic gate: ground clearance vs
-                        # _pad_z_ref, NEVER self.data.sensordata — see
-                        # the mechanism comment above this loop.
-                        z_ref = (self._pad_z_ref[f]
-                                 if self._pad_z_ref is not None else 0.0)
-                        clearance = float(
-                            self.data.xpos[self._pad_bids[f], 2]) - z_ref
-                        quasi_planted = clearance < fsh_thresh
-                        fsh_quasi_planted_flags[f] = quasi_planted
-                        if (quasi_planted and self._lsh_prev_planted[f]
-                                and self._lsh_prev_xy[f] is not None):
-                            v_h = float(np.linalg.norm(
-                                xy - self._lsh_prev_xy[f])) / max(
-                                    self.dt, 1e-9)
-                            fsh_vels[f] = v_h
-                            fsh_measured_vels.append(v_h)
-                            ex_h = max(v_h - fsh_deadband, 0.0)
-                            if fsh_cap > 0.0:
-                                ex_h = min(ex_h, fsh_cap)
-                            fsh_excess.append(ex_h)
-                        self._lsh_prev_xy[f] = xy.copy()
-                        self._lsh_prev_planted[f] = quasi_planted
                     if on and not self._foot_on[f]:
                         touchdown_flags[f] = True
                         # Touchdown: a new stance period earns a fresh
@@ -7043,13 +6836,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     self._foot_prev_xy[f] = xy.copy()
                     self._foot_prev_force[f] = force
                     if g_swinit > 0.0:
-                        swinit_tau_s = float(cfg_get(
-                            self.cfg, "reward",
-                            "walk_leg_swing_initiation_load_tau_s",
-                            default=0.3))
                         self._swinit_load_ema[f] = (
                             self._swinit_load_ema[f]
-                            + (self.dt / max(swinit_tau_s, 1e-6))
+                            + (self.dt / 0.3)
                             * (force - self._swinit_load_ema[f]))
                     self._foot_on[f] = on
                 if k_tslip > 0.0:
@@ -7066,22 +6855,6 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         wts_td_events)
                     info["walk_transition_lo_events"] = float(
                         wts_lo_events)
-                if k_fsh > 0.0:
-                    r_fsh = 0.0
-                    if fsh_excess:
-                        r_fsh = -k_fsh * float(np.mean(fsh_excess))
-                    reward += r_fsh
-                    info["reward_foot_slip_height"] = r_fsh
-                    info["walk_height_quasi_planted_feet"] = float(
-                        sum(1 for v in fsh_quasi_planted_flags if v))
-                    if fsh_measured_vels:
-                        info["walk_height_slip_vel_mean_m_s"] = float(
-                            np.mean(fsh_measured_vels))
-                        info["walk_height_slip_vel_max_m_s"] = float(
-                            max(fsh_measured_vels))
-                    else:
-                        info["walk_height_slip_vel_mean_m_s"] = 0.0
-                        info["walk_height_slip_vel_max_m_s"] = 0.0
                 if k_tslip > 0.0 or contact_diag:
                     info["walk_contact_feet"] = float(sum(contacts))
                     info["walk_contact_meaningful_feet"] = float(
@@ -7118,11 +6891,6 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         info[f"walk_foot{f}_liftoff"] = (
                             1.0 if liftoff_flags[f] else 0.0)
                         info[f"walk_foot{f}_air_time_s"] = air_times_s[f]
-                        if k_fsh > 0.0:
-                            info[f"walk_foot{f}_quasi_planted"] = (
-                                1.0 if fsh_quasi_planted_flags[f] else 0.0)
-                            info[f"walk_foot{f}_height_slip_vel_m_s"] = (
-                                fsh_vels[f])
                 if r_swing:
                     reward += r_swing
                 if k_swing > 0.0:
@@ -7497,7 +7265,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         terms, no new charges — the level kernel, current charge
         and tilt trip already price the failure modes:
           k_quad_clear: pay each LIFT leg's height above its
-            episode-start pad z, clipped at quad_clear_cap_mm,
+            episode-start pad z, clipped at 30 mm,
             and only while that foot is OFF the ground (a loaded
             "lifted" leg earns nothing by construction).
           k_quad_plant: pay the loaded fraction of the four
@@ -7510,7 +7278,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         the learned quad HOLD stance creeping ~0.33 m/15 s — stillness
         was never priced; hold_still_gate is scoped hold/track and
         exempts quad by design): per-tick charge on body planar speed
-        above quad_still_floor_m_s, applied ONLY while no velocity is
+        above a 5 mm/s floor, applied ONLY while no velocity is
         commanded (s_ref ~ 0) so it can never fight a quadwalk
         command. Default 0 = off, legacy exact.
 
@@ -7537,9 +7305,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                              default=0.0))
         if lift and self._step_i > grace_n and (k_qc > 0.0
                                                 or k_qp > 0.0):
-            cap_m = float(cfg_get(self.cfg, "reward",
-                                  "quad_clear_cap_mm",
-                                  default=30.0)) / 1000.0
+            cap_m = 30.0 / 1000.0
             clear_sum = 0.0
             clear_mm = 0.0
             fronts_off = 0
@@ -7600,10 +7366,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                    getattr(goal, "vy_ref", 0.0)))
             if s_ref <= 1e-3:
                 sp = float(np.hypot(*self._body_vel_xy()))
-                floor = float(cfg_get(self.cfg, "reward",
-                                      "quad_still_floor_m_s",
-                                      default=0.005))
-                r_qs = -k_qs * max(sp - floor, 0.0)
+                r_qs = -k_qs * max(sp - 0.005, 0.0)
                 reward = float(reward) + r_qs
                 info["reward_quad_still"] = r_qs
                 info["quad_body_speed"] = sp
@@ -7668,8 +7431,6 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # 2) Supported-stand score S in [0, 1] — the structural
         #    height<->contact coupling. Every factor is a fade with a
         #    downhill slope; only genuinely carried height scores.
-        load_n = float(cfg_get(self.cfg, "reward", "getup_load_n",
-                               default=1.0))
         # Graded per-foot load saturation (bank-measured: an honest
         # plant carries its light tripod at only ~0.7-1.2 N, so a hard
         # threshold reads a REAL stand as 4/6 feet). An airborne flag
@@ -7682,7 +7443,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             if adr >= 0:
                 t_n = max(float(self.data.sensordata[adr]), 0.0)
                 touch_sum_n += t_n
-                load_sat += min(t_n / max(load_n, 1e-6), 1.0)
+                load_sat += min(t_n, 1.0)
         f_feet = (load_sat / 6.0) ** 2
         z_plant, weight_n = self._getup_geom()
         z_belly = float(cfg_get(self.cfg, "reward", "getup_z_belly_mm",
@@ -7692,9 +7453,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # servo/contact compliance sags the physical stance ~15-25 mm
         # below the FK height (bank-measured 148.5 vs 170.8 mm), and a
         # real stand must be able to score 1.0.
-        z_frac = float(cfg_get(self.cfg, "reward", "getup_z_full_frac",
-                               default=0.80))
-        z_full = z_belly + z_frac * max(z_plant - z_belly, 1e-3)
+        z_full = z_belly + 0.80 * max(z_plant - z_belly, 1e-3)
         f_h = min(max((z - z_belly) / max(z_full - z_belly, 1e-3),
                       0.0), 1.0)
         # Symmetric ceiling: a stilt pop overshoots the plant height —
@@ -7704,15 +7463,11 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         if over > 0.0:
             f_h *= min(max(1.0 - over / 0.06, 0.0), 1.0)
         t_roll, t_pitch = self._true_roll_pitch()
-        lev_deg = float(cfg_get(self.cfg, "reward", "getup_level_deg",
-                                default=20.0))
         tilt_deg = max(abs(t_roll), abs(t_pitch)) * 180.0 / math.pi
-        f_level = min(max(1.0 - tilt_deg / max(lev_deg, 1e-6), 0.0), 1.0)
+        f_level = min(max(1.0 - tilt_deg / 20.0, 0.0), 1.0)
         curl = self._curl_dist()
-        fp_ok = float(cfg_get(self.cfg, "reward", "getup_fp_ok_mm",
-                              default=40.0)) * 0.001
-        fp_hi = float(cfg_get(self.cfg, "reward", "getup_fp_hi_mm",
-                              default=120.0)) * 0.001
+        fp_ok = 40.0 * 0.001
+        fp_hi = 120.0 * 0.001
         f_fp = min(max((fp_hi - curl) / max(fp_hi - fp_ok, 1e-6),
                        0.0), 1.0)
         # No-flag fade on the pad-height SPREAD (highest minus lowest
@@ -7726,8 +7481,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         pad_z = np.array([float(self.data.xpos[b, 2])
                           for b in self._pad_bids])
         spread = float(np.max(pad_z) - np.min(pad_z))
-        flag_m = float(cfg_get(self.cfg, "reward", "getup_flag_mm",
-                               default=60.0)) * 0.001
+        flag_m = 60.0 * 0.001
         f_flag = min(max((2.0 * flag_m - spread) / max(flag_m, 1e-6),
                          0.0), 1.0)
         s_stand = f_h * f_feet * f_level * f_fp * f_flag
@@ -7739,17 +7493,10 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         #    one-shot ratchet income. The baseline seeds at the
         #    episode's FIRST tick so the spawn posture is never income
         #    (the _score_best convention).
-        w_z = float(cfg_get(self.cfg, "reward", "getup_w_zero",
-                            default=0.15))
-        w_l = float(cfg_get(self.cfg, "reward", "getup_w_load",
-                            default=0.25))
-        w_s = float(cfg_get(self.cfg, "reward", "getup_w_stand",
-                            default=0.60))
-        unt_deg = float(cfg_get(self.cfg, "reward", "getup_untangle_deg",
-                                default=60.0))
+        w_z, w_l, w_s = 0.15, 0.25, 0.60
         q_now = self._mujoco_to_logical_q(self.data.qpos[self._qadr])
         mean_q_deg = float(np.mean(np.abs(q_now))) * 180.0 / math.pi
-        f_unt = min(max(1.0 - mean_q_deg / max(unt_deg, 1e-6), 0.0), 1.0)
+        f_unt = min(max(1.0 - mean_q_deg / 60.0, 0.0), 1.0)
         # Middle stage = fraction of BODY WEIGHT carried by the feet
         # (measured ground reaction, saturating at 85% of m*g — the
         # honest plant's tripod imbalance never quite reads 100%).
@@ -7812,9 +7559,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # GETUP bank ordering stays intact at this value (replay/
         # flagleg/stilt/thrash margins all widen, swept 250->350;
         # ratchet `best` fractions are potential-only and untouched).
-        k_prog = float(cfg_get(self.cfg, "reward", "getup_k_progress",
-                               default=350.0))
-        r_prog = k_prog * d_p
+        r_prog = 350.0 * d_p
 
         # 4) Gated steady income. Zero-command ticks: quiet-stand pay,
         #    gated hard (S^3) so partial/flagged stands earn scraps
@@ -7853,9 +7598,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             info["walk_speed"] = float(np.hypot(v[0], v[1]))
             _add_walk_direction_info(
                 info, float(v[0]), float(v[1]), vx_ref, vy_ref,
-                min_speed_m_s=float(cfg_get(
-                    self.cfg, "goal", "walk_direction_min_speed_m_s",
-                    default=WALK_DIRECTION_MIN_SPEED_M_S)))
+                min_speed_m_s=WALK_DIRECTION_MIN_SPEED_M_S)
             info["getup_gait_gate"] = s_gait
 
         reward += r_prog + r_hold + r_walk
@@ -7905,16 +7648,16 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
              recur by construction
           P  nominal-footprint closeness (the getup f_footprint fade)
           Phi = wU*U + wL*g(U)*L + wH*g(U)*L*H + wM*g(U)*g(H)*M
-                + wP*g(U)*g(H)*P            (defaults .15/.15/.30/.30/.10)
+                + wP*g(U)*g(H)*P            (weights .15/.15/.30/.30/.10)
         Success = 0.5 s CONTINUOUS hold of: |z - z_full| <= 15 mm,
-        tilt <= 6 deg, every foot's load fraction >= rec_load_min AND
+        tilt <= 6 deg, every foot's load fraction >= 0.35 AND
         pad spread small (all six near the ground and loaded — no
         mean-only loophole), footprint closeness >= 0.5 (support
         proxy), low joint/body velocity, and no current violation.
         Falls are NOT terminal; the episode ends only on held success
         (one-shot bonus, term=True), timeout, or the safety envelope.
-        A non-success termination pays fail_cost >= the maximum
-        remaining time tax, so early abort can never out-earn trying.
+        A non-success termination pays 1.25x the full-episode time
+        tax, so early abort can never out-earn trying.
         PBRS telescopes over the episode, so the spawn potential is
         never income and re-farming a feature pays 0 by construction.
         """
@@ -7929,17 +7672,14 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             info["reward_pitch"] = 0.0
 
         # 2) Bounded features.
-        load_n = float(cfg_get(self.cfg, "reward", "rec_load_n",
-                               default=1.0))
         x = np.zeros(6)
         for f in range(6):
             adr = self._touch_adr[f]
             if adr >= 0:
                 t_n = max(float(self.data.sensordata[adr]), 0.0)
-                x[f] = min(t_n / max(load_n, 1e-6), 1.0)
+                x[f] = min(t_n, 1.0)
         feat_l = float(np.mean(x))
-        tau = float(cfg_get(self.cfg, "reward", "rec_min_tau",
-                            default=0.15))
+        tau = 0.15
         feat_m = float(min(max(
             -tau * math.log(float(np.mean(np.exp(-x / tau)))),
             0.0), 1.0))
@@ -7949,9 +7689,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         z_plant, _weight_n = self._getup_geom()
         z_belly = float(cfg_get(self.cfg, "reward", "getup_z_belly_mm",
                                 default=38.0)) * 0.001
-        z_frac = float(cfg_get(self.cfg, "reward", "getup_z_full_frac",
-                               default=0.80))
-        z_full = z_belly + z_frac * max(z_plant - z_belly, 1e-3)
+        z_full = z_belly + 0.80 * max(z_plant - z_belly, 1e-3)
         z = float(self.data.xpos[self._chassis_bid, 2])
         feat_h = min(max((z - z_belly) / max(z_full - z_belly, 1e-3),
                          0.0), 1.0)
@@ -7959,52 +7697,28 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         if over > 0.0:
             feat_h *= min(max(1.0 - over / 0.06, 0.0), 1.0)
         curl = self._curl_dist()
-        fp_ok = float(cfg_get(self.cfg, "reward", "getup_fp_ok_mm",
-                              default=40.0)) * 0.001
-        fp_hi = float(cfg_get(self.cfg, "reward", "getup_fp_hi_mm",
-                              default=120.0)) * 0.001
+        fp_ok = 40.0 * 0.001
+        fp_hi = 120.0 * 0.001
         feat_p = min(max((fp_hi - curl) / max(fp_hi - fp_ok, 1e-6),
                          0.0), 1.0)
         g_u = self._rec_gate(feat_u)
         g_h = self._rec_gate(feat_h)
-        w_u = float(cfg_get(self.cfg, "reward", "rec_w_u", default=0.15))
-        w_l = float(cfg_get(self.cfg, "reward", "rec_w_l", default=0.15))
-        w_h = float(cfg_get(self.cfg, "reward", "rec_w_h", default=0.30))
-        w_m = float(cfg_get(self.cfg, "reward", "rec_w_m", default=0.30))
-        w_p = float(cfg_get(self.cfg, "reward", "rec_w_p", default=0.10))
-        phi = (w_u * feat_u + w_l * g_u * feat_l
-               + w_h * g_u * feat_l * feat_h
-               + w_m * g_u * g_h * feat_m
-               + w_p * g_u * g_h * feat_p)
+        phi = (0.15 * feat_u + 0.15 * g_u * feat_l
+               + 0.30 * g_u * feat_l * feat_h
+               + 0.30 * g_u * g_h * feat_m
+               + 0.10 * g_u * g_h * feat_p)
 
         # 3) Potential difference (PBRS). Seeded at the first
         #    post-settle tick — no income for the spawn posture.
-        k_pot = float(cfg_get(self.cfg, "reward", "rec_k_pot",
-                              default=20.0))
-        gam = float(cfg_get(self.cfg, "reward", "rec_gamma",
-                            default=0.995))
         r_pot = 0.0
         if self._rec_phi_prev is not None:
-            r_pot = k_pot * (gam * phi - self._rec_phi_prev)
+            r_pot = 20.0 * (0.995 * phi - self._rec_phi_prev)
         self._rec_phi_prev = phi
         reward += r_pot
 
         # 4) Success detection + 0.5 s continuous hold.
-        h_tol = float(cfg_get(self.cfg, "reward", "rec_h_tol_mm",
-                              default=15.0)) * 0.001
-        lev_deg = float(cfg_get(self.cfg, "reward", "rec_level_deg",
-                                default=6.0))
-        load_min = float(cfg_get(self.cfg, "reward", "rec_load_min",
-                                 default=0.35))
-        spread_max = float(cfg_get(self.cfg, "reward",
-                                   "rec_pad_spread_mm",
-                                   default=30.0)) * 0.001
-        qd_max = float(cfg_get(self.cfg, "reward", "rec_qd_max_rad_s",
-                               default=0.7))
-        v_max = float(cfg_get(self.cfg, "reward", "rec_v_max_m_s",
-                              default=0.08))
-        cur_max = float(cfg_get(self.cfg, "reward", "rec_cur_max_a",
-                                default=3.0))
+        h_tol = 15.0 * 0.001
+        spread_max = 30.0 * 0.001
         tilt_deg = max(abs(t_roll), abs(t_pitch)) * 180.0 / math.pi
         pad_z = np.array([float(self.data.xpos[b, 2])
                           for b in self._pad_bids])
@@ -8013,34 +7727,28 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             np.square(self._state.joint_velocity))))
         v = self._body_vel_xy()
         cur = getattr(self._state, "servo_current", None)
-        cur_ok = (cur is None or cur_max <= 0.0
-                  or float(np.max(cur)) <= cur_max)
+        cur_ok = cur is None or float(np.max(cur)) <= 3.0
         ok = (abs(z - z_full) <= h_tol
-              and tilt_deg <= lev_deg
-              and float(np.min(x)) >= load_min
+              and tilt_deg <= 6.0
+              and float(np.min(x)) >= 0.35
               and spread <= spread_max
               and feat_p >= 0.5
-              and qd_rms <= qd_max
-              and float(np.hypot(v[0], v[1])) <= v_max
+              and qd_rms <= 0.7
+              and float(np.hypot(v[0], v[1])) <= 0.08
               and cur_ok)
         self._rec_hold_n = self._rec_hold_n + 1 if ok else 0
-        hold_need = max(int(round(float(cfg_get(
-            self.cfg, "reward", "rec_hold_s", default=0.5))
-            / self.dt)), 1)
+        hold_need = max(int(round(0.5 / self.dt)), 1)
         success = self._rec_hold_n >= hold_need
 
         # 5) Time tax — every tick until termination, INCLUDING the
         #    success hold (the directive's speed incentive; a normal
         #    ~4 s recovery costs ~8% of the success bonus at defaults).
-        c_time = float(cfg_get(self.cfg, "reward", "rec_c_time",
-                               default=1.0))
-        reward -= c_time * self.dt
+        reward -= self.dt
 
         # 6) Terminal handling.
         r_bonus = 0.0
         if success:
-            r_bonus = float(cfg_get(self.cfg, "reward",
-                                    "rec_b_success", default=50.0))
+            r_bonus = 50.0
             reward += r_bonus
             term = True
             info["termination_reason"] = "recover_success"
@@ -8048,10 +7756,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # timeout / safety-envelope end without success: pay at
             # least the maximum remaining time tax so aborting early
             # (or coasting into the horizon) never beats recovering.
-            fail = float(cfg_get(self.cfg, "reward", "rec_fail_cost",
-                                 default=0.0))
-            if fail <= 0.0:
-                fail = 1.25 * c_time * self.episode_steps * self.dt
+            fail = 1.25 * self.episode_steps * self.dt
             reward -= fail
             info["reward_recover_fail"] = -fail
         if term or trunc:
@@ -8119,7 +7824,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
 
         info["reward_recover_pot"] = r_pot
         info["reward_recover_bonus"] = r_bonus
-        info["reward_recover_time"] = -c_time * self.dt
+        info["reward_recover_time"] = -self.dt
         info["recover_phi"] = phi
         info["recover_U"] = feat_u
         info["recover_L"] = feat_l

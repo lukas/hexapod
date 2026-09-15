@@ -5479,9 +5479,7 @@ class SimHexapodBalanceEnv(_GymBase):
                     self._lower_score_best = depth_frac
                 delta_lsp = max(0.0, depth_frac - self._lower_score_best)
                 self._lower_score_best = self._lower_score_best + delta_lsp
-                klsp = float(cfg_get(self.cfg, "reward",
-                                     "k_lower_score_prog", default=100.0))
-                r_lsp = klsp * delta_lsp
+                r_lsp = 100.0 * delta_lsp
                 parts["reward_lower_score"] = r_lsp
                 parts["lower_depth_frac"] = depth_frac
                 reward += r_lsp
@@ -5531,9 +5529,7 @@ class SimHexapodBalanceEnv(_GymBase):
                 # high on all factors at once IS the stand. The no-flag
                 # factor is a hard zero (not a fade): a flag-leg pose
                 # earns nothing, not a 60% consolation.
-                sig_s = float(cfg_get(self.cfg, "reward",
-                                      "rise_score_sigma_mm",
-                                      default=15.0)) * 0.001
+                sig_s = 15.0 * 0.001
                 err_t = h_rel - self._h_target
                 h_f = math.exp(-0.5 * (err_t / max(sig_s, 1e-6)) ** 2)
                 n_down = float(down.sum()) / max(float(len(clear)), 1.0)
@@ -5551,8 +5547,6 @@ class SimHexapodBalanceEnv(_GymBase):
                 parts["rise_feet_factor"] = n_down ** 2 * noflag
                 if self._score_best is None:
                     self._score_best = s_now
-                ksp = float(cfg_get(self.cfg, "reward",
-                                    "k_rise_score_prog", default=30.0))
                 delta_s = max(0.0, s_now - self._score_best)
                 # Current-headroom-gated rise_score_prog income
                 # (2026-09-13, walkcurr risebridge-s1 FAIL-MECHANISM
@@ -5653,7 +5647,7 @@ class SimHexapodBalanceEnv(_GymBase):
                         self._curl_dist(), cap_m, margin_m)
                     parts["rise_score_curl_factor"] = curl_f
                 gate_f = headroom_f * curl_f
-                r_sp = ksp * delta_s * gate_f
+                r_sp = 30.0 * delta_s * gate_f
                 self._score_best = self._score_best + delta_s * gate_f
                 parts["reward_rise_score_prog"] = r_sp
                 reward += r_sp
@@ -5663,10 +5657,7 @@ class SimHexapodBalanceEnv(_GymBase):
                 # perfect geometry otherwise caps at ~0.48).
                 if goal is not None \
                         and goal.height_ref >= self._h_target - 1e-9:
-                    ksh = float(cfg_get(self.cfg, "reward",
-                                        "k_rise_score_hold",
-                                        default=1.0))
-                    r_sh = ksh * s_now ** 2
+                    r_sh = s_now ** 2
                     parts["reward_rise_score_hold"] = r_sh
                     reward += r_sh
                 # Airborne-feet rent, ramp-weighted (bank finding,
@@ -5683,12 +5674,10 @@ class SimHexapodBalanceEnv(_GymBase):
                 # ~100/ep and prices honest-but-parked below the
                 # flag-leg cheat). Grounded-but-imperfect = unfinished,
                 # charged via height + zero income; airborne = cheat.
-                kpp = float(cfg_get(self.cfg, "reward",
-                                    "k_rise_posture_pen", default=1.0))
-                if kpp > 0.0 and goal is not None:
+                if goal is not None:
                     w = min(max(goal.height_ref / self._h_target,
                                 0.0), 1.0)
-                    r_pp = -kpp * w * (1.0 - n_down ** 2 * noflag)
+                    r_pp = -w * (1.0 - n_down ** 2 * noflag)
                     parts["reward_rise_posture_pen"] = r_pp
                     reward += r_pp
             # Income prog-gate (2026-08-10 rise/lower freeze audit; cfg
@@ -5773,9 +5762,7 @@ class SimHexapodBalanceEnv(_GymBase):
             k_fp_pen = float(cfg_get(self.cfg, "reward",
                                      "k_rise_footprint_pen", default=0.0))
             if k_fp_pen > 0.0:
-                free_mm = float(cfg_get(
-                    self.cfg, "reward", "rise_footprint_pen_free_mm",
-                    default=PLANT_SPEC["footprint_err_mm"]))
+                free_mm = float(PLANT_SPEC["footprint_err_mm"])
                 r_fp_pen = -k_fp_pen * footprint_rent_m(
                     self._curl_dist() * 1000.0, free_mm)
                 parts["reward_rise_footprint_pen"] = r_fp_pen
@@ -6078,8 +6065,7 @@ class SimHexapodBalanceEnv(_GymBase):
         # when the coefficient is nonzero, and persists across episode
         # resets (NOT zeroed in reset(), unlike `_torque_debt`) because
         # it is deliberately a multi-episode/training-scale signal, not a
-        # within-episode one. Enable: --cfg-set reward.k_current_income=<k>
-        # [--cfg-set reward.current_income_tau_s=<seconds>, default 120].
+        # within-episode one. Enable: --cfg-set reward.k_current_income=<k>.
         k_cur_inc = float(cfg_get(self.cfg, "reward", "k_current_income",
                                   default=0.0))
         if k_cur_inc > 0.0 and self._state.servo_current is not None:
@@ -6087,9 +6073,7 @@ class SimHexapodBalanceEnv(_GymBase):
                                       default=1.0))
             over_inc = np.maximum(
                 self._state.servo_current - hot_a_inc, 0.0)
-            tau_s_inc = float(cfg_get(
-                self.cfg, "reward", "current_income_tau_s", default=120.0))
-            alpha_inc = min(max(self.dt / max(tau_s_inc, 1e-6), 0.0), 1.0)
+            alpha_inc = min(max(self.dt / 120.0, 0.0), 1.0)
             if getattr(self, "_current_income_ema", None) is None:
                 self._current_income_ema = 0.0
             income_tick = max(reward, 0.0)
@@ -6180,20 +6164,13 @@ class SimHexapodBalanceEnv(_GymBase):
         k_headroom = float(cfg_get(self.cfg, "reward", "k_torque_headroom",
                                     default=0.0))
         if k_headroom > 0.0 and self._state.servo_current is not None:
-            cap_a = float(cfg_get(self.cfg, "reward",
-                                  "torque_headroom_cap_a", default=2.64))
-            margin_a = float(cfg_get(self.cfg, "reward",
-                                     "torque_headroom_margin_a",
-                                     default=0.3))
-            tau_s = float(cfg_get(self.cfg, "reward",
-                                  "torque_headroom_tau_s", default=1.0))
             cur = np.abs(self._state.servo_current)
             if (getattr(self, "_torque_debt", None) is None
                     or self._torque_debt.shape != cur.shape):
                 self._torque_debt = np.zeros_like(cur)
-            alpha_d = min(max(self.dt / max(tau_s, 1e-6), 0.0), 1.0)
+            alpha_d = min(max(self.dt, 0.0), 1.0)
             self._torque_debt = torque_headroom_debt_step(
-                self._torque_debt, cur, cap_a, margin_a, alpha_d)
+                self._torque_debt, cur, 2.64, 0.3, alpha_d)
             r_headroom = -k_headroom * float(np.sum(self._torque_debt ** 2))
             parts["reward_torque_headroom"] = r_headroom
             parts["torque_headroom_debt_max"] = float(

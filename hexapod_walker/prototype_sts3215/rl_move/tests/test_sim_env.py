@@ -1127,7 +1127,6 @@ def test_current_income_reward_default_off_and_wired():
     cfg_on.setdefault("reward", {})
     cfg_on["reward"]["k_current_income"] = 50.0
     cfg_on["reward"]["current_hot_a"] = 0.0  # force `over` > 0 every tick
-    cfg_on["reward"]["current_income_tau_s"] = 0.1  # fast for the test
     env_on = SimHexapodJointGoalEnv(params=SimServoParams.load(),
                                      cfg=cfg_on, randomize=False,
                                      episode_seconds=2.0, seed=0)

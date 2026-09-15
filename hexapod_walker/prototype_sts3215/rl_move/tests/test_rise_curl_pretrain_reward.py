@@ -63,8 +63,7 @@ _KEEP_KEYS = (
     "reward_curl_progress", "reward_curl_milestone",
     "reward_current_hot", "reward_action_rate", "reward_stance",
     "reward_clearance", "reward_flag_leg", "reward_termination",
-    "reward_task", "reward_still", "reward_drag_trans",
-    "reward_current_income", "reward_support_margin",
+    "reward_task", "reward_still", "reward_support_margin",
     "reward_load_even", "reward_torque_headroom",
 )
 

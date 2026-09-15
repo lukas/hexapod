@@ -2813,7 +2813,7 @@ class SimHexapodBalanceEnv(_GymBase):
             # QUADWALK four-leg spawn (08-13, quad track; opt-in via
             # cfg goal.quadwalk_start="quad", see
             # walk_task._sample_quadwalk). Mid feet splayed forward
-            # (goal.quadwalk_mid_splay_m, default 0.06 — the bare
+            # (0.06 m — the bare
             # plant+tuck stance pitch-trips in <1 s, CoM ahead of the
             # 4-foot polygon front edge; the splayed form is the
             # QUADWALK bank's own statically-surviving freeze stance),
@@ -2826,14 +2826,12 @@ class SimHexapodBalanceEnv(_GymBase):
             # Reached only from quadwalk trajectories, so no legacy
             # rng stream can be perturbed.
             from hexapod_core.tripod_gait import TripodGait
-            splay = float(cfg_get(self.cfg, "goal",
-                                  "quadwalk_mid_splay_m", default=0.06))
             g = TripodGait()
             g.sync_plant_stance(float(self._plant_deg[1]),
                                 float(self._plant_deg[2]))
             _orig = g._foot_target_in_body
 
-            def _splayed(i, vx, vy, om, _o=_orig, _s=splay):
+            def _splayed(i, vx, vy, om, _o=_orig, _s=0.06):
                 dx, dy, dz = _o(i, vx, vy, om)
                 if i in (1, 4):
                     dx += _s
@@ -5033,7 +5031,7 @@ class SimHexapodBalanceEnv(_GymBase):
         #     foot exceeds PLANT_SPEC.flag_leg_mm (60 mm: honest
         #     recovery/adjustment swings stay far below it, the observed
         #     splay sits at 100-160 mm),
-        #   still_factor = Gaussian on mean qd^2 (still_sigma_rad_s),
+        #   still_factor = Gaussian on mean qd^2 (sigma 0.3 rad/s),
         #     applied only while the reference is stationary so TRACK's
         #     commanded attitude motion is never charged.
         # Blend: f = (1-g) + g*feet*still. Scoped strictly to
@@ -5082,7 +5080,7 @@ class SimHexapodBalanceEnv(_GymBase):
             # 0.01-0.04 duty. Clearance is the wrong proxy at the
             # bottom of its range; the gate must price MEASURED LOAD,
             # the same signal the gate metric uses. Per-foot
-            #   s_i = max(clip(touch_N / hold_load_ref_n, 0, 1), floor)
+            #   s_i = max(clip(touch_N / 1 N, 0, 1), floor)
             # multiplied over the six feet: an all-loaded stance keeps
             # exactly 1.0 (per-foot force >> 1 N at this robot's
             # weight), each unloaded foot costs a factor of
@@ -5096,8 +5094,6 @@ class SimHexapodBalanceEnv(_GymBase):
             l_load = float(cfg_get(self.cfg, "reward", "hold_feet_load",
                                    default=0.0))
             if l_load > 0.0:
-                f_ref = float(cfg_get(self.cfg, "reward",
-                                      "hold_load_ref_n", default=1.0))
                 floor_l = float(cfg_get(self.cfg, "reward",
                                         "hold_load_floor", default=0.5))
                 s_feet = []
@@ -5106,7 +5102,7 @@ class SimHexapodBalanceEnv(_GymBase):
                         f_n = max(float(
                             self.data.sensordata[self._touch_adr[i]]),
                             0.0)
-                        s_i = min(f_n / max(f_ref, 1e-6), 1.0)
+                        s_i = min(f_n / 1.0, 1.0)
                     else:   # no sensor: fall back to the clearance test
                         s_i = (1.0 if clear_h[i]
                                <= PLANT_SPEC["foot_down_mm"] * 0.001
@@ -5143,12 +5139,9 @@ class SimHexapodBalanceEnv(_GymBase):
                 parts["hold_load_factor"] = load_h
             still_h = 1.0
             if ref_quiet:
-                sig_qd_h = float(cfg_get(
-                    self.cfg, "reward", "still_sigma_rad_s",
-                    default=0.3))
                 qd2_h = float(np.mean(np.square(
                     self._state.joint_velocity)))
-                still_h = math.exp(-qd2_h / (2.0 * sig_qd_h ** 2))
+                still_h = math.exp(-qd2_h / (2.0 * 0.3 ** 2))
             f_hold = (1.0 - g_hold) + g_hold * feet_h * still_h
             r_task_h = parts.get("reward_task", 0.0)
             if r_task_h > 0.0:
@@ -5248,14 +5241,7 @@ class SimHexapodBalanceEnv(_GymBase):
                 self._tdrag_prev_on[f_td] = on_td
             parts["trans_drag_mm"] = drag_td * 1000.0
             if k_td > 0.0 and drag_td > 0.0:
-                if mode_td in ("rise", "raise"):
-                    allow_td = float(cfg_get(
-                        self.cfg, "reward", "drag_trans_allow_rise_m",
-                        default=0.75))
-                else:
-                    allow_td = float(cfg_get(
-                        self.cfg, "reward", "drag_trans_allow_m",
-                        default=0.0))
+                allow_td = 0.75 if mode_td in ("rise", "raise") else 0.0
                 acc0_td = self._tdrag_acc
                 self._tdrag_acc = acc0_td + drag_td
                 r_td = -k_td * (max(self._tdrag_acc - allow_td, 0.0)
@@ -5295,7 +5281,7 @@ class SimHexapodBalanceEnv(_GymBase):
             # mm in the air — torso-at-height via bridge/flail, not
             # standing. Height income (milestones, finish bonus, and
             # the post-ramp tracking kernel) is scaled by the fraction
-            # of pads within end_posture_allow_m of their grounded z
+            # of pads within 20 mm of their grounded z
             # (GEOMETRIC clearance, matching the eval harness's
             # end_posture_ok — NOT touch force: the champions' known
             # load concentration leaves grounded feet under 0.5 N, and
@@ -5319,14 +5305,7 @@ class SimHexapodBalanceEnv(_GymBase):
                 # 60 mm lower allowance the harness end_posture_ok and
                 # the reward_end_posture penalty already use
                 # (self._h_target < 0 == lower episode).
-                if self._h_target < 0.0:
-                    allow_pf = float(cfg_get(
-                        self.cfg, "reward", "end_posture_allow_lower_m",
-                        default=0.06))
-                else:
-                    allow_pf = float(cfg_get(
-                        self.cfg, "reward", "end_posture_allow_m",
-                        default=0.02))
+                allow_pf = 0.06 if self._h_target < 0.0 else 0.02
                 n_on, n_tot = 0, 0
                 for i in range(6):
                     if self._pad_bids[i] < 0:
@@ -6265,34 +6244,26 @@ class SimHexapodBalanceEnv(_GymBase):
             if self._end_posture_from is None:
                 # The lower/rise ramps run to the last scheduled step
                 # (no settled plateau exists), so "terminal" means: the
-                # height REFERENCE is within end_posture_ref_mm of its
+                # height REFERENCE is within 15 mm of its
                 # final value from here to the end — still a pure
                 # function of the pre-sampled schedule.
                 h = np.asarray(self._goal_traj.height)
-                ref_m = float(cfg_get(
-                    self.cfg, "reward", "end_posture_ref_mm",
-                    default=15.0)) * 0.001
+                ref_m = 15.0 * 0.001
                 far = np.nonzero(np.abs(h - h[-1]) > ref_m)[0]
                 start = (int(far[-1]) + 1) if len(far) else 0
-                grace_s = float(cfg_get(
-                    self.cfg, "reward", "end_posture_grace_s",
-                    default=0.25))
-                # Also clamp to the last end_posture_window_s of the
+                # Also clamp to the last 1.5 s of the
                 # episode: small-amplitude rise refs sit near final
                 # almost immediately, and charging the early curl
                 # transient is the exact mistake that refuted the
                 # all-modes flag_leg charge.
-                win_s = float(cfg_get(
-                    self.cfg, "reward", "end_posture_window_s",
-                    default=1.5))
                 # Mode-seq segments end at the next switch, not the
                 # episode end — clamp the charge window to the ACTIVE
                 # segment (None outside mode_seq = legacy exact).
                 _ep_end = int(getattr(self, "_seq_seg_end", None)
                               or self.episode_steps)
                 self._end_posture_from = max(
-                    start + int(round(grace_s / self.dt)),
-                    _ep_end - int(round(win_s / self.dt)))
+                    start + int(round(0.25 / self.dt)),
+                    _ep_end - int(round(1.5 / self.dt)))
                 # Dense variant (cycle 25, lower only): a proper lower
                 # keeps all six feet planted THROUGHOUT the descent —
                 # there is no legitimate leg-lift transient to protect
@@ -6309,12 +6280,7 @@ class SimHexapodBalanceEnv(_GymBase):
             if self._step_i >= self._end_posture_from:
                 # Mirror the eval gate's allowances: 20 mm for
                 # stand-ending modes, 60 mm for belly-ending lower.
-                allow = float(cfg_get(
-                    self.cfg, "reward",
-                    "end_posture_allow_lower_m", default=0.06)) \
-                    if mode_now == "lower" else float(cfg_get(
-                        self.cfg, "reward", "end_posture_allow_m",
-                        default=0.02))
+                allow = 0.06 if mode_now == "lower" else 0.02
                 skip = int(goal.unload_leg) if (
                     goal is not None and goal.unload_leg is not None) \
                     else -1

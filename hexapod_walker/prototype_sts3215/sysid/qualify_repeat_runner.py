@@ -287,9 +287,16 @@ def qualify(
         and "if abort_check():" in runner
         and "client.stop()" in run_hw
     )
+    # End-of-run contract since 2026-09-11 ("never drop a standing robot"):
+    # the runner stops pushing and HOLDS the present pose (limp only when
+    # the hold write fails or a fault bails out early); the API layer then
+    # steps a standing robot down and limps it, and leaves an operator-
+    # aborted standing robot holding. Keyed on code, not comments.
     final_limp_ok = (
-        "Always limp at the end" in runner
+        "torque_left_on = True" in runner
+        and "_write_pose(bus, hold_pose, hold_servo_ids" in runner
         and "_limp_all(bus, live_ids)" in runner
+        and "torque_left_on" in api
     )
 
     camera_guard_ok = all(
@@ -361,7 +368,9 @@ def qualify(
         "final_limp_binding": _check(
             final_limp_ok,
             ["linux_control/sysid_runner.py"],
-            "The executor calls limp after success, abort, or a retained fault stop.",
+            "The executor ends holding the present pose (limp only if the hold "
+            "write fails or a fault bails out); the API then steps a standing "
+            "robot down and limps it, so a completed run ends limp without a drop.",
         ),
     }
     seconds_per_leg = sealed_parameters.get("seconds_per_leg")
@@ -476,7 +485,7 @@ def qualify(
             ),
             "guard_result": (
                 "continuous runtime guard stops the glide before another "
-                "command and final limp is reached"
+                "command and the end-of-run hold is reached"
             ),
             "abort_bound": runtime_state_guard_ok,
         },
@@ -487,7 +496,7 @@ def qualify(
             ),
             "guard_result": (
                 "continuous runtime guard stops the trajectory before another "
-                "command and final limp is reached"
+                "command and the end-of-run hold is reached"
             ),
             "abort_bound": runtime_state_guard_ok,
         },
@@ -505,8 +514,10 @@ def qualify(
         },
         "remote_abort": {
             "passed": remote_abort_ok and final_limp_ok
-            and "test_remote_abort_reaches_final_limp" in telemetry_tests,
-            "guard_result": "remote abort exits the runner and reaches final limp",
+            and "test_remote_abort_ends_holding_the_present_pose_not_limp"
+            in telemetry_tests,
+            "guard_result": ("remote abort exits the runner, which holds the "
+                             "present pose; the API decides step-down"),
             "abort_bound": remote_abort_ok,
         },
     })

@@ -78,9 +78,8 @@ def test_current_headroom_income_factor_degenerate_zero_margin():
 # Wired integration: rise/score-income env
 
 
-def _rise_score_env(seed: int, headroom_gate: float = 0.0,
-                     cap_a: float | None = None,
-                     margin_a: float | None = None) -> SimHexapodGoalEnv:
+def _rise_score_env(seed: int,
+                     headroom_gate: float = 0.0) -> SimHexapodGoalEnv:
     cfg = load_config()
     cfg.setdefault("actions", {})["max_height_mm"] = 115
     cfg.setdefault("goal", {})["rise_height_mm"] = [90, 90]
@@ -90,10 +89,6 @@ def _rise_score_env(seed: int, headroom_gate: float = 0.0,
     cfg.setdefault("reward", {})["rise_score_income"] = 1.0
     if headroom_gate:
         cfg["reward"]["rise_score_income_headroom_gate"] = headroom_gate
-        if cap_a is not None:
-            cfg["reward"]["rise_score_headroom_cap_a"] = cap_a
-        if margin_a is not None:
-            cfg["reward"]["rise_score_headroom_margin_a"] = margin_a
     env = SimHexapodGoalEnv(cfg=cfg, seed=seed)
     g = env._goal_gen
     for m in ("hold", "lean", "track", "unload", "raise", "rise",
@@ -124,14 +119,23 @@ def test_default_off_never_exposes_the_factor_key():
     assert not any("rise_score_headroom_factor" in i for i in infos)
 
 
-def test_gate_on_factor_always_unit_range_when_present():
-    # cap/margin chosen from a probed trace of this exact seed/action:
-    # mean_current_a climbs from ~0.05A to ~2.64A (torque saturation)
-    # by tick ~300-400, so a 1.5-2.0A red zone is squarely inside the
-    # range this recipe actually reaches -- no need to hit the full
-    # physical rail to exercise the gate.
-    env = _rise_score_env(seed=3, headroom_gate=1.0, cap_a=2.0,
-                           margin_a=0.5)
+def _tight_headroom(monkeypatch):
+    """Pin the gate's cap/margin (fixed at 2.64A/0.3A in sim_env) to a
+    2.0A/0.5A red zone chosen from a probed trace of seed 3 / action
+    0.6: mean_current_a climbs from ~0.05A to ~2.64A (torque
+    saturation) by tick ~300-400, so 1.5-2.0A is squarely inside the
+    range this recipe actually reaches -- no need to hit the full
+    physical rail to exercise the gate."""
+    import rl_move.sim.sim_env as sim_env_mod
+    monkeypatch.setattr(
+        sim_env_mod, "current_headroom_income_factor",
+        lambda cur, cap, margin: current_headroom_income_factor(
+            cur, 2.0, 0.5))
+
+
+def test_gate_on_factor_always_unit_range_when_present(monkeypatch):
+    _tight_headroom(monkeypatch)
+    env = _rise_score_env(seed=3, headroom_gate=1.0)
     action = np.full(env.action_space.shape, 0.6, dtype=np.float32)
     infos = _run(env, 450, action)
     env.close()
@@ -143,7 +147,9 @@ def test_gate_on_factor_always_unit_range_when_present():
     assert min(seen) < 1.0, "gate never actually discounted a tick"
 
 
-def test_gate_never_pays_more_lifetime_income_than_ungated_twin():
+def test_gate_never_pays_more_lifetime_income_than_ungated_twin(
+        monkeypatch):
+    _tight_headroom(monkeypatch)
     # Per-TICK income is not the right invariant here: a discounted tick
     # leaves its unpaid remainder banked for a later low-current tick to
     # collect (by design -- see the code comment), so an individual tick
@@ -158,9 +164,7 @@ def test_gate_never_pays_more_lifetime_income_than_ungated_twin():
     action = np.full(env_probe.action_space.shape, 0.6, dtype=np.float32)
     env_probe.close()
     off = _run(_rise_score_env(seed=3), 450, action)
-    on = _run(_rise_score_env(seed=3, headroom_gate=1.0, cap_a=2.0,
-                               margin_a=0.5),
-              450, action)
+    on = _run(_rise_score_env(seed=3, headroom_gate=1.0), 450, action)
     assert len(off) == len(on)
     cum_off = cum_on = 0.0
     any_strict = False

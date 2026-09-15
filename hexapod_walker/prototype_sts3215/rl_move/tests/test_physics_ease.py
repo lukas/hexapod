@@ -1,17 +1,15 @@
 """Physics easing (ease.* cfg keys, 2026-08-13 — GAIT.md P3 lever 3).
 
-ease.gravity_scale / ease.vel_ceiling_scale multiply one EPISODE's
-gravity magnitude and servo velocity ceiling, read from cfg at every
-reset so the in-run sched.* engine can anneal them (eased physics
-early, nominal by the end). Contract under test:
+ease.gravity_scale multiplies one EPISODE's gravity magnitude, read
+from cfg at every reset so the in-run sched.* engine can anneal it
+(eased physics early, nominal by the end). Contract under test:
 
-- default OFF (keys unset) and explicit 1.0 are bit-exact legacy:
+- default OFF (key unset) and explicit 1.0 are bit-exact legacy:
   identical reset physics, no state mutation;
 - gravity scale reaches the model: |g| scaled, direction preserved
   (slope DR stays a direction-only effect), both with DR on
   (via the _ep_rand draw) and with randomize=False private-model
   envs (reset() fallback);
-- vel ceiling scale reaches the servo profile the same two ways;
 - values are re-read at EVERY reset (a sched-driven cfg write between
   episodes changes the next episode's physics);
 - a shared-model shim env without DR raises loudly instead of
@@ -44,8 +42,7 @@ def test_ease_off_is_bitexact():
     """Unset keys and explicit 1.0 give byte-identical reset physics."""
     obs_ref, _ = _make_env(None, seed=3).reset()
     env_unset = _make_env(None, seed=3)
-    env_one = _make_env({"gravity_scale": 1.0, "vel_ceiling_scale": 1.0},
-                        seed=3)
+    env_one = _make_env({"gravity_scale": 1.0}, seed=3)
     o_unset, _ = env_unset.reset()
     o_one, _ = env_one.reset()
     assert np.array_equal(o_unset, obs_ref)
@@ -79,25 +76,6 @@ def test_gravity_ease_with_dr_scales_draw_keeps_direction():
     assert np.allclose(env.model.opt.gravity, g_e)
 
 
-def test_vel_ease_private_model_no_dr():
-    env = _make_env({"vel_ceiling_scale": 1.5})
-    base = _make_env(None)
-    env.reset()
-    base.reset()
-    assert np.allclose(env._profile._vel_default,
-                       1.5 * base._profile._vel_default, rtol=1e-9)
-
-
-def test_vel_ease_with_dr_scales_draw():
-    env = _make_env({"vel_ceiling_scale": 1.5}, randomize=True,
-                    dr_scale=0.5)
-    base = _make_env(None, randomize=True, dr_scale=0.5)
-    env.reset()
-    base.reset()
-    assert np.isclose(env._ep_rand.vel_scale,
-                      1.5 * base._ep_rand.vel_scale, rtol=1e-9)
-
-
 def test_ease_reread_each_reset():
     """A cfg write between episodes (what sched.* does) moves the next
     episode's physics — the keys are live, not construction-frozen."""
@@ -122,6 +100,3 @@ def test_ease_nonpositive_raises():
     env = _make_env({"gravity_scale": 0.0})
     with pytest.raises(ValueError, match="must be > 0"):
         env.reset()
-    env2 = _make_env({"vel_ceiling_scale": -1.0})
-    with pytest.raises(ValueError, match="must be > 0"):
-        env2.reset()

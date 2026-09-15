@@ -1127,7 +1127,6 @@ def test_current_income_reward_default_off_and_wired():
     cfg_on.setdefault("reward", {})
     cfg_on["reward"]["k_current_income"] = 50.0
     cfg_on["reward"]["current_hot_a"] = 0.0  # force `over` > 0 every tick
-    cfg_on["reward"]["current_income_tau_s"] = 0.1  # fast for the test
     env_on = SimHexapodJointGoalEnv(params=SimServoParams.load(),
                                      cfg=cfg_on, randomize=False,
                                      episode_seconds=2.0, seed=0)
@@ -1795,14 +1794,9 @@ def test_walk_slip_per_m_undefined_for_zero_command_episode():
     assert ep["slip_m_total"] >= 0.0
 
 
-def test_foot_friction_torsion_override_default_off_and_dosed():
-    """``env.foot_friction_torsion`` (built 2026-09-08 for the walkcurr
-    slip-floor structural-lever cross-link,
-    ``artifacts/rl_watchdog/turn_traction_20260908/``): default 0
-    leaves geom_friction[:, 1] bit-exact at the XML value; a positive
-    override mutates ONLY the torsional column, on the same
-    foot/pad/floor/terrain geoms as ``set_foot_ground_friction``, and
-    survives a DR-off reset (set before the pristine-copy snapshot)."""
+def test_default_env_keeps_xml_geom_friction():
+    """With no friction override in cfg the env's geom_friction (all
+    three columns) is bit-exact the XML value."""
     from rl_move.config import load_config
     from rl_move.sim.servo_model import build_model
 
@@ -1811,28 +1805,7 @@ def test_foot_friction_torsion_override_default_off_and_dosed():
     cfg_off = load_config()
     env_off = SimHexapodBalanceEnv(cfg=cfg_off, seed=0)
     assert np.array_equal(env_off.model.geom_friction, raw.geom_friction)
-
-    cfg_on = load_config()
-    cfg_on.setdefault("env", {})["foot_friction_torsion"] = 0.005
-    env_on = SimHexapodBalanceEnv(cfg=cfg_on, seed=0)
-    foot0 = mujoco.mj_name2id(env_on.model, mujoco.mjtObj.mjOBJ_GEOM,
-                              "L0_foot")
-    floor = mujoco.mj_name2id(env_on.model, mujoco.mjtObj.mjOBJ_GEOM,
-                              "floor")
-    assert env_on.model.geom_friction[foot0, 1] == pytest.approx(0.005)
-    assert env_on.model.geom_friction[floor, 1] == pytest.approx(0.005)
-    # Slide + rolling columns untouched.
-    assert env_on.model.geom_friction[foot0, 0] == pytest.approx(
-        raw.geom_friction[foot0, 0])
-    assert env_on.model.geom_friction[foot0, 2] == pytest.approx(
-        raw.geom_friction[foot0, 2])
-
-    # Survives a no-DR reset (applied before the pristine-copy restore).
-    env_on.randomizer = None
-    env_on.reset()
-    assert env_on.model.geom_friction[foot0, 1] == pytest.approx(0.005)
     env_off.close()
-    env_on.close()
 
 
 def test_foot_geom_radius_override_default_off_and_dosed():

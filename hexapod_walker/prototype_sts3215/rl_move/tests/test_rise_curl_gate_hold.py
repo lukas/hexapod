@@ -66,7 +66,6 @@ from rl_move.sim.goal_task import SimHexapodGoalEnv
 
 def _rise_env(seed: int, force_start: str = "flat",
               curl_gate: float = 0.0,
-              threshold_mm: float | None = None,
               max_extra_s: float | None = None) -> SimHexapodGoalEnv:
     cfg = load_config()
     cfg.setdefault("goal", {})["rise_height_mm"] = [90, 90]
@@ -76,8 +75,6 @@ def _rise_env(seed: int, force_start: str = "flat",
     cfg.setdefault("episode", {})["seconds"] = 8
     if curl_gate:
         cfg["goal"]["rise_curl_gate"] = curl_gate
-        if threshold_mm is not None:
-            cfg["goal"]["rise_curl_gate_threshold_mm"] = threshold_mm
         if max_extra_s is not None:
             cfg["goal"]["rise_curl_gate_max_extra_s"] = max_extra_s
     env = SimHexapodGoalEnv(cfg=cfg, seed=seed)
@@ -124,9 +121,8 @@ def test_default_off_ramps_on_the_natural_schedule():
 
 def test_gate_on_defers_ramp_while_curl_never_met_then_forces_it():
     max_extra_s = 0.4
-    env = _rise_env(seed=1, curl_gate=1.0, threshold_mm=1.0,
-                     max_extra_s=max_extra_s)
-    # threshold_mm=1.0mm is unreachable for a true flat start doing
+    env = _rise_env(seed=1, curl_gate=1.0, max_extra_s=max_extra_s)
+    # The 40mm threshold is unreachable for a true flat start doing
     # nothing (curl_dist starts ~176mm and a zero action barely moves
     # it), so the gate must hold through the whole extra-wait window.
     action = np.zeros(env.action_space.shape, dtype=np.float32)
@@ -144,11 +140,12 @@ def test_gate_on_defers_ramp_while_curl_never_met_then_forces_it():
 
 
 def test_gate_unlocks_immediately_once_curl_dist_crosses_threshold():
-    env = _rise_env(seed=1, curl_gate=1.0, threshold_mm=200.0,
-                     max_extra_s=5.0)
-    # threshold_mm=200mm is ALREADY satisfied at reset (flat start
-    # curl_dist ~176mm < 200mm), so the gate must never defer at all --
-    # ramp begins at the natural schedule tick, same as gate-off.
+    env = _rise_env(seed=1, curl_gate=1.0, max_extra_s=5.0)
+    # Report the sub-goal as ALREADY satisfied at reset (measured curl
+    # distance pinned under the 40mm threshold), so the gate must never
+    # defer at all -- ramp begins at the natural schedule tick, same as
+    # gate-off.
+    env._curl_dist = lambda: 0.0
     action = np.zeros(env.action_space.shape, dtype=np.float32)
     infos = _run(env, 300, action)
     hold_n = env._rise_ramp_i0
@@ -160,9 +157,9 @@ def test_gate_unlocks_immediately_once_curl_dist_crosses_threshold():
 
 def test_crouch_start_exempt_from_gating():
     env = _rise_env(seed=2, force_start="crouch", curl_gate=1.0,
-                     threshold_mm=0.001, max_extra_s=5.0)
-    # threshold effectively unreachable, but crouch starts are exempt
-    # by start_at -- must behave exactly like gate-off.
+                     max_extra_s=5.0)
+    # Crouch starts are exempt by start_at -- must behave exactly like
+    # gate-off.
     action = np.zeros(env.action_space.shape, dtype=np.float32)
     infos = _run(env, 200, action)
     hold_n = env._rise_ramp_i0

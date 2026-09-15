@@ -53,22 +53,13 @@ from rl_move.config import load_config
 from rl_move.sim.goal_task import SimHexapodGoalEnv
 
 
-def _lower_env(seed: int, stage_gate: float = 0.0,
-               load_ref_n: float | None = None,
-               frac_min: float | None = None,
-               max_extra_s: float | None = None) -> SimHexapodGoalEnv:
+def _lower_env(seed: int, stage_gate: float = 0.0) -> SimHexapodGoalEnv:
     cfg = load_config()
     cfg.setdefault("goal", {})["lower_hold_s"] = 0.3
     cfg["goal"]["lower_ramp_s"] = 2.0
     cfg.setdefault("episode", {})["seconds"] = 8
     if stage_gate:
         cfg["goal"]["lower_stage_gate"] = stage_gate
-        if load_ref_n is not None:
-            cfg["goal"]["lower_stage_load_ref_n"] = load_ref_n
-        if frac_min is not None:
-            cfg["goal"]["lower_stage_planted_frac_min"] = frac_min
-        if max_extra_s is not None:
-            cfg["goal"]["lower_stage_gate_max_extra_s"] = max_extra_s
     env = SimHexapodGoalEnv(cfg=cfg, seed=seed)
     g = env._goal_gen
     for m in ("hold", "lean", "track", "unload", "raise", "rise",
@@ -89,7 +80,6 @@ def _rise_env(seed: int, stage_gate_cfg: float = 0.0) -> SimHexapodGoalEnv:
     cfg.setdefault("episode", {})["seconds"] = 8
     if stage_gate_cfg:
         cfg["goal"]["lower_stage_gate"] = stage_gate_cfg
-        cfg["goal"]["lower_stage_load_ref_n"] = 1e6  # would-be-unreachable
     env = SimHexapodGoalEnv(cfg=cfg, seed=seed)
     g = env._goal_gen
     for m in ("hold", "lean", "track", "unload", "raise", "rise",
@@ -135,25 +125,31 @@ def test_default_off_ramps_on_the_natural_schedule():
                for info in infos)
 
 
-def test_gate_on_defers_ramp_while_unplanted_then_forces_it():
-    max_extra_s = 0.4
-    # 1e6 N is unreachable for any real foot force -- the gate must
-    # hold through the whole capped extra-wait window regardless of
-    # what the (zero) action does.
-    env = _lower_env(seed=1, stage_gate=1.0, load_ref_n=1e6,
-                      max_extra_s=max_extra_s)
+def test_gate_on_defers_ramp_while_unplanted_then_unlocks():
+    unplanted_s = 0.4
+    # Report the feet as unplanted for the first 0.4 s of gate checks
+    # (well under the gate's fixed 5 s extra-wait cap), then planted --
+    # the gate must hold exactly through that window regardless of what
+    # the (zero) action does, then let the ramp advance.
+    env = _lower_env(seed=1, stage_gate=1.0)
+    n_unplanted = int(round(unplanted_s / env.dt))
+    checks = {"n": 0}
+
+    def _planted_frac(load_ref_n):
+        checks["n"] += 1
+        return 0.0 if checks["n"] <= n_unplanted else 1.0
+
+    env._lower_stage_planted_frac = _planted_frac
     action = np.zeros(env.action_space.shape, dtype=np.float32)
     infos = _run(env, 400, action)
     hold_n = env._lower_ramp_i0
-    dt = env.dt
     env.close()
     first = _first_ramp_tick(infos)
     assert first is not None
-    max_extra_ticks = int(round(max_extra_s / dt))
     # Ramp must NOT start at the original schedule tick (deferred)...
     assert first > hold_n
-    # ...but must not stall past hold_n + the capped extra wait either.
-    assert first <= hold_n + max_extra_ticks + 1
+    # ...but must not stall past hold_n + the unplanted window either.
+    assert first <= hold_n + n_unplanted + 1
 
 
 def test_gate_unlocks_when_planted_frac_trivially_met():
@@ -182,9 +178,9 @@ def test_freeze_ticks_zero_when_gate_off():
 
 
 def test_lower_gate_cfg_does_not_touch_rise_episode_schedule():
-    # A rise episode run with goal.lower_stage_gate=1 (and an
-    # unreachable load ref) present in cfg must ramp on ITS OWN natural
-    # schedule, unaffected -- the two gates are mode-exclusive.
+    # A rise episode run with goal.lower_stage_gate=1 present in cfg
+    # must ramp on ITS OWN natural schedule, unaffected -- the two gates
+    # are mode-exclusive.
     env = _rise_env(seed=1, stage_gate_cfg=1.0)
     action = np.zeros(env.action_space.shape, dtype=np.float32)
     infos = _run(env, 300, action)

@@ -402,41 +402,6 @@ def test_runtime_rejects_every_compliance_double_count(monkeypatch):
                     joint_series_flex=series_spec)
 
 
-def test_legacy_rise_full_state_remaps_by_named_encoder_addresses(monkeypatch):
-    monkeypatch.setenv("HEXAPOD_MODEL_SOURCE", "mesh_mjx")
-    from rl_move.config import load_config
-    from rl_move.sim.sim_env import SimHexapodBalanceEnv
-
-    cfg = deepcopy(load_config())
-    cfg["struct_comp"]["enabled"] = 0
-    cfg["leg_mount_flex"]["enabled"] = 0
-    cfg["joint_series_flex"] = _cfg(
-        legs=[4], axes=["pitch", "knee"])["joint_series_flex"]
-    env = SimHexapodBalanceEnv(
-        cfg=cfg, randomize=False, episode_seconds=0.1)
-
-    rigid_qpos = np.zeros(25)
-    rigid_qpos[2] = 0.16
-    rigid_qpos[3] = 1.0
-    rigid_qpos[7:25] = np.linspace(-0.2, 0.2, 18)
-    rigid_qvel = np.linspace(-0.3, 0.3, 24)
-    env._exact_start_pending = (rigid_qpos.copy(), rigid_qvel.copy())
-    env._settle = lambda *args, **kwargs: None
-
-    obs, _ = env.reset(seed=0)
-
-    assert obs.shape == (47,)
-    assert env.model.nq == 27 and env.model.nv == 26
-    assert env.data.qpos[env._qadr] == pytest.approx(rigid_qpos[7:25])
-    assert env.data.qvel[env._vadr] == pytest.approx(rigid_qvel[6:24])
-    addrs = JSF.addresses(env.model)
-    assert addrs is not None
-    assert env.data.qpos[list(addrs.flex_qpos_addrs)] \
-        == pytest.approx(env.model.qpos0[list(addrs.flex_qpos_addrs)])
-    assert env.data.qvel[list(addrs.flex_dof_addrs)] == pytest.approx(0.0)
-    env.close()
-
-
 def test_replay_records_series_deflection_without_changing_servo_shape(
         monkeypatch):
     monkeypatch.setenv("HEXAPOD_MODEL_SOURCE", "mesh_mjx")

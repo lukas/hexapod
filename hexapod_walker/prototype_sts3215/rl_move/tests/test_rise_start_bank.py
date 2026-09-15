@@ -164,40 +164,6 @@ def _mk_full_bank(tmp_path: Path, env_probe: SimHexapodGoalEnv,
     return p, q, qpos
 
 
-def test_exact_restore_uses_full_state(tmp_path):
-    """goal.rise_start_bank_exact=1 + full-state bank: the episode
-    starts verbatim at a bank state — exact joints (no jitter), base z
-    from the bank (recentered x/y), no re-plant/settle distortion."""
-    probe = _rise_env(seed=11)
-    bank_path, q, qpos = _mk_full_bank(tmp_path, probe)
-    probe.close()
-    env = _rise_env(seed=11, rise_start_bank=str(bank_path),
-                    rise_start_bank_frac=1.0, rise_start_bank_exact=1.0)
-    for _ in range(4):
-        obs, info = env.reset()
-        assert env._goal_traj.start_at == "rise_bank"
-        assert np.all(np.isfinite(obs))
-        qj = env._state.joint_position
-        # nearest bank row: joints exact at placement, then only the
-        # 0.3 s stiff hold-settle may move them (servos already at cmd)
-        d = np.abs(q - qj[None, :]).max(axis=1).min()
-        assert d < 0.05, f"exact restore drifted {d:.3f} rad"
-        assert abs(env.data.qpos[0]) < 0.02 and abs(env.data.qpos[1]) < 0.02
-    env.close()
-
-
-def test_exact_flag_with_joints_only_bank_falls_back(tmp_path):
-    """Exact restore needs full state; a valid joints-only v2 bank uses
-    the reconstruction path instead."""
-    bank_path, q = _mk_bank(tmp_path)
-    env = _rise_env(seed=5, rise_start_bank=str(bank_path),
-                    rise_start_bank_frac=1.0, rise_start_bank_exact=1.0)
-    obs, info = env.reset()
-    assert env._goal_traj.start_at == "rise_bank"
-    assert np.all(np.isfinite(obs))
-    env.close()
-
-
 def test_exact_off_with_full_bank_is_bit_exact_with_legacy_path(tmp_path):
     """A full-state bank with exact OFF must behave exactly like the
     joints-only reconstruction path (default semantics unchanged)."""
@@ -246,49 +212,16 @@ def _mk_anchored_bank(tmp_path: Path, env_probe: SimHexapodGoalEnv,
     return p, q, z_stand
 
 
-def test_anchor_stand_rewrites_schedule_to_remaining_rise(tmp_path):
-    """anchor_stand=1: the height schedule ends at z_stand - z0 (the
-    remaining rise back to standing), NOT the belly band (108-114mm)."""
-    probe = _rise_env(seed=17)
-    bank_path, q, z_stand = _mk_anchored_bank(tmp_path, probe)
-    probe.close()
-    env = _rise_env(seed=17, rise_start_bank=str(bank_path),
-                    rise_start_bank_frac=1.0, rise_start_bank_exact=1.0,
-                    rise_start_bank_anchor_stand=1.0,
-                    rise_height_mm=[108, 114])
-    for _ in range(4):
-        env.reset()
-        assert env._goal_traj.start_at == "rise_bank"
-        h_end = float(np.asarray(env._goal_traj.height)[-1])
-        want = max(min(z_stand) - env._z0, 0.002)
-        want_hi = max(max(z_stand) - env._z0, 0.002)
-        assert want - 1e-9 <= h_end <= want_hi + 1e-9, (
-            f"schedule end {h_end*1000:.1f}mm not the remaining rise "
-            f"[{want*1000:.1f}, {want_hi*1000:.1f}]mm")
-        assert h_end < 0.080, "belly band leaked through the re-anchor"
-    env.close()
-
-
 def test_anchor_stand_off_keeps_legacy_schedule(tmp_path):
     """Same anchored bank, flag OFF: schedule stays the belly band."""
     probe = _rise_env(seed=19)
     bank_path, q, _ = _mk_anchored_bank(tmp_path, probe)
     probe.close()
     env = _rise_env(seed=19, rise_start_bank=str(bank_path),
-                    rise_start_bank_frac=1.0, rise_start_bank_exact=1.0,
+                    rise_start_bank_frac=1.0,
                     rise_height_mm=[108, 114])
     env.reset()
     h_end = float(np.asarray(env._goal_traj.height)[-1])
     assert 0.100 <= h_end <= 0.120, f"legacy band changed: {h_end}"
     env.close()
 
-
-def test_anchor_stand_on_legacy_bank_raises(tmp_path):
-    """anchor_stand=1 on a bank without z_stand must fail LOUDLY."""
-    bank_path, _ = _mk_bank(tmp_path)
-    env = _rise_env(seed=21, rise_start_bank=str(bank_path),
-                    rise_start_bank_frac=1.0,
-                    rise_start_bank_anchor_stand=1.0)
-    with pytest.raises(ValueError, match="z_stand"):
-        env.reset()
-    env.close()

@@ -26,8 +26,7 @@ exactly):
     same "sits at target, not start" convention as the loadslip
     bootstrap (a safety-relevant charge must default to its validated
     value for any eval/play path that never broadcasts);
-  - frac 0 -> min_frac, 0.5 -> midpoint, >=1 -> 1.0, clamped;
-  - fail-closed: min_frac outside [0, 1] raises at construction;
+  - frac 0 -> min_frac (0.30), 0.5 -> midpoint, >=1 -> 1.0, clamped;
   - the live scale actually changes k_current_hot's reward specifically
     (an unrelated reward term must NOT scale).
 """
@@ -103,33 +102,18 @@ def test_armed_unbroadcast_sits_at_full_charge():
 
 
 def test_frac_mapping_and_clamping():
-    keys = dict(BOOT_KEYS)
-    keys[("reward", "current_hot_bootstrap_min_frac")] = 0.2
-    env = _env(keys)
+    # min_frac is fixed at 0.30 (see the sim_env.py __init__ block
+    # docstring): frac 0 -> 0.30, 0.5 -> 0.65, clamped to [0.30, 1.0].
+    env = _env(BOOT_KEYS)
     out = env.apply_current_hot_bootstrap_frac(0.0)
-    assert out["scale"] == pytest.approx(0.2)
+    assert out["scale"] == pytest.approx(0.30)
     out = env.apply_current_hot_bootstrap_frac(0.5)
-    assert out["scale"] == pytest.approx(0.6)
+    assert out["scale"] == pytest.approx(0.65)
     out = env.apply_current_hot_bootstrap_frac(2.0)   # clamps
     assert out["scale"] == pytest.approx(1.0)
     out = env.apply_current_hot_bootstrap_frac(-1.0)  # clamps
-    assert out["scale"] == pytest.approx(0.2)
-    assert env._current_hot_scale() == pytest.approx(0.2)
-    # default min_frac when the key is absent (0.30 — see the
-    # sim_env.py __init__ block docstring)
-    env2 = _env(BOOT_KEYS)
-    out2 = env2.apply_current_hot_bootstrap_frac(0.0)
-    assert out2["scale"] == pytest.approx(0.30)
-
-
-def test_bad_min_frac_fails_closed():
-    keys = dict(BOOT_KEYS)
-    keys[("reward", "current_hot_bootstrap_min_frac")] = 1.5
-    with pytest.raises(ValueError, match="must be in"):
-        _env(keys)
-    keys[("reward", "current_hot_bootstrap_min_frac")] = -0.1
-    with pytest.raises(ValueError, match="must be in"):
-        _env(keys)
+    assert out["scale"] == pytest.approx(0.30)
+    assert env._current_hot_scale() == pytest.approx(0.30)
 
 
 def test_scale_moves_current_hot_only():

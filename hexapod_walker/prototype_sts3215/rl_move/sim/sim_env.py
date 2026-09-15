@@ -491,33 +491,6 @@ def set_foot_ground_friction(model, mu_slide: float) -> None:
             model.geom_friction[gid, 0] = float(mu_slide)
 
 
-def set_foot_ground_torsion_friction(model, mu_torsion: float) -> None:
-    """Set the foot-ground TORSIONAL friction (geom_friction[:, 1]) to a
-    probe/diagnostic value. cfg ``env.foot_friction_torsion`` (0 = keep
-    the XML default, currently foot mu_t=0.1 m / floor mu_t=0.05 m).
-
-    Built 2026-09-08 for the walkcurr slip-floor structural-lever
-    question (STATUS.md cross-link from the todaypolicy traction
-    diagnostic, ``artifacts/rl_watchdog/turn_traction_20260908/``):
-    that diagnostic measured the mesh family's foot torsional mu_t=0.1
-    as ~20x a physical boot estimate (~0.005 m) and found it carries
-    the ENTIRE net turn drive at the probed cells. This setter exists
-    to test whether the same channel explains walkcurr's own
-    independently-closed ~5-6/m straight-walk slip floor (9 reward-
-    pricing arms, all converging on the same floor, all demanding a
-    structural — not reward — lever next). Same floor/feet
-    combining-rule caveat as ``set_foot_ground_friction`` applies.
-    Default 0.0 leaves the model untouched (bit-exact off)."""
-    import mujoco
-    names = ["floor", "terrain"]
-    for i in range(6):
-        names += [f"L{i}_foot", f"L{i}_pad_col"]
-    for gname in names:
-        gid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, gname)
-        if gid >= 0:
-            model.geom_friction[gid, 1] = float(mu_torsion)
-
-
 def set_foot_geom_radius(model, radius_m: float) -> None:
     """Reject unsafe in-place resizing of a compiled model.
 
@@ -693,13 +666,13 @@ class SimHexapodBalanceEnv(_GymBase):
                 raise ValueError("sched.n_envs must be >= 1")
 
         # Physics easing (2026-08-13, GAIT.md P3 lever 3, nobc track):
-        # ease.gravity_scale / ease.vel_ceiling_scale multiply THIS
-        # EPISODE's gravity magnitude and servo velocity ceiling. Both
-        # are read from cfg at EVERY reset (see _reset_begin) so the
-        # sched.* engine above — which writes its target cfg path each
-        # tick — can anneal them across a run (eased physics early,
-        # nominal by the end); within an episode physics never changes.
-        # Default (keys unset / 1.0) is bit-exact legacy: no draw, no
+        # ease.gravity_scale multiplies THIS EPISODE's gravity
+        # magnitude. It is read from cfg at EVERY reset (see
+        # _reset_begin) so the sched.* engine above — which writes its
+        # target cfg path each tick — can anneal it across a run (eased
+        # physics early, nominal by the end); within an episode physics
+        # never changes.
+        # Default (key unset / 1.0) is bit-exact legacy: no draw, no
         # mutation, no extra code path. Application point is the
         # episode's DR draw (_ep_rand) — the one object BOTH trainer
         # stacks consume (private model: EpisodeRand.apply_to_model;
@@ -709,7 +682,10 @@ class SimHexapodBalanceEnv(_GymBase):
         # fields hold the randomize=False PRIVATE-model fallback used
         # by reset(); shared-model shims without DR raise instead
         # (per-world model fields are the only route to eased gravity
-        # in the batched path).
+        # in the batched path). _ease_v is a constant 1.0: the servo
+        # velocity-ceiling easing it once carried was never configured
+        # and is gone; the attribute stays because mjx_host.SNAP_ATTRS
+        # names it.
         self._ease_g = 1.0
         self._ease_v = 1.0
 
@@ -930,13 +906,6 @@ class SimHexapodBalanceEnv(_GymBase):
                                 default=0.0))
             if _mu > 0.0:
                 set_foot_ground_friction(self.model, _mu)
-            # Diagnostic-only torsional friction override (default 0 =
-            # keep XML default, bit-exact off) — see
-            # set_foot_ground_torsion_friction.
-            _mu_t = float(cfg_get(self.cfg, "env", "foot_friction_torsion",
-                                  default=0.0))
-            if _mu_t > 0.0:
-                set_foot_ground_torsion_friction(self.model, _mu_t)
 
         # Pristine copies for DR restore at every reset.
         self._base_body_mass = self.model.body_mass.copy()
@@ -1305,25 +1274,15 @@ class SimHexapodBalanceEnv(_GymBase):
         # current_hot_bootstrap_steps is 0/absent — the debt array and
         # override stay unallocated/None, k_current_hot reads exactly
         # as before). Enable: --cfg-set reward.k_current_hot=<final
-        # dose> --cfg-set reward.current_hot_bootstrap_steps=<N>
-        # [--cfg-set reward.current_hot_bootstrap_min_frac=<0..1>].
+        # dose> --cfg-set reward.current_hot_bootstrap_steps=<N>.
         self._current_hot_bootstrap: dict | None = None
         self._current_hot_bootstrap_override: float | None = None
         _chb_steps = int(float(cfg_get(
             self.cfg, "reward", "current_hot_bootstrap_steps",
             default=0) or 0))
         if _chb_steps > 0:
-            _chb_min = float(cfg_get(
-                self.cfg, "reward", "current_hot_bootstrap_min_frac",
-                default=0.30))
-            if not 0.0 <= _chb_min <= 1.0:
-                raise ValueError(
-                    "reward.current_hot_bootstrap_min_frac "
-                    f"({_chb_min:g}) must be in [0, 1] — the "
-                    "bootstrap only ever anneals k_current_hot UP to "
-                    "the full cfg dose")
             self._current_hot_bootstrap = {
-                "steps": _chb_steps, "min_frac": _chb_min, "frac": 0.0,
+                "steps": _chb_steps, "min_frac": 0.30, "frac": 0.0,
             }
 
         # Income-relative current-price EMA state (reward.
@@ -1965,31 +1924,11 @@ class SimHexapodBalanceEnv(_GymBase):
         return (math.atan2(f[1], f[2]),
                 math.atan2(-f[0], math.hypot(f[1], f[2])))
 
-    def _walk_park_bank(self) -> np.ndarray | None:
-        """Harvested own-park poses (cycle 27). Lazy-loads the npz named
-        by cfg goal.walk_park_bank (key ``q_rad``, shape (K,18)); caches
-        None when unset so the legacy path costs one attribute check."""
-        if hasattr(self, "_park_bank_cache"):
-            return self._park_bank_cache
-        path = cfg_get(self.cfg, "goal", "walk_park_bank", default=None)
-        bank = None
-        if path:
-            arr, npz = _load_robot_abs_q_npz(
-                str(path), source="walk_park_bank")
-            npz.close()
-            if arr.ndim != 2 or arr.shape[1] != N_JOINTS or len(arr) == 0:
-                raise ValueError(
-                    f"walk_park_bank {path}: expected (K,{N_JOINTS}) "
-                    f"q_rad, got {arr.shape}")
-            bank = arr
-        self._park_bank_cache = bank
-        return bank
-
     def _recover_start_bank(self) -> np.ndarray | None:
         """Harvested recover-mode start poses (08-15, recover_to_plant
         family 2). Lazy-loads the npz named by cfg
         goal.recover_start_bank (key ``q_rad``, shape (K,18)); caches
-        None when unset. Same contract as _walk_park_bank."""
+        None when unset."""
         if hasattr(self, "_rec_bank_cache"):
             return self._rec_bank_cache
         path = cfg_get(self.cfg, "goal", "recover_start_bank",
@@ -2013,7 +1952,7 @@ class SimHexapodBalanceEnv(_GymBase):
         sim_env spawn branch and walk_task._sample_recover). Lazy-
         loads the npz named by cfg goal.recover_rsi_bank_path (key
         ``q_rad``, shape (K,18)); caches None when unset. Same
-        contract as _recover_start_bank / _walk_park_bank."""
+        contract as _recover_start_bank."""
         if hasattr(self, "_rec_rsi_bank_cache"):
             return self._rec_rsi_bank_cache
         path = cfg_get(self.cfg, "goal", "recover_rsi_bank_path",
@@ -2036,13 +1975,11 @@ class SimHexapodBalanceEnv(_GymBase):
         rise exposure — SESSION_BULK_GATE's named boundary). Lazy-loads
         the npz named by cfg goal.rise_start_bank (key ``q_rad``, shape
         (K,18)); caches None when unset so the legacy path costs one
-        attribute check. Same contract as _walk_park_bank."""
+        attribute check."""
         if hasattr(self, "_rise_bank_cache"):
             return self._rise_bank_cache
         path = cfg_get(self.cfg, "goal", "rise_start_bank", default=None)
         bank = None
-        self._rise_bank_full = None
-        self._rise_bank_zstand = None
         if path:
             arr, npz = _load_robot_abs_q_npz(
                 str(path), source="rise_start_bank")
@@ -2051,27 +1988,6 @@ class SimHexapodBalanceEnv(_GymBase):
                     f"rise_start_bank {path}: expected (K,{N_JOINTS}) "
                     f"q_rad, got {arr.shape}")
             bank = arr
-            # Full-state twin (08-14 postlower2 dig-in): newer banks also
-            # carry the exact settled qpos/qvel; goal.rise_start_bank_exact
-            # (default OFF) restores them verbatim instead of the
-            # joints-only _place_at_plant reconstruction, which proved
-            # off-distribution (parent 0/12 from reconstruction vs
-            # 0.801/0.967 from real in-session post-lower states).
-            if "qpos_full" in npz.files and "qvel_full" in npz.files:
-                qp = np.asarray(npz["qpos_full"], dtype=float)
-                qv = np.asarray(npz["qvel_full"], dtype=float)
-                if len(qp) == len(arr) and len(qv) == len(arr):
-                    self._rise_bank_full = (qp, qv)
-            # Standing anchor per row (08-14, the postlower1/2 root
-            # cause): rise heights are z0-relative and belly-calibrated;
-            # a bank spawn settles ~50mm above the belly, so anchoring
-            # the band at the spawn commands an IMPOSSIBLE target.
-            # z_stand = the harvest lower-episode's own standing z0 —
-            # what this endpoint should rise back to.
-            self._rise_bank_zstand = (
-                np.asarray(npz["z_stand"], dtype=float)
-                if "z_stand" in npz.files
-                and len(npz["z_stand"]) == len(arr) else None)
             npz.close()
         self._rise_bank_cache = bank
         return bank
@@ -2155,7 +2071,6 @@ class SimHexapodBalanceEnv(_GymBase):
         self._prev_action[:] = 0.0
         self.safety.clear_estop()
         self._tipped_applied = False
-        self._rise_bank_zstand_pending = None
         self._flip_spawn_pending = None
 
         self._ep_rand = (self.randomizer.sample(self.rng)
@@ -2169,9 +2084,9 @@ class SimHexapodBalanceEnv(_GymBase):
         else:
             self._struct_comp_k = None
 
-        # Physics easing (see __init__): scale this episode's gravity /
-        # servo velocity ceiling by the CURRENT cfg values, so an
-        # active sched.* ramp moves the physics episode-by-episode.
+        # Physics easing (see __init__): scale this episode's gravity
+        # by the CURRENT cfg value, so an active sched.* ramp moves the
+        # physics episode-by-episode.
         # Batched-pool note: pooled resets restore entries minted at
         # choreography time, so under an active schedule an episode's
         # eased physics can lag the schedule by up to the pool depth
@@ -2186,7 +2101,6 @@ class SimHexapodBalanceEnv(_GymBase):
         # episodes that don't qualify, without re-deriving the
         # unscaled values from scratch.
         self._ease_orig_gravity_vec = None
-        self._ease_orig_vel_scale = None
         # ease.gravity_scale_dr_{lo,hi} (2026-09-14, walkcurr flat-start-
         # rise gravity-ANNEAL grid closure): the pre-existing
         # sched.*-driven ease.gravity_scale ramp is a single GLOBAL
@@ -2247,28 +2161,20 @@ class SimHexapodBalanceEnv(_GymBase):
         else:
             _e_g = float(cfg_get(self.cfg, "ease", "gravity_scale",
                                  default=1.0))
-        _e_v = float(cfg_get(self.cfg, "ease", "vel_ceiling_scale",
-                             default=1.0))
-        if _e_g != 1.0 or _e_v != 1.0:
-            if _e_g <= 0.0 or _e_v <= 0.0:
+        if _e_g != 1.0:
+            if _e_g <= 0.0:
                 raise ValueError("ease.* scales must be > 0, got "
-                                 f"gravity={_e_g} vel_ceiling={_e_v}")
+                                 f"gravity={_e_g}")
             if self._ep_rand is not None:
-                if _e_g != 1.0:
-                    self._ease_orig_gravity_vec = np.asarray(
-                        self._ep_rand.gravity_vec, float).copy()
-                    self._ep_rand.gravity_vec = (
-                        self._ease_orig_gravity_vec * _e_g)
-                if _e_v != 1.0:
-                    self._ease_orig_vel_scale = float(
-                        self._ep_rand.vel_scale)
-                    self._ep_rand.vel_scale = (
-                        self._ease_orig_vel_scale * _e_v)
+                self._ease_orig_gravity_vec = np.asarray(
+                    self._ep_rand.gravity_vec, float).copy()
+                self._ep_rand.gravity_vec = (
+                    self._ease_orig_gravity_vec * _e_g)
             elif self._owns_model:
                 # randomize=False private-model env (eval harness at
-                # DR-0, viewers): reset() applies the same scales
-                # directly to the model / servo profile.
-                self._ease_g, self._ease_v = _e_g, _e_v
+                # DR-0, viewers): reset() applies the same scale
+                # directly to the model.
+                self._ease_g = _e_g
             else:
                 raise ValueError(
                     "ease.* on a shared-model shim env needs "
@@ -2314,7 +2220,7 @@ class SimHexapodBalanceEnv(_GymBase):
                     else getattr(self._goal_traj, "start_at", "plant"))
         # ease.rise_flat_only (2026-09-14, walkcurr flat-start-rise
         # 22/22-closed-lever escalation): scope the pre-existing
-        # generic ease.gravity_scale/vel_ceiling_scale physics-easing
+        # generic ease.gravity_scale physics-easing
         # mechanism (08-13, GAIT.md P3 lever 3, built for a different
         # track's early-training ignition and used so far only as a
         # STATIC whole-run setting) to ONLY the hardest, still-unsolved
@@ -2334,7 +2240,7 @@ class SimHexapodBalanceEnv(_GymBase):
         # nominal physics so the fix can't be a free lunch that quietly
         # trades away already-closed behavior. Default OFF (key unset
         # or 0.0) is bit-exact: the pre-existing unconditional
-        # ease.gravity_scale/vel_ceiling_scale behavior above is
+        # ease.gravity_scale behavior above is
         # completely untouched. When ON and this episode does NOT
         # qualify (not rise, or rise but not a flat start), UNDOES any
         # easing the block above already applied, restoring the exact
@@ -2364,13 +2270,10 @@ class SimHexapodBalanceEnv(_GymBase):
                 and getattr(self._goal_traj, "mode", "") == "rise"
                 and start_kind_of(self._goal_traj) == "flat"):
             self._ease_g = 1.0
-            self._ease_v = 1.0
             if self._ep_rand is not None:
                 if self._ease_orig_gravity_vec is not None:
                     self._ep_rand.gravity_vec = (
                         self._ease_orig_gravity_vec)
-                if self._ease_orig_vel_scale is not None:
-                    self._ep_rand.vel_scale = self._ease_orig_vel_scale
         # Reference state initialization (RSI, DeepMimic-style; operator
         # 08-10 late). The 08-10 forensic ladder (score1 -> scoreref1 ->
         # -dr0 -> -dr0-lowlr -> -dr0-riseonly) proved the rise reward
@@ -2523,37 +2426,10 @@ class SimHexapodBalanceEnv(_GymBase):
                     "start_at='rise_bank' requires goal.rise_start_bank")
             bi = int(self.rng.integers(len(bank)))
             q_start = bank[bi].copy()
-            anchor = float(cfg_get(self.cfg, "goal",
-                                   "rise_start_bank_anchor_stand",
-                                   default=0.0)) > 0.0
-            if anchor:
-                zs = getattr(self, "_rise_bank_zstand", None)
-                if zs is None:
-                    raise ValueError(
-                        "goal.rise_start_bank_anchor_stand needs a bank "
-                        "with the z_stand array (re-harvest with the "
-                        "08-14 harvest_lower_endpoints) — the legacy "
-                        "bank has no standing anchor to rewrite the "
-                        "height schedule against.")
-                self._rise_bank_zstand_pending = float(zs[bi])
-            exact = (float(cfg_get(self.cfg, "goal",
-                                   "rise_start_bank_exact",
-                                   default=0.0)) > 0.0
-                     and getattr(self, "_rise_bank_full", None) is not None)
-            if exact:
-                # Exact-restore mode (08-14, default OFF): spawn IS the
-                # harvested settled state, verbatim — no jitter, no
-                # start-offset, no re-plant/settle choreography. The
-                # joints-only reconstruction proved off-distribution
-                # (see _rise_start_bank docstring).
-                qp, qv = self._rise_bank_full
-                self._exact_start_pending = (qp[bi].copy(), qv[bi].copy())
-                q_start = self._clip_to_joint_limits(q_start)
-            else:
-                q_start += self.rng.uniform(-2.0, 2.0, N_JOINTS) * DEG2RAD
-                if self._ep_rand is not None:
-                    q_start = q_start + self._ep_rand.start_offset_rad
-                q_start = self._clip_to_joint_limits(q_start)
+            q_start += self.rng.uniform(-2.0, 2.0, N_JOINTS) * DEG2RAD
+            if self._ep_rand is not None:
+                q_start = q_start + self._ep_rand.start_offset_rad
+            q_start = self._clip_to_joint_limits(q_start)
         elif start_at == "gait":
             # Mid-stride TALL spawn (TALL LADDER T6: RSI-for-walk, see
             # walk_task._sample_walk). Scripted tripod-gait pose at a
@@ -2782,29 +2658,13 @@ class SimHexapodBalanceEnv(_GymBase):
             # camera, duty ~[0.9,0.1,0.9,0.1,0.9,0.1]) plus small knee
             # jitter. The policy must step OUT of the park to earn; see
             # walk_task._sample_walk for the rationale.
-            # HARVESTED bank (cycle 27): synthetic tripods taught exits
-            # from synthetic parks while the policy's OWN park survived
-            # (dose refuted at update parity). cfg goal.walk_park_bank
-            # (npz path with q_rad (K,18), built by harvest_park_states)
-            # + goal.walk_park_bank_frac f: with prob f a park start is
-            # drawn from the bank (+-2 deg jitter) instead of synthetic.
-            # Bank checks are short-circuited so the legacy rng stream
-            # is untouched when no bank is configured.
-            bank = self._walk_park_bank()
-            bank_frac = float(cfg_get(self.cfg, "goal",
-                                      "walk_park_bank_frac", default=0.5))
-            if bank is not None and self.rng.random() < bank_frac:
-                q_start = bank[int(self.rng.integers(len(bank)))].copy()
-                q_start += self.rng.uniform(
-                    -2.0, 2.0, N_JOINTS) * DEG2RAD
-            else:
-                q_start = (self._plant_deg * DEG2RAD).copy()
-                tripod = (1, 3, 5) if self.rng.random() < 0.5 else (0, 2, 4)
-                for leg in tripod:
-                    q_start[joint_index(leg, "hip")] -= float(
-                        self.rng.uniform(10.0, 25.0)) * DEG2RAD
-                    q_start[joint_index(leg, "knee")] += float(
-                        self.rng.uniform(-5.0, 10.0)) * DEG2RAD
+            q_start = (self._plant_deg * DEG2RAD).copy()
+            tripod = (1, 3, 5) if self.rng.random() < 0.5 else (0, 2, 4)
+            for leg in tripod:
+                q_start[joint_index(leg, "hip")] -= float(
+                    self.rng.uniform(10.0, 25.0)) * DEG2RAD
+                q_start[joint_index(leg, "knee")] += float(
+                    self.rng.uniform(-5.0, 10.0)) * DEG2RAD
             if self._ep_rand is not None:
                 q_start = q_start + self._ep_rand.start_offset_rad
             q_start = self._apply_tipped_start(q_start)
@@ -2813,7 +2673,7 @@ class SimHexapodBalanceEnv(_GymBase):
             # QUADWALK four-leg spawn (08-13, quad track; opt-in via
             # cfg goal.quadwalk_start="quad", see
             # walk_task._sample_quadwalk). Mid feet splayed forward
-            # (goal.quadwalk_mid_splay_m, default 0.06 — the bare
+            # (0.06 m — the bare
             # plant+tuck stance pitch-trips in <1 s, CoM ahead of the
             # 4-foot polygon front edge; the splayed form is the
             # QUADWALK bank's own statically-surviving freeze stance),
@@ -2826,14 +2686,12 @@ class SimHexapodBalanceEnv(_GymBase):
             # Reached only from quadwalk trajectories, so no legacy
             # rng stream can be perturbed.
             from hexapod_core.tripod_gait import TripodGait
-            splay = float(cfg_get(self.cfg, "goal",
-                                  "quadwalk_mid_splay_m", default=0.06))
             g = TripodGait()
             g.sync_plant_stance(float(self._plant_deg[1]),
                                 float(self._plant_deg[2]))
             _orig = g._foot_target_in_body
 
-            def _splayed(i, vx, vy, om, _o=_orig, _s=splay):
+            def _splayed(i, vx, vy, om, _o=_orig, _s=0.06):
                 dx, dy, dz = _o(i, vx, vy, om)
                 if i in (1, 4):
                     dx += _s
@@ -2940,55 +2798,10 @@ class SimHexapodBalanceEnv(_GymBase):
                               default=0.0)) > 0.0)
                 and (self._seq_frames is None
                      or self._ep_rand is not None
-                     or self._ease_g != 1.0 or self._ease_v != 1.0)):
+                     or self._ease_g != 1.0)):
             self._seq_capture_frames()
 
-        exact_start = getattr(self, "_exact_start_pending", None)
-        self._exact_start_pending = None
-        if exact_start is not None:
-            # Exact-restore spawn (08-14, rise_start_bank_exact): the
-            # harvested settled state IS the episode start — restore it
-            # verbatim (servos holding, contacts as-settled) instead of
-            # re-planting at foot height and re-settling, which distorts
-            # deep post-lower poses into an unreal family.
-            qp, qv = exact_start
-            if (qp.shape != (self.model.nq,)
-                    or qv.shape != (self.model.nv,)):
-                # Existing exact-state banks predate hidden compliance
-                # coordinates. Their named 18 servo joints are unambiguous,
-                # so preserve root + encoder state and initialize any new
-                # passive coordinates at model qpos0/zero velocity. Named
-                # addresses handle both the six mount hinges and a selected
-                # 1..18 post-encoder series topology.
-                if ((self._leg_mount_flex_addrs is not None
-                     or self._joint_series_flex_addrs is not None)
-                        and qp.shape == (25,) and qv.shape == (24,)):
-                    qp_flex = self.model.qpos0.copy()
-                    qp_flex[:7] = qp[:7]
-                    qp_flex[self._qadr] = qp[7:25]
-                    qv_flex = np.zeros(self.model.nv, dtype=float)
-                    qv_flex[:6] = qv[:6]
-                    qv_flex[self._vadr] = qv[6:24]
-                    qp, qv = qp_flex, qv_flex
-                else:
-                    raise ValueError(
-                        "rise_start_bank_exact full-state topology "
-                        f"{qp.shape}/{qv.shape} does not match model "
-                        f"nq/nv={self.model.nq}/{self.model.nv}; re-harvest "
-                        "the bank for this model topology or disable "
-                        "goal.rise_start_bank_exact")
-            self._mujoco.mj_resetData(self.model, self.data)
-            self.data.qpos[:] = qp
-            # Recenter horizontally: harvest episodes drift in x/y and
-            # dynamics are translation-invariant; keeps eval odometry
-            # (forward_dist) comparable with every other spawn.
-            self.data.qpos[0:2] = 0.0
-            self.data.qvel[:] = qv
-            self.data.ctrl[:] = 0.0
-            self.data.ctrl[self._pos_act] = q_start
-            self._mujoco.mj_forward(self.model, self.data)
-        else:
-            self._place_at_plant(q_start)
+        self._place_at_plant(q_start)
         er = self._ep_rand
         self._profile = ServoProfile(
             self.params, q_start,
@@ -3010,18 +2823,17 @@ class SimHexapodBalanceEnv(_GymBase):
             self._backlash = None
         self._backlash_prev_force[:] = 0.0
         self._cmd = self._mujoco_to_logical_q(q_start)
-        if exact_start is None:
-            # Settle with slippery feet AND limp servos first: when a
-            # human sets the robot down (torque off), feet micro-slip and
-            # joints sag until the structure reaches a passive
-            # equilibrium — otherwise randomized geometry + pinned
-            # contacts leave the legs isometrically preloaded at 2-3 A
-            # from step 0.
-            fr = self.model.geom_friction[:, 0].copy()
-            self.model.geom_friction[:, 0] = self.SLIP_MU
-            self._settle(0.4)      # stiff: reach the commanded pose
-            self._settle(0.5, limp=True)  # limp: bleed contact preload
-            self.model.geom_friction[:, 0] = fr
+        # Settle with slippery feet AND limp servos first: when a
+        # human sets the robot down (torque off), feet micro-slip and
+        # joints sag until the structure reaches a passive
+        # equilibrium — otherwise randomized geometry + pinned
+        # contacts leave the legs isometrically preloaded at 2-3 A
+        # from step 0.
+        fr = self.model.geom_friction[:, 0].copy()
+        self.model.geom_friction[:, 0] = self.SLIP_MU
+        self._settle(0.4)      # stiff: reach the commanded pose
+        self._settle(0.5, limp=True)  # limp: bleed contact preload
+        self.model.geom_friction[:, 0] = fr
 
         # Hold-current semantics, same as the hardware env: nominal is the
         # pose the robot actually SETTLED at (however badly it was placed),
@@ -3159,29 +2971,6 @@ class SimHexapodBalanceEnv(_GymBase):
             n_ramp = max(int(round(ramp_s * min(h_left / max(h_target, 1e-3),
                                                 1.0) / self.dt)), 3)
             n_ep = len(np.asarray(self._goal_traj.height))
-            self._goal_traj.height = h_left * np.clip(
-                np.arange(n_ep, dtype=float) / n_ramp, 0.0, 1.0)
-        # Bank-episode standing re-anchor (08-14, the postlower1/2 root
-        # cause): rise heights are relative to _z0 (= wherever the body
-        # settled) with a BELLY-calibrated band, but a post-lower bank
-        # spawn settles ~50mm above the belly — the unmodified schedule
-        # commands an impossible ~190-213mm chassis height (measured;
-        # the champion parent scores 0/12 on it while rising from REAL
-        # in-session post-lower states 80-97% of the time). Rewrite the
-        # schedule to the REMAINING rise back to the harvested standing
-        # height, RSI-style ramp scaling. Opt-in
-        # (goal.rise_start_bank_anchor_stand, default OFF => bit-exact).
-        z_stand = getattr(self, "_rise_bank_zstand_pending", None)
-        self._rise_bank_zstand_pending = None
-        if z_stand is not None and self._goal_traj is not None:
-            h_left = max(z_stand - self._z0, 0.002)
-            hs = np.asarray(self._goal_traj.height)
-            h_end = max(float(hs[-1]), 1e-3)
-            ramp_s = float(cfg_get(self.cfg, "goal", "rise_ramp_s",
-                                   default=6.0))
-            n_ramp = max(int(round(ramp_s * min(h_left / h_end, 1.0)
-                                   / self.dt)), 3)
-            n_ep = len(hs)
             self._goal_traj.height = h_left * np.clip(
                 np.arange(n_ep, dtype=float) / n_ramp, 0.0, 1.0)
         # Staged height scores (rise/raise/lower): potential-based
@@ -3494,8 +3283,8 @@ class SimHexapodBalanceEnv(_GymBase):
         (`goal.rise_ramp_s` after `goal.rise_hold_s`) regardless of
         whether the feet ever curled in. This is not another re-price:
         it makes the height ramp's own onset CONDITIONAL on a genuine
-        intermediate sub-goal (feet within `rise_curl_gate_threshold_mm`
-        of the plant footprint, i.e. curl-to-bridge-pose), by freezing
+        intermediate sub-goal (feet within 40 mm of the plant
+        footprint, i.e. curl-to-bridge-pose), by freezing
         the trajectory index fed to ``_current_goal()`` at the last
         pre-ramp (height==0) tick for as long as the sub-goal is unmet,
         up to a capped extra wait (`rise_curl_gate_max_extra_s`) so an
@@ -3527,10 +3316,7 @@ class SimHexapodBalanceEnv(_GymBase):
         max_extra_ticks = int(round(max_extra_s / self.dt))
         if freeze >= max_extra_ticks:
             return  # capped -- let the ramp proceed without the curl
-        th_m = float(cfg_get(
-            self.cfg, "goal", "rise_curl_gate_threshold_mm",
-            default=40.0)) * 0.001
-        if self._curl_dist() <= th_m:
+        if self._curl_dist() <= 40.0 * 0.001:
             return  # sub-goal met -- unlock permanently from here on
         self._rise_gate_freeze_ticks = freeze + 1
 
@@ -3583,10 +3369,10 @@ class SimHexapodBalanceEnv(_GymBase):
         way to say "you're not ready to go deeper yet". This is not a
         fourth re-price: it makes the ramp's own advance conditional on
         a genuine per-tick sub-goal (a measured fraction of feet loaded
-        above ``goal.lower_stage_load_ref_n``), by freezing the
+        above 1 N), by freezing the
         trajectory index fed to ``_current_goal()`` for as long as the
         sub-goal is unmet, up to a capped extra wait
-        (``goal.lower_stage_gate_max_extra_s``) so an episode that
+        (5 s) so an episode that
         never plants still eventually gets scored on the attempt
         rather than stalling forever. Unlike the rise gate (which only
         holds the PRE-ramp onset), this re-checks every tick for the
@@ -3610,18 +3396,10 @@ class SimHexapodBalanceEnv(_GymBase):
             return  # still inside the natural pre-ramp hold window
         if idx >= len(self._goal_traj.height) - 1:
             return  # ramp array already exhausted -- nothing to freeze
-        max_extra_s = float(cfg_get(
-            self.cfg, "goal", "lower_stage_gate_max_extra_s",
-            default=5.0))
-        max_extra_ticks = int(round(max_extra_s / self.dt))
+        max_extra_ticks = int(round(5.0 / self.dt))
         if freeze >= max_extra_ticks:
             return  # capped -- let the ramp proceed ungated from here
-        frac_min = float(cfg_get(
-            self.cfg, "goal", "lower_stage_planted_frac_min",
-            default=0.7))
-        load_ref_n = float(cfg_get(
-            self.cfg, "goal", "lower_stage_load_ref_n", default=1.0))
-        if self._lower_stage_planted_frac(load_ref_n) >= frac_min:
+        if self._lower_stage_planted_frac(1.0) >= 0.7:
             return  # sub-goal met this tick -- ramp advances normally
         self._lower_gate_freeze_ticks = freeze + 1
 
@@ -3726,7 +3504,7 @@ class SimHexapodBalanceEnv(_GymBase):
 
     def apply_current_hot_bootstrap_frac(self, frac: float) -> dict:
         """Move the live ``k_current_hot`` scale to ``frac`` of the
-        bootstrap (0 = ``reward.current_hot_bootstrap_min_frac`` of
+        bootstrap (0 = 0.30 of
         the cfg dose, 1 = full dose); trainer-driven — see the
         ``reward.current_hot_bootstrap_steps`` block in ``__init__``.
         Mirrors ``apply_loadslip_bootstrap_frac``'s contract exactly:
@@ -4704,7 +4482,7 @@ class SimHexapodBalanceEnv(_GymBase):
         # the paying plant -- same story as hold_low_height/walk_idle_
         # terminate: "absorbing states beat prices; must come WITH a
         # termination, never instead of one" (op ruling 08-24). An EMA
-        # (tau hold_min_load_terminate_tau_s) smooths sensor/contact
+        # (tau 0.25 s) smooths sensor/contact
         # chatter so one missed-contact tick can't false-trigger. A
         # foot with no touch sensor (adr<0) falls back to the
         # clearance test used elsewhere in this file (clear >
@@ -4748,9 +4526,7 @@ class SimHexapodBalanceEnv(_GymBase):
                 and (minload_cont
                      or (not terminated and hold_minload_term_s > 0.0
                          and minload_in_hold))):
-            minload_tau_s = max(float(cfg_get(
-                self.cfg, "safety", "hold_min_load_terminate_tau_s",
-                default=0.25)), self.dt)
+            minload_tau_s = max(0.25, self.dt)
             min_force_now = self._minload_min_force_now(minload_floor_n)
             self._hold_minload_ema += (self.dt / minload_tau_s) * (
                 min_force_now - self._hold_minload_ema)
@@ -4816,9 +4592,7 @@ class SimHexapodBalanceEnv(_GymBase):
             idle_floor = max(float(cfg_get(
                 self.cfg, "safety", "walk_idle_terminate_qvel_deg_s",
                 default=2.0)) * DEG2RAD, 1e-9)
-            idle_tau = max(float(cfg_get(
-                self.cfg, "safety", "walk_idle_terminate_tau_s",
-                default=0.25)), self.dt)
+            idle_tau = max(0.25, self.dt)
             qvel_now = float(np.mean(np.abs(self.data.qvel[self._vadr])))
             self._walk_qvel_ema += (self.dt / idle_tau) * (
                 qvel_now - self._walk_qvel_ema)
@@ -4893,36 +4667,8 @@ class SimHexapodBalanceEnv(_GymBase):
             ldt_tau = max(float(cfg_get(
                 self.cfg, "safety", "walk_leg_duty_terminate_tau_s",
                 default=1.0)), self.dt)
-            # Relative (team-mean-fraction) floor add-on (2026-09-07,
-            # widen8/widenbis/widenrear180 role-aware-mechanism gap,
-            # CURRENT_TRUTHS 09-07 ~22:5x zero-spend diagnostic). Plain
-            # English: the ABSOLUTE floor above (default 0.05) was
-            # deliberately set BELOW the eval gate's own sacrifice bar
-            # (duty<0.10) to avoid false-charging genuinely-passing
-            # episodes whose lowest leg sometimes dips to ~0.10-0.30 —
-            # but the legdutyfresh/legdutyterm1 campaign (7/7 FAIL, same
-            # front-pair-or-similar fingerprint every time) showed the
-            # real failing shape is NOT "one leg near zero forever" (the
-            # already-tested flagleg cheat this mechanism already
-            # catches) but "1-2 legs starved to ~0.02-0.09 while the
-            # OTHER legs — often a DIFFERENT pair depending on the
-            # episode/heading — run at 0.4-0.95": a soft, heading-
-            # relative starvation an absolute floor tuned not to
-            # false-positive on passing gaits structurally cannot catch
-            # (it would have to sit above the passing band's own low
-            # end, which is the false-positive risk the floor was
-            # deliberately kept under). A floor stated as a FRACTION of
-            # the whole team's own current mean duty adapts to whatever
-            # relative usage pattern the gait has established that tick
-            # — no heading-conditioned role table needed, exactly the
-            # "do NOT ship a rigid role/template match, calibrate
-            # against the gait's own graded spread" guidance already on
-            # record. Default 0.0 = OFF, bit-exact legacy: the
-            # `effective_floor` reduces to plain `ldt_floor` and no new
-            # arithmetic touches the existing absolute-floor path.
-            ldt_floor_rel_frac = float(cfg_get(
-                self.cfg, "safety", "walk_leg_duty_terminate_floor_rel_frac",
-                default=0.0))
+            # floor_rel_frac is fixed at 0.0 here (the relative floor was
+            # never configured); walk_legduty_term_tick keeps the parameter.
             in_grace = ((self._step_i - self._seg_entry_step) * self.dt
                         < ldt_grace_s)
             on_now = []
@@ -4936,7 +4682,7 @@ class SimHexapodBalanceEnv(_GymBase):
              worst_low_s) = walk_legduty_term_tick(
                 self._walk_legduty_ema, self._walk_legduty_low_s,
                 on=on_now, dt=self.dt, tau_s=ldt_tau, floor=ldt_floor,
-                floor_rel_frac=ldt_floor_rel_frac, in_grace=in_grace)
+                floor_rel_frac=0.0, in_grace=in_grace)
             if worst_low_s >= walk_ldt_s:
                 terminated = True
                 status.ok = False
@@ -5051,7 +4797,7 @@ class SimHexapodBalanceEnv(_GymBase):
         #     foot exceeds PLANT_SPEC.flag_leg_mm (60 mm: honest
         #     recovery/adjustment swings stay far below it, the observed
         #     splay sits at 100-160 mm),
-        #   still_factor = Gaussian on mean qd^2 (still_sigma_rad_s),
+        #   still_factor = Gaussian on mean qd^2 (sigma 0.3 rad/s),
         #     applied only while the reference is stationary so TRACK's
         #     commanded attitude motion is never charged.
         # Blend: f = (1-g) + g*feet*still. Scoped strictly to
@@ -5100,7 +4846,7 @@ class SimHexapodBalanceEnv(_GymBase):
             # 0.01-0.04 duty. Clearance is the wrong proxy at the
             # bottom of its range; the gate must price MEASURED LOAD,
             # the same signal the gate metric uses. Per-foot
-            #   s_i = max(clip(touch_N / hold_load_ref_n, 0, 1), floor)
+            #   s_i = max(clip(touch_N / 1 N, 0, 1), floor)
             # multiplied over the six feet: an all-loaded stance keeps
             # exactly 1.0 (per-foot force >> 1 N at this robot's
             # weight), each unloaded foot costs a factor of
@@ -5114,8 +4860,6 @@ class SimHexapodBalanceEnv(_GymBase):
             l_load = float(cfg_get(self.cfg, "reward", "hold_feet_load",
                                    default=0.0))
             if l_load > 0.0:
-                f_ref = float(cfg_get(self.cfg, "reward",
-                                      "hold_load_ref_n", default=1.0))
                 floor_l = float(cfg_get(self.cfg, "reward",
                                         "hold_load_floor", default=0.5))
                 s_feet = []
@@ -5124,7 +4868,7 @@ class SimHexapodBalanceEnv(_GymBase):
                         f_n = max(float(
                             self.data.sensordata[self._touch_adr[i]]),
                             0.0)
-                        s_i = min(f_n / max(f_ref, 1e-6), 1.0)
+                        s_i = min(f_n, 1.0)
                     else:   # no sensor: fall back to the clearance test
                         s_i = (1.0 if clear_h[i]
                                <= PLANT_SPEC["foot_down_mm"] * 0.001
@@ -5161,12 +4905,9 @@ class SimHexapodBalanceEnv(_GymBase):
                 parts["hold_load_factor"] = load_h
             still_h = 1.0
             if ref_quiet:
-                sig_qd_h = float(cfg_get(
-                    self.cfg, "reward", "still_sigma_rad_s",
-                    default=0.3))
                 qd2_h = float(np.mean(np.square(
                     self._state.joint_velocity)))
-                still_h = math.exp(-qd2_h / (2.0 * sig_qd_h ** 2))
+                still_h = math.exp(-qd2_h / (2.0 * 0.3 ** 2))
             f_hold = (1.0 - g_hold) + g_hold * feet_h * still_h
             r_task_h = parts.get("reward_task", 0.0)
             if r_task_h > 0.0:
@@ -5266,14 +5007,7 @@ class SimHexapodBalanceEnv(_GymBase):
                 self._tdrag_prev_on[f_td] = on_td
             parts["trans_drag_mm"] = drag_td * 1000.0
             if k_td > 0.0 and drag_td > 0.0:
-                if mode_td in ("rise", "raise"):
-                    allow_td = float(cfg_get(
-                        self.cfg, "reward", "drag_trans_allow_rise_m",
-                        default=0.75))
-                else:
-                    allow_td = float(cfg_get(
-                        self.cfg, "reward", "drag_trans_allow_m",
-                        default=0.0))
+                allow_td = 0.75 if mode_td in ("rise", "raise") else 0.0
                 acc0_td = self._tdrag_acc
                 self._tdrag_acc = acc0_td + drag_td
                 r_td = -k_td * (max(self._tdrag_acc - allow_td, 0.0)
@@ -5313,7 +5047,7 @@ class SimHexapodBalanceEnv(_GymBase):
             # mm in the air — torso-at-height via bridge/flail, not
             # standing. Height income (milestones, finish bonus, and
             # the post-ramp tracking kernel) is scaled by the fraction
-            # of pads within end_posture_allow_m of their grounded z
+            # of pads within 20 mm of their grounded z
             # (GEOMETRIC clearance, matching the eval harness's
             # end_posture_ok — NOT touch force: the champions' known
             # load concentration leaves grounded feet under 0.5 N, and
@@ -5337,14 +5071,7 @@ class SimHexapodBalanceEnv(_GymBase):
                 # 60 mm lower allowance the harness end_posture_ok and
                 # the reward_end_posture penalty already use
                 # (self._h_target < 0 == lower episode).
-                if self._h_target < 0.0:
-                    allow_pf = float(cfg_get(
-                        self.cfg, "reward", "end_posture_allow_lower_m",
-                        default=0.06))
-                else:
-                    allow_pf = float(cfg_get(
-                        self.cfg, "reward", "end_posture_allow_m",
-                        default=0.02))
+                allow_pf = 0.06 if self._h_target < 0.0 else 0.02
                 n_on, n_tot = 0, 0
                 for i in range(6):
                     if self._pad_bids[i] < 0:
@@ -5479,9 +5206,7 @@ class SimHexapodBalanceEnv(_GymBase):
                     self._lower_score_best = depth_frac
                 delta_lsp = max(0.0, depth_frac - self._lower_score_best)
                 self._lower_score_best = self._lower_score_best + delta_lsp
-                klsp = float(cfg_get(self.cfg, "reward",
-                                     "k_lower_score_prog", default=100.0))
-                r_lsp = klsp * delta_lsp
+                r_lsp = 100.0 * delta_lsp
                 parts["reward_lower_score"] = r_lsp
                 parts["lower_depth_frac"] = depth_frac
                 reward += r_lsp
@@ -5531,9 +5256,7 @@ class SimHexapodBalanceEnv(_GymBase):
                 # high on all factors at once IS the stand. The no-flag
                 # factor is a hard zero (not a fade): a flag-leg pose
                 # earns nothing, not a 60% consolation.
-                sig_s = float(cfg_get(self.cfg, "reward",
-                                      "rise_score_sigma_mm",
-                                      default=15.0)) * 0.001
+                sig_s = 15.0 * 0.001
                 err_t = h_rel - self._h_target
                 h_f = math.exp(-0.5 * (err_t / max(sig_s, 1e-6)) ** 2)
                 n_down = float(down.sum()) / max(float(len(clear)), 1.0)
@@ -5551,8 +5274,6 @@ class SimHexapodBalanceEnv(_GymBase):
                 parts["rise_feet_factor"] = n_down ** 2 * noflag
                 if self._score_best is None:
                     self._score_best = s_now
-                ksp = float(cfg_get(self.cfg, "reward",
-                                    "k_rise_score_prog", default=30.0))
                 delta_s = max(0.0, s_now - self._score_best)
                 # Current-headroom-gated rise_score_prog income
                 # (2026-09-13, walkcurr risebridge-s1 FAIL-MECHANISM
@@ -5585,9 +5306,7 @@ class SimHexapodBalanceEnv(_GymBase):
                 # gate off, headroom_f==1.0 always and
                 # `_score_best += delta_s * 1.0 == max(_score_best,
                 # s_now)`, identical to the pre-existing line. Enable:
-                # --cfg-set reward.rise_score_income_headroom_gate=1
-                # [--cfg-set reward.rise_score_headroom_cap_a=<a>]
-                # [--cfg-set reward.rise_score_headroom_margin_a=<a>].
+                # --cfg-set reward.rise_score_income_headroom_gate=1.
                 headroom_f = 1.0
                 gate_income = float(cfg_get(
                     self.cfg, "reward",
@@ -5595,16 +5314,10 @@ class SimHexapodBalanceEnv(_GymBase):
                     default=0.0)) == 1.0
                 if (gate_income and delta_s > 0.0
                         and self._state.servo_current is not None):
-                    cap_a = float(cfg_get(
-                        self.cfg, "reward",
-                        "rise_score_headroom_cap_a", default=2.64))
-                    margin_a = float(cfg_get(
-                        self.cfg, "reward",
-                        "rise_score_headroom_margin_a", default=0.3))
                     cur_peak = float(np.max(np.abs(
                         self._state.servo_current)))
                     headroom_f = current_headroom_income_factor(
-                        cur_peak, cap_a, margin_a)
+                        cur_peak, 2.64, 0.3)
                     parts["rise_score_headroom_factor"] = headroom_f
                 # Curl-distance-gated rise_score_prog income (2026-09-13,
                 # riseheadroomgate-s1 CANARY FAIL-MECHANISM escalation:
@@ -5634,26 +5347,18 @@ class SimHexapodBalanceEnv(_GymBase):
                 # cheaper. Bit-exact OFF by default
                 # (reward.rise_score_income_curl_gate=0): curl_f==1.0
                 # always, identical to the pre-existing line. Enable:
-                # --cfg-set reward.rise_score_income_curl_gate=1
-                # [--cfg-set reward.rise_score_curl_cap_m=<m>]
-                # [--cfg-set reward.rise_score_curl_margin_m=<m>].
+                # --cfg-set reward.rise_score_income_curl_gate=1.
                 curl_f = 1.0
                 gate_curl = float(cfg_get(
                     self.cfg, "reward",
                     "rise_score_income_curl_gate",
                     default=0.0)) == 1.0
                 if gate_curl and delta_s > 0.0:
-                    cap_m = float(cfg_get(
-                        self.cfg, "reward",
-                        "rise_score_curl_cap_m", default=0.176))
-                    margin_m = float(cfg_get(
-                        self.cfg, "reward",
-                        "rise_score_curl_margin_m", default=0.066))
                     curl_f = current_headroom_income_factor(
-                        self._curl_dist(), cap_m, margin_m)
+                        self._curl_dist(), 0.176, 0.066)
                     parts["rise_score_curl_factor"] = curl_f
                 gate_f = headroom_f * curl_f
-                r_sp = ksp * delta_s * gate_f
+                r_sp = 30.0 * delta_s * gate_f
                 self._score_best = self._score_best + delta_s * gate_f
                 parts["reward_rise_score_prog"] = r_sp
                 reward += r_sp
@@ -5663,10 +5368,7 @@ class SimHexapodBalanceEnv(_GymBase):
                 # perfect geometry otherwise caps at ~0.48).
                 if goal is not None \
                         and goal.height_ref >= self._h_target - 1e-9:
-                    ksh = float(cfg_get(self.cfg, "reward",
-                                        "k_rise_score_hold",
-                                        default=1.0))
-                    r_sh = ksh * s_now ** 2
+                    r_sh = s_now ** 2
                     parts["reward_rise_score_hold"] = r_sh
                     reward += r_sh
                 # Airborne-feet rent, ramp-weighted (bank finding,
@@ -5683,12 +5385,10 @@ class SimHexapodBalanceEnv(_GymBase):
                 # ~100/ep and prices honest-but-parked below the
                 # flag-leg cheat). Grounded-but-imperfect = unfinished,
                 # charged via height + zero income; airborne = cheat.
-                kpp = float(cfg_get(self.cfg, "reward",
-                                    "k_rise_posture_pen", default=1.0))
-                if kpp > 0.0 and goal is not None:
+                if goal is not None:
                     w = min(max(goal.height_ref / self._h_target,
                                 0.0), 1.0)
-                    r_pp = -kpp * w * (1.0 - n_down ** 2 * noflag)
+                    r_pp = -w * (1.0 - n_down ** 2 * noflag)
                     parts["reward_rise_posture_pen"] = r_pp
                     reward += r_pp
             # Income prog-gate (2026-08-10 rise/lower freeze audit; cfg
@@ -5773,9 +5473,7 @@ class SimHexapodBalanceEnv(_GymBase):
             k_fp_pen = float(cfg_get(self.cfg, "reward",
                                      "k_rise_footprint_pen", default=0.0))
             if k_fp_pen > 0.0:
-                free_mm = float(cfg_get(
-                    self.cfg, "reward", "rise_footprint_pen_free_mm",
-                    default=PLANT_SPEC["footprint_err_mm"]))
+                free_mm = float(PLANT_SPEC["footprint_err_mm"])
                 r_fp_pen = -k_fp_pen * footprint_rent_m(
                     self._curl_dist() * 1000.0, free_mm)
                 parts["reward_rise_footprint_pen"] = r_fp_pen
@@ -6078,8 +5776,7 @@ class SimHexapodBalanceEnv(_GymBase):
         # when the coefficient is nonzero, and persists across episode
         # resets (NOT zeroed in reset(), unlike `_torque_debt`) because
         # it is deliberately a multi-episode/training-scale signal, not a
-        # within-episode one. Enable: --cfg-set reward.k_current_income=<k>
-        # [--cfg-set reward.current_income_tau_s=<seconds>, default 120].
+        # within-episode one. Enable: --cfg-set reward.k_current_income=<k>.
         k_cur_inc = float(cfg_get(self.cfg, "reward", "k_current_income",
                                   default=0.0))
         if k_cur_inc > 0.0 and self._state.servo_current is not None:
@@ -6087,9 +5784,7 @@ class SimHexapodBalanceEnv(_GymBase):
                                       default=1.0))
             over_inc = np.maximum(
                 self._state.servo_current - hot_a_inc, 0.0)
-            tau_s_inc = float(cfg_get(
-                self.cfg, "reward", "current_income_tau_s", default=120.0))
-            alpha_inc = min(max(self.dt / max(tau_s_inc, 1e-6), 0.0), 1.0)
+            alpha_inc = min(max(self.dt / 120.0, 0.0), 1.0)
             if getattr(self, "_current_income_ema", None) is None:
                 self._current_income_ema = 0.0
             income_tick = max(reward, 0.0)
@@ -6180,20 +5875,13 @@ class SimHexapodBalanceEnv(_GymBase):
         k_headroom = float(cfg_get(self.cfg, "reward", "k_torque_headroom",
                                     default=0.0))
         if k_headroom > 0.0 and self._state.servo_current is not None:
-            cap_a = float(cfg_get(self.cfg, "reward",
-                                  "torque_headroom_cap_a", default=2.64))
-            margin_a = float(cfg_get(self.cfg, "reward",
-                                     "torque_headroom_margin_a",
-                                     default=0.3))
-            tau_s = float(cfg_get(self.cfg, "reward",
-                                  "torque_headroom_tau_s", default=1.0))
             cur = np.abs(self._state.servo_current)
             if (getattr(self, "_torque_debt", None) is None
                     or self._torque_debt.shape != cur.shape):
                 self._torque_debt = np.zeros_like(cur)
-            alpha_d = min(max(self.dt / max(tau_s, 1e-6), 0.0), 1.0)
+            alpha_d = min(max(self.dt, 0.0), 1.0)
             self._torque_debt = torque_headroom_debt_step(
-                self._torque_debt, cur, cap_a, margin_a, alpha_d)
+                self._torque_debt, cur, 2.64, 0.3, alpha_d)
             r_headroom = -k_headroom * float(np.sum(self._torque_debt ** 2))
             parts["reward_torque_headroom"] = r_headroom
             parts["torque_headroom_debt_max"] = float(
@@ -6322,34 +6010,26 @@ class SimHexapodBalanceEnv(_GymBase):
             if self._end_posture_from is None:
                 # The lower/rise ramps run to the last scheduled step
                 # (no settled plateau exists), so "terminal" means: the
-                # height REFERENCE is within end_posture_ref_mm of its
+                # height REFERENCE is within 15 mm of its
                 # final value from here to the end — still a pure
                 # function of the pre-sampled schedule.
                 h = np.asarray(self._goal_traj.height)
-                ref_m = float(cfg_get(
-                    self.cfg, "reward", "end_posture_ref_mm",
-                    default=15.0)) * 0.001
+                ref_m = 15.0 * 0.001
                 far = np.nonzero(np.abs(h - h[-1]) > ref_m)[0]
                 start = (int(far[-1]) + 1) if len(far) else 0
-                grace_s = float(cfg_get(
-                    self.cfg, "reward", "end_posture_grace_s",
-                    default=0.25))
-                # Also clamp to the last end_posture_window_s of the
+                # Also clamp to the last 1.5 s of the
                 # episode: small-amplitude rise refs sit near final
                 # almost immediately, and charging the early curl
                 # transient is the exact mistake that refuted the
                 # all-modes flag_leg charge.
-                win_s = float(cfg_get(
-                    self.cfg, "reward", "end_posture_window_s",
-                    default=1.5))
                 # Mode-seq segments end at the next switch, not the
                 # episode end — clamp the charge window to the ACTIVE
                 # segment (None outside mode_seq = legacy exact).
                 _ep_end = int(getattr(self, "_seq_seg_end", None)
                               or self.episode_steps)
                 self._end_posture_from = max(
-                    start + int(round(grace_s / self.dt)),
-                    _ep_end - int(round(win_s / self.dt)))
+                    start + int(round(0.25 / self.dt)),
+                    _ep_end - int(round(1.5 / self.dt)))
                 # Dense variant (cycle 25, lower only): a proper lower
                 # keeps all six feet planted THROUGHOUT the descent —
                 # there is no legitimate leg-lift transient to protect
@@ -6366,12 +6046,7 @@ class SimHexapodBalanceEnv(_GymBase):
             if self._step_i >= self._end_posture_from:
                 # Mirror the eval gate's allowances: 20 mm for
                 # stand-ending modes, 60 mm for belly-ending lower.
-                allow = float(cfg_get(
-                    self.cfg, "reward",
-                    "end_posture_allow_lower_m", default=0.06)) \
-                    if mode_now == "lower" else float(cfg_get(
-                        self.cfg, "reward", "end_posture_allow_m",
-                        default=0.02))
+                allow = 0.06 if mode_now == "lower" else 0.02
                 skip = int(goal.unload_leg) if (
                     goal is not None and goal.unload_leg is not None) \
                     else -1
@@ -6810,7 +6485,7 @@ class SimHexapodBalanceEnv(_GymBase):
         # orientation/height/contact — not nearest-q alone). Same
         # nearest-q + lookahead emit as getup, but ELIGIBILITY-GATED:
         # the target only fires when the body is upright-ish (true
-        # tilt <= train.bc_anchor_recover_tilt_deg), at/below plant
+        # tilt <= 25 deg), at/below plant
         # height (no stilt supervision), and with real ground reaction
         # through the feet — a side/back/flipped robot is never pulled
         # toward rise poses it cannot reach from there. Cfg-gated by
@@ -6827,9 +6502,6 @@ class SimHexapodBalanceEnv(_GymBase):
             if _bc_ref_path:
                 _r, _p = self._true_roll_pitch()
                 _tilt = max(abs(_r), abs(_p)) * 180.0 / math.pi
-                _tilt_max = float(cfg_get(
-                    self.cfg, "train", "bc_anchor_recover_tilt_deg",
-                    default=25.0))
                 _touch_n = 0.0
                 for _f in range(6):
                     _adr = self._touch_adr[_f]
@@ -6838,7 +6510,7 @@ class SimHexapodBalanceEnv(_GymBase):
                             float(self.data.sensordata[_adr]), 0.0)
                 _z_now = float(self.data.xpos[self._chassis_bid, 2])
                 _z_pl, _ = self._getup_geom()
-                if (_tilt <= _tilt_max and _touch_n >= 0.5
+                if (_tilt <= 25.0 and _touch_n >= 0.5
                         and _z_now <= _z_pl + 0.02):
                     info["recover_bc_eligible"] = 1.0
                     from .joint_task import q_rad_to_action
@@ -6856,14 +6528,9 @@ class SimHexapodBalanceEnv(_GymBase):
                     # two state dimensions from the directive.
                     _bc_hnow = None
                     if "h" in _bc_ref:
-                        _z_belly = float(cfg_get(
-                            self.cfg, "reward", "getup_z_belly_mm",
-                            default=38.0)) * 1e-3
+                        _z_belly = 38.0 * 1e-3
                         _bc_hnow = max(_z_now - _z_belly, 0.0)
-                        _h_tol = float(cfg_get(
-                            self.cfg, "train",
-                            "bc_anchor_recover_height_match_mm",
-                            default=25.0)) * 1e-3
+                        _h_tol = 25.0 * 1e-3
                         _height_rows = np.flatnonzero(
                             np.abs(_bc_ref["h"] - _bc_hnow) <= _h_tol)
                     else:
@@ -6982,9 +6649,7 @@ class SimHexapodBalanceEnv(_GymBase):
             if (_tc > 0.0 and self._goal_traj is not None
                     and self._goal_traj.mode == "hold"
                     and self._q_nom is not None):
-                _dead = float(cfg_get(
-                    self.cfg, "train", "bc_anchor_tilt_deadband_deg",
-                    default=1.5)) * DEG2RAD
+                _dead = 1.5 * DEG2RAD
                 # Cap default 6.0: measured expressibility boundary —
                 # the counter-rotated pose from a settled hold stance
                 # round-trips the [-1,1] action space EXACTLY up to 6
@@ -6992,9 +6657,7 @@ class SimHexapodBalanceEnv(_GymBase):
                 # target must be a pose the policy can actually
                 # command; a clipped target supervises garbage on the
                 # saturated joints).
-                _maxc = float(cfg_get(
-                    self.cfg, "train", "bc_anchor_tilt_max_deg",
-                    default=6.0)) * DEG2RAD
+                _maxc = 6.0 * DEG2RAD
 
                 def _soft(x: float) -> float:
                     return math.copysign(max(abs(x) - _dead, 0.0), x)

@@ -22,9 +22,8 @@ DT = 0.01
 N_STEPS = 1500
 
 
-def _gen(frac: float = 0.0, mm=(5.0, 30.0), max_height_mm: float = 88.0):
-    cfg = {"goal": {"p_hold": 1.0, "hold_start_jitter_frac": frac,
-                    "hold_start_jitter_mm": list(mm)},
+def _gen(frac: float = 0.0, max_height_mm: float = 88.0):
+    cfg = {"goal": {"p_hold": 1.0, "hold_start_jitter_frac": frac},
           "actions": {"max_height_mm": max_height_mm}}
     return GoalGenerator(cfg)
 
@@ -47,7 +46,7 @@ def test_default_off_is_bit_exact_plant():
 
 
 def test_frac_one_always_jitters_inside_band():
-    gen = _gen(frac=1.0, mm=(5.0, 30.0))
+    gen = _gen(frac=1.0)
     for seed in range(40):
         rng = np.random.default_rng(seed)
         traj = gen.sample(rng, N_STEPS, DT, force_mode="hold")
@@ -60,17 +59,18 @@ def test_frac_one_always_jitters_inside_band():
 
 
 def test_band_clipped_to_max_height_mm():
-    gen = _gen(frac=1.0, mm=(5.0, 200.0), max_height_mm=40.0)
+    """The fixed 5-30 mm jitter band is clipped to actions.max_height_mm."""
+    gen = _gen(frac=1.0, max_height_mm=20.0)
     for seed in range(20):
         rng = np.random.default_rng(seed)
         traj = gen.sample(rng, N_STEPS, DT, force_mode="hold")
-        assert traj.crouch_dz <= 0.0400001, (
+        assert traj.crouch_dz <= 0.0200001, (
             f"seed {seed}: crouch_dz {traj.crouch_dz*1000:.2f}mm "
             "exceeded actions.max_height_mm")
 
 
 def test_partial_frac_only_sometimes_jitters():
-    gen = _gen(frac=0.5, mm=(5.0, 30.0))
+    gen = _gen(frac=0.5)
     kinds = []
     for seed in range(200):
         rng = np.random.default_rng(seed)

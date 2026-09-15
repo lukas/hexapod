@@ -29,10 +29,8 @@ N_STEPS = 1500
 
 
 def _gen(frac: float = 1.0, rate_mm_s: float = 15.0,
-        range_mm=(-40.0, 20.0), max_height_mm: float = 88.0
-        ) -> GoalGenerator:
+        max_height_mm: float = 88.0) -> GoalGenerator:
     cfg = {"goal": {"p_hold": 1.0, "hold_height_cmd_frac": frac,
-                    "hold_height_cmd_range_mm": list(range_mm),
                     "hold_height_cmd_rate_mm_s": rate_mm_s},
           "actions": {"max_height_mm": max_height_mm}}
     return GoalGenerator(cfg)
@@ -110,9 +108,3 @@ def test_force_profile_hook_reaches_the_pinned_target(kind, target_mm):
             f"{peak*1000:.2f}mm")
 
 
-def test_range_is_clipped_to_the_action_envelope():
-    """hold_height_cmd_range_mm is clipped to +/- actions.
-    max_height_mm — a run cannot command a height the body-IK/action
-    envelope could never reach."""
-    gen = _gen(range_mm=(-200.0, 200.0), max_height_mm=25.0)
-    assert gen.hold_height_cmd_range_m == (-0.025, 0.025)

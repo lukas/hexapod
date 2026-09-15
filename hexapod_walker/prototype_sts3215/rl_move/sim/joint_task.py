@@ -106,8 +106,7 @@ class SimHexapodJointGoalEnv(SimHexapodGoalEnv):
         # in the (retired) walkcurr lineage, so this restore is
         # bit-exact for every live launch (all keys default 0.0 = OFF).
         bias_deg = np.array([
-            float(cfg_get(self.cfg, "goal", "joint_action_bias_yaw_deg",
-                          default=0.0)),
+            0.0,   # yaw bias: never a live knob (no run ever set it)
             float(cfg_get(self.cfg, "goal", "joint_action_bias_hip_deg",
                           default=0.0)),
             float(cfg_get(self.cfg, "goal", "joint_action_bias_knee_deg",

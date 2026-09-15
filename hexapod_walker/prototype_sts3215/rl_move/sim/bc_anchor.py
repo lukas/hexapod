@@ -1344,12 +1344,9 @@ def attach_bc_anchor(model, *, coef: float, cfg: dict | None,
         cfg, "train", "bc_anchor_debug_gradnorm", default=0.0)) > 0.0
     model.bc_percore_clip = float(cfg_get(
         cfg, "train", "bc_anchor_percore_clip", default=0.0)) > 0.0
-    model.bc_minibatches = int(float(cfg_get(
-        cfg, "train", "bc_anchor_minibatches", default=8)))
-    model.bc_batch_size = int(float(cfg_get(
-        cfg, "train", "bc_anchor_batch_size", default=4096)))
-    model.bc_buffer_cap = int(float(cfg_get(
-        cfg, "train", "bc_anchor_buffer", default=131072)))
+    model.bc_minibatches = 8
+    model.bc_batch_size = 4096
+    model.bc_buffer_cap = 131072
     model.bc_foot_z_coef = float(cfg_get(
         cfg, "train", "bc_anchor_foot_z", default=0.0))
     model.bc_foot_z_mm = float(cfg_get(
@@ -1377,14 +1374,10 @@ def attach_bc_anchor(model, *, coef: float, cfg: dict | None,
             f"{model.bc_mt_schedule_frac}")
     model.bc_anneal_gate = float(cfg_get(
         cfg, "train", "bc_anchor_anneal_gate", default=0.0)) > 0.0
-    model.bc_anneal_steps = int(float(cfg_get(
-        cfg, "train", "bc_anchor_anneal_steps", default=4_000_000)))
-    model.bc_anneal_check_every = int(float(cfg_get(
-        cfg, "train", "bc_anchor_anneal_check_every", default=500_000)))
-    model.bc_anneal_assay_episodes = int(float(cfg_get(
-        cfg, "train", "bc_anchor_anneal_assay_episodes", default=8)))
-    model.bc_anneal_min_progress = float(cfg_get(
-        cfg, "train", "bc_anchor_anneal_min_progress", default=0.35))
+    model.bc_anneal_steps = 4_000_000
+    model.bc_anneal_check_every = 500_000
+    model.bc_anneal_assay_episodes = 8
+    model.bc_anneal_min_progress = 0.35
     # Fresh pinned seed per assay round (default OFF = bit-exact with the
     # original single-seed assay). Found 09-06 on the rung-2 cont8m pair:
     # with ONE pinned seed (828282, desync off, deterministic policy) the

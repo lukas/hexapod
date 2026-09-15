@@ -84,8 +84,7 @@ def test_bias_zero_is_bit_exact():
     of random actions (legacy path, not just the zero action)."""
     ov = dict(SLIPWALK_OVERRIDES)
     ov.update({("goal", "joint_action_bias_hip_deg"): 0.0,
-               ("goal", "joint_action_bias_knee_deg"): 0.0,
-               ("goal", "joint_action_bias_yaw_deg"): 0.0})
+               ("goal", "joint_action_bias_knee_deg"): 0.0})
     env = _make_walk_env(0, ov)
     rng = np.random.default_rng(0)
     for _ in range(20):

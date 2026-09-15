@@ -208,10 +208,8 @@ class GoalGenerator:
         # Lower targets stay slightly shy of the full plant->belly drop
         # (~60 mm) so the commanded end height is physically reachable
         # without resting ON the ref error.
-        lower_mm = g.get("lower_height_mm", [25.0, 55.0])
-        self.lower_m = (min(float(lower_mm[0]), max_h) * 0.001,
-                        min(float(lower_mm[1]), max_h) * 0.001)
-        self.lower_hold_s = float(g.get("lower_hold_s", 1.0))
+        self.lower_m = (min(25.0, max_h) * 0.001, min(55.0, max_h) * 0.001)
+        self.lower_hold_s = 1.0
         # Fraction of lower episodes that start AT the belly-rest target
         # pose with a flat height ref ("rest here quietly") instead of
         # descending from the plant — reset-side basin injection, cycle
@@ -240,14 +238,12 @@ class GoalGenerator:
         # lower_belly_start_frac above) so frac=0 vs frac>0 consume an
         # identical draw count within this code revision.
         self.lower_partial_frac = float(g.get("lower_partial_frac", 0.0))
-        self.lower_partial_min_frac = float(
-            g.get("lower_partial_min_frac", 0.3))
-        self.lower_partial_max_frac = float(
-            g.get("lower_partial_max_frac", 0.8))
+        self.lower_partial_min_frac = 0.3
+        self.lower_partial_max_frac = 0.8
         # Slow on purpose: "gently, without banging" is the task. The
         # tracking kernel penalizes running ahead of the ramp, so a
         # 5 s descent IS the gentleness constraint.
-        self.lower_ramp_s = float(g.get("lower_ramp_s", 5.0))
+        self.lower_ramp_s = 5.0
         # Goal-profile jitter (model tour, 08-11: the deployed stance
         # checkpoint passes every training-profile gate yet stalls its
         # belly rise at 55 mm and tips over on sit under play.py's
@@ -294,10 +290,8 @@ class GoalGenerator:
         # height_ref=0.
         self.hold_height_cmd_frac = float(g.get("hold_height_cmd_frac",
                                                  0.0))
-        hh_mm = g.get("hold_height_cmd_range_mm", [-40.0, 20.0])
         self.hold_height_cmd_range_m = (
-            max(float(hh_mm[0]), -max_h) * 0.001,
-            min(float(hh_mm[1]), max_h) * 0.001)
+            max(-40.0, -max_h) * 0.001, min(20.0, max_h) * 0.001)
         # Rate limit (mm/s): every transition in the generated schedule
         # is stretched so its slope never exceeds this — the "feels
         # like a joystick axis, not a step function" constraint. 15
@@ -305,8 +299,7 @@ class GoalGenerator:
         # excursion in ~2.7 s, well inside the servo profile).
         self.hold_height_cmd_rate_mm_s = float(g.get(
             "hold_height_cmd_rate_mm_s", 15.0))
-        hold_s = g.get("hold_height_cmd_hold_s", [2.0, 5.0])
-        self.hold_height_cmd_hold_s = (float(hold_s[0]), float(hold_s[1]))
+        self.hold_height_cmd_hold_s = (2.0, 5.0)
         self.hold_height_cmd_kinds = tuple(g.get(
             "hold_height_cmd_kinds", ("hold", "ramp", "sine", "pulse")))
         # Canary/bank hook (not a cfg key): pins every drawn segment to
@@ -340,10 +333,8 @@ class GoalGenerator:
         # and then hold there, exactly the missing training signal.
         self.hold_start_jitter_frac = float(
             g.get("hold_start_jitter_frac", 0.0))
-        hsj_mm = g.get("hold_start_jitter_mm", [5.0, 30.0])
         self.hold_start_jitter_m = (
-            min(float(hsj_mm[0]), max_h) * 0.001,
-            min(float(hsj_mm[1]), max_h) * 0.001)
+            min(5.0, max_h) * 0.001, min(30.0, max_h) * 0.001)
 
     def set_rise_start_frac(self, frac: float) -> dict:
         """Move the rise flat/partial start-pose mix `frac` of the way

@@ -26,13 +26,8 @@ DT = 0.01
 N_STEPS = 2000
 
 
-def _gen(frac: float = 0.0, min_frac: float = 0.3, max_frac: float = 0.8,
-         lower_mm=(25.0, 55.0)):
-    cfg = {"goal": {"p_lower": 1.0,
-                    "lower_partial_frac": frac,
-                    "lower_partial_min_frac": min_frac,
-                    "lower_partial_max_frac": max_frac,
-                    "lower_height_mm": list(lower_mm)}}
+def _gen(frac: float = 0.0):
+    cfg = {"goal": {"p_lower": 1.0, "lower_partial_frac": frac}}
     return GoalGenerator(cfg)
 
 
@@ -48,7 +43,7 @@ def test_default_off_is_legacy_plant_start():
 
 
 def test_frac_one_always_crouches_inside_band_no_jump():
-    gen = _gen(frac=1.0, min_frac=0.3, max_frac=0.8)
+    gen = _gen(frac=1.0)
     for seed in range(60):
         rng = np.random.default_rng(seed)
         traj = gen.sample(rng, N_STEPS, DT, force_mode="lower")

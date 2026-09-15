@@ -2643,7 +2643,6 @@ def _height_cmd_env(seed, hha=None, cmd_frac=1.0, kind_target=None,
                     only_mode="hold"):
     ov = {("train", "bc_anchor_coef"): 1.0,
          ("goal", "hold_height_cmd_frac"): cmd_frac,
-         ("goal", "hold_height_cmd_range_mm"): [-40.0, 20.0],
          ("goal", "hold_height_cmd_rate_mm_s"): 15.0}
     if hha is not None:
         ov[("train", "bc_anchor_hold_height_aware")] = hha
@@ -3581,21 +3580,19 @@ def test_attach_bc_anchor_anneal_gate_requires_a_positive_coef():
             task="joint_walk")
 
 
-def test_attach_bc_anchor_anneal_gate_reads_cfg_knobs():
+def test_attach_bc_anchor_anneal_gate_uses_the_fixed_schedule():
+    """The anneal schedule knobs were never set by any run and are now
+    constants; only the gate itself is a cfg key."""
     from rl_move.sim.bc_anchor import attach_bc_anchor
     model = _tiny_model()
     attach_bc_anchor(
         model, coef=4.0,
-        cfg={"train": {"bc_anchor_anneal_gate": 1.0,
-                       "bc_anchor_anneal_steps": 2_000_000,
-                       "bc_anchor_anneal_check_every": 250_000,
-                       "bc_anchor_anneal_assay_episodes": 4,
-                       "bc_anchor_anneal_min_progress": 0.30}},
+        cfg={"train": {"bc_anchor_anneal_gate": 1.0}},
         task="joint_walk")
     assert model.bc_anneal_gate is True
-    assert model.bc_anneal_steps == 2_000_000
-    assert model.bc_anneal_check_every == 250_000
-    assert model.bc_anneal_assay_episodes == 4
-    assert model.bc_anneal_min_progress == 0.30
+    assert model.bc_anneal_steps == 4_000_000
+    assert model.bc_anneal_check_every == 500_000
+    assert model.bc_anneal_assay_episodes == 8
+    assert model.bc_anneal_min_progress == 0.35
     assert model.bc_anneal_init_coef == 4.0
     assert model.bc_anneal_pass_step is None

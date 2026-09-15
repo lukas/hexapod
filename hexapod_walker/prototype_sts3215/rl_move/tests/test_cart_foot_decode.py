@@ -29,8 +29,7 @@ mujoco = pytest.importorskip("mujoco")
 from rl_move.robot_state import DEG2RAD
 from rl_move.sim import servo_model as SM
 
-BIAS = {"joint_action_bias_yaw_deg": 0.0,
-        "joint_action_bias_hip_deg": 40.0,
+BIAS = {"joint_action_bias_hip_deg": 40.0,
         "joint_action_bias_knee_deg": 35.0}
 BOX = {"joint_action_box_yaw_deg": 15.0,
        "joint_action_box_hip_deg": 20.0,

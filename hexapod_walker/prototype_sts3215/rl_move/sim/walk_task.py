@@ -738,47 +738,6 @@ def walk_leg_swing_initiation_maxload(loads: list) -> list:
     return [ld > 1e-6 and ld >= worst for ld in loads]
 
 
-# HEADING-CONDITIONED CHARGE DOSE MULTIPLIER (2026-09-09, the concrete
-# "targets relative to the commanded heading rather than a fixed
-# absolute value" lever the pinned-heading-panel finding named as the
-# next licensed lever -- STATUS.md 2026-09-09 ~11:5x-12:0x). The
-# per-heading eval tool built that same cycle found the widen8
-# leg-sacrifice-repair champion (walk_leg_duty_ratio_charge +
-# walk_leg_swing_gap_charge, both dose10) is clean on forward-ish
-# headings (0, +-45deg) but chronically sacrifices ONE leg (always the
-# same leg for a given heading) on every other heading in the 8-way
-# set, BYTE-IDENTICAL before/after a heading-reweighted-SAMPLING
-# canary (2/2 seeds, more DATA exposure on the broken headings has
-# zero effect -- CLOSED). This is a DIFFERENT lever: instead of more
-# training data at hard headings, scale the two proven charges'
-# PRICE (not their target/threshold) up as the commanded heading
-# moves away from forward, so the SAME calibrated mechanism bites
-# harder exactly where the champion's forward-tuned dose (calibrated
-# on an all-forward 288-episode corpus, see walk_legduty_ratio_charge
-# above) is evidently too weak to override the forward-tripod pattern.
-# ``cos_heading`` is ``goal.vx_ref / s_ref`` (no atan2 needed -- the
-# command is drawn as ``speed*cos(ang), speed*sin(ang)`` with ang=0
-# forward, see `_sample_walk`), so this reads only the ALREADY-
-# COMMANDED velocity reference every walk-mode reward call has on
-# hand -- no gait clock, no phase table, no per-leg role assignment,
-# no motion prior: pure reward-shaping conditioned on an existing
-# observation, same category as the already-live `k_walk_heading`
-# term above. mult=1.0 at heading=0 (forward, unchanged pricing);
-# mult=1+2*gain at heading=180 (straight backward, the worst
-# fingerprint in the panel). Default ``gain=0.0`` -> mult=1.0 always,
-# bit-exact legacy (the caller skips computing ``cos_heading`` at all
-# when its own gain is 0, so this adds zero cost when off).
-def walk_heading_charge_mult(cos_heading: float, gain: float) -> float:
-    """Dose multiplier in ``[1, 1+2*gain]``: 1.0 exactly forward
-    (``cos_heading=1``), ``1+2*gain`` exactly backward
-    (``cos_heading=-1``), smooth in between. ``gain<=0`` returns 1.0
-    (no-op) regardless of ``cos_heading``."""
-    if gain <= 0.0:
-        return 1.0
-    c = max(-1.0, min(1.0, float(cos_heading)))
-    return 1.0 + gain * (1.0 - c)
-
-
 class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
     """Joint-action goal env + walk mode (obs 59 + 11 + 2 vel feedback)."""
 
@@ -4885,11 +4844,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # reward.walk_leg_duty_ratio_charge (0.0),
             # reward.walk_leg_duty_ratio_target (0.30, the calibrated
             # passing-population's own p10 worst-leg ratio),
-            # reward.walk_leg_duty_ratio_grace_s (3.0),
-            # reward.walk_leg_duty_ratio_heading_gain (0.0, 2026-09-09
-            # -- see walk_heading_charge_mult: scales this charge's
-            # dose up as the commanded heading moves off forward,
-            # mult 1.0 fwd -> 1+2*gain straight back; 0 = off).
+            # reward.walk_leg_duty_ratio_grace_s (3.0).
             g_ratio = float(cfg_get(self.cfg, "reward",
                                     "walk_leg_duty_ratio_charge",
                                     default=0.0))
@@ -4903,11 +4858,6 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             g_ratio_swingfloor = float(cfg_get(
                 self.cfg, "reward",
                 "walk_leg_duty_ratio_swing_min_count", default=0.0))
-            # Heading-conditioned dose gain (see walk_heading_charge_mult
-            # above). Default 0.0 = mult always 1.0, bit-exact legacy.
-            g_ratio_head_gain = float(cfg_get(
-                self.cfg, "reward",
-                "walk_leg_duty_ratio_heading_gain", default=0.0))
             r_ratio = 0.0
             if g_ratio > 0.0 and s_ref > 1e-3:
                 ratio_grace_s = float(cfg_get(
@@ -4935,14 +4885,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         swing_counts=ratio_swing_counts,
                         swing_min_count=g_ratio_swingfloor,
                         agg=ratio_agg)
-                    g_ratio_eff = g_ratio
-                    if g_ratio_head_gain > 0.0:
-                        ratio_mult = walk_heading_charge_mult(
-                            goal.vx_ref / s_ref, g_ratio_head_gain)
-                        g_ratio_eff = g_ratio * ratio_mult
-                        info["walk_leg_duty_ratio_heading_mult"] = \
-                            ratio_mult
-                    r_ratio = -g_ratio_eff * worst_shortfall
+                    r_ratio = -g_ratio * worst_shortfall
                     info["walk_leg_duty_ratio_shortfall"] = worst_shortfall
                     info["reward_walk_leg_duty_ratio"] = r_ratio
             # Per-LEG load-SLIP reward CHARGE (reward.walk_leg_
@@ -5043,21 +4986,10 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # reward.walk_leg_swing_gap_grace_s (3.0, seconds of gap
             # tolerated before it counts -- a leg mid-stance for a
             # normal stride period is not yet "stuck"),
-            # reward.walk_leg_swing_gap_cap_s (4.0),
-            # reward.walk_leg_swing_gap_heading_gain (0.0, 2026-09-09
-            # -- same heading-conditioned dose gain as the duty-ratio
-            # charge's own key above, independent cfg/state; 0 = off).
+            # reward.walk_leg_swing_gap_cap_s (4.0).
             g_swinggap = float(cfg_get(self.cfg, "reward",
                                        "walk_leg_swing_gap_charge",
                                        default=0.0))
-            # Heading-conditioned dose gain, same shape/rationale as
-            # walk_leg_duty_ratio_heading_gain above (own cfg key so
-            # the two charges' heading doses can be swept
-            # independently). Default 0.0 = mult always 1.0,
-            # bit-exact legacy.
-            g_gap_head_gain = float(cfg_get(
-                self.cfg, "reward",
-                "walk_leg_swing_gap_heading_gain", default=0.0))
             r_gap = 0.0
             if g_swinggap > 0.0 and s_ref > 1e-3:
                 gap_grace_s = float(cfg_get(
@@ -5070,13 +5002,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     default=4.0))
                 priced_gap = (min(excess, gap_cap_s)
                               if gap_cap_s > 0.0 else excess)
-                g_gap_eff = g_swinggap
-                if g_gap_head_gain > 0.0:
-                    gap_mult = walk_heading_charge_mult(
-                        goal.vx_ref / s_ref, g_gap_head_gain)
-                    g_gap_eff = g_swinggap * gap_mult
-                    info["walk_leg_swing_gap_heading_mult"] = gap_mult
-                r_gap = -g_gap_eff * priced_gap
+                r_gap = -g_swinggap * priced_gap
                 info["walk_leg_swing_gap_worst_s"] = worst_gap
                 info["reward_walk_leg_swing_gap"] = r_gap
             # Per-LEG swing-INITIATION reward INCOME
@@ -5926,61 +5852,6 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                           - exceed_w / 0.5, 0.0)
                             s_gate = support_gate
                             r_cinc = k_cinc * s_gate * angle_f * speed_f
-                            # ACHIEVED-YAW gate on combined-tick course
-                            # income (2026-09-07, yawref-cont8m FAIL-
-                            # QUALIFICATION follow-up; probe_tip_income
-                            # measured the defect on the exact regressed
-                            # arc-right cell vx=0.08 wz=-0.15: with
-                            # walk_course_ref_yaw=1 this income STILL
-                            # pays turn-REFUSAL 428.0 and world-course
-                            # CRABBING 428.7 vs the faithful arc's 402.1
-                            # per 6 s -- at |wz_ref|=0.15 the commanded
-                            # yaw per 0.75 s window is 6.4 deg, i.e.
-                            # inside/at the 6-deg deadband, so the
-                            # window re-anchor forgives refusal every
-                            # window and the whole pro-turn margin rides
-                            # on k_yaw_prog alone. Fix mirrors the
-                            # proven walk_yaw_kernel_gate family, but
-                            # WINDOW-matched: multiply the income by
-                            # (1-g) + g*clip(dyaw/dtheta_ref, 0, 1)
-                            # where dyaw is the body's ACHIEVED yaw over
-                            # the SAME trailing income window and
-                            # dtheta_ref the commanded wz integral over
-                            # it (both already stored per-tick by the
-                            # walk_course_ref_yaw=1 history rows; the
-                            # gate is inert on legacy 5-wide rows, i.e.
-                            # it REQUIRES walk_course_ref_yaw=1, and on
-                            # windows with <~0.57 deg commanded yaw --
-                            # straight/stop ticks stay bit-exact). A
-                            # window-scale ratio is stride-oscillation
-                            # immune (window = teacher gait period) so
-                            # honest turning is not desensitized while
-                            # refusal/crab score ~0 and wrong-sign
-                            # clips to 0 by construction. cfg
-                            # reward.walk_course_income_yaw_gate in
-                            # [0,1], default 0.0 = bit-exact legacy.
-                            # Bank: test_course_income_semantics.py
-                            # test_ci_yaw_gate_*.
-                            g_ciy = float(cfg_get(
-                                self.cfg, "reward",
-                                "walk_course_income_yaw_gate",
-                                default=0.0))
-                            if g_ciy > 0.0:
-                                p1_g = whist[-1]
-                                p0_g = whist[-1 - n_inc]
-                                if len(p1_g) >= 7 and len(p0_g) >= 7:
-                                    dth_ref = p1_g[5] - p0_g[5]
-                                    if abs(dth_ref) > 1e-2:
-                                        dyaw = p1_g[6] - p0_g[6]
-                                        dyaw = math.atan2(
-                                            math.sin(dyaw),
-                                            math.cos(dyaw))
-                                        f_ciy = min(max(
-                                            dyaw / dth_ref, 0.0), 1.0)
-                                        r_cinc *= ((1.0 - g_ciy)
-                                                   + g_ciy * f_ciy)
-                                        info["walk_course_income_yaw_f"] \
-                                            = f_ciy
                             reward = float(reward) + r_cinc
                             info["walk_course_income_err_deg"] = err_deg
                             info["walk_course_income_angle_f"] = angle_f
@@ -6207,46 +6078,6 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             #     (duty ~0.3-0.8) pays nothing.
             k_step = float(cfg_get(self.cfg, "reward", "k_step_event",
                                    default=0.0))
-            # k_step_partial (08-30, WALKCURR_SV_PRETRAIN_GRAD): the
-            # walkcurr population/budget-seed sweep closed 6/6 FAIL in
-            # the same static-quiver-to-over_current basin, and the
-            # step-event-only pretrain fork (antifreeze-pretrain-s0
-            # x2) ALSO closed FAIL — root cause (assumed): k_step_event
-            # is an all-or-nothing cliff at along_f>=10mm, so a
-            # fresh-random-init policy that has never once produced a
-            # >=10mm forward-projecting swing has NO gradient anywhere
-            # near a partial/incomplete stride and 2M steps may simply
-            # never sample one by chance. This term pays a LINEAR taper
-            # from 0 (at along_f<=0, i.e. no forward progress at all)
-            # up to the full k_step credit (at along_f==the 10mm gate,
-            # where the existing hard-gate mechanism above takes over
-            # seamlessly at the boundary) for a genuine completed
-            # lift->swing->touchdown that falls SHORT of the 10mm bar.
-            # Fidget-resistant by the SAME construction as k_step_event
-            # (requires an actual air>=2-tick liftoff-then-landing, not
-            # raw |qvel|): a stall/march-in-place twin whose feet lift
-            # and land back near the liftoff point has along_f~0 and
-            # this term tapers to ~0 right along with it -- it does NOT
-            # reopen the raw-|qvel| "fake fidget" dodge (WALKCURR_PF_
-            # IDLE_TERM, 08-24) because zero net forward displacement
-            # per stride still earns nothing. Default 0.0 = off,
-            # legacy exact (bank: WALKCURR_SV_PRETRAIN_GRAD in
-            # the retired pre-v2 bank). DEADBAND (bank-probe discovery,
-            # 08-30): a naive taper starting at along_f>0 leaks credit
-            # to genuinely wrong-direction real gaits -- the scripted
-            # "sideways" bank twin (a real 90-deg-off-command tripod
-            # gait) has a small but nonzero net FORWARD drift from its
-            # own leg kinematics (~2.6 cm over a full episode) that a
-            # zero-floor linear taper pays MORE than an honest tiny
-            # forward-only partial stride, breaking the wrong-way-
-            # earns-nothing ordering. A fixed 2 mm deadband holds
-            # the taper at exactly 0 for any along_f at or below the
-            # deadband (comfortably above the measured
-            # sideways-twin per-swing leak) and only ramps 0->k_step
-            # across (deadband, 10mm).
-            k_step_partial = float(cfg_get(self.cfg, "reward",
-                                           "k_step_partial", default=0.0))
-            step_partial_deadband_m = 2.0 / 1000.0
             k_drag = float(cfg_get(self.cfg, "reward", "k_drag_loaded",
                                    default=0.0))
             # Deadband was a bare 0.5mm/tick literal calibrated at the
@@ -6382,8 +6213,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # replace or zero `k_foot_slip_tangent`; if both are armed
             # together, touchdown/liftoff-window ticks are charged by
             # both (a combined-dose question for a follow-up arm, not
-            # this one). No interaction with `k_step_event`/
-            # `k_step_partial`: those price ALONG-command stride
+            # this one). No interaction with `k_step_event`: that
+            # prices ALONG-command stride
             # length between liftoff and the NEXT touchdown, this
             # prices tangential (skid) velocity within a fixed tick
             # window — different quantities, same shared touchdown/
@@ -6405,7 +6236,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             wts_lo_ticks = max(1, int(round(float(cfg_get(
                 self.cfg, "reward", "walk_transition_lo_ticks",
                 default=3.0)))))
-            if (k_swing > 0.0 or k_step > 0.0 or k_step_partial > 0.0
+            if (k_swing > 0.0 or k_step > 0.0
                     or k_drag > 0.0
                     or k_park > 0.0 or k_ds > 0.0
                     or g_gait > 0.0 or g_duty > 0.0 or g_swing > 0.0
@@ -6598,12 +6429,11 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         if k_swing > 0.0 and stride >= 0.015 \
                                 and air >= 2 and f not in lift:
                             r_swing += k_swing
-                        if (k_step > 0.0 or k_step_partial > 0.0) \
-                                and air >= 2 and f not in lift:
+                        if k_step > 0.0 and air >= 2 and f not in lift:
                             along_f = float(
                                 d[0] * goal.vx_ref + d[1] * goal.vy_ref
                             ) / s_ref
-                            if k_step > 0.0 and along_f >= 0.010:
+                            if along_f >= 0.010:
                                 credit = k_step * min(along_f / 0.030, 1.5)
                                 if budget_m > 0.0:
                                     if self._step_disp_bank >= budget_m:
@@ -6611,27 +6441,6 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                     else:
                                         r_step_denied += credit
                                         credit = 0.0
-                                r_step += credit
-                            elif (k_step_partial > 0.0
-                                  and along_f > step_partial_deadband_m):
-                                # Linear taper 0 -> k_step_partial as
-                                # along_f goes deadband -> 0.010 m,
-                                # clipped at k_step_partial beyond that
-                                # (so this stays well-defined even if
-                                # used without k_step at all, e.g. an
-                                # even simpler pretrain diet); when
-                                # k_step IS also on, anything >=0.010
-                                # already took that branch above
-                                # instead. Caller sets k_step_partial
-                                # <= k_step so the taper never out-
-                                # earns a full completed swing. No
-                                # budget-bank gating (pretrain-only
-                                # diet, budget_m unused here).
-                                span = max(0.010 - step_partial_deadband_m,
-                                           1e-6)
-                                credit = k_step_partial * (
-                                    (min(along_f, 0.010)
-                                     - step_partial_deadband_m) / span)
                                 r_step += credit
                     elif on and self._foot_on[f] \
                             and self._foot_prev_xy[f] is not None:
@@ -6760,7 +6569,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     reward += r_swinit
                 if g_swinit > 0.0:
                     info["reward_walk_leg_swing_initiation"] = r_swinit
-                if k_step > 0.0 or k_step_partial > 0.0:
+                if k_step > 0.0:
                     reward += r_step
                     info["reward_step_event"] = r_step
                     if budget_m > 0.0:
@@ -6915,43 +6724,6 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     r_eff = -k_eff * float(np.mean(cur))
                     reward += r_eff
                 info["reward_effort"] = r_eff
-            # Per-motor torque hinge (operator amendment 2026-08-25 to
-            # the 05:09 effort-priced walk arm, from the local
-            # load-probe session): punish |tau| above reward.tau_over_nm
-            # (default 1.0 N*m) — r -= k_tau_over *
-            # mean(relu(|qfrc_actuator| - thr)) per walk tick,
-            # walk-routed exactly like k_walk_effort above. Probe truth
-            # motivating the 1.0 N*m threshold: honest plant-height
-            # stepping needs at most ~1 N*m per hip (0.23 static on six
-            # feet, ~0.5 in tripod, ~1 at dynamic peaks) while the
-            # skater crouch runs 1.1-1.5 N*m STATIC and rails the
-            # 2.2 N*m clamp — so the hinge prices ONLY the waste and
-            # the rail events, never normal stepping. Motor heat is
-            # I^2*R, so sustained above-threshold peaks matter
-            # superlinearly and the mean-current k_walk_effort
-            # underprices them; before this term nothing existed
-            # between free and the over_current episode trip. The sim
-            # current model is |tau| * 1.2 A/Nm lowpassed
-            # (sim_env._read_state), so hinging on raw torque directly
-            # is equivalent and clearer (and sees peaks the 0.1 s LPF
-            # smears). Reads data.qfrc_actuator[self._vadr], which the
-            # MJX FakeData mirrors fill identically
-            # (mjx_host.push_output_row), so C env and MJX price the
-            # same. Default 0 = off: block skipped, no info keys,
-            # legacy bit-exact (drag_stance pattern).
-            k_tau = float(cfg_get(self.cfg, "reward", "k_tau_over",
-                                  default=0.0))
-            if k_tau > 0.0:
-                thr_nm = float(cfg_get(self.cfg, "reward",
-                                       "tau_over_nm", default=1.0))
-                tau_abs = np.abs(np.asarray(
-                    self.data.qfrc_actuator[self._vadr], dtype=float))
-                r_tau = -k_tau * float(np.mean(
-                    np.maximum(tau_abs - thr_nm, 0.0)))
-                if r_tau:
-                    reward += r_tau
-                info["walk_tau_max_nm"] = float(np.max(tau_abs))
-                info["reward_tau_over"] = r_tau
             # Hip-yaw limit-margin charge (2026-08-19; operator order
             # fb_20260818T152717 lineage — the direction-switch tangle).
             # probe_dirswitch_tangle measured the tangle PRECURSOR:

@@ -309,7 +309,7 @@ hex_unit_check() {
   hex_note "off-robot unit tests (fake buses only)"
   (
     hex_py linux_control/test_calibration_checkup.py &&
-    hex_py linux_control/test_mcu_stream.py &&
+    hex_py -m pytest -q linux_control/test_mcu_stream.py &&
     hex_py linux_control/test_telemetry_recorder.py &&
     hex_py linux_control/test_geometry_sweep_fit.py &&
     hex_py linux_control/test_quad_pitch_trim.py &&

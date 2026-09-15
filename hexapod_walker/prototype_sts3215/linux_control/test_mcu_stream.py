@@ -593,21 +593,3 @@ def test_pose_read_compatibility_uses_snapshot_transport_only():
     assert bus.read_all_positions() == {1: 20., 2: 80.}
     assert bus.read_all_raw_positions([4]) == {2: 60.}
     assert len(calls) == 2
-
-
-def _main() -> int:
-    fails = 0
-    for name, fn in sorted(globals().items()):
-        if name.startswith("test_") and callable(fn):
-            try:
-                fn()
-                print(f"PASS {name}")
-            except AssertionError as e:
-                fails += 1
-                print(f"FAIL {name}: {e}")
-    print("OK" if fails == 0 else f"{fails} FAILURES")
-    return 1 if fails else 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(_main())

@@ -76,10 +76,9 @@ SNAP_ATTRS = (
     # accumulated commanded-tick seconds driving the anchor gait so it
     # stays locked to the goal.walk_phase_obs clock the policy sees.
     "_walk_bc_t",
-    # Transition-drag bookkeeping (08-11 night, reward.k_drag_trans):
-    # per-foot prev contact + XY plus the episode drag accumulator,
-    # read every non-walk tick.
-    "_tdrag_prev_xy", "_tdrag_prev_on", "_tdrag_acc",
+    # Transition-drag bookkeeping (08-11 night, trans_drag_mm metric):
+    # per-foot prev contact + XY, read every non-walk tick.
+    "_tdrag_prev_xy", "_tdrag_prev_on",
     # GETUP (recover→stand→walk) episode state (08-11): mode flag +
     # the staged-progress ratchet baseline, set in _reset_finalize and
     # read every getup tick in walk_task._post_step. A pool-restored
@@ -130,14 +129,6 @@ SNAP_ATTRS = (
     # own EMA + sustained-low-seconds counter, universal (every task
     # class supports hold mode) — see sim_env._reset_finalize.
     "_hold_minload_ema", "_hold_minload_low_s",
-    # Obs-only q_nom blend across a mode_seq family-changing switch
-    # (goal.mode_seq_frame_blend_s, 09-02 DIG-IN): the active blend
-    # window (old/new q_nom + start/end tick), None outside one. A
-    # pool-restored episode mid-blend must keep interpolating from ITS
-    # own pre-switch frame, not silently snap to the post-switch value
-    # (the exact commit-65edba7 bug class this list exists to catch) —
-    # default off (None every tick) is bit-exact regardless.
-    "_frame_blend",
 )
 
 

@@ -231,37 +231,6 @@ def lower_depth_frac(h_rel_m: float, h_target_m: float) -> float:
     return min(max(h_rel_m / h_target_m, 0.0), 1.0)
 
 
-def current_income_ema_step(prev_ema: float, income_tick: float,
-                             alpha_i: float) -> float:
-    """One EMA update of the "task income" signal used by
-    ``reward.k_current_income`` (standwalk track, 2026-09-12).
-
-    Root cause (``CURRENT_TRUTHS.md`` 2026-09-12 ~12:5x): the
-    dualbc7-anchor14coef1-...-termcost3 lineage's late-tail
-    ``over_current`` collapse is an INCENTIVE overshoot, not optimizer
-    instability -- ``env/mean_current_a`` climbs monotonically as
-    walk+rise income consolidates over many million steps, crossing the
-    safety cutoff en masse once income growth outpaces a price that
-    stays FLAT (a fixed dose) or merely SCHEDULED by wall-clock training
-    step (seven independent single-lever guesses confirmed this: dose
-    3/6/12, continuous k_current_hot, ramped bootstrap timing, PPO
-    clip-range anneal, log-std-anneal schedule -- none scales the price
-    to the policy's own growing income, they only vary how a fixed
-    number is reached).
-
-    ``income_tick`` is a non-negative proxy for "how much task reward
-    did the policy just earn" (the caller clips it >=0 so a bad tick
-    never discounts the tracked level). ``prev_ema`` is an EMA of that
-    signal with a slow time constant (``alpha_i = dt / tau_s``, tuned to
-    several episodes -- deliberately much slower than any single
-    episode, so it tracks recent-behavior income consolidation, not
-    single-tick/single-episode variation). Pure/stateless (caller owns
-    persistence) so it is unit-testable without a live physics/reward
-    pipeline.
-    """
-    return prev_ema + alpha_i * (income_tick - prev_ema)
-
-
 def action_rate_penalty(prev_action: np.ndarray,
                          action: np.ndarray) -> float:
     """Sum of squared per-joint normalized-action deltas between two
@@ -287,48 +256,6 @@ def action_rate_penalty(prev_action: np.ndarray,
     """
     return float(np.sum((np.asarray(action, dtype=np.float64)
                           - np.asarray(prev_action, dtype=np.float64)) ** 2))
-
-
-def hold_barrier_penalty(h_err_m: float, hold_max_drop_mm: float,
-                          gain: float) -> float:
-    """Steepening BARRIER penalty on how close the chassis sits to the
-    ACTIVE hold-mode termination bound (``reward.hold_barrier_gain``,
-    2026-09-13, walkcurr hold-from-scratch escalation).
-
-    The ``holdgrace`` curriculum canary pair (both seeds) closed the
-    "termination-grace curriculum" lever named as the next escalation
-    after 5/5 static-cfg-dose levers failed: the gate itself engaged
-    fine (survived_frac cleared 0.4 by ~131k/2M steps in both seeds)
-    but once the envelope tightened to its validated target, both
-    seeds still rode it straight to ``hold_low_height`` every episode
-    (0/6 survived at 2M). The existing quadratic ``reward_height``
-    term (``-k_height * h_err**2``) is flat enough near the bound that
-    slowly sinking into the discounted, CAPPED terminal cost
-    (``reward.term_cost_max``) is cheaper than paying the stiffer
-    stand-still/feet-load charges of actually holding — a misaligned
-    reward per the 08-21 ruling, not a training-duration problem.
-
-    This term instead DIVERGES as ``|h_err|`` approaches
-    ``hold_max_drop_mm`` (the live grace-curriculum-overridden value
-    when that curriculum is armed, the static cfg leaf otherwise), so
-    the marginal cost of closing on the cliff rises far faster than
-    the quadratic term ever does, well before termination actually
-    fires. Unlike a pure potential-based reshaping (which by
-    construction cannot change the optimal policy), this explicitly
-    re-prices the ride-the-bound trajectory itself.
-
-    Pure/stateless: ``h_err_m`` is the signed height error in METERS
-    (same convention as ``compute_reward``'s ``height_err``),
-    ``hold_max_drop_mm`` is the currently active bound in mm (<=0 means
-    no active bound -> penalty is 0), ``gain`` is
-    ``reward.hold_barrier_gain`` (<=0 -> penalty is 0, bit-exact off).
-    Returns the (non-positive) reward contribution; caller adds it to
-    ``reward`` and records it in ``parts["reward_hold_barrier"]``.
-    """
-    if gain <= 0.0 or hold_max_drop_mm <= 0.0:
-        return 0.0
-    drop_frac = min(abs(h_err_m) * 1000.0 / hold_max_drop_mm, 0.999)
-    return -gain * (drop_frac ** 2) / (1.0 - drop_frac)
 
 
 # --------------------------------------------------------------------------
@@ -1037,24 +964,6 @@ class SimHexapodBalanceEnv(_GymBase):
         # segment's obs frame up to ~79 deg (knee, belly-vs-plant) off
         # the teachers' training distribution.
         self._seq_frames: dict | None = None
-        # Obs-only q_nom blend across a family-changing mode_seq switch
-        # (goal.mode_seq_frame_blend_s, DIG-IN 2026-09-02: instrumented
-        # proof the instant belly<->plant q_nom teleport at
-        # _seq_maybe_switch is a real, near-universal shock -- every
-        # surveyed episode's action output saturates (clipped near
-        # max magnitude) on the EXACT switch tick and stays saturated
-        # for seconds, driving current from its pre-switch baseline
-        # toward the safety cap; episodes already running hot pre-
-        # switch tip into over_current, others merely lose margin. See
-        # rl_move/sim/debug_seq_switch_obs_jump.py + STATUS.md).
-        # Default None = off = bit-exact legacy (_q_nom_for_obs()
-        # returns self._q_nom unchanged, identical to every pre-09-02
-        # build_obs call). Deliberately blends ONLY the observation
-        # input (self._q_nom itself still teleports instantly for
-        # reward/anchor/IK consumers, which is untouched behavior) --
-        # the isolated defect this dig-in measured is the policy's
-        # raw NETWORK INPUT jumping, not the reward pricing.
-        self._frame_blend: dict | None = None
         self._imu_prev_v: np.ndarray | None = None
         self._imu_f_accum = np.zeros(3)
         self._imu_f_n = 0
@@ -1246,53 +1155,6 @@ class SimHexapodBalanceEnv(_GymBase):
             self._hold_grace_override_drop_mm = _hg_start_drop
             self._hold_grace_override_grace_s = _hg_start_grace
 
-        # Hot-current BOOTSTRAP (standwalk track, 2026-09-12 — the
-        # dualbc7-anchor14coef1-...-termcost3 lineage's late-tail
-        # over_current spike: root-caused 09-12 ~12:5x as an INCENTIVE
-        # overshoot, not optimizer instability — env/mean_current_a
-        # climbs monotonically as walk+rise income consolidates over
-        # MANY MILLION steps, crossing the safety cutoff en masse once
-        # income growth outpaces a FLAT per-tick current price. Every
-        # dose tried so far (k_current_hot in {0,3,6}, flat from
-        # step 0) showed the identical dose-independent late-training
-        # tail shape (4 independent confirmations, 15:2x); a stack-
-        # frozen dose of 12 is on record from an earlier lineage,
-        # applied flat from initialization. This is a STRUCTURALLY
-        # different lever, not another flat-dose guess: introduce a
-        # HIGHER terminal dose than the safe-flat ceiling (6) GRADUALLY
-        # over training (mirrors k_loadslip_excess's own bootstrap
-        # convention, walk_task.py's apply_loadslip_bootstrap_frac —
-        # same broadcast contract, ramping UP to a cfg target) so the
-        # policy never sees the freeze-inducing high dose from
-        # initialization (the plausible cause of the flat-12 freeze),
-        # while the price is STILL RISING through the late-training
-        # window where the overshoot actually happens, unlike a
-        # bootstrap that finishes ramping before the tail (which would
-        # be behaviorally identical to a flat dose there). Same
-        # cfg-armed / trainer-driven / default-OFF contract as every
-        # other ramp in this file (bit-exact when reward.
-        # current_hot_bootstrap_steps is 0/absent — the debt array and
-        # override stay unallocated/None, k_current_hot reads exactly
-        # as before). Enable: --cfg-set reward.k_current_hot=<final
-        # dose> --cfg-set reward.current_hot_bootstrap_steps=<N>.
-        self._current_hot_bootstrap: dict | None = None
-        self._current_hot_bootstrap_override: float | None = None
-        _chb_steps = int(float(cfg_get(
-            self.cfg, "reward", "current_hot_bootstrap_steps",
-            default=0) or 0))
-        if _chb_steps > 0:
-            self._current_hot_bootstrap = {
-                "steps": _chb_steps, "min_frac": 0.30, "frac": 0.0,
-            }
-
-        # Income-relative current-price EMA state (reward.
-        # k_current_income, see current_income_ema_step's docstring).
-        # Allocated here (persists for the life of this env instance,
-        # i.e. across every episode reset for the training run's
-        # lifetime on this worker) rather than in reset(): the whole
-        # point is a training-run-scale signal, not a per-episode one.
-        self._current_income_ema: float | None = None
-
         if _gym is not None:
             self.observation_space = self._obs_space_box(
                 N_OBS + current_sense_obs_dim(self.cfg))
@@ -1361,7 +1223,7 @@ class SimHexapodBalanceEnv(_GymBase):
         self._state = self._read_state()
         goal = self._current_goal()
         return self._final_obs(
-            build_obs(self.cfg, self._state, self._q_nom_for_obs(),
+            build_obs(self.cfg, self._state, self._q_nom,
                       self._prev_action, goal=goal,
                       tilt_ref=self._tilt_ref0),
             reset=False, augment_reset=True)
@@ -1946,30 +1808,6 @@ class SimHexapodBalanceEnv(_GymBase):
         self._rec_bank_cache = bank
         return bank
 
-    def _recover_rsi_bank(self) -> np.ndarray | None:
-        """Harvested ON-PATH recover-mode poses for the harvested-bank
-        RSI variant (08-16, tangle-wall mechanism fix; see the
-        sim_env spawn branch and walk_task._sample_recover). Lazy-
-        loads the npz named by cfg goal.recover_rsi_bank_path (key
-        ``q_rad``, shape (K,18)); caches None when unset. Same
-        contract as _recover_start_bank."""
-        if hasattr(self, "_rec_rsi_bank_cache"):
-            return self._rec_rsi_bank_cache
-        path = cfg_get(self.cfg, "goal", "recover_rsi_bank_path",
-                       default=None)
-        bank = None
-        if path:
-            arr, npz = _load_robot_abs_q_npz(
-                str(path), source="recover_rsi_bank")
-            npz.close()
-            if arr.ndim != 2 or arr.shape[1] != N_JOINTS or len(arr) == 0:
-                raise ValueError(
-                    f"recover_rsi_bank_path {path}: expected "
-                    f"(K,{N_JOINTS}) q_rad, got {arr.shape}")
-            bank = arr
-        self._rec_rsi_bank_cache = bank
-        return bank
-
     def _rise_start_bank(self) -> np.ndarray | None:
         """Harvested settled lower-endpoint poses (08-14, post-lower
         rise exposure — SESSION_BULK_GATE's named boundary). Lazy-loads
@@ -2193,7 +2031,6 @@ class SimHexapodBalanceEnv(_GymBase):
         self._seq_stand_z = None       # abs z of the last commanded stand
         self._seq_seg_end = None       # active segment's end tick
         self._seq_pose_anchor = None   # hold/lower BC base pose mid-seq
-        self._frame_blend = None       # obs-only q_nom blend (09-02)
         # Active segment's own start tick (manual-drive-session-s1
         # dig-in, 08-28: the *_grace_s windows below were all gated on
         # the EPISODE-absolute clock `self._step_i * self.dt`, so any
@@ -2351,30 +2188,6 @@ class SimHexapodBalanceEnv(_GymBase):
             n, i0 = len(ref["q"]), int(ref["ramp_i0"])
             j = int(self.rng.integers(0, i0 + int(0.9 * (n - 1 - i0))))
             q_rsi = ref["q"][j] + self.rng.uniform(
-                -2.0, 2.0, N_JOINTS) * DEG2RAD
-            if self._ep_rand is not None:
-                q_rsi = q_rsi + self._ep_rand.start_offset_rad
-            self._tipped_applied = True
-            return self._logical_to_mujoco_q(
-                self._clip_to_joint_limits(q_rsi))
-        # RECOVER RSI, HARVESTED-BANK variant (08-16, tangle-wall
-        # mechanism fix): spawn on a pose harvested from a checkpoint's
-        # OWN successful rollouts of the target kind
-        # (goal.recover_rsi_bank_path, built by
-        # harvest_recover_rsi_bank.py) instead of the belly->plant
-        # reference above, which has no equivalent for non-monotonic
-        # untangling motion. Flag set only by
-        # walk_task._sample_recover (goal.recover_rsi_bank_frac/
-        # _kinds, default off, forced CERT/eval kinds never carry it).
-        if (self._goal_traj is not None
-                and getattr(self._goal_traj, "mode", "") == "recover"
-                and getattr(self._goal_traj, "recover_rsi_bank", False)):
-            bank = self._recover_rsi_bank()
-            if bank is None:
-                raise ValueError("goal.recover_rsi_bank_frac needs "
-                                 "goal.recover_rsi_bank_path")
-            idx = int(self.rng.integers(0, len(bank)))
-            q_rsi = bank[idx] + self.rng.uniform(
                 -2.0, 2.0, N_JOINTS) * DEG2RAD
             if self._ep_rand is not None:
                 q_rsi = q_rsi + self._ep_rand.start_offset_rad
@@ -2892,13 +2705,12 @@ class SimHexapodBalanceEnv(_GymBase):
             [float(self.data.xpos[b, 2]) if b >= 0 else 0.0
              for b in self._pad_bids])
         # Transition-drag bookkeeping (operator 08-11 night: the robot
-        # scrapes its feet across the floor during stand/sit; nothing
-        # outside walk mode priced that). Per-foot previous contact +
-        # XY for the loaded-slide charge in _step_finish; snapshot via
-        # mjx_host.SNAP_ATTRS (pool-restore lesson, commit 65edba7).
+        # scrapes its feet across the floor during stand/sit). Per-foot
+        # previous contact + XY for the trans_drag_mm metric in
+        # _step_finish; snapshot via mjx_host.SNAP_ATTRS (pool-restore
+        # lesson, commit 65edba7).
         self._tdrag_prev_xy = [None] * 6
         self._tdrag_prev_on = [False] * 6
-        self._tdrag_acc = 0.0
         # HOLD-mode min-foot-load termination bookkeeping
         # (safety.hold_min_load_terminate_s, standwalk mesh2 rung-6):
         # own EMA of the worst (min-over-feet) touch force this
@@ -3212,7 +3024,7 @@ class SimHexapodBalanceEnv(_GymBase):
         if goal is not None:
             info["goal_mode"] = self._goal_traj.mode
         return self._final_obs(
-            build_obs(self.cfg, self._state, self._q_nom_for_obs(),
+            build_obs(self.cfg, self._state, self._q_nom,
                       self._prev_action, goal=goal,
                       tilt_ref=self._tilt_ref0), reset=True), info
 
@@ -3502,32 +3314,6 @@ class SimHexapodBalanceEnv(_GymBase):
         return {"frac": f, "drop_mm": self._hold_grace_override_drop_mm,
                 "grace_s": self._hold_grace_override_grace_s}
 
-    def apply_current_hot_bootstrap_frac(self, frac: float) -> dict:
-        """Move the live ``k_current_hot`` scale to ``frac`` of the
-        bootstrap (0 = 0.30 of
-        the cfg dose, 1 = full dose); trainer-driven — see the
-        ``reward.current_hot_bootstrap_steps`` block in ``__init__``.
-        Mirrors ``apply_loadslip_bootstrap_frac``'s contract exactly:
-        raises when the bootstrap is not armed, so a broadcast that
-        silently no-ops is never a hidden failure mode."""
-        if self._current_hot_bootstrap is None:
-            raise RuntimeError(
-                "apply_current_hot_bootstrap_frac called but reward."
-                "current_hot_bootstrap_steps is not set (>0) in this "
-                "env's cfg — the current-hot bootstrap is not armed")
-        f = min(max(float(frac), 0.0), 1.0)
-        m = self._current_hot_bootstrap["min_frac"]
-        self._current_hot_bootstrap_override = m + f * (1.0 - m)
-        self._current_hot_bootstrap["frac"] = f
-        return {"frac": f, "scale": self._current_hot_bootstrap_override}
-
-    def _current_hot_scale(self) -> float:
-        """Live scale on ``k_current_hot`` (see the current-hot
-        bootstrap block in ``__init__``): 1.0 (bit-exact legacy / full
-        cfg dose) unless the trainer has broadcast a bootstrap frac."""
-        ov = self._current_hot_bootstrap_override
-        return 1.0 if ov is None else ov
-
     def apply_profile_ramp_frac(self, frac: float) -> dict:
         """Move the live write profile to ``frac`` of the ramp
         (0 = gentle start, 1 = the cfg target dose); trainer-driven —
@@ -3746,7 +3532,7 @@ class SimHexapodBalanceEnv(_GymBase):
                 pen += rem_cost
             parts = {"reward_termination": -pen}
             return (self._final_obs(
-                        build_obs(self.cfg, self._state, self._q_nom_for_obs(),
+                        build_obs(self.cfg, self._state, self._q_nom,
                                   self._prev_action,
                                   goal=self._current_goal(),
                                   tilt_ref=self._tilt_ref0), reset=False),
@@ -4236,30 +4022,9 @@ class SimHexapodBalanceEnv(_GymBase):
         # rise-after-lower must NOT aim at a stale frame — and the
         # trans-dagger2 lesson above: the frame must be the one the
         # specialists trained in, not the episode's start frame).
-        old_q_nom = self._q_nom
-        old_family = self.SEQ_FRAME_FAMILY[str(self._seq_plan[self._seq_idx]["mode"])]
-        new_family = self.SEQ_FRAME_FAMILY[str(seg["mode"])]
         self._z0 = float(frame["z0"])
         self._q_nom = frame["q_nom"].copy()
         self._pad_z_ref = frame["pad_z_ref"].copy()
-        # Obs-only q_nom blend (goal.mode_seq_frame_blend_s, default 0
-        # = off = bit-exact instant install, unchanged above). Only
-        # armed on a FAMILY-CHANGING switch (belly<->plant) -- a
-        # same-family switch (e.g. walk->lower, both "plant") installs
-        # the identical frame, so there is nothing to blend and no
-        # behavior to gate.
-        blend_s = float(cfg_get(self.cfg, "goal", "mode_seq_frame_blend_s",
-                                default=0.0))
-        if blend_s > 0.0 and old_family != new_family:
-            n_blend = max(1, round(blend_s / self.dt))
-            self._frame_blend = {
-                "old_q_nom": old_q_nom.copy(),
-                "new_q_nom": self._q_nom.copy(),
-                "start_tick": self._step_i,
-                "end_tick": self._step_i + n_blend,
-            }
-        else:
-            self._frame_blend = None
         traj, h_target, ramp_i0 = self._seq_segment_traj(
             str(seg["mode"]), i0)
         # Blend window: refs continuous in ABSOLUTE terms across the
@@ -4284,26 +4049,6 @@ class SimHexapodBalanceEnv(_GymBase):
                              if nxt + 1 < len(self._seq_plan)
                              else int(self.episode_steps))
         self._seq_reset_mode_state(str(seg["mode"]), ramp_i0, h_target)
-
-    def _q_nom_for_obs(self) -> np.ndarray:
-        """The q_nom build_obs should read THIS tick: self._q_nom
-        (the true canonical frame, used unchanged for reward/anchor/IK)
-        unless a goal.mode_seq_frame_blend_s window is active, in which
-        case a linear blend from the pre-switch to the post-switch
-        canonical q_nom (see _seq_maybe_switch). Default (no active
-        blend, the universal pre-09-02 state) returns self._q_nom
-        exactly -- bit-exact when the feature is off or between
-        switches."""
-        fb = self._frame_blend
-        if fb is None:
-            return self._q_nom
-        end = fb["end_tick"]
-        if self._step_i >= end:
-            self._frame_blend = None
-            return self._q_nom
-        start = fb["start_tick"]
-        s = min(max((self._step_i - start) / max(end - start, 1), 0.0), 1.0)
-        return (1.0 - s) * fb["old_q_nom"] + s * fb["new_q_nom"]
 
     def _seq_reset_mode_state(self, mode: str, ramp_i0: int,
                               h_target: float) -> None:
@@ -4714,74 +4459,17 @@ class SimHexapodBalanceEnv(_GymBase):
                 abs(goal.roll_ref - prev_g.roll_ref) < 1e-9
                 and abs(goal.pitch_ref - prev_g.pitch_ref) < 1e-9
                 and abs(goal.height_ref - prev_g.height_ref) < 1e-9)
-        # Anti-tilt settle window (08-29, cw-walkcurr-sac-sv-tilt10-s1-r2
-        # FAIL: raising k_roll/k_pitch past dose 5.0 REVERSED the
-        # response instead of continuing to improve it -- the charge
-        # taxes the exact post-spawn ticks where a stumble-recovery
-        # motion is needed most and least trained, so the policy folds
-        # instead of catching itself). Default OFF (grace_s=0) ->
-        # tilt_settle_scale=1.0 every tick, bit-exact with every
-        # pre-08-29 run. Episode-absolute clock (self._step_i resets to
-        # 0 in reset()/_seq_switch does NOT reset it) -- the window is
-        # anchored to spawn, not to mid-episode command resamples.
-        tilt_settle_scale = 1.0
-        grace_s = float(cfg_get(self.cfg, "reward", "tilt_settle_grace_s",
-                                default=0.0))
-        if grace_s > 0.0:
-            t_ep = self._step_i * self.dt
-            if t_ep < grace_s:
-                tilt_settle_scale = 0.0
-            else:
-                ramp_s = float(cfg_get(
-                    self.cfg, "reward", "tilt_settle_ramp_s", default=0.0))
-                if ramp_s > 0.0 and t_ep < grace_s + ramp_s:
-                    tilt_settle_scale = (t_ep - grace_s) / ramp_s
         reward, parts = compute_reward(self.cfg, self._state, clipped,
                                        self._prev_action, goal=goal,
                                        tilt_ref=self._tilt_ref0,
                                        height_err=h_err,
                                        unload_force_n=unload_f,
-                                       ref_quiet=ref_quiet,
-                                       tilt_settle_scale=tilt_settle_scale)
-        # Height-approach BARRIER shaping (2026-09-13, walkcurr
-        # hold-from-scratch escalation: the hold_grace curriculum closed
-        # the "termination-grace curriculum" lever named as the next
-        # escalation after 5/5 static-dose levers failed -- both canary
-        # seeds gate-PASSED early (survived_frac cleared 0.4 at the
-        # loose 40mm/1.0s start by 131k steps) then rode the tightened
-        # envelope straight to hold_low_height every remaining episode,
-        # 0/6 survived at 2M in both seeds, fwd med 0.00-0.01m
-        # throughout -- the plain quadratic reward_height term above is
-        # flat enough near the bound that slowly sinking into the
-        # (discounted, capped) terminal cost is cheaper than paying the
-        # stiffer stand-still/feet-load charges of actually holding.
-        # This adds a steepening BARRIER that DIVERGES as the chassis
-        # approaches the ACTIVE hold_max_height_drop_mm bound (the live
-        # grace-curriculum-overridden value when that curriculum is
-        # armed, the static cfg leaf otherwise) so the marginal cost of
-        # closing on the cliff rises far faster than the quadratic term
-        # ever does, well before termination actually fires -- unlike a
-        # pure potential-based reshaping (which cannot change the
-        # optimal policy by construction), this explicitly re-prices the
-        # ride-the-bound trajectory itself, per the 08-21 ruling's
-        # "reward is misaligned -> fix the reward" branch. Scoped to
-        # HOLD only (mirrors hold_still_gate's own mode scoping just
-        # below -- rise/lower/raise/track have their own height stacks/
-        # no fixed drop-line to converge on; getup/recover never reach
-        # here since h_err stays None for them). Default 0.0 = off,
-        # bit-exact: reward/parts totals are unchanged unless a caller
-        # explicitly sets reward.hold_barrier_gain > 0.
-        r_hold_barrier = 0.0
-        k_hbar = float(cfg_get(self.cfg, "reward", "hold_barrier_gain",
-                               default=0.0))
-        if (k_hbar > 0.0 and goal is not None
-                and self._goal_traj is not None
-                and getattr(self._goal_traj, "mode", "") == "hold"
-                and h_err is not None):
-            r_hold_barrier = hold_barrier_penalty(
-                h_err, hold_max_drop_mm, k_hbar)
-            reward += r_hold_barrier
-        parts["reward_hold_barrier"] = r_hold_barrier
+                                       ref_quiet=ref_quiet)
+        # reward_hold_barrier: the reward.hold_barrier_gain barrier
+        # shaping was removed (both 09-13 canaries CANARY FAIL -
+        # MECHANISM); the key stays at 0.0 so the info/W&B schema is
+        # unchanged.
+        parts["reward_hold_barrier"] = 0.0
         # HOLD/TRACK stillness+feet pricing (2026-08-11, cfg
         # reward.hold_still_gate in [0,1], default 0 = legacy exact).
         # cw-stand-bc1-hard1's dig-in showed hold/track are not quiet
@@ -4947,37 +4635,17 @@ class SimHexapodBalanceEnv(_GymBase):
                 reward -= pen_ml
                 parts["hold_minload_short"] = parts.get(
                     "hold_minload_short", 0.0) - pen_ml
-        # Transition foot-drag charge (operator 08-11 night: stand/sit
-        # scrape their feet across the floor and NOTHING outside walk
-        # mode priced it — k_drag_loaded/k_drag_stance live in the
-        # walk-tick block only). reward.k_drag_trans charges loaded
-        # foot-XY translation (−k per meter, per-foot 0.5 mm/tick
-        # deadband, walk's k_drag_loaded convention) on every NON-walk
-        # tick: rise, lower, raise, hold, track, lean, unload, quad.
-        # A pivoting/sliding loaded foot pays; a foot that LIFTS and
-        # steps is never charged — the honest fix is stepping, exactly
-        # what the hardware needs. Charged incrementally beyond a
-        # per-EPISODE allowance (k_drag_stance's telescoping form: a
-        # foot that never lifts cannot defer payment). Allowances are
-        # measured, not guessed (probe 08-11): the demonstrated
-        # belly->plant rise inherently slides its pads 463 mm during
-        # the curl at the old 128 mm tibia (0.55 default rise
-        # allowance kept the honest reference free). RE-MEASURED
-        # 2026-08-22 at the corrected 150 mm tibia geometry (the
-        # longer leg drags its pads further through the same curl):
-        # ~656 mm, so the allowance is raised to 0.75 with the same
-        # proportional headroom the original measurement carried.
-        # The honest lower is anchored-feet by
-        # construction and the quiet stand measures 0.0 — both charge
-        # from the first excess millimeter. Default k 0 = byte-exact
-        # legacy. The trans_drag_mm metric is emitted whenever the
-        # axis is measured (charge on or off) so evals and W&B can
-        # watch the dragging without coupling metric to price.
+        # Transition foot-drag metric (operator 08-11 night: stand/sit
+        # scrape their feet across the floor and nothing outside walk
+        # mode measured it). trans_drag_mm = loaded foot-XY translation
+        # this tick (per-foot deadband, walk's k_drag_loaded convention)
+        # on every NON-walk tick: rise, lower, raise, hold, track, lean,
+        # unload, quad. A pivoting/sliding loaded foot counts; a foot
+        # that LIFTS and steps does not. Emitted whenever the axis is
+        # measured so evals and W&B can watch the dragging.
         mode_td = (getattr(self._goal_traj, "mode", "")
                    if self._goal_traj is not None else "")
         if mode_td and mode_td != "walk":
-            k_td = float(cfg_get(self.cfg, "reward", "k_drag_trans",
-                                 default=0.0))
             drag_td = 0.0
             # Deadband was a bare 0.5mm/tick literal calibrated at the
             # pre-08-24 default control.hz=25 (dt=0.04s) against
@@ -5006,15 +4674,6 @@ class SimHexapodBalanceEnv(_GymBase):
                 self._tdrag_prev_xy[f_td] = xy_td.copy()
                 self._tdrag_prev_on[f_td] = on_td
             parts["trans_drag_mm"] = drag_td * 1000.0
-            if k_td > 0.0 and drag_td > 0.0:
-                allow_td = 0.75 if mode_td in ("rise", "raise") else 0.0
-                acc0_td = self._tdrag_acc
-                self._tdrag_acc = acc0_td + drag_td
-                r_td = -k_td * (max(self._tdrag_acc - allow_td, 0.0)
-                                - max(acc0_td - allow_td, 0.0))
-                if r_td != 0.0:
-                    reward += r_td
-                parts["reward_drag_trans"] = r_td
         # Defaults so the terminal bleed-settlement block below (which
         # runs unconditionally on every terminated tick, lower episode
         # or not) never hits an UnboundLocalError when this tick's
@@ -5022,7 +4681,6 @@ class SimHexapodBalanceEnv(_GymBase):
         # episodes, or a lower episode with lower_score_prog unset).
         lower_score_mode = False
         depth_frac = 0.0
-        klst = 0.0
         # Rise decomposed into scored steps (rise/raise episodes only —
         # the ones with a real height target). Progress is potential-
         # based (telescoping: total = k * (start_err − end_err)) so it
@@ -5218,9 +4876,7 @@ class SimHexapodBalanceEnv(_GymBase):
                 # ratchet income has been collected. Weak by default
                 # (k=1.0) — the ratchet is the primary signal, this
                 # only removes the free-parking floor.
-                klst = float(cfg_get(self.cfg, "reward",
-                                     "k_lower_score_track", default=1.0))
-                r_lst = -klst * (1.0 - depth_frac) ** 2
+                r_lst = -(1.0 - depth_frac) ** 2
                 parts["reward_lower_track"] = r_lst
                 reward += r_lst
             if score_mode and clear is not None:
@@ -5275,50 +4931,6 @@ class SimHexapodBalanceEnv(_GymBase):
                 if self._score_best is None:
                     self._score_best = s_now
                 delta_s = max(0.0, s_now - self._score_best)
-                # Current-headroom-gated rise_score_prog income
-                # (2026-09-13, walkcurr risebridge-s1 FAIL-MECHANISM
-                # escalation, pre-registered STATUS.md 09-13
-                # "holdbias-riselower15m" dig-in). Root cause: this
-                # income pays for ANY new height/posture score
-                # regardless of servo current, so the flat-rise
-                # sprawl-push banks real reward (+10.6/tick measured)
-                # all the way to the 2.64A over_current trip while the
-                # curl-first (bridge) corridor -- which stays under
-                # 1.3A -- only earns +15 total; pricing points straight
-                # at the infeasible corridor, so parking there
-                # dominates trying. `k_torque_headroom` already
-                # penalizes sustained current DEBT post-hoc and did
-                # not stop the funded push (this income keeps paying
-                # regardless of any accruing debt); this instead
-                # discounts the INCOME itself, at the instant of the
-                # saturating tick, using the same redness shape as
-                # `torque_headroom_debt_step` (instantaneous, not
-                # integrated -- a push should be denied the credit
-                # WHILE it is happening, not after a debt has built
-                # up). Only the PAID fraction of the new score is
-                # banked into `_score_best`; the unpaid remainder stays
-                # available so a later LOW-current path that reaches
-                # the same score still gets paid in full -- the gate
-                # discourages the expensive route, it does not confis-
-                # cate the credit for reaching that height honestly.
-                # Bit-exact OFF by default
-                # (reward.rise_score_income_headroom_gate=0): with the
-                # gate off, headroom_f==1.0 always and
-                # `_score_best += delta_s * 1.0 == max(_score_best,
-                # s_now)`, identical to the pre-existing line. Enable:
-                # --cfg-set reward.rise_score_income_headroom_gate=1.
-                headroom_f = 1.0
-                gate_income = float(cfg_get(
-                    self.cfg, "reward",
-                    "rise_score_income_headroom_gate",
-                    default=0.0)) == 1.0
-                if (gate_income and delta_s > 0.0
-                        and self._state.servo_current is not None):
-                    cur_peak = float(np.max(np.abs(
-                        self._state.servo_current)))
-                    headroom_f = current_headroom_income_factor(
-                        cur_peak, 2.64, 0.3)
-                    parts["rise_score_headroom_factor"] = headroom_f
                 # Curl-distance-gated rise_score_prog income (2026-09-13,
                 # riseheadroomgate-s1 CANARY FAIL-MECHANISM escalation:
                 # the current-only gate above left the rise/det failing
@@ -5357,7 +4969,7 @@ class SimHexapodBalanceEnv(_GymBase):
                     curl_f = current_headroom_income_factor(
                         self._curl_dist(), 0.176, 0.066)
                     parts["rise_score_curl_factor"] = curl_f
-                gate_f = headroom_f * curl_f
+                gate_f = curl_f
                 r_sp = 30.0 * delta_s * gate_f
                 self._score_best = self._score_best + delta_s * gate_f
                 parts["reward_rise_score_prog"] = r_sp
@@ -5636,10 +5248,6 @@ class SimHexapodBalanceEnv(_GymBase):
         # hurts. Enable with --cfg-set reward.k_current_hot=<k>.
         k_hot = float(cfg_get(self.cfg, "reward", "k_current_hot",
                               default=0.0))
-        # Bootstrap scale (default 1.0 = bit-exact legacy; see the
-        # current-hot bootstrap block in __init__): only ever shrinks
-        # k_hot early in training, never grows it past the cfg dose.
-        k_hot *= self._current_hot_scale()
         if k_hot > 0.0 and self._state.servo_current is not None:
             hot_a = float(cfg_get(self.cfg, "reward", "current_hot_a",
                                   default=1.0))
@@ -5752,49 +5360,6 @@ class SimHexapodBalanceEnv(_GymBase):
             r_cur_rate = -k_cur_rate * float(np.sum(over_rate ** 2))
             parts["reward_current_rate"] = r_cur_rate
             reward += r_cur_rate
-        # Income-relative current pricing (standwalk track, 2026-09-12 --
-        # see current_income_ema_step's docstring for the full root-cause
-        # chain this answers). Structurally DIFFERENT from every lever
-        # above it: instead of a coefficient the operator doses or
-        # schedules by training step, this prices over-current
-        # proportional to a slow (tau in SECONDS -- deliberately several
-        # episodes long, the same `dt / tau_s` idiom as
-        # `torque_headroom_debt_step`'s `alpha_d`, chosen over a raw tick
-        # count specifically because "step" units are ambiguous across
-        # vectorized envs whereas dt/tau_s is not) EMA of the policy's
-        # own already-earned, pre-penalty task reward THIS TICK (captured
-        # as ``reward`` at this exact point in the function: whatever
-        # compute_reward + the rise_ref term above already banked, before
-        # any of this function's own penalty add-ons, so the tracked
-        # income is not circularly suppressed by this term's own price).
-        # As the policy consolidates and earns more over millions of
-        # steps, the effective price rises automatically in step with
-        # it -- there is no dose or schedule to guess, which is exactly
-        # the axis the seven prior single-lever guesses could not reach.
-        # Bit-exact OFF by default (reward.k_current_income=0): the EMA
-        # state (`self._current_income_ema`) is only allocated/updated
-        # when the coefficient is nonzero, and persists across episode
-        # resets (NOT zeroed in reset(), unlike `_torque_debt`) because
-        # it is deliberately a multi-episode/training-scale signal, not a
-        # within-episode one. Enable: --cfg-set reward.k_current_income=<k>.
-        k_cur_inc = float(cfg_get(self.cfg, "reward", "k_current_income",
-                                  default=0.0))
-        if k_cur_inc > 0.0 and self._state.servo_current is not None:
-            hot_a_inc = float(cfg_get(self.cfg, "reward", "current_hot_a",
-                                      default=1.0))
-            over_inc = np.maximum(
-                self._state.servo_current - hot_a_inc, 0.0)
-            alpha_inc = min(max(self.dt / 120.0, 0.0), 1.0)
-            if getattr(self, "_current_income_ema", None) is None:
-                self._current_income_ema = 0.0
-            income_tick = max(reward, 0.0)
-            self._current_income_ema = current_income_ema_step(
-                self._current_income_ema, income_tick, alpha_inc)
-            r_cur_inc = (-k_cur_inc * self._current_income_ema
-                         * float(np.sum(over_inc ** 2)))
-            parts["reward_current_income"] = r_cur_inc
-            parts["current_income_ema"] = self._current_income_ema
-            reward += r_cur_inc
         # --- First-principles posture terms (operator 08-08 ~20:45Z,
         # default OFF). WHY a waving leg is bad: smaller support polygon
         # (tips), load concentration (hot knees), wasted hold torque.
@@ -6107,18 +5672,17 @@ class SimHexapodBalanceEnv(_GymBase):
             # a park at that same depth would have paid; a death AFTER
             # real progress (higher depth_frac) is charged little,
             # exactly as a survivor would be. Lower-episodes only
-            # (`lower_score_mode`); zero for every other mode and zero
-            # whenever k_lower_score_track itself is 0. Default OFF
+            # (`lower_score_mode`); zero for every other mode. Default OFF
             # (reward.lower_term_bleed_settle=0): bit-exact, no new
             # arithmetic touches any existing lineage. Tests:
             # rl_move/tests/test_lower_term_bleed_settle.py.
-            if (lower_score_mode and klst > 0.0
+            if (lower_score_mode
                     and float(cfg_get(
                         self.cfg, "reward", "lower_term_bleed_settle",
                         default=0.0)) == 1.0):
                 rem_ticks = max(
                     self._active_episode_steps() - self._step_i, 0)
-                settle = klst * (1.0 - depth_frac) ** 2 * rem_ticks
+                settle = (1.0 - depth_frac) ** 2 * rem_ticks
                 cap = float(cfg_get(
                     self.cfg, "reward", "lower_term_bleed_settle_max",
                     default=0.0))
@@ -6181,12 +5745,10 @@ class SimHexapodBalanceEnv(_GymBase):
                 "reward_current_hot", "reward_current_pretuck",
                 "reward_current_rate",
                 "reward_rise_decouple",
-                "reward_current_income",
                 "reward_support_margin", "reward_load_even",
                 "reward_torque_headroom", "reward_action_rate",
                 "reward_stance", "reward_clearance", "reward_flag_leg",
                 "reward_termination", "reward_task", "reward_still",
-                "reward_drag_trans",
             )
             _dropped_total = 0.0
             for _k in list(parts.keys()):
@@ -6945,42 +6507,8 @@ class SimHexapodBalanceEnv(_GymBase):
                             self.cfg, "train",
                             "bc_anchor_walk_turn_skip",
                             default=0.0)) > 0.0)
-                    # COMBINED-TICK ANCHOR GATE (09-03, standwalk
-                    # combined-turn-probe follow-up): probe_turn_
-                    # authority --vx-cmds found the scripted teacher
-                    # ITSELF (the walk BC-anchor's own imitation
-                    # target) retains only ~33% of its pure-turn wz
-                    # authority once a nonzero forward speed is
-                    # commanded simultaneously (a smooth, graded
-                    # trade-off in the teacher's own foot-contact
-                    # physics, not a step artifact) — the trained
-                    # checkpoint inherits a smaller but real version
-                    # (74%/54% retained). The turn-tick gate above
-                    # only ever zeroed PURE turn ticks
-                    # (vx_ref=vy_ref~0); every COMBINED tick
-                    # (vx_ref!=0 AND wz_ref!=0) still gets a full-
-                    # coefficient target pulling the actor toward the
-                    # teacher's OWN degraded-authority combined
-                    # behavior. This is the mirror lever: zero the
-                    # anchor emission ONLY on combined ticks, leaving
-                    # pure-turn and straight-walk ticks untouched, so
-                    # the course/yaw reward terms are the sole
-                    # supervisor of the actor's mean action specifically
-                    # where the teacher's reference is known-degraded.
-                    # Default 0 = legacy (every commanded tick,
-                    # including combined, gets a target) — bit-exact
-                    # no-op whenever train.bc_anchor_walk_combined_skip
-                    # is unset, exactly like every other bc_anchor_*
-                    # knob in this file. See test_bc_anchor.py
-                    # test_walk_combined_skip_*.
                     _bc_combined = _bc_combined_early
-                    _bc_combined_skip = (
-                        _bc_combined
-                        and float(cfg_get(
-                            self.cfg, "train",
-                            "bc_anchor_walk_combined_skip",
-                            default=0.0)) > 0.0)
-                    if not (_bc_turn_skip or _bc_combined_skip):
+                    if not _bc_turn_skip:
                         _q_bc = np.asarray(
                             _g.desired_deg(_t_bc)) * DEG2RAD
                         info["bc_target"] = q_rad_to_action(
@@ -7132,7 +6660,7 @@ class SimHexapodBalanceEnv(_GymBase):
             if unload_f is not None:
                 info["unload_force_n"] = unload_f
         return (self._final_obs(
-                    build_obs(self.cfg, self._state, self._q_nom_for_obs(),
+                    build_obs(self.cfg, self._state, self._q_nom,
                               self._prev_action, goal=goal,
                               tilt_ref=self._tilt_ref0), reset=False),
                 float(reward), terminated, truncated, info)

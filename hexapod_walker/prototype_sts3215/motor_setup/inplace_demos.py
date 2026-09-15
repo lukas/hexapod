@@ -56,6 +56,7 @@ from feetech_bus import (  # noqa: E402
     ADDR_TORQUE_ENABLE, BAUD_DEFAULT, COUNTS_PER_DEG, FeetechBus, JOINT_SIGN,
     N_JOINTS, SERVO_IDS, WALK_ACC, WALK_SPEED, count_to_deg, deg_to_count,
     joint_to_servo_id, normalize_acc, normalize_speed, standing_pose_degrees,
+    robot_pose_to_raw_degrees, raw_positions_to_robot_degrees, read_coherent_positions,
 )
 from motion_telemetry import (  # noqa: E402
     MotionLog, default_log_path, joint_name, run_hold_log,
@@ -369,18 +370,24 @@ class CurrentPeakTracker:
         self.implausible_joints: set[int] = set()
         self.telemetry_fault_joint: int | None = None
         self._implausible_run: dict[int, int] = {}
+        self._current_runs: dict[tuple[float, float | None], dict[int, int]] = {}
 
     def sample(self, bus: FeetechBus, live: set[int]) -> None:
         self.samples += 1
         t = time.monotonic() - self._t0
         sweep: list[dict] = []
         implausible: set[int] = set()
+        # One fresh acquisition, rather than mixing cached per-joint reads
+        # with retries from later acquisitions (especially paired hip/knee).
+        bulk = ((bus.read_all_feedback() or {}) if hasattr(bus, "read_all_feedback")
+                else None)
         for joint in range(N_JOINTS):
             sid = joint_to_servo_id(joint)
             if sid not in live:
                 continue
-            fb = bus.read_feedback(joint)
+            fb = bulk.get(joint) if bulk is not None else bus.read_feedback(joint)
             if fb is None:
+                self._implausible_run[joint] = 0
                 continue
             sweep.append(fb)
             a = abs(float(fb["current_a"]))
@@ -406,6 +413,20 @@ class CurrentPeakTracker:
                 self.peak_t_s = t
         self.last_fb = sweep
         self.implausible_joints = implausible
+
+    def confirmed_current_joint(self, threshold_a: float,
+                                slow_dps: float | None = None) -> int | None:
+        """Call once per fresh sample: three consecutive hits on ONE motor."""
+        key = (threshold_a, slow_dps)
+        previous = self._current_runs.get(key, {})
+        hits = {int(fb["joint"]) for fb in self.last_fb
+                if int(fb["joint"]) not in self.implausible_joints
+                and abs(float(fb["current_a"])) > threshold_a
+                and (slow_dps is None or abs(float(fb.get(
+                    "raw_speed_deg_s", fb.get("speed_deg_s")) or 0)) < slow_dps)}
+        current = {j: previous.get(j, 0) + 1 for j in hits}
+        self._current_runs[key] = current
+        return next((j for j in sorted(hits) if current[j] >= 3), None)
 
     def sweep_peak_a(self) -> tuple[float, int | None]:
         """Plausible |current| peak of the MOST RECENT sweep only.
@@ -512,6 +533,7 @@ def _emit_motion_cmd(label: str, q: list[float],
                 "deg": round(float(q[int(j)]), 2),
                 "servo_goal_deg": round(float(
                     (servo_goals or {}).get(int(j), q[int(j)])), 2),
+                "servo_goal_frame": "servo_relative",
                 "speed": int(sa[0]),
                 "acc": int(sa[1]),
             }
@@ -603,6 +625,8 @@ def _speed_for_delta(delta_deg: float, dt: float, *,
 def _glide_speed_acc(start: list[float], goal: list[float], live: set[int],
                      seconds: float) -> tuple[int, int]:
     """One-shot speed/acc so the largest live joint Δ finishes in ``seconds``."""
+    start = robot_pose_to_raw_degrees(start, validate=False)
+    goal = robot_pose_to_raw_degrees(goal)
     max_delta = 0.0
     for joint, (a, b) in enumerate(zip(start, goal)):
         if joint_to_servo_id(joint) not in live:
@@ -630,11 +654,12 @@ def _write_pose(bus: FeetechBus, degrees: list[float], live: set[int],
     """One-shot sync-write. ``speeds[j]`` overrides per-joint when given."""
     speed = normalize_speed(speed)
     acc = normalize_acc(acc)
-    for joint, deg in enumerate(degrees):
+    raw = robot_pose_to_raw_degrees(degrees, bus.trims)
+    for joint, deg in enumerate(raw):
         sid = joint_to_servo_id(joint)
         if sid not in live:
             continue
-        count = deg_to_count(joint, deg, bus.trims[joint])
+        count = deg_to_count(joint, deg, 0.0)
         sp = speed
         if speeds is not None and joint < len(speeds):
             sp = normalize_speed(int(speeds[joint]))
@@ -664,6 +689,12 @@ class PoseStreamer:
         self.prev = None
         self.last_written_goal = {}
 
+    def prime(self, bus: FeetechBus, degrees: list[float]) -> None:
+        """Prime from a logical pose without writing or energizing any motor."""
+        self.last = robot_pose_to_raw_degrees(degrees, bus.trims)
+        self.prev = list(self.last)
+        self.last_written_goal = {}
+
     def write(self, bus: FeetechBus, degrees: list[float], live: set[int],
               *, dt: float = DT,
               deadband: float | None = None,
@@ -676,25 +707,36 @@ class PoseStreamer:
         this tick (empty if nothing moved past the deadband).
         """
         db = DEADBAND_DEG if deadband is None else float(deadband)
+        raw = robot_pose_to_raw_degrees(degrees, bus.trims)
         if self.last is None:
             # First frame: ease toward the pose gently (no slam).
-            self.last = list(degrees)
-            self.prev = list(degrees)
+            self.last = list(raw)
+            self.prev = list(raw)
             _write_pose(bus, degrees, live, speed=120, acc=10)
             self.last_written_goal = {
-                j: float(degrees[j]) for j in range(N_JOINTS)
+                j: float(raw[j]) for j in range(N_JOINTS)
                 if joint_to_servo_id(j) in live}
             return {j: (120, 10) for j in range(N_JOINTS)
                     if joint_to_servo_id(j) in live}
 
         # Dense mode: trajectory velocity for the lead goal (see below).
         prev = getattr(self, "prev", None) or self.last
-        vel = [(d - p) / max(dt, 1e-3) for d, p in zip(degrees, prev)]
-        self.prev = list(degrees)
+        vel = [(d - p) / max(dt, 1e-3) for d, p in zip(raw, prev)]
+        self.prev = list(raw)
+        goals = list(raw)
+        if STREAM_DENSE and dt <= 0.021:
+            candidate = [d + v * DENSE_LEAD_S for d, v in zip(raw, vel)]
+            logical = raw_positions_to_robot_degrees(dict(enumerate(candidate)), bus.trims)
+            try:
+                robot_pose_to_raw_degrees([logical[j] for j in range(N_JOINTS)], bus.trims)
+            except ValueError:
+                pass  # Keep the validated waypoint when lookahead exceeds limits.
+            else:
+                goals = candidate
 
         wrote: dict[int, tuple[int, int]] = {}
         written_goal: dict[int, float] = {}
-        for joint, deg in enumerate(degrees):
+        for joint, deg in enumerate(raw):
             sid = joint_to_servo_id(joint)
             if sid not in live:
                 continue
@@ -704,7 +746,7 @@ class PoseStreamer:
             speed, acc = _speed_for_delta(
                 delta, dt, min_speed=min_speed, max_speed=max_speed,
                 max_acc=max_acc)
-            goal = deg
+            goal = goals[joint]
             if STREAM_DENSE and dt <= 0.021:
                 # Lead the goal along the trajectory ("carrot"). With
                 # 100 Hz waypoints the raw per-tick goal sits only 2-3
@@ -716,8 +758,8 @@ class PoseStreamer:
                 # here — goal recedes ahead of the servo at matched
                 # speed, so it never decelerates into the tiny-error
                 # zone, and reversals still update within one tick.
-                goal = deg + vel[joint] * DENSE_LEAD_S
-            count = deg_to_count(joint, goal, bus.trims[joint])
+                goal = goals[joint]
+            count = deg_to_count(joint, goal, 0.0)
             bus.pkt.SyncWritePosEx(sid, count, speed, acc)
             self.last[joint] = deg
             wrote[joint] = (speed, acc)
@@ -730,33 +772,28 @@ class PoseStreamer:
 
 
 def _read_pose(bus: FeetechBus, live: set[int]) -> list[float]:
-    """Present joint angles (deg); missing IDs → 0."""
-    # MCU stream bridge: one cached snapshot beats 18 round trips.
-    read_snapshot = getattr(bus, "read_snapshot", None)
-    if callable(read_snapshot):
-        try:
-            snap = read_snapshot()
-        except Exception:
-            snap = None
-        bulk = snap.get("pos_deg") if isinstance(snap, dict) else None
-        if bulk:
-            pose = [0.0] * N_JOINTS
-            got = 0
-            for joint in range(N_JOINTS):
-                deg = bulk.get(joint)
-                if deg is not None and joint_to_servo_id(joint) in live:
-                    pose[joint] = float(deg)
-                    got += 1
-            if got:
-                return pose
+    """One logical pose; never fill a missing live hip/knee with another sample."""
+    # MCU stream bridge: one cached bulk transaction beats 18 round trips.
+    read_all = getattr(bus, "read_all_positions", None)
+    if callable(read_all):
+        bulk = read_coherent_positions(bus, required={
+            j for j in range(N_JOINTS) if joint_to_servo_id(j) in live})
+    else:
+        raw = {}
+        for joint in range(N_JOINTS):
+            sid = joint_to_servo_id(joint)
+            if sid not in live:
+                continue
+            pos, result, _err = bus.pkt.ReadPos(sid)
+            if result == bus.scs.COMM_SUCCESS:
+                raw[joint] = count_to_deg(joint, pos)
+        bulk = raw_positions_to_robot_degrees(raw, bus.trims)
     pose = [0.0] * N_JOINTS
     for joint in range(N_JOINTS):
-        sid = joint_to_servo_id(joint)
-        if sid not in live:
-            continue
-        pos, result, _err = bus.pkt.ReadPos(sid)
-        if result == bus.scs.COMM_SUCCESS:
-            pose[joint] = count_to_deg(joint, pos)
+        if joint_to_servo_id(joint) in live:
+            if bulk.get(joint) is None:
+                raise ValueError(f'missing coherent pose angle for joint {joint}')
+            pose[joint] = float(bulk[joint])
     return pose
 
 
@@ -799,8 +836,9 @@ def ease_to_pose(bus: FeetechBus, goal: list[float], *,
         print("  No robot servos on the bus.")
         return False
     check = abort_check or (lambda: False)
-    _enable_torque(bus, live)
     start = _read_pose(bus, live)
+    robot_pose_to_raw_degrees(goal, bus.trims)
+    _enable_torque(bus, live)
     speed, acc = _glide_speed_acc(start, goal, live, seconds)
     print(f"  Gliding to {label} over ~{seconds:.1f}s "
           f"(speed={speed}, acc={acc}; one command, no stream) ...")
@@ -869,8 +907,8 @@ def ease_to_pose(bus: FeetechBus, goal: list[float], *,
     _write_pose(bus, goal, live, speed=ZERO_SPEED, acc=ZERO_ACC)
     if current_tracker is not None:
         current_tracker.sample(bus, live)
-    print(f"  At {label} (timeout — check for binding).")
-    return True
+    raise RuntimeError(f"{label} did not settle before timeout; "
+                       f"worst joint error {worst:.1f} degrees")
 
 
 def go_to_zero_pose(bus: FeetechBus, *,
@@ -1738,7 +1776,7 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
                             current_tracker=tracker):
             return "aborted"
     streamer = PoseStreamer()
-    streamer.last = list(q0)   # primed: skip the gentle first-write ease
+    streamer.prime(bus, q0)   # skip first-write ease in raw servo coordinates
     # Balance recovery brace-hold: quad pose fns expose their stance
     # schedule so the clock can freeze ONLY with all four feet planted.
     all_stance_at = getattr(pose_fn, "all_stance_at", None)
@@ -1827,7 +1865,7 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
             # over the limit while NOT moving, two sweeps in a row.
             now = {fb["joint"] for fb in tracker.last_fb
                    if abs(fb["current_a"]) > guard_a
-                   and abs(fb["speed_deg_s"]) < 8.0}
+                   and abs(fb.get("raw_speed_deg_s", fb.get("speed_deg_s")) or 0.0) < 8.0}
             if now & stall_prev:
                 _emit_motion_cmd(
                     label, q, wrote, t_s=t, seconds=seconds,

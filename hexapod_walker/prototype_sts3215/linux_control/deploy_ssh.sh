@@ -213,6 +213,7 @@ echo ">> pushing code + vendored SDK -> $HOST:$REMOTE (single tar|ssh)"
 COPYFILE_DISABLE=1 tar --no-xattrs -C "$STAGE" -czf - . \
   | "${SSH[@]}" "mkdir -p '$REMOTE' && \
       rm -rf '$REMOTE/urt2_setup' '$REMOTE/linux_control/urt2_setup' && \
+      rm -f '$REMOTE/linux_control/rl_walk_start.py' && \
       tar -xzf - -C '$REMOTE'"
 
 echo ">> ensuring uv on Uno Q"

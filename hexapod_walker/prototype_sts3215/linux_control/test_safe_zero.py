@@ -14,7 +14,8 @@ import types
 
 
 from feetech_bus import (AXIS_LIMITS_DEG, N_JOINTS, deg_to_count,
-                         joint_to_servo_id)
+                         joint_to_servo_id, raw_feedback_to_robot_feedback,
+                         raw_positions_to_robot_degrees, robot_pose_to_raw_degrees)
 from safe_zero import (BELLY_GROUND_Z_MM, GROUND_TOL_MM,
                        IMPLAUSIBLE_CURRENT_A, LIFT_CLEAR_MM,
                        LOADED_TORQUE_LIMIT,
@@ -23,6 +24,16 @@ from safe_zero import (BELLY_GROUND_Z_MM, GROUND_TOL_MM,
                        fold_family, median_foot_z_mm,
                        plan_ik_pose_transition, plan_safe_zero,
                        run_safe_zero, seg_dist_2d)
+
+
+@pytest.fixture(autouse=True)
+def executor_clock(monkeypatch):
+    """Exercise guard timing without wall-clock waits or real hardware."""
+    import safe_zero
+    now = [100.0]
+    monkeypatch.setattr(safe_zero, "time", types.SimpleNamespace(
+        monotonic=lambda: now[0],
+        sleep=lambda dt: now.__setitem__(0, now[0] + dt)))
 
 
 def _pose(yaw=0.0, hip=0.0, knee=0.0) -> list[float]:
@@ -43,6 +54,7 @@ def _assert_within_limits(q):
     for j, v in enumerate(q):
         lo, hi = AXIS_LIMITS_DEG[j % 3]
         assert lo - 1e-6 <= v <= hi + 1e-6, f"j{j}={v} outside {lo}..{hi}"
+    robot_pose_to_raw_degrees(q)
 
 
 # ---------------------------------------------------------------------------
@@ -251,7 +263,6 @@ def test_seg_dist():
 def test_fuzz_random_poses():
     import random
     rng = random.Random(42)
-    planned = 0
     for _ in range(200):
         q = []
         for j in range(N_JOINTS):
@@ -260,11 +271,11 @@ def test_fuzz_random_poses():
         p = plan_safe_zero(q)
         assert "ok" in p
         if p["ok"] and p["stages"]:
-            planned += 1
             for s in p["stages"]:
                 _assert_within_limits(s["goal"])
             assert max(abs(v) for v in p["stages"][-1]["goal"]) < 1e-6
-    assert planned > 100, f"only {planned}/200 poses got a plan"
+        # Feasibility depends on coupled hip/knee limits; a refusal is a
+        # valid outcome. Every accepted waypoint must obey both frames.
 
 
 # ---------------------------------------------------------------------------
@@ -317,8 +328,8 @@ class FakeBus:
     """
 
     def __init__(self, start_deg, *, stalled=(), stall_a=3.2):
-        self.pos = list(start_deg)
-        self.target = list(start_deg)
+        self.pos = robot_pose_to_raw_degrees(start_deg)
+        self.target = list(self.pos)
         self.stalled = set(stalled)
         self.stall_a = stall_a
         self.trims = [0.0] * N_JOINTS
@@ -330,6 +341,10 @@ class FakeBus:
 
     def scan(self, rng):
         return [sid for sid in rng]
+
+    def read_all_positions(self):
+        self._advance()
+        return raw_positions_to_robot_degrees(dict(enumerate(self.pos)))
 
     def _commit(self):
         from feetech_bus import count_to_deg
@@ -362,7 +377,7 @@ class FakeBus:
                 "load_pct": 55.0 if stalled else 15.0,
                 "temp_c": 35, "moving": int(moving),
             }
-        return out
+        return raw_feedback_to_robot_feedback(out)
 
 
 @pytest.mark.slow  # >5 s: sim rollout; default loop is -m "not slow"
@@ -385,10 +400,15 @@ def _untrap_fold_pose() -> list[float]:
     return q
 
 
-def test_deep_fold_straighten_gets_full_torque():
-    """Unfolding from the untrap fold lifts the body — it needs the
-    servos' full torque, not safe_zero's reduced air-stage limit."""
+def test_historical_untrap_fold_is_physically_unreachable():
     plan = plan_safe_zero(_untrap_fold_pose())
+    assert plan["ok"] is False
+    assert plan["code"] == "motor_limits"
+
+
+def test_deep_fold_straighten_gets_full_torque():
+    """An explicitly confirmed recovery retains its loaded-stage limit."""
+    plan = plan_safe_zero(_pose(hip=-25.0, knee=115.0), allow_loaded_blend=True)
     assert plan["ok"], plan
     by_label = {s["label"]: s for s in plan["stages"]}
     straighten = by_label["straighten hips/knees (feet to lift height)"]
@@ -401,8 +421,8 @@ def test_deep_fold_straighten_gets_full_torque():
 
 @pytest.mark.slow  # >5 s: sim rollout; default loop is -m "not slow"
 def test_executor_raises_torque_only_for_the_loaded_stage():
-    start = _untrap_fold_pose()
-    plan = plan_safe_zero(start)
+    start = _pose(hip=-25.0, knee=115.0)
+    plan = plan_safe_zero(start, allow_loaded_blend=True)
     assert plan["ok"] and plan["stages"]
     bus = FakeBus(start)
     res = run_safe_zero(bus, plan["stages"], torque_limit=700)
@@ -457,7 +477,9 @@ class _GuardBus(FakeBus):
                 # stall/load guards only fire on a joint that is stuck
                 fb["speed_deg_s"] = (0.0 if self.speed_deg_s is None
                                      else self.speed_deg_s)
+                fb["raw_speed_deg_s"] = fb["speed_deg_s"]
                 fb["deg"] = fb["deg"] + 30.0
+                fb["raw_deg"] = fb["raw_deg"] + 30.0
         return out
 
 
@@ -577,11 +599,13 @@ class _GroundLoadedKneeBus(FakeBus):
         if self.pos[j] < self.floor_deg:
             self.pos[j] = self.floor_deg
         fb = out[j]
-        fb["deg"] = self.pos[j]
+        fb["raw_deg"] = self.pos[j]
+        fb["deg"] = self.pos[j] + self.pos[j - 1]
         if self.pos[j] <= self.floor_deg:
             fb["current_a"] = self.stuck_current_a
             fb["load_pct"] = self.stuck_load_pct
             fb["speed_deg_s"] = 0.0
+            fb["raw_speed_deg_s"] = 0.0
             fb["moving"] = 0
         return out
 
@@ -641,21 +665,6 @@ def test_timeout_names_the_worst_joints_force():
     assert "L0 knee 1.07 A / 52% load" in res["error"], res
 
 
-if __name__ == "__main__":
-    fns = [(n, f) for n, f in sorted(globals().items())
-           if n.startswith("test_") and callable(f)]
-    failed = 0
-    for name, fn in fns:
-        try:
-            fn()
-            print(f"  ok    {name}")
-        except AssertionError as e:
-            failed += 1
-            print(f"  FAIL  {name}: {e}")
-    print(f"{len(fns) - failed}/{len(fns)} passed")
-    sys.exit(1 if failed else 0)
-
-
 # ---------------------------------------------------------------------------
 # 2026-09-11: standing robots are never lowered by the loaded straighten
 # blend (video: chassis lifted on six loaded legs, then dropped). See
@@ -705,9 +714,8 @@ def test_force_allows_loaded_blend_from_stand(monkeypatch):
     assert p["stages"][0]["torque_limit"] == LOADED_TORQUE_LIMIT
 
 
-def test_fold_family_keeps_loaded_blend_without_force(monkeypatch):
-    """The tuck after an untrap (chassis on the floor) still unfolds with
-    the blend when no descent plans — that is the documented recovery."""
+def test_fold_shape_cannot_establish_belly_contact(monkeypatch):
+    """Tall negative-hip stances and a grounded tuck share this shape."""
     import safe_zero as sz
     monkeypatch.setattr(sz, "_plan_descent",
                         lambda *a, **k: {"ok": False, "why": "test: no path"})
@@ -715,6 +723,14 @@ def test_fold_family_keeps_loaded_blend_without_force(monkeypatch):
     assert fold_family(tuck)
     assert median_foot_z_mm(tuck) < BELLY_GROUND_Z_MM - 25.0
     p = plan_safe_zero(tuck)
+    assert not p["ok"] and p["code"] == "standing_no_descent"
+    p = plan_safe_zero(tuck, allow_loaded_blend=True)
     assert p["ok"], p
     assert p["stages"][0]["torque_limit"] == LOADED_TORQUE_LIMIT
     assert not fold_family(_pose(hip=19.0, knee=28.0))
+
+
+if __name__ == "__main__":
+    # The direct dev-loop command must collect all tests and honor the
+    # virtual clock/monkeypatch fixtures, just like normal pytest runs.
+    sys.exit(pytest.main([__file__, "-q"]))

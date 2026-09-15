@@ -23,6 +23,8 @@ from .store import Store
 from .web import ImportIn, build_router, render
 
 MCP_PROTOCOL = "2025-03-26"
+READ_ONLY_TOOLS = frozenset({"lab_status", "list_runs", "get_run", "list_learnings",
+                             "list_plans", "list_experiments", "get_experiment"})
 
 
 def create_app(settings: Optional[Settings] = None, *, api_keys: Optional[str] = None,
@@ -83,7 +85,7 @@ def create_app(settings: Optional[Settings] = None, *, api_keys: Optional[str] =
         return PlainTextResponse("User-agent: *\nDisallow: /\n")
 
     @app.post("/mcp")
-    async def mcp(request: Request, principal: Principal = Depends(viewer)):
+    async def mcp(request: Request, principal: Principal = Depends(auth.mcp_dependency())):
         try:
             message = await request.json()
         except (UnicodeDecodeError, ValueError):
@@ -102,7 +104,7 @@ def create_app(settings: Optional[Settings] = None, *, api_keys: Optional[str] =
         if method == "notifications/initialized":
             return JSONResponse(status_code=202, content={})
         if method == "tools/list":
-            return {"jsonrpc": "2.0", "id": rpc_id, "result": {"tools": mcp_tools()}}
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": {"tools": mcp_tools(principal)}}
         if method == "tools/call":
             params = message.get("params", {})
             try:
@@ -180,9 +182,9 @@ def state_document(settings: Settings, store: Store) -> Dict[str, Any]:
 
 # ---------------------------------------------------------------- MCP tools
 
-def mcp_tools() -> list:
+def mcp_tools(principal: Principal) -> list:
     obj = {"type": "object", "properties": {}}
-    return [
+    tools = [
         {"name": "lab_status", "description": "Robot Lab v2 status: paused/running, spend vs cap, queue, recent runs, latest findings, events.", "inputSchema": obj},
         {"name": "list_runs", "description": "Recent runs (experiments) with their finding ('found'), what the camera saw ('seen'), and artifact URLs. Optional robot filter (hexapod1, hexapod2).",
          "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer"}, "robot": {"type": "string"}}}},
@@ -202,6 +204,11 @@ def mcp_tools() -> list:
         {"name": "get_experiment", "description": "Alias of get_run; accepts old Robot Lab experiment ids.",
          "inputSchema": {"type": "object", "properties": {"id": {"type": "string"}, "experiment_id": {"type": "string"}}}},
     ]
+    visible = tools if principal.role in ("operator", "admin") else [
+        tool for tool in tools if tool["name"] in READ_ONLY_TOOLS]
+    for tool in visible:
+        tool["annotations"] = {"readOnlyHint": tool["name"] in READ_ONLY_TOOLS}
+    return visible
 
 
 def _text(payload: Any) -> Dict[str, Any]:
@@ -265,4 +272,4 @@ def run() -> None:
         sso_cookie_domain=os.getenv("HEXAPOD_SSO_COOKIE_DOMAIN", ""),
     )
     uvicorn.run(app, host=os.getenv("HEXAPOD_BIND", "127.0.0.1"), port=int(os.getenv("HEXAPOD_PORT", "8767")),
-                log_level="warning")
+                log_level="warning", access_log=False)

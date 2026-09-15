@@ -4667,33 +4667,8 @@ class SimHexapodBalanceEnv(_GymBase):
             ldt_tau = max(float(cfg_get(
                 self.cfg, "safety", "walk_leg_duty_terminate_tau_s",
                 default=1.0)), self.dt)
-            # Relative (team-mean-fraction) floor add-on (2026-09-07,
-            # widen8/widenbis/widenrear180 role-aware-mechanism gap,
-            # CURRENT_TRUTHS 09-07 ~22:5x zero-spend diagnostic). Plain
-            # English: the ABSOLUTE floor above (default 0.05) was
-            # deliberately set BELOW the eval gate's own sacrifice bar
-            # (duty<0.10) to avoid false-charging genuinely-passing
-            # episodes whose lowest leg sometimes dips to ~0.10-0.30 —
-            # but the legdutyfresh/legdutyterm1 campaign (7/7 FAIL, same
-            # front-pair-or-similar fingerprint every time) showed the
-            # real failing shape is NOT "one leg near zero forever" (the
-            # already-tested flagleg cheat this mechanism already
-            # catches) but "1-2 legs starved to ~0.02-0.09 while the
-            # OTHER legs — often a DIFFERENT pair depending on the
-            # episode/heading — run at 0.4-0.95": a soft, heading-
-            # relative starvation an absolute floor tuned not to
-            # false-positive on passing gaits structurally cannot catch
-            # (it would have to sit above the passing band's own low
-            # end, which is the false-positive risk the floor was
-            # deliberately kept under). A floor stated as a FRACTION of
-            # the whole team's own current mean duty adapts to whatever
-            # relative usage pattern the gait has established that tick
-            # — no heading-conditioned role table needed, exactly the
-            # "do NOT ship a rigid role/template match, calibrate
-            # against the gait's own graded spread" guidance already on
-            # record. Default 0.0 = OFF, bit-exact legacy: the
-            # `effective_floor` reduces to plain `ldt_floor` and no new
-            # arithmetic touches the existing absolute-floor path.
+            # floor_rel_frac is fixed at 0.0 here (the relative floor was
+            # never configured); walk_legduty_term_tick keeps the parameter.
             in_grace = ((self._step_i - self._seg_entry_step) * self.dt
                         < ldt_grace_s)
             on_now = []
@@ -4893,7 +4868,7 @@ class SimHexapodBalanceEnv(_GymBase):
                         f_n = max(float(
                             self.data.sensordata[self._touch_adr[i]]),
                             0.0)
-                        s_i = min(f_n / 1.0, 1.0)
+                        s_i = min(f_n, 1.0)
                     else:   # no sensor: fall back to the clearance test
                         s_i = (1.0 if clear_h[i]
                                <= PLANT_SPEC["foot_down_mm"] * 0.001

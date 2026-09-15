@@ -1165,9 +1165,9 @@ class RlApi:
                 self._bus_hot_begin()
                 with d._lock:
                     d.mode = "demo"
-                    d._torque_all(True)
-                    d.armed = True
-                    d.status = "rl stand armed"
+                    # Acquisition validates and primes measured counts before
+                    # enabling torque. Old servo goals must never be armed here.
+                    d.status = "rl stand acquiring start"
                 result = self._acquire_start(
                     "stand", gen=gen, on_progress=_on_progress)
                 if gen != self._demo_gen:

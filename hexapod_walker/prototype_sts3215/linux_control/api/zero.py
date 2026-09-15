@@ -381,7 +381,7 @@ class ZeroApi:
                         abort_check=self._demo_abort.is_set,
                         on_progress=on_progress))
                 if not res.get("ok"):
-                    return {"ok": False, "acquired": acquired,
+                    return {**res, "ok": False, "acquired": acquired,
                             "error": str(res.get("error") or "failed")}
                 tag = ("tuck_stand_adjusted" if tuck_stand
                        else "stand_adjusted")

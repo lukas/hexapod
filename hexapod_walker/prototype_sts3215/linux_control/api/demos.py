@@ -981,6 +981,7 @@ class DemosApi:
         try:
             from inplace_demos import (
                 CurrentPeakTracker, _enable_torque, _live_robot_ids,
+                _hold_here, _limp_all,
                 _set_torque_limit, _write_pose,
             )
             from hexapod_core.joint_frame import walk_start_pose_degrees
@@ -1033,32 +1034,61 @@ class DemosApi:
         _set_torque_limit(bus, live, 1000)
         _enable_torque(bus, live)
         started = time.monotonic()
+        missing_runs: dict[int, int] = {}
+
+        def _stop(error: str, *, limp: bool = False, aborted: bool = False) -> dict:
+            # A current fault used to return with its last target energized,
+            # heating L0 from 59 C to a thermal panic in twelve seconds.
+            if not limp:
+                try:
+                    _hold_here(bus, live)
+                except Exception as exc:
+                    error += f"; could not hold measured pose: {exc}"
+                    limp = True
+            if limp:
+                _limp_all(bus, live)
+                self.drive.armed = False
+            return {"ok": False, "error": error, "limp": limp,
+                    "aborted": aborted, "peak_a": round(tracker.peak_a, 2),
+                    "peak_joint": tracker.peak_joint}
+
+        def _sample_guard() -> dict | None:
+            try:
+                tracker.sample(bus, live)
+                seen = {int(fb["joint"]) for fb in tracker.last_fb
+                        if fb.get("deg") is not None}
+            except Exception:
+                tracker.last_fb = []
+                seen = set()
+            for j in range(N_JOINTS):
+                missing_runs[j] = 0 if j in seen else missing_runs.get(j, 0) + 1
+                if missing_runs[j] >= 3:
+                    return _stop(f"walk-ready feedback lost on joint {j}", limp=True)
+            fault = tracker.telemetry_fault_joint
+            if fault is not None:
+                return _stop(f"walk-ready corrupt feedback on joint {fault}", limp=True)
+            over = tracker.confirmed_current_joint(4.0)
+            if over is not None:
+                return _stop(f"walk-ready current trip on joint {over} "
+                             "after three fresh sweeps", limp=True)
+            return None
+
         if not frames:
             _prog("walk-ready start: settle", phase="settle", stage=0,
                   frame=1, of=1, legs=[])
             try:
                 _write_pose(bus, target, live, speed=180, acc=20)
             except Exception as e:
-                return {"ok": False,
-                        "error": f"walk-ready start write failed: {e}"}
+                return _stop(f"walk-ready start write failed: {e}")
             # 180 counts/s ~ 16 deg/s: give a 20 deg blend its time.
             deadline = time.monotonic() + max(1.0, float(delta or 0.0) / 12.0)
             while time.monotonic() < deadline:
                 if abort_check():
-                    return {"ok": False, "aborted": True,
-                            "error": "walk-ready start aborted"}
+                    return _stop("walk-ready start aborted", aborted=True)
                 time.sleep(min(0.08, max(0.0, deadline - time.monotonic())))
-                try:
-                    tracker.sample(bus, live)
-                except Exception:
-                    pass
-                if tracker.peak_a > 4.0:
-                    return {"ok": False,
-                            "error": (f"walk-ready start current trip "
-                                      f"{tracker.peak_a:.2f} A on joint "
-                                      f"{tracker.peak_joint}"),
-                            "peak_a": round(tracker.peak_a, 2),
-                            "peak_joint": tracker.peak_joint}
+                fault = _sample_guard()
+                if fault is not None:
+                    return fault
             try:
                 _emit_servo_fb("walk-ready start: settle", tracker,
                                target=target)
@@ -1066,8 +1096,7 @@ class DemosApi:
                 pass
         for idx, frame in enumerate(frames, 1):
             if abort_check():
-                return {"ok": False, "aborted": True,
-                        "error": "walk-ready start aborted"}
+                return _stop("walk-ready start aborted", aborted=True)
             legs = ",".join(str(x) for x in frame.legs)
             label = (f"walk-ready start: {frame.phase}"
                      + (f" legs {legs}" if legs else ""))
@@ -1084,25 +1113,15 @@ class DemosApi:
             try:
                 _write_pose(bus, frame.q_deg, live, speed=speed, acc=acc)
             except Exception as e:
-                return {"ok": False,
-                        "error": f"walk-ready start write failed: {e}"}
+                return _stop(f"walk-ready start write failed: {e}")
             deadline = time.monotonic() + max(0.05, float(frame.seconds))
             while time.monotonic() < deadline:
                 if abort_check():
-                    return {"ok": False, "aborted": True,
-                            "error": "walk-ready start aborted"}
+                    return _stop("walk-ready start aborted", aborted=True)
                 time.sleep(min(0.08, max(0.0, deadline - time.monotonic())))
-                try:
-                    tracker.sample(bus, live)
-                except Exception:
-                    pass
-                if tracker.peak_a > 4.0:
-                    return {"ok": False,
-                            "error": (f"walk-ready start current trip "
-                                      f"{tracker.peak_a:.2f} A on joint "
-                                      f"{tracker.peak_joint}"),
-                            "peak_a": round(tracker.peak_a, 2),
-                            "peak_joint": tracker.peak_joint}
+                fault = _sample_guard()
+                if fault is not None:
+                    return fault
             try:
                 _emit_servo_fb(label, tracker, target=frame.q_deg)
             except Exception:
@@ -1112,20 +1131,19 @@ class DemosApi:
         # the servo target without introducing another stance change.
         try:
             _write_pose(bus, target, live, speed=180, acc=20)
-        except Exception:
-            pass
+        except Exception as exc:
+            return _stop(f"walk-ready final hold write failed: {exc}")
         time.sleep(0.3)
-        verify_pose, verify_missing = self._present_pose18()
-        if verify_missing and getattr(tracker, "last_fb", None):
-            for fb in tracker.last_fb:
-                try:
-                    j = int(fb["joint"])
-                    if 0 <= j < N_JOINTS:
-                        verify_pose[j] = float(fb["deg"])
-                except (KeyError, TypeError, ValueError):
-                    pass
-            verify_missing = [j for j, v in enumerate(verify_pose)
-                              if v is None]
+        # A missing joint must be re-read in a complete coherent acquisition;
+        # old tracker samples cannot verify the final commanded pose.
+        for attempt in range(3):
+            verify_pose, verify_missing = self._present_pose18()
+            if not verify_missing:
+                break
+            if attempt < 2:
+                time.sleep(0.08)
+        if verify_missing:
+            return _stop(f"walk-ready verification missing joints {verify_missing}", limp=True)
         worst, worst_j = 0.0, None
         for j, val in enumerate(verify_pose):
             if val is None:
@@ -1167,6 +1185,6 @@ class DemosApi:
             "stand_check": check,
         }
         if not result["ok"]:
-            result["error"] = ("walk-ready start failed verification: "
-                               + str(check.get("error") or check))
+            result.update(_stop("walk-ready start failed verification: "
+                                + str(check.get("error") or check)))
         return result

@@ -326,46 +326,11 @@ class StandupApi:
                             f"{abort_current_a:.1f} A) — stall-fight, "
                             "not grinding on it")
 
-                # Guard semantics (08-10, after a 3.04 A spike aborted
-                # a healthy 10x stand at 60%): trip on STALL-FIGHT —
-                # a joint over the limit while NOT MOVING, two sweeps
-                # in a row — not on an instantaneous reading. A moving
-                # joint briefly over 3 A is honest acceleration work.
-                #
-                # Hard cap (09-09, after experiment 922434955b's cycle 2
-                # self-aborted 1.76 s in on a 106.50 A reading — 0x4000,
-                # one flipped bit, against a true run peak of 2.88 A):
-                # the cap needs TWO consecutive sweeps too, and reads
-                # the sweep's own plausible peak rather than the
-                # running-max peak_a. Two independent bugs made one
-                # corrupt sample fatal: peak_a is monotonic, so a single
-                # spike latched the trip on forever, and a low-bit flip
-                # lands at 3.3 A / 6.7 A — under any plausibility
-                # ceiling but over this cap. The tracker already keeps
-                # physically impossible values (>= 10 A, vs the STS3215's
-                # 2.70 A stall) out of peak_a and escalates a joint that
-                # returns three in a row as a telemetry fault, which
-                # still stops the run — with a distinct message.
-                HARD_CAP_A = 4.0
-                stall_prev: set = set()
-                cap_prev = False
-
                 def stall_trip() -> bool:
-                    nonlocal stall_prev, cap_prev
-                    if tracker.telemetry_fault_joint is not None:
-                        return True
-                    sweep_peak, _sweep_joint = tracker.sweep_peak_a()
-                    over_cap = sweep_peak > HARD_CAP_A
-                    if over_cap and cap_prev:
-                        return True
-                    cap_prev = over_cap
-                    now = {fb["joint"] for fb in tracker.last_fb
-                           if fb["joint"] not in tracker.implausible_joints
-                           and abs(fb["current_a"]) > abort_current_a
-                           and abs(fb.get("raw_speed_deg_s", fb.get("speed_deg_s")) or 0.0) < 8.0}
-                    hit = bool(now & stall_prev)
-                    stall_prev = now
-                    return hit
+                    return (tracker.telemetry_fault_joint is not None
+                            or tracker.confirmed_current_joint(4.0) is not None
+                            or tracker.confirmed_current_joint(
+                                abort_current_a, slow_dps=8.0) is not None)
 
                 def _replant(target_q: list[float]) -> bool:
                     """Re-seat all six feet at target_q, one tripod

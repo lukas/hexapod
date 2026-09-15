@@ -370,18 +370,24 @@ class CurrentPeakTracker:
         self.implausible_joints: set[int] = set()
         self.telemetry_fault_joint: int | None = None
         self._implausible_run: dict[int, int] = {}
+        self._current_runs: dict[tuple[float, float | None], dict[int, int]] = {}
 
     def sample(self, bus: FeetechBus, live: set[int]) -> None:
         self.samples += 1
         t = time.monotonic() - self._t0
         sweep: list[dict] = []
         implausible: set[int] = set()
+        # One fresh acquisition, rather than mixing cached per-joint reads
+        # with retries from later acquisitions (especially paired hip/knee).
+        bulk = ((bus.read_all_feedback() or {}) if hasattr(bus, "read_all_feedback")
+                else None)
         for joint in range(N_JOINTS):
             sid = joint_to_servo_id(joint)
             if sid not in live:
                 continue
-            fb = bus.read_feedback(joint)
+            fb = bulk.get(joint) if bulk is not None else bus.read_feedback(joint)
             if fb is None:
+                self._implausible_run[joint] = 0
                 continue
             sweep.append(fb)
             a = abs(float(fb["current_a"]))
@@ -407,6 +413,20 @@ class CurrentPeakTracker:
                 self.peak_t_s = t
         self.last_fb = sweep
         self.implausible_joints = implausible
+
+    def confirmed_current_joint(self, threshold_a: float,
+                                slow_dps: float | None = None) -> int | None:
+        """Call once per fresh sample: three consecutive hits on ONE motor."""
+        key = (threshold_a, slow_dps)
+        previous = self._current_runs.get(key, {})
+        hits = {int(fb["joint"]) for fb in self.last_fb
+                if int(fb["joint"]) not in self.implausible_joints
+                and abs(float(fb["current_a"])) > threshold_a
+                and (slow_dps is None or abs(float(fb.get(
+                    "raw_speed_deg_s", fb.get("speed_deg_s")) or 0)) < slow_dps)}
+        current = {j: previous.get(j, 0) + 1 for j in hits}
+        self._current_runs[key] = current
+        return next((j for j in sorted(hits) if current[j] >= 3), None)
 
     def sweep_peak_a(self) -> tuple[float, int | None]:
         """Plausible |current| peak of the MOST RECENT sweep only.

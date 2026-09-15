@@ -3543,40 +3543,6 @@ def main(argv: list[str] | None = None) -> int:
                   "— the policy will NEVER train at the full DR "
                   "ranges in this run")
 
-    # Termination-penalty RAMP (08-22, freeprog-term400-stall dig-in
-    # follow-up — see walk_task.py's __init__ block for the mechanism).
-    # Same cfg-armed / trainer-driven / default-OFF contract.
-    _tp_ramp_steps = 0
-    if env_kw.get("cfg") is not None:
-        from rl_move.config import cfg_get as _cfg_get_tp
-        _tp_ramp_steps = int(float(_cfg_get_tp(
-            env_kw["cfg"], "reward", "term_penalty_ramp_steps",
-            default=0) or 0))
-
-    def _term_penalty_ramp_frac_at(step: int) -> float:
-        return min(1.0, float(step) / float(_tp_ramp_steps))
-
-    def _term_penalty_ramp_apply(target_venv, step: int) -> dict | None:
-        if _tp_ramp_steps <= 0:
-            return None
-        f = _term_penalty_ramp_frac_at(step)
-        return target_venv.env_method("apply_term_penalty_frac", f)[0]
-
-    if _tp_ramp_steps > 0:
-        # NOTE: must not be named t0 — that shadows the outer wall-clock
-        # timer (t0 = time.monotonic() near the top of this function),
-        # corrupting the final `dt = time.monotonic() - t0` computation
-        # for the rest of the run (caught on-pod smoke, 08-22).
-        _tp0 = _term_penalty_ramp_apply(venv, 0)
-        print(f"[term-penalty-ramp] armed: {_tp_ramp_steps:,} global "
-              "env steps from a lenient termination charge to the cfg "
-              f"target; step-0 term_penalty={_tp0['term_penalty']:.1f}")
-        if _tp_ramp_steps >= args.steps:
-            print("[term-penalty-ramp] WARNING: "
-                  f"term_penalty_ramp_steps ({_tp_ramp_steps:,}) >= "
-                  f"--steps ({args.steps:,}) — the policy will NEVER "
-                  "train at the full deterrent in this run")
-
     # RISE start-distribution RAMP (2026-09-14, walkcurr flat-start
     # rise over_current gap — see goal_task.py's GoalGenerator.
     # __init__ block for the mechanism/why: the cap-based action-
@@ -5157,37 +5123,6 @@ def main(argv: list[str] | None = None) -> int:
                         "dr_stage_ramp/fault_prob": vals["fault_prob"]})
 
         callbacks.append(_DrStageRampCb())
-    if _tp_ramp_steps > 0:
-        class _TermPenaltyRampCb(BaseCallback):
-            """Advance the termination-penalty ramp once per rollout
-            (see the arming block after venv construction). W&B gets
-            the live penalty under term_penalty_ramp/*."""
-
-            def __init__(self):
-                super().__init__()
-                self._finished = False
-
-            def _on_step(self) -> bool:
-                return True
-
-            def _on_rollout_end(self) -> None:
-                if self._finished:
-                    return
-                vals = _term_penalty_ramp_apply(venv, self.num_timesteps)
-                if vals["frac"] >= 1.0:
-                    self._finished = True
-                    print("[term-penalty-ramp] ramp complete @ "
-                          f"{self.num_timesteps:,} steps — training at "
-                          "the full deterrent from here on")
-                if run is not None:
-                    import wandb
-                    wandb.log({
-                        "global_step": self.num_timesteps,
-                        "term_penalty_ramp/frac": vals["frac"],
-                        "term_penalty_ramp/term_penalty":
-                            vals["term_penalty"]})
-
-        callbacks.append(_TermPenaltyRampCb())
     if _rs_ramp_steps > 0:
         class _RiseStartRampCb(BaseCallback):
             """Advance the rise start-pose ramp once per rollout (see

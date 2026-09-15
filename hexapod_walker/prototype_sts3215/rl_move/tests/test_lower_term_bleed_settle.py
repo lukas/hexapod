@@ -31,8 +31,6 @@ Contract under test:
     once, is <= 0, and matches the closed-form
     `-k * (1 - depth_frac_at_death)**2 * remaining_ticks` within a
     float epsilon.
-  - ON with `k_lower_score_track=0`: settlement is always exactly 0
-    (nothing to settle when the underlying charge itself is off).
   - `lower_term_bleed_settle_max` caps the charge.
 
 RESEARCH_RULES "Tests": fast, mechanics only, no rollout ranking, no
@@ -54,7 +52,7 @@ from rl_move.sim.goal_task import SimHexapodGoalEnv
 
 
 def _lower_env(seed: int, *, score_prog: float = 1.0,
-               settle: float = 0.0, k_track: float | None = None,
+               settle: float = 0.0,
                settle_max: float | None = None,
                force_trip: bool = False) -> SimHexapodGoalEnv:
     cfg = load_config()
@@ -66,8 +64,6 @@ def _lower_env(seed: int, *, score_prog: float = 1.0,
         r["lower_score_prog"] = score_prog
     if settle:
         r["lower_term_bleed_settle"] = settle
-    if k_track is not None:
-        r["k_lower_score_track"] = k_track
     if settle_max is not None:
         r["lower_term_bleed_settle_max"] = settle_max
     if force_trip:
@@ -130,22 +126,11 @@ def test_on_with_forced_termination_matches_closed_form():
     assert len(hits) == 1, "settlement must fire exactly once, at death"
     last = infos[-1]
     depth_frac = last["lower_depth_frac"]
-    k = float(env.cfg["reward"].get(
-        "k_lower_score_track", 1.0))
     rem_ticks = env._active_episode_steps() - env._step_i
-    want = -k * (1.0 - depth_frac) ** 2 * rem_ticks
+    want = -(1.0 - depth_frac) ** 2 * rem_ticks
     assert last["reward_lower_term_bleed"] == pytest.approx(want, rel=1e-6)
     assert last["reward_lower_term_bleed"] <= 0.0
     assert rem_ticks > 100, "test setup should trip near episode start"
-
-
-def test_zero_k_track_means_zero_settlement():
-    env = _lower_env(seed=3, settle=1.0, k_track=0.0, force_trip=True)
-    infos, term = _run(env, 600, _trip_action(env))
-    env.close()
-    assert term, "expected the forced-trip cfg to terminate immediately"
-    assert not any("reward_lower_term_bleed" in i for i in infos), \
-        "k_lower_score_track=0 must leave nothing to settle"
 
 
 def test_settle_max_caps_the_charge():

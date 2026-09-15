@@ -844,11 +844,10 @@ def plan_safe_zero(present: list[float], *,
     full-torque straighten blend of all six loaded legs — lifted the
     chassis and dropped it on its belly on video (2026-09-10 ×9,
     2026-09-11 ×2). Standing robots lower through STEP-down / the
-    walk-ready glide, not through this planner. The fold family
-    (``fold_family``: femurs up, tibias folded, chassis on the floor
-    after an untrap) keeps the blend: unfolding a 150 mm tibia from
-    there cannot avoid pressing the floor, and the body is already
-    down.
+    walk-ready glide, not through this planner. Negative hips and deep
+    tibias can also describe a tall standing robot: ``fold_family`` is
+    not evidence of belly contact. A caller that observed its own untrap
+    may explicitly allow the loaded blend after that recovery.
     """
     if (not isinstance(present, (list, tuple)) or len(present) != N_JOINTS
             or any(v is None or not math.isfinite(float(v))
@@ -939,13 +938,10 @@ def plan_safe_zero(present: list[float], *,
                     f"slide <= {desc['loaded_slide_mm']:.0f} mm "
                     f"(legacy blend ~= {desc['legacy_slide_mm']:.0f} mm)")
                 stage1_done = True
-            elif fold_family(present) or allow_loaded_blend:
+            elif allow_loaded_blend:
                 notes.append(f"low-drag descent unavailable "
                              f"({desc.get('why')}); using monitored "
-                             "straighten blend"
-                             + (" (fold family: chassis already down)"
-                                if fold_family(present) else
-                                " (allow_loaded_blend forced)"))
+                             "straighten blend (allow_loaded_blend explicit)")
                 v = _path_violation(present, q_lift, ground_z_mm=None)
                 if v:
                     return {"ok": False,

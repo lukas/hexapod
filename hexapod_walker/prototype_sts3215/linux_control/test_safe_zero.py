@@ -407,8 +407,8 @@ def test_historical_untrap_fold_is_physically_unreachable():
 
 
 def test_deep_fold_straighten_gets_full_torque():
-    """A feasible folded stance retains its loaded-stage torque limit."""
-    plan = plan_safe_zero(_pose(hip=-25.0, knee=115.0))
+    """An explicitly confirmed recovery retains its loaded-stage limit."""
+    plan = plan_safe_zero(_pose(hip=-25.0, knee=115.0), allow_loaded_blend=True)
     assert plan["ok"], plan
     by_label = {s["label"]: s for s in plan["stages"]}
     straighten = by_label["straighten hips/knees (feet to lift height)"]
@@ -422,7 +422,7 @@ def test_deep_fold_straighten_gets_full_torque():
 @pytest.mark.slow  # >5 s: sim rollout; default loop is -m "not slow"
 def test_executor_raises_torque_only_for_the_loaded_stage():
     start = _pose(hip=-25.0, knee=115.0)
-    plan = plan_safe_zero(start)
+    plan = plan_safe_zero(start, allow_loaded_blend=True)
     assert plan["ok"] and plan["stages"]
     bus = FakeBus(start)
     res = run_safe_zero(bus, plan["stages"], torque_limit=700)
@@ -714,9 +714,8 @@ def test_force_allows_loaded_blend_from_stand(monkeypatch):
     assert p["stages"][0]["torque_limit"] == LOADED_TORQUE_LIMIT
 
 
-def test_fold_family_keeps_loaded_blend_without_force(monkeypatch):
-    """The tuck after an untrap (chassis on the floor) still unfolds with
-    the blend when no descent plans — that is the documented recovery."""
+def test_fold_shape_cannot_establish_belly_contact(monkeypatch):
+    """Tall negative-hip stances and a grounded tuck share this shape."""
     import safe_zero as sz
     monkeypatch.setattr(sz, "_plan_descent",
                         lambda *a, **k: {"ok": False, "why": "test: no path"})
@@ -724,6 +723,8 @@ def test_fold_family_keeps_loaded_blend_without_force(monkeypatch):
     assert fold_family(tuck)
     assert median_foot_z_mm(tuck) < BELLY_GROUND_Z_MM - 25.0
     p = plan_safe_zero(tuck)
+    assert not p["ok"] and p["code"] == "standing_no_descent"
+    p = plan_safe_zero(tuck, allow_loaded_blend=True)
     assert p["ok"], p
     assert p["stages"][0]["torque_limit"] == LOADED_TORQUE_LIMIT
     assert not fold_family(_pose(hip=19.0, knee=28.0))

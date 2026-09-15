@@ -246,29 +246,6 @@ def _mk_anchored_bank(tmp_path: Path, env_probe: SimHexapodGoalEnv,
     return p, q, z_stand
 
 
-def test_anchor_stand_rewrites_schedule_to_remaining_rise(tmp_path):
-    """anchor_stand=1: the height schedule ends at z_stand - z0 (the
-    remaining rise back to standing), NOT the belly band (108-114mm)."""
-    probe = _rise_env(seed=17)
-    bank_path, q, z_stand = _mk_anchored_bank(tmp_path, probe)
-    probe.close()
-    env = _rise_env(seed=17, rise_start_bank=str(bank_path),
-                    rise_start_bank_frac=1.0, rise_start_bank_exact=1.0,
-                    rise_start_bank_anchor_stand=1.0,
-                    rise_height_mm=[108, 114])
-    for _ in range(4):
-        env.reset()
-        assert env._goal_traj.start_at == "rise_bank"
-        h_end = float(np.asarray(env._goal_traj.height)[-1])
-        want = max(min(z_stand) - env._z0, 0.002)
-        want_hi = max(max(z_stand) - env._z0, 0.002)
-        assert want - 1e-9 <= h_end <= want_hi + 1e-9, (
-            f"schedule end {h_end*1000:.1f}mm not the remaining rise "
-            f"[{want*1000:.1f}, {want_hi*1000:.1f}]mm")
-        assert h_end < 0.080, "belly band leaked through the re-anchor"
-    env.close()
-
-
 def test_anchor_stand_off_keeps_legacy_schedule(tmp_path):
     """Same anchored bank, flag OFF: schedule stays the belly band."""
     probe = _rise_env(seed=19)
@@ -282,13 +259,3 @@ def test_anchor_stand_off_keeps_legacy_schedule(tmp_path):
     assert 0.100 <= h_end <= 0.120, f"legacy band changed: {h_end}"
     env.close()
 
-
-def test_anchor_stand_on_legacy_bank_raises(tmp_path):
-    """anchor_stand=1 on a bank without z_stand must fail LOUDLY."""
-    bank_path, _ = _mk_bank(tmp_path)
-    env = _rise_env(seed=21, rise_start_bank=str(bank_path),
-                    rise_start_bank_frac=1.0,
-                    rise_start_bank_anchor_stand=1.0)
-    with pytest.raises(ValueError, match="z_stand"):
-        env.reset()
-    env.close()

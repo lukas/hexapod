@@ -1075,6 +1075,43 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     return ap
 
 
+def _build_sac_model(args, venv, net_arch, extra_pk, tb_dir):
+    """``--algo sac``: construct the off-policy SB3 SAC model over the training
+    VecEnv and print its configuration line."""
+    # Off-policy max-entropy probe (walkcurr fallback ladder (a),
+    # 2026-08-29): stock SB3 SAC over the same MjxVecEnv. The
+    # replay buffer stores buffer_size transitions total across
+    # n_envs slots; train_freq is counted in vec-env steps.
+    from stable_baselines3 import SAC
+    _sac_ent = args.sac_ent_coef
+    try:
+        _sac_ent = float(_sac_ent)
+    except (TypeError, ValueError):
+        pass  # 'auto' / 'auto_0.1' pass through as strings
+    model = SAC(
+        "MlpPolicy", venv,
+        buffer_size=args.sac_buffer_size,
+        batch_size=args.batch_size,
+        learning_rate=args.lr,
+        gamma=(0.99 if args.gamma is None else args.gamma),
+        tau=args.sac_tau,
+        train_freq=(args.sac_train_freq, "step"),
+        gradient_steps=args.sac_gradient_steps,
+        learning_starts=args.sac_learning_starts,
+        ent_coef=_sac_ent,
+        policy_kwargs=dict(net_arch=net_arch, **extra_pk),
+        seed=args.seed, verbose=1, device=args.device,
+        tensorboard_log=tb_dir)
+    print(f"[mjx-train] SAC (off-policy max-ent): buffer "
+          f"{args.sac_buffer_size:,}, train_freq "
+          f"{args.sac_train_freq} vec-step(s) x {venv.num_envs} "
+          f"envs, grad_steps {args.sac_gradient_steps}, "
+          f"learning_starts {args.sac_learning_starts:,}, "
+          f"ent_coef {args.sac_ent_coef}, tau {args.sac_tau}, "
+          f"batch {args.batch_size}")
+    return model
+
+
 def main(argv: list[str] | None = None) -> int:
     if argv is None:
         import sys as _sys
@@ -2486,37 +2523,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[mjx-train] gSDE exploration ON "
               f"(sde_sample_freq={args.sde_sample_freq})")
     if args.algo == "sac":
-        # Off-policy max-entropy probe (walkcurr fallback ladder (a),
-        # 2026-08-29): stock SB3 SAC over the same MjxVecEnv. The
-        # replay buffer stores buffer_size transitions total across
-        # n_envs slots; train_freq is counted in vec-env steps.
-        from stable_baselines3 import SAC
-        _sac_ent = args.sac_ent_coef
-        try:
-            _sac_ent = float(_sac_ent)
-        except (TypeError, ValueError):
-            pass  # 'auto' / 'auto_0.1' pass through as strings
-        model = SAC(
-            "MlpPolicy", venv,
-            buffer_size=args.sac_buffer_size,
-            batch_size=args.batch_size,
-            learning_rate=args.lr,
-            gamma=(0.99 if args.gamma is None else args.gamma),
-            tau=args.sac_tau,
-            train_freq=(args.sac_train_freq, "step"),
-            gradient_steps=args.sac_gradient_steps,
-            learning_starts=args.sac_learning_starts,
-            ent_coef=_sac_ent,
-            policy_kwargs=dict(net_arch=net_arch, **extra_pk),
-            seed=args.seed, verbose=1, device=args.device,
-            tensorboard_log=tb_dir)
-        print(f"[mjx-train] SAC (off-policy max-ent): buffer "
-              f"{args.sac_buffer_size:,}, train_freq "
-              f"{args.sac_train_freq} vec-step(s) x {venv.num_envs} "
-              f"envs, grad_steps {args.sac_gradient_steps}, "
-              f"learning_starts {args.sac_learning_starts:,}, "
-              f"ent_coef {args.sac_ent_coef}, tau {args.sac_tau}, "
-              f"batch {args.batch_size}")
+        model = _build_sac_model(args, venv, net_arch, extra_pk, tb_dir)
     elif args.init_from is not None and (
             args.init_from_actor_only or args.init_from_policy_backbone):
         from hexapod_core.joint_frame import require_checkpoint_joint_contract

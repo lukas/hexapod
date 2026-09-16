@@ -86,7 +86,7 @@ from rl_move.robot_state import DEG2RAD
 # hexapod_core.tripod_gait dialect (robot-absolute); was the
 # pre-migration sim-relative (20.0, 80.0), equivalent robot-abs =
 # 80+hip 20 = 100 (see probe_walk_income.WALK_PLANT for derivation).
-# TUCK likewise moved to its robot-abs form (sim_env._QUAD_TUCK_ROBOT_RAD
+# TUCK likewise moved to its robot-abs form (balance_reset._QUAD_TUCK_ROBOT_RAD
 # = (0.0, -1.10, 1.30), same 09-02 fix, same rename there).
 WALK_PLANT = (20.0, 100.0)
 TUCK = np.array([0.0, -1.10, 1.30])   # feasibility FRONT_POSES["tuck"]
@@ -401,7 +401,7 @@ def main() -> None:
                 if 0.35 <= sq <= 0.95:
                     pin_tot[kq] += 1
                     pin_hit[kq] += int(con[QuadCrawl.SWING[kq]])
-                    from rl_move.sim.sim_env import support_margin_m
+                    from rl_move.sim.balance_helpers import support_margin_m
                     stance = [f for f in (1, 2, 3, 4)
                               if f != QuadCrawl.SWING[kq]]
                     feet_xy = np.array(

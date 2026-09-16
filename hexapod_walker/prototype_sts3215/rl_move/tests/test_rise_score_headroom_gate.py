@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import pytest
 
-from rl_move.sim.sim_env import current_headroom_income_factor
+from rl_move.sim.balance_helpers import current_headroom_income_factor
 
 
 # ---------------------------------------------------------------------------

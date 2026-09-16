@@ -23,7 +23,7 @@ import math
 
 import pytest
 
-from rl_move.sim.sim_env import PLANT_SPEC, footprint_rent_m
+from rl_move.sim.balance_helpers import PLANT_SPEC, footprint_rent_m
 from rl_move.config import cfg_get
 
 

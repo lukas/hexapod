@@ -937,7 +937,7 @@ def test_obs_pad_transplant_insert_at_mid_layout():
 
 
 def test_support_margin_geometry():
-    from rl_move.sim.sim_env import support_margin_m
+    from rl_move.sim.balance_helpers import support_margin_m
     import numpy as np
     sq = np.array([[0, 0], [1, 0], [1, 1], [0, 1]], dtype=float)
     # center of unit square: 0.5 from every edge
@@ -995,7 +995,7 @@ def test_torque_headroom_debt_step_math():
     debt toward 1 (never past it), a brief spike barely moves it, and
     unloading decays it back down — the exact duration-vs-magnitude shape
     the mechanism is built to price."""
-    from rl_move.sim.sim_env import torque_headroom_debt_step
+    from rl_move.sim.balance_helpers import torque_headroom_debt_step
 
     cap_a, margin_a = 2.64, 0.3
     debt = np.zeros(3)
@@ -1079,7 +1079,7 @@ def test_action_rate_penalty_math():
     """Pure math: identical consecutive actions charge exactly 0; a
     per-joint delta of d charges n_joints * d**2; order doesn't matter
     (it's a squared distance, so penalty(a, b) == penalty(b, a))."""
-    from rl_move.sim.sim_env import action_rate_penalty
+    from rl_move.sim.balance_helpers import action_rate_penalty
 
     same = np.full(18, 0.37)
     assert action_rate_penalty(same, same) == 0.0

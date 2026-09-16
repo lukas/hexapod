@@ -54,7 +54,7 @@ pytest.importorskip("mujoco")
 
 from rl_move.config import load_config
 from rl_move.sim.goal_task import SimHexapodGoalEnv
-from rl_move.sim.sim_env import lower_depth_frac
+from rl_move.sim.balance_helpers import lower_depth_frac
 
 
 # ---------------------------------------------------------------------------

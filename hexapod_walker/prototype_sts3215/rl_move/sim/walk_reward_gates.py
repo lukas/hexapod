@@ -651,3 +651,56 @@ def loaded_slip_gate(env,
             reward += r_lse
             info["reward_loadslip_excess"] = r_lse
     return r_prog, r_walk, reward, support_gate
+
+
+def anchored_stance_gate(env, info, r_prog, r_walk, s_ref, support_gate):
+    # Anchored-stance income gate (cycle 30; the dense-
+    # decomposition rung's stance-no-slip component, implemented
+    # as INCOME GATING per operator 0-c.2 / step0 "worth less by
+    # construction" — additive charging of slip is refuted 2x
+    # (kernel-gating c24, effort c29) and a timing reference is
+    # refuted (phase prior c30: agreement locked 0.93, slip
+    # unmoved). A foot is ANCHORED while loaded and within
+    # reward.anchor_tol_mm (default 10 mm) of its own touchdown
+    # point; velocity income (kernel + positive progress) is
+    # multiplied by the anchored fraction of loaded feet.
+    # Paddling (all six feet creeping ~24 mm per stance) collects
+    # ~0.53-0.70 of income at tol=10 (measured, controller scale
+    # audit 2026-08-09); an anchored gait collects ~1.0. Negative
+    # progress (moving against command) is NOT gated - the gate
+    # must never shrink a penalty. Zero loaded feet => factor
+    # (1-g): ballistic ticks earn no anchored income. Walk-mode
+    # only by construction (this block); default OFF = legacy
+    # exact. cfg: reward.walk_anchor_gate in [0,1],
+    # reward.anchor_tol_mm.
+    g_anchor = float(cfg_get(env.cfg, "reward",
+                             "walk_anchor_gate", default=0.0))
+    if g_anchor > 0.0 and s_ref > 1e-3:
+        tol_m = float(cfg_get(env.cfg, "reward",
+                              "anchor_tol_mm",
+                              default=10.0)) / 1000.0
+        loaded = 0
+        anchored = 0
+        for f in range(6):
+            adr = env._touch_adr[f]
+            on = (adr >= 0 and
+                  float(env.data.sensordata[adr]) > 0.5)
+            xy = env.data.xpos[env._pad_bids[f], :2]
+            if on and not env._anchor_prev_on[f]:
+                env._anchor_xy[f] = xy.copy()
+            elif not on:
+                env._anchor_xy[f] = None
+            env._anchor_prev_on[f] = on
+            if on and env._anchor_xy[f] is not None:
+                loaded += 1
+                if float(np.linalg.norm(
+                        xy - env._anchor_xy[f])) <= tol_m:
+                    anchored += 1
+        frac = (anchored / loaded) if loaded > 0 else 0.0
+        a_factor = (1.0 - g_anchor) + g_anchor * frac
+        r_walk *= a_factor
+        support_gate *= a_factor
+        if r_prog > 0.0:
+            r_prog *= a_factor
+        info["walk_anchor_frac"] = frac
+    return r_prog, r_walk, support_gate

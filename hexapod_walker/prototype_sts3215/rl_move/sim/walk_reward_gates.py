@@ -704,3 +704,64 @@ def anchored_stance_gate(env, info, r_prog, r_walk, s_ref, support_gate):
             r_prog *= a_factor
         info["walk_anchor_frac"] = frac
     return r_prog, r_walk, support_gate
+
+
+def swing_initiation_income_gain(env):
+    # Per-LEG swing-INITIATION reward INCOME
+    # (`reward.walk_leg_swing_initiation_income`, 2026-09-08 --
+    # the OTHER concrete lead the loadslip-ratio-charge closure
+    # named alongside swing-gap-charge: "a positive swing-
+    # initiation income for the currently-most-loaded leg"
+    # (CURRENT_TRUTHS/walkcurr STATUS.md 2026-09-08 ~19:1x).
+    # STRUCTURALLY DIFFERENT from every per-leg mechanism above
+    # (duty-ratio/loadslip-ratio/swing-gap): those are all
+    # CHARGES that price a STATE or PATTERN a dragging/planted
+    # leg can approach asymptotically over many ticks (which is
+    # why loadslip needed a target recalibration + an
+    # excess-cap retrofit, and swing-gap shipped pre-capped
+    # from inception) -- this is a bounded, one-shot positive
+    # INCOME paid exactly once per qualifying event (a real
+    # completed swing whose OWN liftoff instant found this leg
+    # carrying the single highest TRAILING LOAD EMA of all
+    # six -- see `_swinit_load_ema`'s own __init__ comment for
+    # why a raw single-tick force snapshot cannot be used: an
+    # empirical check while building this mechanism found the
+    # honest scripted gait naturally UNLOADS a leg in the
+    # ticks just before it lifts (ordinary weight-transfer
+    # kinematics), so the raw-instant version never fires on
+    # good gaits at all; the EMA reflects how loaded the leg
+    # has BEEN over its current stance instead).
+    # There is nothing to cap: the per-event magnitude is fixed
+    # (`walk_leg_swing_initiation_income` itself) and the event
+    # can fire at most once per stride per leg, so total reward
+    # from this mechanism cannot run away regardless of policy
+    # behavior -- the exact "outbid a fatter income term" and
+    # "collapse the whole episode's reward scale" failure modes
+    # every charge-shaped sibling had to defend against here
+    # cannot arise by construction. This directly rewards the
+    # behavior the charge-shaped mechanisms could only
+    # discourage the ABSENCE of: the leg bearing the most
+    # weight right now taking its turn to actually swing,
+    # rather than staying planted because it is "needed" for
+    # support while its five teammates do the work. Uses the
+    # IDENTICAL qualifying-swing definition (liftoff -> >=2
+    # ticks airborne -> touchdown with real XY stride >=
+    # gait_gate_stride_mm, lift legs exempt) every other
+    # swing-detection gate in this file already computes at
+    # the touchdown branch below; "most loaded" is evaluated
+    # from a whole-tick PREVIOUS-tick trailing-load-EMA
+    # snapshot (`_swinit_load_ema`, own state/tau
+    # `walk_leg_swing_initiation_load_tau_s` default 0.3s,
+    # captured before this tick's per-leg loop starts
+    # overwriting it leg-by-leg) at the exact tick the leg
+    # left the ground, stored per-leg (`_liftoff_was_maxload`)
+    # until the swing resolves at touchdown -- see the loop
+    # below for the write/read sites. Default 0.0 = off; the
+    # ONLY reward-path effect when off is skipping the
+    # snapshot copy and the EMA update, leaving `r_swinit`
+    # (added post-loop, mirroring `r_swing`) at its 0.0 init,
+    # legacy bit-exact.
+    g_swinit = float(cfg_get(env.cfg, "reward",
+                             "walk_leg_swing_initiation_income",
+                             default=0.0))
+    return g_swinit

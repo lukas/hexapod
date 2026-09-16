@@ -742,7 +742,8 @@ def walk_leg_swing_initiation_maxload(loads: list) -> list:
 # They import the module-level constants/helpers defined ABOVE this line
 # from walk_task, so the import has to sit here (after those definitions)
 # rather than at the top of the file.
-from . import walk_reward_charges, walk_reward_yaw  # noqa: E402
+from . import (walk_reward_charges, walk_reward_gates,  # noqa: E402
+               walk_reward_yaw)
 
 class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
     """Joint-action goal env + walk mode (obs 59 + 11 + 2 vel feedback)."""
@@ -4220,39 +4221,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         r_ys = -k_ys * wz_chg * wz_chg
                         reward = float(reward) + r_ys
                         info["reward_yaw_still"] = r_ys
-            # Progress-gated kernel income (cycle 20, cw-walk-kgate;
-            # cfg reward.walk_kernel_prog_gate in [0,1], default 0=off):
-            # multiply the velocity-error kernel by
-            # clip(along/s_ref, 0, 1). Root cause: at commands
-            # 0.02-0.06 m/s the ABSOLUTE-error kernel pays a parked
-            # robot (v=0) 0.97-1.85/tick (up to 93% of peak income), so
-            # the tripod park stays a paid basin (return +519 vs +1220
-            # walking) that k_park_duty merely discounts. Gating income
-            # on achieved progress makes the park earn ~0 kernel income
-            # by construction while perfect tracking is unchanged
-            # (factor 1); overspeed unaffected (clip at 1). Walk-mode
-            # only by construction (this block).
-            # Support-quality product for the windowed course INCOME
-            # term below (fb_20260829T142239_63c818 item 5: positive
-            # walk income must be gated by support quality). Collects
-            # the SAME blended factors the run's own configured support
-            # gates (anchor / loadslip / height / gait) already apply
-            # to kernel income — a belly shuffle, skate or flag-leg
-            # gait earns course income at the same discount its kernel
-            # income takes, by construction, with zero new tuning.
-            # Deliberately EXCLUDES the per-tick prog/yaw kernels: the
-            # windowed term measures progress itself over gait-scale
-            # windows, and a per-tick progress factor would re-import
-            # exactly the instantaneous-velocity sensitivity the
-            # directive forbids.
-            support_gate = 1.0
-            g_kernel = float(cfg_get(self.cfg, "reward",
-                                     "walk_kernel_prog_gate",
-                                     default=0.0))
-            if g_kernel > 0.0 and s_ref > 1e-3:
-                factor = min(max(along / s_ref, 0.0), 1.0)
-                r_walk *= (1.0 - g_kernel) + g_kernel * factor
-                info["walk_prog_factor"] = factor
+            r_walk, support_gate = walk_reward_gates.kernel_progress_gate(self,
+                along, info, r_walk, s_ref)
             r_walk, r_freeze = walk_reward_yaw.turn_in_place_kernel_gate_and_freeze(self,
                 goal, info, r_walk, s_ref)
             # Anchored-stance income gate (cycle 30; the dense-

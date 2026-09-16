@@ -177,3 +177,111 @@ def turn_in_place_kernel_gate_and_freeze(env, goal, info, r_walk, s_ref):
             1.0 if (s_ref <= 1e-3 and abs(goal.wz_ref) > 1e-3)
             else 0.0)
     return r_walk, r_freeze
+
+
+def anti_drift_yaw_pricing(env, goal, info, reward):
+    # Anti-drift yaw pricing (operator, 08-10). Price
+    # ESCALATION on the symmetric kernel is CLOSED (yawcmd1 /
+    # yawgate1 / yawgate2: the structural ~+0.09 rad/s left
+    # drift survives any kernel weight — near wz_ref=0 the
+    # Gaussian's gradient at the drift point is tiny, and on
+    # turn segments the kernel never goes NEGATIVE for
+    # wrong-direction rotation). Two different mechanisms,
+    # both default 0 = byte-identical legacy:
+    #  - reward.k_yaw_prog: SIGNED rotation income, the
+    #    k_walk_prog analog for turn segments: pay
+    #    k * clip(wz/wz_ref, -1.5, 1.25) — constant gradient
+    #    toward the commanded direction and genuinely negative
+    #    when rotating against it.
+    #  - reward.k_yaw_still: quadratic drift charge on
+    #    heading-hold segments (wz_ref == 0): -k * wz^2. At
+    #    the measured drift (0.09 rad/s) k=50 costs ~0.4/tick
+    #    (real money vs the ~2/tick kernel); gyro-noise-level
+    #    wz stays ~free by the square law.
+    if env._yaw_cmd:
+        k_yp = float(cfg_get(env.cfg, "reward", "k_yaw_prog",
+                             default=0.0))
+        k_ys = float(cfg_get(env.cfg, "reward", "k_yaw_still",
+                             default=0.0))
+        if k_yp > 0.0 or k_ys > 0.0:
+            wz_now = env._body_wz()
+            if k_yp > 0.0 and abs(goal.wz_ref) > 1e-3:
+                # OVER-SPIN FARM FIX (08-23 income audit,
+                # probe_walk_income yawcmd0 stack): the legacy
+                # clip's +1.25 headroom makes OVER-rotation
+                # strictly dominant — the gradient points to
+                # ratio 1.25, not 1.0, and the eroded acq1-r2
+                # policy measurably farmed it (yaw_progress
+                # ratio 1.78, yaw_prog income +14% over the
+                # accurate champion; also explains yawprice3x
+                # getting WORSE with 3x income). cfg
+                # reward.yaw_prog_overshoot_decay > 0 makes
+                # income PEAK at ratio 1.0 and decay linearly
+                # past it (never below 0 on the overshoot
+                # side, so gyro noise is not punished);
+                # default 0.0 = bit-exact legacy clip.
+                # DC-vs-AC (same defect class as the 08-11
+                # yaw_still fix): pricing the INSTANTANEOUS wz
+                # pays the smooth fast spinner and fines the
+                # honest gait's zero-mean stride oscillation
+                # (measured 08-23: a 0.95-ratio tracker earned
+                # NEGATIVE yaw_prog while a 2.0-ratio spinner
+                # earned +). cfg reward.yaw_prog_avg_s = EMA
+                # time constant (s) for the wz used in the
+                # ratio; default 0 = legacy instantaneous.
+                # Per-episode EMA state rides
+                # MJX_SNAPSHOT_EXTRA like _yaw_still_ema.
+                tau_p = float(cfg_get(env.cfg, "reward",
+                                      "yaw_prog_avg_s",
+                                      default=0.0))
+                if tau_p > 0.0:
+                    a_ema = min(env.dt / tau_p, 1.0)
+                    env._yaw_prog_ema += a_ema * (
+                        wz_now - env._yaw_prog_ema)
+                    wz_p = env._yaw_prog_ema
+                    info["yaw_prog_wz_avg"] = wz_p
+                else:
+                    wz_p = wz_now
+                ratio = wz_p / goal.wz_ref
+                decay = float(cfg_get(
+                    env.cfg, "reward",
+                    "yaw_prog_overshoot_decay", default=0.0))
+                if decay > 0.0 and ratio > 1.0:
+                    val = max(1.0 - decay * (ratio - 1.0), 0.0)
+                else:
+                    val = min(max(ratio, -1.5), 1.25)
+                r_yp = k_yp * val
+                reward = float(reward) + r_yp
+                info["reward_yaw_prog"] = r_yp
+            if k_ys > 0.0 and abs(goal.wz_ref) <= 1e-3:
+                # DC-drift charge, not oscillation tax (08-11,
+                # probe_walk_income latent-defect fix). The
+                # instantaneous -k*wz^2 charged the honest
+                # gait's zero-mean stride oscillation
+                # (wz_rms ~ 0.044) about -73/ep while a frozen
+                # body paid ~0 — the charge taxed exactly the
+                # wrong policy. The drift being priced is DC
+                # (a fixed ~+0.09 rad/s offset); the gait's
+                # oscillation is zero-mean AC. Charging the
+                # EMA of wz separates them: the oscillation
+                # averages toward 0, the drift keeps its full
+                # offset. cfg reward.yaw_still_avg_s = EMA time
+                # constant in seconds, default 0 = legacy
+                # instantaneous (byte-identical). Per-episode
+                # EMA state rides MJX_SNAPSHOT_EXTRA
+                # (pool-restore lesson, commit 65edba7).
+                tau = float(cfg_get(env.cfg, "reward",
+                                    "yaw_still_avg_s",
+                                    default=0.0))
+                if tau > 0.0:
+                    a_ema = min(env.dt / tau, 1.0)
+                    env._yaw_still_ema += a_ema * (
+                        wz_now - env._yaw_still_ema)
+                    wz_chg = env._yaw_still_ema
+                    info["yaw_still_wz_avg"] = wz_chg
+                else:
+                    wz_chg = wz_now
+                r_ys = -k_ys * wz_chg * wz_chg
+                reward = float(reward) + r_ys
+                info["reward_yaw_still"] = r_ys
+    return reward

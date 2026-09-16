@@ -451,3 +451,105 @@ def init_gait_gate_and_curriculum_state(env):
         raise ValueError("goal.walk_curriculum and "
                          "goal.walk_lp_curriculum are mutually "
                          "exclusive command samplers")
+
+
+def init_obs_and_mode_flags(env):
+    # goal.walk_pure (2026-08-18, operator order
+    # fb_20260818T065930_03b422): pure-walk diet fixed at
+    # CONSTRUCTION time — every p_<mode> on the goal generator is
+    # zeroed and p_walk set to 1.0 before the first reset, so the
+    # batched MJX vec envs (which build their shim envs internally
+    # and mint reset pools immediately) can never sample a mixed
+    # diet before a post-construction set_goal_mix lands. Default
+    # 0 = off, bit-exact legacy (no draws, no attribute writes).
+    if float(cfg_get(env.cfg, "goal", "walk_pure",
+                     default=0.0)) > 0.0:
+        gen = env._goal_gen
+        for _name in dir(gen):
+            if (_name.startswith("p_")
+                    and isinstance(getattr(gen, _name),
+                                   (int, float))):
+                setattr(gen, _name, 0.0)
+        gen.p_walk = 1.0
+    # In-env walk quality probe (measurement only, default OFF;
+    # walkcurr MJX certification, fb_20260818T065930_03b422): when
+    # walk_probe_on is set (VecEnv set_attr on cert envs), each
+    # episode accumulates the eval_task quality metrics from the
+    # same mirrored fields the reward stack reads (pad-body XY,
+    # touch sensors, safety slew, IMU state, goal refs) and emits
+    # them as info["walk_probe"] on the terminal tick. Never
+    # affects obs, reward, termination or rng on any backend.
+    env.walk_probe_on = bool(float(cfg_get(
+        env.cfg, "goal", "walk_probe", default=0.0)) > 0.0)
+    env._wp = None
+    # Tripod phase clock (default OFF = legacy obs width; see module
+    # docstring on the phase reward). Obs order: [base, vel, phase].
+    env._phase_obs = float(cfg_get(env.cfg, "goal", "walk_phase_obs",
+                                    default=0.0)) == 1.0
+    env._phase = 0.0
+    # Yaw-rate command channel (goal.walk_yaw_cmd=1): +1 goal obs
+    # (scaled wz_ref via WalkGoal.as_obs). New-lineage flag — the
+    # width change means no warm start from a non-yaw checkpoint.
+    env._yaw_cmd = float(cfg_get(env.cfg, "goal", "walk_yaw_cmd",
+                                  default=0.0)) == 1.0
+    # Explicit mode/command one-hot (obs.mode_onehot=1): +6 obs at
+    # the frame TAIL (see module constants). New-lineage flag like
+    # walk_yaw_cmd — the width change means no direct warm start
+    # from a non-mode checkpoint (--obs-pad-transplant works).
+    env._mode_obs = float(cfg_get(env.cfg, "obs", "mode_onehot",
+                                   default=0.0)) == 1.0
+    # Command-derived one-hot (obs.mode_onehot_cmd=1; the multitask
+    # x arch transplant, 08-13). On the command-conditioned
+    # generalist recipe every episode is mode "walk", so the
+    # episode-constant one-hot above never routes the dual-core GRU
+    # (gru_policy.DualGruActorCriticPolicy gates on the obs tail).
+    # With this flag, walk-FAMILY ticks light the slot from the
+    # LIVE blended command instead: a commanded stop (all of
+    # |vx_ref|,|vy_ref| <= 0.005 m/s and |wz_ref| <= 0.02 rad/s)
+    # lights "hold" (stance core), any
+    # motion command lights "walk" (locomotion core). Non-walk
+    # modes are untouched; no effect unless obs.mode_onehot=1.
+    # Default OFF = bit-exact obs for every existing lineage.
+    env._mode_cmd = float(cfg_get(env.cfg, "obs", "mode_onehot_cmd",
+                                   default=0.0)) == 1.0
+    # Pure-turn command-derived slot (obs.mode_onehot_turn_cmd=1;
+    # 09-04, standwalk item-2 escalation, see MODE_ONEHOT_ORDER's
+    # "turn" entry above). Independent of mode_onehot_cmd (may be
+    # combined or used alone): on a walk-family tick, if the LIVE
+    # command is a PURE turn (both |vx_ref| and |vy_ref| <= 1e-3 AND
+    # |wz_ref| > 1e-3 — the EXACT same threshold sim_env.py's
+    # ``_bc_pure_turn`` uses for the bc_anchor_walk_turn_skip /
+    # bc_anchor_walk_combined_dose tick classification, so any
+    # future architecture routed off this bit sees the identical
+    # tick partition the BC-anchor levers already reason about),
+    # light "turn" instead of "walk"; every other tick (combined,
+    # straight-walk, non-walk families) is completely unaffected.
+    # Default OFF = bit-exact obs for every existing lineage (no
+    # effect unless obs.mode_onehot=1 too).
+    env._mode_turn_cmd = float(cfg_get(
+        env.cfg, "obs", "mode_onehot_turn_cmd", default=0.0)) == 1.0
+    # Recovery needs a task-stable pose frame.  q-q_nom is zero at
+    # every reset because q_nom is the arbitrary settled bad pose, so
+    # two very different tangles can otherwise begin with identical
+    # joint-position observations.  Append q-q_plant at the frame tail
+    # (recover ticks only); the pretrained dynamics adapter deliberately
+    # consumes only the original first 59 proprio fields.
+    env._recover_plant_q_obs = float(cfg_get(
+        env.cfg, "obs", "recover_plant_q", default=0.0)) == 1.0
+    # Fault-health obs (obs.fault_health=1; AMP brief sec8.2 M4
+    # wiring — default OFF, bit-exact-when-off per every other obs
+    # flag here). Appends EpisodeRandomization.fault_health() (18,
+    # per-joint 1.0 healthy / 0.0 disabled-frozen / intermediate =
+    # degraded strength) at the frame tail every tick, so the
+    # policy can actually CONDITION ON a known joint fault instead
+    # of only compensating blind (the faultsmoke1 pair's innate-
+    # tolerance measurement). Same value all episode (fault draw is
+    # per-reset, not per-tick) but recomputed every tick like
+    # mode_onehot/wz_ref so it survives obs-history stacking and
+    # pool-restore without a new SNAP_ATTRS entry — _ep_rand IS the
+    # snapshotted state. All-ones (perfectly healthy) whenever
+    # dr.fault_prob=0 or _ep_rand is unset (CPU C-path corner
+    # before the first reset), so a fault-unaware DR-0 eval reads
+    # as "everything healthy", the correct semantics.
+    env._fault_obs = float(cfg_get(
+        env.cfg, "obs", "fault_health", default=0.0)) == 1.0

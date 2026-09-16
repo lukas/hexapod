@@ -10,6 +10,8 @@ and re-indentation; the header comments travelled with the code.
 """
 from __future__ import annotations
 
+import math
+
 import numpy as np
 
 from rl_move.config import cfg_get
@@ -446,3 +448,41 @@ def gait_gate(env,
         info["walk_gait_min"] = g_score
         info["walk_gait_gate_factor"] = gt_factor
     return g_gait, r_cmd_track, r_prog, r_walk, support_gate
+
+
+def height_gate(env, goal, info, r_prog, r_walk, s_ref, support_gate):
+    # Height-keeping income gate (2026-08-10, hardware finding
+    # rl_docs/HARDWARE.md "sag": deployed walk policies migrate
+    # to a crouch 54-70 mm below the spawn stance — measured on
+    # the bench, knees track commands so it is COMMANDED posture,
+    # not slip. The base stack's quadratic height charge
+    # (env.py k_height) is ~0.36/tick at 60 mm while walk income
+    # is ~3/tick, so the crouch simply outbids it. Gate the
+    # income instead: multiply kernel + positive progress by a
+    # Gaussian on the body's height error vs the episode ref
+    # (z0-anchored, same as env.py h_err). Factor 1 at ref
+    # height, 0.61 at one sigma (30 mm default), 0.14 at two;
+    # symmetric so stilting up is never a strategy either.
+    # Never shrinks a penalty; metric exports whenever a
+    # velocity is commanded, the modifier only when enabled;
+    # default 0 = off, legacy exact. cfg:
+    # reward.walk_height_gate in [0,1],
+    # reward.walk_height_sigma_mm.
+    g_hgt = float(cfg_get(env.cfg, "reward",
+                          "walk_height_gate", default=0.0))
+    if s_ref > 1e-3:
+        h_err_m = (float(env.data.xpos[env._chassis_bid, 2])
+                   - env._z0) - goal.height_ref
+        sig_m = float(cfg_get(env.cfg, "reward",
+                              "walk_height_sigma_mm",
+                              default=30.0)) / 1000.0
+        h_gauss = math.exp(
+            -0.5 * (h_err_m / max(sig_m, 1e-6)) ** 2)
+        info["walk_height_factor"] = h_gauss
+        if g_hgt > 0.0:
+            hgt_factor = (1.0 - g_hgt) + g_hgt * h_gauss
+            r_walk *= hgt_factor
+            support_gate *= hgt_factor
+            if r_prog > 0.0:
+                r_prog *= hgt_factor
+    return r_prog, r_walk, support_gate

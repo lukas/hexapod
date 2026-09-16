@@ -11,6 +11,7 @@ import numpy as np
 from hexapod_core.joint_frame import joint_index, leg_slice
 from rl_move.body_ik import FixedFootBodyIK
 from rl_move.config import cfg_get
+from rl_move.env import start_kind_of
 from rl_move.robot_state import DEG2RAD, N_JOINTS
 
 
@@ -473,3 +474,102 @@ def reset_gravity_ease(env):
                 "randomize=True (dr_scale may be 0): the batched "
                 "path can only ease gravity through per-world "
                 "model-DR fields")
+
+
+def reset_mode_seq_and_goal(env):
+    """Mode-sequence episode state, goal-trajectory sampling, start kind
+    and the ease.rise_flat_only undo; moved verbatim from
+    SimHexapodBalanceEnv._reset_begin.
+    """
+    # Mode-sequencing episode state (goal.mode_seq, TRANSITIONS_
+    # DIRECTIVE CODE item 1). Cleared BEFORE _sample_goal so the
+    # planner (walk_task._sample_mode_seq) can repopulate it; all
+    # five ride mjx_host.SNAP_ATTRS (pool-restore lesson). None/0
+    # defaults = legacy bit-exact (the switch hook is a single
+    # attr check per tick and no rng is ever drawn).
+    env._seq_plan = None          # [{mode, tick, blend}, ...]
+    env._seq_idx = 0              # index of the ACTIVE segment
+    env._seq_stand_z = None       # abs z of the last commanded stand
+    env._seq_seg_end = None       # active segment's end tick
+    env._seq_pose_anchor = None   # hold/lower BC base pose mid-seq
+    # Active segment's own start tick (manual-drive-session-s1
+    # dig-in, 08-28: the *_grace_s windows below were all gated on
+    # the EPISODE-absolute clock `self._step_i * self.dt`, so any
+    # mid-sequence segment starting after its own grace window had
+    # already elapsed on the episode clock got ZERO grace — a
+    # mode_seq session's mid-episode hold entry tripped
+    # hold_min_load in ~1.4s (operator manual-drive REPORT.md
+    # finding #3), reproduced live: episode-relative t already
+    # exceeds hold_height_grace_s/hold_min_load_terminate_grace_s
+    # (~1s) the moment a later segment starts. Fixed by measuring
+    # grace against SEGMENT-relative elapsed time instead (below).
+    # Stays 0 for the whole episode when goal.mode_seq is off (no
+    # switches ever happen), so every non-mode_seq config/recipe
+    # is bit-exact — this is a bugfix to the existing grace
+    # mechanism's intent, not a new one.
+    env._seg_entry_step = 0
+
+    # Goal first: it decides the reset pose. Rise episodes start at
+    # the ZERO pose — legs straight out, belly resting on the yaw
+    # servos, exactly how the operator places the robot — and must
+    # curl the legs in and stand. Everything else starts at the plant.
+    env._goal_traj = env._sample_goal()
+    start_at = ("plant" if env._goal_traj is None
+                else getattr(env._goal_traj, "start_at", "plant"))
+    # ease.rise_flat_only (2026-09-14, walkcurr flat-start-rise
+    # 22/22-closed-lever escalation): scope the pre-existing
+    # generic ease.gravity_scale physics-easing
+    # mechanism (08-13, GAIT.md P3 lever 3, built for a different
+    # track's early-training ignition and used so far only as a
+    # STATIC whole-run setting) to ONLY the hardest, still-unsolved
+    # start_kind='flat' rise episodes -- a genuinely new mechanism
+    # FAMILY on this residual (dynamics-parameter easing), distinct
+    # from every already-closed cap/reward-pricing/reset-timing/
+    # leg-order/batch-composition lever (22/22 null, STATUS
+    # 2026-09-14 ~08:3x). Rationale: the 03:1x root-cause read
+    # showed a mesh-native OPEN-LOOP tuck-then-press clears rise at
+    # 2.21A (11% margin under the 2.5A trip) -- over_current is an
+    # RL sequencing/exploration problem, not a physics ceiling, so
+    # temporarily easing gravity (lower effective weight to push
+    # against during exploration) may let PPO discover the correct
+    # low-current curl-then-lift KINEMATIC sequence without
+    # tripping the cap, while non-flat episodes (bridge/crouch/
+    # walk/hold/lower -- all already solved) keep training at
+    # nominal physics so the fix can't be a free lunch that quietly
+    # trades away already-closed behavior. Default OFF (key unset
+    # or 0.0) is bit-exact: the pre-existing unconditional
+    # ease.gravity_scale behavior above is
+    # completely untouched. When ON and this episode does NOT
+    # qualify (not rise, or rise but not a flat start), UNDOES any
+    # easing the block above already applied, restoring the exact
+    # pre-easing values so those episodes are bit-exact nominal.
+    #
+    # MUST run HERE (inside _reset_begin, right after the goal is
+    # known) and NOT later in _reset_finalize (where self._is_rise
+    # is normally set): this method's caller (reset()) calls
+    # self._ep_rand.apply_to_model(...), which is what actually
+    # copies _ep_rand.gravity_vec onto model.opt.gravity, almost
+    # immediately after _reset_begin returns and LONG before
+    # _reset_finalize ever runs. A first version of this gate lived
+    # in _reset_finalize and correctly reverted _ep_rand.gravity_vec
+    # on paper, but apply_to_model had already baked the EASED
+    # value into model.opt.gravity by then, so gravity easing
+    # silently leaked into every non-flat-rise episode (hold/
+    # bridge/crouch/walk/lower) despite the field-level revert
+    # looking right in isolation -- found this cycle via a direct
+    # model.opt.gravity vs _ep_rand.gravity_vec comparison after
+    # the mod/strict canaries both showed an unexplained hold-
+    # canary regression vs their own parent. _goal_traj.mode/
+    # start_kind_of are used directly (self._is_rise doesn't exist
+    # yet at this point in _reset_begin).
+    if float(cfg_get(env.cfg, "ease", "rise_flat_only",
+                      default=0.0)) == 1.0 and not (
+            env._goal_traj is not None
+            and getattr(env._goal_traj, "mode", "") == "rise"
+            and start_kind_of(env._goal_traj) == "flat"):
+        env._ease_g = 1.0
+        if env._ep_rand is not None:
+            if env._ease_orig_gravity_vec is not None:
+                env._ep_rand.gravity_vec = (
+                    env._ease_orig_gravity_vec)
+    return start_at

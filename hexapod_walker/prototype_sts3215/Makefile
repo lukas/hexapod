@@ -1,4 +1,4 @@
-# hexapod prototype: tests, orchestrator state, robot deploy, Mac hub.
+# hexapod prototype: tests, robot deploy, Mac hub.
 # The CAD/print/BuildViz pipeline lives in https://github.com/lukas/hexapod-cad.
 #
 # Python runs through uv and the shared repo-root venv (created from the
@@ -16,19 +16,16 @@ else
 MJ_PY  := uv run python
 endif
 
-.PHONY: test test-fast state view view-static robot-video robot-check robot-unit-check robot-resolve robot-status robot-deploy robot-deploy-fast web-8898 web-8898-start web-8898-stop web-8898-restart web-8898-status web-8898-logs vision-check cameras help
+.PHONY: test test-fast view view-static robot-video robot-check robot-unit-check robot-resolve robot-status robot-deploy robot-deploy-fast web-8898 web-8898-start web-8898-stop web-8898-restart web-8898-status web-8898-logs vision-check cameras help
 
-# Orchestrator runtime state (ledger directory, run stories, RL_LOG.md) is a
-# plain directory at <checkout>/.state (or $HEXAPOD_STATE_DIR), not a git
-# repo -- see rl_move/orchestrator/state_dir.py. This copies the LIVE state
-# from the controller pod (falls back to the hexapod-state PVC mirror) into
-# it. Read-only here; the controller is the only writer.
-state:
-	bash "$(CURDIR)/rl_move/orchestrator/state_sync.sh" pull
+# The RL orchestrator and its runtime state (ledger, run stories, cycle
+# log) live in https://github.com/lukas/hexapod-orchestrator; sim tools
+# here read the ledger from $HEXAPOD_STATE_DIR (rl_move/ledger.py).
 
 # Tests. The default developer loop skips @pytest.mark.slow rollouts and
 # runs in parallel (pytest-xdist is in the dev group). `make test` is the
-# whole suite. Rules for adding tests: RESEARCH_RULES.md "Tests".
+# whole suite. Rules for adding tests: RESEARCH_RULES.md "Tests" in
+# https://github.com/lukas/hexapod-orchestrator.
 test-fast:
 	uv run pytest -q -n auto -m "not slow" rl_move/tests linux_control robots firmware/tests sysid/tests
 
@@ -39,7 +36,6 @@ help:
 	@echo "Hexapod prototype targets:"
 	@echo "  test-fast         Parallel suite without @slow rollouts (the developer loop)."
 	@echo "  test              Whole suite."
-	@echo "  state             Pull the orchestrator's live state dir (ledger, journals) into .state."
 	@echo "  view              Open the interactive MuJoCo viewer with the primitive model walking in tripod gait."
 	@echo "  view-static       Same viewer, legs frozen in the standing-pose keyframe (--no-gait)."
 	@echo "  robot-check       Fast linux_control syntax/JS/diff checks; no robot access."

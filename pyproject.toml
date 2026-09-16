@@ -8,11 +8,12 @@
 #
 # Remote runtimes deliberately do NOT use this file:
 #   * CoreWeave training pods receive a tarball of prototype_sts3215/ only
-#     (snapshot.sh --sync) and install pins from bootstrap_train_pod.sh.
+#     and install pins from bootstrap_train_pod.sh (both scripts live in
+#     https://github.com/lukas/hexapod-orchestrator).
 #   * The Uno Q receives the staged tree from linux_control/deploy_manifest.sh
 #     and runs with PYTHONPATH set by the systemd unit.
-#   * The controller pod runs with UV_NO_PROJECT=1 (rl_move/orchestrator/
-#     setup_controller.sh) on its system Python 3.11.
+#   * The controller pod runs with UV_NO_PROJECT=1 on its system Python 3.11
+#     (setup_controller.sh in https://github.com/lukas/hexapod-orchestrator).
 # Keep those contracts in mind before adding anything here that a remote
 # would need at runtime.
 
@@ -107,7 +108,6 @@ dev-mode-dirs = [
     "hexapod_walker/prototype_sts3215",
     "hexapod_walker/prototype_sts3215/linux_control",
     "hexapod_walker/prototype_sts3215/motor_setup",
-    "hexapod_walker/prototype_sts3215/rl_move/orchestrator",
 ]
 # Only consulted for a non-editable wheel build, which nothing does today.
 packages = [

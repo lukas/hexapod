@@ -1,1 +1,0 @@
-../../.state/CURRENT_TRUTHS.md

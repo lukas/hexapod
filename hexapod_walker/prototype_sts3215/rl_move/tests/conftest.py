@@ -52,25 +52,6 @@ import pytest  # noqa: E402
 _UNSAFE = re.compile(r"[^A-Za-z0-9._-]")
 
 
-def _state_dir_modules():
-    """TRANSITIONAL (removed with rl_move/orchestrator): the orchestrator
-    tests still in this tree read the ledger through state_dir's module
-    constants; patch whichever spellings are importable."""
-    mods = []
-    try:
-        import state_dir as bare
-        mods.append(bare)
-    except ImportError:
-        pass
-    try:
-        from rl_move.orchestrator import state_dir as pkg
-        if all(pkg is not m for m in mods):
-            mods.append(pkg)
-    except ImportError:
-        pass
-    return mods
-
-
 @pytest.fixture
 def state_ledger(tmp_path, monkeypatch):
     """Temp state dir behind ``HEXAPOD_STATE_DIR``; returns ``write(entries) -> Path``.
@@ -83,10 +64,6 @@ def state_ledger(tmp_path, monkeypatch):
     root = tmp_path / "state"
     root.mkdir(exist_ok=True)
     monkeypatch.setenv("HEXAPOD_STATE_DIR", str(root))
-    for mod in _state_dir_modules():
-        monkeypatch.setattr(mod, "STATE_DIR", root)
-        monkeypatch.setattr(mod, "LEDGER_DIR", root / "ledger")
-        monkeypatch.setattr(mod, "LEDGER", root / "ledger")
 
     def write(entries):
         ledger = root / "ledger"

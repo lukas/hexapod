@@ -1,6 +1,8 @@
-"""RL stack for prototype_sts3215: sim envs, trainers, evals, orchestrator.
+"""RL stack for prototype_sts3215: sim envs, trainers, evals, robot-side control.
 
-See ``../RL_PLAN.md``.
+The autonomous run orchestrator that drives these trainers lives in its own
+repo, https://github.com/lukas/hexapod-orchestrator (plan, rules and the
+run ledger live there too; ``rl_move.ledger`` reads the ledger).
 
 Path bootstrap (the ONE shim for this package): rl_move modules import the
 robot-side helpers by bare module name -- ``feetech_bus`` / ``inplace_demos``
@@ -11,8 +13,7 @@ directories. On the Mac the editable install (repo-root pyproject.toml)
 already provides these directories; on the CoreWeave pods the trainers run
 as ``python -m rl_move.sim.<module>`` from ``/workspace/prototype_sts3215``
 with nothing but the cwd on ``sys.path``. Appending the two sibling
-directories (plus ``rl_move/orchestrator``, whose scripts import each other
-by bare name) here, when the package is first imported, is what lets every
+directories here, when the package is first imported, is what lets every
 ``rl_move`` module drop its own per-file ``sys.path.insert`` block. The set
 is identical to the editable-install .pth and pytest.ini ``pythonpath``.
 ``hexapod_core/__init__.py`` does the same for the prototype root.
@@ -24,8 +25,7 @@ __all__ = ["__version__"]
 __version__ = "0.1.0"
 
 _proto = _Path(__file__).resolve().parents[1]
-for _d in (_proto, _proto / "linux_control", _proto / "motor_setup",
-           _proto / "rl_move" / "orchestrator"):
+for _d in (_proto, _proto / "linux_control", _proto / "motor_setup"):
     _s = str(_d)
     if _s not in _sys.path:
         _sys.path.append(_s)

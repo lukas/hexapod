@@ -196,3 +196,48 @@ def hold_minload_shortfall_reward(env, minload_floor_n, minload_in_hold, minload
             parts["hold_minload_short"] = parts.get(
                 "hold_minload_short", 0.0) - pen_ml
     return reward
+
+
+def transition_foot_drag_metric(env, parts):
+    """Transition foot-drag metric (parts trans_drag_mm); moved verbatim
+    from SimHexapodBalanceEnv._step_finish.
+    """
+    # Transition foot-drag metric (operator 08-11 night: stand/sit
+    # scrape their feet across the floor and nothing outside walk
+    # mode measured it). trans_drag_mm = loaded foot-XY translation
+    # this tick (per-foot deadband, walk's k_drag_loaded convention)
+    # on every NON-walk tick: rise, lower, raise, hold, track, lean,
+    # unload, quad. A pivoting/sliding loaded foot counts; a foot
+    # that LIFTS and steps does not. Emitted whenever the axis is
+    # measured so evals and W&B can watch the dragging.
+    mode_td = (getattr(env._goal_traj, "mode", "")
+               if env._goal_traj is not None else "")
+    if mode_td and mode_td != "walk":
+        drag_td = 0.0
+        # Deadband was a bare 0.5mm/tick literal calibrated at the
+        # pre-08-24 default control.hz=25 (dt=0.04s) against
+        # "dragging strokes run 0.4-0.5mm/tick" measurements -- a
+        # PER-TICK floor, not a per-second one. At today's default
+        # control.hz=100 (dt=0.01s) the identical literal represents
+        # a 4x LOOSER real-world velocity floor (50mm/s instead of
+        # the intended ~12.5mm/s), silently swallowing genuine slow
+        # persistent slip (2026-09-02 trans_drag semantics-bank
+        # dig-in). Scale by dt/0.04 so hz=25 stays bit-exact
+        # (scale=1.0) and hz=100 correctly shrinks to the same
+        # real-velocity floor -- mirrors how safety.max_delta_q_deg
+        # is already hz-scaled by convention.
+        tdrag_deadband_m = 0.0005 * (env.dt / 0.04)
+        for f_td in range(6):
+            adr_td = env._touch_adr[f_td]
+            on_td = (adr_td >= 0 and
+                     float(env.data.sensordata[adr_td]) > 0.5)
+            xy_td = env.data.xpos[env._pad_bids[f_td], :2]
+            if (on_td and env._tdrag_prev_on[f_td]
+                    and env._tdrag_prev_xy[f_td] is not None):
+                slip_td = float(np.linalg.norm(
+                    xy_td - env._tdrag_prev_xy[f_td]))
+                if slip_td > tdrag_deadband_m:
+                    drag_td += slip_td
+            env._tdrag_prev_xy[f_td] = xy_td.copy()
+            env._tdrag_prev_on[f_td] = on_td
+        parts["trans_drag_mm"] = drag_td * 1000.0

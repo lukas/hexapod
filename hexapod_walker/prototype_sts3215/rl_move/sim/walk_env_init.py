@@ -10,6 +10,12 @@ and re-indentation; the header comments travelled with the code.
 from __future__ import annotations
 
 from rl_move.config import cfg_get
+from .walk_task import (
+    WALKCURR_BUCKETS, WALKCURR_BUCKETS_V10, WALKCURR_BUCKETS_V2,
+    WALKCURR_BUCKETS_V3, WALKCURR_BUCKETS_V4, WALKCURR_BUCKETS_V5,
+    WALKCURR_BUCKETS_V6, WALKCURR_BUCKETS_V7, WALKCURR_BUCKETS_V8,
+    WALKCURR_BUCKETS_V9,
+)
 
 
 def init_reward_bookkeeping(env):
@@ -376,3 +382,72 @@ def init_charge_ramps(env):
         env._ls_bootstrap = {
             "steps": _lsb_steps, "min_frac": 0.65, "frac": 1.0,
         }
+
+
+def init_gait_gate_and_curriculum_state(env):
+    # All-support-legs gait gate bookkeeping (08-13, quad track,
+    # reward.walk_gait_gate): per-leg COMMANDED-tick index of the
+    # last completed real swing (liftoff -> >=2 ticks airborne ->
+    # touchdown with XY stride >= gait_gate_stride_mm), plus the
+    # commanded-tick clock itself and the per-tick factor stashed
+    # for _quad_income's clear/plant gating. All three ride
+    # MJX_SNAPSHOT_EXTRA (pool-restore lesson, commit 65edba7).
+    env._gait_last_step = [0] * 6
+    env._gait_cmd_tick = 0
+    env._gait_gate_qfactor = 1.0
+    # Learning-progress curriculum state: sampling weights over
+    # LP_BUCKETS (None = uniform) and the bucket of the current
+    # walk episode (surfaced in step info for the LP callback).
+    env._lp_weights = None
+    env._walk_bucket = None
+    # Adaptive competence+retention walk-command curriculum state
+    # (goal.walk_curriculum=1..4; see WALKCURR_BUCKETS*).
+    # PERSISTENT across episodes like _lp_weights/_rec_* — never in
+    # SNAP_ATTRS. _wc_results is certification-only: stochastic
+    # rollouts must never move the frontier; the trainer broadcasts
+    # deterministic held-out assay results via
+    # apply_walkcurr_certification and promotes via
+    # walkcurr_update_admission. version 2 (walkcurr2, operator MCP
+    # note fb_20260818T060044) selects WALKCURR_BUCKETS_V2 (fixed
+    # B0/B1 ignition band + per-bucket gate calibration) instead of
+    # the original V1 table; version 1 stays bit-exact unchanged.
+    wc_version = float(cfg_get(env.cfg, "goal", "walk_curriculum",
+                               default=0.0))
+    env._wc_on = wc_version in (1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0,
+                                 9.0, 10.0)
+    env._wc_version = int(wc_version) if env._wc_on else 0
+    env._wc_table = (WALKCURR_BUCKETS_V10 if env._wc_version == 10
+                      else WALKCURR_BUCKETS_V9 if env._wc_version == 9
+                      else WALKCURR_BUCKETS_V8 if env._wc_version == 8
+                      else WALKCURR_BUCKETS_V7 if env._wc_version == 7
+                      else WALKCURR_BUCKETS_V6
+                      if env._wc_version == 6
+                      else WALKCURR_BUCKETS_V5
+                      if env._wc_version == 5
+                      else WALKCURR_BUCKETS_V4
+                      if env._wc_version == 4
+                      else WALKCURR_BUCKETS_V3
+                      if env._wc_version == 3
+                      else WALKCURR_BUCKETS_V2
+                      if env._wc_version == 2
+                      else WALKCURR_BUCKETS)
+    if env._wc_version in (4, 5, 6, 7, 8, 9, 10):
+        required_s = max(float(b["duration_s"])
+                         for b in env._wc_table)
+        available_s = env.episode_steps * env.dt
+        if available_s + 0.5 * env.dt < required_s:
+            raise ValueError(
+                f"walk curriculum V{env._wc_version} requires "
+                f"episode_seconds >= {required_s:g} (got "
+                f"{available_s:g}); long-horizon certification "
+                "must not be silently shortened")
+    env._wc_active_n = 1
+    env._wc_results: dict = {}   # bucket -> {passed, score, cert_round}
+    env._wc_bucket = None        # this episode's curriculum bucket
+    env._wc_randomizers: dict = {}   # dr scale -> DomainRandomizer
+    if env._wc_on and float(cfg_get(
+            env.cfg, "goal", "walk_lp_curriculum",
+            default=0.0)) == 1.0:
+        raise ValueError("goal.walk_curriculum and "
+                         "goal.walk_lp_curriculum are mutually "
+                         "exclusive command samplers")

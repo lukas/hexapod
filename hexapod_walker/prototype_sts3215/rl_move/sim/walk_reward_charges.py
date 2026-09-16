@@ -112,3 +112,139 @@ def move_current_charge(env, info, reward, s_ref):
                 np.max(np.abs(cur_mv)))
             info["reward_walk_move_current"] = r_movecur
     return reward
+
+
+def stop_charges(env, goal, info, reward, s_ref, v):
+    # Commanded-STOP speed charge (2026-08-24, joyfullcurr6
+    # dig-in): during commanded-stop segments NOTHING in this
+    # stack prices residual body speed except the shallow
+    # Gaussian kernel (stillness 2.0/tick vs a 0.04 m/s creep's
+    # 1.45/tick, +0.55/tick margin) — every other walk term
+    # (prog gate, course, park-duty, step/drag, idle) is guarded
+    # by s_ref > 1e-3 and pays/charges NOTHING on stop ticks.
+    # The V6 ladder's cert bar (mean stop-tick speed <= 0.015
+    # m/s) therefore had no matching reward optimum, and the
+    # 40M joyfullcurr6 run converged to a ~0.04 m/s creep that
+    # failed the b1 stop cert ~79 rounds in a row while reward
+    # sat converged. This charges, on stop ticks only (s_ref ~
+    # 0 and NOT a commanded turn-in-place — that motion is the
+    # command), the instantaneous body speed against the
+    # 0.015 m/s cert bar: r -= k * min(speed/scale, cap).
+    # Stillness pays 0,
+    # the observed creep pays ~2.7k/tick, walking through a
+    # stop pays the cap — so true stillness is the optimum by
+    # construction, matching the cert exactly. Added AFTER the
+    # income gates so no gate can shrink it. NOT part of the
+    # walk_charge_ramp trio (that ramp loosens charges that
+    # make refusal falsely cheap; this one prices obedience to
+    # an explicit stop command and must never loosen). Default
+    # 0 = off, legacy bit-exact (no new info keys).
+    # cfg: reward.k_walk_stop_charge, reward.walk_stop_grace_s.
+    k_stopc = float(cfg_get(env.cfg, "reward",
+                            "k_walk_stop_charge", default=0.0))
+    # Read the stop-CURRENT gain here too: both stop charges
+    # share the _walk_stop_cmd_s grace timer, so the timer must
+    # tick whenever EITHER is armed (k_stopcur=0 default keeps
+    # the guard identical to the pre-current-charge code).
+    k_stopcur = float(cfg_get(env.cfg, "reward",
+                              "k_walk_stop_current", default=0.0))
+    if k_stopc > 0.0 or k_stopcur > 0.0:
+        # Elapsed time since the current stop segment began
+        # (reset the instant translation is commanded again).
+        # Tracked whenever the charge is active at all so the
+        # ramp below is correct from the very first stop tick,
+        # independent of the turn-in-place exemption.
+        if s_ref > 1e-3:
+            env._walk_stop_cmd_s = 0.0
+        else:
+            env._walk_stop_cmd_s += env.dt
+    if (k_stopc > 0.0 and s_ref <= 1e-3
+            and not (env._yaw_cmd
+                     and abs(float(getattr(goal, "wz_ref", 0.0)
+                                   or 0.0)) > 1e-3)):
+        scale_sc = 0.015
+        cap_sc = 4.0
+        # Settle-grace (2026-08-24, joyfullcurr7 dig-in): the
+        # plain charge above priced the UNAVOIDABLE physical
+        # deceleration transient right after a stop command as
+        # harshly as sustained creep, and joyfullcurr7 (k=1.0,
+        # no grace) measured the consequence directly — every
+        # fall in its held-out joygate session was an
+        # over_current safety trip, not roll/tilt: the policy
+        # was braking hard enough to spike actuator current.
+        # grace_s > 0 linearly ramps the charge's MULTIPLIER
+        # from 0 at the instant a stop begins to 1.0 at
+        # grace_s seconds in (then holds at 1.0) so the
+        # transient pays little/nothing while SUSTAINED creep
+        # past the grace window still pays the full charge —
+        # the actual cert-bar violation. Default 0 = off,
+        # bit-exact (grace_mult stays exactly 1.0, identical
+        # to the pre-grace formula).
+        grace_s = float(cfg_get(env.cfg, "reward",
+                                "walk_stop_grace_s", default=0.0))
+        grace_mult = 1.0
+        if grace_s > 1e-6:
+            grace_mult = min(max(
+                env._walk_stop_cmd_s / grace_s, 0.0), 1.0)
+        sp_sc = float(np.hypot(float(v[0]), float(v[1])))
+        r_stopc = -k_stopc * grace_mult * min(sp_sc / scale_sc,
+                                               cap_sc)
+        reward = float(reward) + r_stopc
+        info["walk_stop_speed_m_s"] = sp_sc
+        info["reward_walk_stop"] = r_stopc
+        info["walk_stop_grace_mult"] = grace_mult
+    # Commanded-STOP actuator-current charge (2026-08-24,
+    # joyfullcurr8 dig-in): joyfullcurr7 (stop-speed charge,
+    # no grace) and joyfullcurr8 (+0.4s grace ramp) BOTH ended
+    # with 100% of held-out joygate falls = over_current; the
+    # grace ramp moved slip/dir_err but over_current not at
+    # all. Root cause: the SafetyLayer trips on servo current
+    # > 2.5 A SUSTAINED for 0.8 s through a ~0.1 s low-pass
+    # (safety.py / sim_env._read_state) -- that is not a
+    # braking transient, it is a sustained isometric fight
+    # (stiff position targets pressing against contact) held
+    # through the stop stance. NOTHING in the stack prices
+    # that fight on stop ticks (k_current_hot is global and
+    # OFF in this lineage), so speed-based stop pricing pushes
+    # the policy INTO it: braking/freezing hard is the
+    # cheapest way to zero the speed charge. This charges, on
+    # stop ticks only (same s_ref/turn-in-place scoping as the
+    # speed charge above), per-servo current quadratically
+    # above a headroom threshold (default 1.5 A = 1.0 A under
+    # the trip): r -= k * grace_mult * min(sum(max(|I|-thr,0)^2),
+    # cap). A settled deadband stance draws ~0 A (sim_env
+    # firmware dead-zone), so RELAXED stillness pays nothing
+    # -- the optimum is stop-without-fighting, exactly what
+    # the joygate demands. Level charge, not current-rate: the
+    # trip fires on sustained level, and the 0.1 s LPF already
+    # erases spikes a rate term would price. Shares
+    # walk_stop_grace_s (same timer) so the unavoidable
+    # braking current of the first grace window pays little.
+    # Added AFTER the income gates (gait-gate rule). Default
+    # 0 = off, legacy bit-exact (no new info keys).
+    # cfg: reward.k_walk_stop_current (+ shared walk_stop_grace_s).
+    if (k_stopcur > 0.0 and s_ref <= 1e-3
+            and not (env._yaw_cmd
+                     and abs(float(getattr(goal, "wz_ref", 0.0)
+                                   or 0.0)) > 1e-3)):
+        cur_sc = getattr(env._state, "servo_current", None)
+        if cur_sc is not None:
+            thr_cur = 1.5
+            cap_cur = 4.0
+            grace_s_cur = float(cfg_get(env.cfg, "reward",
+                                        "walk_stop_grace_s",
+                                        default=0.0))
+            gm_cur = 1.0
+            if grace_s_cur > 1e-6:
+                gm_cur = min(max(
+                    env._walk_stop_cmd_s / grace_s_cur, 0.0), 1.0)
+            over_cur = np.maximum(
+                np.abs(np.asarray(cur_sc, dtype=float)) - thr_cur,
+                0.0)
+            r_stopcur = -k_stopcur * gm_cur * min(
+                float(np.sum(over_cur ** 2)), cap_cur)
+            reward = float(reward) + r_stopcur
+            info["walk_stop_current_max_a"] = float(
+                np.max(np.abs(cur_sc)))
+            info["reward_walk_stop_current"] = r_stopcur
+    return reward

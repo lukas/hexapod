@@ -77,7 +77,7 @@ targets, so the single-joint grounded-current auto-retry exception does not
 apply.  Only a recoverable missing-feedback, camera, recorder, or framework
 stop may retry: inspect the live cameras, require three fresh healthy samples,
 and retry the complete leg job at most twice, following
-`EMERGENCY_HANDLING.md`.
+`EMERGENCY_HANDLING.md` (lukas/hexapod-orchestrator).
 
 ## Evidence and comparison
 

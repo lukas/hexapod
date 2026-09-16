@@ -28,7 +28,7 @@ AprilTag tracker submodule. Start with that project's `README.md` and
 `AGENTS.md`. The mechanical design (CAD, BOM, printing, BuildViz) is the
 separate repo [lukas/hexapod-cad](https://github.com/lukas/hexapod-cad).
 
-The hexapod has [two parallel walking goals](hexapod_walker/prototype_sts3215/RL_GOALS.md):
+The hexapod has [two parallel walking goals](https://github.com/lukas/hexapod-orchestrator/blob/main/RL_GOALS.md):
 smooth joystick control in simulation and on the physical robot by any
 effective means, and that same result with walking learned entirely through RL without
 demonstrations. The practical path keeps physical builds progressing while
@@ -42,9 +42,12 @@ so `import rl_move` / `import hexapod_core` / the bare-module style used by
 is the script runner the Makefiles use (it syncs the env, then runs a script
 from its own directory).
 
-The RL orchestrator's runtime state (ledger, run stories, cycle log) is a
-separate repo, `lukas/hexapod-state`, cloned at `.state/` by
-`make -C hexapod_walker/prototype_sts3215 state`. See `AGENTS.md`.
+The autonomous RL orchestrator (watcher, launcher, status server, MCP
+server), the research-process rules (`RESEARCH_RULES.md`, `RL_PLAN.md`,
+`RL_GOALS.md`, `EMERGENCY_HANDLING.md`, ...) and the runtime state it writes
+(ledger, run stories, cycle log) live in their own repo,
+[lukas/hexapod-orchestrator](https://github.com/lukas/hexapod-orchestrator). Sim tools here read the ledger
+from `$HEXAPOD_STATE_DIR` (`rl_move/ledger.py`).
 
 After a fresh clone, initialize the tracker submodule:
 

@@ -257,7 +257,8 @@ them a new pre-run checklist:
   pose the look is told so and judges hazards, not the pose.
 - **Righting after a fall onto one leg** is not coded: try it by hand first
   (plant the free legs at low torque to widen the base, then glide up on
-  tripods, camera on it). See CURRENT_TRUTHS.
+  tripods, camera on it). See CURRENT_TRUTHS.md in the orchestrator state
+  (lukas/hexapod-orchestrator).
 
 ## Run outcomes
 

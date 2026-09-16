@@ -7,7 +7,7 @@ Operator brief, adopted 2026-08-21 as the `amp` track's charter
 ## Parent goal (operator clarification, 2026-09-08)
 
 AMP is a demonstration-assisted method serving **Goal 1 (`any_means`)** in
-`../RL_GOALS.md`. Random initialization does not make its motion-prior
+`RL_GOALS.md` (https://github.com/lukas/hexapod-orchestrator). Random initialization does not make its motion-prior
 training demonstration-free. It cannot establish Goal 2 (`rl_only`).
 This charter defines method milestones; its pipeline is one optional route
 to physical joystick walking, not an exclusive campaign priority or a
@@ -46,7 +46,7 @@ The brief below is binding, with exactly these adaptations:
 
 ## Directive to Cursor
 
-Use the locomotion program below as the AMP method within Goal 1 when its evidence supports the next physical-walking improvement; allocation follows `../RL_PLAN.md`.
+Use the locomotion program below as the AMP method within Goal 1 when its evidence supports the next physical-walking improvement; allocation follows `RL_PLAN.md` (lukas/hexapod-orchestrator).
 
 Within AMP, pursue reward, specialist-policy or stand/walk work only when
 it directly supports this method. This restriction does not govern the

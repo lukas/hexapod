@@ -1,7 +1,7 @@
 # Hexapod STS3215 prototype
 
 Tabletop 3D-printed hexapod driven by Feetech STS3215 bus servos and an
-Arduino Uno Q. We pursue [two goals in parallel](RL_GOALS.md): smooth
+Arduino Uno Q. We pursue [two goals in parallel](https://github.com/lukas/hexapod-orchestrator/blob/main/RL_GOALS.md): smooth
 joystick walking in simulation and on the physical robot by any effective
 means, and the same outcome with
 walking learned entirely through RL, without demonstrations. The first path
@@ -14,7 +14,7 @@ point for the one you're working on:
 |------------------|----------|
 | Design/print/assemble the robot (CAD, BOM) | separate repo: [lukas/hexapod-cad](https://github.com/lukas/hexapod-cad) (`PROTOTYPE.md` there) |
 | Run the physical robot (firmware, control, safety) | `firmware/`, `linux_control/`, `rl_move/API.md` — **read the hardware-safety rules in the repo root `AGENTS.md` first** |
-| Train it in simulation (RL campaign + autonomous agent loop) | [`RL_GOALS.md`](RL_GOALS.md) — the two goals in plain English; then [`rl_docs/README.md`](rl_docs/README.md) (doc index), `RL_PLAN.md`, `RL_LOG.md` |
+| Train it in simulation (RL campaign + autonomous agent loop) | [`rl_docs/README.md`](rl_docs/README.md) (doc index) here; the goals, plan, rules and the autonomous loop are the separate repo [lukas/hexapod-orchestrator](https://github.com/lukas/hexapod-orchestrator) (`RL_GOALS.md`, `RL_PLAN.md`, `RESEARCH_RULES.md` at its root) |
 | See and steer either goal in simulation | [`sim_viewer/README.md`](sim_viewer/README.md) — viewer/joystick controls; verify the selected policy and configuration against the goal's demo evidence |
 | Track it with cameras and AprilTags | [`hexapod-tracker/README.md`](hexapod-tracker/README.md) — standalone submodule with its own package, configs, UI, tests, and agent instructions |
 
@@ -42,8 +42,7 @@ point for the one you're working on:
 | `firmware/` / `linux_control/` / `motor_setup/` | On-robot software |
 | `hexapod-tracker/` | Git submodule containing AprilTag tracking, camera server/UI, configs, and off-robot vision tests |
 | `rl_docs/` | RL campaign docs index: goal, operator wishlist, commands, log conventions |
-| `RL_PLAN.md` / `RL_LOG.md` | Current RL plan + condensed campaign history (full history in `archive/`) |
-| `rl_move/` | RL code: `sim/` (MuJoCo/MJX envs + training), `orchestrator/` (autonomous loop: watcher, launcher, guardrails), robot-side control |
+| `rl_move/` | RL code: `sim/` (MuJoCo/MJX envs + training), robot-side control; the autonomous loop (watcher, launcher, guardrails) is [lukas/hexapod-orchestrator](https://github.com/lukas/hexapod-orchestrator) |
 | `logs/` | Eval artifacts + per-experiment summaries (`logs/experiments/<run>/`) |
 | `archive/` | Dated reviews, rulings, full plan/log history — search, don't read |
 

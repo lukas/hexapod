@@ -2,7 +2,7 @@
 
 ## Parent goal (operator clarification, 2026-09-08)
 
-This `assistfade` method serves **Goal 1 (`any_means`)** in `../RL_GOALS.md`.
+This `assistfade` method serves **Goal 1 (`any_means`)** in `RL_GOALS.md` (https://github.com/lukas/hexapod-orchestrator).
 Its BC/teacher/residual-assisted lineages do not qualify for demonstration-free
 Goal 2, even after assistance is removed. Goal 2 proceeds independently through
 clean RL in `walkcurr`. Historical rung verdicts below are unchanged; this
@@ -94,7 +94,7 @@ fixed headings, command changes/stops, yaw, then DR/pushes.
 ## Process requirements
 
 - Use run-based reward decomposition, video and held-out eval evidence for
-  new reward mechanisms, per `../RESEARCH_RULES.md`. Inspect weight shift,
+  new reward mechanisms, per `RESEARCH_RULES.md` (lukas/hexapod-orchestrator). Inspect weight shift,
   lift, placement, support transition and failure modes when relevant;
   do not recreate rollout-ranking unit-test banks.
 - Use matched controls and seed replication.

@@ -5,20 +5,21 @@ through a 5,000-line log to answer a question. Each file says what
 it is for; keep them SHORT when you edit them.
 
 The two walking goals, each demonstrated in sim and physically, are defined
-in `../RL_GOALS.md`: progress
+in `RL_GOALS.md` of https://github.com/lukas/hexapod-orchestrator (the
+autonomous orchestrator, its rules and its state live there): progress
 by any effective means, alongside walking learned entirely through RL with
 no demonstrations. Eight method tracks live in
-`../rl_move/orchestrator/tracks.json`: `joystick`, `amp`, `cpg`, `standwalk`,
+`orchestrator/tracks.json` (hexapod-orchestrator): `joystick`, `amp`, `cpg`, `standwalk`,
 `assistfade`, `todaypolicy`, `speed` serve `any_means`; `walkcurr` serves
 `rl_only`.
 Method PASS is not parent-goal completion. Superseded docs were retired 2026-09-14 (git history before that commit).
 
 | File | What it answers | When to read |
 |------|-----------------|--------------|
-| `../RL_GOALS.md` | The two goals, sim demos, physical evidence, demonstration boundary and priorities | Every cycle, first |
-| `../CURRENT_TRUTHS.md` | Accepted facts and run verdicts; RL_GOALS owns purpose/priorities | Every cycle |
-| `../RL_PLAN.md` | The plan for physical delivery and demonstration-free research in parallel | Every cycle |
-| `../STATUS.md` | Operator-facing digest: how it's going, what's waiting | Catching up; after any story-changing verdict (update it!) |
+| `RL_GOALS.md` (hexapod-orchestrator root) | The two goals, sim demos, physical evidence, demonstration boundary and priorities | Every cycle, first |
+| `CURRENT_TRUTHS.md` (orchestrator state) | Accepted facts and run verdicts; RL_GOALS owns purpose/priorities | Every cycle |
+| `RL_PLAN.md` (hexapod-orchestrator root) | The plan for physical delivery and demonstration-free research in parallel | Every cycle |
+| `STATUS.md` (hexapod-orchestrator root) | Operator-facing digest: how it's going, what's waiting | Catching up; after any story-changing verdict (update it!) |
 | `tracks/joystick/STATUS.md` | Goal/Now/Next for the RL-from-teacher joystick track | Working that track |
 | `tracks/amp/STATUS.md` | Method milestones for demonstration-assisted AMP (any_means) | Working that track |
 | `tracks/cpg/STATUS.md` | Goal/Now/Next for the Berkeley-style CPG gait-search track | Working that track |
@@ -44,8 +45,8 @@ Method PASS is not parent-goal completion. Superseded docs were retired 2026-09-
 | `EXPERIMENT_LOGS.md` | Per-run `logs/experiments/<run>/` convention (dig-ins) | When digging into a run |
 | `WANDB.md` | How W&B is wired: project/creds, ops.sh readers, gotchas | First time touching W&B or on auth failure |
 | `runs/` | One GENERATED summary per run — rendered from `experiments.json`; never hand-edit | Browsing past runs |
-| `../RESEARCH_RULES.md` + `../RUN_INTERPRETATION_RULES.md` | How to design, launch, continue, and judge runs (incl. the 08-21 reward/eval ruling) | Before launch/triage |
-| `../rl_move/orchestrator/guardrails.yaml` | Hard limits you must obey | Every cycle |
+| `RESEARCH_RULES.md` + `RUN_INTERPRETATION_RULES.md` (hexapod-orchestrator root) | How to design, launch, continue, and judge runs (incl. the 08-21 reward/eval ruling) | Before launch/triage |
+| `orchestrator/guardrails.yaml` (hexapod-orchestrator) | Hard limits you must obey | Every cycle |
 
 Standing rule: if you had to FIGURE OUT a command (it failed, was
 slow, or took several tries) and then got it right, promote it —

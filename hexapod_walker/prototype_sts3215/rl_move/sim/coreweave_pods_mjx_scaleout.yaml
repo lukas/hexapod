@@ -15,10 +15,11 @@
 # the node's `cw-hpc-verification` health-check pod (holds all 8 GPUs
 # for diagnostics on a freshly provisioned node) releases — normal,
 # not an outage; bootstrap once Running.
-# Fleet: 16 slots. Live truth: uv run python rl_move/orchestrator/capacity.py
+# Fleet: 16 slots. Live truth: uv run python orchestrator/capacity.py
+#   (in https://github.com/lukas/hexapod-orchestrator)
 # Pods may sit Pending while CoreWeave hpc-verification health checks
 # hold a node's GPUs; they schedule as soon as the check releases.
-# Bootstrap after apply: bash rl_move/orchestrator/bootstrap_train_pod.sh <pod>
+# Bootstrap after apply: bash orchestrator/bootstrap_train_pod.sh <pod> (same repo)
 apiVersion: v1
 kind: Pod
 metadata:

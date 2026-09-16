@@ -15,7 +15,7 @@ entrypoint is:
 
 ```sh
 cd /workspace/hexapod/hexapod_walker/prototype_sts3215
-bash rl_move/orchestrator/ops.sh hybriddemo <run> [out-dir] \
+bash /workspace/hexapod-orchestrator/orchestrator/ops.sh hybriddemo <run> [out-dir] \
   [--script human|square|sweep|human_turn|turn] \
   [--wz-max 0.3] \
   [--policy-mode deterministic|stochastic] \
@@ -109,7 +109,7 @@ in the air before loading them; `blend` and `drag` are the foot-sliding
 families and should be comparison/failure modes only. Example:
 
 ```sh
-bash rl_move/orchestrator/ops.sh hybriddemo <walk-run> logs/manual_drive/<name> \
+bash ~/hexapod-orchestrator/orchestrator/ops.sh hybriddemo <walk-run> logs/manual_drive/<name> \
   --stand-mode tuck --lower-mode tuck --script human_turn --wz-max 0.3 \
   --policy-mode deterministic
 ```

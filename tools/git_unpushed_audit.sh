@@ -47,7 +47,7 @@ printf '%s\n' "$CLONE_LIST" | while IFS= read -r clone; do
   name="$(basename "$clone")"
 
   # Repair 1: guarantee main is fetchable, without widening a deliberately
-  # narrow refspec into "fetch every orchestrator branch".
+  # narrow refspec into "fetch every branch".
   if ! git -C "$clone" config --get-all remote.origin.fetch 2>/dev/null \
       | grep -qE 'refs/heads/(\*|main):'; then
     echo "[$name] remote.origin.fetch cannot see main -- adding it"

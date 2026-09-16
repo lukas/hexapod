@@ -338,7 +338,7 @@ straight out from the body**, with coxa, femur, tibia and foot colinear:
 So the **default hardware stand plant (0, +20, +28)** is femur angled
 toward the floor with tibia steep (or a learned plant from Calibrate →
 Plant height).  CAD / MuJoCo / `sts` RL still use the older crouch
-**(0, −25, +60)** — see `../RL_PLAN.md` Appendix A.
+**(0, −25, +60)** — see `RL_PLAN.md` Appendix A (lukas/hexapod-orchestrator).
 
 ### Mounting each horn against zero
 

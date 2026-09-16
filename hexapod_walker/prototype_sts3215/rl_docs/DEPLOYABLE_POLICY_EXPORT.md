@@ -36,7 +36,7 @@ Reuse the orchestrator helper; it resolves the run record instead of guessing
 a W&B filename:
 
 ```sh
-bash rl_move/orchestrator/ops.sh pullckpt <run-name>
+bash ~/hexapod-orchestrator/orchestrator/ops.sh pullckpt <run-name>
 shasum -a 256 rl_move/sim/policies/ppo_goal_<run-name>.zip
 ```
 

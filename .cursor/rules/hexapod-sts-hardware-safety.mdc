@@ -21,7 +21,7 @@ since repaired). The rules are what remain.
   consecutive incomplete scans with distinct fresh timestamps. Reinspect with
   camera plus recovered telemetry before any bounded retry; hands-on correction
   is required only if the condition persists or remains inconclusive.
-- Follow `hexapod_walker/prototype_sts3215/EMERGENCY_HANDLING.md` for the
+- Follow `EMERGENCY_HANDLING.md` (https://github.com/lukas/hexapod-orchestrator) for the
   canonical hold-versus-controlled-stop-versus-limp decision. Never add a
   sit, zero, stand, or plant transition merely because an experiment or
   recorder failed.
@@ -87,4 +87,4 @@ Obsession with standing caused the 2026-08-06 damage. Default topic is
   works on a real plant the operator accepts.
 - 25 Hz is fine; do not chase 50 Hz during hardware bring-up.
 
-See `hexapod_walker/prototype_sts3215/rl_move/API.md` and `RL_PLAN.md`.
+See `hexapod_walker/prototype_sts3215/rl_move/API.md` and `RL_PLAN.md` (lukas/hexapod-orchestrator).

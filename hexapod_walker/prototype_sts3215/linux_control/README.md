@@ -507,4 +507,4 @@ Then open `http://<board-ip>:8080` (and `https://…:8443` for gamepad).
 ## RL / sim
 
 Learning stack lives in `../../sts/` (MuJoCo + residual PPO).  Strategy notes:
-`../RL_PLAN.md` (single RL plan doc; sim↔real facts in its Appendix A).
+`RL_PLAN.md` in https://github.com/lukas/hexapod-orchestrator (single RL plan doc; sim↔real facts in its Appendix A).

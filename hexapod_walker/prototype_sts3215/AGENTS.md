@@ -3,8 +3,8 @@
 The repo-root `AGENTS.md` governs everything here: subtract first, goals
 (`RL_GOALS.md`, `RL_PLAN.md`), worktrees, `uv`, tests, standing authorization
 and hardware safety (`EMERGENCY_HANDLING.md`; before a new recovery routine also
-`RECOVERY_LESSONS.md` and `linux_control/ROBOT_OBSERVE.md`). Orchestrator state lives in
-`.state/` (`rl_move/orchestrator/state_dir.py`), not in this tree.
+`RECOVERY_LESSONS.md` and `linux_control/ROBOT_OBSERVE.md`).
+The orchestrator, those research-rule docs and its state live in https://github.com/lukas/hexapod-orchestrator; config gates are temporary: adopt the value into `config.yaml` or delete the gate, with tests, once the run that needed it is verdicted.
 
 ## MuJoCo robot simulation
 
@@ -24,7 +24,7 @@ To show a recent walking checkpoint being driven, use the orchestrator
 wrapper rather than reconstructing the run configuration by hand:
 
 ```sh
-bash rl_move/orchestrator/ops.sh drivevideo <run-name> \
+bash ~/hexapod-orchestrator/orchestrator/ops.sh drivevideo <run-name> \
   --script human_turn --seconds 29 --policy-mode deterministic
 ```
 

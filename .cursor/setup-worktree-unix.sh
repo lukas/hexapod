@@ -26,9 +26,9 @@ if [ -d "$ROOT/$POL" ] && [ ! -e "$POL" ]; then
   ln -s "$ROOT/$POL" "$POL"
 fi
 
-# Orchestrator runtime state (.state = clone of lukas/hexapod-state) is
-# read-only on laptops; share the main checkout's clone instead of
-# re-cloning. `make -C hexapod_walker/prototype_sts3215 state` refreshes it.
+# Orchestrator runtime state (.state, written by lukas/hexapod-orchestrator;
+# rl_move/ledger.py reads it, or $HEXAPOD_STATE_DIR) is read-only on
+# laptops; share the main checkout's copy instead of re-syncing.
 if [ -d "$ROOT/.state" ] && [ ! -e .state ]; then
   ln -s "$ROOT/.state" .state
 fi

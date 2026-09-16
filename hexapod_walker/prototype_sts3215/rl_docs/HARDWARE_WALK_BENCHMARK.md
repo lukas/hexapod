@@ -45,7 +45,7 @@ These are supported characterization jobs, not walking or repair acceptance.
 `sysid.run_hw` alone does not enforce all support/camera gates: the serialized guarded
 supervisor must do so. Coordinated hip/knee current trips do not use the
 single-joint automatic current-retry exception. The canonical stop rules remain
-in `EMERGENCY_HANDLING.md`.
+in `EMERGENCY_HANDLING.md` (lukas/hexapod-orchestrator).
 
 Audit saved recordings without contacting the robot:
 

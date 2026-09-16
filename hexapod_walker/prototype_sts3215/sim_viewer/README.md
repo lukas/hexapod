@@ -264,7 +264,7 @@ KUBECONFIG=~/.kube/coreweave.yaml kubectl cp \
   rl_move/sim/policies/<name>.zip
 ```
 
-Verify md5 against RL_LOG.md. `hexapod-mjx-train-0` and
+Verify md5 against RL_LOG.md (orchestrator state, lukas/hexapod-orchestrator). `hexapod-mjx-train-0` and
 `hexapod-sweep-friction` hold the most checkpoints.
 
 ## How the pieces fit (don't re-derive)

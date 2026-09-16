@@ -82,4 +82,4 @@ Raw feedback retains `raw_deg` and `deg`; the offline summary labels these
 `raw_deg` and `logical_deg`. It never infers contact, body lift, or successful
 unloading from encoder progress. Missing optional `body-monitor.json` is allowed.
 
-Before recovery work, read [the recovery lessons](../RECOVERY_LESSONS.md).
+Before recovery work, read [the recovery lessons](https://github.com/lukas/hexapod-orchestrator/blob/main/RECOVERY_LESSONS.md).

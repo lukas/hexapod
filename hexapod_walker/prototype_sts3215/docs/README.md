@@ -3,14 +3,14 @@
 Mechanical design, CAD, BOM, printing and BuildViz moved to their own repo on
 2026-09-15: https://github.com/lukas/hexapod-cad (`PROTOTYPE.md` there is the
 build entry point). This directory keeps the robot-side notes that code or the
-orchestrator still reference.
+orchestrator (https://github.com/lukas/hexapod-orchestrator) still reference.
 
 - [`../JOINT_COORDINATES.md`](../JOINT_COORDINATES.md) — joint signs, frames,
   and pose conventions shared by CAD, simulation, and control; the executable
   form is `hexapod_core/joint_frame.py`.
 - Dated `*_2026-09-*.md` notes here are referenced from tracks or code; new
-  journal entries go to the state directory (`RL_LOG.md`, `CURRENT_TRUTHS.md`,
-  `rl_docs/meta/`), not here.
+  journal entries go to the orchestrator's state directory (`RL_LOG.md`,
+  `CURRENT_TRUTHS.md`, `rl_docs/meta/` in lukas/hexapod-orchestrator), not here.
 
 ## Other work areas
 

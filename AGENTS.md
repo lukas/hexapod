@@ -19,15 +19,16 @@ accumulation. So:
 - No silent fallbacks. When firmware, config or a dependency is not what the
   code expects, fail with the fix in the message. Never degrade quietly to an
   older or slower path.
-- Do not add to this file, `RESEARCH_RULES.md` or `.cursor/rules` because of
-  an incident. Put the lesson in the fix.
+- Do not add to this file, `RESEARCH_RULES.md` (in lukas/hexapod-orchestrator)
+  or `.cursor/rules` because of an incident. Put the lesson in the fix.
 - Nothing generated goes in git: logs, artifacts, media, ledgers, run stories.
-  Orchestrator state is the plain directory `<checkout>/.state`, mirrored to the
-  `hexapod-state` PVC by `state_sync.sh` (`rl_move/orchestrator/state_dir.py`).
+  Orchestrator state is a plain directory owned by the orchestrator repo,
+  https://github.com/lukas/hexapod-orchestrator (`orchestrator/state_dir.py`,
+  mirrored to the `hexapod-state` PVC by its `state_sync.sh`).
 
 ## Goals
 
-`hexapod_walker/prototype_sts3215/RL_GOALS.md` is canonical (Lukas,
+`RL_GOALS.md` in https://github.com/lukas/hexapod-orchestrator is canonical (Lukas,
 2026-09-08 and 2026-09-13). Two goals run in parallel: `any_means`, smooth
 joystick walking on the physical robot by any effective method now; and
 `rl_only`, the same outcome with every motion-producing role learned entirely
@@ -41,22 +42,22 @@ physical completion.
 - `main` is pulled automatically by the CoreWeave controller pod, the Uno Q
   robots (`linux_control/deploy_manifest.sh` staged tree) and the Mac hub
   worktree `~/hexapod-hub`. Merge to `main` only when you would deploy.
-- Orchestrator code commits go to the `orchestrator` branch
-  (`rl_move/orchestrator/snapshot.sh`), which merges `main` into itself. A
-  human merges `orchestrator` into `main` when its code is wanted there.
+- Orchestrator code is its own repo, https://github.com/lukas/hexapod-orchestrator;
+  its commit and branch flow is documented there.
 - RL status: `https://hexapod.cwd1f0-new-cluster.coreweave.app/now` (token
   on first visit) and `/llms.txt`. Local fallback:
   `kubectl --kubeconfig=$HOME/.kube/coreweave.yaml port-forward hexapod-sweep-friction 8090:8090`.
   Prefer the RL MCP tools; the JSON-RPC fallback is in
-  `rl_move/orchestrator/README.md`. These reads are standing-authorized.
+  `orchestrator/README.md` of https://github.com/lukas/hexapod-orchestrator. These reads are
+  standing-authorized.
 - Mac web hub: `make -C hexapod_walker/prototype_sts3215 web-8898-start`
   (`status`, `restart`, `stop`) serves `http://localhost:8898/rl`. This is not
   the robot's `:8080` service.
 - MuJoCo viewer and policy videos: `hexapod_walker/prototype_sts3215/sim_viewer/README.md`
-  and `rl_move/orchestrator/ops.sh drivevideo <run>`.
+  and `~/hexapod-orchestrator/orchestrator/ops.sh drivevideo <run>`.
 - BuildViz: `hexapod_walker/prototype_sts3215/docs/BUILDVIZ.md`. One hub on
   `:5183`; `:5173` is BuildViz's own dev server, leave it alone.
-- Metaagent reviews and budgets: `rl_move/overseer/README.md`.
+- Metaagent reviews and budgets: https://github.com/lukas/hexapod-orchestrator (`metaagent/`).
 
 ## Working rules
 
@@ -70,7 +71,7 @@ physical completion.
   `/home/arduino/.local/bin/uv run python ...`.
 - Tests: `make -C hexapod_walker/prototype_sts3215 test-fast` is the default
   loop, `make ... test` the whole suite. Rules in `RESEARCH_RULES.md`
-  "Tests": under 5 s, mechanics only, `monkeypatch.setenv` for the model
+  (lukas/hexapod-orchestrator) "Tests": under 5 s, mechanics only, `monkeypatch.setenv` for the model
   family, no generated artifacts, one home per test, `main` stays green. The
   retired rollout bank `test_task_semantics.py` must not come back.
 - Git reachability: check with `git ls-remote`, not `git branch -r
@@ -95,8 +96,8 @@ physical completion.
 
 ## Hardware safety (`prototype_sts3215`), non-negotiable
 
-`hexapod_walker/prototype_sts3215/EMERGENCY_HANDLING.md` is canonical for
-hold versus controlled stop versus limp. Detail:
+`EMERGENCY_HANDLING.md` in https://github.com/lukas/hexapod-orchestrator is canonical
+for hold versus controlled stop versus limp. Detail:
 `.cursor/rules/hexapod-sts-hardware-safety.mdc`.
 
 1. Control over HTTP (`:8080` `/api/*`, `/cmd`); SSH only for deploy and
@@ -119,7 +120,7 @@ hold versus controlled stop versus limp. Detail:
    from the in-loop trips. Do not add pre-run audits, hash checks, rituals or
    camera checks before motion. Planning takes two minutes with a five minute
    hard wall.
-6. Before designing another recovery sequence read
-   `hexapod_walker/prototype_sts3215/RECOVERY_LESSONS.md` and collect evidence
+6. Before designing another recovery sequence read `RECOVERY_LESSONS.md`
+   (lukas/hexapod-orchestrator) and collect evidence
    with `linux_control/ROBOT_OBSERVE.md`; verify foot contact and body lift,
    not encoder motion.

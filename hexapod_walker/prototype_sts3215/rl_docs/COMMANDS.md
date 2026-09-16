@@ -2,9 +2,14 @@
 
 Distilled from mining every prior cycle transcript (2026-08-09): the
 same commands were re-derived, and the same mistakes re-made, dozens
-of times. `rl_move/orchestrator/ops.sh` implements the common
-operations — use it. Sibling docs: `rl_docs/README.md` (index),
-`RL_GOALS.md` (plain-English mission), `rl_docs/EXPERIMENT_LOGS.md`
+of times. `ops.sh` implements the common operations — use it. The
+orchestrator (`ops.sh`, `launch_run.py`, `status_server.py`,
+`mcp_server.py`, `guardrails.yaml`, ...) and the research docs
+(`RL_GOALS.md`, `RL_PLAN.md`, `RESEARCH_RULES.md`, `ORCHESTRATOR_PROMPT.md`)
+are the separate repo https://github.com/lukas/hexapod-orchestrator; below,
+`~/hexapod-orchestrator/orchestrator/...` is its checkout (Mac:
+`~/hexapod-orchestrator`, controller pod: `/workspace/hexapod-orchestrator`).
+Sibling docs here: `rl_docs/README.md` (index), `rl_docs/EXPERIMENT_LOGS.md`
 (per-run summary.md convention).
 
 **PYTHON RULE:** local/project Python commands go through `uv`. Use
@@ -28,7 +33,7 @@ leave the next agent to rediscover it.
 | **Triage a finished run (START HERE)** | `ops.sh review <run>` — ledger+gate, W&B trend, eval table, video paths in one shot |
 | Eval numbers table from a report.json | `ops.sh report <run\|path>` (per-episode + medians + term counts) |
 | What is actually training right now? | `ops.sh census` (/proc truth; W&B lags launches ~8 min) |
-| How many slots are free / where? | `uv run python rl_move/orchestrator/capacity.py` |
+| How many slots are free / where? | `uv run python ~/hexapod-orchestrator/orchestrator/capacity.py` |
 | Ledger + procs + watcher, one screen | `ops.sh status` |
 | One run's metrics/state | `ops.sh wandb <run>` (ledger: `ops.sh entry <run>`) |
 | What's queued to launch? | `launch_run.py backlog list` |
@@ -74,7 +79,7 @@ report.json, and the W&B API for exactly these questions.
   Log append rule: ONE line per cycle via `ops.sh logline` — never
   `cat >>`; evidence goes to the ledger verdict + W&B, not the log.
 
-## ops.sh (rl_move/orchestrator/ops.sh) — use instead of hand-rolling
+## ops.sh (~/hexapod-orchestrator/orchestrator/ops.sh) — use instead of hand-rolling
 
 - `ops.sh status` — active runs + live procs per pod + watcher tail.
 - `ops.sh procs <pod>` — training/eval processes. **Pods have NO
@@ -275,7 +280,7 @@ report.json, and the W&B API for exactly these questions.
    never raw `git push` for cycle edits; a brief wait on its lock is
    normal. Re-read RL_LOG/RL_PLAN right before editing (concurrent
    cycles append too).
-9. Guardrails: `rl_move/orchestrator/guardrails.yaml` (from PROTO).
+9. Guardrails: `/workspace/hexapod-orchestrator/orchestrator/guardrails.yaml` (controller).
    Watcher log: `/workspace/orchestrator.log`. Cycle logs:
    `/workspace/cycle_logs/` — live-streaming narration since 08-21
    (`ops.sh activity` / `cyclelog` / `waitcycle`; prompt in
@@ -525,7 +530,7 @@ are we?", watcher ON/PAUSED/OFF, in-flight cycles + what they're
 triaging, analysis pipeline (ledger `triage` field), per-pod fleet
 census, backlog, ledger runs, Claude token usage + est. spend, log
 tails. Code:
-`rl_move/orchestrator/status_server.py` (stdlib only, port 8090 —
+`~/hexapod-orchestrator/orchestrator/status_server.py` (stdlib only, port 8090 —
 5183/5173 are BuildViz, 8080 is the robot).
 
 Two pieces, both must be up:
@@ -538,7 +543,7 @@ Two pieces, both must be up:
      bash -c "tmux kill-session -t statusweb 2>/dev/null; \
        tmux new-session -d -s statusweb 'source /root/orchestrator.env; \
        cd /workspace/hexapod/hexapod_walker/prototype_sts3215 && \
-       uv run python rl_move/orchestrator/status_server.py 2>&1 | tee /tmp/status_server.log'"
+       uv run python /workspace/hexapod-orchestrator/orchestrator/status_server.py 2>&1 | tee /tmp/status_server.log'"
    ```
 
 2. **Port-forward, on the operator's laptop** (dies on sleep/network
@@ -576,7 +581,7 @@ visit uses `?key=<token>`, which sets a cookie and redirects clean.
 
 **MCP server (LLMs investigating results as tools):** the status
 server also mounts an MCP endpoint at **POST /mcp**
-(`rl_move/orchestrator/mcp_server.py`, streamable-HTTP transport,
+(`~/hexapod-orchestrator/orchestrator/mcp_server.py`, streamable-HTTP transport,
 stdlib only). Add `https://hexapod.cwd1f0-new-cluster.coreweave.app/mcp`
 as a remote MCP server in Claude/Cursor/ChatGPT — **requires the
 operator's MCP key** (operator 08-15; the old keyless mode made
@@ -604,7 +609,7 @@ spawns a cycle by itself; guardrails/rulings still win on conflict —
 ORCHESTRATOR_PROMPT.md § "MCP feedback"). `kick_orchestrator` files
 an operator-tier kick (deep model, trusted focus note). It runs
 inside `statusweb`, so deploy = the same kill+restart runbook above.
-Dev standalone: `uv run python rl_move/orchestrator/mcp_server.py` (port
+Dev standalone: `uv run python ~/hexapod-orchestrator/orchestrator/mcp_server.py` (port
 8091).
 
 **Viewing/downloading evaluation video:** use `get_run_videos(run)` first.

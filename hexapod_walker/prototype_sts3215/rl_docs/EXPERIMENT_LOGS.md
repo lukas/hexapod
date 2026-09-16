@@ -2,7 +2,7 @@
 
 **Scope (08-09 lightweight process): this directory + summary.md is
 for DIG-IN runs only.** A clear pass/fail needs just the ledger
-verdict (`launch_run.py update`, which auto-renders
+verdict (`launch_run.py update` in lukas/hexapod-orchestrator, which auto-renders
 `rl_docs/runs/<run>.md`) and an `ops.sh wandbnote` paragraph. The
 watcher's `wandbdump` cache still lands here for every run.
 

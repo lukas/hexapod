@@ -11,7 +11,7 @@ Defaults live in `rl_move/sim/train_ppo_sim.py`
 - The key lives in **`rl_move/sim/wandb.env`** (gitignored). It exists
   on the operator Mac AND on every train pod (pushed to
   `/workspace/prototype_sts3215/rl_move/sim/wandb.env` by
-  `bootstrap_train_pod.sh`).
+  `bootstrap_train_pod.sh` in lukas/hexapod-orchestrator).
 - `ops.sh` sources it for you. For ad-hoc API use, source it first:
 
   ```sh
@@ -19,7 +19,7 @@ Defaults live in `rl_move/sim/train_ppo_sim.py`
   python -c "import wandb; ..."   # repo .venv has wandb installed
   ```
 
-- A bare `kubectl exec` has NO creds — `launch_run.py drain` (dedupe
+- A bare `kubectl exec` has NO creds — `launch_run.py drain` (lukas/hexapod-orchestrator; dedupe
   check) and anything calling `wandb.Api()` fails without sourcing.
 
 ## Read runs with ops.sh — don't hand-write API code

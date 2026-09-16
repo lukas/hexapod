@@ -401,7 +401,7 @@ def main() -> None:
                 if 0.35 <= sq <= 0.95:
                     pin_tot[kq] += 1
                     pin_hit[kq] += int(con[QuadCrawl.SWING[kq]])
-                    from rl_move.sim.sim_env import support_margin_m
+                    from rl_move.sim.balance_helpers import support_margin_m
                     stance = [f for f in (1, 2, 3, 4)
                               if f != QuadCrawl.SWING[kq]]
                     feet_xy = np.array(

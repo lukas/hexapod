@@ -998,7 +998,7 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
             # sim_env.py — the SAME criterion the reward gate and the
             # semantics bank use). Tail-mean clearances (flicker lies),
             # final-tick geometry/attitude/currents.
-            from .sim_env import valid_plant
+            from .balance_helpers import valid_plant
             ok, det = valid_plant(
                 pad_clear_m=clear_mm * 0.001,
                 feet_xy=pad_xyz[-1, :, :2],

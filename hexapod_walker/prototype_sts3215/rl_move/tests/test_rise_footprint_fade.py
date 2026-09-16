@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import pytest
 
-from rl_move.sim.sim_env import PLANT_SPEC, footprint_fade
+from rl_move.sim.balance_helpers import PLANT_SPEC, footprint_fade
 from rl_move.config import cfg_get
 
 

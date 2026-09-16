@@ -42,7 +42,7 @@ from rl_move.robot_state import DEG2RAD, RAD2DEG
 from rl_move.sim.joint_task import (
     SimHexapodJointGoalEnv, action_to_q_rad, q_rad_to_action)
 from rl_move.sim.servo_model import SimServoParams
-from rl_move.sim.sim_env import load_rise_ref
+from rl_move.sim.balance_helpers import load_rise_ref
 
 RISE_REF = "rl_move/sim/refs/rise_ref_belly2plant.npz"
 BASE_OVERRIDES = {

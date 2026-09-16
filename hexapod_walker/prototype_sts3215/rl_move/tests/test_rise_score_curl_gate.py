@@ -51,7 +51,7 @@ pytest.importorskip("mujoco")
 
 from rl_move.config import load_config
 from rl_move.sim.goal_task import SimHexapodGoalEnv
-from rl_move.sim.sim_env import current_headroom_income_factor
+from rl_move.sim.balance_helpers import current_headroom_income_factor
 
 
 # ---------------------------------------------------------------------------

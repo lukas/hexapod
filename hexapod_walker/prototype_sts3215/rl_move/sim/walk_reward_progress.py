@@ -15,8 +15,8 @@ import numpy as np
 
 from rl_move.config import cfg_get
 from .walk_task import (
-    WALK_CMD_MODE_IDS, WALK_DIRECTION_MIN_SPEED_M_S, _add_walk_direction_info,
-    walk_cmd_track_score, walk_freeprog_score,
+    K_PROG, K_WALK, SIGMA_V, WALK_CMD_MODE_IDS, WALK_DIRECTION_MIN_SPEED_M_S,
+    _add_walk_direction_info, walk_cmd_track_score, walk_freeprog_score,
 )
 
 
@@ -213,3 +213,75 @@ def freeprog_income(env, along, goal, info, r_prog, r_walk, s_ref, v):
                 r_free_pen -= k_free * k_over * _over
                 info["walk_freeprog_overspeed"] = round(_over, 4)
     return along, r_free_pen, r_prog, r_walk
+
+
+def velocity_kernel_and_progress(env, err, goal, info, v):
+    # Stride-EMA kernel error (phasedir7/7b dig-in, 2026-08-22;
+    # cfg reward.walk_kernel_vel_ema=1, default 0 = bit-exact
+    # legacy). MEASURED defect the flag repairs: the kernel's
+    # INSTANTANEOUS 2D velocity error taxes honest stride sway
+    # (the accepted ~35 deg tick-level sway floor), so under
+    # the phasedir7 stack a 0.059 m/s low-sway gait out-earned
+    # the 0.0716 m/s clone on the kernel itself (357.1 vs
+    # 325.6/ep) — the sway tax (-31/ep) cancelled k_prog's
+    # linear speed payment (+34/ep), leaving income FLAT in
+    # realized speed across [0.059, 0.08]. Any travel-
+    # proportional charge then pins speed below the gate floor
+    # at ANY dose (the pd7 step function). With the flag on,
+    # the kernel error uses an EMA of the body velocity over
+    # reward.walk_kernel_vel_tau_s (default 0.75 s = one
+    # teacher gait period, the k_walk_course convention) so
+    # zero-mean sway averages out and the kernel pays for the
+    # STRIDE-AVERAGED velocity the gate actually scores.
+    # Update is unconditional while the flag is on (stop
+    # segments included: the EMA lags a stop by ~tau for every
+    # candidate behavior equally).
+    if float(cfg_get(env.cfg, "reward", "walk_kernel_vel_ema",
+                     default=0.0)) > 0.0:
+        tau_kv = max(float(cfg_get(env.cfg, "reward",
+                                   "walk_kernel_vel_tau_s",
+                                   default=0.75)), env.dt)
+        a_kv = env.dt / tau_kv
+        env._walk_kernel_vema[0] += a_kv * (
+            float(v[0]) - env._walk_kernel_vema[0])
+        env._walk_kernel_vema[1] += a_kv * (
+            float(v[1]) - env._walk_kernel_vema[1])
+        err = float(np.hypot(
+            env._walk_kernel_vema[0] - goal.vx_ref,
+            env._walk_kernel_vema[1] - goal.vy_ref))
+        info["walk_kernel_vel_ema_err"] = err
+    # Configurable kernel width (assistfade rung-2 harden-
+    # speedband escalation, 09-06 ~16:xx; cfg
+    # reward.walk_kernel_sigma_v_m_s, default 0.0 = OFF, falls
+    # back to the module SIGMA_V constant, bit-exact legacy).
+    # Root cause of "-lsd2"'s FAIL-STILL-IGNORES (speed flat
+    # across a 0.04-0.08 m/s commanded band even with a real
+    # exploration boost, see RL_LOG/STATUS 09-06): SIGMA_V=0.05
+    # is comparable in magnitude to the ENTIRE commanded-speed
+    # spread being hardened (0.04 m/s peak-to-peak), so the
+    # Gaussian kernel is nearly flat across the whole band
+    # (exp(-(0.02/0.05)^2/2)=0.92 at the band's half-width) —
+    # a genuine reward-shape defect for narrow-band speed
+    # hardening, not a missing mechanism or an exploration
+    # problem (the -lsd2 pair already proved real log_std
+    # movement changed nothing). A narrower sigma (order the
+    # half-band width itself, ~0.02 m/s okay per the bank
+    # test below) restores a real gradient between "matches
+    # this episode's command" and "matches some other episode's
+    # command" without inventing a new reward term. Legacy
+    # fixed-speed / wide-band recipes are unaffected (default
+    # 0.0 keeps SIGMA_V exactly).
+    info["walk_kernel_sigma_v_m_s"] = SIGMA_V
+    r_walk = K_WALK * math.exp(-(err ** 2) / (2.0 * SIGMA_V ** 2))
+    # Linear progress: fraction of the commanded speed achieved
+    # along the commanded direction. Negative when moving against
+    # the command, capped so overspeeding isn't a strategy.
+    r_prog = 0.0
+    s_ref = float(np.hypot(goal.vx_ref, goal.vy_ref))
+    along = 0.0
+    if s_ref > 1e-3:
+        along = (v[0] * goal.vx_ref + v[1] * goal.vy_ref) / s_ref
+        k_prog = float(cfg_get(env.cfg, "reward", "k_walk_prog",
+                               default=K_PROG))
+        r_prog = k_prog * min(along / s_ref, 1.25)
+    return along, err, r_prog, r_walk, s_ref

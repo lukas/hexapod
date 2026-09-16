@@ -1,0 +1,373 @@
+"""Reset-time episode setup of the balance env's _reset_begin: the
+physics-easing gravity scale, the mode-sequence / goal-trajectory
+sampling and the start-pose (spawn) selection; moved verbatim out of
+sim_env.py.
+"""
+from __future__ import annotations
+
+import math
+import numpy as np
+
+from hexapod_core.joint_frame import joint_index, leg_slice
+from rl_move.body_ik import FixedFootBodyIK
+from rl_move.config import cfg_get
+from rl_move.robot_state import DEG2RAD, N_JOINTS
+
+
+# QUADWALK "quadstance" spawn (08-13, quad track): per-lift-leg
+# (yaw, hip, knee) rad — the "tuck" claw from
+# quadruped_feasibility.FRONT_POSES (kept literal here so env workers
+# don't import that mujoco-loading probe module; c57 static sweep GO,
+# within joint limits yaw ±0.61 / hip −1.40..0.52 / knee −0.35..2.62).
+_QUAD_TUCK_ROBOT_RAD = (0.0, -1.10, 1.30)
+
+
+def spawn_pose_q_start(env, start_at):
+    """Start-pose (spawn) selection by start kind; moved verbatim from
+    SimHexapodBalanceEnv._reset_begin.
+    """
+    if start_at == "zero":
+        q_start = np.zeros(N_JOINTS, dtype=float)
+        # Bridge start (rise reverse-curriculum): blend the start
+        # joints toward the crouch pose. Zero pose is exactly q=0,
+        # so the blend is a plain scale of the crouch solution.
+        f = float(getattr(env._goal_traj, "start_curl", 0.0))
+        if f > 0.0:
+            from rl_move.body_ik import BodyOffset
+            bridge_ik = FixedFootBodyIK()
+            bridge_ik.reset(env._plant_deg * DEG2RAD)
+            res = bridge_ik.solve(BodyOffset(
+                height=-float(env._goal_traj.crouch_dz)))
+            if res.ok:
+                q_start = f * res.q_rad
+        if env._ep_rand is not None:
+            q_start = env._clip_to_joint_limits(
+                q_start + env._ep_rand.start_offset_rad)
+    elif start_at == "crouch":
+        # Feet at the plant footprint, body crouch_dz lower: solve
+        # the same fixed-foot IK the policy uses.
+        from rl_move.body_ik import BodyOffset
+        crouch_ik = FixedFootBodyIK()
+        crouch_ik.reset(env._plant_deg * DEG2RAD)
+        res = crouch_ik.solve(
+            BodyOffset(height=-float(env._goal_traj.crouch_dz)))
+        q_start = (env._clip_to_joint_limits(res.q_rad) if res.ok
+                   else env._start_pose_rad())
+        if env._ep_rand is not None:
+            q_start = env._clip_to_joint_limits(
+                q_start + env._ep_rand.start_offset_rad)
+    elif start_at == "rise_bank":
+        # Post-lower rise start (08-14): a harvested settled
+        # lower-endpoint pose of the policy's OWN lower skill
+        # (goal.rise_start_bank, built by harvest_lower_endpoints).
+        # SESSION_BULK_GATE named this the single trainable
+        # boundary: ALL 10 det session failures + the weakest sto
+        # stratum (0.801, over_current-dominated) were post-lower
+        # rises, while synthetic-start first rises were 300/300.
+        # +-2 deg jitter, same as the walk park bank.
+        bank = env._rise_start_bank()
+        if bank is None:
+            raise RuntimeError(
+                "start_at='rise_bank' requires goal.rise_start_bank")
+        bi = int(env.rng.integers(len(bank)))
+        q_start = bank[bi].copy()
+        q_start += env.rng.uniform(-2.0, 2.0, N_JOINTS) * DEG2RAD
+        if env._ep_rand is not None:
+            q_start = q_start + env._ep_rand.start_offset_rad
+        q_start = env._clip_to_joint_limits(q_start)
+    elif start_at == "gait":
+        # Mid-stride TALL spawn (TALL LADDER T6: RSI-for-walk, see
+        # walk_task._sample_walk). Scripted tripod-gait pose at a
+        # random phase, generated at the episode's own commanded
+        # velocity so swing/stance geometry matches the command the
+        # policy wakes up under. The gait is rolled forward ~1 s
+        # plus a uniform slice of one period so its internal
+        # command smoothing is engaged and every phase is sampled.
+        from hexapod_core.tripod_gait import TripodGait
+        traj = env._goal_traj
+        i_ss = min(int(round(0.5 / env.dt)), len(traj.vx) - 1)
+        g = TripodGait()
+        g.sync_plant_stance(float(env._plant_deg[1]),
+                            float(env._plant_deg[2]))
+        g.set_velocity(vx=float(traj.vx[i_ss]),
+                       vy=float(traj.vy[i_ss]))
+        # Turn-state reset densification (08-23, turnlib3 FAIL
+        # branch): goal.walk_gait_spawn_wz (default 0 = off,
+        # bit-exact: omega is simply never passed) additionally
+        # feeds the episode's own commanded yaw rate into the
+        # scripted-gait pose generator, so turn / turn-in-place
+        # episodes SPAWN mid-rotation instead of always entering
+        # the turn from a standstill. Pricing (k_yaw_prog 1-3x),
+        # demo range (teacher_v3) and style ablation (-noamp1)
+        # were all measured unable to move tip tracking; the
+        # policy never VISITS fast-turning states — same
+        # densify-at-reset shape as park_start/gait_start.
+        spawn_wz = float(cfg_get(env.cfg, "goal",
+                                 "walk_gait_spawn_wz", default=0.0))
+        wz_arr = getattr(traj, "wz", None)
+        if spawn_wz > 0.0 and wz_arr is not None:
+            g.set_velocity(omega=float(wz_arr[i_ss]) * spawn_wz)
+        g.reset_phase()
+        warm = 1.0 + float(env.rng.uniform(0.0, g.period))
+        t, q_deg = 0.0, g.neutral_pose_deg()
+        while t < warm:
+            q_deg = g.desired_deg(t)
+            t += env.dt
+        q_start = np.asarray(q_deg, dtype=float) * DEG2RAD
+        q_start += env.rng.uniform(-2.0, 2.0, N_JOINTS) * DEG2RAD
+        if env._ep_rand is not None:
+            q_start = q_start + env._ep_rand.start_offset_rad
+        q_start = env._clip_to_joint_limits(q_start)
+    elif start_at == "any":
+        # GETUP-mode start diversity (operator 08-11: "from any
+        # position: recover -> stand -> walk"). The recovery task's
+        # curriculum IS its start distribution — episodes spawn all
+        # along the pipeline (random legal tangle that settles
+        # however it lands incl. tipped, belly-zero, partial curl,
+        # crouch, plant, tripod park) so backward-chaining needs no
+        # reference trajectory or RSI. The KIND was drawn by
+        # _sample_getup (goal side, where the force hook lives) and
+        # rides on the trajectory.
+        kind = getattr(env._goal_traj, "start_kind", "tangle")
+        tangle_blends = {
+            "tangle_mild": 0.25,
+            "tangle_mid": 0.50,
+            "tangle_60": 0.60,
+            "tangle_70": 0.70,
+            # Legacy forced-eval alias retained for old probes.
+            "tangle_deep": 0.75,
+            "tangle_80": 0.80,
+            "tangle_90": 0.90,
+            "tangle": 1.0,
+        }
+        if kind in tangle_blends:
+            from rl_move.safety import AXIS_LIMITS_DEG
+            q_random = np.array(
+                [env.rng.uniform(*AXIS_LIMITS_DEG[j % 3])
+                 for j in range(N_JOINTS)], dtype=float) * DEG2RAD
+            q_start = tangle_blends[kind] * q_random
+        elif kind == "zero":
+            q_start = env.rng.uniform(
+                -2.0, 2.0, N_JOINTS) * DEG2RAD
+        elif kind in ("partial", "crouch", "crouch_shallow",
+                      "crouch_mid", "crouch_deep", "partial_high",
+                      "partial_mid", "partial_low"):
+            from rl_move.body_ik import BodyOffset
+            crouch_ranges = {
+                "crouch_shallow": (0.010, 0.025),
+                "crouch_mid": (0.025, 0.045),
+                "crouch_deep": (0.045, 0.070),
+            }
+            depth = (float(env.rng.uniform(*crouch_ranges[kind]))
+                     if kind in crouch_ranges
+                     else float(env.rng.uniform(0.03, 0.07)))
+            any_ik = FixedFootBodyIK()
+            any_ik.reset(env._plant_deg * DEG2RAD)
+            res = any_ik.solve(BodyOffset(
+                height=-depth))
+            q_c = (res.q_rad if res.ok
+                   else env._plant_deg * DEG2RAD)
+            partial_ranges = {
+                "partial_high": (0.70, 0.95),
+                "partial_mid": (0.40, 0.70),
+                "partial_low": (0.15, 0.40),
+            }
+            f = (1.0 if kind in ("crouch", "crouch_shallow",
+                                 "crouch_mid", "crouch_deep")
+                 else float(env.rng.uniform(
+                     *partial_ranges.get(kind, (0.10, 0.90)))))
+            # Zero pose is exactly q=0, so the belly->crouch blend
+            # is a plain scale (same construction as rise bridge).
+            q_start = f * np.asarray(q_c, dtype=float)
+        elif kind == "plant_catch":
+            # First backward-curriculum rung: already at the goal
+            # neighborhood, but the controller must catch and hold
+            # plant for the full success dwell instead of receiving
+            # a free terminal reward at reset.
+            q_start = (env._plant_deg * DEG2RAD).copy()
+            q_start += env.rng.uniform(
+                -2.0, 2.0, N_JOINTS) * DEG2RAD
+        elif kind == "park":
+            q_start = (env._plant_deg * DEG2RAD).copy()
+            tripod = ((1, 3, 5) if env.rng.random() < 0.5
+                      else (0, 2, 4))
+            for leg in tripod:
+                q_start[joint_index(leg, "hip")] -= float(
+                    env.rng.uniform(10.0, 25.0)) * DEG2RAD
+                q_start[joint_index(leg, "knee")] += float(
+                    env.rng.uniform(-5.0, 10.0)) * DEG2RAD
+        elif kind in ("onefoot_micro", "onefoot_mid", "onefoot"):
+            # Progressive one-foot correction rungs.  They use the
+            # same construction and differ only in disturbance
+            # magnitude, so promotion measures a real expansion of
+            # the solved basin instead of a task-definition switch.
+            q_start = (env._plant_deg * DEG2RAD).copy()
+            leg = int(env.rng.integers(6))
+            if kind == "onefoot_micro":
+                hip_deg = env.rng.uniform(3.0, 8.0)
+                knee_deg = env.rng.uniform(-1.0, 3.0)
+            elif kind == "onefoot_mid":
+                hip_deg = env.rng.uniform(8.0, 15.0)
+                knee_deg = env.rng.uniform(-3.0, 6.0)
+            else:
+                hip_deg = env.rng.uniform(15.0, 30.0)
+                knee_deg = env.rng.uniform(-5.0, 12.0)
+            q_start[joint_index(leg, "hip")] -= float(
+                hip_deg) * DEG2RAD
+            q_start[joint_index(leg, "knee")] += float(knee_deg) * DEG2RAD
+        elif kind in ("repair_one", "repair_two"):
+            # Terminal contact-repair rungs. Keep the chassis on a
+            # plant support polygon while one/two legs begin folded
+            # and laterally misplaced. Unlike the early one-foot
+            # rungs, yaw is wrong too: merely lowering the hip cannot
+            # satisfy footprint + six-load success, so the policy must
+            # identify and deliberately re-place the missing foot.
+            q_start = (env._plant_deg * DEG2RAD).copy()
+            n_bad = 1 if kind == "repair_one" else 2
+            first = int(env.rng.integers(6))
+            if n_bad == 1:
+                legs = (first,)
+            else:
+                # Adjacent lifted pairs put the four remaining feet
+                # on one side and collapse the chassis during limp
+                # settle. Non-adjacent pairs retain a true four-foot
+                # support polygon, matching the quiet B14 failures.
+                candidates = [leg for leg in range(6)
+                              if leg != first
+                              and (leg - first) % 6 not in (1, 5)]
+                legs = (first, int(env.rng.choice(candidates)))
+            for leg in np.asarray(legs, dtype=int):
+                sign = -1.0 if env.rng.random() < 0.5 else 1.0
+                q_start[joint_index(leg, "yaw")] += sign * float(
+                    env.rng.uniform(15.0, 35.0)) * DEG2RAD
+                # The quadstance feasibility sweep's tucked claw is
+                # known to stay clear while the other four feet form
+                # a support polygon. Small jitter keeps this a family,
+                # not one memorized target.
+                q_start[joint_index(leg, "hip")] = (
+                    _QUAD_TUCK_ROBOT_RAD[1]
+                    + env.rng.uniform(-3.0, 3.0) * DEG2RAD)
+                q_start[joint_index(leg, "knee")] = (
+                    _QUAD_TUCK_ROBOT_RAD[2]
+                    + env.rng.uniform(-4.0, 4.0) * DEG2RAD)
+        elif kind == "bank":
+            # RECOVER family 2: harvested post-lower/interrupted
+            # poses (goal.recover_start_bank npz, key q_rad
+            # (K,18)). Placement + slip/limp settle produce a
+            # physically consistent start; the exact-qvel restore
+            # is CPU-only (family-5 falling velocities are the
+            # pre-registered next rung).
+            bank = env._recover_start_bank()
+            if bank is None:
+                raise ValueError("start_kind 'bank' requires "
+                                 "goal.recover_start_bank")
+            q_start = bank[int(env.rng.integers(len(bank)))].copy()
+            q_start += env.rng.uniform(
+                -2.0, 2.0, N_JOINTS) * DEG2RAD
+        elif kind == "flip":
+            # Final recovery rung: random legal joints plus a base
+            # rotation about a
+            # random horizontal axis, applied by _place_at_plant
+            # (consume-once pending quat, both C and MJX paths go
+            # through place_env -> _place_at_plant), then the
+            # slip/limp settle drops it however it lands. Runs
+            # enabling this kind must widen safety.max_roll/
+            # pitch_deg to ~179 (a fall is a recoverable state).
+            from rl_move.safety import AXIS_LIMITS_DEG
+            q_start = np.array(
+                [env.rng.uniform(*AXIS_LIMITS_DEG[j % 3])
+                 for j in range(N_JOINTS)], dtype=float) * DEG2RAD
+            ax_ang = float(env.rng.uniform(0.0, 2.0 * math.pi))
+            ang = float(env.rng.uniform(90.0, 180.0)) * DEG2RAD
+            ax = (math.cos(ax_ang), math.sin(ax_ang), 0.0)
+            half = ang / 2.0
+            s = math.sin(half)
+            env._flip_spawn_pending = (
+                math.cos(half), ax[0] * s, ax[1] * s, ax[2] * s)
+        else:  # "plant"
+            q_start = (env._plant_deg * DEG2RAD).copy()
+        if env._ep_rand is not None:
+            q_start = q_start + env._ep_rand.start_offset_rad
+        q_start = env._clip_to_joint_limits(q_start)
+        # Recovery episodes anchor tilt obs/trip/reward to LEVEL
+        # (gravity truth), like tipped starts: the task is to
+        # level out from wherever the spawn settled, never to hold
+        # the spawn lean. Runs enabling this mode must widen
+        # safety.max_roll/pitch_deg — a fall is a recoverable
+        # state here, not a termination.
+        env._tipped_applied = True
+    elif start_at == "park":
+        # Tripod-park start (walk reset diversity, cycle 24): plant
+        # pose with one alternating tripod's hips lifted 10-25 deg
+        # (feet hover ~15-45 mm — the park attractor observed on
+        # camera, duty ~[0.9,0.1,0.9,0.1,0.9,0.1]) plus small knee
+        # jitter. The policy must step OUT of the park to earn; see
+        # walk_task._sample_walk for the rationale.
+        q_start = (env._plant_deg * DEG2RAD).copy()
+        tripod = (1, 3, 5) if env.rng.random() < 0.5 else (0, 2, 4)
+        for leg in tripod:
+            q_start[joint_index(leg, "hip")] -= float(
+                env.rng.uniform(10.0, 25.0)) * DEG2RAD
+            q_start[joint_index(leg, "knee")] += float(
+                env.rng.uniform(-5.0, 10.0)) * DEG2RAD
+        if env._ep_rand is not None:
+            q_start = q_start + env._ep_rand.start_offset_rad
+        q_start = env._apply_tipped_start(q_start)
+        q_start = env._clip_to_joint_limits(q_start)
+    elif start_at == "quadstance":
+        # QUADWALK four-leg spawn (08-13, quad track; opt-in via
+        # cfg goal.quadwalk_start="quad", see
+        # walk_task._sample_quadwalk). Mid feet splayed forward
+        # (0.06 m — the bare
+        # plant+tuck stance pitch-trips in <1 s, CoM ahead of the
+        # 4-foot polygon front edge; the splayed form is the
+        # QUADWALK bank's own statically-surviving freeze stance),
+        # commanded lift legs pre-folded into the feasibility
+        # sweep's "tuck" claw. Episodes begin INSIDE the fronts-up
+        # stance the policy already knows from quad-hold, so
+        # rear-four stepping is the reachable behavior and six-leg
+        # walking requires actively planting the charged fronts.
+        # +-2 deg jitter matches the gait/park spawn convention.
+        # Reached only from quadwalk trajectories, so no legacy
+        # rng stream can be perturbed.
+        from hexapod_core.tripod_gait import TripodGait
+        g = TripodGait()
+        g.sync_plant_stance(float(env._plant_deg[1]),
+                            float(env._plant_deg[2]))
+        _orig = g._foot_target_in_body
+
+        def _splayed(i, vx, vy, om, _o=_orig, _s=0.06):
+            dx, dy, dz = _o(i, vx, vy, om)
+            if i in (1, 4):
+                dx += _s
+            return (dx, dy, dz)
+        g._foot_target_in_body = _splayed
+        g.set_velocity(vx=0.0, vy=0.0)
+        g.reset_phase()
+        q_start = np.asarray(g.desired_deg(0.0), dtype=float) * DEG2RAD
+        lift = tuple(getattr(env._goal_traj, "lift_legs", None)
+                     or (0, 5))
+        for leg in lift:
+            q_start[leg_slice(leg)] = _QUAD_TUCK_ROBOT_RAD
+        q_start += env.rng.uniform(-2.0, 2.0, N_JOINTS) * DEG2RAD
+        if env._ep_rand is not None:
+            q_start = q_start + env._ep_rand.start_offset_rad
+        q_start = env._apply_tipped_start(q_start)
+        q_start = env._clip_to_joint_limits(q_start)
+        # The limp-settle stage passively pitches this front-back-
+        # asymmetric stance nose-down onto the tucked claws (~15-17
+        # deg) before the servos engage; anchoring the tilt ref at
+        # that sagged attitude would (a) train the policy to HOLD
+        # the sag and (b) trip tilt_pitch the moment it LEVELS by
+        # more than the envelope (measured: recovery to 6 deg
+        # tripped at |6-16.6|>10). Keep the reference LEVEL like
+        # tipped starts / "any" recovery spawns, so the attitude
+        # terms pay leveling out. Runs enabling this spawn must
+        # widen safety.max_roll/pitch_deg past the sag transient
+        # (the deployment-contract 25 deg envelope covers it),
+        # same contract as the getup "any" starts.
+        env._tipped_applied = True
+    else:
+        q_start = env._clip_to_joint_limits(
+            env._apply_tipped_start(env._start_pose_rad()))
+    return q_start

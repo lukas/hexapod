@@ -443,3 +443,57 @@ def yaw_rate_kernel(env, along, goal, info, reward, s_ref):
         info["walk_yaw_err"] = abs(yaw_err)
         info["walk_wz"] = wz
     return reward
+
+
+def turn_kernel_neutral(env, goal, info, r_prog, r_walk, s_ref):
+    # Turn-kernel-neutral: strip the BASE velocity-tracking
+    # kernel's stand-still subsidy on genuine turn-in-place
+    # ticks (09-13, walkyaw tip1/retry1/obspad triple-FAIL
+    # root-cause read). All three prior levers on this exact
+    # `cw-walkyaw50hz-rlonly-scratch` family (warm-start from
+    # a CLEAN rl_only forward walker = obspad, scratch-init =
+    # retry1, scratch-init+100%-turn-only-exposure = tip1) and
+    # the six reward/exploration-side levers closed earlier on
+    # the sibling dualbc/standwalk turn-freeze problem (price,
+    # dose, budget, risk-curriculum ramp, direct freeze charge,
+    # 4 RND variants) all left `r_walk` (this file's `K_WALK`
+    # Gaussian kernel keyed on `err = |v - (vx_ref, vy_ref)|`,
+    # computed unconditionally in walk mode, `sigma_v` narrow
+    # at 0.05 m/s) COMPLETELY UNTOUCHED and un-gated — none of
+    # those levers ever targeted the BASE locomotion kernel,
+    # only the yaw-specific terms (`k_walk_yaw`/kernel-gate/
+    # hold-prog-gate/`k_yaw_prog`/`k_yaw_still`) or exploration/
+    # init/exposure. On a genuine turn-in-place tick (`vx_ref
+    # = vy_ref = 0`, the walk_turn_in_place_tick condition
+    # below), `err` is minimized (== 0, `r_walk` at its K_WALK=
+    # 2.0 MAX) by the body staying perfectly STILL — a reward
+    # roughly 2x the yaw stack's own k_walk_yaw=1.0 max, paid
+    # unconditionally every tick, requiring zero skill,
+    # zero risk, matching probe evidence: `env/walk_vel_err`
+    # FALLS and `env/walk_speed` FALLS across training (tip1
+    # s1: 0.078->0.060, 0.126->0.105) while `env/walk_wz` stays
+    # pinned at noise-floor the whole run -- the policy is
+    # measurably learning to move LESS, not more, under a
+    # supposedly turn-only command. This does not repair the
+    # separately-diagnosed risk-side asymmetry (a fall during
+    # a turn attempt still truncates the episode) but removes
+    # the one confirmed, previously-untested, actively-PAID
+    # incentive to do nothing at all. cfg reward.
+    # walk_turn_kernel_neutral in [0,1], default 0.0 = off,
+    # bit-exact legacy (no info key, no reward delta). At 1.0,
+    # r_walk (and the already-zero r_prog on these ticks) is
+    # fully suppressed ONLY on genuine turn-in-place ticks
+    # (identical gating condition as walk_turn_freeze_charge/
+    # walk_turn_in_place_tick above); every other tick
+    # (forward, combined, hold) is untouched. See
+    # test_walk_turn_kernel_neutral.py.
+    g_turn_neutral = float(cfg_get(
+        env.cfg, "reward", "walk_turn_kernel_neutral",
+        default=0.0))
+    if (g_turn_neutral > 0.0 and env._yaw_cmd
+            and s_ref <= 1e-3 and abs(goal.wz_ref) > 1e-3):
+        _tn_factor = 1.0 - min(max(g_turn_neutral, 0.0), 1.0)
+        r_walk *= _tn_factor
+        r_prog *= _tn_factor
+        info["walk_turn_kernel_neutral_factor"] = _tn_factor
+    return r_prog, r_walk

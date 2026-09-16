@@ -16,6 +16,7 @@ import numpy as np
 from rl_move.config import cfg_get
 from .walk_task import (
     WALK_CMD_MODE_IDS, WALK_DIRECTION_MIN_SPEED_M_S, _add_walk_direction_info,
+    walk_cmd_track_score,
 )
 
 
@@ -68,3 +69,22 @@ def direction_telemetry(env,
                 math.acos(cosang))
     if env._walk_bucket is not None:
         info["walk_bucket"] = env._walk_bucket
+
+
+def cmd_track_objective(env, along, goal, v):
+    # Simple physical joystick objective (default off). Unlike the
+    # historical Gaussian/proxy stack, this is negative for parking,
+    # cross-track travel, and wrong-way travel by construction.
+    k_cmd_track = max(0.0, float(cfg_get(
+        env.cfg, "reward", "k_walk_cmd_track", default=0.0)))
+    r_cmd_track = 0.0
+    cmd_cross = 0.0
+    if k_cmd_track > 0.0:
+        cmd_score, cmd_along, cmd_cross = walk_cmd_track_score(
+            float(v[0]), float(v[1]), goal.vx_ref, goal.vy_ref,
+            stop_speed_m_s=float(cfg_get(
+                env.cfg, "goal", "walk_speed_min_m_s",
+                default=0.03)))
+        along = cmd_along
+        r_cmd_track = k_cmd_track * cmd_score
+    return along, cmd_cross, k_cmd_track, r_cmd_track

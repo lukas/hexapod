@@ -3952,21 +3952,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     if _over > 0.0:
                         r_free_pen -= k_free * k_over * _over
                         info["walk_freeprog_overspeed"] = round(_over, 4)
-            # Simple physical joystick objective (default off). Unlike the
-            # historical Gaussian/proxy stack, this is negative for parking,
-            # cross-track travel, and wrong-way travel by construction.
-            k_cmd_track = max(0.0, float(cfg_get(
-                self.cfg, "reward", "k_walk_cmd_track", default=0.0)))
-            r_cmd_track = 0.0
-            cmd_cross = 0.0
-            if k_cmd_track > 0.0:
-                cmd_score, cmd_along, cmd_cross = walk_cmd_track_score(
-                    float(v[0]), float(v[1]), goal.vx_ref, goal.vy_ref,
-                    stop_speed_m_s=float(cfg_get(
-                        self.cfg, "goal", "walk_speed_min_m_s",
-                        default=0.03)))
-                along = cmd_along
-                r_cmd_track = k_cmd_track * cmd_score
+            along, cmd_cross, k_cmd_track, r_cmd_track = (
+                walk_reward_progress.cmd_track_objective(
+                    self, along, goal, v))
             reward = walk_reward_yaw.yaw_rate_kernel(self,
                 along, goal, info, reward, s_ref)
             reward = walk_reward_yaw.anti_drift_yaw_pricing(self,

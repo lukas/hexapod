@@ -76,7 +76,8 @@ from .balance_reward_current import (
     current_penalties,
 )
 from .balance_reward_rise import (
-    rise_curl_reward, rise_ref_track_reward, rise_scored_steps_reward,
+    rise_curl_only_pretrain_reward, rise_curl_reward, rise_ref_track_reward,
+    rise_scored_steps_reward,
 )
 from .balance_bc_anchor import (
     bc_anchor_target,
@@ -4401,74 +4402,7 @@ class SimHexapodBalanceEnv(_GymBase):
         reward = end_posture_reward(self, goal, mode_now, parts, reward)
         reward = terminal_settlement_reward(self, depth_frac,
             lower_score_mode, parts, pen, reward, terminated)
-        # CURL-ONLY PRETRAIN STAGE (2026-09-13, risetwophase-s1-canary2m
-        # FAIL-MECHANISM escalation: THREE successive reward-pricing/
-        # curriculum levers on the SAME continuous height-ramp income
-        # (current-headroom-gated, curl-geometry-gated, and finally a
-        # genuine two-phase freeze-the-ramp-until-curled sub-goal) all
-        # left the rise/det flat+bridge failing trajectories within
-        # noise of the ungated parent's own fingerprint
-        # (cur_rail_frac 0.587/0.46/0.584 vs the parent's own
-        # 0.587/0.457/0.587) -- the freeze mechanism demonstrably FIRES
-        # (env/rise_gate_freeze_ticks > 0 throughout, unlike the prior
-        # gate whose factor never left 1.0) but a 2.0s-capped freeze
-        # inside the full multi-mode rise/hold/lower recipe still never
-        # gives the policy a REASON strong/isolated enough to discover
-        # the coordinated tuck-in motion -- every further dose of the
-        # SAME income-pricing family is now refuted 3/3, so per the
-        # gate's own escalation this does not re-price the ramp again;
-        # it makes a completely separate, narrower, BC-free RL-only
-        # training STAGE possible: this flag turns OFF every rise
-        # height/score/posture/finish-related reward term (the exact
-        # keys that pay for climbing regardless of curl state) so the
-        # ENTIRE per-tick reward for is_rise ticks becomes JUST the
-        # pre-existing curl-progress/curl-milestone telescoping reward
-        # (reward.k_curl_progress/k_rise_milestone, unchanged formulas,
-        # no new physics, no teacher/anchor/demo signal anywhere) plus
-        # the general actuator/gait safety regularizers that already
-        # apply regardless of mode (current-hot, action-rate, stance,
-        # clearance, flag-leg, termination) -- a policy trained under
-        # this flag is optimizing PURELY "get your feet under you
-        # without cooking a servo", the narrowest possible RL-only
-        # sub-task, intended to run for a short episode
-        # (--episode-seconds ~3-4s) as a warm-start PRECURSOR to the
-        # normal full recipe (this flag OFF, goal.rise_curl_gate=1 as
-        # before) -- i.e. a genuine two-stage CURRICULUM (explicitly
-        # allowed for rl_only: "Calibration, system ID, task rewards,
-        # curricula ... are allowed"), not another reward-pricing dose
-        # on the same continuous income. Bit-exact OFF by default
-        # (reward.rise_curl_pretrain=0): every existing checkpoint's
-        # reward is untouched. Crouch starts are EXEMPT (same exemption
-        # as `_rise_gate_tick`'s freeze): curl_dist is already ~0 there,
-        # so there is nothing to pretrain and the full height/score
-        # reward stays live -- without this exemption, a mixed-mode
-        # pretrain batch would starve the crouch->full-rise pathway of
-        # its own already-working reward signal and risk regressing the
-        # one branch this campaign already trusts (rise_crouch_success
-        # held at 1.0 across every prior canary). Tests:
-        # rl_move/tests/test_rise_curl_pretrain_reward.py.
-        if (self._is_rise and getattr(self._goal_traj, "start_at", None)
-                != "crouch" and float(cfg_get(
-                self.cfg, "reward", "rise_curl_pretrain",
-                default=0.0)) == 1.0):
-            _keep_keys = (
-                "reward_curl_progress", "reward_curl_milestone",
-                "reward_current_hot", "reward_current_pretuck",
-                "reward_current_rate",
-                "reward_rise_decouple",
-                "reward_support_margin", "reward_load_even",
-                "reward_torque_headroom", "reward_action_rate",
-                "reward_stance", "reward_clearance", "reward_flag_leg",
-                "reward_termination", "reward_task", "reward_still",
-            )
-            _dropped_total = 0.0
-            for _k in list(parts.keys()):
-                if (_k.startswith("reward_") and _k not in _keep_keys
-                        and isinstance(parts[_k], (int, float))):
-                    _dropped_total += parts[_k]
-                    parts[_k] = 0.0
-            reward -= _dropped_total
-            parts["rise_curl_pretrain_active"] = 1.0
+        reward = rise_curl_only_pretrain_reward(self, parts, reward)
         truncated = self._step_i >= self._active_episode_steps()
         self._prev_action = clipped.copy()
         info = {"termination_reason": status.reason, **parts,

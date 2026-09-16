@@ -146,13 +146,12 @@ def pull_teacher_run(run: str) -> dict:
     """
     import json
 
-    from rl_move.orchestrator import state_dir
-    from rl_move.orchestrator.ledger_view import current_entries
+    from rl_move.ledger import current_entries, load_ledger
 
     from .train_ppo_sim import _parse_cfg_set
 
     try:
-        entries = state_dir.load_ledger()
+        entries = load_ledger()
     except (OSError, RuntimeError) as exc:
         raise SystemExit(f"--*-teacher-run: {exc}") from exc
     entry = current_entries(entries).get(run)

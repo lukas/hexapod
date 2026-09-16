@@ -132,9 +132,9 @@ def _ledger_cfg_set(run: str) -> list[str]:
     """The run's own training --cfg-set list, straight from the
     ledger's extra_args (same lookup `ops.sh evalcmd`/`sessioncmd` use:
     prefer an entry that actually ran over a later REFUSED stub)."""
-    from rl_move.orchestrator import state_dir
+    from rl_move.ledger import load_ledger
     entry, fallback = None, None
-    for e in state_dir.load_ledger():
+    for e in load_ledger():
         if isinstance(e, dict) and e.get("run") == run and e.get(
                 "extra_args"):
             fallback = e

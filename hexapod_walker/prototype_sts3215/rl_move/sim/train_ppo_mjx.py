@@ -3896,7 +3896,7 @@ def main(argv: list[str] | None = None) -> int:
     # this feature have no artifact, and that must never block a run.
     if run is not None and args.init_from is not None:
         try:
-            from ..orchestrator.artifact_names import checkpoint_artifact_name
+            from .artifact_names import checkpoint_artifact_name
             parent_artifact = checkpoint_artifact_name(args.init_from.stem)
             run.use_artifact(f"{parent_artifact}:latest")
             print(f"[wandb] lineage: consumes {parent_artifact}")
@@ -7302,7 +7302,7 @@ def main(argv: list[str] | None = None) -> int:
         # Publish the final checkpoint as a W&B artifact so every future
         # warm start (use_artifact above) links into the lineage DAG.
         try:
-            from ..orchestrator.artifact_names import publish_checkpoint
+            from .artifact_names import publish_checkpoint
             art = publish_checkpoint(
                 run, out_path, run_name=args.run_name, steps=args.steps,
                 task=args.task,

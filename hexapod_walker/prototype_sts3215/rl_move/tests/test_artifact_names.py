@@ -7,8 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
-from rl_move.orchestrator.artifact_names import (
+from rl_move.sim.artifact_names import (
     bounded_artifact_name, checkpoint_artifact_name, publish_checkpoint)
 
 
@@ -57,25 +56,3 @@ def test_long_checkpoint_publication_preserves_bytes_and_lineage(tmp_path, monke
     assert logged[0][1][0] == "latest"
     assert all(len(a) <= 128 for a in logged[0][1])
 
-
-def test_long_analysis_publishes_to_existing_run(tmp_path, monkeypatch):
-    monkeypatch.syspath_prepend(str(ROOT / "rl_move" / "orchestrator"))
-    import launch_run as lr
-    recorded = []
-    initialized = []
-    writer = SimpleNamespace(log_artifact=recorded.append, finish=lambda: None)
-    def init(**kwargs):
-        initialized.append(kwargs)
-        return writer
-    monkeypatch.setitem(sys.modules, "wandb", SimpleNamespace(
-        Artifact=Artifact, init=init, Settings=lambda **kwargs: None))
-    monkeypatch.setattr(lr, "HERE", tmp_path / "rl_move" / "orchestrator")
-    monkeypatch.setattr(lr, "RUNS_DIR", tmp_path / "runs")
-    run_name = "cw-" + "long-" * 27
-    lr._publish_analysis_artifact(SimpleNamespace(id="same-id", project="same-project"),
-                                  run_name, {"verdict": "health pass", "status": "PASS"})
-    assert initialized[0]["id"] == "same-id"
-    assert initialized[0]["project"] == "same-project"
-    assert recorded[0].metadata["run"] == run_name
-    assert recorded[0].metadata["original_artifact_name"] == "analysis-" + run_name
-    assert any(name == "ledger_entry.json" for name, _ in recorded[0].files)

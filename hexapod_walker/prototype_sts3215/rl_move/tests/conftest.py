@@ -37,53 +37,66 @@ os.environ.setdefault("HEXAPOD_MODEL_SOURCE", "primitive")
 
 
 # ---------------------------------------------------------------------------
-# Ledger fixture (2026-09-14): the ledger is a directory of per-entry files
-# behind state_dir.load_ledger/save_ledger. Tests that used to write a JSON
-# list to a temp `experiments.json` and monkeypatch `<module>.LEDGER` now
-# point state_dir at a temp state dir and write through the real accessor.
+# Ledger fixture: the orchestrator's ledger is a directory of per-entry
+# files, ``<state>/ledger/NNNNNN-<run>.json`` (seq prefix = identity and
+# order, ``ledger_seq`` repeated inside). ``rl_move.ledger`` reads it from
+# ``$HEXAPOD_STATE_DIR``; this fixture writes that layout into a temp state
+# dir and points the env var at it.
 # ---------------------------------------------------------------------------
+import json  # noqa: E402
+import re  # noqa: E402
+import shutil  # noqa: E402
+
 import pytest  # noqa: E402
+
+_UNSAFE = re.compile(r"[^A-Za-z0-9._-]")
 
 
 def _state_dir_modules():
-    """Both import spellings of state_dir that the suite can produce (the
-    bare orchestrator module and rl_move.orchestrator.state_dir) are
-    distinct module objects; patch whichever exist."""
-    import state_dir as bare
-    mods = [bare]
+    """TRANSITIONAL (removed with rl_move/orchestrator): the orchestrator
+    tests still in this tree read the ledger through state_dir's module
+    constants; patch whichever spellings are importable."""
+    mods = []
+    try:
+        import state_dir as bare
+        mods.append(bare)
+    except ImportError:
+        pass
     try:
         from rl_move.orchestrator import state_dir as pkg
-    except ImportError:  # pragma: no cover - depends on the import path
-        pkg = None
-    if pkg is not None and pkg is not bare:
-        mods.append(pkg)
+        if all(pkg is not m for m in mods):
+            mods.append(pkg)
+    except ImportError:
+        pass
     return mods
 
 
 @pytest.fixture
 def state_ledger(tmp_path, monkeypatch):
-    """Temp state dir wired into state_dir; returns ``write(entries) -> Path``.
+    """Temp state dir behind ``HEXAPOD_STATE_DIR``; returns ``write(entries) -> Path``.
 
     ``write`` REPLACES the ledger with ``entries`` (numbered 1..N, the way
-    the migration numbers a list) and returns the state dir -- the same
-    semantics the old ``path.write_text(json.dumps(rows))`` fixtures had.
+    the orchestrator's migration numbers a list) and returns the state dir.
     The caller's dicts are not mutated. Call it with ``[]`` for an empty
-    ledger. Changed-file mechanics are tested in test_state_dir_ledger.
+    ledger.
     """
-    import shutil
-
-    import state_dir
     root = tmp_path / "state"
     root.mkdir(exist_ok=True)
+    monkeypatch.setenv("HEXAPOD_STATE_DIR", str(root))
     for mod in _state_dir_modules():
         monkeypatch.setattr(mod, "STATE_DIR", root)
         monkeypatch.setattr(mod, "LEDGER_DIR", root / "ledger")
         monkeypatch.setattr(mod, "LEDGER", root / "ledger")
 
     def write(entries):
-        shutil.rmtree(root / "ledger", ignore_errors=True)
-        state_dir.save_ledger([
-            {k: v for k, v in e.items() if k != state_dir.SEQ_KEY}
-            for e in entries])
+        ledger = root / "ledger"
+        shutil.rmtree(ledger, ignore_errors=True)
+        ledger.mkdir()
+        for seq, e in enumerate(entries, 1):
+            entry = {k: v for k, v in e.items() if k != "ledger_seq"}
+            entry["ledger_seq"] = seq
+            safe = _UNSAFE.sub("_", str(entry.get("run") or "")).strip("._") or "unnamed"
+            (ledger / f"{seq:06d}-{safe[:180]}.json").write_text(
+                json.dumps(entry, indent=2) + "\n")
         return root
     return write

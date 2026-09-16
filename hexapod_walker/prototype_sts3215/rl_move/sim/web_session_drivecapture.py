@@ -294,7 +294,7 @@ def drive_cmd_rejected(status: str) -> bool:
 
 
 def _annotate(frame: np.ndarray, lines: list[str]) -> np.ndarray:
-    from .train_ppo_sim import _annotate_frame
+    from .frame_annotate import _annotate_frame
     return _annotate_frame(frame, lines)
 
 

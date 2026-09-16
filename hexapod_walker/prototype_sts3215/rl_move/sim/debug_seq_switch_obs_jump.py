@@ -49,7 +49,7 @@ from rl_move.config import load_config
 from rl_move.sim.eval_checkpoint import ENV_CLASSES
 from rl_move.sim.gru_policy import load_checkpoint_auto
 from rl_move.sim.servo_model import SimServoParams
-from rl_move.sim.train_ppo_sim import _parse_cfg_set
+from rl_move.sim.cfg_set import _parse_cfg_set
 
 RAD2DEG = 180.0 / np.pi
 

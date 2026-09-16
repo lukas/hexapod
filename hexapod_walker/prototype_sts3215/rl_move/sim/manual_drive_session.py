@@ -178,7 +178,7 @@ def main() -> int:
     args = ap.parse_args()
 
     from rl_move.config import load_config
-    from .train_ppo_sim import _parse_cfg_set
+    from .cfg_set import _parse_cfg_set
     from .servo_model import SimServoParams
     from .walk_task import SimHexapodJointWalkEnv
 

@@ -319,7 +319,7 @@ class SimWebSession:
         # every walk-model selection.
         self._walk_obs_body_vel_explicit = False
         if self.cfg.cfg_overrides:
-            from .train_ppo_sim import _parse_cfg_set
+            from .cfg_set import _parse_cfg_set
             for key, parsed in _parse_cfg_set(
                     list(self.cfg.cfg_overrides)).items():
                 sect, name = key.split(".", 1)

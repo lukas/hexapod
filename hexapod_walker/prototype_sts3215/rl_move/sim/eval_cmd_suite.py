@@ -164,11 +164,11 @@ def main() -> int:
     from .gru_policy import load_checkpoint_auto
     from .servo_model import SimServoParams
     from .walk_task import N_MODE_OBS, SimHexapodJointWalkEnv
-    from .train_ppo_sim import _parse_cfg_set
+    from .cfg_set import _parse_cfg_set
 
     # Same cfg-before-construction rule as eval_checkpoint (cycle 11:
     # overrides can change obs WIDTH, baked in __init__). Parsing MUST
-    # share train_ppo_sim._parse_cfg_set, not a local reimplementation
+    # share cfg_set._parse_cfg_set, not a local reimplementation
     # (2026-08-30: this file's own float-or-string-only copy silently
     # kept a '[..]' JSON-list value — e.g. goal.walk_heading_set=[0,
     # 0.785,...] -- as the literal bracketed STRING, which crashed

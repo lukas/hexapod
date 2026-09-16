@@ -114,7 +114,7 @@ def test_run_probe_traces_height_alongside_current(tmp_path):
     )
     from rl_move.sim.eval_checkpoint import ENV_CLASSES
     from rl_move.sim.servo_model import SimServoParams
-    from rl_move.sim.train_ppo_sim import _parse_cfg_set
+    from rl_move.sim.cfg_set import _parse_cfg_set
 
     cfg = load_config()
     for key, parsed in _parse_cfg_set(FLATONLY_FORCED_PLAN_CFG).items():
@@ -164,7 +164,7 @@ def test_run_probe_extra_cfg_set_overrides_ramp(tmp_path):
     )
     from rl_move.sim.eval_checkpoint import ENV_CLASSES
     from rl_move.sim.servo_model import SimServoParams
-    from rl_move.sim.train_ppo_sim import _parse_cfg_set
+    from rl_move.sim.cfg_set import _parse_cfg_set
 
     cfg = load_config()
     for key, parsed in _parse_cfg_set(FLATONLY_FORCED_PLAN_CFG).items():
@@ -230,7 +230,7 @@ def test_run_probe_traces_per_joint_type_current(tmp_path):
     )
     from rl_move.sim.eval_checkpoint import ENV_CLASSES
     from rl_move.sim.servo_model import SimServoParams
-    from rl_move.sim.train_ppo_sim import _parse_cfg_set
+    from rl_move.sim.cfg_set import _parse_cfg_set
 
     cfg = load_config()
     for key, parsed in _parse_cfg_set(FLATONLY_FORCED_PLAN_CFG).items():

@@ -46,9 +46,11 @@ _LINUX = _PROTO / "linux_control"
 
 from .mjx_backend import mjx_is_available
 from .servo_model import SimServoParams
+from .cfg_set import _parse_cfg_set
+from .env_registry import ENV_CLASSES
 from .train_ppo_sim import (
-    ENV_CLASSES, POLICY_DIR, WANDB_ENTITY_DEFAULT, WANDB_PROJECT_DEFAULT,
-    _learning_line, _load_wandb_env, _parse_cfg_set, _parse_goal_mix,
+    POLICY_DIR, WANDB_ENTITY_DEFAULT, WANDB_PROJECT_DEFAULT,
+    _learning_line, _load_wandb_env, _parse_goal_mix,
     _resolved_reward_cfg, _reward_notes, _warn_if_defaults,
 )
 
@@ -3820,7 +3822,7 @@ def main(argv: list[str] | None = None) -> int:
         # obs/walk_yaw_cmd/mode_onehot tail accounting) — reused, not
         # duplicated, so the two trainers can never disagree about which
         # obs dims are privileged.
-        from .train_ppo_sim import _privileged_idx
+        from .obs_transplant import _privileged_idx
         n_obs = int(np.prod(venv.observation_space.shape))
         extra_pk["privileged_idx"] = _privileged_idx(args, n_obs)
         print(f"[mjx-train] asym-critic privileged idx "
@@ -4098,8 +4100,8 @@ def main(argv: list[str] | None = None) -> int:
             # parent's first-layer frame blocks to rate-matched slots of
             # a densified history stack (25->100 Hz conversion). Either
             # way optimizer state is fresh (architecture changed).
-            from .train_ppo_sim import (hist_stride_transplant,
-                                        pad_obs_transplant)
+            from .obs_transplant import (hist_stride_transplant,
+                                         pad_obs_transplant)
             old = PPO.load(args.init_from, device="cpu")
             model = algo_cls(
                 "MlpPolicy", venv,

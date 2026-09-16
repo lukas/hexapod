@@ -1588,14 +1588,15 @@ def main() -> None:
     course_trace_fh = (open(args.course_trace, "a")
                        if args.course_trace else None)
 
-    from .train_ppo_sim import _annotate_frame, _parse_cfg_set
+    from .cfg_set import _parse_cfg_set
+    from .frame_annotate import _annotate_frame
 
     env_cls = ENV_CLASSES[args.task]
     # Apply --cfg-set BEFORE construction: overrides can change obs
     # WIDTH (e.g. goal.walk_phase_obs), which is baked in __init__ —
     # post-hoc env.cfg mutation silently kept the legacy width (found
     # evaluating the cw-walk-phase smoke, cycle 11).
-    # Parsing MUST share train_ppo_sim._parse_cfg_set (not a local
+    # Parsing MUST share cfg_set._parse_cfg_set (not a local
     # reimplementation): that parser handles '[lo,hi]' JSON-list values
     # (e.g. goal.rise_height_mm=[108,114]); a local float-or-string-only
     # copy silently kept such values as the literal string '[108,114]',

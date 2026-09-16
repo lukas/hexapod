@@ -844,7 +844,7 @@ def test_obs_pad_transplant_preserves_parent_behavior():
     torch = pytest.importorskip("torch")
     import gymnasium as gym
     from stable_baselines3 import PPO
-    from rl_move.sim.train_ppo_sim import pad_obs_transplant
+    from rl_move.sim.obs_transplant import pad_obs_transplant
 
     class _Tiny(gym.Env):
         def __init__(self, n):
@@ -885,7 +885,7 @@ def test_obs_pad_transplant_insert_at_mid_layout():
     torch = pytest.importorskip("torch")
     import gymnasium as gym
     from stable_baselines3 import PPO
-    from rl_move.sim.train_ppo_sim import pad_obs_transplant
+    from rl_move.sim.obs_transplant import pad_obs_transplant
 
     class _Tiny(gym.Env):
         def __init__(self, n):
@@ -1214,7 +1214,7 @@ def test_privileged_idx_history_frames():
     """asym-critic mask indices: (-2,-1) special case generalizes to one
     vel pair per stacked frame; phase obs shifts the pair by 2."""
     from types import SimpleNamespace
-    from rl_move.sim.train_ppo_sim import _privileged_idx
+    from rl_move.sim.obs_transplant import _privileged_idx
 
     a = SimpleNamespace(cfg_set=None)
     assert _privileged_idx(a, 72) == (70, 71)

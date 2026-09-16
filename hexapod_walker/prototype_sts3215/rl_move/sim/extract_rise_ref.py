@@ -44,7 +44,7 @@ from hexapod_core.joint_frame import joint_index
 from rl_move.robot_state import DEG2RAD
 
 from .servo_model import SimServoParams
-from .train_ppo_sim import ENV_CLASSES
+from .env_registry import ENV_CLASSES
 
 
 def _blend_pose_ik(q_from_rad: np.ndarray, q_plant_rad: np.ndarray,

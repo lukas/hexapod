@@ -261,7 +261,8 @@ def main() -> int:
     from .eval_checkpoint import (_course_window_ep_keys, _save_video,
                                   model_identity)
     from .servo_model import SimServoParams, motor_contract
-    from .train_ppo_sim import _annotate_frame, _parse_cfg_set
+    from .cfg_set import _parse_cfg_set
+    from .frame_annotate import _annotate_frame
     from .walk_task import SimHexapodJointWalkEnv
 
     cfg = load_config()

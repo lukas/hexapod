@@ -65,7 +65,8 @@ from rl_move.sim.eval_checkpoint import (ENV_CLASSES, _save_video,
                                           run_episode)
 from rl_move.sim.joint_task import q_rad_to_action
 from rl_move.sim.servo_model import SimServoParams
-from rl_move.sim.train_ppo_sim import _annotate_frame, _parse_cfg_set
+from rl_move.sim.cfg_set import _parse_cfg_set
+from rl_move.sim.frame_annotate import _annotate_frame
 
 # Same constant every scripted-teacher probe in this codebase uses
 # (probe_walk_income.py, probe_turn_authority.py, build_motion_library.py

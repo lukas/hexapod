@@ -1,7 +1,7 @@
 """Regression test (2026-08-30, singleframe-acq1-stdanneal cmd_suite
 launch): eval_cmd_suite.py used to reimplement its own float-or-
 string-only --cfg-set parser instead of sharing
-train_ppo_sim._parse_cfg_set, silently keeping a '[..]' JSON-list
+cfg_set._parse_cfg_set, silently keeping a '[..]' JSON-list
 value (e.g. goal.walk_heading_set=[0,0.785,-0.785]) as the literal
 bracketed STRING. walk_task.py's heading-set code handles a genuine
 list fine but crashes float('[0') when handed that raw string --
@@ -16,7 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
-from rl_move.sim.train_ppo_sim import _parse_cfg_set
+from rl_move.sim.cfg_set import _parse_cfg_set
 
 
 def test_bracket_value_parses_as_a_json_list():
@@ -35,7 +35,7 @@ def test_plain_float_and_string_values_unchanged():
 def test_eval_cmd_suite_shares_the_parser_not_a_local_reimplementation():
     src = (ROOT / "rl_move" / "sim" / "eval_cmd_suite.py").read_text()
     assert "_parse_cfg_set" in src, (
-        "eval_cmd_suite.py must import/use train_ppo_sim._parse_cfg_set "
+        "eval_cmd_suite.py must import/use cfg_set._parse_cfg_set "
         "for --cfg-set parsing, never a local float-or-string-only copy "
         "(that copy silently mishandled '[..]' JSON-list values)")
 

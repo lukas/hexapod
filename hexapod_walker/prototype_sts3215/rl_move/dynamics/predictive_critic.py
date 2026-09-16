@@ -283,7 +283,7 @@ def actor_only_transplant(old_model, new_model,
     for the additional (OLDER-history) dims appended at the observation
     tail, so the transplanted actor reproduces ``old_model``'s action
     distribution bit-for-bit at init for ANY value of those dims —
-    same obs-widening contract as ``train_ppo_sim.pad_obs_transplant``,
+    same obs-widening contract as ``obs_transplant.pad_obs_transplant``,
     scoped to the actor half only. Optimizer state is fresh (not
     copied).
 

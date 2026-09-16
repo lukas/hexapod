@@ -624,7 +624,7 @@ WALK_PLANT = (20.0, 100.0)
 
 
 def _build_cfg(cfg_set: list[str] | None, mode_onehot: bool = False) -> dict:
-    from .train_ppo_sim import _parse_cfg_set
+    from .cfg_set import _parse_cfg_set
     cfg = load_config()
     for key, parsed in _parse_cfg_set(cfg_set or []).items():
         sect, name = key.split(".", 1)

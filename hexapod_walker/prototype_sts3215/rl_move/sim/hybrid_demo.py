@@ -296,7 +296,7 @@ def _fresh_obs(env):
 class _Recorder:
     def __init__(self, env, *, render_stride: int, plan: dict[str, Any]):
         from .eval_checkpoint import _course_window_ep_keys
-        from .train_ppo_sim import _annotate_frame
+        from .frame_annotate import _annotate_frame
         from .drive_video import _contact
 
         self.env = env
@@ -922,7 +922,7 @@ def main() -> int:
     from .eval_checkpoint import _save_video, model_identity
     from .play_core import _PlayEnv
     from .servo_model import SimServoParams, motor_contract
-    from .train_ppo_sim import _parse_cfg_set
+    from .cfg_set import _parse_cfg_set
 
     cfg = load_config()
     for key, parsed in _parse_cfg_set(args.cfg_set).items():

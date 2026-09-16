@@ -87,7 +87,7 @@ TURN_RADIUS_APPROX_M = 0.09  # nominal foot-to-yaw-axis radius for the
 
 
 def _parse_cfg_set(specs) -> dict:
-    """Same semantics as train_ppo_sim._parse_cfg_set (float / '[..]'
+    """Same semantics as cfg_set._parse_cfg_set (float / '[..]'
     JSON list / fallback string), duplicated locally so this CPU-only
     builder never imports the torch-heavy trainer module."""
     out = {}

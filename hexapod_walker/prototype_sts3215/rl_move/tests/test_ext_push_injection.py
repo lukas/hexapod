@@ -331,7 +331,7 @@ def test_push_measurably_perturbs_chassis_vs_push_off_twin():
 
 def test_repeat_max_float_from_cfg_set_does_not_crash():
     # --cfg-set dr.ext_push_repeat_max=3 reaches RandRanges as FLOAT 3.0
-    # (train_ppo_sim._parse_cfg_set coerces scalars to float; sim_env's
+    # (cfg_set._parse_cfg_set coerces scalars to float; sim_env's
     # dr.* override setattrs it verbatim). range() rejects floats — this
     # crashed the first attempted repeat-push launch prep (2026-08-22)
     # before any training step. Must sample identically to int 3.

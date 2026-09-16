@@ -134,7 +134,7 @@ def _extract_flag_value(extra_args: list, flag: str) -> str | None:
 def pull_teacher_run(run: str) -> dict:
     """Resolve a ledger run name into what this tool needs to treat it
     as a teacher: its OWN ``--cfg-set`` overrides (parsed the same way
-    ``train_ppo_sim._parse_cfg_set`` would), its checkpoint path, and
+    ``cfg_set._parse_cfg_set`` would), its checkpoint path, and
     its ``--dr-scale`` (informational only, not applied automatically).
 
     Standwalk STATUS 2026-09-11 ~20:1x binding: hand-transcribing a
@@ -148,7 +148,7 @@ def pull_teacher_run(run: str) -> dict:
 
     from rl_move.ledger import current_entries, load_ledger
 
-    from .train_ppo_sim import _parse_cfg_set
+    from .cfg_set import _parse_cfg_set
 
     try:
         entries = load_ledger()
@@ -945,7 +945,7 @@ def main(argv: list[str] | None = None) -> int:
     # training cfg) as a raw STRING instead of a parsed list, which
     # would break any downstream cfg_get(...) numeric use. No behavior
     # change for plain float/string values (float-else-string in both).
-    from .train_ppo_sim import _parse_cfg_set
+    from .cfg_set import _parse_cfg_set
     for spec in (args.cfg_set or []):
         if "." not in spec.split("=", 1)[0]:
             raise SystemExit(f"--cfg-set needs a dotted key, got: {spec}")

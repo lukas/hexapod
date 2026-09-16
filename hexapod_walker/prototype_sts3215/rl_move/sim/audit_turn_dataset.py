@@ -72,7 +72,7 @@ import numpy as np
 from .distill_gru import _build_cfg, DIET
 from .servo_model import SimServoParams
 from .walk_task import SimHexapodJointWalkEnv
-from .train_ppo_sim import _parse_cfg_set
+from .cfg_set import _parse_cfg_set
 
 # The documented dualbc5_turncap collection recipe (STATUS 08-31 ~02:0x):
 # walk-teacher-ledger 51 --cfg-set flags (28 unique) UNION stance-

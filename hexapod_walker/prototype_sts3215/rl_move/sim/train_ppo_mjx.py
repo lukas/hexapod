@@ -80,11 +80,9 @@ from .recover_population import (
 )
 
 
-def main(argv: list[str] | None = None) -> int:
-    if argv is None:
-        import sys as _sys
-        argv = _sys.argv[1:]
-    argv = _fixup_log_std_final_argv(list(argv))
+def _build_arg_parser() -> argparse.ArgumentParser:
+    """The trainer's CLI. Kept beside ``main`` so ``description=__doc__``
+    keeps reading this module's docstring."""
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--task", choices=sorted(ENV_CLASSES),
@@ -1074,6 +1072,15 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--no-wandb", action="store_true")
     ap.add_argument("--smoke", action="store_true",
                     help="tiny CPU run to validate the pipeline")
+    return ap
+
+
+def main(argv: list[str] | None = None) -> int:
+    if argv is None:
+        import sys as _sys
+        argv = _sys.argv[1:]
+    argv = _fixup_log_std_final_argv(list(argv))
+    ap = _build_arg_parser()
     args = ap.parse_args(argv)
 
     if args.recover_full_retention_every < 0:

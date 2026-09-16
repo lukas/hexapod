@@ -18,8 +18,8 @@ layout kept the extraction risk-free.
   hexapod architecture. The TT-motor kid truck lives here.
 - [`tools/`](tools/) — repository-wide utilities used by more than one project.
 - [`media/`](media/) — checked-in media referenced by project records.
-- [`experiment_lab/`](experiment_lab/) — authenticated robot experiment queue,
-  MCP/REST API, evidence recorder, and human results site.
+- Robot Lab v2 (the experiment queue, loop and web/MCP service) lives in
+  [lukas/hexapod-lab](https://github.com/lukas/hexapod-lab); it runs against a clone of this repo.
 
 The current robot is
 [`hexapod_walker/prototype_sts3215/`](hexapod_walker/prototype_sts3215/): an

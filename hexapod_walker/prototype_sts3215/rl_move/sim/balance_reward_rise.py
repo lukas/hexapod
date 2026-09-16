@@ -437,3 +437,121 @@ def rise_scored_steps_reward(env, goal, h_err, h_rel, parts, reward):
             parts["reward_rise_footprint_pen"] = r_fp_pen
             reward += r_fp_pen
     return lower_score_mode, depth_frac, reward
+
+
+def rise_curl_reward(env, goal, h_rel, parts, reward):
+    """Curl scores (rise only); moved verbatim from
+    SimHexapodBalanceEnv._step_finish.
+    """
+    # Curl scores (rise only): pay pulling the feet in toward the
+    # plant footprint. Potential-based, so crouch starts (dist ~0)
+    # and foot-parking exploits earn nothing net.
+    if env._is_rise:
+        kcp = float(cfg_get(env.cfg, "reward", "k_curl_progress",
+                            default=50.0))
+        kms = float(cfg_get(env.cfg, "reward", "k_rise_milestone",
+                            default=2.0))
+        th_mm = cfg_get(env.cfg, "reward", "curl_milestone_mm",
+                        default=[40.0, 15.0])
+        dist = env._curl_dist()
+        _curl_delta = env._curl_dist_prev - dist
+        r_cprog = kcp * _curl_delta
+        env._curl_dist_prev = dist
+        r_cmile = 0.0
+        for th in th_mm:
+            th = float(th)
+            if th not in env._curl_milestones and dist <= th * 0.001:
+                env._curl_milestones.add(th)
+                r_cmile += kms
+        parts["reward_curl_progress"] = r_cprog
+        parts["reward_curl_milestone"] = r_cmile
+        reward += r_cprog + r_cmile
+        # Height-without-curl DECOUPLING price (2026-09-14, follow-on
+        # to the risepretuck dose2/dose8 CANARY FAIL-MECHANISM
+        # diagnostic). A `--rollout-trace-out` per-tick trace off a
+        # FAILING flat-start rise episode (both current_pretuck
+        # doses) showed ALL SIX legs' pitch+knee servos pinned at/
+        # near the 2.64A ceiling simultaneously for >1.5s while
+        # footprint_err_end_mm stayed at the ~52mm stuck band (feet
+        # never moved toward the plant anchor) even though torso
+        # height climbed 0->53mm over the same window -- i.e. the
+        # policy pushes the body straight UP in Z from the
+        # original (splayed) foot XY layout instead of pulling feet
+        # IN (reducing curl_dist) first, the poor-leverage
+        # brute-force shape that costs near-max current on every
+        # joint simultaneously. Every closed lever on this sub-
+        # problem (current-headroom-gate, geometry/score-income
+        # gate, two-phase-freeze, curl-pretrain, current_pretuck)
+        # priced CURRENT, SCORE-INCOME, or a TRAINING STAGE in
+        # isolation -- none of them couple the two live state
+        # signals (curl_dist, h_rel) together. This term does:
+        # while pre-tuck (same one-way latch/threshold/crouch-
+        # exemption idiom as current_pretuck -- not a scripted
+        # clock, not a motion prior, both signals already read
+        # elsewhere in this same reward path), any positive torso
+        # height gained on a tick where curl_dist did NOT also
+        # shrink (`_curl_delta <= 0`) is charged quadratically --
+        # i.e. "raising the body without pulling your feet in
+        # first" is the specifically priced behavior, height gained
+        # WHILE curling is free. Bit-exact OFF by default
+        # (reward.k_rise_decouple=0.0): no extra state read, no
+        # behavior change for any existing checkpoint/lineage.
+        # --cfg-set reward.k_rise_decouple=<k>
+        # [--cfg-set reward.rise_decouple_curl_mm=<mm>] (default 40,
+        # matches the bridge-pose bar every other pretuck-family
+        # lever uses).
+        # Tests: rl_move/tests/test_rise_decouple_reward.py.
+        k_decouple = float(cfg_get(
+            env.cfg, "reward", "k_rise_decouple", default=0.0))
+        if (k_decouple > 0.0
+                and getattr(env._goal_traj, "start_at", None)
+                != "crouch"):
+            if getattr(env, "_decouple_latched", False):
+                tucked_d = True
+            else:
+                th_m_d = float(cfg_get(
+                    env.cfg, "reward", "rise_decouple_curl_mm",
+                    default=40.0)) * 0.001
+                tucked_d = dist <= th_m_d
+                if tucked_d:
+                    env._decouple_latched = True
+            h_prev = getattr(env, "_rise_h_prev", None)
+            if h_prev is None:
+                h_prev = h_rel
+            if not tucked_d:
+                d_h_mm = max(h_rel - h_prev, 0.0) * 1000.0
+                if _curl_delta <= 0.0 and d_h_mm > 0.0:
+                    r_decouple = -k_decouple * (d_h_mm ** 2)
+                    parts["reward_rise_decouple"] = r_decouple
+                    reward += r_decouple
+            env._rise_h_prev = h_rel
+        # Hold-phase repricing (run 06): while the height ref still
+        # sits at 0 (the curl window), the tracking kernel pays for
+        # CURL DISTANCE, not stillness. Before this, lying frozen
+        # and level earned ~1/tick from the tilt/height kernel while
+        # the entire curl bonus summed to ~2.5 — so preparation was
+        # priced as a loss and the policy (correctly, by that math)
+        # pinned curl negative through runs 03-05. Crouch starts
+        # have dist ~0 and earn full pay unchanged.
+        if goal is not None and goal.height_ref <= 1e-4:
+            sig_c = float(cfg_get(
+                env.cfg, "reward", "rise_hold_curl_sigma_mm",
+                default=20.0)) * 0.001
+            k_tr = float(cfg_get(env.cfg, "reward", "k_track",
+                                 default=1.0))
+            curl_kernel = k_tr * math.exp(
+                -0.5 * (dist / max(sig_c, 1e-6)) ** 2)
+            reward += curl_kernel - parts.get("reward_task", 0.0)
+            parts["reward_task"] = curl_kernel
+            # Reprice the quiet-stance bonus with the swapped kernel
+            # too: the plain kernel is ~1 lying level on the belly,
+            # which would pay k_still for frozen belly-rest — the
+            # exact freeze shortcut this branch exists to prevent.
+            if parts.get("reward_still", 0.0) != 0.0:
+                ksl = float(cfg_get(env.cfg, "reward", "k_still",
+                                    default=0.0))
+                r_still = (ksl * (curl_kernel / max(k_tr, 1e-9))
+                           * parts.get("still_factor", 0.0))
+                reward += r_still - parts["reward_still"]
+                parts["reward_still"] = r_still
+    return reward

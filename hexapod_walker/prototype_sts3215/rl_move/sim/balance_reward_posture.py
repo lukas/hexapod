@@ -1,7 +1,7 @@
 """First-principles posture prices of the balance env's _step_finish:
-support margin, load evenness, torque headroom debt, action-rate/stance-
-contact/stance-clearance/flag-leg shaping, terminal end-posture pricing
-and the terminal bleed settlement; moved verbatim out of sim_env.py.
+support margin, load evenness, torque headroom debt, action-rate /
+stance-contact / stance-clearance / flag-leg shaping and the terminal
+end-posture pricing; moved verbatim out of sim_env.py.
 """
 from __future__ import annotations
 

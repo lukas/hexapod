@@ -70,7 +70,8 @@ from .balance_reward_hold import (
     transition_foot_drag_metric,
 )
 from .balance_terminations import (
-    collapse_terminations, terminal_settlement_reward,
+    collapse_terminations, hold_minload_termination,
+    terminal_settlement_reward,
 )
 from .balance_reward_posture import (
     end_posture_reward, posture_support_load_headroom_reward,
@@ -3865,91 +3866,8 @@ class SimHexapodBalanceEnv(_GymBase):
         h_err = None
         h_rel = float(self.data.xpos[self._chassis_bid, 2]) - self._z0
         terminated = collapse_terminations(self, h_rel, status, terminated)
-        # HOLD-mode MIN-FOOT-LOAD termination (2026-08-25, standwalk
-        # mesh2 rung-6 -- the direct-measurement twin of hold_low_height
-        # just above). holdterm40's own gate report (h_err pinned at
-        # exactly 40.0-40.3 mm EVERY episode, valid_plant 0/12 both
-        # DR-0 and own-DR, cur_max ~2.6 A, leg imbalance 1.8-1.9)
-        # confirms the STATUS-pre-registered "alternative cheat": the
-        # policy learns to hover its CHASSIS right at/around the
-        # height-drop boundary while the actual per-foot load
-        # distribution never recovers -- a body-height proxy alone
-        # cannot see a foot that stays functionally unloaded (or one
-        # foot carrying everyone else's share) as long as the chassis
-        # itself stays within the drop line. This lever measures the
-        # ground truth directly instead of a height proxy: if the
-        # WORST (min-over-feet) touch force stays below
-        # safety.hold_min_load_terminate_n for
-        # safety.hold_min_load_terminate_s consecutive seconds (after
-        # its own grace window), the episode ends and resets back into
-        # the paying plant -- same story as hold_low_height/walk_idle_
-        # terminate: "absorbing states beat prices; must come WITH a
-        # termination, never instead of one" (op ruling 08-24). An EMA
-        # (tau 0.25 s) smooths sensor/contact
-        # chatter so one missed-contact tick can't false-trigger. A
-        # foot with no touch sensor (adr<0) falls back to the
-        # clearance test used elsewhere in this file (clear >
-        # foot_down_mm => "up" => scored as unloaded). Default
-        # hold_min_load_terminate_s=0.0 = off, bit-exact -- no new
-        # state is read and no episode outcome changes for any
-        # existing task/cfg.
-        hold_minload_term_s = float(cfg_get(
-            self.cfg, "safety", "hold_min_load_terminate_s", default=0.0))
-        # Segment-entry EMA CONTINUITY (2026-09-04, standwalk
-        # transtress-s1-acq8m dig-in). The legacy EMA lifecycle only
-        # updates INSIDE a hold segment: at a mode_seq mid-transition
-        # hold entry (walk->hold, rise->hold, walk->lower->rise->hold)
-        # the EMA is zero (first hold) or stale (value frozen at the
-        # END of the previous hold segment) instead of the true recent
-        # per-foot load. With the training grace (1.0 s) at 4x the EMA
-        # tau (0.25 s) the seed washes out before the termination clock
-        # unpins (e^-4 residual), so the stale seed alone cannot fire
-        # the termination -- but it DOES make any entry-window signal
-        # built on the EMA (the k_hold_min_load_short price below)
-        # blind or spurious exactly at the switch, the one place the
-        # acq8m fires cluster. safety.hold_min_load_ema_continuous=1
-        # keeps the EMA honest: seeded from the measured min force at
-        # reset (feet are planted at spawn) and updated EVERY control
-        # tick in EVERY mode, so a hold entry reads the actual load
-        # carried through the switch. Termination clock/grace/floor are
-        # untouched. Default 0 = legacy lifecycle, bit-exact.
-        minload_cont = float(cfg_get(
-            self.cfg, "safety", "hold_min_load_ema_continuous",
-            default=0.0)) > 0.0
-        minload_short_k = float(cfg_get(
-            self.cfg, "reward", "k_hold_min_load_short", default=0.0))
-        minload_in_hold = (self._goal_traj is not None
-                           and getattr(self._goal_traj, "mode", "")
-                           == "hold")
-        minload_floor_n = float(cfg_get(
-            self.cfg, "safety", "hold_min_load_terminate_n",
-            default=0.3))
-        if (self._pad_z_ref is not None
-                and (hold_minload_term_s > 0.0 or minload_short_k > 0.0)
-                and (minload_cont
-                     or (not terminated and hold_minload_term_s > 0.0
-                         and minload_in_hold))):
-            minload_tau_s = max(0.25, self.dt)
-            min_force_now = self._minload_min_force_now(minload_floor_n)
-            self._hold_minload_ema += (self.dt / minload_tau_s) * (
-                min_force_now - self._hold_minload_ema)
-        if (not terminated and hold_minload_term_s > 0.0
-                and minload_in_hold and self._pad_z_ref is not None):
-            minload_grace_s = float(cfg_get(
-                self.cfg, "safety", "hold_min_load_terminate_grace_s",
-                default=0.0))
-            if (self._step_i - self._seg_entry_step) * self.dt < minload_grace_s:
-                self._hold_minload_low_s = 0.0
-            else:
-                if self._hold_minload_ema < minload_floor_n:
-                    self._hold_minload_low_s += self.dt
-                else:
-                    self._hold_minload_low_s = 0.0
-                if self._hold_minload_low_s >= hold_minload_term_s:
-                    terminated = True
-                    status.ok = False
-                    status.terminate = True
-                    status.reason = "hold_min_load"
+        (minload_short_k, minload_in_hold, minload_floor_n,
+         terminated) = hold_minload_termination(self, status, terminated)
         # Sustained-idle termination (2026-08-24, walkcurr park_duty-
         # class closure dig-in): every anti-park PRICE tried so far
         # (idle charge, park_duty, up to bank-legal 1.5x dose) left a

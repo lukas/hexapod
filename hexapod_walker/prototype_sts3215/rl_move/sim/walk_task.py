@@ -4279,64 +4279,10 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 self._gait_gate_qfactor = gt_factor
                 info["walk_gait_min"] = g_score
                 info["walk_gait_gate_factor"] = gt_factor
-            # Per-leg contact-DUTY income gate (09-05 dig-in
-            # headset-base-s0c1-acq1: LEGPARK confirmed family-wide,
-            # not gSDE-specific — 1/3 plain-Gaussian heading seeds
-            # hardened a marginal leg into a chronic duty-0.03-0.07
-            # paddle over 40M while reward rose and speed stayed
-            # flat). The two prior anti-park levers each had one
-            # right half: walk_gait_gate collapses income (right
-            # STRUCTURE — charges are simply outbid, quadwalk3/5 +
-            # the idleterm/k_park FAIL pair) but scores a completion
-            # window that a rare token swing resets (gamed 2/2,
-            # sde-s1/s2-c3gg, gate_factor pinned 0.98-0.99 while the
-            # harness flagged a duty-0.0 leg); k_park prices duty
-            # (right SIGNAL, the harness's own sacrifice metric) but
-            # as a flat charge. This gate combines the proven
-            # halves: score = MIN over support legs of
-            # clip(trailing-window contact duty / duty_gate_floor,
-            # 0, 1); healthy tripod duty ~0.4-0.6 scores 1.0, the
-            # harness bar is 0.10, floor 0.15 adds margin. A token
-            # touch cannot dodge it (one contact tick moves a 3 s
-            # window mean ~1/300); a parked or paddling leg drags
-            # ALL transport income to the (1-g) floor within
-            # ~duty_gate_window_s. MIN not mean (fractional
-            # discounts are simply paid). Gates only once the window
-            # is full (episode-start grace, mirrors k_park); history
-            # appends in the contact block below, so previous-tick
-            # state prices this tick (same one-tick lag as
-            # walk_gait_gate). Penalties are never shrunk. Default
-            # 0 = off: no state, no info keys, legacy bit-exact.
-            # cfg: reward.walk_duty_gate in [0,1],
-            # reward.duty_gate_window_s (3.0),
-            # reward.duty_gate_floor (0.15).
-            g_duty = float(cfg_get(self.cfg, "reward",
-                                   "walk_duty_gate", default=0.0))
-            if g_duty > 0.0 and s_ref > 1e-3:
-                n_dwin = max(1, int(round(float(cfg_get(
-                    self.cfg, "reward", "duty_gate_window_s",
-                    default=3.0)) / self.dt)))
-                d_score = 1.0
-                if len(self._dgate_hist) >= n_dwin:
-                    d_floor = float(cfg_get(self.cfg, "reward",
-                                            "duty_gate_floor",
-                                            default=0.15))
-                    duty = np.mean(self._dgate_hist, axis=0)
-                    for f in range(6):
-                        if f in lift:
-                            continue
-                        d_score = min(
-                            d_score,
-                            min(float(duty[f]) / d_floor, 1.0))
-                dg_factor = (1.0 - g_duty) + g_duty * d_score
-                r_walk *= dg_factor
-                support_gate *= dg_factor
-                if r_prog > 0.0:
-                    r_prog *= dg_factor
-                if r_cmd_track > 0.0:
-                    r_cmd_track *= dg_factor
-                info["walk_duty_min"] = d_score
-                info["walk_duty_gate_factor"] = dg_factor
+            g_duty, r_cmd_track, r_prog, r_walk, support_gate = (
+                walk_reward_gates.leg_duty_gate(
+                    self, info, lift, r_cmd_track, r_prog, r_walk, s_ref,
+                    support_gate))
             g_swing, r_cmd_track, r_prog, r_walk, support_gate = walk_reward_gates.leg_swing_rate_gate(self,
                 info, lift, r_cmd_track, r_prog, r_walk, s_ref, support_gate)
             g_ratio, g_ratio_swingfloor, r_ratio = walk_reward_gates.leg_duty_ratio_charge(self,

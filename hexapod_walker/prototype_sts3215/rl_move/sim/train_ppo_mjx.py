@@ -6539,7 +6539,8 @@ def main(argv: list[str] | None = None) -> int:
                     if (saved_actor_version is not None
                             and hasattr(self.model.policy,
                                         "actor_snapshot_version")):
-                        with th.no_grad():
+                        import torch as _th
+                        with _th.no_grad():
                             self.model.policy.actor_snapshot_version.copy_(
                                 saved_actor_version.to(
                                     self.model.policy.

@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import numpy as np
 
+import rl_move.sim.recover_population as recover_population
 import rl_move.sim.train_ppo_mjx as train_ppo_mjx
 from rl_move.sim.train_ppo_mjx import (
     _RecoverPopulation,
@@ -628,7 +629,7 @@ def test_recover_population_publishes_only_after_checkpoint_upload(
     curriculum = promotion_dir / "candidate.curriculum.json"
     policy.write_bytes(b"policy")
     curriculum.write_text("{}")
-    monkeypatch.setattr(train_ppo_mjx, "POLICY_DIR", policy_dir)
+    monkeypatch.setattr(recover_population, "POLICY_DIR", policy_dir)
     monkeypatch.setitem(
         sys.modules, "wandb",
         SimpleNamespace(log=lambda _payload: events.append("metric")))

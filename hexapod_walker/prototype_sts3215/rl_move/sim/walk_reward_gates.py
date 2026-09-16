@@ -486,3 +486,168 @@ def height_gate(env, goal, info, r_prog, r_walk, s_ref, support_gate):
             if r_prog > 0.0:
                 r_prog *= hgt_factor
     return r_prog, r_walk, support_gate
+
+
+def loaded_slip_gate(env,
+                     along, info, r_prog, r_walk, reward, s_ref, support_gate):
+    # Loaded-slip income gate (operator ruling 2026-08-09
+    # WALK-SLIP; the structural fix for the cadence-reset
+    # exploit). The anchor gate's per-touchdown allowance is an
+    # accounting identity the policy exploited (free slip =
+    # cadence x tol; c1 +23% stances, tol5 paid the gate).
+    # This gate multiplies velocity income (kernel + positive
+    # progress) by a factor of the EPISODE-ACCUMULATED loaded
+    # slip per meter of along-command body progress — the same
+    # quantity the eval harness scores — which no touchdown can
+    # reset: factor = clip((ls_max - ratio)/(ls_max - ls_ok),
+    # 0, 1); ratio = slip_m / max(progress_m, ls_floor_m).
+    # Slip accumulates while a foot was in contact on the prior
+    # tick (harness definition, no deadband); progress banks
+    # max(along,0)*dt; both only while a velocity is commanded.
+    # Never shrinks a penalty; zero-slip gait factor 1; default
+    # 0 = off, legacy exact. cfg: reward.walk_loadslip_gate in
+    # [0,1], reward.loadslip_ok, reward.loadslip_max,
+    # reward.loadslip_floor_m.
+    g_ls = float(cfg_get(env.cfg, "reward",
+                         "walk_loadslip_gate", default=0.0))
+    # Measurement always runs while a velocity is commanded
+    # (operator 08-10: loadslip_ratio was invisible in W&B for
+    # every run that didn't enable the gate — the METRIC must
+    # not be coupled to the reward MODIFIER). The gate itself
+    # still only scales income when walk_loadslip_gate > 0.
+    if s_ref > 1e-3:
+        step_slip_m = 0.0
+        for f in range(6):
+            adr = env._touch_adr[f]
+            on = (adr >= 0 and
+                  float(env.data.sensordata[adr]) > 0.5)
+            xy = env.data.xpos[env._pad_bids[f], :2]
+            if env._ls_prev_on[f] \
+                    and env._ls_prev_xy[f] is not None:
+                d_ls = float(np.linalg.norm(
+                    xy - env._ls_prev_xy[f]))
+                env._ls_slip_m += d_ls
+                step_slip_m += d_ls
+            env._ls_prev_xy[f] = xy.copy()
+            env._ls_prev_on[f] = on
+        env._ls_prog_m += max(along, 0.0) * env.dt
+        floor_m = float(cfg_get(env.cfg, "reward",
+                                "loadslip_floor_m",
+                                default=0.05))
+        ls_ok = float(cfg_get(env.cfg, "reward",
+                              "loadslip_ok", default=0.75))
+        ls_max = float(cfg_get(env.cfg, "reward",
+                               "loadslip_max", default=1.50))
+        # Windowed (EMA) loaded-slip ratio (walkcurr item(4)
+        # follow-up, 2026-09-06). The cumulative ratio above
+        # averages slip_m/prog_m over the WHOLE episode, so
+        # late-episode behavior is diluted by every earlier
+        # tick — the item(4) `loadslip-c1` canary showed
+        # exactly this shape (env/walk_loadslip_ratio noisy,
+        # no clean downtrend, at a bank-proven dose) and its
+        # own FAIL verdict named "a windowed rather than
+        # episode-cumulative slip ratio" as the next lever
+        # (rl_docs/tracks/walkcurr/STATUS.md, 09-06 ~19:1x).
+        # cfg: reward.walk_loadslip_window_s (seconds, default
+        # 0.0 = OFF, bit-exact legacy cumulative ratio below
+        # unchanged — step_slip_m/step_prog_m above are
+        # computed either way but only READ when this is on).
+        # When > 0, slip and progress are tracked as
+        # exponential-moving-average RATES with that time
+        # constant (same alpha=dt/tau pattern as
+        # reward.walk_kernel_vel_ema) and the ratio is
+        # recomputed from the CURRENT window only, so a policy
+        # is priced on recent slip, not diluted by an
+        # early-episode transient or a long clean stretch.
+        # reward.loadslip_floor_m_s (default 0.01 m/s) is the
+        # windowed floor — a SEPARATE knob from the
+        # cumulative-mode loadslip_floor_m (meters) since the
+        # EMA operates on rates, not accumulated distance.
+        window_s = float(cfg_get(env.cfg, "reward",
+                                 "walk_loadslip_window_s",
+                                 default=0.0))
+        if window_s > 0.0:
+            a_ls = env.dt / max(window_s, env.dt)
+            env._ls_slip_ema += a_ls * (
+                (step_slip_m / max(env.dt, 1e-9))
+                - env._ls_slip_ema)
+            env._ls_prog_ema += a_ls * (
+                max(along, 0.0) - env._ls_prog_ema)
+            floor_m_s = float(cfg_get(env.cfg, "reward",
+                                      "loadslip_floor_m_s",
+                                      default=0.01))
+            ratio = env._ls_slip_ema / max(
+                env._ls_prog_ema, floor_m_s)
+        else:
+            ratio = env._ls_slip_m / max(env._ls_prog_m, floor_m)
+        factor = min(max(
+            (ls_max - ratio) / max(ls_max - ls_ok, 1e-6),
+            0.0), 1.0)
+        info["walk_loadslip_ratio"] = ratio
+        info["walk_loadslip_factor"] = factor
+        if window_s > 0.0:
+            info["walk_loadslip_ratio_cumulative"] = (
+                env._ls_slip_m / max(env._ls_prog_m, floor_m))
+        if g_ls > 0.0:
+            ls_factor = (1.0 - g_ls) + g_ls * factor
+            r_walk *= ls_factor
+            support_gate *= ls_factor
+            if r_prog > 0.0:
+                r_prog *= ls_factor
+        # Direct loaded-slip excess penalty (operator order
+        # fb_20260820T075230_4a90c6, fast anti-skate V5): the
+        # loadslip GATE can only zero income — a skating
+        # policy that also collects non-velocity reward is
+        # "complained about", never charged. This term charges
+        # the EPISODE-ACCUMULATED loaded-slip ratio's excess
+        # over loadslip_ok per second while a velocity is
+        # commanded: r -= k * max(ratio - loadslip_ok, 0) * dt
+        # (2026-08-20 ~08:5x realign, q_20260820T0830Z: the
+        # authored desktop commit 2cb2a7b7 scales by env.dt
+        # like every other per-second reward charge in this
+        # file, e.g. c_time above — the controller
+        # reconstruction had dropped the dt factor, which
+        # would have made this term ~1/dt = 25x too strong
+        # for the intended k=6.0 dose the moment any dose ever
+        # reaches PPO; fixed before any training exercises it,
+        # both canaries died at the B0 precert before this
+        # term ever ran). Same ratio the gate and the eval
+        # harness score (no touchdown resets it); a policy
+        # that keeps skating keeps paying every tick, one that
+        # walks clean pays nothing. Additive penalty — never
+        # shrunk by income gates. Default 0 = off, bit-exact
+        # legacy (no new info keys). cfg: reward.k_loadslip_excess.
+        # NOT scaled by the walk-charge ramp below (walkcurr
+        # bank finding, 2026-08-23,
+        # test_walkcurr_chargeramp_min_ranking_holds): the
+        # ramp exists to lower DISCOVERY FRICTION (park/idle/
+        # heading charges that make refusing-to-move look
+        # falsely safe), never the anti-skate/anti-fall floor.
+        # Scaling k_loadslip_excess by the same shared
+        # min_frac (0.15) made 'skate' (+130.6) and the swing-
+        # farming 'shuffle' twin (+227.9) BOTH beat every
+        # wrong-way/standing behavior at the ramp's minimum —
+        # exactly the "high-slip/skate/fall is the floor"
+        # invariant the track rule (STATUS.md, operator 08-23)
+        # forbids trading away, and precisely the window
+        # (early, high-exploration training) where a
+        # from-scratch policy is most likely to find and lock
+        # onto it. loadslip stays at its full bank-proven dose
+        # at every ramp frac; only k_walk_heading/
+        # k_walk_idle_charge/k_park_duty (discovery friction,
+        # bank-proven safe to loosen — see the same test file)
+        # ramp.
+        k_lse = float(cfg_get(env.cfg, "reward",
+                              "k_loadslip_excess",
+                              default=0.0))
+        # walkcurr loadslip-BOOTSTRAP (08-23, fwd4 dig-in
+        # follow-up; see the __init__ block + apply_loadslip_
+        # bootstrap_frac): scales this charge only, only while
+        # reward.walk_loadslip_bootstrap_steps is armed; 1.0
+        # (no-op, bit-exact) otherwise.
+        k_lse *= env._loadslip_excess_scale()
+        if k_lse > 0.0:
+            r_lse = -k_lse * max(ratio - ls_ok, 0.0) * env.dt
+            reward += r_lse
+            info["reward_loadslip_excess"] = r_lse
+    return r_prog, r_walk, reward, support_gate

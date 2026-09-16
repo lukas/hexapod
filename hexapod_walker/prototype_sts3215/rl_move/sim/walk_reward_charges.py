@@ -248,3 +248,60 @@ def stop_charges(env, goal, info, reward, s_ref, v):
                 np.max(np.abs(cur_sc)))
             info["reward_walk_stop_current"] = r_stopcur
     return reward
+
+
+def fast_profile_tracking_charges(env, goal, info, reward, s_ref, v):
+    # Fast-profile command-tracking charges (08-20, operator
+    # note fb_20260820T000059 item 3b — the steer5-fastprof1
+    # canary: under the raised servo profile every checkpoint
+    # runs 0.13-0.16 m/s against a 0.05-0.06 command and drifts
+    # 50-60 deg off heading; the Gaussian kernel saturates ~2
+    # sigma out and the progress cap 1.25 still PAYS overspeed,
+    # so nothing prices the exceedance itself). Two opt-in
+    # CHARGES, walk/quadwalk block only, commanded-motion ticks
+    # only (s_ref > 1e-3 — stop/settle segments are priced by
+    # the stop->stance-hold contract, never charged here), added
+    # AFTER the income gates so penalties are never shrunk
+    # (gait-gate rule). Both default 0 = bit-exact legacy.
+    #  - reward.k_walk_overspeed: -k * min(over/s_ref, 3) where
+    #    over = max(0, |v| - (1+walk_overspeed_tol)*s_ref) —
+    #    fractional exceedance of the commanded band (tol
+    #    default 0.10 ~ the eval prog_ratio band), linear so the
+    #    gradient never saturates, capped at 3x for bounded
+    #    per-tick cost. At the canary's operating point
+    #    (0.14 m/s vs 0.06 cmd) k=2 charges ~2.4/tick — real
+    #    money vs the ~2/tick kernel income.
+    #  - reward.k_walk_heading: -k * (1 - cos(heading err)) on
+    #    ticks actually moving (|v| >=
+    #    reward.walk_heading_min_speed_m_s, default 0.01 —
+    #    heading is undefined near zero speed; parking is
+    #    priced by the prog gates, not here). Smooth, bounded
+    #    [0, 2k]; the canary's ~55 deg drift costs ~0.43k/tick,
+    #    perfect heading costs 0.
+    k_over = float(cfg_get(env.cfg, "reward",
+                           "k_walk_overspeed", default=0.0))
+    k_head = float(cfg_get(env.cfg, "reward",
+                           "k_walk_heading", default=0.0)) \
+        * env._walk_charge_scale()
+    if (k_over > 0.0 or k_head > 0.0) and s_ref > 1e-3:
+        spd_now = float(np.hypot(v[0], v[1]))
+        if k_over > 0.0:
+            tol = float(cfg_get(env.cfg, "reward",
+                                "walk_overspeed_tol",
+                                default=0.10))
+            over = max(0.0, spd_now - (1.0 + tol) * s_ref)
+            info["walk_overspeed_m_s"] = over
+            if over > 0.0:
+                r_over = -k_over * min(over / s_ref, 3.0)
+                reward = float(reward) + r_over
+                info["reward_walk_overspeed"] = r_over
+        if k_head > 0.0:
+            if spd_now >= 0.01:
+                cos_h = max(-1.0, min(1.0, float(
+                    v[0] * goal.vx_ref + v[1] * goal.vy_ref)
+                    / (spd_now * s_ref)))
+                r_head = -k_head * (1.0 - cos_h)
+                reward = float(reward) + r_head
+                info["reward_walk_heading"] = r_head
+                info["walk_heading_cos"] = cos_h
+    return reward

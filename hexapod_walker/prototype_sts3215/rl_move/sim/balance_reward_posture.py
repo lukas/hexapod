@@ -9,7 +9,7 @@ import numpy as np
 
 from rl_move.config import cfg_get
 
-from .balance_helpers import support_margin_m, torque_headroom_debt_step
+from .balance_helpers import action_rate_penalty, support_margin_m, torque_headroom_debt_step
 
 
 def posture_support_load_headroom_reward(env, goal, parts, reward):
@@ -109,3 +109,110 @@ def posture_support_load_headroom_reward(env, goal, parts, reward):
             np.max(env._torque_debt))
         reward += r_headroom
     return reward
+
+
+def stance_shaping_reward(env, clipped, goal, parts, reward):
+    """Action-rate, stance-contact, stance-clearance and flag-leg shaping;
+    moved verbatim from SimHexapodBalanceEnv._step_finish.
+    """
+    # Action-rate/smoothness repricing (standwalk track, 2026-09-12 --
+    # see action_rate_penalty's docstring for the full root-cause
+    # chain: the 9th-and-last flat/income-relative CURRENT price still
+    # collapsed on the same late-tail over_current tail, so this
+    # prices the policy's own commanded-action dithering directly
+    # instead of another guess at the current-price axis. Dense,
+    # GLOBAL, mode-independent (same routing convention as
+    # k_current_hot/k_torque_headroom above) -- a smooth hold or a
+    # smooth move both pay ~0; only rapid direction reversal in the
+    # normalized action space is charged. Bit-exact OFF by default
+    # (reward.k_action_rate=0): reads self._prev_action, which is
+    # ALREADY always tracked (obs needs it) so this term allocates no
+    # new per-episode state at all. Enable: --cfg-set
+    # reward.k_action_rate=<k>.
+    k_act_rate = float(cfg_get(env.cfg, "reward", "k_action_rate",
+                                default=0.0))
+    if k_act_rate > 0.0:
+        r_act_rate = -k_act_rate * action_rate_penalty(
+            env._prev_action, clipped)
+        parts["reward_action_rate"] = r_act_rate
+        reward += r_act_rate
+    # Stance-contact shaping (default OFF): during stance modes the
+    # kernel is blind to how many feet carry the body, so a 3-leg
+    # tripod scores like a 6-leg stance (and cooks servos). Pay a
+    # small bonus per loaded foot; for unload episodes the target
+    # leg is excluded (it is SUPPOSED to be in the air).
+    k_stance = float(cfg_get(env.cfg, "reward", "k_stance_contact",
+                             default=0.0))
+    mode_now = env._goal_traj.mode if env._goal_traj else ""
+    if k_stance > 0.0 and mode_now in ("hold", "lean", "track",
+                                       "unload", "raise"):
+        skip = int(goal.unload_leg) if (
+            goal is not None and goal.unload_leg is not None) else -1
+        feet = [i for i in range(6) if i != skip]
+        n_on = sum(1 for i in feet
+                   if env._touch_adr[i] >= 0
+                   and float(env.data.sensordata[env._touch_adr[i]])
+                   > 0.5)
+        r_stance = k_stance * n_on / len(feet)
+        parts["reward_stance"] = r_stance
+        reward += r_stance
+    # Stance-clearance penalty (default OFF): the contact bonus above
+    # failed to break the learned tripod in cw-stance-even — a foot
+    # held in the air earns nothing for moving DOWN until it actually
+    # touches, so PPO never feels a gradient toward ground. Charging
+    # for height above the episode-start (grounded) pad z is dense:
+    # every millimeter a hovering foot descends pays immediately.
+    # "raise" is exempt: cw-stance-clear collapsed raise to 0/6
+    # (parked 13-17 mm short) while hold/rise/lower stayed perfect —
+    # lifting the body requires transient foot repositioning that a
+    # z-referenced clearance charge punishes.
+    k_clear = float(cfg_get(env.cfg, "reward", "k_stance_clearance",
+                            default=0.0))
+    if k_clear > 0.0 and env._pad_z_ref is not None \
+            and mode_now in ("hold", "lean", "track", "unload"):
+        skip = int(goal.unload_leg) if (
+            goal is not None and goal.unload_leg is not None) else -1
+        clear = 0.0
+        for i in range(6):
+            if i == skip or env._pad_bids[i] < 0:
+                continue
+            clear += max(float(env.data.xpos[env._pad_bids[i], 2])
+                         - env._pad_z_ref[i], 0.0)
+        r_clear = -k_clear * clear
+        parts["reward_clearance"] = r_clear
+        reward += r_clear
+    # Flag-leg penalty (default OFF): the 08-08 video review found
+    # every walk-lineage policy (and the stance line's lower endings)
+    # parking one leg straight up in the air — modes exempt from the
+    # stance-clearance penalty (walk/rise/lower/raise) have no
+    # gradient against it. Charge only clearance ABOVE a generous
+    # allowance (default 50 mm over the episode-start pad z), so
+    # normal swing (~10-20 mm) and rise/lower repositioning stay
+    # free while a vertical flag leg (~150 mm) pays every step.
+    # Default: every mode; the unload target leg is skipped.
+    # cw-walk-flag (08-08) refuted the all-modes routing: rise needs
+    # >50 mm transient swings from belly starts, and the global
+    # charge collapsed rise/raise while only making the walk flag
+    # leg transient. reward.flag_leg_walk_only=1 routes the charge
+    # to walk mode alone (declared routing per RL_PLAN.md).
+    k_flag = float(cfg_get(env.cfg, "reward", "k_flag_leg",
+                           default=0.0))
+    if k_flag > 0.0 and float(cfg_get(
+            env.cfg, "reward", "flag_leg_walk_only",
+            default=0.0)) > 0.0 and mode_now != "walk":
+        k_flag = 0.0
+    if k_flag > 0.0 and env._pad_z_ref is not None:
+        allow = float(cfg_get(env.cfg, "reward", "flag_leg_allow_m",
+                              default=0.05))
+        skip = int(goal.unload_leg) if (
+            goal is not None and goal.unload_leg is not None) else -1
+        over = 0.0
+        for i in range(6):
+            if i == skip or env._pad_bids[i] < 0:
+                continue
+            over += max(float(env.data.xpos[env._pad_bids[i], 2])
+                        - env._pad_z_ref[i] - allow, 0.0)
+        r_flag = -k_flag * over
+        parts["reward_flag_leg"] = r_flag
+        reward += r_flag
+    return mode_now, reward

@@ -4216,69 +4216,10 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     support_gate *= hgt_factor
                     if r_prog > 0.0:
                         r_prog *= hgt_factor
-            # All-support-legs gait gate (08-13, quad track; the
-            # STRUCTURAL close of the leg-sacrifice loophole after
-            # cw-quadwalk1-5 measured pricing exhausted for BOTH cheat
-            # families: fronts-down paid a -575/ep lift-contact charge
-            # (~40% of return) and kept walking on six (quadwalk3);
-            # mid-leg-park ignored a 6x k_park_duty reprice outright
-            # (quadwalk5). Additive charges are payable fines, and the
-            # anchor gate's fraction spans LOADED feet only — a leg
-            # parked in the AIR silently drops out of its denominator.
-            # Same lesson as the prog/anchor/loadslip gates: make the
-            # cheat worth less BY CONSTRUCTION. Velocity income
-            # (kernel + positive progress; quadwalk's clear/plant
-            # income in _quad_income rides the same factor) is
-            # multiplied by the MIN over commanded SUPPORT legs of a
-            # per-leg "recently completed a real swing" score: 1.0 if
-            # the leg finished a liftoff -> >=2-ticks-airborne ->
-            # touchdown swing with XY stride >= gait_gate_stride_mm
-            # within the trailing gait_gate_window_s of COMMANDED
-            # ticks, fading linearly to 0 over gait_gate_fade_s after
-            # that (a fade, not a hard zero — the holdstill1
-            # zero-gradient lesson). MIN, not mean: quadwalk3/5
-            # measured that any fractional discount is simply paid;
-            # sacrificing ANY subset of support legs must collapse
-            # transport income to the (1-g) floor. Episode start
-            # counts as "just stepped" (window+fade of commanded
-            # grace); lift legs are exempt (they must NOT step);
-            # penalties are never shrunk. Default 0 = off, legacy
-            # bit-exact. cfg: reward.walk_gait_gate in [0,1],
-            # reward.gait_gate_window_s (2.0), gait_gate_fade_s (2.0),
-            # gait_gate_stride_mm (10.0).
-            g_gait = float(cfg_get(self.cfg, "reward",
-                                   "walk_gait_gate", default=0.0))
-            self._gait_gate_qfactor = 1.0
-            if g_gait > 0.0 and s_ref > 1e-3:
-                self._gait_cmd_tick += 1
-                n_gwin = max(1, int(round(float(cfg_get(
-                    self.cfg, "reward", "gait_gate_window_s",
-                    default=2.0)) / self.dt)))
-                n_gfade = int(round(float(cfg_get(
-                    self.cfg, "reward", "gait_gate_fade_s",
-                    default=2.0)) / self.dt))
-                g_score = 1.0
-                for f in range(6):
-                    if f in lift:
-                        continue
-                    since = self._gait_cmd_tick - self._gait_last_step[f]
-                    if since <= n_gwin:
-                        sc = 1.0
-                    elif n_gfade > 0:
-                        sc = max(1.0 - (since - n_gwin) / n_gfade, 0.0)
-                    else:
-                        sc = 0.0
-                    g_score = min(g_score, sc)
-                gt_factor = (1.0 - g_gait) + g_gait * g_score
-                r_walk *= gt_factor
-                support_gate *= gt_factor
-                if r_prog > 0.0:
-                    r_prog *= gt_factor
-                if r_cmd_track > 0.0:
-                    r_cmd_track *= gt_factor
-                self._gait_gate_qfactor = gt_factor
-                info["walk_gait_min"] = g_score
-                info["walk_gait_gate_factor"] = gt_factor
+            g_gait, r_cmd_track, r_prog, r_walk, support_gate = (
+                walk_reward_gates.gait_gate(
+                    self, info, lift, r_cmd_track, r_prog, r_walk, s_ref,
+                    support_gate))
             g_duty, r_cmd_track, r_prog, r_walk, support_gate = (
                 walk_reward_gates.leg_duty_gate(
                     self, info, lift, r_cmd_track, r_prog, r_walk, s_ref,

@@ -120,7 +120,7 @@ SNAP_ATTRS = (
     # set in _reset_begin next to the _ep_rand they scaled and emitted
     # in step info — a pool-restored episode must report the ease
     # values its own DR rows were minted with, not a later episode's.
-    "_ease_g", "_ease_v",
+    "_ease_g",
     # Structural compliance (08-21): sampled per-episode stiffness vector.
     # The model rows and host-side encoder correction must agree after a
     # pooled restore.

@@ -50,7 +50,6 @@ def test_ease_off_is_bitexact():
     assert np.array_equal(env_unset.model.opt.gravity,
                           env_one.model.opt.gravity)
     assert env_unset._ease_g == env_one._ease_g == 1.0
-    assert env_unset._ease_v == env_one._ease_v == 1.0
 
 
 def test_gravity_ease_private_model_no_dr():

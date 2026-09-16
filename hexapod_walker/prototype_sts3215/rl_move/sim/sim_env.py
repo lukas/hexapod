@@ -605,16 +605,12 @@ class SimHexapodBalanceEnv(_GymBase):
         # stacks consume (private model: EpisodeRand.apply_to_model;
         # batched MJX: ModelDrScratch.rows_for + tp_rows) — so easing
         # composes with DR (slope direction kept, |g| scaled) with NO
-        # DomainRandomizer or per-world plumbing changes. These two
-        # fields hold the randomize=False PRIVATE-model fallback used
-        # by reset(); shared-model shims without DR raise instead
+        # DomainRandomizer or per-world plumbing changes. This field
+        # holds the randomize=False PRIVATE-model fallback used by
+        # reset(); shared-model shims without DR raise instead
         # (per-world model fields are the only route to eased gravity
-        # in the batched path). _ease_v is a constant 1.0: the servo
-        # velocity-ceiling easing it once carried was never configured
-        # and is gone; the attribute stays because mjx_host.SNAP_ATTRS
-        # names it.
+        # in the batched path).
         self._ease_g = 1.0
-        self._ease_v = 1.0
 
         # Temporal actor (plan §Architecture): obs.history_frames > 1
         # stacks the last K single-tick observations NEWEST-FIRST, so a
@@ -1931,7 +1927,6 @@ class SimHexapodBalanceEnv(_GymBase):
         # (a few episodes) — end easing schedules at v1=1.0 (nominal)
         # and judge scheduled runs on measured behavior metrics.
         self._ease_g = 1.0
-        self._ease_v = 1.0
         # Saved pre-easing originals (only populated when the _ep_rand
         # mutation branch below actually runs) so the new
         # ease.rise_flat_only gate (see the _is_rise block further
@@ -2620,8 +2615,7 @@ class SimHexapodBalanceEnv(_GymBase):
             self.params, q_start,
             latency_scale=1.0 if er is None else er.latency_scale,
             deadband_scale=1.0 if er is None else er.deadband_scale,
-            vel_scale=((1.0 if er is None else er.vel_scale)
-                       * self._ease_v),
+            vel_scale=1.0 if er is None else er.vel_scale,
             latency_load_gain=None if er is None else er.latency_load_gain,
             latency_load_ref_nm=(
                 1.2 if er is None else er.latency_load_ref_nm),
@@ -3938,8 +3932,7 @@ class SimHexapodBalanceEnv(_GymBase):
                 self.params, q_probe,
                 latency_scale=1.0 if er is None else er.latency_scale,
                 deadband_scale=1.0 if er is None else er.deadband_scale,
-                vel_scale=((1.0 if er is None else er.vel_scale)
-                           * self._ease_v),
+                vel_scale=1.0 if er is None else er.vel_scale,
                 latency_load_gain=(
                     None if er is None else er.latency_load_gain),
                 latency_load_ref_nm=(

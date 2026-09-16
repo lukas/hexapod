@@ -125,7 +125,7 @@ def test_ease_rise_flat_only_default_off_is_bit_exact():
     env = SimHexapodJointGoalEnv(randomize=False, cfg=_rise_only_cfg())
     env._goal_gen.force_rise_start = "flat"
     env.reset()
-    assert env._ease_g == 1.0 and env._ease_v == 1.0
+    assert env._ease_g == 1.0
 
 
 def test_ease_rise_flat_only_eases_flat_rise_but_not_bridge():
@@ -137,7 +137,7 @@ def test_ease_rise_flat_only_eases_flat_rise_but_not_bridge():
     to the exact still-unsolved sub-population, distinct from every
     already-closed cap/reward-pricing/reset-timing/leg-order/batch-
     composition lever). Uses the randomize=False (private-model)
-    path -- self._ease_g/_ease_v -- which is the fallback for a DR-0
+    path -- self._ease_g -- which is the fallback for a DR-0
     env; the randomize=True/_ep_rand path is covered separately below
     since it is a DIFFERENT code branch with its own bug history (see
     test_ease_rise_flat_only_reverts_model_gravity_not_just_ep_rand_

@@ -66,7 +66,7 @@ from .balance_helpers import (
     PLANT_SPEC, _load_robot_abs_q_npz, load_rise_ref, valid_plant,
 )
 from .balance_reward_hold import (
-    hold_still_gate_reward,
+    hold_minload_shortfall_reward, hold_still_gate_reward,
 )
 from .balance_terminations import (
     terminal_settlement_reward,
@@ -4185,38 +4185,8 @@ class SimHexapodBalanceEnv(_GymBase):
                                        unload_force_n=unload_f,
                                        ref_quiet=ref_quiet)
         reward = hold_still_gate_reward(self, goal, parts, ref_quiet, reward)
-        # HOLD min-foot-load SHORTFALL price (2026-09-04, standwalk
-        # transtress-s1-acq8m dig-in -- the priced twin of the
-        # hold_min_load termination, per the 08-24 op ruling pattern
-        # "termination WITH a price"). The acq8m FAIL showed the
-        # termination alone does not teach the switch: 6/72 stress
-        # episodes still die in mid-transition hold entries after 8M
-        # steps because the only signal against an unloaded-through-
-        # the-switch foot is a CLIFF that fires ~grace+sustain (~2 s)
-        # AFTER the causal foot placement, with zero dense gradient in
-        # between (hold_feet_load only scales income, and the
-        # termination grace window is a blind spot by design). This
-        # charge is that gradient: every hold-mode tick pays
-        #   -k * dt * max(0, 1 - ema/floor)
-        # with the SAME min-over-feet EMA and floor the termination
-        # reads (reward optimum == gate behavior, 08-21 alignment
-        # rule), active from the very FIRST hold tick INCLUDING the
-        # grace window -- planting the worst foot faster genuinely
-        # shrinks the integral, so the optimum is "re-plant all six
-        # feet at entry", exactly what the eval terminates on. Designed
-        # to run WITH hold_min_load_ema_continuous=1 (otherwise the
-        # zero/stale entry EMA makes the entry ticks spuriously
-        # charged/blind). reward.k_hold_min_load_short default 0.0 =
-        # off, bit-exact.
-        if (minload_short_k > 0.0 and minload_in_hold
-                and self._pad_z_ref is not None):
-            short_ml = max(0.0, 1.0 - self._hold_minload_ema
-                           / max(minload_floor_n, 1e-6))
-            if short_ml > 0.0:
-                pen_ml = minload_short_k * short_ml * self.dt
-                reward -= pen_ml
-                parts["hold_minload_short"] = parts.get(
-                    "hold_minload_short", 0.0) - pen_ml
+        reward = hold_minload_shortfall_reward(self, minload_floor_n,
+            minload_in_hold, minload_short_k, parts, reward)
         # Transition foot-drag metric (operator 08-11 night: stand/sit
         # scrape their feet across the floor and nothing outside walk
         # mode measured it). trans_drag_mm = loaded foot-XY translation

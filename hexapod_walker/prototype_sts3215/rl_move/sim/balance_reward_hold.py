@@ -157,3 +157,42 @@ def hold_still_gate_reward(env, goal, parts, ref_quiet, reward):
         parts["hold_feet_factor"] = feet_h
         parts["hold_still_factor"] = still_h
     return reward
+
+
+def hold_minload_shortfall_reward(env, minload_floor_n, minload_in_hold, minload_short_k, parts, reward):
+    """HOLD min-foot-load shortfall price; moved verbatim from
+    SimHexapodBalanceEnv._step_finish.
+    """
+    # HOLD min-foot-load SHORTFALL price (2026-09-04, standwalk
+    # transtress-s1-acq8m dig-in -- the priced twin of the
+    # hold_min_load termination, per the 08-24 op ruling pattern
+    # "termination WITH a price"). The acq8m FAIL showed the
+    # termination alone does not teach the switch: 6/72 stress
+    # episodes still die in mid-transition hold entries after 8M
+    # steps because the only signal against an unloaded-through-
+    # the-switch foot is a CLIFF that fires ~grace+sustain (~2 s)
+    # AFTER the causal foot placement, with zero dense gradient in
+    # between (hold_feet_load only scales income, and the
+    # termination grace window is a blind spot by design). This
+    # charge is that gradient: every hold-mode tick pays
+    #   -k * dt * max(0, 1 - ema/floor)
+    # with the SAME min-over-feet EMA and floor the termination
+    # reads (reward optimum == gate behavior, 08-21 alignment
+    # rule), active from the very FIRST hold tick INCLUDING the
+    # grace window -- planting the worst foot faster genuinely
+    # shrinks the integral, so the optimum is "re-plant all six
+    # feet at entry", exactly what the eval terminates on. Designed
+    # to run WITH hold_min_load_ema_continuous=1 (otherwise the
+    # zero/stale entry EMA makes the entry ticks spuriously
+    # charged/blind). reward.k_hold_min_load_short default 0.0 =
+    # off, bit-exact.
+    if (minload_short_k > 0.0 and minload_in_hold
+            and env._pad_z_ref is not None):
+        short_ml = max(0.0, 1.0 - env._hold_minload_ema
+                       / max(minload_floor_n, 1e-6))
+        if short_ml > 0.0:
+            pen_ml = minload_short_k * short_ml * env.dt
+            reward -= pen_ml
+            parts["hold_minload_short"] = parts.get(
+                "hold_minload_short", 0.0) - pen_ml
+    return reward

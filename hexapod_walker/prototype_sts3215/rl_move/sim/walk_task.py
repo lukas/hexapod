@@ -1162,9 +1162,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # discovery-friction charges at full dose — the opposite
         # combination from the rejected chargeramp-min design) — see
         # This dose requires a fresh canonical v2 trajectory-bank baseline.
-        # cfg: reward.walk_loadslip_bootstrap_steps (int, 0=off),
-        # reward.walk_loadslip_bootstrap_min_frac (float in [0,1],
-        # default 0.65 — MEASURED separately from the walk-charge
+        # cfg: reward.walk_loadslip_bootstrap_steps (int, 0=off). The
+        # 0.65 min fraction was MEASURED separately from the walk-charge
         # ramp's 0.40 floor: this charge, held alone at 0.40 while the
         # other three discovery-friction charges stay at FULL dose
         # (the least-favorable single-lever combination), lets
@@ -5189,9 +5188,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # failed the b1 stop cert ~79 rounds in a row while reward
             # sat converged. This charges, on stop ticks only (s_ref ~
             # 0 and NOT a commanded turn-in-place — that motion is the
-            # command), the instantaneous body speed against
-            # reward.walk_stop_scale_m_s (default = the 0.015 cert
-            # bar): r -= k * min(speed/scale, cap). Stillness pays 0,
+            # command), the instantaneous body speed against the
+            # 0.015 m/s cert bar: r -= k * min(speed/scale, cap).
+            # Stillness pays 0,
             # the observed creep pays ~2.7k/tick, walking through a
             # stop pays the cap — so true stillness is the optimum by
             # construction, matching the cert exactly. Added AFTER the
@@ -5200,8 +5199,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # make refusal falsely cheap; this one prices obedience to
             # an explicit stop command and must never loosen). Default
             # 0 = off, legacy bit-exact (no new info keys).
-            # cfg: reward.k_walk_stop_charge, reward.walk_stop_scale_m_s,
-            # reward.walk_stop_charge_cap, reward.walk_stop_grace_s.
+            # cfg: reward.k_walk_stop_charge, reward.walk_stop_grace_s.
             k_stopc = float(cfg_get(self.cfg, "reward",
                                     "k_walk_stop_charge", default=0.0))
             # Read the stop-CURRENT gain here too: both stop charges
@@ -5284,8 +5282,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # braking current of the first grace window pays little.
             # Added AFTER the income gates (gait-gate rule). Default
             # 0 = off, legacy bit-exact (no new info keys).
-            # cfg: reward.k_walk_stop_current, reward.walk_stop_current_a,
-            # reward.walk_stop_current_cap (+ shared walk_stop_grace_s).
+            # cfg: reward.k_walk_stop_current (+ shared walk_stop_grace_s).
             if (k_stopcur > 0.0 and s_ref <= 1e-3
                     and not (self._yaw_cmd
                              and abs(float(getattr(goal, "wz_ref", 0.0)
@@ -5331,7 +5328,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # lock, so it is gameable and, measured directly
             # (gaitgate-scratch1 vs its ungated parent), made the
             # held-out fall rate WORSE (39/48 vs 12/48), not better.
-            # Threshold (walk_move_current_a, default 2.2 A) is set
+            # Threshold (2.2 A) is set
             # ABOVE the stop-tick threshold (1.5 A) and below the trip
             # (2.5 A) deliberately: honest six-leg cycling legitimately
             # draws current in brief per-leg stance-loading spikes
@@ -5347,8 +5344,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # AFTER the income gates (gait-gate rule). Default 0 = off,
             # legacy bit-exact (no new info keys, no behavior change
             # for any existing recipe that doesn't set this cfg).
-            # cfg: reward.k_walk_move_current, reward.walk_move_current_a,
-            # reward.walk_move_current_cap.
+            # cfg: reward.k_walk_move_current.
             k_movecur = float(cfg_get(self.cfg, "reward",
                                       "k_walk_move_current", default=0.0))
             if k_movecur > 0.0 and s_ref > 1e-3:

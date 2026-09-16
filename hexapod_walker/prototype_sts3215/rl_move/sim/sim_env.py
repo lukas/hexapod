@@ -66,7 +66,8 @@ from .balance_helpers import (
     PLANT_SPEC, _load_robot_abs_q_npz, load_rise_ref, valid_plant,
 )
 from .balance_reward_posture import (
-    posture_support_load_headroom_reward, stance_shaping_reward,
+    end_posture_reward, posture_support_load_headroom_reward,
+    stance_shaping_reward,
 )
 from .balance_reward_current import (
     current_penalties,
@@ -4394,79 +4395,7 @@ class SimHexapodBalanceEnv(_GymBase):
             reward)
         mode_now, reward = stance_shaping_reward(self, clipped, goal, parts,
             reward)
-        # Terminal end-posture pricing (default OFF; cycle 14). Root
-        # cause chain: flag-leg endings <- airborne legs are free at
-        # episode end <- load_even/support_margin have ZERO gradient on
-        # an unloaded airborne leg, stance_clearance excludes
-        # rise/lower/raise (their transients need freedom), and the
-        # all-modes flag_leg charge was refuted for taxing exactly those
-        # transients <- the deepest link (current-model dead zone
-        # underpricing static holds) needs hardware recalibration, not
-        # reachable in sim alone. This term charges per-foot clearance
-        # above the grounded pad reference ONLY AFTER the goal height
-        # reference has settled to its final value (plus a grace
-        # window): the charge window is SCHEDULE-based, so the policy
-        # cannot dodge it by avoiding the target, and the motion phase
-        # is untaxed. Routed to the modes stance_clearance excludes.
-        # Enable: --cfg-set reward.k_end_posture=<k>.
-        k_endp = float(cfg_get(self.cfg, "reward", "k_end_posture",
-                               default=0.0))
-        if k_endp > 0.0 and self._pad_z_ref is not None \
-                and self._goal_traj is not None \
-                and mode_now in ("rise", "lower", "raise"):
-            if self._end_posture_from is None:
-                # The lower/rise ramps run to the last scheduled step
-                # (no settled plateau exists), so "terminal" means: the
-                # height REFERENCE is within 15 mm of its
-                # final value from here to the end — still a pure
-                # function of the pre-sampled schedule.
-                h = np.asarray(self._goal_traj.height)
-                ref_m = 15.0 * 0.001
-                far = np.nonzero(np.abs(h - h[-1]) > ref_m)[0]
-                start = (int(far[-1]) + 1) if len(far) else 0
-                # Also clamp to the last 1.5 s of the
-                # episode: small-amplitude rise refs sit near final
-                # almost immediately, and charging the early curl
-                # transient is the exact mistake that refuted the
-                # all-modes flag_leg charge.
-                # Mode-seq segments end at the next switch, not the
-                # episode end — clamp the charge window to the ACTIVE
-                # segment (None outside mode_seq = legacy exact).
-                _ep_end = int(getattr(self, "_seq_seg_end", None)
-                              or self.episode_steps)
-                self._end_posture_from = max(
-                    start + int(round(0.25 / self.dt)),
-                    _ep_end - int(round(1.5 / self.dt)))
-                # Dense variant (cycle 25, lower only): a proper lower
-                # keeps all six feet planted THROUGHOUT the descent —
-                # there is no legitimate leg-lift transient to protect
-                # (the transient exemption exists for rise curls). With
-                # this flag the clearance charge covers the whole lower
-                # episode, pricing the spear-leg tilt-guard where it is
-                # used instead of only at the end. Same term, same k,
-                # same per-tick magnitude — only the window changes.
-                # Enable: --cfg-set reward.end_posture_lower_dense=1.
-                if mode_now == "lower" and float(cfg_get(
-                        self.cfg, "reward", "end_posture_lower_dense",
-                        default=0.0)) > 0.0:
-                    self._end_posture_from = 0
-            if self._step_i >= self._end_posture_from:
-                # Mirror the eval gate's allowances: 20 mm for
-                # stand-ending modes, 60 mm for belly-ending lower.
-                allow = 0.06 if mode_now == "lower" else 0.02
-                skip = int(goal.unload_leg) if (
-                    goal is not None and goal.unload_leg is not None) \
-                    else -1
-                over_e = 0.0
-                for i in range(6):
-                    if i == skip or self._pad_bids[i] < 0:
-                        continue
-                    c = (float(self.data.xpos[self._pad_bids[i], 2])
-                         - self._pad_z_ref[i] - allow)
-                    over_e += min(max(c, 0.0), 0.30)
-                r_endp = -k_endp * over_e
-                parts["reward_end_posture"] = r_endp
-                reward += r_endp
+        reward = end_posture_reward(self, goal, mode_now, parts, reward)
         if terminated:
             # Early-fall horizon cost — same key/semantics as the
             # _step_begin site (reward.term_cost_per_remaining_s,

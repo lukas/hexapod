@@ -67,7 +67,7 @@ from .balance_helpers import (
     support_margin_m, torque_headroom_debt_step, valid_plant,
 )
 from .balance_reward_rise import (
-    rise_curl_reward, rise_scored_steps_reward,
+    rise_curl_reward, rise_ref_track_reward, rise_scored_steps_reward,
 )
 from .balance_bc_anchor import (
     bc_anchor_target,
@@ -4383,44 +4383,7 @@ class SimHexapodBalanceEnv(_GymBase):
         lower_score_mode, depth_frac, reward = rise_scored_steps_reward(self,
             goal, h_err, h_rel, parts, reward)
         reward = rise_curl_reward(self, goal, h_rel, parts, reward)
-        # Rise-reference tracking (default OFF; operator 08-10, the
-        # Stage-II route from the stand-up literature — HumanUP / HoST:
-        # discover the motion once, then train the deployable policy to
-        # TRACK it instead of rediscovering from a height reward). Our
-        # "discovery stage" already exists: the stance champion's
-        # learned belly-rise. This term pays a joint-space kernel on
-        # RMS error against that recorded trajectory, time-aligned at
-        # the RAMP START tick (episodes with jittered holds and
-        # crouch/bridge starts all join the same reference — pre-ramp
-        # ticks track the reference's own curl phase, clamped at its
-        # start). A scaffold, not the objective: run it at full weight
-        # to seed the skill, then anneal k to 0 across warm-started
-        # arms so the final policy is not trajectory-locked.
-        # Enable: --cfg-set reward.k_rise_ref_track=<k>
-        #         --cfg-set reward.rise_ref_path=<npz>.
-        k_ref = float(cfg_get(self.cfg, "reward", "k_rise_ref_track",
-                              default=0.0))
-        if k_ref > 0.0 and self._is_rise:
-            ref_path = cfg_get(self.cfg, "reward", "rise_ref_path",
-                               default=None)
-            if ref_path:
-                ref = load_rise_ref(str(ref_path))
-                j, _is_rsi = self._rise_ref_clock(ref)
-                parts["rise_rsi"] = 1.0 if _is_rsi else 0.0
-                err = (self._mujoco_to_logical_q(
-                    self.data.qpos[self._qadr]) - ref["q"][j])
-                sig = float(cfg_get(
-                    self.cfg, "reward", "rise_ref_sigma_deg",
-                    default=12.0)) * DEG2RAD
-                rms = float(np.sqrt(np.mean(err ** 2)))
-                r_ref = k_ref * math.exp(-0.5 * (rms / max(sig, 1e-6)) ** 2)
-                # Score-income mode: the crutch is income too, and
-                # income only pays on grounded feet (see the
-                # rise_feet_factor export above). Legacy stacks
-                # (factor absent) are exactly unchanged.
-                r_ref *= parts.get("rise_feet_factor", 1.0)
-                parts["reward_rise_ref"] = r_ref
-                reward += r_ref
+        reward = rise_ref_track_reward(self, parts, reward)
         # Per-servo hot-current penalty (RL_PLAN_NEXT.md §4 in git history, default OFF).
         # The aggregate current penalty lets the policy park all load on
         # one knee; visual eval of the cw champions found tripod stances

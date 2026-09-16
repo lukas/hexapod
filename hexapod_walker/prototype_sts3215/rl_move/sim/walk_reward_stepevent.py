@@ -9,11 +9,13 @@ and re-indentation; the header comments travelled with the code.
 """
 from __future__ import annotations
 
+import math
+
 import numpy as np
 
 from rl_move.config import cfg_get
 from .walk_task import (
-    transition_window_liftoff, transition_window_tick,
+    PHASE_TRIPOD_A, transition_window_liftoff, transition_window_tick,
     transition_window_touchdown, walk_leg_swing_initiation_maxload,
     walk_legduty_ratio_tick, walk_legslip_ratio_tick,
 )
@@ -674,4 +676,30 @@ def step_event_package(env,
                 r_park = -k_park * over
                 reward += r_park
             info["reward_park_duty"] = r_park
+    return reward
+
+
+def phase_contact_agreement(env, info, reward, s_ref):
+    # Tripod phase clock + contact-agreement reward (walk-routed
+    # by construction; runs only while a velocity is commanded so
+    # the settle hold is never charged). Parked/dragged legs
+    # average 50% agreement = zero net reward; only stepping in
+    # sync with the clock pays.
+    if env._phase_obs and s_ref > 1e-3:
+        # clock already advanced in _augment_obs (same tick)
+        k_phase = float(cfg_get(env.cfg, "reward",
+                                "k_phase_contact", default=0.0))
+        if k_phase > 0.0:
+            stance_a = math.sin(env._phase) >= 0.0
+            agree = 0
+            for f in range(6):
+                adr = env._touch_adr[f]
+                on = (adr >= 0 and
+                      float(env.data.sensordata[adr]) > 0.5)
+                expect_on = ((f in PHASE_TRIPOD_A) == stance_a)
+                agree += int(on == expect_on)
+            r_phase = k_phase * (agree / 6.0 - 0.5) * 2.0
+            reward = float(reward) + r_phase
+            info["reward_phase_contact"] = r_phase
+            info["phase_agreement"] = agree / 6.0
     return reward

@@ -4750,28 +4750,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         math.acos(cosang))
             if self._walk_bucket is not None:
                 info["walk_bucket"] = self._walk_bucket
-            # Tripod phase clock + contact-agreement reward (walk-routed
-            # by construction; runs only while a velocity is commanded so
-            # the settle hold is never charged). Parked/dragged legs
-            # average 50% agreement = zero net reward; only stepping in
-            # sync with the clock pays.
-            if self._phase_obs and s_ref > 1e-3:
-                # clock already advanced in _augment_obs (same tick)
-                k_phase = float(cfg_get(self.cfg, "reward",
-                                        "k_phase_contact", default=0.0))
-                if k_phase > 0.0:
-                    stance_a = math.sin(self._phase) >= 0.0
-                    agree = 0
-                    for f in range(6):
-                        adr = self._touch_adr[f]
-                        on = (adr >= 0 and
-                              float(self.data.sensordata[adr]) > 0.5)
-                        expect_on = ((f in PHASE_TRIPOD_A) == stance_a)
-                        agree += int(on == expect_on)
-                    r_phase = k_phase * (agree / 6.0 - 0.5) * 2.0
-                    reward = float(reward) + r_phase
-                    info["reward_phase_contact"] = r_phase
-                    info["phase_agreement"] = agree / 6.0
+            reward = walk_reward_stepevent.phase_contact_agreement(self,
+                info, reward, s_ref)
             reward = walk_reward_stepevent.step_event_package(self,
                 along, g_duty, g_gait, g_lsratio, g_ratio, g_ratio_swingfloor,
                 g_swing, g_swinggap, g_swinit, goal, info, lift, reward, s_ref)

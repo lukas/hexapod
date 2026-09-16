@@ -123,7 +123,8 @@ def test_default_off_never_exposes_the_factor_key():
 
 
 def _tight_curl(monkeypatch):
-    """Pin the gate's cap/margin (fixed at 0.176m/0.066m in sim_env,
+    """Pin the gate's cap/margin (fixed at 0.176m/0.066m in
+    balance_reward_rise.rise_scored_steps_reward,
     calibrated to the flat/bridge curl-distance gap the real training
     corridor sees over a full rise attempt) to 80mm/20mm, chosen from a
     probed trace of seed 3 / action 0.8 (true flat start):
@@ -133,9 +134,9 @@ def _tight_curl(monkeypatch):
     so 80mm/20mm sits squarely across that observed firing band and the
     very first scoring ticks of this short synthetic probe are the ones
     under test."""
-    import rl_move.sim.sim_env as sim_env_mod
+    import rl_move.sim.balance_reward_rise as rise_mod
     monkeypatch.setattr(
-        sim_env_mod, "current_headroom_income_factor",
+        rise_mod, "current_headroom_income_factor",
         lambda dist, cap, margin: current_headroom_income_factor(
             dist, 0.08, 0.02))
 

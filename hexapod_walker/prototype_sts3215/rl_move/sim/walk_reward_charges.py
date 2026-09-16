@@ -305,3 +305,30 @@ def fast_profile_tracking_charges(env, goal, info, reward, s_ref, v):
                 info["reward_walk_heading"] = r_head
                 info["walk_heading_cos"] = cos_h
     return reward
+
+
+def effort_charge(env, info, reward):
+    # Walk-routed effort / cost-of-transport term (cycle 27;
+    # external review "additional cheap lever", adopted after
+    # BOTH sanctioned checks passed: speed diagnostic found
+    # 43% forward overspeed via paddling — all-six-legs
+    # mid-stance loaded creep, slip ~= body travel — and the
+    # per-servo current check confirmed drag ticks draw 1.38x
+    # planted ticks (2.76 vs 2.01 A/leg). Root cause: the
+    # objective prices physical effort at ~4% of velocity
+    # income (current -13, drag -4, action -29 vs +1250/ep at
+    # champion parkstart-mjx), so friction-overpowering
+    # paddling wins. This charges mean servo current per tick,
+    # WALK MODE ONLY (routing per review 2b) — thermal load is
+    # the hardware-fatal quantity (a motor already cooked).
+    # cfg reward.k_walk_effort, default 0 = off, legacy exact.
+    k_eff = float(cfg_get(env.cfg, "reward", "k_walk_effort",
+                          default=0.0))
+    if k_eff > 0.0:
+        cur = getattr(env._state, "servo_current", None)
+        r_eff = 0.0
+        if cur is not None:
+            r_eff = -k_eff * float(np.mean(cur))
+            reward += r_eff
+        info["reward_effort"] = r_eff
+    return reward

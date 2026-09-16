@@ -246,3 +246,72 @@ def leg_duty_ratio_charge(env, info, s_ref):
             info["walk_leg_duty_ratio_shortfall"] = worst_shortfall
             info["reward_walk_leg_duty_ratio"] = r_ratio
     return g_ratio, g_ratio_swingfloor, r_ratio
+
+
+def leg_swing_rate_gate(env,
+                        info, lift, r_cmd_track, r_prog, r_walk, s_ref,
+                        support_gate):
+    # Per-leg swing-RATE income gate (09-05, closing two prior
+    # anti-park exploits together after both were confirmed
+    # gameable end-to-end, 6/6 and 9/9 FAIL respectively --
+    # see CURRENT_TRUTHS.md 09-05 ~13:1x..~19:2x): score = MIN
+    # over commanded support legs of clip(count of qualifying
+    # real swings completed in the trailing
+    # swing_gate_window_s of COMMANDED ticks / swing_gate_
+    # min_count, 0, 1). A qualifying swing uses the IDENTICAL
+    # stride-filtered definition walk_gait_gate already uses
+    # (liftoff -> >=2 ticks airborne -> touchdown with XY
+    # stride >= gait_gate_stride_mm) -- a high-frequency
+    # contact-chatter "swing" that never displaces the foot
+    # never counts, which is what closes walk_duty_gate's
+    # freeze/vibrate exploit (a planted or vibrating leg racks
+    # up contact-DUTY trivially but completes zero qualifying
+    # SWINGS). Requiring a MINIMUM COUNT within the window
+    # (not a recency-decay score that only asks "how long
+    # since the last one") is what closes walk_gait_gate's
+    # rare-token-dodge exploit (that gate's own g_score reads
+    # 1.0 off a single swing anywhere in window+fade seconds;
+    # this gate needs >=swing_gate_min_count of them inside
+    # ONE window, so a leg stepping once every several seconds
+    # cannot clear a >=2/window bar the way it cleared a
+    # >=1/(window+fade) recency floor). MIN, not mean, per the
+    # same lesson every prior anti-sacrifice gate in this file
+    # learned: a fractional discount is simply paid, so any
+    # one support leg failing the bar collapses transport
+    # income to the (1-g) floor. Episode-start grace: scores
+    # 1.0 until the window is full (mirrors walk_duty_gate/
+    # walk_gait_gate). Penalties are never shrunk. Default 0 =
+    # off, no state, no info keys, legacy bit-exact. cfg:
+    # reward.walk_swing_gate in [0,1],
+    # reward.swing_gate_window_s (4.0),
+    # reward.swing_gate_min_count (2.0) -- reuses
+    # reward.gait_gate_stride_mm for the qualifying-swing
+    # stride filter (same physical definition, one knob).
+    g_swing = float(cfg_get(env.cfg, "reward",
+                            "walk_swing_gate", default=0.0))
+    if g_swing > 0.0 and s_ref > 1e-3:
+        n_swin = max(1, int(round(float(cfg_get(
+            env.cfg, "reward", "swing_gate_window_s",
+            default=4.0)) / env.dt)))
+        sw_min_count = max(1.0, float(cfg_get(
+            env.cfg, "reward", "swing_gate_min_count",
+            default=2.0)))
+        sw_score = 1.0
+        if len(env._swing_gate_hist) >= n_swin:
+            counts = np.sum(env._swing_gate_hist, axis=0)
+            for f in range(6):
+                if f in lift:
+                    continue
+                sw_score = min(
+                    sw_score,
+                    min(float(counts[f]) / sw_min_count, 1.0))
+        swg_factor = (1.0 - g_swing) + g_swing * sw_score
+        r_walk *= swg_factor
+        support_gate *= swg_factor
+        if r_prog > 0.0:
+            r_prog *= swg_factor
+        if r_cmd_track > 0.0:
+            r_cmd_track *= swg_factor
+        info["walk_swing_gate_min"] = sw_score
+        info["walk_swing_gate_factor"] = swg_factor
+    return g_swing, r_cmd_track, r_prog, r_walk, support_gate

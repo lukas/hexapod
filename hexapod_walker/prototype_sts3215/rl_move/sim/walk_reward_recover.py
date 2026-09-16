@@ -21,6 +21,7 @@ from .walk_task import (
 
 
 def recover_reward(env, reward, term, trunc, info):
+    # 1) Strip kernel + tilt shaping (same rationale as getup).
     r_strip = (info.get("reward_task", 0.0)
                + info.get("reward_roll", 0.0)
                + info.get("reward_pitch", 0.0))

@@ -741,8 +741,9 @@ def walk_leg_swing_initiation_maxload(loads: list) -> list:
 # They import the module-level constants/helpers defined ABOVE this line
 # from walk_task, so the import has to sit here (after those definitions)
 # rather than at the top of the file.
-from . import (walk_reward_charges, walk_reward_gates,  # noqa: E402
-               walk_reward_yaw)
+from . import walk_reward_charges  # noqa: E402
+from . import walk_reward_gates  # noqa: E402
+from . import walk_reward_yaw  # noqa: E402
 from . import walk_reward_course  # noqa: E402
 from . import walk_reward_progress  # noqa: E402
 from . import walk_reward_stepevent  # noqa: E402
@@ -3085,8 +3086,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 goal, info, reward)
             r_walk, support_gate = walk_reward_gates.kernel_progress_gate(self,
                 along, info, r_walk, s_ref)
-            r_walk, r_freeze = walk_reward_yaw.turn_in_place_kernel_gate_and_freeze(self,
-                goal, info, r_walk, s_ref)
+            r_walk, r_freeze = (
+                walk_reward_yaw.turn_in_place_kernel_gate_and_freeze(
+                    self, goal, info, r_walk, s_ref))
             r_prog, r_walk, support_gate = (
                 walk_reward_gates.anchored_stance_gate(
                     self, info, r_prog, r_walk, s_ref, support_gate))
@@ -3104,12 +3106,16 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 walk_reward_gates.leg_duty_gate(
                     self, info, lift, r_cmd_track, r_prog, r_walk, s_ref,
                     support_gate))
-            g_swing, r_cmd_track, r_prog, r_walk, support_gate = walk_reward_gates.leg_swing_rate_gate(self,
-                info, lift, r_cmd_track, r_prog, r_walk, s_ref, support_gate)
-            g_ratio, g_ratio_swingfloor, r_ratio = walk_reward_gates.leg_duty_ratio_charge(self,
-                info, s_ref)
-            g_lsratio, r_lsratio = walk_reward_gates.leg_loadslip_ratio_charge(self,
-                info, s_ref)
+            g_swing, r_cmd_track, r_prog, r_walk, support_gate = (
+                walk_reward_gates.leg_swing_rate_gate(
+                    self, info, lift, r_cmd_track, r_prog, r_walk, s_ref,
+                    support_gate))
+            g_ratio, g_ratio_swingfloor, r_ratio = (
+                walk_reward_gates.leg_duty_ratio_charge(
+                    self, info, s_ref))
+            g_lsratio, r_lsratio = (
+                walk_reward_gates.leg_loadslip_ratio_charge(
+                    self, info, s_ref))
             g_swinggap, r_gap = walk_reward_gates.leg_swinggap_charge(self,
                 info, s_ref)
             g_swinit = walk_reward_gates.swing_initiation_income_gain(self)
@@ -3460,6 +3466,5 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         PBRS telescopes over the episode, so the spawn potential is
         never income and re-farming a feature pays 0 by construction.
         """
-        # 1) Strip kernel + tilt shaping (same rationale as getup).
         return walk_reward_recover.recover_reward(self,
             reward, term, trunc, info)

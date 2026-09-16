@@ -4400,72 +4400,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     r_cmd_track *= swg_factor
                 info["walk_swing_gate_min"] = sw_score
                 info["walk_swing_gate_factor"] = swg_factor
-            # Per-LEG duty-RATIO reward CHARGE (reward.walk_leg_duty_
-            # ratio_charge, 2026-09-08 -- design rationale on
-            # walk_legduty_ratio_tick/_charge above, near
-            # walk_legduty_term_tick). Deliberately ADDITIVE, not
-            # multiplicative: never touches r_walk/r_prog/r_cmd_track,
-            # so it cannot be "simply outbid" by a fatter income term
-            # the way every walk_duty_gate-class *_factor could be
-            # (each of their own closures named this as the failure
-            # shape); no episode cutoff, so there is nothing to pay
-            # off as an ambient one-time cost either (the termination
-            # class's own closure signature). Uses the PREVIOUS tick's
-            # EMA (one-tick lag, same convention as every other gate in
-            # this file); this tick's contacts update the EMA in the
-            # bookkeeping block below for NEXT tick's price. Grace: no
-            # charge until walk_leg_duty_ratio_grace_s worth of ticks
-            # have updated the EMA (the EMA has no natural "window
-            # full" signal, so a plain tick counter stands in for the
-            # window-must-fill grace every other gate uses). Default
-            # 0 = off: no charge, no info keys, legacy bit-exact. cfg:
-            # reward.walk_leg_duty_ratio_charge (0.0),
-            # reward.walk_leg_duty_ratio_target (0.30, the calibrated
-            # passing-population's own p10 worst-leg ratio),
-            # reward.walk_leg_duty_ratio_grace_s (3.0).
-            g_ratio = float(cfg_get(self.cfg, "reward",
-                                    "walk_leg_duty_ratio_charge",
-                                    default=0.0))
-            # Optional swing-count floor (2026-09-08, see the
-            # walk_legduty_ratio_charge docstring): read here
-            # (unconditionally, not nested under the grace check
-            # below) so both this pricing block AND the per-foot
-            # swing-event loop further down can see it this same
-            # tick. Default 0.0 = off, bit-exact legacy (no state
-            # tracked, no info keys, same as g_ratio itself when 0).
-            g_ratio_swingfloor = float(cfg_get(
-                self.cfg, "reward",
-                "walk_leg_duty_ratio_swing_min_count", default=0.0))
-            r_ratio = 0.0
-            if g_ratio > 0.0 and s_ref > 1e-3:
-                ratio_grace_s = float(cfg_get(
-                    self.cfg, "reward", "walk_leg_duty_ratio_grace_s",
-                    default=3.0))
-                if self._legduty_ratio_ticks * self.dt >= ratio_grace_s:
-                    ratio_target = float(cfg_get(
-                        self.cfg, "reward", "walk_leg_duty_ratio_target",
-                        default=0.30))
-                    ratio_swing_counts = None
-                    if g_ratio_swingfloor > 0.0:
-                        ratio_swing_win = max(1, int(round(float(cfg_get(
-                            self.cfg, "reward",
-                            "walk_leg_duty_ratio_swing_window_s",
-                            default=4.0)) / self.dt)))
-                        if len(self._legduty_ratio_swing_hist) \
-                                >= ratio_swing_win:
-                            ratio_swing_counts = np.sum(
-                                self._legduty_ratio_swing_hist, axis=0)
-                    ratio_agg = str(cfg_get(
-                        self.cfg, "reward", "walk_leg_duty_ratio_agg",
-                        default="min"))
-                    worst_shortfall, _ratios = walk_legduty_ratio_charge(
-                        self._legduty_ratio_ema, ratio_target,
-                        swing_counts=ratio_swing_counts,
-                        swing_min_count=g_ratio_swingfloor,
-                        agg=ratio_agg)
-                    r_ratio = -g_ratio * worst_shortfall
-                    info["walk_leg_duty_ratio_shortfall"] = worst_shortfall
-                    info["reward_walk_leg_duty_ratio"] = r_ratio
+            g_ratio, g_ratio_swingfloor, r_ratio = walk_reward_gates.leg_duty_ratio_charge(self,
+                info, s_ref)
             g_lsratio, r_lsratio = walk_reward_gates.leg_loadslip_ratio_charge(self,
                 info, s_ref)
             g_swinggap, r_gap = walk_reward_gates.leg_swinggap_charge(self,

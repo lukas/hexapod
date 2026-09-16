@@ -1,1 +1,0 @@
-../../../../../.state/rl_docs/tracks/joystick/STATUS.md

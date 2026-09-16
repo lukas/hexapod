@@ -1,1 +1,0 @@
-../../../../../.state/rl_docs/tracks/walkcurr/STATUS.md

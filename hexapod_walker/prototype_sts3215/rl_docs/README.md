@@ -20,18 +20,9 @@ Method PASS is not parent-goal completion. Superseded docs were retired 2026-09-
 | `CURRENT_TRUTHS.md` (orchestrator state) | Accepted facts and run verdicts; RL_GOALS owns purpose/priorities | Every cycle |
 | `RL_PLAN.md` (hexapod-orchestrator root) | The plan for physical delivery and demonstration-free research in parallel | Every cycle |
 | `STATUS.md` (hexapod-orchestrator root) | Operator-facing digest: how it's going, what's waiting | Catching up; after any story-changing verdict (update it!) |
-| `tracks/joystick/STATUS.md` | Goal/Now/Next for the RL-from-teacher joystick track | Working that track |
-| `tracks/amp/STATUS.md` | Method milestones for demonstration-assisted AMP (any_means) | Working that track |
-| `tracks/cpg/STATUS.md` | Goal/Now/Next for the Berkeley-style CPG gait-search track | Working that track |
-| `tracks/walkcurr/STATUS.md` | Goal/Now/Next for prior-free PPO walking | Working that track |
-| `tracks/assistfade/STATUS.md` | Method milestones for assistance removal (any_means; prior assistance still counts) | Working that track |
-| `tracks/standwalk/STATUS.md` | Goal/Now/Next for mesh-era stance plus one-policy stand/walk/lower distillation | Working that track |
-| `tracks/todaypolicy/STATUS.md` | Goal/Now/Next for composing policy+state into a usable demo bundle today | Packaging or comparing deployable MuJoCo/controller bundles |
-| `tracks/speed/STATUS.md` | Goal/Now/Next for the maximum-sustainable-speed frontier | Designing or triaging speed-first gait experiments |
+| `tracks/<track>/STATUS.md` | Per-track Goal/Now/Next journals: orchestrator STATE (`.state/rl_docs/tracks/` in lukas/hexapod-orchestrator); design notes and bundles stay here | Working that track |
 | `AMP_LOCOMOTION.md` | The AMP method charter within any_means (incl. repo adaptations — no Isaac Lab) | Before any amp-track design decision |
 | `DOWNLOAD_ANSWER.md` | The current deployable answer + gate evidence | When a verdict might change what we'd put on the robot |
-| `SKILLS.md` | What the robot can DO today: passed skills + checkpoints | On any PASS (update it!) |
-| `COMMANDS.md` | How to run everything: `ops.sh` helpers, paths, gotchas; § "Operator status page" = dashboard runbook | Every cycle, before running commands |
 | `HYBRID_DEMO.md` | How to compose stand/walk/lower controllers with explicit states and compare transfer-shaped MuJoCo demos | When judging policy+state bundles for robot transfer |
 | `DEPLOYABLE_POLICY_EXPORT.md` | W&B/SB3 checkpoint to portable MLP or persistent dual-GRU JSON; exact obs-75/81 layouts and parity checks | Exporting or reviewing a model for MuJoCo/robot runtime |
 | `HARDWARE.md` | Real-robot evidence, sim2real findings | When a decision hinges on real-world data |
@@ -44,12 +35,11 @@ Method PASS is not parent-goal completion. Superseded docs were retired 2026-09-
 | `COMPLIANCE.md` | Structural-compliance measurement + sim hook | Sim-fidelity questions |
 | `EXPERIMENT_LOGS.md` | Per-run `logs/experiments/<run>/` convention (dig-ins) | When digging into a run |
 | `WANDB.md` | How W&B is wired: project/creds, ops.sh readers, gotchas | First time touching W&B or on auth failure |
-| `runs/` | One GENERATED summary per run — rendered from `experiments.json`; never hand-edit | Browsing past runs |
 | `RESEARCH_RULES.md` + `RUN_INTERPRETATION_RULES.md` (hexapod-orchestrator root) | How to design, launch, continue, and judge runs (incl. the 08-21 reward/eval ruling) | Before launch/triage |
 | `orchestrator/guardrails.yaml` (hexapod-orchestrator) | Hard limits you must obey | Every cycle |
 
 Standing rule: if you had to FIGURE OUT a command (it failed, was
 slow, or took several tries) and then got it right, promote it —
-add an `ops.sh` subcommand or a snippet to `COMMANDS.md` in the
+add an `ops.sh` subcommand or a snippet to `COMMANDS.md` in lukas/hexapod-orchestrator, in the
 same cycle, and keep this index accurate. The next agent should
 never have to rediscover it.

@@ -100,7 +100,7 @@ to break), one easing lever at a time:
    the amp>1 clamp fix, 434a6e0, must actually be on the eval pod;
    an unsynced free pod silently re-ran the OLD clamped code and
    returned bit-identical reports across amps, a false negative,
-   caught + documented as COMMANDS.md gotcha 16):
+   caught + documented as hexapod-orchestrator COMMANDS.md gotcha 16):
    true amp 1.0 (18mm, the model's actual base bump) leaves slip/m
    at the champion's own band (det/sto med 1.07/1.17); amp 2.0 (36mm)
    makes it WORSE, not better (1.34/1.54); amp 3.0 (54mm) is worse

@@ -11,6 +11,7 @@ and re-indentation; the header comments travelled with the code.
 from __future__ import annotations
 
 from rl_move.config import cfg_get
+from .walk_task import (walk_legslip_ratio_charge)
 
 
 def kernel_progress_gate(env, along, info, r_walk, s_ref):
@@ -107,3 +108,69 @@ def leg_swinggap_charge(env, info, s_ref):
         info["walk_leg_swing_gap_worst_s"] = worst_gap
         info["reward_walk_leg_swing_gap"] = r_gap
     return g_swinggap, r_gap
+
+
+def leg_loadslip_ratio_charge(env, info, s_ref):
+    # Per-LEG load-SLIP reward CHARGE (reward.walk_leg_
+    # loadslip_ratio_charge, 2026-09-08 -- design rationale on
+    # walk_legslip_ratio_tick/_charge above, near
+    # walk_legduty_ratio_tick/_charge). Same additive/no-
+    # cutoff/one-tick-lag shape as the duty-ratio charge
+    # (this tick's per-foot tangent-slip measurements update
+    # the EMA in the bookkeeping block below for NEXT tick's
+    # price). Grace: no charge until walk_leg_loadslip_ratio_
+    # grace_s worth of ticks have updated the EMA. Default
+    # 0 = off: no charge, no info keys, legacy bit-exact,
+    # independent of every other slip/duty mechanism's state.
+    # cfg: reward.walk_leg_loadslip_ratio_charge (0.0),
+    # reward.walk_leg_loadslip_ratio_target (1.5, assume-and-
+    # go -- see the function-level comment above),
+    # reward.walk_leg_loadslip_ratio_grace_s (3.0),
+    # reward.walk_leg_loadslip_ratio_tau_s (1.0),
+    # reward.walk_leg_loadslip_ratio_excess_cap (0.0 = OFF,
+    # 2026-09-08 -- the isolation canaries `cw-walkscratch-
+    # crutchoff-{s0,s1}-widen8-loadslip-target6-alone` (CANARY
+    # FAIL - MECHANISM both seeds) found this charge's own
+    # reward-quarters collapse GETS WORSE, not better, once the
+    # walk_leg_duty_ratio_charge confound is removed -- unlike
+    # duty-ratio's shortfall (naturally bounded at `target`,
+    # <=0.30 by construction), this charge's `worst_excess` =
+    # max(0, max(ratio)-target) has NO upper bound: a leg
+    # transiently sliding many multiples of its peers' rate
+    # (a real, if rare, tail event under DR/faults/pushes) can
+    # spike the per-tick charge arbitrarily far past its
+    # "typical" 0.02-0.03 telemetry reading, and PPO's return
+    # normalization/advantage estimation can be dominated by a
+    # handful of such outlier ticks regardless of the charge's
+    # overall weight (already shown: 10x/3x weight cuts barely
+    # moved the collapse magnitude in the earlier w15/w45
+    # dose-bracket, both CLOSED FAIL). Capping `worst_excess`
+    # at this value (if >0) directly bounds the per-tick charge
+    # to `-charge*cap` regardless of how extreme the tail event
+    # is, isolating "price the typical excess" from "let one
+    # bad tick dominate the whole return" -- untested, next
+    # concrete lever named by the isolation closure. Default
+    # 0.0 = no cap (legacy/current behavior), bit-exact.
+    g_lsratio = float(cfg_get(env.cfg, "reward",
+                              "walk_leg_loadslip_ratio_charge",
+                              default=0.0))
+    r_lsratio = 0.0
+    if g_lsratio > 0.0 and s_ref > 1e-3:
+        lsratio_grace_s = float(cfg_get(
+            env.cfg, "reward", "walk_leg_loadslip_ratio_grace_s",
+            default=3.0))
+        if env._legslip_ratio_ticks * env.dt >= lsratio_grace_s:
+            lsratio_target = float(cfg_get(
+                env.cfg, "reward", "walk_leg_loadslip_ratio_target",
+                default=1.5))
+            worst_excess, _ls_ratios = walk_legslip_ratio_charge(
+                env._legslip_ratio_ema, lsratio_target)
+            lsratio_cap = float(cfg_get(
+                env.cfg, "reward",
+                "walk_leg_loadslip_ratio_excess_cap", default=0.0))
+            priced_excess = (min(worst_excess, lsratio_cap)
+                              if lsratio_cap > 0.0 else worst_excess)
+            r_lsratio = -g_lsratio * priced_excess
+            info["walk_leg_loadslip_ratio_excess"] = worst_excess
+            info["reward_walk_leg_loadslip_ratio"] = r_lsratio
+    return g_lsratio, r_lsratio

@@ -3246,7 +3246,6 @@ class SimHexapodBalanceEnv(_GymBase):
         self._h_target = float(h_target)
         self._h_milestones = set()
         self._prev_h_err_abs = 0.0
-        self._prev_h_rel_lag = 0.0
         self._score_best = None
         self._lower_score_best = None
         self._is_rise = mode == "rise"

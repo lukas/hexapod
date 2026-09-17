@@ -225,44 +225,6 @@ def rise_scored_steps_reward(env, goal, h_err, h_rel, parts, reward):
             r_lst = -(1.0 - depth_frac) ** 2
             parts["reward_lower_track"] = r_lst
             reward += r_lst
-        # Ramp-tracking LAG-RATE charge (2026-09-17, walkcurr `lower`
-        # floor: after 13 closed mechanism arms across 4 classes --
-        # reward-pricing (score-prog/ratchet-partial/dense-posture/
-        # plain-stage-gate, 4), batch-composition (1), stage-gate
-        # frac_min (4), absorbing-state termination (4) -- all landing
-        # on the identical ~28-31mm/0-2-of-12-ok floor, CURRENT_TRUTHS.md
-        # names the next honest lever as a genuinely different
-        # mechanism CLASS: price the instantaneous RATE mismatch
-        # against the ramp's own current velocity, not the accumulated
-        # POSITION gap every prior lever (including lower_score_prog's
-        # own r_lst above) priced. A frozen policy pays this EVERY
-        # tick the ramp is moving and it is not -- unlike the
-        # potential-based reward_rise_progress term above (whose
-        # per-episode sum only depends on net position change, so it
-        # cannot distinguish "moved steadily" from "froze, then caught
-        # up once") and unlike r_lst (prices remaining fraction, not
-        # rate -- pays the same whether the policy has been moving at
-        # half the ramp's rate or fully stalled). Lower only
-        # (env._h_target < 0); default OFF
-        # (reward.k_lower_lag_rate=0.0): bit-exact, no new arithmetic
-        # runs when unset. Tests: test_lower_lag_rate.py.
-        k_lag = float(cfg_get(env.cfg, "reward", "k_lower_lag_rate",
-                              default=0.0))
-        if (k_lag > 0.0 and env._h_target < 0.0 and goal is not None
-                and getattr(env, "_goal_traj", None) is not None):
-            prev_g = env._goal_traj.at(env._step_i - 1)
-            ref_vel = (goal.height_ref - prev_g.height_ref) / env.dt
-            actual_vel = (h_rel - env._prev_h_rel_lag) / env.dt
-            if abs(ref_vel) > 1e-6:
-                # How much slower than the ramp's own (signed) rate
-                # the robot is currently moving, floored at 0 (never a
-                # bonus for outrunning the ramp).
-                shortfall = (abs(ref_vel)
-                            - actual_vel * math.copysign(1.0, ref_vel))
-                r_lag = -k_lag * max(0.0, shortfall)
-                parts["reward_lower_lag_rate"] = r_lag
-                reward += r_lag
-        env._prev_h_rel_lag = h_rel
         if score_mode and clear is not None:
             # The tracking kernel pays torso-at-ref-height with no
             # posture opinion — the stream every cheat lived on.

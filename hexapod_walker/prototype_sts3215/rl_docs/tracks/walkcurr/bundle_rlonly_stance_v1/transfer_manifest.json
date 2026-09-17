@@ -1,0 +1,58 @@
+{
+  "schema": "hexapod.transfer_candidate.v1",
+  "candidate_name": "walkcurr-rlonly-stance-currentcap29-s5-klrollback05-acq15m",
+  "parent_goal": "rl_only",
+  "supersedes": null,
+  "candidate_is_composition_not_single_policy": false,
+  "no_physical_robot_motion_performed": true,
+  "training_lineage_contract": "walkcurr rl_only (tracks.json): no gait clock, no BC teacher, no motion prior, no AMP/demo reward anywhere in this lineage. This checkpoint is a warm-start chain of plain --init-from-source continuations off the mesh_mjx 50Hz currentcap29 base (task-reward/curriculum/optimizer-stability levers only: goal.joint_action_bias_* centering, --kl-rollback=0.05, --actor-lr/--critic-lr=1e-4, train.hold_grace_curriculum) -- no demonstration data, teacher action target, or scripted motion role enters this lineage at any point. See CURRENT_TRUTHS.md 2026-09-17 rise-flat+hold consolidation entries and rl_docs/tracks/walkcurr/STATUS.md 09-16/09-17 currentcap29 thread.",
+  "components": [
+    {
+      "role": "stance (rise-from-floor + hold-standing; NO lower/sit-down, NO walk)",
+      "state": "sit -> rise_flat -> hold (goal_mode joint_goal task, not a joystick walk role)",
+      "controller": "rl_move/sim/policies/ppo_goal_cw_stance50hz_rlonly_currentcap29_s5_klrollback05_acq15m.zip",
+      "checkpoint_sha256": "dae9ee1a5d760f1b66f597e5554c088ab31e5805392d0fb908d77f014d75dd6f",
+      "policy_mode": "deterministic (also validated stochastic, see gate below)",
+      "exported_np_policy": "linux_control/policies/stance_rlonly_currentcap29_s5_klrollback05_acq15m_50hz.json",
+      "exported_np_policy_sha256": "1590bec89e46356ef627a733ed4007a148496feaf65ff7a3a616c50c23c3e941",
+      "export_notes": "export_policy_np.py --training-hz 50 --control-hz 50, generic N-layer/ELU format, parity 7.63e-08 over 200 random obs (bar 1e-5).",
+      "motor_contract": {
+        "control_hz": 50,
+        "bus_write_speed": 400,
+        "bus_write_acc": 20,
+        "safety_max_delta_q_deg": 0.75,
+        "slew_limit_deg_s": 37.5,
+        "note": "matches the bundle_50hz_v1 SAFE physical contract, NOT the higher-slew walk-role bundle_rlonly_v2 contract -- Robot Lab must still independently verify before any motion."
+      }
+    },
+    {
+      "role": "alternate seed (same recipe family, independent seed, held as a redundancy/cross-check reference -- not required for GO)",
+      "controller": "rl_move/sim/policies/ppo_goal_cw_stance50hz_rlonly_currentcap29_s3_acq15m_lowlr.zip",
+      "checkpoint_sha256": "2b00ccac1d2aaefe6344b57b4a0503b6f4cf38d3bb937c54f3e3be153f33ce8d",
+      "exported_np_policy": "linux_control/policies/stance_rlonly_currentcap29_s3_acq15m_lowlr_50hz.json",
+      "exported_np_policy_sha256": "0f01bb635c1d2046e272d8d22dad86b2caa943f61638e14077eccd132ba717b9",
+      "export_notes": "export_policy_np.py --training-hz 50 --control-hz 50, parity 9.45e-08.",
+      "gate_summary": "own-cfg flat-only n=12 det+sto probe: hold 6/6+6/6=12/12, rise-flat 10/12 (5/6 det + 5/6 sto -- see ops.sh entry / STATUS 09-16 ~xx for exact split), lower 0/12 (same closed floor)."
+    }
+  ],
+  "no_lower_or_walk_role_in_this_bundle": "This candidate is the STANCE role only (rise-from-floor + hold-standing). It has NO lower/sit-down capability (the walkcurr LOWER floor is CLOSED -- all 16 agent-doable RL mechanism classes refuted as of 2026-09-17, parked on Robot Lab achievability review, CURRENT_TRUTHS.md) and NO walk role of its own (the separately-trained rl_only WALK role lives in bundle_rlonly_v2 and is NOT composed with this checkpoint's weights -- these are two independently trained clean-RL roles per RL_GOALS.md's explicit allowance for role composition over a monolithic actor). Do not read this manifest as a sit-to-walk-to-sit bundle. A physical trial needs either a manual/gantry start into the rise_flat initial pose, or a separate composition step (untried) chaining this role with bundle_rlonly_v2's walk role and a scripted/manual lower.",
+  "transfer_blockers_or_work": [
+    "LOWER IS MISSING: this role cannot sit back down under its own policy. Any physical trial must end each attempt with a manual/gantry catch or a scripted lower, not this policy.",
+    "WALK IS SEPARATE: composing this stance role with bundle_rlonly_v2's walk role (same rl_only parent goal, different checkpoints/lineages) has not been attempted -- the two were trained on different goal-mixes/reward stacks (this one never sees goal.walk_*, the walk role never sees goal.rise_*/hold_*) and a handoff transition (rise-done pose -> walk-ready pose) has not been built or tested. This is the concrete next step toward a fuller rl_only lifecycle demo, not yet built.",
+    "PHYSICAL SAFETY: exported with the SAFE 50Hz motor contract (bus_write_speed=400/write_acc=20/max_delta_q_deg=0.75, matching bundle_50hz_v1) -- still requires Robot Lab's independent preflight/derate before any motion, same as every other exported policy on this project.",
+    "SEED GENERALIZATION: 2/3 independently-trained seeds (s3, s5) consolidate rise-flat+hold at the full 15M-step budget under this exact recipe with LARGE, reproducible margins (10/12 and 12/12+12/12). The third (s1) is CLOSED as a per-seed outlier, not a fixable in-training regression: a concurrent 2026-09-17 ~11:0x investigation (new tool `rl_move/sim/probe_currentcap29_flatonly.py`, corrected-physics re-eval of 5 intermediate snapshots) found s1 sits persistently near-zero/marginal for essentially its entire continuation (not declining from a good mid-run state as the original FAIL-MECHANISM verdict's own probe implied), with GPU/MJX run-to-run float non-determinism flipping some borderline episode counts near the pass/fail boundary. A separate same-day read of s1's raw training-time reward-term curves (this cycle) additionally shows a real but smaller, corroborating anti-correlation between `env/max_current_a` (creeping 1.27A->1.58A over steps 9-13M) and `env/reward_task` (0.27->0.21) -- consistent with, not contradicting, the 'persistently marginal, not cleanly consolidating' characterization. s1 is NOT part of this bundle and per the 11:0x verdict is not being chased further absent a genuinely new mechanism idea. See walkcurr STATUS.md 2026-09-17 ~11:0x/this entry for the full read.",
+    "Run only the read-only hardware preflight first: 18 servos, IMU, pose near the sit/rise_flat start, tilt within limit (same preflight class as other exported-policy handoffs).",
+    "Stop immediately on tip, brownout, high current, missing servo, or hot motor."
+  ],
+  "gate_summary_s5": {
+    "hold_det": "6/6, height_err_end_mm all 10.1, zero terminations",
+    "hold_sto": "6/6, height_err_end_mm 9.4-10.5, zero terminations",
+    "rise_flat_det": "6/6, height_err_end_mm 0.1-5.0, zero terminations",
+    "rise_flat_sto": "6/6, height_err_end_mm 0.1-4.4, zero terminations",
+    "lower_det": "0/6 (all height_err_end_mm 17.5-39.1mm, well above the 20mm bar -- closed floor, not part of this bundle's claim)",
+    "lower_sto": "0/6 (14.2-41.4mm, same closed floor)",
+    "source": "logs/ckpt_eval/cw_stance50hz_rlonly_currentcap29_s5_klrollback05_acq15m_probe/report.json (own-cfg flat-only n=12 det+sto probe, mesh_mjx, DR-0)"
+  },
+  "reproducible_eval_command": "cd hexapod_walker/prototype_sts3215 && uv run python -m rl_move.sim.eval_checkpoint rl_move/sim/policies/ppo_goal_cw_stance50hz_rlonly_currentcap29_s5_klrollback05_acq15m.zip --task joint_goal --cfg-set goal.rise_flat_frac=1.0 --cfg-set goal.rise_partial_frac=0 --modes hold,rise,lower --episodes-per-mode 6 --dr-scale 0.0 --video --out-dir logs/ckpt_eval/<name>_probe   (matches the already-recorded artifacts at logs/ckpt_eval/cw_stance50hz_rlonly_currentcap29_s5_klrollback05_acq15m_probe/ -- exact flags per that run's own launch record; re-verify against ops.sh entry before re-running)",
+  "video_evidence": "logs/ckpt_eval/cw_stance50hz_rlonly_currentcap29_s5_klrollback05_acq15m_probe/{hold_det_0..5,rise_det_0..5}.mp4 (already on disk, no re-run needed) -- clean rise-from-floor and stable hold, no dragged/sacrificed legs, no falls; lower_det_*.mp4 shows the known partial-descend-then-freeze pathology (excluded from this bundle's claim, documented not hidden)."
+}

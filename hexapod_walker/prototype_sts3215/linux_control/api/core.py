@@ -693,11 +693,16 @@ class CoreApi:
         live = 0
         try:
             # Bus has its own lock; avoid holding drive._lock here.
-            for joint in range(N_JOINTS):
-                try:
-                    v = bus.read_position_deg(joint)
-                except Exception:
-                    v = None
+            # A tibia angle needs its hip from this same bulk sample.
+            # Do not fill holes with per-joint cached reads.
+            if hasattr(bus, "read_all_positions"):
+                positions = bus.read_all_positions() or {}
+            else:
+                positions = {j: bus.read_position_deg(j)
+                             for j in range(N_JOINTS) if j % 3 != 2}
+            for joint, v in positions.items():
+                if not 0 <= joint < N_JOINTS:
+                    continue
                 if v is None:
                     continue
                 degrees[joint] = round(float(v), 2)
@@ -737,6 +742,7 @@ class CoreApi:
                 _live_robot_ids, _set_torque_limit, ease_to_pose,
             )
             from drive_controller import MAX_SAFE_DELTA_DEG
+            from safe_zero import validate_motor_pose_path
         except ImportError as e:
             return {"ok": False, "error": str(e)}
         if not isinstance(q_deg, (list, tuple)) or len(q_deg) != N_JOINTS:
@@ -760,6 +766,10 @@ class CoreApi:
         if bad:
             return {"ok": False, "error": "pose outside joint limits",
                     "bad": bad[:6]}
+        try:
+            validate_motor_pose_path((goal,), getattr(self.drive.bus, "trims", None))
+        except ValueError as exc:
+            return {"ok": False, "code": "motor_limits", "error": str(exc)}
         if self._demo_thread and self._demo_thread.is_alive():
             if not self._preempt_demo_thread(reason=f"→ {label}",
                                              timeout=5.0):
@@ -800,6 +810,10 @@ class CoreApi:
         tracker = CurrentPeakTracker()
         ok = False
         try:
+            present, missing = self._present_pose18()
+            if missing:
+                return {"ok": False, "error": f"missing pose joints: {missing}"}
+            validate_motor_pose_path((present, goal), getattr(d.bus, "trims", None))
             with d._lock:
                 d.mode = "demo"
                 d.gait.stop()
@@ -882,7 +896,7 @@ class CoreApi:
         """Keep re-holding the sim walk-ready stance after planted demos."""
         d = self.drive
         try:
-            from rl_walk_start import walk_start_pose_degrees
+            from hexapod_core.joint_frame import walk_start_pose_degrees
             stand = walk_start_pose_degrees()
         except Exception:
             stand = None

@@ -294,7 +294,7 @@ def qualify(
     # aborted standing robot holding. Keyed on code, not comments.
     final_limp_ok = (
         "torque_left_on = True" in runner
-        and "_write_pose(bus, hold_pose, hold_servo_ids" in runner
+        and "bus.write_raw_all(hold_pose, ids=hold_servo_ids" in runner
         and "_limp_all(bus, live_ids)" in runner
         and "torque_left_on" in api
     )

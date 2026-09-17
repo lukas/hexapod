@@ -13,6 +13,8 @@ from pathlib import Path
 import time
 import urllib.request
 
+from hexapod_core.joint_frame import N_JOINTS
+
 
 def get_bytes(base: str, path: str, timeout: float = 3.0) -> bytes:
     request = urllib.request.Request(base.rstrip("/") + path, method="GET")
@@ -58,9 +60,10 @@ def summarize_feedback(feedback: dict, observed_unix: float | None = None) -> di
     age = now - stamp if finite(stamp) else None
     joints = feedback.get("joints")
     joints = joints if isinstance(joints, list) else []
-    fields = ("raw_deg", "deg", "cur_a", "temp_c", "volt", "load_pct")
+    fields = ("deg", "cur_a", "temp_c", "volt", "load_pct")
     missing = [i for i, joint in enumerate(joints)
-               if not isinstance(joint, dict) or not all(finite(joint.get(k)) for k in fields)]
+               if not isinstance(joint, dict) or not all(finite(joint.get(k)) for k in fields)
+               or (joint.get("raw_deg") is not None and not finite(joint["raw_deg"]))]
     valid = [j for j in joints if isinstance(j, dict)]
 
     def values(key):
@@ -70,10 +73,12 @@ def summarize_feedback(feedback: dict, observed_unix: float | None = None) -> di
         "t_unix": stamp if finite(stamp) else None,
         "age_s": round(age, 3) if age is not None else None,
         "fresh": age is not None and -0.5 <= age <= 2.0,
-        "complete": feedback.get("ok") is True and feedback.get("live") == 18
-                    and len(joints) == 18 and not missing
+        "complete": feedback.get("ok") is True and feedback.get("live") == N_JOINTS
+                    and len(joints) == N_JOINTS and not missing
                     and finite(feedback.get("roll_deg")) and finite(feedback.get("pitch_deg")),
         "live": feedback.get("live"),
+        "raw_positions_available": len(joints) == N_JOINTS
+                                   and all(isinstance(j, dict) and finite(j.get("raw_deg")) for j in joints),
         "invalid_joint_indices": missing,
         "max_current_a": max(map(abs, values("cur_a")), default=None),
         "max_load_pct": max(map(abs, values("load_pct")), default=None),

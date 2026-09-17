@@ -105,8 +105,8 @@ files = [
     "linux_control/bus_bench.py",
     "linux_control/sysid_protocol.py",
     "linux_control/sysid_runner.py",
+    "linux_control/motor_dynamics.py",
     "hexapod_core/walk_ready_transition.py",
-    "linux_control/rl_walk_start.py",
     "rl_move/env.py",
     "rl_move/robot_state.py",
     "rl_move/safety.py",
@@ -308,7 +308,7 @@ hex_unit_check() {
   hex_note "off-robot unit tests (fake buses only)"
   (
     hex_py linux_control/test_calibration_checkup.py &&
-    hex_py linux_control/test_mcu_stream.py &&
+    hex_py -m pytest -q linux_control/test_mcu_stream.py &&
     hex_py linux_control/test_telemetry_recorder.py &&
     hex_py linux_control/test_geometry_sweep_fit.py &&
     hex_py linux_control/test_quad_pitch_trim.py &&
@@ -405,6 +405,7 @@ hex_remote_compile() {
       linux_control/cpg_controller_loader.py \
       linux_control/telemetry_recorder.py \
       linux_control/async_bus_guard.py \
+      linux_control/motor_dynamics.py \
       linux_control/rl_policy.py \
       rl_move/env.py \
       rl_move/robot_state.py \
@@ -412,7 +413,6 @@ hex_remote_compile() {
       rl_move/np_policy.py \
       rl_move/deployed_policy.py \
       hexapod_core/walk_ready_transition.py \
-      linux_control/rl_walk_start.py \
       motor_setup/feetech_bus.py \
       motor_setup/inplace_demos.py \
       motor_setup/motion_telemetry.py"

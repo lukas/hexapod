@@ -54,6 +54,10 @@ class _CountingBus:
         self.calls.append(("read_position_deg", joint))
         return 0.0
 
+    def read_all_positions(self):
+        self.calls.append(("read_all_positions",))
+        return {j: 0.0 for j in range(18)}
+
     def read_all_feedback(self):
         self.calls.append(("read_all_feedback",))
         return {}
@@ -261,7 +265,7 @@ def test_api_admission_nonblockingly_reaps_a_confirmed_dead_reader() -> None:
 
     assert result["ok"] is True
     assert result["live"] == 18
-    assert [c[0] for c in bus.calls] == ["read_position_deg"] * 18
+    assert bus.calls == [("read_all_positions",)]
     assert thread.join_timeouts == [0]
     assert bus_quarantine_status(bus)["bus_quarantined"] is False
 

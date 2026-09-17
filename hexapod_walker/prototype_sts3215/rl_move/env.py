@@ -168,10 +168,40 @@ def height_err_sense_obs_dim(cfg: dict) -> int:
         cfg, "obs", "height_err_sense", default=0.0)) == 1.0 else 0)
 
 
+def height_vel_sense_obs_dim(cfg: dict) -> int:
+    """Extra obs width contributed by the optional height-RATE channel
+    (see ``build_obs``). 1 when ``obs.height_vel_sense=1``, 0 (default)
+    otherwise -- callers that size their ``observation_space`` off
+    ``N_OBS``/``GOAL_DIM``/etc. must add this so the box width matches
+    what ``build_obs`` actually returns.
+
+    2026-09-17 walkcurr `lower` floor (15/15 reward-pricing/batch-
+    composition/termination-timing/position-observation mechanism
+    classes closed on the identical partial-descend-then-freeze
+    absorbing state, see STATUS.md 2026-09-17 ~06:3x and
+    CURRENT_TRUTHS.md same timestamp): the POSITION-error observation
+    channel (``obs.height_err_sense``) alone did not break the freeze
+    on either seed. This channel supplies the RATE half of that same
+    axis -- ``rl_move.estimator.HeightRateEstimator``, a stateful
+    finite-difference-and-filter of the same FK height read, so the
+    policy can see not just how far off its height is but how fast it
+    is (or isn't) currently moving -- computed identically on real
+    hardware from encoders + IMU alone. Callers own the stateful
+    estimator (a per-episode object, reset on every episode reset,
+    ``mjx_host.SNAP_ATTRS``-tracked for pool-restore correctness) and
+    pass its output into ``build_obs`` as ``height_vel_mps`` -- this
+    function/``build_obs`` stay pure/stateless themselves, matching
+    every other ``obs.*_sense`` channel's testing contract. Default OFF
+    (bit-exact obs width/values for every existing cfg)."""
+    return (1 if float(cfg_get(
+        cfg, "obs", "height_vel_sense", default=0.0)) == 1.0 else 0)
+
+
 def build_obs(cfg: dict, state: RobotState, q_nom: np.ndarray,
               prev_action: np.ndarray,
               goal: "TaskGoal | None" = None,
-              tilt_ref: tuple[float, float] = (0.0, 0.0)) -> np.ndarray:
+              tilt_ref: tuple[float, float] = (0.0, 0.0),
+              height_vel_mps: float = 0.0) -> np.ndarray:
     """47-dim observation (56 with a goal appended).
 
     Shared by the hardware env and the sim twin. Tilt is reported
@@ -202,6 +232,15 @@ def build_obs(cfg: dict, state: RobotState, q_nom: np.ndarray,
     ``obs.height_scale_m`` (same key the goal ref uses, so reference
     and measurement share units). See ``height_err_sense_obs_dim`` for
     the width contract.
+
+    ``obs.height_vel_sense`` (default 0/OFF, bit-exact when off):
+    appends ONE scalar -- the caller-supplied ``height_vel_mps`` (see
+    ``rl_move.estimator.HeightRateEstimator``), scaled by
+    ``obs.height_vel_scale`` (default 0.01 m/s, ~the nominal
+    rise/lower ramp speed so a full-speed descent reads order-1). This
+    function stays stateless -- callers own the per-episode estimator
+    and pass its current output in. See ``height_vel_sense_obs_dim``
+    for the width contract.
     """
     qs = float(cfg_get(cfg, "obs", "q_scale", default=1.0))
     qds = float(cfg_get(cfg, "obs", "qd_scale", default=2.0))
@@ -233,6 +272,10 @@ def build_obs(cfg: dict, state: RobotState, q_nom: np.ndarray,
         height_ref = float(goal.height_ref) if goal is not None else 0.0
         parts.append(np.array(
             [(h_now - h_nom - height_ref) / max(hs, 1e-6)], dtype=float))
+    if height_vel_sense_obs_dim(cfg) > 0:
+        vs = float(cfg_get(cfg, "obs", "height_vel_scale", default=0.01))
+        parts.append(np.array(
+            [float(height_vel_mps) / max(vs, 1e-6)], dtype=float))
     return np.concatenate(parts).astype(np.float32)
 
 
@@ -422,6 +465,11 @@ class HexapodBalanceEnv:
         self._q_nom = _standing_q_rad()
         self._prev_action = np.zeros(self.ACT_DIM, dtype=float)
         self._tilt_ref0 = (0.0, 0.0)
+        # obs.height_vel_sense (see build_obs/height_vel_sense_obs_dim):
+        # the stateful estimator lives on the env (board-side, same
+        # contract as the sim twin's per-episode instance in
+        # sim_env.py), reset every episode in reset() below.
+        self._height_vel_est = None
         self._step = 0
         self._episode = 0
         self._state: RobotState | None = None
@@ -486,8 +534,13 @@ class HexapodBalanceEnv:
                 f"will not auto-stand.")
 
     def _obs(self, state: RobotState) -> np.ndarray:
+        height_vel_mps = 0.0
+        if self._height_vel_est is not None:
+            height_vel_mps = self._height_vel_est.update(
+                state.joint_position, state.imu_roll, state.imu_pitch)
         return build_obs(self.cfg, state, self._q_nom, self._prev_action,
-                         tilt_ref=self._tilt_ref0)
+                         tilt_ref=self._tilt_ref0,
+                         height_vel_mps=height_vel_mps)
 
     def _reward(self, state: RobotState, action: np.ndarray
                 ) -> tuple[float, dict]:
@@ -621,6 +674,12 @@ class HexapodBalanceEnv:
         # budget or make goals unsatisfiable.
         self._tilt_ref0 = (self._state.imu_roll, self._state.imu_pitch)
         self.safety.set_tilt_reference(*self._tilt_ref0)
+        if float(cfg_get(self.cfg, "obs", "height_vel_sense",
+                         default=0.0)) == 1.0:
+            from rl_move.estimator import HeightRateEstimator
+            self._height_vel_est = HeightRateEstimator(dt=self.dt)
+        else:
+            self._height_vel_est = None
         if self._logger:
             self._logger.start_episode(self._episode)
         info = {

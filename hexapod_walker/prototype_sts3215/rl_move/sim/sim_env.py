@@ -34,7 +34,8 @@ _LINUX = _PROTO / "linux_control"
 from rl_move.body_ik import FixedFootBodyIK, N_ACT, fk_all_feet
 from rl_move.config import cfg_get, load_config
 from rl_move.env import (build_obs, compute_reward, current_sense_obs_dim,
-                          height_err_sense_obs_dim, start_kind_of)
+                          height_err_sense_obs_dim,
+                          height_vel_sense_obs_dim, start_kind_of)
 from rl_move.robot_state import (
     DEG2RAD, N_JOINTS, RAD2DEG, RobotState,
 )
@@ -876,7 +877,8 @@ class SimHexapodBalanceEnv(_GymBase):
         if _gym is not None:
             self.observation_space = self._obs_space_box(
                 N_OBS + current_sense_obs_dim(self.cfg)
-                + height_err_sense_obs_dim(self.cfg))
+                + height_err_sense_obs_dim(self.cfg)
+                + height_vel_sense_obs_dim(self.cfg))
             self.action_space = _gym.spaces.Box(
                 -1.0, 1.0, shape=(self.n_act,), dtype=np.float32)
 
@@ -944,7 +946,8 @@ class SimHexapodBalanceEnv(_GymBase):
         return self._final_obs(
             build_obs(self.cfg, self._state, self._q_nom,
                       self._prev_action, goal=goal,
-                      tilt_ref=self._tilt_ref0),
+                      tilt_ref=self._tilt_ref0,
+                      height_vel_mps=self._height_vel_mps),
             reset=False, augment_reset=True)
 
     # ------------------------------------------------------------------
@@ -1045,6 +1048,24 @@ class SimHexapodBalanceEnv(_GymBase):
             alpha = self.dt / (self.dt + 0.1)
             self._cur_filt = (1.0 - alpha) * self._cur_filt + alpha * raw_current
         servo_current = self._cur_filt.copy()
+
+        # Optional height-RATE channel (obs.height_vel_sense, 2026-09-17
+        # walkcurr `lower` observation-space axis, RATE half -- see
+        # rl_move.estimator.HeightRateEstimator / env.build_obs). Uses
+        # the SAME (possibly DR-corrupted) q/roll/pitch build_obs's
+        # position channel (obs.height_err_sense) reads off `state`,
+        # just computed here where the stateful estimator instance
+        # lives (build_obs itself stays pure/stateless). Gated so a run
+        # with the channel off pays no extra FK cost.
+        if float(cfg_get(self.cfg, "obs", "height_vel_sense",
+                         default=0.0)) == 1.0:
+            if getattr(self, "_height_vel_est", None) is None:
+                from rl_move.estimator import HeightRateEstimator
+                self._height_vel_est = HeightRateEstimator(dt=self.dt)
+            self._height_vel_mps = self._height_vel_est.update(
+                q, roll, pitch)
+        else:
+            self._height_vel_mps = 0.0
 
         del mujoco
         state = RobotState(
@@ -1874,6 +1895,8 @@ class SimHexapodBalanceEnv(_GymBase):
         )
         self.safety.set_nominal(self._q_nom)
         self._cur_filt = None
+        self._height_vel_est = None
+        self._height_vel_mps = 0.0
         self._torque_debt = None
         self._prev_current_rate = None
         self._imu_prev_v = None
@@ -2215,7 +2238,8 @@ class SimHexapodBalanceEnv(_GymBase):
         return self._final_obs(
             build_obs(self.cfg, self._state, self._q_nom,
                       self._prev_action, goal=goal,
-                      tilt_ref=self._tilt_ref0), reset=True), info
+                      tilt_ref=self._tilt_ref0,
+                      height_vel_mps=self._height_vel_mps), reset=True), info
 
     def _curl_dist(self) -> float:
         """Mean XY distance (m) from each foot to its plant anchor,
@@ -2724,7 +2748,9 @@ class SimHexapodBalanceEnv(_GymBase):
                         build_obs(self.cfg, self._state, self._q_nom,
                                   self._prev_action,
                                   goal=self._current_goal(),
-                                  tilt_ref=self._tilt_ref0), reset=False),
+                                  tilt_ref=self._tilt_ref0,
+                                  height_vel_mps=self._height_vel_mps),
+                                  reset=False),
                     -pen, True, False,
                     {"termination_reason": bad, **parts}), None
 
@@ -3460,7 +3486,9 @@ class SimHexapodBalanceEnv(_GymBase):
         return (self._final_obs(
                     build_obs(self.cfg, self._state, self._q_nom,
                               self._prev_action, goal=goal,
-                              tilt_ref=self._tilt_ref0), reset=False),
+                              tilt_ref=self._tilt_ref0,
+                              height_vel_mps=self._height_vel_mps),
+                    reset=False),
                 float(reward), terminated, truncated, info)
 
     def render(self):

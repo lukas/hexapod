@@ -164,6 +164,55 @@ class LegOdometryVelocity:
         return self._v_filt.copy()
 
 
+class HeightRateEstimator:
+    """Stateful body-height RATE estimator (m/s, positive = rising).
+
+    Companion to the POSITION channel ``estimate_body_height_m``/
+    ``obs.height_err_sense``: finite-differences that same stateless FK
+    height read tick-to-tick and low-pass filters it, identical
+    convention to ``LegOdometryVelocity`` above (one-pole filter, alpha
+    default 0.3; first tick after a reset returns 0.0 -- no previous
+    frame to difference yet).
+
+    Built 2026-09-17 for the walkcurr `lower` observation-space axis
+    (``rl_docs/tracks/walkcurr/STATUS.md``, ``CURRENT_TRUTHS.md``
+    2026-09-17 ~06:3x entry): every reward-pricing/batch-composition/
+    termination-timing/position-observation lever (15 mechanism
+    classes) leaves the identical partial-descend-then-freeze
+    absorbing state on the `lower` task untouched. The next explicitly
+    named, never-yet-built lever is a RATE term -- not just "how far
+    off is my height" (``height_err_sense``, tried, refuted) but "how
+    fast am I currently moving" -- computable identically on real
+    hardware from encoders + IMU alone (same contract as every other
+    ``obs.*_sense`` channel), no contact sensor or privileged state.
+    """
+
+    def __init__(self, dt: float, *, alpha: float = DEFAULT_ALPHA,
+                 stance_z_tol_m: float = STANCE_Z_TOL_M):
+        self.dt = float(dt)
+        self.alpha = float(alpha)
+        self.stance_z_tol_m = float(stance_z_tol_m)
+        self._prev_h: float | None = None
+        self._v_filt = 0.0
+
+    def reset(self) -> None:
+        self._prev_h = None
+        self._v_filt = 0.0
+
+    def update(self, q_rad: np.ndarray, roll_rad: float,
+              pitch_rad: float) -> float:
+        """One tick. Returns the filtered height rate (m/s)."""
+        h = estimate_body_height_m(q_rad, float(roll_rad), float(pitch_rad),
+                                   stance_z_tol_m=self.stance_z_tol_m)
+        if self._prev_h is None:
+            self._prev_h = h
+            return self._v_filt
+        raw = (h - self._prev_h) / self.dt
+        self._prev_h = h
+        self._v_filt += self.alpha * (raw - self._v_filt)
+        return self._v_filt
+
+
 def integrate_track(q_deg_rows: np.ndarray, t_s: np.ndarray, *,
                     alpha: float = 1.0) -> dict:
     """Offline leg-odometry over a logged trace -> travel summary.

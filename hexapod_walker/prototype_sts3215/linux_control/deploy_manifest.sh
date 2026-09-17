@@ -127,6 +127,12 @@ stage_deploy_tree() {
   write_deploy_record "$stage" "$src"
 }
 
+# Remote shell snippet run BEFORE the bundle lands: drop the previous
+# bundle's Python (and editor/macOS junk) from the shipped code dirs so a
+# module that left the manifest cannot shadow its replacement. Only the
+# shipped code dirs; logs/, policies/, certs, registries and .venv stay.
+REMOTE_CLEAR_STALE="find '$REMOTE/linux_control' -maxdepth 2 -type f \\( -name '*.py' -o -name '*.bak_*' -o -name '._*' \\) -not -path '*/logs/*' -not -path '*/policies/*' -not -path '*/vendor/*' -delete 2>/dev/null; rm -rf '$REMOTE/hexapod_core' '$REMOTE/rl_move' '$REMOTE/motor_setup'/*.py"
+
 # PYTHONPATH used when launching on-board tools from linux_control/
 # (mirrors the systemd unit: vendor, motor_setup, cwd, bundle root).
 REMOTE_PYTHONPATH_FROM_LC='vendor:../motor_setup:.:..'

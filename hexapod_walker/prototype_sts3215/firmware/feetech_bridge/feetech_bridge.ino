@@ -11,6 +11,9 @@
       (TFT "SDA" is MOSI bitbang — not the I²C SDA pin)
 
   Autonomy (no host required):
+    - Three fresh temperature samples above 50 C → torque off all motors.
+      Reject drive/enable writes until each hot motor has three samples
+      at/below 45 C. Cooling never re-enables torque or replays a command.
     - Boot: splash + "linux Ns" ticker + dim "Zz" hub badge until the
       host first speaks.
     - Host watchdog: >12 s of silence after first contact → red "web
@@ -165,6 +168,68 @@ static unsigned long fbStampMs = 0;
 // Full-state pass cadence. Positions/speed/IMU refresh every pass
 // (~150-250 Hz); current/load/volt/temp only need ~10 Hz.
 static const unsigned long FB_PERIOD_MS = 100;
+// One policy at the bus owner: Stand/Walk Ready must not bypass cooldown.
+// Count actual full acquisitions, never repeated host reads of the cache.
+static const uint8_t THERMAL_TRIP_C = 50;
+static const uint8_t THERMAL_CLEAR_C = 45;
+static const uint8_t THERMAL_CONFIRM_READS = 3;
+static uint8_t thermalHotReads[MAX_N];
+static uint8_t thermalCoolReads[MAX_N];
+static uint32_t thermalCooldownMask = 0;
+static uint8_t thermalBootCoolReads = 0;
+static unsigned long thermalSampleMs = 0;
+
+static bool thermalBlocked() {
+  return thermalCooldownMask != 0
+      || thermalBootCoolReads < THERMAL_CONFIRM_READS;
+}
+
+static void thermalObserveFullPass() {
+  unsigned long now = millis();
+  // STREAM re-primes and other forced reads must not turn one short glitch
+  // into three confirmation votes faster than the normal acquisition rate.
+  if (thermalSampleMs != 0 && now - thermalSampleMs < FB_PERIOD_MS) return;
+  thermalSampleMs = now;
+  bool anyValid = false;
+  bool allCool = true;
+  for (uint8_t k = 0; k < MAX_N; k++) {
+    uint32_t bit = 1UL << k;
+    if (!fbOk[k]) {
+      thermalHotReads[k] = thermalCoolReads[k] = 0;
+      // Missing feedback cannot release an already hot motor's latch.
+      continue;
+    }
+    anyValid = true;
+    uint8_t temp = fbTemp[k];
+    if (temp > THERMAL_TRIP_C) {
+      allCool = false;
+      if (thermalHotReads[k] < THERMAL_CONFIRM_READS) thermalHotReads[k]++;
+      if (thermalHotReads[k] >= THERMAL_CONFIRM_READS) thermalCooldownMask |= bit;
+    } else {
+      thermalHotReads[k] = 0;
+    }
+    if ((thermalCooldownMask & bit) && temp <= THERMAL_CLEAR_C) {
+      if (++thermalCoolReads[k] >= THERMAL_CONFIRM_READS) {
+        thermalCooldownMask &= ~bit;
+        thermalCoolReads[k] = 0;
+      }
+    } else {
+      thermalCoolReads[k] = 0;
+    }
+  }
+  // After an MCU restart, observe temperatures before accepting motor drive.
+  // Disconnected IDs do not vote cool; a completely absent bus never qualifies.
+  if (thermalBootCoolReads < THERMAL_CONFIRM_READS) {
+    thermalBootCoolReads = anyValid && allCool ? thermalBootCoolReads + 1 : 0;
+  }
+  if (thermalBlocked()) {
+    uint8_t ids[MAX_N], off[MAX_N] = {};
+    for (uint8_t k = 0; k < MAX_N; k++) ids[k] = ID_LO + k;
+    // One bounded packet, retried each acquisition while blocked. A write
+    // is not an acknowledgement or physical supply isolation.
+    sts.syncWrite(ids, MAX_N, SMS_STS_TORQUE_ENABLE, off, 1);
+  }
+}
 // During host-owned 100 Hz control, serve 'S' replies from the last fresh
 // cache, then refresh pos/speed/IMU in the idle gap before the next tick.
 // This keeps the read cadence near the control rate, with one-tick latency,
@@ -311,6 +376,10 @@ static void cmdDbg(bool reset) {
   Serial1.print(F("OK"));
   dbgPrintKV(F("uptime_ms"), (uint32_t)millis());
   dbgPrintKV8(F("streaming"), streaming ? 1 : 0);
+  dbgPrintKV8(F("thermal_blocked"), thermalBlocked() ? 1 : 0);
+  dbgPrintKV(F("thermal_cooldown_mask"), thermalCooldownMask);
+  dbgPrintKV8(F("thermal_trip_c"), THERMAL_TRIP_C);
+  dbgPrintKV8(F("thermal_clear_c"), THERMAL_CLEAR_C);
   dbgPrintKV(F("host_bytes_seen"), dbgHostBytesSeen);
   dbgPrintKV(F("ascii_lines_completed"), dbgAsciiLinesCompleted);
   dbgPrintKV(F("ascii_lines_parked"), dbgAsciiLinesParked);
@@ -375,7 +444,11 @@ static void replyOk() {
 
 static void replyErr() {
   dbgAsciiErrReplies++;
-  Serial1.println(F("ERR"));
+  if (thermalBlocked()) {
+    Serial1.println(F("ERR THERMAL_COOLDOWN wait for fresh cool feedback; motor commands blocked"));
+  } else {
+    Serial1.println(F("ERR"));
+  }
 }
 
 static bool mpuWriteReg(uint8_t reg, uint8_t val) {
@@ -645,11 +718,13 @@ static void cmdTorque(long id, long on) {
     replyErr();
     return;
   }
+  if (on && thermalBlocked()) { replyErr(); return; }
   sts.EnableTorque((u8)id, on ? 1 : 0);
   replyOk();
 }
 
 static void cmdTorqueAll(long on) {
+  if (on && thermalBlocked()) { replyErr(); return; }
   u8 en = on ? 1 : 0;
   for (int id = ID_LO; id <= ID_HI; id++) {
     sts.EnableTorque((u8)id, en);
@@ -674,7 +749,7 @@ static void cmdReadPos(long id) {
 static bool applySyncWrite(uint8_t n, uint8_t *ids, s16 *pos, u16 *spd,
                            u8 *acc) {
   dbgSyncWriteCalls++;
-  if (n == 0 || n > MAX_N) {
+  if (n == 0 || n > MAX_N || thermalBlocked()) {
     dbgSyncWriteFailures++;
     return false;
   }
@@ -849,6 +924,11 @@ static void handleLine(char *line) {
       replyErr();
       return;
     }
+    // Raw register writes must not bypass the same interlock as T/WP/SW.
+    // Explicit torque-off remains available throughout cooldown.
+    if (thermalBlocked() && !(addr == SMS_STS_TORQUE_ENABLE && val == 0)) {
+      replyErr(); return;
+    }
     sts.writeByte((u8)id, (u8)addr, (u8)val);
     if (sts.getLastError()) {
       replyErr();
@@ -865,6 +945,7 @@ static void handleLine(char *line) {
       replyErr();
       return;
     }
+    if (thermalBlocked()) { replyErr(); return; }
     sts.writeWord((u8)id, (u8)addr, (u16)val);
     if (sts.getLastError()) {
       replyErr();
@@ -881,6 +962,7 @@ static void handleLine(char *line) {
       replyErr();
       return;
     }
+    if (thermalBlocked()) { replyErr(); return; }
     sts.WritePosEx((u8)id, (s16)pos, (u16)spd, (u8)acc);
     if (sts.getLastError()) {
       replyErr();
@@ -896,6 +978,7 @@ static void handleLine(char *line) {
       replyErr();
       return;
     }
+    if (thermalBlocked()) { replyErr(); return; }
     sts.unLockEprom((u8)id);
     replyOk();
     return;
@@ -1191,6 +1274,7 @@ static void streamFullPass() {
   posSeq++;
   posStampMs = millis();
   fbStampMs = posStampMs;
+  thermalObserveFullPass();
   deferHostExec = prevDefer;
   dbgUpdateMax(dbgMaxFullPassUs, (uint32_t)(micros() - t0));
 }
@@ -1708,6 +1792,16 @@ static void execParked() {
 
 void loop() {
   unsigned long now = millis();
+  bool healthRefreshed = false;
+  // Health acquisition cannot depend on STREAM or on the host leaving an
+  // idle slot. It gets the next available slot when FB_PERIOD_MS has
+  // elapsed, even under host traffic. Finish an in-flight binary frame first.
+  if (binState == 0 && now - fbStampMs >= FB_PERIOD_MS) {
+    Serial1.flush();
+    streamFullPass();
+    healthRefreshed = true;
+    now = millis();
+  }
   // A frame parked during the synchronous (non-streaming) 'S' passes
   // must still run; parked work always precedes new ring bytes.
   if (parkedKind != 0) execParked();
@@ -1741,15 +1835,8 @@ void loop() {
     // polling lost ~44% of bursts (always the 3rd-5th slots, IDs 4-6) while
     // free-run and write+snapshot control lost <1%.
     Serial1.flush();
-    // Frequent S requests otherwise keep taking this branch and the
-    // 30 ms quiet branch below, starving current/load/voltage/temperature
-    // acquisition indefinitely. A full pass also refreshes positions and
-    // speed, so use it instead of the fast pass when health is due.
-    if (now - fbStampMs >= FB_PERIOD_MS) {
-      streamFullPass();
-    } else {
-      streamFastPass();
-    }
+    // A full health pass already includes positions and speed.
+    if (!healthRefreshed) streamFastPass();
     streamImuPass();
     dbgHostSnapshotAsyncRefreshes++;
     if (parkedKind != 0) {
@@ -1759,8 +1846,7 @@ void loop() {
     return;
   }
   if (streaming && hostSLastMs != 0
-      && (long)(now - hostSLastMs) < HOST_S_CONTROL_IDLE_MS
-      && now - fbStampMs < FB_PERIOD_MS) {
+      && (long)(now - hostSLastMs) < HOST_S_CONTROL_IDLE_MS) {
     return;
   }
   if (streaming) {
@@ -1768,9 +1854,7 @@ void loop() {
     // loop() iteration keeps worst-case host-command latency to a single
     // pass (~3-8 ms). Host bytes arriving mid-pass are pumped into the
     // parser (hostPump) and a completed frame runs right after the pass.
-    if (now - fbStampMs >= FB_PERIOD_MS) {
-      streamFullPass();   // low-rate: current/load/volt/temp (~10 Hz)
-    } else {
+    if (!healthRefreshed) {
       streamFastPass();   // pos+speed, all 18 servos (~150-250 Hz)
       streamImuPass();
     }

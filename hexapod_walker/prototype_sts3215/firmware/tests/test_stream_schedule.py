@@ -74,8 +74,9 @@ struct StsMock { void EnableTorque(u8, int) {} } sts;
 MAIN = r"""
 int main(int argc, char **argv) {
   const std::string mode = argv[1];
-  if (mode == "periodic") {
-    const unsigned long period = 1000 / std::atoi(argv[2]);
+  if (mode == "periodic" || mode == "flood" || mode == "stream_off") {
+    const unsigned long period = mode == "flood" ? 1 : 1000 / std::atoi(argv[2]);
+    if (mode == "stream_off") streaming = false;
     for (; clockMs < 3000; ++clockMs) {
       if ((clockMs - 1000) % period == 0) ++Serial1.remaining;
       loop();
@@ -118,34 +119,18 @@ def schedulers(tmp_path_factory):
         declaration = re.search(rf"static const unsigned long {name}\s*=\s*[^;]+;", source)
         assert declaration is not None, name
         constants.append(declaration.group())
-    # Negative control removes only the two scheduler fixes, keeping the same
-    # production loop and IO stubs. It must reproduce the previous starvation.
-    old_loop, replacements = re.subn(
-        r"    if \(now - fbStampMs >= FB_PERIOD_MS\) \{\n"
-        r"      streamFullPass\(\);\n    \} else \{\n"
-        r"      streamFastPass\(\);\n    \}\n    streamImuPass\(\);",
-        "    refreshSnapshotNow();", loop, count=1,
-    )
-    assert replacements == 1
-    old_loop = old_loop.replace(
-        " < HOST_S_CONTROL_IDLE_MS\n      && now - fbStampMs < FB_PERIOD_MS)",
-        " < HOST_S_CONTROL_IDLE_MS)",
-    )
     directory = tmp_path_factory.mktemp("firmware_scheduler")
-    executables = {}
-    for name, body in (("production", loop), ("before_fix", old_loop)):
-        cpp = directory / f"{name}.cpp"
-        executable = directory / name
-        cpp.write_text("\n".join(constants) + STUBS + body + MAIN)
-        subprocess.run([compiler, "-std=c++17", "-O0", str(cpp), "-o", str(executable)],
-                       check=True, capture_output=True, text=True)
-        executables[name] = executable
-    return executables
+    cpp = directory / "scheduler.cpp"
+    executable = directory / "scheduler"
+    cpp.write_text("\n".join(constants) + STUBS + loop + MAIN)
+    subprocess.run([compiler, "-std=c++17", "-O0", str(cpp), "-o", str(executable)],
+                   check=True, capture_output=True, text=True)
+    return executable
 
 
-def run(schedulers, *args, variant="production"):
+def run(schedulers, *args):
     return subprocess.check_output(
-        [str(schedulers[variant]), *map(str, args)], text=True,
+        [str(schedulers), *map(str, args)], text=True,
     ).strip()
 
 
@@ -157,18 +142,18 @@ def test_repeated_snapshots_do_not_starve_full_health(schedulers, hz):
     assert position_seq >= count
 
 
-@pytest.mark.parametrize("hz", [50, 100])
-def test_same_harness_reproduces_previous_starvation(schedulers, hz):
-    count, max_gap_ms, _ = map(int, run(schedulers, "periodic", hz, variant="before_fix").split())
-    assert count == 0
-    assert max_gap_ms == 2000
+@pytest.mark.parametrize("mode", ["flood", "stream_off"])
+def test_health_is_independent_of_host_idle_and_stream_mode(schedulers, mode):
+    count, max_gap_ms, _ = map(int, run(schedulers, mode, 100).split())
+    assert count >= 19
+    assert max_gap_ms <= 102
 
 
 @pytest.mark.parametrize("mode,expected", [
     ("pending_due", "full imu seq=1"),
     ("pending_fresh", "fast imu seq=1"),
     ("quiet_due", "full seq=1"),
-    ("parked", "parked request seq=0"),
+    ("parked", "full parked request seq=1"),
     ("incomplete", "seq=0"),
 ])
 def test_refresh_selection_and_host_priority(schedulers, mode, expected):

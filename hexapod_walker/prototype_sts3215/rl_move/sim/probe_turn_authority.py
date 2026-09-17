@@ -669,8 +669,23 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
             scripted_group_duty_skew: float = 0.0,
             scripted_stance_radius_scale: float = 1.0,
             contact_audit: bool = False,
-            phase_offset: float = 0.0) -> dict:
-    """``vx_cmd`` (09-03, standwalk redesign-spec item 2 sub-step,
+            phase_offset: float = 0.0,
+            late_start_s: float = 3.0) -> dict:
+    """``late_start_s`` (09-17, wzinit initial-state-curriculum canary
+    gate: "late-episode wz_med" is a NAMED required instrument — a
+    curriculum that seeds nonzero body wz at reset could otherwise pass
+    on the seed's own passive free-decay coast alone). Splits the
+    existing walk-mode-filtered scored ticks (already excluding the 1s
+    hold + 1s ramp-in) into an additional ``late`` sub-slice: ticks at
+    or after ``late_start_s`` seconds of EPISODE time (not scored-window
+    time), well past any transient decay of a seeded initial spin.
+    Additive fields only (``late_wz_med``/``late_wz_err_med``/
+    ``n_late_ticks``); the pre-existing whole-window ``wz_med`` etc.
+    fields are untouched, so this is bit-exact for every existing
+    caller that does not read the new keys. Default 3.0 matches the
+    gate text's own "post ~3s" wording.
+
+    ``vx_cmd`` (09-03, standwalk redesign-spec item 2 sub-step,
     "COMBINED walk+turn ticks specifically" branch — every prior
     anchor-coef/turn-authority probe in this lineage held vx_ref=0,
     i.e. PURE turn-in-place; nobody had measured wz/vx tracking with a
@@ -803,6 +818,7 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
     step = 0
     wz_list: list[float] = []
     vx_list: list[float] = []
+    tick_steps: list[int] = []
     modes_seen: list[str] = []
     fell = False
     try:
@@ -829,6 +845,7 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
             if step >= hold_n + ramp_n and gm == "walk":
                 wz_list.append(float(env._body_wz()))
                 vx_list.append(float(env._body_vel_xy()[0]))
+                tick_steps.append(step)
                 if audit is not None:
                     audit.tick(
                         q_prop=cap.get("q_prop"),
@@ -848,6 +865,11 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
     wz_err = np.abs(wz_arr - wz_cmd)
     vx_arr = np.array(vx_list)
     vx_err = np.abs(vx_arr - vx_cmd)
+    tick_steps_arr = np.array(tick_steps, dtype=float)
+    late_mask = ((tick_steps_arr * env.dt) >= late_start_s
+                 if len(tick_steps_arr) else np.zeros(0, dtype=bool))
+    late_wz_arr = wz_arr[late_mask]
+    late_wz_err = wz_err[late_mask]
     return {
         "wz_cmd": wz_cmd,
         "vx_cmd": vx_cmd,
@@ -870,6 +892,12 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
         "vx_med": float(np.median(vx_arr)) if len(vx_arr) else None,
         "vx_err_med": (float(np.median(vx_err)) if len(vx_arr) else None),
         "fell": fell,
+        "late_start_s": late_start_s,
+        "n_late_ticks": int(late_mask.sum()),
+        "late_wz_med": (float(np.median(late_wz_arr))
+                        if len(late_wz_arr) else None),
+        "late_wz_err_med": (float(np.median(late_wz_err))
+                             if len(late_wz_arr) else None),
     }
 
 
@@ -891,8 +919,27 @@ def summarize(results: list[dict], frozen_margin: float = 0.5) -> dict:
     verdict = ("INSUFFICIENT DATA (no scored walk ticks)" if med_err is None else
                "FROZEN-BODY (no real turn tracking)" if frozen else
                "TRACKS (wz_err well below frozen-body prediction)")
+    # Late-episode (post ``late_start_s``, wzinit initial-state-curriculum
+    # canary gate, 09-17) sub-aggregate: same threshold logic, only over
+    # the ``late_wz_err_med`` field so a seeded initial spin's own
+    # passive free-decay coast (real early, decayed away by the late
+    # window) cannot pass on the whole-episode number alone. Results
+    # without the field (older callers, or the ``_res()`` unit-test
+    # helper) are silently skipped -> INSUFFICIENT DATA, never a
+    # spurious frozen/tracks read on absent data.
+    late_errs = [r["late_wz_err_med"] for r in results
+                 if r.get("late_wz_err_med") is not None]
+    late_med_err = float(np.median(late_errs)) if late_errs else None
+    late_frozen = (late_med_err is not None and med_pred is not None
+                   and late_med_err > frozen_margin * med_pred)
+    late_verdict = (
+        "INSUFFICIENT DATA (no late-window walk ticks)" if late_med_err is None else
+        "FROZEN-BODY (no real LATE turn tracking)" if late_frozen else
+        "TRACKS (late wz_err well below frozen-body prediction)")
     return {"med_wz_err": med_err, "frozen_body_pred": med_pred,
-            "frozen": frozen, "verdict": verdict}
+            "frozen": frozen, "verdict": verdict,
+            "late_med_wz_err": late_med_err, "late_frozen": late_frozen,
+            "late_verdict": late_verdict}
 
 
 def main() -> int:
@@ -930,6 +977,14 @@ def main() -> int:
                          "start phases); each cell is run at every "
                          "offset; default 0.0 is bit-exact legacy")
     ap.add_argument("--episode-seconds", type=float, default=15.0)
+    ap.add_argument("--late-start-s", type=float, default=3.0,
+                    help="episode-time (seconds since reset) threshold "
+                         "for the additional late_wz_med/late_wz_err_med "
+                         "sub-aggregate (09-17 wzinit initial-state-"
+                         "curriculum canary gate: distinguishes a "
+                         "sustained learned turn from a seeded initial "
+                         "spin's own passive free-decay coast); default "
+                         "3.0 matches the gate text's own wording")
     ap.add_argument("--frozen-margin", type=float, default=0.5,
                     help="PASS if median wz_err <= this fraction of "
                          "the frozen-body prediction |wz_cmd|")
@@ -1017,7 +1072,8 @@ def main() -> int:
                               scripted_stance_radius_scale=(
                                   args.scripted_stance_radius_scale),
                               scripted_group_duty_skew=(
-                                  args.scripted_group_duty_skew))
+                                  args.scripted_group_duty_skew),
+                              late_start_s=args.late_start_s)
                 results.append(res)
                 if args.contact_audit and res.get("contact_audit"):
                     ca = res["contact_audit"]
@@ -1038,6 +1094,9 @@ def main() -> int:
           f"med|wz_err|={summary['med_wz_err']} "
           f"frozen_body_pred={summary['frozen_body_pred']} -> "
           f"{summary['verdict']}")
+    print(f"[probe_turn_authority] LATE (>= {args.late_start_s}s) "
+          f"med|wz_err|={summary['late_med_wz_err']} -> "
+          f"{summary['late_verdict']}")
 
     out = {"policy": args.policy,
            "checkpoint": str(args.checkpoint) if args.checkpoint else None,

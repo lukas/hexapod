@@ -568,6 +568,78 @@ def test_mesh_family_at_100hz_closes_momentum_with_hinge_armature(monkeypatch):
     assert out["bc_anchor_resid"]["available"] is False
 
 
+# --- late_start_s (09-17, wzinit initial-state-curriculum canary gate:
+# distinguishes a sustained learned turn from a seeded initial spin's
+# own passive free-decay coast). Additive fields only.
+
+def test_late_start_s_default_does_not_change_legacy_fields():
+    """A pre-existing caller reading only the legacy keys must see
+    byte-identical values whether or not it knows about late_start_s —
+    the new fields are additive, not a behavior change."""
+    kwargs = dict(model=None,
+                  env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                  wz_cmd=0.25, vx_cmd=0.08, seed=0, episode_seconds=3.0,
+                  policy="scripted")
+    baseline = rollout(**kwargs)
+    explicit = rollout(late_start_s=3.0, **kwargs)
+    legacy_keys = ("wz_med", "vx_med", "wz_err_med", "n_walk_ticks",
+                   "n_total_ticks", "fell", "modes")
+    for key in legacy_keys:
+        assert baseline[key] == explicit[key], key
+
+
+def test_late_wz_med_excludes_ticks_before_the_late_threshold():
+    """A short episode where the whole scored window is BEFORE
+    late_start_s must report a late sub-slice of zero ticks (no
+    spurious data), while the un-split wz_med is still populated."""
+    res = rollout(model=None,
+                  env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                  wz_cmd=0.25, seed=0, episode_seconds=3.0,
+                  policy="scripted", late_start_s=100.0)
+    assert res["wz_med"] is not None
+    assert res["n_late_ticks"] == 0
+    assert res["late_wz_med"] is None
+    assert res["late_wz_err_med"] is None
+
+
+def test_late_wz_med_matches_whole_window_when_threshold_is_at_episode_start():
+    """late_start_s=0.0 must recover (approximately) the whole-window
+    read, since the scored window itself already starts after the 1s
+    hold + 1s ramp -- i.e. every scored tick also qualifies as late."""
+    res = rollout(model=None,
+                  env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                  wz_cmd=0.25, seed=0, episode_seconds=3.0,
+                  policy="scripted", late_start_s=0.0)
+    assert res["n_late_ticks"] == res["n_walk_ticks"]
+    assert res["late_wz_med"] == pytest.approx(res["wz_med"])
+    assert res["late_wz_err_med"] == pytest.approx(res["wz_err_med"])
+
+
+def test_summarize_late_verdict_independent_of_whole_window_verdict():
+    """The whole-window read can look like real tracking while the
+    late sub-slice (the only one the wzinit gate trusts) still reads
+    frozen -- e.g. a policy that only ever coasts on a seeded initial
+    spin. summarize() must be able to report BOTH readings distinctly,
+    not just the pre-existing whole-window one."""
+    results = [{"wz_cmd": 0.25, "wz_err_med": 0.03,
+                "frozen_body_wz_err_pred": 0.25,
+                "late_wz_err_med": 0.24}]
+    out = summarize(results)
+    assert out["frozen"] is False and "TRACKS" in out["verdict"]
+    assert out["late_frozen"] is True
+    assert "FROZEN-BODY" in out["late_verdict"]
+
+
+def test_summarize_late_is_insufficient_data_when_field_absent():
+    """Results lacking late_wz_err_med (older callers, or the _res()
+    helper used throughout this file) must not spuriously read as
+    frozen or tracking -- only INSUFFICIENT DATA."""
+    out = summarize([_res(0.25, 0.03)])
+    assert out["late_med_wz_err"] is None
+    assert out["late_frozen"] is False
+    assert "INSUFFICIENT DATA" in out["late_verdict"]
+
+
 def test_resolved_scripted_radius_is_reported_and_doses_remain_distinct():
     rows = [rollout(model=None, env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
                     wz_cmd=.15, vx_cmd=.08, seed=0, episode_seconds=2.1,

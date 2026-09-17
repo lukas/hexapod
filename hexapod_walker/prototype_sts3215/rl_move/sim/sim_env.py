@@ -71,7 +71,7 @@ from .balance_reward_hold import (
     transition_foot_drag_metric,
 )
 from .balance_terminations import (
-    collapse_terminations, hold_minload_termination, lower_stall_termination,
+    collapse_terminations, hold_minload_termination,
     terminal_settlement_reward, walk_idle_and_leg_duty_terminations,
 )
 from .balance_reward_posture import (
@@ -1922,28 +1922,6 @@ class SimHexapodBalanceEnv(_GymBase):
             self._hold_minload_ema = self._minload_min_force_now(
                 float(cfg_get(self.cfg, "safety",
                               "hold_min_load_terminate_n", default=0.3)))
-        # LOWER-mode STALL termination bookkeeping (safety.
-        # lower_stall_terminate_s, 2026-09-17 walkcurr achievability
-        # audit follow-up: `probe_lower_achievability.py` found the
-        # trained 25-55mm descent target draws <0.5A open-loop --
-        # nowhere near the 2.9A trip -- so the ~28-31mm/0-2-of-12
-        # floor every reward-pricing/gate lever left untouched is NOT
-        # a reachability limit; video shows a policy that just barely
-        # descends and stops, i.e. a "safe/no-progress" absorbing
-        # state, the same class the 08-24 ruling names ("absorbing
-        # states beat prices; must come WITH a termination, never
-        # instead of one") that hold_min_load/walk_idle already fixed
-        # for their own absorbing states. Best (smallest) abs height
-        # error reached so far this episode + seconds since it last
-        # improved by >= lower_stall_improve_mm, exactly the
-        # hold_minload_ema/low_s lifecycle above, mirrored onto height
-        # error instead of foot load. Default lower_stall_terminate_s
-        # =0.0 = OFF, bit-exact: no new state is READ (only written,
-        # harmlessly) and no episode outcome changes for any existing
-        # task/cfg.
-        self._lower_stall_best_mm = None
-        self._lower_stall_low_s = 0.0
-        self._lower_stall_ramp_start_step = None
         # Per-episode cache: first charged tick of the terminal
         # end-posture window (computed lazily from the goal schedule).
         self._end_posture_from = None
@@ -3281,9 +3259,6 @@ class SimHexapodBalanceEnv(_GymBase):
         self._rise_ramp_i0 = int(ramp_i0)
         self._lower_ramp_i0 = int(ramp_i0)
         self._lower_gate_freeze_ticks = 0
-        self._lower_stall_best_mm = None
-        self._lower_stall_low_s = 0.0
-        self._lower_stall_ramp_start_step = None
         self._rsi_pending = False
         self._rsi_ref_tick0 = None
         self._end_posture_from = None
@@ -3378,8 +3353,6 @@ class SimHexapodBalanceEnv(_GymBase):
                 adr = self._touch_adr[int(goal.unload_leg)]
                 if adr >= 0:
                     unload_f = float(self.data.sensordata[adr])
-        terminated = lower_stall_termination(self, goal, h_err, status,
-            terminated)
         # Quiet-stance gate: the reference is stationary when this tick's
         # refs match last tick's (holds, and the flat top of every ramp).
         ref_quiet = True

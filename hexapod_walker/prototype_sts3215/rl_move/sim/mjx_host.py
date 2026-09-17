@@ -129,13 +129,6 @@ SNAP_ATTRS = (
     # own EMA + sustained-low-seconds counter, universal (every task
     # class supports hold mode) — see sim_env._reset_finalize.
     "_hold_minload_ema", "_hold_minload_low_s",
-    # LOWER-mode stall termination (09-17, walkcurr achievability-
-    # audit follow-up): best abs height-error reached so far this
-    # episode/segment + seconds since it last improved + the ramp's
-    # own onset step, the exact class of per-episode state this list
-    # exists to catch (see sim_env._reset_finalize/_seq_reset_mode_state).
-    "_lower_stall_best_mm", "_lower_stall_low_s",
-    "_lower_stall_ramp_start_step",
 )
 
 

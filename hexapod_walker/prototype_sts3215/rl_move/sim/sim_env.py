@@ -1985,6 +1985,9 @@ class SimHexapodBalanceEnv(_GymBase):
             self._h_target = 0.0
         self._h_milestones: set[float] = set()
         self._prev_h_err_abs = 0.0
+        # Ramp-tracking lag-rate previous-tick anchor (reward.
+        # k_lower_lag_rate, 2026-09-17): see balance_reward_rise.py.
+        self._prev_h_rel_lag = 0.0
         # Stand-score ratchet baseline (reward.rise_score_income): seeded
         # with the episode's FIRST score so crouch/near-plant starts don't
         # collect their starting posture as free income.
@@ -3246,6 +3249,7 @@ class SimHexapodBalanceEnv(_GymBase):
         self._h_target = float(h_target)
         self._h_milestones = set()
         self._prev_h_err_abs = 0.0
+        self._prev_h_rel_lag = 0.0
         self._score_best = None
         self._lower_score_best = None
         self._is_rise = mode == "rise"

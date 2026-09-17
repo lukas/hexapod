@@ -584,6 +584,34 @@ class RandRanges:
     # a LEG-only group name (see ``leg_group_mask`` -- mass has no
     # joint axis, same vocabulary as ``foot_stickslip_group``).
     leg_mass_bias_group: str = ""
+    # Structured, concentrated PER-LEG LINK-LENGTH asymmetry (2026-09-17,
+    # speed track). DESIGN.md separately names "link length and per-leg
+    # asymmetric manufacturing error" alongside (not the same as) "body/
+    # link mass, CoM and inertia" -- the mass/inertia half of that pair
+    # was built+probed structured (leg_mass_bias_pct/-group, 09-14, clean
+    # NULL) but link LENGTH itself has only ever been exercised as
+    # SYMMETRIC per-leg-independent jitter (link_len_leg_pct above), never
+    # as a concentrated persistent bias. A real assembly defect (one leg's
+    # femur reprinted at the wrong scale, a servo horn seated one spline
+    # off, a bent link from a fall) is a genuinely different story from
+    # random per-leg noise, and unlike mass (a LOAD-domain perturbation
+    # this policy's position-controlled actuators absorb without drifting,
+    # per the mass-bias closure's own mechanistic finding) a length error
+    # is a POSITION/KINEMATIC-domain defect -- the same domain that made
+    # joint backlash the best-to-date (~29-31%) PS200 roll-signature
+    # match, because the policy's IK still assumes NOMINAL length while
+    # the true stance geometry is offset. (0.0, 0.0) = OFF, guarded (no
+    # rng consumed, no earlier draw shifted), bit-exact -- draws a SINGLE
+    # scalar magnitude (not independent per leg, unlike link_len_leg_pct)
+    # applied as ``1 + magnitude`` to every masked leg's coxa+femur+tibia
+    # length (and CoM shift, which moves with true link length), on top
+    # of (not instead of) the existing global/per-leg jitter.
+    link_len_bias_pct: tuple[float, float] = (0.0, 0.0)
+    # "" (default) = every leg biased identically (degenerates to a
+    # symmetric global length bump, bit-exact no-op at magnitude 0); else
+    # a LEG-only group name (see ``leg_group_mask`` -- length has no
+    # joint axis, same vocabulary as ``leg_mass_bias_group``).
+    link_len_bias_group: str = ""
     # Adaptive/adversarial hard-case sampler (2026-09-14, speed track —
     # the DR-composition panel's next-named lever after CTRL/WIDE/
     # STRUCT/COMBO all missed the held-out >=30% roll-reduction floor,
@@ -721,6 +749,9 @@ class RandRanges:
             leg_mass_bias_pct=(self.leg_mass_bias_pct[0] * s,
                                 self.leg_mass_bias_pct[1] * s),
             leg_mass_bias_group=self.leg_mass_bias_group,
+            link_len_bias_pct=(self.link_len_bias_pct[0] * s,
+                                self.link_len_bias_pct[1] * s),
+            link_len_bias_group=self.link_len_bias_group,
         )
 
 
@@ -840,6 +871,11 @@ class EpisodeRandomization:
     # -group, see RandRanges). All-ones (the default) = OFF, byte-exact
     # (multiplying by 1.0 in apply_to_model is a pure no-op).
     leg_mass_bias_scale: np.ndarray = field(
+        default_factory=lambda: np.ones(N_LEGS))
+    # Structured per-leg link-length bias (dr.link_len_bias_pct /
+    # -group, see RandRanges). All-ones (the default) = OFF, byte-exact
+    # (multiplying by 1.0 in apply_to_model is a pure no-op).
+    link_len_bias_scale: np.ndarray = field(
         default_factory=lambda: np.ones(N_LEGS))
     struct_dr_mode: str = ""
     # "" = no structured overlay this episode; else one of
@@ -962,6 +998,17 @@ class EpisodeRandomization:
             if b_tib_attach < 0:
                 b_tib_attach = b_tib
             s_coxa, s_femur, s_tibia = self.link_scale[i]
+            # Structured per-leg bias (dr.link_len_bias_pct/-group): a
+            # SECOND, persistent multiplier on top of the above global/
+            # per-leg jitter -- 1.0 (default) is a bit-exact no-op.
+            # Folded into s_coxa/s_femur/s_tibia so it scales BOTH the
+            # attachment offset (below) and the CoM shift (below,
+            # ipos *= s_coxa/s_femur/s_tibia) consistently, like a leg
+            # that is genuinely longer/shorter, not just re-weighted.
+            bias = self.link_len_bias_scale[i]
+            s_coxa *= bias
+            s_femur *= bias
+            s_tibia *= bias
 
             model.body_pos[b_fem_attach, 0] *= s_coxa
             model.body_pos[b_tib_attach, 0] *= s_femur
@@ -1621,4 +1668,19 @@ class DomainRandomizer:
                     r.leg_mass_bias_group,
                     param_name="leg_mass_bias_group").astype(float)
             ep = replace(ep, leg_mass_bias_scale=1.0 + bias_vec)
+        # Structured per-leg link-length bias: drawn LAST (guarded), same
+        # convention as leg_mass_bias_pct immediately above -- default
+        # (0.0, 0.0) never consumes rng and leaves every earlier draw
+        # byte-exact. A SINGLE scalar magnitude (not independent per
+        # leg, unlike link_len_leg_pct) so a masked group gets one
+        # consistent, persistent length bias rather than more symmetric
+        # noise.
+        if max(r.link_len_bias_pct) > 0.0:
+            len_bias_mag = float(u(*r.link_len_bias_pct))
+            len_bias_vec = np.full(N_LEGS, len_bias_mag)
+            if r.link_len_bias_group:
+                len_bias_vec = len_bias_vec * leg_group_mask(
+                    r.link_len_bias_group,
+                    param_name="link_len_bias_group").astype(float)
+            ep = replace(ep, link_len_bias_scale=1.0 + len_bias_vec)
         return ep

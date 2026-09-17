@@ -33,7 +33,8 @@ from dataclasses import dataclass
 import numpy as np
 
 from rl_move.config import cfg_get
-from rl_move.env import GOAL_DIM, TaskGoal, current_sense_obs_dim
+from rl_move.env import (GOAL_DIM, TaskGoal, current_sense_obs_dim,
+                          height_err_sense_obs_dim)
 from .sim_env import N_OBS, SimHexapodBalanceEnv
 
 DEG2RAD = math.pi / 180.0
@@ -687,7 +688,8 @@ class SimHexapodGoalEnv(SimHexapodBalanceEnv):
         self._goal_gen = GoalGenerator(self.cfg)
         if _gym is not None:
             self.observation_space = self._obs_space_box(
-                N_OBS + GOAL_DIM + current_sense_obs_dim(self.cfg))
+                N_OBS + GOAL_DIM + current_sense_obs_dim(self.cfg)
+                + height_err_sense_obs_dim(self.cfg))
 
     # ---- stance-only mode sequencing (goal.mode_seq_stance, 08-15,
     # cw-stand-postlower3 spec) -------------------------------------

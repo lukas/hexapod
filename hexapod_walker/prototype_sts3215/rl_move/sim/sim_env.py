@@ -34,7 +34,7 @@ _LINUX = _PROTO / "linux_control"
 from rl_move.body_ik import FixedFootBodyIK, N_ACT, fk_all_feet
 from rl_move.config import cfg_get, load_config
 from rl_move.env import (build_obs, compute_reward, current_sense_obs_dim,
-                          start_kind_of)
+                          height_err_sense_obs_dim, start_kind_of)
 from rl_move.robot_state import (
     DEG2RAD, N_JOINTS, RAD2DEG, RobotState,
 )
@@ -875,7 +875,8 @@ class SimHexapodBalanceEnv(_GymBase):
 
         if _gym is not None:
             self.observation_space = self._obs_space_box(
-                N_OBS + current_sense_obs_dim(self.cfg))
+                N_OBS + current_sense_obs_dim(self.cfg)
+                + height_err_sense_obs_dim(self.cfg))
             self.action_space = _gym.spaces.Box(
                 -1.0, 1.0, shape=(self.n_act,), dtype=np.float32)
 

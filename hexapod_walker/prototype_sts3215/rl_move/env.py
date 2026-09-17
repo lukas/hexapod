@@ -139,6 +139,35 @@ def current_sense_obs_dim(cfg: dict) -> int:
         cfg, "obs", "current_sense", default=0.0)) == 1.0 else 0)
 
 
+def height_err_sense_obs_dim(cfg: dict) -> int:
+    """Extra obs width contributed by the optional FK-based height-error
+    channel (see ``build_obs``). 1 when ``obs.height_err_sense=1``, 0
+    (default) otherwise -- callers that size their ``observation_space``
+    off ``N_OBS``/``GOAL_DIM``/etc. must add this so the box width
+    matches what ``build_obs`` actually returns.
+
+    2026-09-17 walkcurr `lower` floor (14/14 reward-pricing/batch-
+    composition/termination-timing mechanism arms closed on the
+    identical partial-descend-then-freeze absorbing state, see
+    STATUS.md): every closed lever changed how the OUTCOME is priced
+    or sequenced; none gave the policy a direct signal of its own
+    height error to react to mid-descent -- the goal obs carries only
+    the ramping TARGET (``TaskGoal.height_ref``), never a measurement
+    of where the body actually is. This channel supplies that
+    measurement via ``rl_move.estimator.estimate_body_height_m`` (the
+    same stance-inferring FK estimator ``obs.walk_obs_body_vel=3``
+    already validates for velocity), NOT the privileged mujoco chassis
+    z the reward uses internally -- so it is computable identically on
+    real hardware from encoders + IMU alone, same contract as
+    ``obs.current_sense``. Observation-space plumbing (task-difficulty
+    /curriculum-adjacent, not a motion prior, teacher, or
+    demonstration), so it stays in scope for `rl_only` lineages under
+    the 2026-09-13 operator clarification. Default OFF (bit-exact obs
+    width/values for every existing cfg)."""
+    return (1 if float(cfg_get(
+        cfg, "obs", "height_err_sense", default=0.0)) == 1.0 else 0)
+
+
 def build_obs(cfg: dict, state: RobotState, q_nom: np.ndarray,
               prev_action: np.ndarray,
               goal: "TaskGoal | None" = None,
@@ -161,6 +190,18 @@ def build_obs(cfg: dict, state: RobotState, q_nom: np.ndarray,
     the obs width stays fixed regardless of feedback availability that
     tick. See ``current_sense_obs_dim`` for the width contract callers
     must add to their ``observation_space``.
+
+    ``obs.height_err_sense`` (default 0/OFF, bit-exact when off):
+    appends ONE scalar -- the FK-estimated body height (see
+    ``rl_move.estimator.estimate_body_height_m``, computed from
+    ``state.joint_position``/``imu_roll``/``imu_pitch`` alone, same
+    contract as real hardware) relative to the SAME estimator run on
+    the level ``q_nom`` pose, minus ``goal.height_ref`` -- i.e. a
+    proprioceptive equivalent of the privileged height error
+    ``compute_reward`` already prices, scaled by
+    ``obs.height_scale_m`` (same key the goal ref uses, so reference
+    and measurement share units). See ``height_err_sense_obs_dim`` for
+    the width contract.
     """
     qs = float(cfg_get(cfg, "obs", "q_scale", default=1.0))
     qds = float(cfg_get(cfg, "obs", "qd_scale", default=2.0))
@@ -183,6 +224,15 @@ def build_obs(cfg: dict, state: RobotState, q_nom: np.ndarray,
                 / max(cscale, 1e-6))
         else:
             parts.append(np.zeros(N_JOINTS, dtype=float))
+    if height_err_sense_obs_dim(cfg) > 0:
+        from .estimator import estimate_body_height_m
+        hs = float(cfg_get(cfg, "obs", "height_scale_m", default=0.05))
+        h_now = estimate_body_height_m(
+            state.joint_position, state.imu_roll, state.imu_pitch)
+        h_nom = estimate_body_height_m(q_nom, 0.0, 0.0)
+        height_ref = float(goal.height_ref) if goal is not None else 0.0
+        parts.append(np.array(
+            [(h_now - h_nom - height_ref) / max(hs, 1e-6)], dtype=float))
     return np.concatenate(parts).astype(np.float32)
 
 

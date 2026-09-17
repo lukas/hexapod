@@ -64,6 +64,50 @@ STANCE_Z_TOL_M = 0.012
 DEFAULT_ALPHA = 0.3
 
 
+def _gravity_z(feet: np.ndarray, roll: float, pitch: float) -> np.ndarray:
+    """Gravity-aligned height of each foot: z component of the foot
+    position (body frame) rotated by the body attitude (yaw irrelevant
+    for a per-tick vertical read)."""
+    sr, cr = math.sin(roll), math.cos(roll)
+    sp, cp = math.sin(pitch), math.cos(pitch)
+    return (-sp * feet[:, 0] + sr * cp * feet[:, 1]
+            + cr * cp * feet[:, 2])
+
+
+def _stance_mask(z_g: np.ndarray, tol_m: float) -> np.ndarray:
+    return z_g <= (float(np.min(z_g)) + tol_m)
+
+
+def estimate_body_height_m(q_rad: np.ndarray, roll_rad: float,
+                           pitch_rad: float,
+                           stance_z_tol_m: float = STANCE_Z_TOL_M
+                           ) -> float:
+    """Stateless, single-tick FK-based body-height-above-stance-feet
+    estimate (m), positive-up. Reuses the SAME gravity-aligned stance
+    inference ``LegOdometryVelocity`` already validates (no contact
+    sensor needed: feet within ``stance_z_tol_m`` of the lowest
+    gravity-aligned foot count as planted) -- height := -mean(z_g)
+    over that stance set, i.e. how far the body sits above whichever
+    feet are currently the lowest/most-planted.
+
+    Built for ``obs.height_err_sense`` (see ``rl_move/env.py::
+    build_obs``): the sim already computes a PRIVILEGED height error
+    (true chassis z minus episode-start z minus the goal ref) for
+    reward/termination, but never gave the policy a proprioceptive
+    equivalent it could also compute on real hardware from encoders +
+    IMU alone, unlike current (``obs.current_sense``) which the sim
+    already fed straight from ``state.servo_current``. This function
+    is that hardware-realistic equivalent -- consumes only
+    ``state.joint_position``/``imu_roll``/``imu_pitch`` (or the
+    identical DR-corrupted sim read), same as
+    ``LegOdometryVelocity.update`` already does for velocity.
+    """
+    feet = fk_all_feet(np.asarray(q_rad, dtype=float))
+    z_g = _gravity_z(feet, float(roll_rad), float(pitch_rad))
+    stance = _stance_mask(z_g, float(stance_z_tol_m))
+    return -float(np.mean(z_g[stance]))
+
+
 class LegOdometryVelocity:
     """Stateful 25 Hz leg-odometry estimator -> body-frame (vx, vy) m/s.
 
@@ -88,13 +132,8 @@ class LegOdometryVelocity:
 
     def _stance_mask(self, feet: np.ndarray, roll: float, pitch: float
                      ) -> np.ndarray:
-        # Gravity-aligned height of each foot: z component of the foot
-        # position rotated by the body attitude (yaw irrelevant).
-        sr, cr = math.sin(roll), math.cos(roll)
-        sp, cp = math.sin(pitch), math.cos(pitch)
-        z_g = (-sp * feet[:, 0] + sr * cp * feet[:, 1]
-               + cr * cp * feet[:, 2])
-        return z_g <= (float(np.min(z_g)) + self.stance_z_tol_m)
+        return _stance_mask(_gravity_z(feet, roll, pitch),
+                            self.stance_z_tol_m)
 
     def update(self, q_rad: np.ndarray, gyro_rad_s: np.ndarray,
                roll_rad: float, pitch_rad: float) -> np.ndarray:

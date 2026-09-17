@@ -1,0 +1,61 @@
+{
+  "schema": "hexapod.transfer_candidate.v1",
+  "candidate_name": "walkcurr-rlonly-lifecycle-stance-s5-to-walk-s0-direct-v1",
+  "parent_goal": "rl_only",
+  "supersedes": null,
+  "candidate_is_composition_not_single_policy": true,
+  "no_physical_robot_motion_performed": true,
+  "training_lineage_contract": "walkcurr rl_only (tracks.json): both composed policies are independently-trained clean-RL checkpoints already covered by bundle_rlonly_stance_v1 (rise+hold, s5-klrollback05-acq15m) and bundle_rlonly_v2 (forward walk, crutchoff-s0-warmadapt-acq1) -- see those manifests for each role's own lineage contract. This manifest adds NO new training and NO new weights: it is a RUNTIME composition (which policy is live + which of that policy's own already-trained motor/safety contract is active) driven purely by role-selection/config-selection plumbing -- explicitly allowed as non-motion plumbing under RL_GOALS.md's rl_only clarification. No scripted joint trajectory, teacher target, or demonstration enters this composition at any point: at the handoff tick the walk policy is simply handed the stance role's own exact physical state (qpos/qvel/ctrl/act + the safety layer's slew memory) and takes over immediately.",
+  "components": [
+    {
+      "role": "stance (rise-from-flat + hold-standing)",
+      "controller": "rl_move/sim/policies/ppo_goal_cw_stance50hz_rlonly_currentcap29_s5_klrollback05_acq15m.zip",
+      "checkpoint_sha256": "dae9ee1a5d760f1b66f597e5554c088ab31e5805392d0fb908d77f014d75dd6f",
+      "source_bundle": "rl_docs/tracks/walkcurr/bundle_rlonly_stance_v1"
+    },
+    {
+      "role": "walk (forward joystick walk)",
+      "controller": "rl_move/sim/policies/ppo_goal_cw_walk50hz_rlonly_crutchoff_s0_warmadapt_acq1.zip",
+      "checkpoint_sha256": "a91b3c1d8909a9f456ee02f137a5e0e7165b7a94b5402ae337aa3f6e5f183885",
+      "source_bundle": "rl_docs/tracks/walkcurr/bundle_rlonly_v2"
+    }
+  ],
+  "composition_mechanism": {
+    "tool": "rl_move/sim/eval_lifecycle_handoff_rlonly.py",
+    "type": "direct handoff, no scripted blend",
+    "description": "Two SimHexapodJointWalkEnv instances, one per role's own exact recorded cfg-set (stance: probe_currentcap29_flatonly.BASE_CFG_ARGS+FLATONLY_OVERRIDE_ARGS; walk: cfg_recipe_walk50hz_rlonly_v2.CFG_ARGS -- each role's real bus.write_speed/write_acc, safety.max_delta_q_deg, goal.joint_action_bias_* differ and are cached at env construction, so cannot hot-swap on one live env). At the handoff tick the stance role's raw physical state (qpos, qvel, ctrl, act, safety._last_safe) is copied from the rise env into a freshly-reset walk env (fresh plant-frame goal/tilt/height anchors, same 'reanchor_keep_state' trick eval_handoff.py already established), then mj_forward + a rebuilt observation. No joint trajectory is scripted between the two; only the live policy and its config envelope change.",
+    "why_two_envs_is_still_a_fair_test": "qpos/qvel are physical generalized coordinates of the SAME MJCF model (env.model_source=mesh_mjx both sides) -- identical layout regardless of which role's cfg built the env -- so the copy is a like-for-like physical continuation, not a teleport."
+  },
+  "gate_summary": {
+    "harness": "rl_move/sim/eval_lifecycle_handoff_rlonly.py, arms 'direct' (stance->walk handoff) vs 'plant' (walk champion's own clean-reset control)",
+    "det_n6": {
+      "report": "logs/ckpt_eval/lifecycle_handoff_rlonly_v1/report.json",
+      "direct": "rise_valid_plant 6/6, handoff_falls 0/6, trk_err_band [0.083,0.096] (plant [0.087,0.098]), dist_band [0.669,0.86]m (plant [0.708,0.847]m), stumble_tilt_band [3.7,5.0]deg (plant [3.6,4.5]deg)"
+    },
+    "sto_n6": {
+      "report": "logs/ckpt_eval/lifecycle_handoff_rlonly_v1/report_sto.json",
+      "direct": "rise_valid_plant 6/6, handoff_falls 0/6, trk_err_band [0.097,0.104] (plant [0.097,0.105]), dist_band [0.528,0.682]m (plant [0.63,0.763]m), stumble_tilt_band [3.9,5.4]deg (plant [3.7,5.5]deg)"
+    },
+    "verdict": "CLEAN both passes -- 0/12 total handoff falls, every direct-arm drive metric sits inside or within noise of the plant-control arm's own band. No scripted blend needed."
+  },
+  "video_evidence": {
+    "frame_strips": [
+      "logs/ckpt_eval/lifecycle_handoff_rlonly_v1/strips/direct_0.png",
+      "logs/ckpt_eval/lifecycle_handoff_rlonly_v1/strips/plant_0.png"
+    ],
+    "visual_read": "1fps strip, episode 0, det pass: rise from flat -> settled hold -> direct handoff (blue=hold, green=forward-command arrow) -> forward walk with all-leg tripod cycling visible, no dragged/frozen leg, no height/tilt discontinuity across the handoff frames."
+  },
+  "no_lower_role_in_this_bundle": "This composition covers rise+hold->walk ONLY. `lower` remains CLOSED (all 16 agent-doable RL mechanism classes refuted, parked on Robot Lab achievability review, CURRENT_TRUTHS.md 2026-09-17) -- this is NOT a full sit-to-walk-to-sit lifecycle. A physical trial still needs a manual/gantry catch at the end.",
+  "transfer_blockers_or_work": [
+    "LOWER IS STILL MISSING: any physical trial must end with a manual/gantry catch or scripted lower, not an RL policy from this bundle.",
+    "Only the flat rise start is validated (bridge/crouch rise starts were never part of the currentcap29 consolidation) -- restrict any trial to a flat/belly-down start pose.",
+    "Only forward walk was exercised in the drive schedule (matches bundle_rlonly_v2's own known off-forward-heading limitation, 13/13 mechanism classes closed, no successor fix in flight) -- do not command sustained off-forward headings on this composition either.",
+    "This is a SIM-ONLY composition result (CPU MuJoCo, mesh_mjx model, no GPU spend, no physical robot motion). No physical acceptance is claimed.",
+    "The two roles' own individual physical-safety motor contracts differ (stance: bus defaults / max_delta_q_deg=0.75; walk: bus.write_speed=4096/write_acc=1000 / max_delta_q_deg=7.2) -- any physical composed runtime must actually SWITCH the active motor contract at the handoff tick (mirroring what this sim eval does), not run one contract for both phases; Robot Lab must implement and verify this switch, not just re-run the walk role's np-JSON export in isolation."
+  ],
+  "next": [
+    "Cloud: if Robot Lab's per-role motor-contract-switch runtime plumbing is unbuilt, that is now the concrete remaining integration gap (this manifest proves the POLICY-level handoff is clean; the ROBOT-runtime contract switch is a separate, hardware-side build).",
+    "Cloud: a genuinely new `lower` mechanism, if ever conceived, would close the last lifecycle gap (rise+hold+walk+lower). None is open as of 2026-09-17.",
+    "Robot Lab: no bounded physical trial ordered by this cycle -- physical work is Robot Lab's own serialized queue; this manifest just names the sim-validated composition as ready for that queue's own review once the motor-contract-switch plumbing exists."
+  ]
+}

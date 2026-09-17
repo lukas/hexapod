@@ -92,14 +92,15 @@ leaving it sitting unclaimed.
 
 ## Next
 
-1. **Cloud, agent-doable:** design and build the rise+hold -> walk-ready
-   handoff (analogous to `todaypolicy`'s existing learned-stand -> walk
-   -> learned-lower composition pattern, but chaining two independently
-   trained `rl_only` roles instead of one `any_means` bundle) — this is
-   the concrete integration step that would let a single joystick session
-   demonstrate rise -> walk -> (manual/gantry catch) end to end on a
-   fully clean-RL lineage. Not started this cycle (a real design/build
-   task, not a launch).
+1. **DONE 2026-09-17 ~12:1x:** the rise+hold -> walk-ready handoff is built
+   and evidenced CLEAN — `rl_move/sim/eval_lifecycle_handoff_rlonly.py`,
+   0/12 handoff falls (6 det + 6 stochastic) chaining this bundle's
+   `s5-klrollback05-acq15m` directly into `bundle_rlonly_v2`'s walk role,
+   no scripted blend. See `rl_docs/tracks/walkcurr/
+   bundle_rlonly_lifecycle_v1/{transfer_manifest.json,GO_NOGO.md}`. Sim-
+   only; a physical trial still needs Robot Lab to build the per-role
+   motor/safety-contract switch at the handoff tick and a manual/gantry
+   catch (no `lower`).
 2. **Cloud, agent-doable, lower priority:** if a genuinely new mechanism
    idea for `s1`'s current-creep or for `lower` itself is ever conceived
    (none is, as of this note — re-dosing anything already closed is

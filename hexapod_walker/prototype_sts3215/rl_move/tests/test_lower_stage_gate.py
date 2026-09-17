@@ -37,6 +37,15 @@ Contract under test:
 
 RESEARCH_RULES "Tests": fast, mechanics only, mesh model default, no
 artifacts, no rollout-ranking.
+
+RETIRED 2026-09-17: `goal.lower_stage_planted_frac_min` (a cfg knob
+generalizing the 0.7 threshold below for a tighten(1.0)/loosen(0.4)
+isolation sweep) was built, run 2x2 across seeds s3/s5, and closed
+4/4 FAIL-MECHANISM -- neither direction, on either seed, moves `lower`
+off its own ~28-31mm/0-2-of-12-ok floor (see walkcurr STATUS.md
+2026-09-17 ~02:2x). The knob and its dedicated tests were removed in
+the same cycle per RESEARCH_RULES ("close the key in the same cycle");
+the gate below is back to its bit-exact hardcoded-0.7 threshold.
 """
 from __future__ import annotations
 
@@ -53,16 +62,13 @@ from rl_move.config import load_config
 from rl_move.sim.goal_task import SimHexapodGoalEnv
 
 
-def _lower_env(seed: int, stage_gate: float = 0.0,
-               frac_min: float | None = None) -> SimHexapodGoalEnv:
+def _lower_env(seed: int, stage_gate: float = 0.0) -> SimHexapodGoalEnv:
     cfg = load_config()
     cfg.setdefault("goal", {})["lower_hold_s"] = 0.3
     cfg["goal"]["lower_ramp_s"] = 2.0
     cfg.setdefault("episode", {})["seconds"] = 8
     if stage_gate:
         cfg["goal"]["lower_stage_gate"] = stage_gate
-    if frac_min is not None:
-        cfg["goal"]["lower_stage_planted_frac_min"] = frac_min
     env = SimHexapodGoalEnv(cfg=cfg, seed=seed)
     g = env._goal_gen
     for m in ("hold", "lean", "track", "unload", "raise", "rise",
@@ -168,59 +174,6 @@ def test_gate_unlocks_when_planted_frac_trivially_met():
     first = _first_ramp_tick(infos)
     assert first is not None
     assert first == hold_n - 1
-
-
-def test_planted_frac_min_default_matches_old_hardcoded_0p7():
-    # goal.lower_stage_planted_frac_min unset must reproduce the exact
-    # pre-existing hardcoded-0.7 gate timing (2026-09-17 generalization
-    # of the lever for a tighten/loosen sweep -- default OFF-equivalent
-    # bit-exact contract).
-    unplanted_s = 0.4
-    n_unplanted = int(round(unplanted_s / (1.0 / 50.0)))
-
-    def _run_with(frac_min):
-        env = _lower_env(seed=1, stage_gate=1.0, frac_min=frac_min)
-        checks = {"n": 0}
-
-        def _planted_frac(load_ref_n):
-            checks["n"] += 1
-            return 0.0 if checks["n"] <= n_unplanted else 1.0
-
-        env._lower_stage_planted_frac = _planted_frac
-        action = np.zeros(env.action_space.shape, dtype=np.float32)
-        infos = _run(env, 400, action)
-        env.close()
-        return _first_ramp_tick(infos)
-
-    assert _run_with(None) == _run_with(0.7)
-
-
-def test_planted_frac_min_loosened_unlocks_at_partial_load():
-    # A constant 3/6-planted (0.5) state: loosened frac_min=0.4 must
-    # accept it immediately (never deferred).
-    env = _lower_env(seed=1, stage_gate=1.0, frac_min=0.4)
-    env._lower_stage_planted_frac = lambda load_ref_n: 3.0 / 6.0
-    action = np.zeros(env.action_space.shape, dtype=np.float32)
-    infos = _run(env, 300, action)
-    hold_n = env._lower_ramp_i0
-    env.close()
-    first = _first_ramp_tick(infos)
-    assert first == hold_n - 1  # never deferred -- 0.5 clears 0.4
-
-
-def test_planted_frac_min_tightened_defers_at_default_pass_level():
-    # Same constant 3/6-planted (0.5) state: the default/tightened
-    # frac_min=0.7 must NOT accept it -- stays deferred well past the
-    # natural onset tick (short of the shared 5s/500-tick cap so the
-    # test doesn't need to run that long).
-    env = _lower_env(seed=1, stage_gate=1.0, frac_min=0.7)
-    env._lower_stage_planted_frac = lambda load_ref_n: 3.0 / 6.0
-    action = np.zeros(env.action_space.shape, dtype=np.float32)
-    infos = _run(env, 300, action)
-    hold_n = env._lower_ramp_i0
-    env.close()
-    first = _first_ramp_tick(infos)
-    assert first is None  # still frozen at step 300, well short of hold_n+500
 
 
 def test_freeze_ticks_zero_when_gate_off():

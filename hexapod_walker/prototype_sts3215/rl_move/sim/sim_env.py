@@ -2369,9 +2369,7 @@ class SimHexapodBalanceEnv(_GymBase):
         way to say "you're not ready to go deeper yet". This is not a
         fourth re-price: it makes the ramp's own advance conditional on
         a genuine per-tick sub-goal (a measured fraction of feet loaded
-        above 1 N, threshold ``goal.lower_stage_planted_frac_min``,
-        default 0.7 = bit-exact match to this lever's original hardcoded
-        value), by freezing the
+        above 1 N, hardcoded threshold 0.7), by freezing the
         trajectory index fed to ``_current_goal()`` for as long as the
         sub-goal is unmet, up to a capped extra wait
         (5 s) so an episode that
@@ -2401,10 +2399,7 @@ class SimHexapodBalanceEnv(_GymBase):
         max_extra_ticks = int(round(5.0 / self.dt))
         if freeze >= max_extra_ticks:
             return  # capped -- let the ramp proceed ungated from here
-        frac_min = float(cfg_get(self.cfg, "goal",
-                                  "lower_stage_planted_frac_min",
-                                  default=0.7))
-        if self._lower_stage_planted_frac(1.0) >= frac_min:
+        if self._lower_stage_planted_frac(1.0) >= 0.7:
             return  # sub-goal met this tick -- ramp advances normally
         self._lower_gate_freeze_ticks = freeze + 1
 

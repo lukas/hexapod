@@ -980,8 +980,8 @@ class DemosApi:
         """
         try:
             from inplace_demos import (
-                CurrentPeakTracker, _enable_torque, _live_robot_ids,
-                _set_torque_limit, _write_pose,
+                CurrentPeakTracker, _enable_torque, _limp_all,
+                _live_robot_ids, _set_torque_limit, _write_pose,
             )
             from rl_walk_start import walk_start_pose_degrees
             from hexapod_core.walk_ready_transition import build_tripod_plant_transition
@@ -1023,6 +1023,28 @@ class DemosApi:
                     "error": (f"only {len(live)}/18 servos live during "
                               "walk-ready start")}
         tracker = CurrentPeakTracker()
+
+        def _current_trip() -> dict:
+            # A stalled joint at 100 % torque limit pulls ~5 A. Returning
+            # the error used to leave it fighting the jam, armed, until the
+            # servo watch cut it at 72 C twelve seconds later (2026-09-15
+            # 14:42 UTC, L0 knee; wires melted). Limp everything now.
+            try:
+                _limp_all(bus, live)
+            except Exception:
+                pass
+            d = self.drive
+            with d._lock:
+                d.armed = False
+                d.status = "limp: current trip"
+            return {"ok": False,
+                    "error": (f"walk-ready start current trip "
+                              f"{tracker.peak_a:.2f} A on joint "
+                              f"{tracker.peak_joint} — torque off all"),
+                    "peak_a": round(tracker.peak_a, 2),
+                    "peak_joint": tracker.peak_joint,
+                    "limped": True}
+
         _set_torque_limit(bus, live, 1000)
         _enable_torque(bus, live)
         started = time.monotonic()
@@ -1046,12 +1068,7 @@ class DemosApi:
                 except Exception:
                     pass
                 if tracker.peak_a > 4.0:
-                    return {"ok": False,
-                            "error": (f"walk-ready start current trip "
-                                      f"{tracker.peak_a:.2f} A on joint "
-                                      f"{tracker.peak_joint}"),
-                            "peak_a": round(tracker.peak_a, 2),
-                            "peak_joint": tracker.peak_joint}
+                    return _current_trip()
             try:
                 _emit_servo_fb("walk-ready start: settle", tracker,
                                target=target)
@@ -1090,12 +1107,7 @@ class DemosApi:
                 except Exception:
                     pass
                 if tracker.peak_a > 4.0:
-                    return {"ok": False,
-                            "error": (f"walk-ready start current trip "
-                                      f"{tracker.peak_a:.2f} A on joint "
-                                      f"{tracker.peak_joint}"),
-                            "peak_a": round(tracker.peak_a, 2),
-                            "peak_joint": tracker.peak_joint}
+                    return _current_trip()
             try:
                 _emit_servo_fb(label, tracker, target=frame.q_deg)
             except Exception:

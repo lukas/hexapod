@@ -317,6 +317,74 @@ class MjxVecEnv(VecEnv):
             out = st.tick(cmd)
         return out
 
+    def _walk_yaw_init_wz_mask(self) -> tuple[np.ndarray, np.ndarray] | \
+            tuple[None, None]:
+        """Host-side selection for the walkyaw RSI-style initial-wz
+        curriculum lever (sim_env._apply_walk_yaw_init_wz's in-process
+        batched twin; see that method's docstring for the full
+        rationale/provenance). Both cfg keys default 0.0 = OFF: this
+        returns (None, None) with NO rng draw on any env when
+        `goal.walk_yaw_init_wz_frac`/`_scale` are at their defaults, so
+        every existing lineage is bit-exact. Draw ORDER matches the CPU
+        env exactly (one `env.rng.random()` call per qualifying env,
+        same gating condition), so choosing this feature does not
+        perturb any OTHER rng-consuming lever's stream when it is off."""
+        cfg = getattr(self.envs[0], "cfg", None) or {}
+        frac = float(cfg_get(cfg, "goal", "walk_yaw_init_wz_frac",
+                             default=0.0))
+        if frac <= 0.0:
+            return None, None
+        scale = float(cfg_get(cfg, "goal", "walk_yaw_init_wz_scale",
+                              default=0.0))
+        if scale == 0.0:
+            return None, None
+        from .walk_task import walk_yaw_init_wz_decision
+        idx: list[int] = []
+        vals: list[float] = []
+        for i, env in enumerate(self.envs):
+            goal = env._current_goal()
+            if goal is None:
+                continue
+            vx = float(getattr(goal, "vx_ref", 0.0) or 0.0)
+            vy = float(getattr(goal, "vy_ref", 0.0) or 0.0)
+            wz = float(getattr(goal, "wz_ref", 0.0) or 0.0)
+            if math.hypot(vx, vy) > 1e-3 or abs(wz) <= 1e-3:
+                continue   # not turn-in-place: no rng draw either
+            val = walk_yaw_init_wz_decision(
+                vx, vy, wz, frac, scale, env.rng.random())
+            if val == 0.0:
+                continue
+            idx.append(i)
+            vals.append(val)
+        if not idx:
+            return None, None
+        return (np.asarray(idx, dtype=int),
+                np.asarray(vals, dtype=np.float32))
+
+    def _apply_walk_yaw_init_wz(self, st, out, q_nom: np.ndarray):
+        """Inject the selected envs' seeded body yaw rate into the
+        device batch (`MjxTickStepper.inject_env_states`, the same
+        pooled-reset state-surgery primitive already used elsewhere in
+        this file) then run ONE more real `hold` tick so the gyro/IMU
+        accumulators (reset by injection) capture a fresh, physically-
+        consistent sample of the new rate before `_reset_finalize()`
+        reads it -- mirrors `sim_env._apply_walk_yaw_init_wz`'s own
+        one-`_settle(dt)`-tick refresh. Returns `out` unchanged (bit-
+        exact no-op, no extra tick spent) when no env qualifies."""
+        idx, vals = self._walk_yaw_init_wz_mask()
+        if idx is None:
+            return out
+        outs = self._jax.device_get(out)
+        qpos = np.asarray(outs.qpos_all, dtype=np.float32)
+        qvel = np.asarray(outs.qvel_all, dtype=np.float32).copy()
+        qvel[idx, 5] = vals
+        self.stepper.inject_env_states(idx, qpos[idx], qvel[idx],
+                                       q_nom[idx])
+        B = self.num_envs
+        hold = st.make_command(np.zeros((B, N_JOINTS)), speed_deg_s=0.0,
+                               acc_units=0.0, valid=False)
+        return st.tick(hold)
+
     def _choreography(self) -> list[dict]:
         """Run the full synchronized reset for ALL envs. Leaves every
         env + the device batch in fresh-episode state and returns one
@@ -413,6 +481,7 @@ class MjxVecEnv(VecEnv):
         for _ in range(int(round(0.3 / dt))):          # stiff, normal feet
             out = st.tick(hold)
         out = self._apply_walk_reverse_handoff(st, out)
+        out = self._apply_walk_yaw_init_wz(st, out, q_nom)
         outs = self._jax.device_get(out)
         # Pool-entry profile-reinject pose (code review, 09-07): a
         # handoff-ON reset leaves the DEVICE profile/ctrl slewed onto

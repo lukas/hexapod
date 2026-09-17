@@ -374,6 +374,42 @@ class WalkTrajectory(GoalTrajectory):
                         if self.wz is not None else 0.0)
 
 
+def walk_yaw_init_wz_decision(vx_ref: float, vy_ref: float, wz_ref: float,
+                              frac: float, scale: float,
+                              draw: float) -> float:
+    """Shared gating + arithmetic for the walkyaw RSI-style initial-wz
+    curriculum lever (``goal.walk_yaw_init_wz_frac``/``_scale``, both
+    default 0.0 = OFF; 2026-09-17, `OPERATOR_QUESTIONS.md` ~20:1x
+    candidate (c) -- see `sim_env.SimHexapodBalanceEnv.
+    _apply_walk_yaw_init_wz`'s docstring for the full rationale).
+
+    Pure function, no rng/env access -- all three execution engines
+    (CPU ``sim_env.py``, in-process ``mjx_vec_env.MjxVecEnv``, sharded
+    ``mjx_sharded_vec_env`` workers) call this with exactly the same
+    semantics, so it only needs testing once, here.
+
+    ``draw``: a single U[0,1) sample the CALLER already drew from its
+    OWN rng stream -- this function never draws, so every caller's own
+    bit-exact-off / rng-stream-preserving guarantee (no draw at all when
+    ``frac<=0``) stays entirely in the caller's hands.
+
+    Returns 0.0 (a safe "not selected" sentinel -- a genuinely selected
+    value is always ``scale*wz_ref`` with ``abs(wz_ref)>1e-3`` and
+    ``scale!=0``, so it can never legitimately read exactly 0.0) unless:
+    ``frac>0``, ``scale!=0``, the episode is a genuine turn-in-place
+    tick (``hypot(vx_ref,vy_ref)<=1e-3`` and ``abs(wz_ref)>1e-3`` --
+    identical gating to ``reward.walk_turn_kernel_neutral``/
+    ``goal.walk_turn_yaw_bias_deg``), and ``draw<frac``.
+    """
+    if frac <= 0.0 or scale == 0.0:
+        return 0.0
+    if math.hypot(vx_ref, vy_ref) > 1e-3 or abs(wz_ref) <= 1e-3:
+        return 0.0
+    if draw >= frac:
+        return 0.0
+    return scale * wz_ref
+
+
 def _wrap_goal(goal: TaskGoal | None) -> WalkGoal | None:
     """Give non-walk goals the widened obs with zero velocity refs."""
     if goal is None or isinstance(goal, WalkGoal):

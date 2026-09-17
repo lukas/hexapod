@@ -49,6 +49,7 @@ from .mjx_backend import (
 from ..config import cfg_get
 from .servo_model import DEG2RAD, N_JOINTS, SimServoParams
 from .sim_env import SimHexapodBalanceEnv
+from .walk_task import walk_yaw_init_wz_decision
 
 _TP_KEYS = ("latency_s", "deadband", "vel_max", "imu_off")
 
@@ -78,7 +79,8 @@ def _shm_layout(B: int, n_act: int, n_obs: int, nq: int, nv: int,
                 ns: int, tag: str,
                 dr_shapes: dict[str, tuple] | None = None,
                 seq: bool = False,
-                handoff: bool = False) -> dict[str, _ShmSpec]:
+                handoff: bool = False,
+                yaw_init: bool = False) -> dict[str, _ShmSpec]:
     def s(key, shape, dtype):
         return _ShmSpec(f"hexmjx-{tag}-{key}", shape, dtype)
     layout = {
@@ -140,6 +142,17 @@ def _shm_layout(B: int, n_act: int, n_obs: int, nq: int, nv: int,
         layout["handoff_speed"] = s("hosp", (B,), "float64")
         layout["handoff_acc"] = s("hoac", (B,), "float64")
         layout["handoff_valid"] = s("hovl", (B,), "bool")
+    if yaw_init:
+        # walkyaw RSI-style initial-wz curriculum lever (sharded twin of
+        # MjxVecEnv._walk_yaw_init_wz_mask / sim_env._apply_walk_yaw_
+        # init_wz; OPERATOR_QUESTIONS.md 2026-09-17 ~20:1x candidate
+        # (c)): one worker-computed float per env, 0.0 == "not selected
+        # this episode" (safe sentinel -- a selected env's value is
+        # always scale*wz_ref with |wz_ref|>1e-3 and scale!=0, so it can
+        # never legitimately read exactly 0.0). Allocated ONLY when the
+        # cfg enables the feature (mirrors seq/handoff's own
+        # allocate-on-demand rule).
+        layout["yaw_init_wz"] = s("yiw", (B,), "float64")
     return layout
 
 
@@ -374,10 +387,55 @@ def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
                                             default=0.0))
                         if _hs > 0.0:
                             handoff_n = int(round(_hs / envs[0].dt))
+                # walkyaw RSI-style initial-wz lever (sharded twin of
+                # MjxVecEnv._walk_yaw_init_wz_mask / sim_env._apply_
+                # walk_yaw_init_wz): re-read every reset_begin (cheap,
+                # matches handoff's own no-cache rule); both keys
+                # default 0.0 so this whole block costs one dict lookup
+                # and never draws rng when the row isn't even allocated.
+                _yiw_frac = 0.0
+                _yiw_scale = 0.0
+                if "yaw_init_wz" in layout and envs:
+                    _yiw_frac = float(cfg_get(
+                        envs[0].cfg, "goal", "walk_yaw_init_wz_frac",
+                        default=0.0))
+                    if _yiw_frac > 0.0:
+                        _yiw_scale = float(cfg_get(
+                            envs[0].cfg, "goal", "walk_yaw_init_wz_scale",
+                            default=0.0))
                 for k, env in enumerate(envs):
                     g = lo + k
                     q_start = env._reset_begin(None)
                     shm["q_start"][g] = q_start
+                    if "yaw_init_wz" in layout:
+                        # Reset every call (mirrors handoff's own
+                        # `_handoff_active_this_reset = False` rule): an
+                        # env not selected this episode must read 0.0,
+                        # never a stale value from a prior choreography.
+                        # Gating + arithmetic delegated to the shared
+                        # `walk_task.walk_yaw_init_wz_decision` (same
+                        # function the CPU env / in-process MjxVecEnv
+                        # call) so all three engines agree bit-for-bit
+                        # on the decision; only the rng draw itself
+                        # (still conditional on the turn-in-place gate,
+                        # so a non-qualifying episode costs no draw)
+                        # stays local to this worker's own env.rng.
+                        yiw_val = 0.0
+                        if _yiw_frac > 0.0 and _yiw_scale != 0.0:
+                            g_goal = env._current_goal()
+                            if g_goal is not None:
+                                gvx = float(getattr(
+                                    g_goal, "vx_ref", 0.0) or 0.0)
+                                gvy = float(getattr(
+                                    g_goal, "vy_ref", 0.0) or 0.0)
+                                gwz = float(getattr(
+                                    g_goal, "wz_ref", 0.0) or 0.0)
+                                if (math.hypot(gvx, gvy) <= 1e-3
+                                        and abs(gwz) > 1e-3):
+                                    yiw_val = walk_yaw_init_wz_decision(
+                                        gvx, gvy, gwz, _yiw_frac,
+                                        _yiw_scale, env.rng.random())
+                        shm["yaw_init_wz"][g] = yiw_val
                     row = tp_rows(env)
                     for key in _TP_KEYS:
                         shm[f"tp_{key}"][g] = row[key]
@@ -750,12 +808,19 @@ class MjxShardedVecEnv(VecEnv):
         self._handoff_on = (float(cfg_get(_seq_cfg, "goal",
                                           "walk_reverse_handoff_gate",
                                           default=0.0)) > 0.0)
+        # walkyaw RSI-style initial-wz lever: allocate on demand, same
+        # rule as handoff above (only the FRAC gate here -- a zero scale
+        # with frac>0 still allocates the row, harmless, matches
+        # MjxVecEnv's own frac-then-scale short-circuit order).
+        self._yaw_init_on = (float(cfg_get(_seq_cfg, "goal",
+                                           "walk_yaw_init_wz_frac",
+                                           default=0.0)) > 0.0)
         layout = _shm_layout(
             B, act_space.shape[0], obs_space.shape[0], self.mj_model.nq,
             self.mj_model.nv, self.mj_model.nsensordata,
             tag=f"{seed}-{np.random.randint(1 << 30)}",
             dr_shapes=self._dr_shapes, seq=self._seq_on,
-            handoff=self._handoff_on)
+            handoff=self._handoff_on, yaw_init=self._yaw_init_on)
         _check_shm_budget(layout, B)
         self._shm = _ShmArrays(layout, create=True)
 
@@ -940,6 +1005,29 @@ class MjxShardedVecEnv(VecEnv):
                     acc_units=self._shm["handoff_acc"].copy()[:, None],
                     valid=self._shm["handoff_valid"].copy())
                 out = st.tick(cmd)
+        if self._yaw_init_on:
+            # walkyaw RSI-style initial-wz lever (sharded twin of
+            # MjxVecEnv._apply_walk_yaw_init_wz): workers already wrote
+            # each env's selected seed value (0.0 == not selected) into
+            # shm["yaw_init_wz"] during reset_begin above. Overwrite the
+            # qvel z-ang-vel component for selected envs via the same
+            # `inject_env_states` state-surgery primitive the pooled
+            # reset path already uses, then run one more real `hold`
+            # tick so the gyro/IMU accumulators (reset by injection)
+            # capture a fresh sample of the new rate before
+            # reset_finalize reads it. Bit-exact no-op (no extra tick)
+            # when no env this batch was selected.
+            wz_vals = self._shm["yaw_init_wz"].copy()
+            yi_idx = np.nonzero(wz_vals != 0.0)[0]
+            if yi_idx.size:
+                yi_outs = self._jax.device_get(out)
+                yi_qpos = np.asarray(yi_outs.qpos_all, dtype=np.float32)
+                yi_qvel = np.asarray(
+                    yi_outs.qvel_all, dtype=np.float32).copy()
+                yi_qvel[yi_idx, 5] = wz_vals[yi_idx]
+                st.inject_env_states(yi_idx, yi_qpos[yi_idx],
+                                     yi_qvel[yi_idx], q_nom[yi_idx])
+                out = st.tick(hold)
         self._copy_outs(out)
         # Pool-entry profile-reinject pose (code review, 09-07 — see
         # MjxVecEnv._choreography's own prof_q comment for the full

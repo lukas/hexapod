@@ -1869,6 +1869,7 @@ class SimHexapodBalanceEnv(_GymBase):
         self._cmd = self._q_nom.copy()
         self._settle(0.3)
         self._apply_walk_reverse_handoff()
+        self._apply_walk_yaw_init_wz()
         obs, info = self._reset_finalize()
         probe_n = self._reset_history_probe_steps()
         for _ in range(probe_n):
@@ -3111,6 +3112,75 @@ class SimHexapodBalanceEnv(_GymBase):
                 speed_deg_s=self.write_speed_deg_s,
                 acc_units=self.write_acc_units)
             self._advance()
+
+    def _apply_walk_yaw_init_wz(self) -> None:
+        """RSI-style curriculum lever for the walkyaw turn-in-place
+        freeze (walkcurr track, candidate (c), OPERATOR_QUESTIONS.md
+        2026-09-17 ~20:1x, assume-and-go: "a curriculum that starts
+        episodes mid-rotation (nonzero wz initial state) so tracking
+        reward gradient exists at the policy's own a~0 -- initial-state
+        distributions are calibration-adjacent and look rl_only-legal").
+
+        24 independently-tried mechanism classes (reward pricing, action
+        gating/DC-bias, exposure/init/warm-start, obs-space, exploration
+        noise incl. gSDE, recurrent architecture) all left a from-scratch
+        turn-in-place policy's body angular velocity pinned at the
+        frozen-body noise floor: a fresh policy's near-zero mean action
+        has EQUAL probability of twisting either way, so the EXPECTED
+        net rotation is a coin flip with no persistent "this direction
+        is working" signal for the advantage estimator to climb. This
+        lever changes the INITIAL STATE, not the reward/action/
+        architecture: with probability ``goal.walk_yaw_init_wz_frac``
+        (default 0.0 = OFF), a genuine turn-in-place episode
+        (hypot(vx_ref,vy_ref)<=1e-3, abs(wz_ref)>1e-3 -- the SAME gating
+        condition as `walk_turn_kernel_neutral`/`walk_turn_yaw_bias_deg`)
+        starts with the body ALREADY spinning at
+        ``goal.walk_yaw_init_wz_scale * wz_ref`` rad/s (sign-matched to
+        the command) instead of the usual dead-still settle. No teacher/
+        demonstration/scripted controller is involved -- this is a raw
+        physics-state (qvel) assignment, exactly analogous to DeepMimic-
+        style reference-state-initialization but seeded from a SCALAR
+        (the episode's own already-observed command), not a motion clip,
+        so it carries no motion-prior lineage. Both keys default 0.0 =
+        no rng draw, no state write, bit-exact with every existing
+        lineage (matches `goal.walk_turn_in_place_frac`'s own
+        conditional-draw convention in `walk_task.py`).
+
+        Called from `reset()` AFTER the ordinary settle (so the settle's
+        own contact-bleed physics can't damp away the seed we're about
+        to write) and AFTER `_apply_walk_reverse_handoff` (mutually
+        exclusive features; order is inert either way). One extra
+        `_settle(dt)` tick (real physics, not a teleport) after the
+        qvel write lets `_advance()`'s existing per-tick gyro
+        accumulator (see its own comment: "sampling the instantaneous
+        rate once per control tick aliases...") capture a fresh,
+        consistent sample of the just-injected rate before
+        `_reset_finalize()` reads it -- mirrors the MJX vec-env twins'
+        own `inject_env_states` + one-tick-refresh pattern (see
+        `MjxVecEnv._apply_walk_yaw_init_wz` / the sharded twin)."""
+        from .walk_task import walk_yaw_init_wz_decision
+        frac = float(cfg_get(self.cfg, "goal", "walk_yaw_init_wz_frac",
+                             default=0.0))
+        if frac <= 0.0:
+            return
+        scale = float(cfg_get(self.cfg, "goal", "walk_yaw_init_wz_scale",
+                              default=0.0))
+        if scale == 0.0:
+            return
+        goal = self._current_goal()
+        if goal is None:
+            return
+        vx = float(getattr(goal, "vx_ref", 0.0) or 0.0)
+        vy = float(getattr(goal, "vy_ref", 0.0) or 0.0)
+        wz = float(getattr(goal, "wz_ref", 0.0) or 0.0)
+        if math.hypot(vx, vy) > 1e-3 or abs(wz) <= 1e-3:
+            return   # not a turn-in-place tick: no rng draw either
+        wz_init = walk_yaw_init_wz_decision(
+            vx, vy, wz, frac, scale, self.rng.random())
+        if wz_init == 0.0:
+            return
+        self.data.qvel[5] = wz_init
+        self._settle(self.dt)
 
     # ---- mode sequencing (goal.mode_seq; TRANSITIONS_DIRECTIVE item 1)
 

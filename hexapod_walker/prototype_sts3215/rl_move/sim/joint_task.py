@@ -120,6 +120,55 @@ class SimHexapodJointGoalEnv(SimHexapodGoalEnv):
             bias_deg * DEG2RAD / _HALF_RAD, -1.0, 1.0)
         self._joint_action_bias_active = bool(
             np.any(self._joint_action_bias != 0.0))
+        # TURN-IN-PLACE YAW STEERING BIAS (2026-09-17, walkyaw 21st
+        # mechanism class). CURRENT_TRUTHS.md's `tkn2` closure (20
+        # independently-tried classes: income pricing, termination
+        # risk, 4x RND, curriculum exposure, self-distillation, kernel-
+        # neutrality, command-difficulty easing, warm-start-vs-scratch,
+        # obs-pad-transplant) names the next honest lever as "a
+        # genuinely different architecture/observation/ACTION-SPACE
+        # redesign, not a further dose" — every closed class left
+        # `env/walk_wz` pinned at the noise floor while ep_len_mean/
+        # reward visibly rose (a pure RL discovery/credit-assignment
+        # failure; `probe_turn_authority.py --policy scripted` clears
+        # wz_med=+-0.098 rad/s on the IDENTICAL cfg/DR/plant, so the
+        # turn is mechanically reachable, PPO's exploration just never
+        # stumbles onto — or never gets credited for — the coordinated
+        # 6-leg gait a scripted controller reaches trivially). None of
+        # those 20 classes ever touched the RAW ACTION's own steering
+        # symmetry: on a turn-in-place tick a fresh policy's near-zero
+        # mean output has EQUAL probability of twisting the body either
+        # way, so the EXPECTED net rotation is a coin flip uncorrelated
+        # with the commanded sign — no persistent "lean this way"
+        # signal for PPO's advantage estimator to climb on, unlike
+        # hold/rise's own cured defect above (`joint_action_bias_*`)
+        # where the zero action's CENTER was simply in the wrong place.
+        # `goal.walk_turn_yaw_bias_deg` (default 0.0 = OFF, bit-exact
+        # legacy) adds a small CONSTANT per-tick offset to every leg's
+        # yaw-joint TARGET, ONLY on genuine turn-in-place ticks
+        # (identical gating to `reward.walk_turn_kernel_neutral`/
+        # `walk_turn_freeze_charge`: hypot(vx_ref,vy_ref)<=1e-3 and
+        # abs(wz_ref)>1e-3), signed by sign(wz_ref) — information the
+        # policy's own observation ALREADY carries (`_yaw_cmd` appends
+        # wz_ref/WZ_SCALE to the obs tail), so this injects no NEW
+        # task knowledge, only re-wires it as a symmetry-breaking DC
+        # offset in JOINT-ANGLE space (applied in `_act_to_q` below,
+        # after whichever of box/bias/legacy decode already ran, so
+        # its physical size is the same few degrees regardless of
+        # which action-space branch is active). It is a CONSTANT, not
+        # a trajectory/schedule/gait: no time-varying phase, no
+        # per-leg sequencing, no dependence on any demonstration/
+        # teacher/scripted controller — the policy still owns 100% of
+        # swing/stance TIMING and every other joint, exactly mirroring
+        # the (already rl_only-accepted) hip/knee action-centering
+        # fix's own numeric-calibration character. Flagged as an
+        # explicit assume-and-go provenance judgment in
+        # OPERATOR_QUESTIONS.md (command-conditioned, not static, so a
+        # stricter reading is possible) — default OFF, isolated to
+        # this one key, trivial to strike from any lineage if the
+        # operator rules otherwise. See test_walk_turn_yaw_bias.py.
+        self._turn_yaw_bias_deg = float(cfg_get(
+            self.cfg, "goal", "walk_turn_yaw_bias_deg", default=0.0))
         # Action BOX (2026-08-30, operator literature ruling for the
         # walkcurr final wave — Smith/Kostrikov/Levine 2022 "Walk in
         # the Park" ablation: a TIGHT symmetric action box around the
@@ -183,8 +232,12 @@ class SimHexapodJointGoalEnv(SimHexapodGoalEnv):
 
     def _act_to_q(self, clipped: np.ndarray):
         if self._cart_foot_active:
-            return self._cart_foot.decode(
-                np.asarray(clipped, dtype=float)), True, ""
+            q = self._cart_foot.decode(np.asarray(clipped, dtype=float))
+            # Cartesian foot-placement decode has no per-joint-axis
+            # meaning for `clipped` (x/y/z per leg, not yaw/hip/knee),
+            # so the turn-yaw-bias block below (joint-angle space) is
+            # skipped for this branch — no live recipe combines them.
+            return q, True, ""
         if self._joint_action_box_active:
             q = np.clip(
                 self._joint_action_box_center
@@ -192,7 +245,24 @@ class SimHexapodJointGoalEnv(SimHexapodGoalEnv):
                 * self._joint_action_box_rad,
                 self._joint_action_box_axis_lo,
                 self._joint_action_box_axis_hi)
-            return q, True, ""
-        if self._joint_action_bias_active:
-            clipped = np.clip(clipped + self._joint_action_bias, -1.0, 1.0)
-        return action_to_q_rad(clipped), True, ""
+        else:
+            if self._joint_action_bias_active:
+                clipped = np.clip(clipped + self._joint_action_bias,
+                                   -1.0, 1.0)
+            q = action_to_q_rad(clipped)
+        if self._turn_yaw_bias_deg > 0.0 and getattr(self, "_yaw_cmd",
+                                                       False):
+            goal = self._current_goal()
+            if goal is not None:
+                vx = float(getattr(goal, "vx_ref", 0.0))
+                vy = float(getattr(goal, "vy_ref", 0.0))
+                wz = float(getattr(goal, "wz_ref", 0.0))
+                if np.hypot(vx, vy) <= 1e-3 and abs(wz) > 1e-3:
+                    sign = 1.0 if wz > 0.0 else -1.0
+                    delta = sign * self._turn_yaw_bias_deg * DEG2RAD
+                    q = np.asarray(q, dtype=float).copy()
+                    q[0::3] = np.clip(
+                        q[0::3] + delta,
+                        _CENTER_RAD[0::3] - _HALF_RAD[0::3],
+                        _CENTER_RAD[0::3] + _HALF_RAD[0::3])
+        return q, True, ""

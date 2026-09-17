@@ -112,3 +112,8 @@ supersedes v1 for any physical handoff. Cloud side: read s1's own `-acq1`
 continuation once it finishes (n=3 seed triplet); land a genuinely new
 off-axis-heading structural fix if one is ever conceived (none named as of
 2026-09-10) and re-cut again if it changes the limitation above.
+
+**UPDATE 2026-09-17:** this walk role is now also composed (not modified —
+same checkpoint, same weights) with the separately-trained rise+hold stance
+role (`bundle_rlonly_stance_v1`) via a direct, no-scripted-blend handoff —
+CLEAN, 0/12 falls. See `rl_docs/tracks/walkcurr/bundle_rlonly_lifecycle_v1/`.

@@ -209,11 +209,14 @@ echo ">> pushing code + vendored SDK -> $HOST:$REMOTE (single tar|ssh)"
 # COPYFILE_DISABLE: keep macOS bsdtar from tucking ._* AppleDouble files
 # into the stream (GNU tar on the board would extract them as junk).
 # The rm -rf clears the retired urt2_setup bundles (tar extracts over an
-# existing tree without deleting stale files).
+# existing tree without deleting stale files). The sync matters: on
+# 2026-09-15 the board lost power ~30 s after a deploy and ext4 left 112 of
+# 158 freshly extracted files as 0 bytes (the web service then exited
+# silently every 2 s for two days).
 COPYFILE_DISABLE=1 tar --no-xattrs -C "$STAGE" -czf - . \
   | "${SSH[@]}" "mkdir -p '$REMOTE' && \
       rm -rf '$REMOTE/urt2_setup' '$REMOTE/linux_control/urt2_setup' && \
-      tar -xzf - -C '$REMOTE'"
+      tar -xzf - -C '$REMOTE' && sync"
 
 echo ">> ensuring uv on Uno Q"
 ensure_remote_uv

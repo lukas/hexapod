@@ -55,6 +55,7 @@ echo ">> pushing code + vendored SDK → $REMOTE"
 adb shell "mkdir -p '$REMOTE' && \
   rm -rf '$REMOTE/urt2_setup' '$REMOTE/linux_control/urt2_setup'"
 adb push "$STAGE/." "$REMOTE/"
+adb shell sync  # same power-loss zero-fill guard as deploy_ssh.sh
 
 BUS_ARGS=""
 DRY=""

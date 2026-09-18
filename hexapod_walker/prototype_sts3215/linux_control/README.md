@@ -339,6 +339,34 @@ on the board. Then stand normally (`POST /api/rl/stand`) and compare the new
 joint's `load_pct`/`current_a` in `/api/status` with its five siblings before
 walking. Done this way on hexapod.local 2026-09-18 (L0 knee, 163 deg -> 0).
 
+## Comparing gaits (repeatable)
+
+`linux_control/gait_sweep.py` is the one command for "how do the gaits do on
+this robot". It refuses to move until the top camera's saved floor fit still
+matches the anchors, records the top camera for the whole sweep, walks each
+gait for N seconds per round (direction alternating so the robot stays under
+the camera), retries a start that dies on a stale MCU snapshot, aborts under
+10.8 V on the servo bus, and lowers + limps the robot at the end. Then it
+writes `analysis.json`, `TABLE.md` and the Lab scorecard `gaits.json`.
+
+```bash
+# from prototype_sts3215/; the camera CLI is the tracker checkout's (HEXAPOD_CAMERAS_BIN to override)
+~/hexapod-tracker/.venv/bin/hexapod-cameras check --role top      # bumped camera? -> calibrate floor --role top
+uv run python linux_control/gait_sweep.py run --host http://hexapod2.local:8080 --name hexapod2 \
+    --chassis-tag 119 --exposure-s 6 --rounds 2 --out ~/.hexapod/lab_runs/$(date -u +%Y%m%d_%H%M)_gaits_hexapod2
+uv run python linux_control/gait_sweep.py table ~/.hexapod/lab_runs/2026*_gaits_*      # one row per robot x gait
+"$HOME/Library/Application Support/Hexapod Lab/venv/bin/hexapod-lab2" import --robot hexapod2 \
+    --title ... --why ... --found ... --gaits <run>/gaits.json <run>                    # file it in the catalog
+```
+
+Speed and heading change come from the chassis lid tag's floor-referenced
+track (`--chassis-tag`; hexapod2 = 119). Without it the best-covered lid tag is
+used and the row says so; lid tags swing with the legs and vanish under the
+overhead cable, so treat those speeds as rough. An arm is `inconclusive` unless
+two exposures ran for 70 % of the planned time; hexapod1's IMU-stale trips
+(2026-09-18) produce exactly that. Both robots need to be inside the top
+camera's tag area; the ELP side camera is video only.
+
 ## Calibration checkup / geometry sweep
 
 The Web UI **Checkup** route runs, in order: safe zero, IMU rest/bias,

@@ -121,6 +121,15 @@ uv run python receive_robot_logs.py --ssh arduino@hexapod.local
 Robot side: `logs/events.jsonl`. Optional override only if you need it:
 `HEXAPOD_LOG_HOST=<ip>` in the systemd unit.
 
+### Who commanded what
+
+`GET /api/commands` (also `logs/commands.jsonl` on the board) is the
+attributed journal of state-changing POSTs: `controller` is `robotlab`,
+`mac-hub via <browser address>` (a click on the `:8898` hub page, which also
+prints one `[hub->robot] POST ...` line per relayed command into the hub log,
+`make web-8898-logs`), `script` (curl / plain urllib), or `browser@<ip>`.
+Scripts can name themselves with an `X-Hexapod-Controller` header.
+
 ### Error log (website refusals / failures)
 
 Every error the web UI shows — API `ok:false` / `"error"` responses

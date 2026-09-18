@@ -18,6 +18,7 @@ from rl_move.sim.play_core import (
 )
 from rl_move.sim.web_session import SimWebSession
 from rl_move.sim.web_hub import (
+    relay_headers,
     HubController, ROBOT_DEFAULT_TIMEOUT_S, ROBOT_SET_ZERO_TIMEOUT_S,
     RouteResponse, SimTarget, make_hub_handler,
 )
@@ -799,3 +800,20 @@ def test_setup_always_targets_physical_robot():
         assert [call[1] for call in robot.calls] == [
             "/api/setup", "/api/setup/scan", "/api/setup/assign", "/api/setup/wiggle"]
         assert not sim.calls
+
+
+def test_hub_relays_name_the_browser_for_the_robot_journal():
+    sent = relay_headers({"Content-Type": "application/json", "Cookie": "secret",
+                          "X-Forwarded-For": "192.168.4.50"})
+    assert sent["X-Hexapod-Controller"] == "mac-hub via 192.168.4.50"
+    assert sent["User-Agent"] == "hexapod-web-hub"
+    assert "Cookie" not in sent and sent["Content-Type"] == "application/json"
+
+
+def test_hub_relay_keeps_a_callers_own_controller_name():
+    sent = relay_headers({"X-Hexapod-Controller": "robotlab", "X-Forwarded-For": "10.0.0.2"})
+    assert sent["X-Hexapod-Controller"] == "robotlab"
+
+
+def test_hub_relay_without_a_peer_still_says_it_was_the_hub():
+    assert relay_headers(None)["X-Hexapod-Controller"] == "mac-hub via unknown"

@@ -89,6 +89,37 @@ def _cmd_line(raw: bytes) -> str:
     return raw.decode("utf-8", "ignore").strip().upper()
 
 
+HUB_USER_AGENT = "hexapod-web-hub"
+HUB_CONTROLLER_LABEL = "mac-hub"
+# The 5 Hz drive heartbeat is journalled as a count on the robot; do not
+# echo it into the hub log either.
+RELAY_QUIET_PATHS = frozenset({"/api/rl/drive/cmd"})
+
+
+def relay_headers(headers: dict[str, str] | None) -> dict[str, str]:
+    """Headers a request carries when the hub forwards it to the robot.
+
+    The robot's command journal attributes a request by
+    ``X-Hexapod-Controller`` first and User-Agent second.  urllib's default
+    agent made every browser click relayed by this hub look like an anonymous
+    "Python-urllib" script on the robot, so a stand issued from the :8898
+    page could not be told from an agent's script afterwards.  A caller that
+    already names itself keeps its name; a browser is named after the
+    address the hub saw it from.
+    """
+    out: dict[str, str] = {}
+    for k, v in (headers or {}).items():
+        if k.lower() in {"content-type", "accept", "x-forwarded-for"}:
+            out[k] = v
+    out["User-Agent"] = HUB_USER_AGENT
+    label = _header_value(headers, "X-Hexapod-Controller").strip()
+    if not label:
+        peer = _header_value(headers, "X-Forwarded-For").split(",")[0].strip() or "unknown"
+        label = f"{HUB_CONTROLLER_LABEL} via {peer}"
+    out["X-Hexapod-Controller"] = label
+    return out
+
+
 def _header_value(headers: dict[str, str] | None, name: str) -> str:
     if not headers:
         return ""
@@ -485,12 +516,15 @@ class RobotProxyTarget:
             return RouteResponse.json({"ok": False,
                                        "error": "robot target not configured"},
                                       503)
-        req_headers = {}
-        if headers:
-            for k, v in headers.items():
-                if k.lower() in {"content-type", "accept"}:
-                    req_headers[k] = v
+        req_headers = relay_headers(headers)
         data = body if method == "POST" else None
+        path_only = full_path.split("?", 1)[0]
+        if method == "POST" and path_only not in RELAY_QUIET_PATHS:
+            # One greppable line per relayed state change in the hub log
+            # (`make web-8898-logs`); the robot keeps the authoritative
+            # journal at GET /api/commands with the same controller label.
+            print(f"[hub->robot] POST {path_only} controller={req_headers['X-Hexapod-Controller']!r} "
+                  f"body={body[:120].decode('utf-8', 'ignore')!r}", flush=True)
         if data and "Content-Type" not in req_headers:
             req_headers["Content-Type"] = "application/json"
         budget = self.timeout if timeout is None else timeout
@@ -1006,7 +1040,12 @@ def make_hub_handler(hub: HubController, webui_dir: Path,
             return False
 
         def _request_headers(self) -> dict[str, str]:
-            return {k: v for k, v in self.headers.items()}
+            out = {k: v for k, v in self.headers.items()}
+            try:
+                out["X-Forwarded-For"] = str(self.client_address[0])
+            except Exception:
+                pass
+            return out
 
         def do_GET(self) -> None:
             path = self.path.split("?", 1)[0]

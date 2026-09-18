@@ -123,3 +123,13 @@ def test_journalling_never_breaks_a_control_path(monkeypatch):
     entry = command_journal.record("POST", "/api/demo", peer="1.1.1.1")
     assert entry["path"] == "/api/demo"
     assert command_journal.recent()["returned"] == 1
+
+
+def test_hub_relay_label_keeps_the_browser_address():
+    entry = command_journal.record(
+        "POST", "/api/zero", body={"pose": "stand"}, peer="192.168.4.123",
+        headers=Headers(**{"X-Hexapod-Controller": "mac-hub via 127.0.0.1",
+                           "User-Agent": "hexapod-web-hub"}),
+    )
+    assert entry["controller"] == "mac-hub via 127.0.0.1"
+    assert entry["attributed_by"] == "header"

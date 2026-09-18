@@ -9,8 +9,9 @@
 ``run`` refuses to move if the top camera's saved floor fit no longer matches the
 anchors (`hexapod-cameras check`), records the top camera for the whole sweep,
 then for every (arm, round): sets hold/walk roles, re-stands to the sim
-walk-ready pose, drives |vx| for exposure_s (direction alternates so the robot
-stays under the camera), stops, and reads back servo temps/volts.  A start that
+walk-ready pose, drives |vx| for exposure_s (direction alternates, and heads back
+once the chassis tag has drifted --max-drift-mm from the start, so long passes
+stay under the camera), stops, and reads back servo temps/volts.  A start that
 dies on a stale MCU snapshot is retried three times with a pause.  Any servo bus
 voltage under 10.8 V aborts (the Sep 13/14 brownout band).  The robot is lowered
 and limped at the end, always.
@@ -133,6 +134,17 @@ def verdict(rows: list[dict], exposure_s: float) -> tuple[str, str]:
     return "ok", why
 
 
+def next_direction(last_sign: float, start_xy, now_xy, moved_away: bool | None, max_drift_mm: float) -> float:
+    """Direction of the next exposure: alternate, unless the chassis has drifted more
+    than ``max_drift_mm`` from where the sweep began; then head back (repeat the last
+    direction if it brought the robot closer, reverse it if it took it away)."""
+    if start_xy is None or now_xy is None or moved_away is None:
+        return -last_sign
+    if math.hypot(now_xy[0] - start_xy[0], now_xy[1] - start_xy[1]) <= max_drift_mm:
+        return -last_sign
+    return -last_sign if moved_away else last_sign
+
+
 def floor_ids_str(floor: set[int]) -> set[str]:
     return {str(i) for i in floor}
 
@@ -198,6 +210,9 @@ class Sweep:
         self.results = {"robot": args.name, "base": args.host, "vx": args.vx, "exposure_s": args.exposure_s,
                         "arms": args.arms, "rounds": args.rounds, "started_unix": time.time(), "trials": []}
         self.cam_proc = None
+        self.start_xy = None      # chassis position at the first exposure (floor mm)
+        self.last_sign = None
+        self.moved_away = None
 
     def log(self, msg):
         line = time.strftime("%H:%M:%S ") + msg
@@ -247,6 +262,25 @@ class Sweep:
             self.cam_proc.wait(timeout=30)
         except subprocess.TimeoutExpired:
             self.cam_proc.terminate()
+
+    def chassis_xy(self):
+        """Latest floor-referenced chassis position from the running camera session."""
+        if self.a.no_camera or not self.a.chassis_tag:
+            return None
+        vp = self.out / "camera" / "vision.jsonl"
+        try:
+            lines = vp.read_text().splitlines()[-12:]
+        except OSError:
+            return None
+        for line in reversed(lines):
+            try:
+                m = (json.loads(line).get("markers") or {}).get(str(self.a.chassis_tag)) or {}
+            except ValueError:
+                continue
+            p = m.get("position_mm") or {}
+            if m.get("status") == "tracked" and p.get("x") is not None:
+                return (float(p["x"]), float(p["y"]))
+        return None
 
     # robot -------------------------------------------------------------------
     def status_after(self, trial: dict, arm: str) -> None:
@@ -321,7 +355,17 @@ class Sweep:
         self.log(f"  preflight ok={pf.get('ok')} tilt={pf.get('roll_deg')}/{pf.get('pitch_deg')} poseΔ={pf.get('max_pose_delta_deg')}")
         if not pf.get("ok"):
             self.abort(f"{arm}: walk preflight: {pf.get('error')}")
-        sign = 1.0 if len(self.results["trials"]) % 2 == 0 else -1.0
+        here = self.chassis_xy()
+        if self.start_xy is None and here is not None:
+            self.start_xy = here
+        if self.last_sign is None:
+            sign = 1.0
+        else:
+            sign = next_direction(self.last_sign, self.start_xy, here, self.moved_away, a.max_drift_mm)
+        if here is not None and self.start_xy is not None:
+            drift = math.hypot(here[0] - self.start_xy[0], here[1] - self.start_xy[1])
+            self.log(f"  chassis {drift:.0f} mm from sweep start; next direction {'forward' if sign > 0 else 'reverse'}")
+        trial["chassis_before_xy"] = here
         vx = a.vx * sign
         r, owner, t0 = self.start_drive(vx)
         trial.update(vx=vx, owner=owner, t0_unix=t0, samples=[])
@@ -352,6 +396,13 @@ class Sweep:
             except Exception as e:
                 trial["csv_err"] = str(e)
         self.status_after(trial, arm)
+        after = self.chassis_xy()
+        trial["chassis_after_xy"] = after
+        self.last_sign = sign
+        if here is not None and after is not None and self.start_xy is not None:
+            d0 = math.hypot(here[0] - self.start_xy[0], here[1] - self.start_xy[1])
+            d1 = math.hypot(after[0] - self.start_xy[0], after[1] - self.start_xy[1])
+            self.moved_away = d1 > d0
         rb = R.get("/api/robot")
         trial["robot_after"] = {k: rb.get(k) for k in ("armed", "mode", "activity", "detail")}
         self.results["trials"].append(trial); self.save()
@@ -516,6 +567,8 @@ def main(argv=None) -> int:
     p.add_argument("--vx", type=float, default=0.10)
     p.add_argument("--chassis-tag", default=None, help="AprilTag id on this robot's chassis lid (hexapod2: 119)")
     p.add_argument("--camera-role", default="top")
+    p.add_argument("--max-drift-mm", type=float, default=300.0,
+                   help="beyond this distance from the sweep start the next exposure heads back (needs --chassis-tag)")
     p.add_argument("--no-camera", action="store_true")
     p = sub.add_parser("analyze"); p.add_argument("run"); p.add_argument("--chassis-tag", default=None)
     p = sub.add_parser("table"); p.add_argument("runs", nargs="+")

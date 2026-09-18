@@ -59,3 +59,34 @@ def test_next_direction_alternates_until_the_robot_has_drifted_then_heads_back()
 def test_inside_box():
     assert gait_sweep.inside_box((0, 0), (-1, 1, -1, 1)) and not gait_sweep.inside_box((2, 0), (-1, 1, -1, 1))
     assert gait_sweep.inside_box(None, (-1, 1, -1, 1)) and gait_sweep.inside_box((5, 5), None)
+
+
+def test_steer_command_turns_toward_target_and_only_advances_when_aligned():
+    cal = {"heading_offset_deg": 0.0, "yaw_sign": 1.0}
+    # facing +x (yaw 0), target straight ahead at +x: go forward, no turn
+    vx, wz = gait_sweep.steer_command((0, 0), 0.0, (1000, 0), cal)
+    assert vx > 0.05 and abs(wz) < 1e-6
+    # target behind (-x): facing 180 deg away -> do not advance, turn hard
+    vx, wz = gait_sweep.steer_command((0, 0), 0.0, (-1000, 0), cal)
+    assert vx == 0.0 and abs(wz) > 0.2
+    # target 90 deg to the left (+y): turn, creep
+    vx, wz = gait_sweep.steer_command((0, 0), 0.0, (0, 1000), cal)
+    assert wz > 0 and vx < 0.02
+
+
+def test_steer_command_respects_a_flipped_yaw_sign():
+    left = gait_sweep.steer_command((0, 0), 0.0, (0, 1000), {"heading_offset_deg": 0.0, "yaw_sign": 1.0})[1]
+    right = gait_sweep.steer_command((0, 0), 0.0, (0, 1000), {"heading_offset_deg": 0.0, "yaw_sign": -1.0})[1]
+    assert left == -right and left > 0
+
+
+def test_steer_command_applies_the_heading_offset():
+    # chassis tag reads yaw 90 while the body actually walks along floor +x: offset -90
+    cal = {"heading_offset_deg": -90.0, "yaw_sign": 1.0}
+    vx, wz = gait_sweep.steer_command((0, 0), 90.0, (1000, 0), cal)
+    assert vx > 0.05 and abs(wz) < 1e-6
+
+
+def test_reached():
+    assert gait_sweep.reached((0, 0), (100, 100), 180)
+    assert not gait_sweep.reached((0, 0), (300, 300), 180)

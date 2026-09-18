@@ -1,0 +1,53 @@
+{
+  "schema": "hexapod.transfer_candidate.v1",
+  "candidate_name": "walkcurr-rlonly-widen8-crutchoff-s0-warmadapt-50hz-acq1-v2-rot60fullcircle",
+  "parent_goal": "rl_only",
+  "supersedes": "none -- this is an ALTERNATE wrapping of bundle_rlonly_v2's own walk-role checkpoint, not a replacement. bundle_rlonly_v2 stays the default candidate for the trained 8-way/forward-biased envelope; this variant is offered specifically to extend the command envelope past that bundle's own named limitation (see below).",
+  "no_physical_robot_motion_performed": true,
+  "candidate_is_composition_not_single_policy": true,
+  "composition_kind": "coordinate-frame wrapper, NOT a scripted motion role or a second policy. rot60.Rot60Policy applies an EXACT, mesh-verified rot-60 dynamics symmetry of this specific hexagonal chassis (6 identical leg templates at (i+0.5)*60deg, axisymmetric inertia): rotate the observation frame to the nearest 60deg sector, relabel legs by the same rotation, run the UNCHANGED walk-role network, then inverse-permute the action back to real legs. It supplies no stance/swing schedule, no timing, no per-tick decision the policy did not already make in its own trained wedge -- the policy still owns 100% of gait timing/coordination; only the coordinate frame it perceives/acts in is relabeled. Same class of legality as the already-adopted per-leg cart_foot reparameterization (CURRENT_TRUTHS.md 2026-09-18 walkyaw entry draws this exact distinction: a per-DOF/per-frame coordinate map is legal, a scheme that must itself supply a live stance/swing assignment is not -- rot60 supplies neither, it only relabels).",
+  "training_lineage_contract": "IDENTICAL checkpoint and weights as bundle_rlonly_v2 (ppo_goal_cw_walk50hz_rlonly_crutchoff_s0_warmadapt_acq1.zip) -- rot60 is applied only at inference time in the wrapper, never in training. No retraining, no new lineage, no demonstration data introduced anywhere. Clean rl_only ancestry unchanged from the parent bundle.",
+  "components": [
+    {
+      "state": "walk_ready -> walk_done (single policy, rot60-wrapped at inference, no stand/lower composition)",
+      "controller": "rl_move/sim/policies/ppo_goal_cw_walk50hz_rlonly_crutchoff_s0_warmadapt_acq1.zip",
+      "checkpoint_sha256": "a91b3c1d8909a9f456ee02f137a5e0e7165b7a94b5402ae337aa3f6e5f183885",
+      "policy_mode": "deterministic",
+      "exported_np_policy": "linux_control/policies/walkscratch_rlonly_widen8_crutchoff_s0_warmadapt_50hz_acq1.json",
+      "exported_np_policy_sha256": "df665e9931d4644949492e7096e1b0b95c785b64742fc7fd5992391ddf843f93",
+      "wrapper": "rl_move/sim/rot60.py::Rot60Policy -- wraps EITHER the SB3 zip or the np-JSON export identically (both confirmed, see parity below); zero additional trained parameters.",
+      "joystick_contract": {
+        "body_frame_vx_vy_m_s": true,
+        "trained_speed_m_s": 0.06,
+        "heading_coverage": "full circle via rot60 relabeling, not just the trained 8-way wedge",
+        "obs_dim": 72,
+        "control_hz": 50
+      }
+    }
+  ],
+  "what_this_extends": "bundle_rlonly_v2/GO_NOGO.md's own registered physical-trial plan names a STANDING limitation: 'AVOID sustained (>10s) off-forward headings -- a chronic front-pair leg sacrifice, 13/13 mechanism classes closed, no successor fix in flight'. rot60 is exactly the successor fix this note said had not been conceived as of 2026-09-10 (built+validated 2026-09-13/14, see evidence below) -- NOT by curing the underlying RL discovery gap (still closed/unfixed on the raw policy, walkyaw's separate turn-in-place saga is a DIFFERENT unresolved gap: rotating the FRAME does not give the policy a turn-in-place (wz) skill it never learned, only lets its existing forward-translation skill run at any heading), but by making every heading look like the SAME already-solved forward wedge to the network.",
+  "evidence": {
+    "physics_exactness": "rl_move/tests/test_rot60.py + test_rot60_mesh.py: map round-trips, k=0 identity, tilt convention, AND raw-MuJoCo dynamics equivariance (rotate+relabel state, permute ctrl targets, step 200x, trajectories match) on the checked-in MESH model -- not just the legacy primitive twin.",
+    "sb3_vs_np_export_parity": "probe_rot60_np_export_parity.py, both runtimes wrapped independently, 400-sample synthetic-obs sweep through every 60deg sector: worst abs action diff 2.36e-07 (matches the project's own ~2e-7 SB3-vs-numpy floor -- the rot60 permutation itself adds no error), k-sequence identical across both. logs/ckpt_eval/rlonly_v2_rot60_np_export_parity/report.json.",
+    "real_interactive_sessions": [
+      "logs/manual_drive/rlonly_v2_websession_rot60_zip_20260914/ -- SB3 zip + --rot60-walk through the ACTUAL browser-facing HTTP joystick API (headless urllib capture, no browser/display), human script (forward/crab-right/diag-left/reverse/stop/restart), PASS: 0 falls, 0 rejected commands, 0 stalled phases, real turning happened (final yaw 27.1deg over 27.7s).",
+      "logs/manual_drive/rlonly_v2_websession_rot60_npjson_20260914/ -- identical session through the np-JSON export (the actual on-robot runtime path, uploaded:true confirms np_policy.load_np_policy ran, not SB3), PASS, same checks."
+    ],
+    "sustained_multiheading_gate": "logs/ckpt_eval/cw_walk50hz_rlonly_crutchoff_s0_warmadapt_acq1_rot60_sectorstop60s/report.json (2026-09-13, read+confirmed 2026-09-13 16:41, RL_LOG.md) -- the SAME 4-mode/4-episode DR-0 gate panel this checkpoint's own bundle_rlonly_v2 manifest cites elsewhere, run through the rot60 wrapper: 16 episodes (walk/det, walk/sto, walk_startjitter/det, walk_startjitter/sto), 60s each, commands drawn across the panel's own randomized heading/speed distribution (not restricted to forward). Result: 0/16 falls or terminations, gait_valid True in 15/16 (the ONE exception: walk_startjitter/sto episode 3, sacrificed_legs=[3] -- a single instance, not the chronic every-off-forward-heading pattern the un-wrapped policy showed at sustained headings). This is the direct evidence against the named limitation: sustained off-forward commands no longer reliably collapse the gait."
+  },
+  "open_caveats_not_hidden": [
+    "STRICT velocity-tracking success bar (vel_err_mean<=0.03 m/s, this eval's own 'success' field) is FALSE in all 16 sectorstop60s episodes -- but this reads as a SPEED-REGIME mismatch, not a rot60 defect: this panel's default command distribution samples well above the 0.06 m/s speed this checkpoint was demonstrated at (speed_mean_m_s 0.11-0.15 across the panel vs the 0.06 m/s trained/demoed point), so vel_err scales with the commanded speed the panel happens to draw, not specifically with heading or the rot60 wrap. The interactive websessions (run at the SAME 0.06 m/s fixed speed as bundle_rlonly_v2's own human/human_turn demo_metrics) did not evaluate a strict vel_err bar at all, only fall/stall/rejection checks -- so there is NOT yet a matched, fixed-0.06-m/s, rot60-vs-no-rot60 tracking-accuracy comparison. Whoever revisits this: re-run the sectorstop60s panel's own cfg-set with goal.walk_speed_min_m_s=goal.walk_speed_max_m_s=0.06 (the demo's own fixed point) before claiming a tracking verdict either way.",
+    "direction_err_mean across the sectorstop60s panel (27-50deg) is coarser than the un-wrapped forward-only demo's own course_err_1s_med (6-12deg) -- expected given the panel samples the FULL heading range rather than forward-biased commands, but not independently isolated from the speed-regime caveat above.",
+    "This wrapper does NOT give the policy a turn-in-place (wz) skill -- walkyaw's turn-in-place freeze is a separate, still-open gap (CURRENT_TRUTHS.md 2026-09-18) unaffected by rot60, which only relabels an existing forward-translation skill onto a rotated frame.",
+    "rot60 requires the WALK obs frame (width 72) exactly as this checkpoint uses; it explicitly does not support phase-clock/yaw-command tails (asserted in rot60.py) -- do not compose it with a checkpoint that carries those.",
+    "Not wired into any single-command hybrid_demo.py stand->walk->lower session yet (only the standalone web_server/eval_checkpoint/drive_video paths above) -- a genuinely open, small, agent-doable follow-up if a full rot60-composed lifecycle demo is ever wanted."
+  ],
+  "transfer_blockers_or_work": [
+    "Every transfer_blocker already named in bundle_rlonly_v2/transfer_manifest.json applies unchanged (physical safety derate, 50Hz-only, the other bundle_rlonly_v1 skills remaining broken, read-only preflight first, stop-on-fault) -- this manifest only adds the rot60 wrapper on top of the SAME checkpoint, it does not relax any of those.",
+    "Robot Lab: the wrapper itself has never run on physical hardware; treat exactly like any other unflown sim capability -- confirm on a bounded trial before trusting it to widen the command envelope in a live session.",
+    "Cloud side (open, agent-doable, no GPU needed): the fixed-0.06-m/s matched tracking comparison named in open_caveats above."
+  ],
+  "interactive_launch": "cd hexapod_walker/prototype_sts3215 && sim_viewer/sim_web.sh --walk rl_move/sim/policies/ppo_goal_cw_walk50hz_rlonly_crutchoff_s0_warmadapt_acq1.zip --rot60-walk",
+  "reproducible_headless_session_capture": "uv run --with imageio --with pillow --with opencv-python-headless python -m rl_move.sim.web_session_drivecapture rl_move/sim/policies/ppo_goal_cw_walk50hz_rlonly_crutchoff_s0_warmadapt_acq1.zip --rot60-walk",
+  "reproducible_video_capture": "ops.sh drivevideo cw-walk50hz-rlonly-crutchoff-s0-warmadapt-acq1 --script human --rot60   (and --script human_turn --rot60)"
+}

@@ -1,0 +1,101 @@
+# walkcurr-rlonly-widen8-crutchoff-s0-warmadapt-50hz-acq1-v2 + rot60 — GO/NO-GO (2026-09-18 packaging cycle)
+
+## Verdict: GO for sim-demo readiness as an ENVELOPE-EXTENSION option (same checkpoint, inference-time frame wrapper). NOT a physical-acceptance verdict, and NOT a claim that this beats `bundle_rlonly_v2`'s own tight forward-tracking numbers.
+
+One plain sentence: `bundle_rlonly_v2`'s own registered physical-trial plan
+tells Robot Lab to AVOID sustained off-forward headings because the raw
+policy chronically sacrifices a front leg there (13/13 mechanism classes
+closed, no fix in flight as of 2026-09-10); this packages already-built,
+already-validated evidence (2026-09-13/14, scattered across `walkcurr/
+STATUS.md` prose and orphaned eval artifacts, never before collected into
+a transfer-manifest decision artifact) that wrapping the SAME checkpoint in
+the mesh-verified `rot60.Rot60Policy` exact-symmetry canonicalizer removes
+that specific catastrophic failure mode across a 16-episode sustained
+(60s/episode) full-heading gate panel — 0 falls, gait_valid 15/16 (vs. the
+raw policy's own chronic every-off-forward-heading collapse).
+
+## Why this cycle did this (gap it closes)
+
+Nothing else was runnable this cycle (empty backlog, 15/15 GPU free, every
+one of the 7 tracks independently re-confirmed closed pending Robot
+Lab/operator per the board digest and this cycle's own fresh reads,
+walkyaw itself fully parked as of the ~03:1x entry earlier today). Rather
+than declare idle, surveyed `walkcurr/STATUS.md` for a named,
+evidence-backed, zero-GPU gap and found one: the 09-17 ~18:2x entry already
+states in passing that "`bundle_rlonly_v2` + rot60 already gives the
+`rl_only` walk role near-parity full-circle TRANSLATION," and the 09-14
+~12:0x entry closed rot60's own last confirmation item with the explicit
+note "the one piece ... left open before a rot60-composed demo can go in a
+physical transfer manifest" — but no such manifest was ever actually
+written. This packages it, exactly the pattern `todaypolicy`'s
+`composed_turn_role/` sub-bundle already established for a different
+composed capability on a different track.
+
+## What shipped this cycle
+
+No code change (every mechanism — `rot60.py`, its `--rot60`/`--rot60-walk`
+CLI flags in `eval_checkpoint.py`/`drive_video.py`/`web_server.py`, the
+np-export parity probe — was already built, tested and snapshotted on
+2026-09-13/14). Pure packaging + one fresh honest read of a previously
+unread-in-full eval artifact:
+
+1. Re-read `logs/ckpt_eval/cw_walk50hz_rlonly_crutchoff_s0_warmadapt_acq1_rot60_sectorstop60s/report.json`
+   (confirmed already logged 2026-09-13 ~16:41 in `RL_LOG.md` as "CONFIRMS
+   Canary A survives sector-boundary transients + stop/restart, 0 falls,
+   gait_valid 15/16" — this cycle re-derived the per-episode numbers from
+   the raw JSON rather than trusting the one-line summary, since no prior
+   STATUS.md entry had actually broken out the per-mode breakdown or the
+   `success`/`vel_err_mean` fields).
+2. Found the one substantive thing the prior one-line log entry did NOT
+   surface: `success` (this eval's own strict `vel_err_mean<=0.03` bar) is
+   FALSE in all 16 episodes, and traced WHY — the panel's default speed
+   draw (`speed_mean_m_s` 0.11-0.15) sits well above the 0.06 m/s point the
+   checkpoint was actually demoed/wrapped-tested at elsewhere, so this is a
+   speed-regime mismatch in the eval's own command distribution, not
+   evidence the rot60 wrap breaks tracking. Recorded as an open caveat
+   (`transfer_manifest.json.open_caveats_not_hidden`) rather than
+   suppressed or over-claimed either way.
+3. Wrote `transfer_manifest.json` (this directory) collecting: the
+   physics-exactness tests, the SB3-vs-np-export parity probe (2.36e-07),
+   both real interactive HTTP-joystick-session confirmations (zip + np
+   export runtime paths), and the sustained-multiheading gate — all
+   dated evidence that already existed, now in one decision-ready place.
+4. Appended (not overwrote) a pointer to this sub-bundle in the parent
+   `bundle_rlonly_v2/GO_NOGO.md`'s "Next" section.
+
+## TODAY bars (same rubric bundle_rlonly_v2 uses)
+
+- Clean `rl_only` training lineage: PASS (unchanged — rot60 is an
+  inference-time wrapper, zero new trained parameters, zero demonstration
+  data; same checkpoint as the parent bundle).
+- Physics-exactness of the frame map on the actual deployable model:
+  PASS (`test_rot60_mesh.py`, mesh model, not just the legacy primitive).
+- SB3-vs-np-export runtime parity under the wrapper: PASS (2.36e-07,
+  matches the project's own ~2e-7 floor).
+- Reproducible interactive session, both runtime paths, 0 falls: PASS
+  (both `rlonly_v2_websession_rot60_{zip,npjson}_20260914` sessions).
+- Removes the named chronic off-forward leg-sacrifice failure mode under
+  SUSTAINED (60s), full-heading commands: PASS-WITH-ONE-EXCEPTION (15/16
+  `gait_valid`, 0/16 falls — not claiming 16/16, the one exception is
+  named plainly above).
+- Tight velocity/heading tracking under rot60 at the SAME fixed 0.06 m/s
+  point bundle_rlonly_v2's own demo uses: NOT YET MEASURED (see open
+  caveat — the only existing sustained panel used a different, higher
+  speed distribution). This is the one open item before anyone should
+  claim rot60 matches the parent bundle's own tracking numbers, not just
+  its fall-avoidance numbers.
+- Physical acceptance: NOT CLAIMED — no robot access from this process.
+
+## Next
+
+Cloud side (open, agent-doable, no GPU needed, small — a good pickup for
+whoever has idle capacity next): re-run the sectorstop60s-style panel with
+`goal.walk_speed_min_m_s=goal.walk_speed_max_m_s=0.06` (the fixed point
+`bundle_rlonly_v2`'s own `demo_metrics` already uses) through the rot60
+wrapper, so the tracking-accuracy claim can be made at a matched speed
+instead of flagged open. Robot Lab: this stays an OPTION layered on top of
+`bundle_rlonly_v2`'s already-registered physical-trial plan, not a
+replacement — the parent bundle's forward-biased envelope remains the
+conservative default; this sub-bundle exists for whenever a wider
+command range is wanted and the fixed-speed tracking gap above has been
+closed or explicitly accepted.

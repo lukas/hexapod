@@ -117,3 +117,15 @@ off-axis-heading structural fix if one is ever conceived (none named as of
 same checkpoint, same weights) with the separately-trained rise+hold stance
 role (`bundle_rlonly_stance_v1`) via a direct, no-scripted-blend handoff —
 CLEAN, 0/12 falls. See `rl_docs/tracks/walkcurr/bundle_rlonly_lifecycle_v1/`.
+
+**UPDATE 2026-09-18:** this walk role's own SUSTAINED off-forward-heading
+limitation named above ("AVOID sustained (>10s) off-forward headings")
+now has a packaged, evidence-backed extension OPTION — wrapping the SAME
+checkpoint (no retrain) in the mesh-verified `rot60.Rot60Policy`
+exact-symmetry canonicalizer removes the chronic front-leg-sacrifice
+failure across a 16-episode sustained (60s) full-heading gate (0 falls,
+gait_valid 15/16), with one open item (tracking accuracy not yet measured
+at this bundle's own fixed 0.06 m/s point) named plainly. See
+`rl_docs/tracks/walkcurr/bundle_rlonly_v2/rot60_fullcircle/{transfer_manifest.json,GO_NOGO.md}`.
+This is an OPTION layered on top, not a replacement — the plan above
+stays the conservative default.

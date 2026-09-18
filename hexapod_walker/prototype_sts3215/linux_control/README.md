@@ -308,6 +308,28 @@ hex_commit_push "Add safer robot telemetry" \
   linux_control/web_drive.py linux_control/webui/app.js
 ```
 
+## Replacing a servo
+
+A new STS3215 answers on bus ID 1 and keeps its factory zero, so after a swap
+the robot shows 17 named servos plus `ID1` in `/api/status` and every stand
+refuses with `no encoder reading from <joint>`. With the robot limp and the
+legs lying straight out (the STEP keyframe-0 pose, every joint ~0):
+
+```bash
+# from prototype_sts3215/; HEXAPOD_HOST=http://hexapod2.local:8080 for the other robot
+uv run python linux_control/motor_swap.py status              # empty slot? ID 1 present? flat-pose outliers
+uv run python linux_control/motor_swap.py assign              # ID 1 -> the empty slot (POST /api/setup/scan + assign)
+uv run python linux_control/motor_swap.py zero --ids 4        # middle-calibrate where it sits (POST /api/set_zero)
+uv run python linux_control/motor_swap.py check --joint 2 \
+    --stream http://<camera-host>:8766/raw-stream/1.mjpg     # gentle wiggle, then +-15 deg with the camera watching
+```
+
+`assign` and `zero` are the only EEPROM writes and both refuse while armed.
+The registry the robot saves to is `~/.local/share/hexapod/motor_setup_registry.json`
+on the board. Then stand normally (`POST /api/rl/stand`) and compare the new
+joint's `load_pct`/`current_a` in `/api/status` with its five siblings before
+walking. Done this way on hexapod.local 2026-09-18 (L0 knee, 163 deg -> 0).
+
 ## Calibration checkup / geometry sweep
 
 The Web UI **Checkup** route runs, in order: safe zero, IMU rest/bias,

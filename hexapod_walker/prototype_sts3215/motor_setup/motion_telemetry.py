@@ -42,9 +42,9 @@ ADDR_MOVING = 66
 LOG_DIR = Path(__file__).resolve().parent / "logs"
 AXIS = ("yaw", "hip", "knee")
 
-REGISTRY_CANDIDATES = (
-    Path(__file__).resolve().parent / "motor_setup_registry.json",
-)
+from registry import REGISTRY_PATH  # noqa: E402  (robot-local; the bundle ships no registry)
+
+REGISTRY_CANDIDATES = (REGISTRY_PATH,)
 
 
 def joint_name(joint: int, registry: dict[int, str] | None = None) -> str:

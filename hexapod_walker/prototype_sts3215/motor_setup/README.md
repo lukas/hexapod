@@ -12,7 +12,10 @@ or the Arduino Uno Q lives here. Formerly split across `pi_control` /
 | `inplace_demos.py` | Demos (wave / rise) + motion telemetry |
 | `motion_telemetry.py` | CSV logger / shake diagnosis |
 | `wire_harness_plan.py` | Cable length model |
-| `motor_setup_registry.json` | Named servo IDs |
+
+Named servo IDs live on the robot in `~/.local/share/hexapod/motor_setup_registry.json`
+(`registry.py`); nothing in this directory or the deploy bundle is a registry.
+Replacing one servo through the running robot API: `linux_control/motor_swap.py`.
 
 ```bash
 cd hexapod_walker/prototype_sts3215/motor_setup

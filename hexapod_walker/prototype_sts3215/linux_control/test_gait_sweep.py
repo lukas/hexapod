@@ -46,3 +46,11 @@ def test_verdict_grades_full_exposures():
     assert gait_sweep.verdict(slow, 6.0)[0] == "poor"
     veering = [dict(r, cam={"mm_s": 38, "heading_chg_deg": 24}) for r in good]
     assert gait_sweep.verdict(veering, 6.0)[0] == "ok"
+
+
+def test_next_direction_alternates_until_the_robot_has_drifted_then_heads_back():
+    nd = gait_sweep.next_direction
+    assert nd(1.0, (0, 0), (100, 0), True, 300) == -1.0          # inside the box: alternate
+    assert nd(1.0, (0, 0), (400, 0), True, 300) == -1.0          # drifted, last pass took it away: reverse
+    assert nd(-1.0, (0, 0), (400, 0), False, 300) == -1.0        # drifted, last pass brought it closer: keep going
+    assert nd(1.0, None, None, None, 300) == -1.0                # no camera: plain alternation

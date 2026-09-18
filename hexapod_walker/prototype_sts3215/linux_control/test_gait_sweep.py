@@ -54,3 +54,8 @@ def test_next_direction_alternates_until_the_robot_has_drifted_then_heads_back()
     assert nd(1.0, (0, 0), (400, 0), True, 300) == -1.0          # drifted, last pass took it away: reverse
     assert nd(-1.0, (0, 0), (400, 0), False, 300) == -1.0        # drifted, last pass brought it closer: keep going
     assert nd(1.0, None, None, None, 300) == -1.0                # no camera: plain alternation
+
+
+def test_inside_box():
+    assert gait_sweep.inside_box((0, 0), (-1, 1, -1, 1)) and not gait_sweep.inside_box((2, 0), (-1, 1, -1, 1))
+    assert gait_sweep.inside_box(None, (-1, 1, -1, 1)) and gait_sweep.inside_box((5, 5), None)

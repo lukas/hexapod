@@ -145,6 +145,13 @@ def next_direction(last_sign: float, start_xy, now_xy, moved_away: bool | None, 
     return -last_sign if moved_away else last_sign
 
 
+def inside_box(xy, box) -> bool:
+    """xy = (x, y) floor mm; box = (xmin, xmax, ymin, ymax) or None (no limit)."""
+    if xy is None or box is None:
+        return True
+    return box[0] <= xy[0] <= box[1] and box[2] <= xy[1] <= box[3]
+
+
 def floor_ids_str(floor: set[int]) -> set[str]:
     return {str(i) for i in floor}
 
@@ -359,7 +366,7 @@ class Sweep:
         if self.start_xy is None and here is not None:
             self.start_xy = here
         if self.last_sign is None:
-            sign = 1.0
+            sign = -1.0 if a.first_direction == "reverse" else 1.0
         else:
             sign = next_direction(self.last_sign, self.start_xy, here, self.moved_away, a.max_drift_mm)
         if here is not None and self.start_xy is not None:
@@ -382,6 +389,12 @@ class Sweep:
                 if hb.get("active") is False:
                     trial["ended_early"] = hb.get("error") or hb.get("end_reason") or "no drive session"
                     break
+                if a.keep_in is not None:
+                    xy = self.chassis_xy()
+                    if xy is not None and not inside_box(xy, a.keep_in):
+                        trial["ended_early"] = f"keep-in box left at {xy[0]:.0f},{xy[1]:.0f} mm"
+                        self.log(f"  {trial['ended_early']}; stopping this pass")
+                        break
                 time.sleep(1.0 / HB_HZ)
             R.post("/api/rl/drive/stop", {}, timeout=20)
             trial["t1_unix"] = time.time()
@@ -567,6 +580,10 @@ def main(argv=None) -> int:
     p.add_argument("--vx", type=float, default=0.10)
     p.add_argument("--chassis-tag", default=None, help="AprilTag id on this robot's chassis lid (hexapod2: 119)")
     p.add_argument("--camera-role", default="top")
+    p.add_argument("--keep-in", default=None,
+                   help="floor-mm box xmin,xmax,ymin,ymax the chassis tag must stay in; a pass stops when it leaves")
+    p.add_argument("--first-direction", choices=("forward", "reverse"), default="forward",
+                   help="which way the first pass goes (pick the one with the most floor ahead)")
     p.add_argument("--max-drift-mm", type=float, default=300.0,
                    help="beyond this distance from the sweep start the next exposure heads back (needs --chassis-tag)")
     p.add_argument("--no-camera", action="store_true")
@@ -580,6 +597,10 @@ def main(argv=None) -> int:
             walk, _, hold = files.partition(":")
             arms.append((name, walk, hold or "ps200_parent.json"))
         args.arms = arms or DEFAULT_ARMS
+        if args.keep_in:
+            args.keep_in = tuple(float(v) for v in args.keep_in.split(","))
+            if len(args.keep_in) != 4 or not args.chassis_tag:
+                sys.exit("--keep-in needs xmin,xmax,ymin,ymax and --chassis-tag")
         return Sweep(args).run()
     if args.cmd == "analyze":
         analyze(Path(args.run), args.chassis_tag)

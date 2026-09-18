@@ -79,23 +79,31 @@ unread-in-full eval artifact:
   `gait_valid`, 0/16 falls — not claiming 16/16, the one exception is
   named plainly above).
 - Tight velocity/heading tracking under rot60 at the SAME fixed 0.06 m/s
-  point bundle_rlonly_v2's own demo uses: NOT YET MEASURED (see open
-  caveat — the only existing sustained panel used a different, higher
-  speed distribution). This is the one open item before anyone should
-  claim rot60 matches the parent bundle's own tracking numbers, not just
-  its fall-avoidance numbers.
+  point bundle_rlonly_v2's own demo uses: **RESOLVED 2026-09-18** (matched-
+  contract rerun, `transfer_manifest.json`'s
+  `matched_trained_contract_speed_check_2026_09_18`): 16/16 gait_valid,
+  0/16 falls, in-band slip — BETTER than the original panel's 15/16. The
+  strict `vel_err_mean<=0.03` "success" bar still reads FALSE, but that
+  is now explained mechanistically (this checkpoint's own trained reward
+  carries `k_track=0.0` — no active speed-tracking term, so it cruises at
+  its natural ~0.13 m/s regardless of the nominal command, rot60 or not),
+  not a rot60 defect or an untested speed regime. A matched with/without-
+  rot60 control at the correct trained contract produced IDENTICAL
+  numbers either way — rot60 is fully exonerated.
 - Physical acceptance: NOT CLAIMED — no robot access from this process.
 
 ## Next
 
-Cloud side (open, agent-doable, no GPU needed, small — a good pickup for
-whoever has idle capacity next): re-run the sectorstop60s-style panel with
-`goal.walk_speed_min_m_s=goal.walk_speed_max_m_s=0.06` (the fixed point
-`bundle_rlonly_v2`'s own `demo_metrics` already uses) through the rot60
-wrapper, so the tracking-accuracy claim can be made at a matched speed
-instead of flagged open. Robot Lab: this stays an OPTION layered on top of
-`bundle_rlonly_v2`'s already-registered physical-trial plan, not a
+No open cloud-side item remains on this sub-bundle's own tracking
+question (closed above). Robot Lab: this stays an OPTION layered on top
+of `bundle_rlonly_v2`'s already-registered physical-trial plan, not a
 replacement — the parent bundle's forward-biased envelope remains the
 conservative default; this sub-bundle exists for whenever a wider
-command range is wanted and the fixed-speed tracking gap above has been
-closed or explicitly accepted.
+command range is wanted. Caution for any future eval of this or a
+sibling checkpoint: build the `--cfg-set` list from that checkpoint's
+own recipe module (e.g. `cfg_recipe_walk50hz_rlonly_v2.CFG_ARGS`), never
+a hand-picked subset — an incomplete cfg-set silently falls back to the
+wrong motor contract (control.hz=100/legacy bus defaults instead of the
+trained 50Hz/4096-cps contract) and produces a spurious catastrophic
+fall pattern that looks like a real regression until checked against a
+matched-contract control (see the transfer_manifest.json caution note).

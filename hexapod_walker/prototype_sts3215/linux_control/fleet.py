@@ -122,6 +122,22 @@ def cmd_status(args) -> int:
             mv = _min_volt(robot)
             if mv is not None:
                 print(f"                   bus {mv:.1f} V" + ("  <-- below 10.8 V brownout band" if mv < 10.8 else ""))
+            # IMU liveness: age 65534 ms is the "no sample" sentinel (I2C hung);
+            # > ~1 s means the RL walk cannot arm. Fix = power-cycle the board
+            # (resets the MCU; a web restart or `kill` does NOT revive the IMU).
+            try:
+                tm = r.get("/api/rl/timing", timeout=8.0)
+                age = tm.get("max_imu_source_age_ms") if isinstance(tm, dict) else None
+                if age is not None:
+                    if age >= 60000:
+                        print(f"                   IMU DEAD (age {age:.0f} ms sentinel) <-- power-cycle the board to reset the MCU; RL walk cannot arm")
+                        any_action_needed = True
+                    elif age > 1000:
+                        print(f"                   IMU stale {age:.0f} ms <-- walk may refuse to arm")
+                    else:
+                        print(f"                   IMU ok ({age:.0f} ms)")
+            except (urllib.error.URLError, OSError, TimeoutError):
+                pass
             try:
                 cj = r.get("/api/commands", timeout=6.0)
                 entries = (cj.get("entries") or cj.get("commands") or []) if isinstance(cj, dict) else []

@@ -1,187 +1,211 @@
-"""Validate the calibrated sim against the hardware battery CSV.
+"""Real-vs-MuJoCo side-by-side comparison for a recorded hexapod walk.
 
-Loads a ``motor_dyn_*.csv`` from the hardware run, re-runs every step
-phase in the fixed-base sim with the fitted ``sim_model.json`` params,
-and reports per-joint metric deltas (rise / settle / overshoot / delay)
-plus an optional trace-overlay PNG per axis.
+WHAT IT DOES
+    Takes a hardware run folder (a gait_sweep / data-collection run with a drive
+    trace CSV + the top-camera top.mp4 + top_timestamps.csv), initializes MuJoCo
+    to the real pose & tilt at the start of the walk phase, feeds the EXACT
+    recorded joint commands open-loop (no policy) through the fitted servo model,
+    and produces:
+      - <gait>_sxs.mp4 : real (left) | MuJoCo (right), time-synced, labelled
+      - a divergence summary (roll/pitch peaks, joint RMSE, sim base travel)
+    Optionally writes an HTML page embedding the video(s).
 
-This is the gate before trusting PPO-in-sim: if the sim's step responses
-do not match the hardware's within tolerance, fix the fit first.
+    This is the tool for "how does the real robot differ from MuJoCo running the
+    same commands" — the qualitative view the aggregate numbers undersell (the
+    real robot rocks fore-aft ~3.6 deg vs the sim's ~1 deg; roll 3-6 vs ~1).
 
-Run (from prototype_sts3215/):
-    uv run python -m rl_move.sim.replay_compare \
-        --csv linux_control/logs/motor_dyn_YYYYMMDD_HHMMSS.csv [--plot]
+WHY MOTION-ONSET ALIGNMENT (the gotcha that wastes an hour if you miss it)
+    The drive-trace time base and the camera time base are NOT the same clock,
+    and even if they were, the robot does not start stepping the instant
+    /api/rl/drive/start returns: there is a per-trial stand-settle + walk-engage
+    latency (seen 1.4 s on one gait, 4.5 s on another) before it physically
+    moves. So aligning the real video to the recorded drive-start timestamp puts
+    the real half in the pre-walk dead zone and it looks frozen. Instead we
+    detect the real MOTION ONSET in the video (first sustained inter-frame
+    change) and anchor the real playback there. Frames are read SEQUENTIALLY,
+    not by random seek (cv2 seek snaps to keyframes and returns stale frames).
+
+USAGE
+    uv run python -m rl_move.sim.replay_compare --run <run_dir> [--gait walkteach]
+        [--all] [--page] [--out-dir DIR]
+    Reads the trace CSV and drive-start t0 for each gait from <run_dir>/results.json.
+
+RELATED
+    rl_move/sim/replay_trace.py  — the per-tick divergence numbers + roll/pitch
+    plots this builds on (same _ReplaySim physics).
+    sysid/                        — the measured hardware-to-MuJoCo calibration.
 """
 from __future__ import annotations
 
 import argparse
 import csv
-import re
-import statistics
-from collections import defaultdict
+import json
+import math
+import sys
 from pathlib import Path
 
-_RL = Path(__file__).resolve().parents[1]
-_PROTO = _RL.parent
-_LINUX = _PROTO / "linux_control"
+import numpy as np
 
-from .fit_motor_model import _StepSim
-from .servo_model import AXES, SimServoParams
-
-METRICS = ("delay_ms", "rise_ms", "settle_ms", "overshoot_deg")
-# |sim − hw| tolerance to call a metric matched. A metric also passes on
-# near-zero BIAS (≤ tol/3) even if per-joint scatter pushes mean|Δ| over:
-# the sim carries one value per axis while real joints spread (2026-08-07
-# battery: delay 147–226 ms across hips) — that spread is what the DR
-# latency/kp/kv scales absorb during training, not a calibration error.
-TOL = {"delay_ms": 30.0, "rise_ms": 40.0, "settle_ms": 80.0,
-       "overshoot_deg": 1.0}
-_STEP_RE = re.compile(r"^step([+-])(\d+(?:\.\d+)?)r\d+$")
+DEG2RAD = math.pi / 180.0
+FPS = 30
+H, W = 360, 480
 
 
-def load_step_phases(csv_path: Path) -> dict:
-    """Group rows: {(joint, phase): [rows...]} for step phases only."""
-    groups: dict[tuple[int, str], list[dict]] = defaultdict(list)
-    with csv_path.open() as fh:
-        for row in csv.DictReader(fh):
-            phase = row.get("phase", "")
-            if not _STEP_RE.match(phase) or not row.get("present_deg"):
-                continue
-            groups[(int(row["joint"]), phase)].append({
-                "t_s": float(row["t_s"]),
-                "present_deg": float(row["present_deg"]),
-                "cmd_deg": float(row["cmd_deg"]),
-                "speed_deg_s": float(row["speed_deg_s"] or 0),
-            })
-    return groups
+def find_motion_onset(motion: list[tuple[float, float]], thresh: float = 0.25) -> float:
+    """First relative time whose inter-frame motion exceeds ``thresh`` (pure/testable).
+
+    ``motion`` = [(rel_t, mean_absdiff), ...] in order. Returns the onset rel_t,
+    or the first sample's time if nothing crosses the threshold.
+    """
+    for rt, m in motion:
+        if m > thresh:
+            return rt
+    return motion[0][0] if motion else 0.0
 
 
-def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--csv", type=Path, required=True,
-                    help="hardware motor_dyn_*.csv")
-    ap.add_argument("--sim-model", type=Path, default=None,
-                    help="sim_model.json (default: fitted one)")
-    ap.add_argument("--speed-counts", type=float, default=None,
-                    help="profile speed in counts/s (default: from "
-                         "sim_model.json)")
-    ap.add_argument("--acc-units", type=float, default=15.0,
-                    help="profile acc in Feetech register units "
-                         "(battery uses ACC=15)")
-    ap.add_argument("--plot", action="store_true",
-                    help="write per-axis overlay PNGs next to the CSV")
-    args = ap.parse_args(argv)
+def _quat_from_rp(roll: float, pitch: float) -> np.ndarray:
+    cr, sr = math.cos(roll / 2), math.sin(roll / 2)
+    cp, sp = math.cos(pitch / 2), math.sin(pitch / 2)
+    return np.array([cr * cp, sr * cp, cr * sp, -sr * sp])
 
-    from motor_dynamics import _fit_step
 
-    params = (SimServoParams.load(args.sim_model) if args.sim_model
-              else SimServoParams.load())
-    if params.source == "defaults":
-        print("[replay] WARNING: sim_model.json is defaults — run "
-              "fit_motor_model on real data first for a meaningful check")
-    speed_deg_s = ((args.speed_counts or params.speed_counts_s)
-                   * 360.0 / 4096.0)
+def _label(img, txt, color):
+    import cv2
+    cv2.putText(img, txt, (10, 26), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 4, cv2.LINE_AA)
+    cv2.putText(img, txt, (10, 26), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2, cv2.LINE_AA)
+    return img
 
-    groups = load_step_phases(args.csv)
-    if not groups:
-        raise SystemExit(f"no step phases found in {args.csv}")
 
-    sim = _StepSim()
-    rows_out = []
-    deltas: dict[str, list[float]] = defaultdict(list)
-    plots: dict[str, tuple] = {}
-
-    for (joint, phase), rows in sorted(groups.items()):
-        m = _STEP_RE.match(phase)
-        assert m is not None
-        amp = float(m.group(2)) * (1 if m.group(1) == "+" else -1)
-        # Hardware rows are absolute time; re-zero on the phase start.
-        t0 = rows[0]["t_s"]
-        hw_rows = [{**r, "t_s": r["t_s"] - t0} for r in rows]
-        hw_fit = _fit_step(hw_rows, amp=amp, t_cmd=0.0)
-        sim_rows = sim.run_step(params, joint, amp, speed_deg_s=speed_deg_s,
-                                acc_units=args.acc_units)
-        sim_fit = _fit_step(sim_rows, amp=amp, t_cmd=0.0)
-
-        rec = {"joint": joint, "phase": phase}
-        for k in METRICS:
-            h, s = hw_fit.get(k), sim_fit.get(k)
-            rec[f"hw_{k}"], rec[f"sim_{k}"] = h, s
-            if h is not None and s is not None:
-                deltas[k].append(s - h)
-        rows_out.append(rec)
-
-        axis = AXES[joint % 3]
-        if args.plot and axis not in plots:
-            plots[axis] = (joint, phase, hw_rows, sim_rows)
-
-    # Report
-    print(f"[replay] {len(rows_out)} step phases from {args.csv.name} "
-          f"(sim params: {params.source})")
-    hdr = f"{'joint':>5} {'phase':>12}"
-    for k in METRICS:
-        hdr += f" {'hw_' + k:>12} {'sim_' + k:>12}"
-    print(hdr)
-    for rec in rows_out:
-        line = f"{rec['joint']:>5} {rec['phase']:>12}"
-        for k in METRICS:
-            h, s = rec[f"hw_{k}"], rec[f"sim_{k}"]
-            line += (f" {h if h is not None else '—':>12}"
-                     f" {s if s is not None else '—':>12}")
-        print(line)
-
-    print("\nper-metric |sim − hw|:")
-    all_ok = True
-    for k in METRICS:
-        if not deltas[k]:
-            print(f"  {k:>14}: no data")
+def _load_real_window(run: Path, t0: float, t_lo: float, t_hi: float):
+    """Sequentially decode real top-camera frames in [t0+t_lo, t0+t_hi]; return
+    ([(rel_t, bgr_frame)], motion_onset_rel_t)."""
+    import cv2
+    ts = {int(r["frame"]): float(r["captured_unix"])
+          for r in csv.DictReader((run / "camera" / "top_timestamps.csv").open())}
+    cap = cv2.VideoCapture(str(run / "camera" / "top.mp4"))
+    fno, prev, frames, motion = -1, None, [], []
+    while True:
+        ok, im = cap.read()
+        if not ok:
+            break
+        fno += 1
+        tt = ts.get(fno)
+        if tt is None or tt < t0 + t_lo:
             continue
-        mean_abs = statistics.mean(abs(d) for d in deltas[k])
-        bias = statistics.mean(deltas[k])
-        ok = mean_abs <= TOL[k] or abs(bias) <= TOL[k] / 3.0
-        all_ok = all_ok and ok
-        note = ("OK" if mean_abs <= TOL[k]
-                else "OK (unbiased; scatter → DR)" if ok else "MISMATCH")
-        print(f"  {k:>14}: mean|Δ|={mean_abs:8.2f}  bias={bias:+8.2f}  "
-              f"tol={TOL[k]:g}  {note}")
-    print(f"\n[replay] {'PASS' if all_ok else 'FAIL'} — "
-          + ("sim matches hardware within tolerance"
-             if all_ok else "re-fit or widen DR before trusting sim training"))
+        if tt > t0 + t_hi:
+            break
+        small = cv2.resize(im, (W, H))
+        frames.append((tt - t0, small))
+        g = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
+        if prev is not None:
+            motion.append((tt - t0, float(np.mean(cv2.absdiff(g, prev)))))
+        prev = g
+    cap.release()
+    return frames, find_motion_onset(motion)
 
-    if args.plot and plots:
-        try:
-            import matplotlib
-            matplotlib.use("Agg")
-            import matplotlib.pyplot as plt
-        except ImportError:
-            print("[replay] matplotlib not installed — skipping plots")
-            return 0 if all_ok else 1
-        fig, axs = plt.subplots(1, len(plots), figsize=(5 * len(plots), 4))
-        if len(plots) == 1:
-            axs = [axs]
-        for axplt, (axis, (joint, phase, hw_rows, sim_rows)) in zip(
-                axs, sorted(plots.items())):
-            # Normalize both traces to start at 0° (different rest poses).
-            h0 = hw_rows[0]["present_deg"]
-            s0 = sim_rows[0]["present_deg"]
-            axplt.plot([r["t_s"] for r in hw_rows],
-                       [r["present_deg"] - h0 for r in hw_rows],
-                       "o-", ms=3, label="hardware")
-            axplt.plot([r["t_s"] for r in sim_rows],
-                       [r["present_deg"] - s0 for r in sim_rows],
-                       "-", label="sim (fitted)")
-            axplt.set_title(f"{axis} — joint {joint} {phase}")
-            axplt.set_xlabel("t (s)")
-            axplt.set_ylabel("present (deg)")
-            axplt.legend()
-            axplt.grid(alpha=0.3)
-        out = args.csv.with_suffix(".replay.png")
-        fig.tight_layout()
-        fig.savefig(out, dpi=110)
-        print(f"[replay] wrote {out}")
 
-    return 0 if all_ok else 1
+def _gait_specs(run: Path, gait: str | None, do_all: bool) -> dict:
+    res = json.loads((run / "results.json").read_text())
+    specs = {}
+    for tr in res["trials"]:
+        arm = tr["arm"].split("_r")[0]
+        if tr.get("csv") and tr.get("t0_unix") and (tr.get("result") or {}).get("ticks"):
+            # keep the longest exposure per gait
+            if arm not in specs or (tr["result"]["ticks"] > specs[arm][2]):
+                specs[arm] = (tr["csv"], tr["t0_unix"], tr["result"]["ticks"])
+    if not do_all and gait:
+        specs = {gait: specs[gait]} if gait in specs else {}
+    return specs
+
+
+def build(run: Path, gait: str | None, do_all: bool, out_dir: Path, page: bool) -> None:
+    import cv2
+    import mujoco
+    from rl_move.sim.replay_trace import _ReplaySim, load_trace, LOADED_MODEL_PATH
+    from rl_move.sim.servo_model import SimServoParams
+    from hexapod_core.joint_frame import robot_abs_rad_to_mujoco_rel_rad
+    out_dir.mkdir(parents=True, exist_ok=True)
+    params = SimServoParams.load(LOADED_MODEL_PATH)
+    specs = _gait_specs(run, gait, do_all)
+    if not specs:
+        sys.exit(f"no usable gait traces in {run}/results.json (need csv + t0_unix + ticks)")
+    summary = {}
+    for g, (cf, t0, _n) in specs.items():
+        tr = load_trace(run / "telemetry" / cf, phase="walk")
+        sim = _ReplaySim(params)
+        out = sim.replay(tr)
+        t = np.array(tr["t"]) - tr["t"][0]
+        base, q = np.array(out["base_xyz"]), np.array(out["q"])
+        roll, pitch = np.array(out["roll"]), np.array(out["pitch"])
+        dur = float(t[-1])
+        frames, onset = _load_real_window(run, t0, -1.0, dur + 8.0)
+        print(f"{g}: real motion onset at t0{onset:+.2f}s (drive-start->step latency); aligning real there")
+
+        def real_at(te):
+            want = onset + te
+            return (min(frames, key=lambda fr: abs(fr[0] - want))[1]
+                    if frames else np.zeros((H, W, 3), np.uint8))
+        ren = mujoco.Renderer(sim.model, height=H, width=W)
+        qadr = sim._qadr
+        cam = mujoco.MjvCamera()
+        cam.distance, cam.elevation, cam.azimuth = 1.1, -22, 270
+        vw = cv2.VideoWriter(str(out_dir / f"{g}_sxs.mp4"),
+                             cv2.VideoWriter_fourcc(*"mp4v"), FPS, (2 * W, H))
+        for f in range(int(dur * FPS)):
+            te = f / FPS
+            i = int(np.argmin(np.abs(t - te)))
+            d = sim.data
+            mujoco.mj_resetData(sim.model, d)
+            d.qpos[:3] = base[i]
+            d.qpos[3:7] = _quat_from_rp(roll[i] * DEG2RAD, pitch[i] * DEG2RAD)
+            d.qpos[qadr] = robot_abs_rad_to_mujoco_rel_rad(q[i] * DEG2RAD)
+            mujoco.mj_forward(sim.model, d)
+            cam.lookat[:] = base[i]
+            ren.update_scene(d, cam)
+            simimg = _label(cv2.cvtColor(ren.render(), cv2.COLOR_RGB2BGR).copy(),
+                            "MuJoCo  t=%.1fs" % te, (120, 200, 255))
+            realimg = _label(cv2.rotate(real_at(te), cv2.ROTATE_180).copy(),
+                             "REAL  t=%.1fs" % te, (120, 255, 120))
+            vw.write(np.hstack([realimg, simimg]))
+        vw.release()
+        summary[g] = {
+            "mp4": str(out_dir / f"{g}_sxs.mp4"),
+            "real_roll_peak_deg": round(float(np.max(np.abs(tr["roll"]))), 1),
+            "sim_roll_peak_deg": round(float(np.max(np.abs(roll))), 1),
+            "real_pitch_peak_deg": round(float(np.max(np.abs(tr["pitch"]))), 1),
+            "sim_pitch_peak_deg": round(float(np.max(np.abs(pitch))), 1),
+            "sim_base_travel_mm": round(float(np.hypot(base[-1][0] - base[0][0],
+                                                       base[-1][1] - base[0][1]) * 1000)),
+            "real_motion_onset_s": round(onset, 2),
+        }
+        print(f"  {g}: real roll/pitch {summary[g]['real_roll_peak_deg']}/{summary[g]['real_pitch_peak_deg']} "
+              f"vs sim {summary[g]['sim_roll_peak_deg']}/{summary[g]['sim_pitch_peak_deg']} deg")
+    (out_dir / "compare_summary.json").write_text(json.dumps(summary, indent=1))
+    if page:
+        rows = ['<!doctype html><meta charset=utf-8><title>real vs MuJoCo</title>',
+                '<style>body{font:14px system-ui;margin:24px;background:#111;color:#ddd}'
+                'video{width:900px;max-width:100%;background:#000}.n{color:#8bd}</style>',
+                '<h1>hexapod: real vs MuJoCo, same start &amp; commands, open-loop</h1>']
+        for g, m in summary.items():
+            rows.append(f'<h2>{g}</h2><p class=n>roll real {m["real_roll_peak_deg"]}&deg; vs sim '
+                        f'{m["sim_roll_peak_deg"]}&deg; | pitch (fore-aft rock) real {m["real_pitch_peak_deg"]}&deg; '
+                        f'vs sim {m["sim_pitch_peak_deg"]}&deg; | real motion onset t0{m["real_motion_onset_s"]:+}s</p>')
+            rows.append(f'<video src="{Path(m["mp4"]).name}" controls loop autoplay muted playsinline></video>')
+        (out_dir / "compare.html").write_text("\n".join(rows))
+        print("wrote", out_dir / "compare.html")
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--run", type=Path, required=True, help="data-collection run dir (has results.json, telemetry/, camera/)")
+    ap.add_argument("--gait", default=None, help="gait name (walkteach/combo/allhead50/parent); default: all")
+    ap.add_argument("--all", action="store_true", help="all gaits in the run")
+    ap.add_argument("--page", action="store_true", help="also write an HTML page embedding the videos")
+    ap.add_argument("--out-dir", type=Path, default=None)
+    a = ap.parse_args(argv)
+    build(a.run, a.gait, a.all or a.gait is None, a.out_dir or (a.run / "compare"), a.page or True)
+    return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    sys.exit(main())

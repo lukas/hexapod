@@ -1,5 +1,9 @@
 """Open-loop hardware-trace replay: sim-to-real divergence finder.
 
+For a VISUAL real-vs-MuJoCo side-by-side video (top-camera footage next to the
+sim rendered at the same commands, motion-onset aligned), see the sibling module
+``rl_move/sim/replay_compare.py``.
+
 Feeds a logged on-robot episode CSV's recorded command stream
 (``cmd*_deg`` — the post-safety targets the servos actually received)
 through ServoProfile + free-base MuJoCo, starting from the trace's own

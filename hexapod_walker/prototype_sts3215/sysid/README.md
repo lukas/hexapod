@@ -33,6 +33,16 @@ sysid/
   plots.py       cmd / hardware / sim overlay figures
 ```
 
+Real-vs-MuJoCo VISUAL comparison (side-by-side video of the robot vs the sim
+running the same commands): `rl_move/sim/replay_compare.py`
+(`uv run python -m rl_move.sim.replay_compare --run <data_run_dir> --page`).
+It builds on `rl_move/sim/replay_trace.py` (the per-tick divergence numbers).
+Finding so far: the real robot rocks fore-aft ~3.6 deg and rolls 3-6 deg where
+the sim stays near 1 deg — same joints, different body motion (compliance +
+contact). Gotcha: align the real video by MOTION ONSET, not the drive-start
+timestamp (per-trial stand/engage latency, and the robot clock is not the
+camera clock).
+
 Robot side (deployed with `linux_control/`): `sysid_protocol.py`
 (schema + materializer, shared verbatim with this package) and
 `sysid_runner.py` (25 Hz streaming executor, safety trips, CSV with

@@ -623,6 +623,42 @@ def test_async_transport_probe_reports_sequence_and_source_ages():
     assert probe["async_capable"] is True
 
 
+class _AgedSnapshotBus(_FakeBus):
+    """read_snapshot with advancing seq and configurable pos/imu ages."""
+
+    def __init__(self, *, pos_age_ms=1.0, imu_age_ms=1.0):
+        super().__init__()
+        self.seq = 0
+        self.pos_age_ms = pos_age_ms
+        self.imu_age_ms = imu_age_ms
+
+    def read_snapshot(self):
+        self.seq += 1
+        return _snapshot(self.seq, pos_age_ms=self.pos_age_ms,
+                         imu_age_ms=self.imu_age_ms)
+
+
+def test_async_transport_tolerates_stale_imu_but_not_stale_positions():
+    # A brief stale IMU (positions fresh) must NOT block the walk: the MCU's
+    # I2C IMU read stalls 0.2-0.7 s while encoders keep answering, and holding
+    # the last attitude for that is harmless (2026-09-18).
+    ok = rl_policy._probe_async_transport(  # noqa: SLF001
+        _AgedSnapshotBus(pos_age_ms=1.0, imu_age_ms=500.0),
+        samples=3, sample_gap_s=0.0)
+    assert ok["async_capable"] is True, ok.get("error")
+    # Stale positions still fault — control must never act on old encoders.
+    bad = rl_policy._probe_async_transport(  # noqa: SLF001
+        _AgedSnapshotBus(pos_age_ms=200.0, imu_age_ms=1.0),
+        samples=3, sample_gap_s=0.0)
+    assert bad["async_capable"] is False
+    assert "age" in (bad.get("error") or "")
+    # A genuinely dead IMU (beyond its own cap) still faults.
+    dead = rl_policy._probe_async_transport(  # noqa: SLF001
+        _AgedSnapshotBus(pos_age_ms=1.0, imu_age_ms=2000.0),
+        samples=3, sample_gap_s=0.0)
+    assert dead["async_capable"] is False
+
+
 def test_async_transport_probe_rejects_unsupported_before_motion():
     bus = _FakeBus()
 

@@ -203,11 +203,22 @@ class Robot:
     def _req(self, path, data, timeout):
         req = urllib.request.Request(self.host + path, data=data, method="POST" if data is not None else "GET",
                                      headers={"Content-Type": "application/json", "X-Hexapod-Controller": "gait_sweep"})
-        try:
-            with urllib.request.urlopen(req, timeout=timeout) as r:
-                txt = r.read().decode()
-        except urllib.error.HTTPError as e:
-            txt = e.read().decode()
+        last_exc = None
+        for attempt in range(3):
+            try:
+                with urllib.request.urlopen(req, timeout=timeout) as r:
+                    txt = r.read().decode()
+                break
+            except urllib.error.HTTPError as e:
+                txt = e.read().decode()
+                break
+            except Exception as e:
+                # A transient web restart / mDNS blip should not abort a whole
+                # sweep; retry briefly before giving up.
+                last_exc = e
+                time.sleep(1.5)
+        else:
+            return {"ok": False, "error": f"request failed after retries: {last_exc}"}
         try:
             return json.loads(txt or "{}")
         except ValueError:
@@ -258,6 +269,19 @@ def calibrate_heading(robot, read_pose, log, vx_probe=0.06, w_probe=0.15) -> dic
     (tangled / not on open floor), so the caller can stop instead of steering on noise.
     """
     owner = str(uuid.uuid4())
+    def pose_now(tries=10, want=5):
+        got = []
+        for _ in range(tries):
+            p = read_pose()
+            if p is not None:
+                got.append(p)
+                if len(got) >= want:
+                    break
+            time.sleep(0.12)
+        if not got:
+            return None
+        import statistics as _st
+        return (_st.median(g[0] for g in got), _st.median(g[1] for g in got), _st.median(g[2] for g in got))
     def hb(vx, wz, secs):
         end = time.time() + secs
         while time.time() < end:
@@ -266,20 +290,20 @@ def calibrate_heading(robot, read_pose, log, vx_probe=0.06, w_probe=0.15) -> dic
     r = robot.post("/api/rl/drive/start", {"vx": vx_probe, "vy": 0, "wz": 0, "dh": 0, "command_owner": owner}, timeout=40)
     if not r.get("ok"):
         log(f"  calibrate: drive start refused: {r.get('error')}"); return None
-    p0 = read_pose()
+    p0 = pose_now()
     hb(vx_probe, 0.0, 2.5)
-    p1 = read_pose()
+    p1 = pose_now()
     if p0 is None or p1 is None:
         robot.post("/api/rl/drive/stop", {}); log("  calibrate: chassis tag not visible; put the robot on open floor"); return None
     dx, dy = p1[0] - p0[0], p1[1] - p0[1]
     if math.hypot(dx, dy) < 30.0:
         robot.post("/api/rl/drive/stop", {}); log(f"  calibrate: robot moved only {math.hypot(dx, dy):.0f} mm on a forward probe; tangled or stuck"); return None
     heading_offset = wrap180(math.degrees(math.atan2(dy, dx)) - p0[2])
-    y0 = read_pose()[2]
-    hb(0.0, w_probe, 2.0)
-    y1 = read_pose()[2]
+    q0 = pose_now(); hb(0.0, w_probe, 2.0); q1 = pose_now()
     robot.post("/api/rl/drive/stop", {}, timeout=20)
-    dyaw = wrap180(y1 - y0)
+    if q0 is None or q1 is None:
+        log("  calibrate: lost the chassis tag during the turn probe"); return None
+    dyaw = wrap180(q1[2] - q0[2])
     yaw_sign = 1.0 if dyaw >= 0 else -1.0
     log(f"  calibrate: moved {math.hypot(dx, dy):.0f} mm, heading_offset {heading_offset:.0f} deg, +wz -> {dyaw:+.0f} deg (yaw_sign {yaw_sign:+.0f})")
     return {"heading_offset_deg": round(heading_offset, 1), "yaw_sign": yaw_sign}
@@ -435,6 +459,14 @@ class Sweep:
         if not ok:
             self.abort(f"{arm}: unhealthy after stand: {det}")
         pf = R.get("/api/rl/preflight?mode=walk")
+        # A single implausible/stale IMU sample can fail preflight; the IMU
+        # recovers within a tick or two, so re-read a few times before aborting
+        # the whole sweep.
+        for _ in range(6):
+            if pf.get("ok") or "imu" not in str(pf.get("error", "")).lower():
+                break
+            time.sleep(0.5)
+            pf = R.get("/api/rl/preflight?mode=walk")
         trial["preflight"] = {k: pf.get(k) for k in ("ok", "roll_deg", "pitch_deg", "max_pose_delta_deg", "error")}
         self.log(f"  preflight ok={pf.get('ok')} tilt={pf.get('roll_deg')}/{pf.get('pitch_deg')} poseΔ={pf.get('max_pose_delta_deg')}")
         if not pf.get("ok"):
@@ -653,6 +685,8 @@ class WalkAround:
         self.out = Path(args.out)
         (self.out / "camera").mkdir(parents=True, exist_ok=True)
         self.cam_proc = None
+        self._last_good = None
+        self.MAX_STEP_MM = 200.0   # max believable chassis move per ~0.25 s control step
 
     def log(self, msg):
         line = time.strftime("%H:%M:%S ") + msg
@@ -662,6 +696,21 @@ class WalkAround:
 
     def pose(self):
         return read_chassis_pose(self.out, self.a.chassis_tag)
+
+    def pose_filtered(self):
+        """Chassis pose with teleport rejection: the tether crosses tag 119, so it
+        occasionally flickers to a wrong floor position. Reject any reading that jumps
+        more than MAX_STEP_MM from the last accepted one (physically impossible in a
+        control step); return None so the caller waits rather than acting on a glitch."""
+        p = self.pose()
+        if p is None:
+            return None
+        if self._last_good is not None:
+            import math as _m
+            if _m.hypot(p[0]-self._last_good[0], p[1]-self._last_good[1]) > self.MAX_STEP_MM:
+                return None
+        self._last_good = p
+        return p
 
     def run(self) -> int:
         a, R = self.a, self.robot
@@ -722,29 +771,47 @@ class WalkAround:
         a, R = self.a, self.robot
         if R.get("/api/robot").get("armed"):
             self.log("robot already armed; limp it first"); return 1
+        try:
+            return self._stand_cal_patrol()
+        finally:
+            try:
+                R.post("/api/rl/lower", {}, timeout=40)
+                for _ in range(45):
+                    time.sleep(1)
+                    if not ((R.get("/api/demo/status").get("demo") or {}).get("running")):
+                        break
+            finally:
+                self.log(f"lowered; X -> {R.cmd('X')}")
+
+    def _stand_cal_patrol(self) -> int:
+        a, R = self.a, self.robot
         if not self._stand():
-            self.robot.cmd("X"); return 2
+            return 2
         cal = calibrate_heading(R, self.pose, self.log)
         if cal is None:
-            self.robot.cmd("X"); return 2
+            return 2
         waypoints = a.waypoints or [(300.0, 450.0), (300.0, 900.0)]
         self.log(f"patrol waypoints (floor mm): {waypoints}")
         owner = str(uuid.uuid4())
         R.post("/api/rl/drive/start", {"vx": 0.05, "vy": 0, "wz": 0, "dh": 0, "command_owner": owner}, timeout=40)
-        t0 = time.time(); wi = 0; lost = 0; last_prog = time.time(); best = None
+        t0 = time.time(); wi = 0; lost = 0; oob = 0; last_prog = time.time(); best = None
         try:
             while time.time() - t0 < a.max_s:
-                pz = self.pose()
+                pz = self.pose_filtered()
                 if pz is None:
                     lost += 1
-                    if lost >= 8:
-                        self.log("lost the chassis tag for 8 reads; stopping"); break
+                    if lost >= 20:
+                        self.log("lost a clean chassis fix for 20 reads; stopping"); break
                     time.sleep(0.2); continue
                 lost = 0
                 x, y, yaw = pz
                 tgt = waypoints[wi]
                 if a.keep_in and not inside_box((x, y), a.keep_in):
-                    self.log(f"chassis left keep-in box at {x:.0f},{y:.0f}; stopping"); break
+                    oob += 1
+                    if oob >= 3:
+                        self.log(f"chassis left keep-in box at {x:.0f},{y:.0f} (3x); stopping"); break
+                    time.sleep(0.2); continue
+                oob = 0
                 if reached((x, y), tgt):
                     wi = (wi + 1) % len(waypoints)
                     self.log(f"reached waypoint; next -> {waypoints[wi]}"); continue
@@ -760,14 +827,7 @@ class WalkAround:
                 time.sleep(0.25)
             R.post("/api/rl/drive/stop", {}, timeout=20)
         finally:
-            try:
-                R.post("/api/rl/lower", {}, timeout=40)
-                for _ in range(45):
-                    time.sleep(1)
-                    if not ((R.get("/api/demo/status").get("demo") or {}).get("running")):
-                        break
-            finally:
-                self.log(f"lowered; X -> {R.cmd('X')}")
+            pass
         return 0
 
 

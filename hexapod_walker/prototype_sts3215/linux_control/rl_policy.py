@@ -1154,10 +1154,65 @@ def _stream_target(bus, est: RobotStateEstimator,
                             acc=write_acc)
             if snap is not None and on_write_success is not None:
                 on_write_success(q_cmd)
+        except ValueError as e:
+            # Invalid coordinates are rejected before the motor packet is
+            # sent. Retrying them cannot repair feedback; retain support
+            # and report the actual command/decoder error.
+            return (last_good_state, t_next, overruns,
+                    f"stream command rejected: {e}", stale_ticks,
+                    stale_samples, stream_timing())
         except Exception as e:
             diag["transport_error"] = repr(e)
             snap = None
         write_s += time.monotonic() - op_t
+        if (max_state_age_s is None and isinstance(snap, dict)
+                and callable(getattr(bus, "read_snapshot", None))
+                and not snapshot_freshness_error(snap, diag)):
+            # A lone missing servo response is common bus noise. Read
+            # again inside this tick's remaining budget, BEFORE sleeping
+            # to its deadline. The old path slept a whole extra tick and
+            # then classified this deliberate wait as a timing overrun.
+            # Never send another target or consume an incomplete pose.
+            persistent_missing = set(range(N_JOINTS))
+            previous_seq = int(snap["seq"])
+            for retry in range(3):
+                positions = snap.get("pos_deg") or {}
+                missing = set(range(N_JOINTS)) - positions.keys()
+                if not missing:
+                    break
+                persistent_missing.intersection_update(missing)
+                diag["position_missing_ids"] = sorted(missing)
+                diag["position_missing_samples"] = retry + 1
+                if retry == 2:
+                    if persistent_missing:
+                        return (last_good_state, t_next, overruns,
+                                "persistent missing servo positions: "
+                                f"{sorted(persistent_missing)}",
+                                stale_ticks + 3, stale_samples + 3,
+                                stream_timing())
+                    break
+                if abort_check():
+                    return (last_good_state, t_next, overruns, "aborted",
+                            stale_ticks, stale_samples, stream_timing())
+                # Leave 6 ms for a read-only transaction. No deadline or
+                # freshness threshold is widened when that budget is gone.
+                if t_next + inner_dt - time.monotonic() < 0.006:
+                    break
+                op_t = time.monotonic()
+                try:
+                    candidate = bus.read_snapshot()
+                except Exception as e:
+                    diag["position_retry_error"] = repr(e)
+                    candidate = None
+                read_s += time.monotonic() - op_t
+                if (candidate is None
+                        or snapshot_freshness_error(candidate, diag)
+                        or not _u16_seq_advanced(
+                            int(candidate["seq"]), previous_seq)):
+                    break
+                stale_samples += 1
+                snap = candidate
+                previous_seq = int(snap["seq"])
         if snap is not None and max_state_age_s is not None:
             # A missing position slot must not zero-fill the velocity
             # filter or advance another learned target. Hold this target
@@ -2930,7 +2985,7 @@ def _expected_start_options_deg(
     # letting it redefine q_nom made the hardware drive into a too-low stance.
     options: list[tuple[str, np.ndarray, float]] = []
     try:
-        from rl_walk_start import walk_start_pose_degrees
+        from hexapod_core.joint_frame import walk_start_pose_degrees
         options.append(("sim_walk_start",
                         np.asarray(walk_start_pose_degrees(), dtype=float),
                         WALK_START_TOL_DEG if mode == "walk"
@@ -3800,7 +3855,7 @@ def _run_policy_move_impl(drive, mode: str, *, on_progress=None,
             if stream_err == "aborted":
                 result.update(ok=False, error="aborted",
                               held_pose=True, ticks=i)
-            elif stream_err in (
+            elif stream_err.startswith("stream command rejected:") or stream_err in (
                     DIRECT_STREAM_STALE_PENDING,
                     "feedback stale during stream"):
                 # A transport freshness stop is not evidence of a physical tip
@@ -5164,6 +5219,11 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
                   and not uses_policy):
                 result.update(ok=False, error=stream_err,
                               held_pose=True, ticks=i)
+            elif stream_err.startswith("stream command rejected:"):
+                # Rejected targets were never written; preserve the last
+                # successful motor command without resending the invalid pose.
+                result.update(ok=False, error=stream_err,
+                              held_pose=True, limped=False, ticks=i)
             elif stream_err in ("feedback stale during stream",
                                 "feedback lost during hold"):
                 # Walking OR holding: a transport/IMU freshness stop is not

@@ -459,7 +459,8 @@ class RlApi:
         a few Hz sustainable even while the drive loop walks, unlike
         ``/api/status`` whose 1..31 scan takes seconds. Built for external
         telemetry loggers (``rl_move/scripts/tape_measure_walk.py``).
-        ``joints`` is indexed 0..17; missing servos are null.
+        ``joints`` is indexed 0..17; missing servos are null. A knee whose
+        hip is missing retains raw health but has an unknown logical angle.
         """
         import math as _math
 
@@ -478,7 +479,10 @@ class RlApi:
         for j in range(N_JOINTS):
             f = fb.get(j)
             joints.append(None if f is None else {
-                "deg": round(float(f.get("deg", 0.0)), 2),
+                "deg": (None if f.get("deg") is None
+                        else round(float(f["deg"]), 2)),
+                "raw_deg": (None if f.get("raw_deg") is None
+                            else round(float(f["raw_deg"]), 2)),
                 "cur_a": round(float(f.get("current_a", 0.0)), 3),
                 "temp_c": int(f.get("temp_c") or 0),
                 "load_pct": round(float(f.get("load_pct", 0.0)), 1),
@@ -1161,9 +1165,9 @@ class RlApi:
                 self._bus_hot_begin()
                 with d._lock:
                     d.mode = "demo"
-                    d._torque_all(True)
-                    d.armed = True
-                    d.status = "rl stand armed"
+                    # Acquisition validates and primes measured counts before
+                    # enabling torque. Old servo goals must never be armed here.
+                    d.status = "rl stand acquiring start"
                 result = self._acquire_start(
                     "stand", gen=gen, on_progress=_on_progress)
                 if gen != self._demo_gen:
@@ -1492,6 +1496,11 @@ class RlApi:
         goal: list[float] = []
         for _ in range(6):
             goal.extend([yaw_deg, hip_deg, knee_deg])
+        from feetech_bus import robot_pose_to_raw_degrees
+        try:
+            robot_pose_to_raw_degrees(goal, self.drive.bus.trims)
+        except ValueError as exc:
+            return {"ok": False, "code": "motor_limits", "error": str(exc)}
         acquire_zero_first = False
         if not force:
             worst, j = self._delta_vs_present(goal)
@@ -1525,10 +1534,8 @@ class RlApi:
             with d._lock:
                 d.mode = "demo"
                 d.gait.stop()
-                if not d.armed:
-                    d._torque_all(True)
-                    d.armed = True
             live = _live_robot_ids(d.bus)
+            arm_ready = d.armed
             try:
                 self._bus_hot_begin()
                 if acquire_zero_first:
@@ -1546,6 +1553,10 @@ class RlApi:
                             self._cal_progress = {
                                 "msg": self._demo_status}
                         return
+                with d._lock:
+                    if not d.armed:
+                        d.arm_at_present(550, abort_check=self._demo_abort.is_set)
+                    arm_ready = True
                 _set_torque_limit(d.bus, live, 550)
                 _enable_torque(d.bus, live)
                 ok = ease_to_pose(
@@ -1581,7 +1592,8 @@ class RlApi:
                 if gen != self._demo_gen:
                     return
                 try:
-                    _set_torque_limit(d.bus, live, 1000)
+                    if arm_ready:
+                        _set_torque_limit(d.bus, live, 1000)
                 except Exception:
                     pass
                 with d._lock:

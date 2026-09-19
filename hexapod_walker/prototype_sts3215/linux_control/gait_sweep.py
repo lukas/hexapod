@@ -145,6 +145,31 @@ def next_direction(last_sign: float, start_xy, now_xy, moved_away: bool | None, 
     return -last_sign if moved_away else last_sign
 
 
+def wrap180(deg: float) -> float:
+    return (deg + 180.0) % 360.0 - 180.0
+
+
+def steer_command(chassis_xy, yaw_deg, target_xy, cal, vx_max=0.09, wz_max=0.25, k=0.06):
+    """(vx, wz) to walk toward ``target_xy`` given the chassis pose and a calibration.
+
+    ``cal`` = {"heading_offset_deg": float, "yaw_sign": +/-1}. When driving vx>0
+    with wz=0 the chassis moves along floor bearing ``yaw + heading_offset`` (both
+    measured live during a calibration phase, so no direction is ever guessed).
+    Commanding +wz changes yaw by ``yaw_sign``. Returns vx=0 unless the robot is
+    within 90 deg of facing the target, so it turns in place before advancing.
+    """
+    bx, by = target_xy[0] - chassis_xy[0], target_xy[1] - chassis_xy[1]
+    bearing = math.degrees(math.atan2(by, bx))
+    err = wrap180(bearing - cal["heading_offset_deg"] - yaw_deg)
+    wz = max(-wz_max, min(wz_max, cal["yaw_sign"] * k * err))
+    vx = vx_max * max(0.0, math.cos(math.radians(err)))
+    return round(vx, 3), round(wz, 3)
+
+
+def reached(chassis_xy, target_xy, tol_mm=180.0) -> bool:
+    return math.hypot(target_xy[0] - chassis_xy[0], target_xy[1] - chassis_xy[1]) <= tol_mm
+
+
 def inside_box(xy, box) -> bool:
     """xy = (x, y) floor mm; box = (xmin, xmax, ymin, ymax) or None (no limit)."""
     if xy is None or box is None:
@@ -206,6 +231,58 @@ class Robot:
                 break
             time.sleep(0.5)
         return round(time.time() - t0, 1)
+
+
+def read_chassis_pose(out: Path, tag: str):
+    """Latest (x_mm, y_mm, yaw_deg) of ``tag`` from a running camera session, or None."""
+    try:
+        lines = (Path(out) / "camera" / "vision.jsonl").read_text().splitlines()[-12:]
+    except OSError:
+        return None
+    for line in reversed(lines):
+        try:
+            m = (json.loads(line).get("markers") or {}).get(str(tag)) or {}
+        except ValueError:
+            continue
+        pos = m.get("position_mm") or {}
+        if m.get("status") == "tracked" and pos.get("x") is not None and m.get("yaw") is not None:
+            return (float(pos["x"]), float(pos["y"]), float(m["yaw"]))
+    return None
+
+
+def calibrate_heading(robot, read_pose, log, vx_probe=0.06, w_probe=0.15) -> dict | None:
+    """Learn the vx->floor-bearing offset and the wz->yaw sign by moving and watching.
+
+    Never guesses direction: drives a short forward probe and a short turn probe and
+    measures what the chassis tag actually did. Returns None if the robot did not move
+    (tangled / not on open floor), so the caller can stop instead of steering on noise.
+    """
+    owner = str(uuid.uuid4())
+    def hb(vx, wz, secs):
+        end = time.time() + secs
+        while time.time() < end:
+            robot.post("/api/rl/drive/cmd", {"vx": vx, "vy": 0, "wz": wz, "dh": 0, "command_owner": owner}, timeout=5)
+            time.sleep(0.2)
+    r = robot.post("/api/rl/drive/start", {"vx": vx_probe, "vy": 0, "wz": 0, "dh": 0, "command_owner": owner}, timeout=40)
+    if not r.get("ok"):
+        log(f"  calibrate: drive start refused: {r.get('error')}"); return None
+    p0 = read_pose()
+    hb(vx_probe, 0.0, 2.5)
+    p1 = read_pose()
+    if p0 is None or p1 is None:
+        robot.post("/api/rl/drive/stop", {}); log("  calibrate: chassis tag not visible; put the robot on open floor"); return None
+    dx, dy = p1[0] - p0[0], p1[1] - p0[1]
+    if math.hypot(dx, dy) < 30.0:
+        robot.post("/api/rl/drive/stop", {}); log(f"  calibrate: robot moved only {math.hypot(dx, dy):.0f} mm on a forward probe; tangled or stuck"); return None
+    heading_offset = wrap180(math.degrees(math.atan2(dy, dx)) - p0[2])
+    y0 = read_pose()[2]
+    hb(0.0, w_probe, 2.0)
+    y1 = read_pose()[2]
+    robot.post("/api/rl/drive/stop", {}, timeout=20)
+    dyaw = wrap180(y1 - y0)
+    yaw_sign = 1.0 if dyaw >= 0 else -1.0
+    log(f"  calibrate: moved {math.hypot(dx, dy):.0f} mm, heading_offset {heading_offset:.0f} deg, +wz -> {dyaw:+.0f} deg (yaw_sign {yaw_sign:+.0f})")
+    return {"heading_offset_deg": round(heading_offset, 1), "yaw_sign": yaw_sign}
 
 
 class Sweep:
@@ -567,6 +644,133 @@ def table(runs: list[str]) -> None:
     print("\n".join(lines))
 
 
+class WalkAround:
+    """Stand the robot and walk it between open-floor waypoints, steering by the top camera."""
+
+    def __init__(self, args):
+        self.a = args
+        self.robot = Robot(args.host)
+        self.out = Path(args.out)
+        (self.out / "camera").mkdir(parents=True, exist_ok=True)
+        self.cam_proc = None
+
+    def log(self, msg):
+        line = time.strftime("%H:%M:%S ") + msg
+        print(line, flush=True)
+        with (self.out / "walk.log").open("a") as fh:
+            fh.write(line + "\n")
+
+    def pose(self):
+        return read_chassis_pose(self.out, self.a.chassis_tag)
+
+    def run(self) -> int:
+        a, R = self.a, self.robot
+        # camera up first: steering needs the chassis tag in view
+        if not Path(CAMERAS_BIN).exists():
+            sys.exit(f"hexapod-cameras not found at {CAMERAS_BIN}")
+        chk = subprocess.run([CAMERAS_BIN, "check", "--role", a.camera_role], capture_output=True, text=True, timeout=120)
+        try:
+            j = json.loads(chk.stdout[chk.stdout.index("{"):])
+        except Exception:
+            sys.exit(f"camera check gave no JSON: {chk.stdout[-200:]}")
+        if not j.get("ok"):
+            sys.exit(f"top camera floor fit off ({j.get('drift_rms_px')} px); run `hexapod-cameras calibrate floor --role {a.camera_role}`")
+        env = dict(os.environ, OPENCV_AVFOUNDATION_SKIP_AUTH="1")
+        self.cam_proc = subprocess.Popen(
+            [CAMERAS_BIN, "session", "--out", str(self.out / "camera"), "--roles", a.camera_role,
+             "--hz", "8", "--fps", "30", "--seconds", str(int(a.max_s + 60)), "--no-stdin"],
+            stdout=(self.out / "camera_session.log").open("w"), stderr=subprocess.STDOUT, env=env)
+        for _ in range(60):
+            if self.pose() is not None:
+                break
+            time.sleep(0.5)
+        if self.pose() is None:
+            self.cam_proc.terminate()
+            sys.exit(f"chassis tag {a.chassis_tag} not visible from the {a.camera_role} camera; "
+                     "the robot must be on the open floor, clear of cords, before I can steer it")
+        try:
+            return self._drive()
+        finally:
+            (self.out / "camera" / "STOP").write_text("stop")
+            try:
+                self.cam_proc.wait(timeout=20)
+            except Exception:
+                self.cam_proc.terminate()
+
+    def _stand(self) -> bool:
+        R = self.robot
+        for role in ("hold", "walk"):
+            R.post("/api/rl/roles", {"role": role, "file": self.a.gait})
+        R.post("/api/rl/policy_select", {"file": self.a.gait})
+        t0 = time.time()
+        R.post("/api/rl/stand", {})
+        while time.time() - t0 < 45:
+            time.sleep(1)
+            st = R.get("/api/demo/status")
+            if not (st.get("demo") or {}).get("running") and st.get("mode") == "stand":
+                break
+        rb = R.get("/api/robot")
+        pf = R.get("/api/rl/preflight?mode=walk")
+        self.log(f"stood: armed={rb.get('armed')} tilt={pf.get('roll_deg')}/{pf.get('pitch_deg')}")
+        if not rb.get("armed"):
+            self.log("stand did not arm; stopping"); return False
+        if abs(pf.get("roll_deg") or 0) > 12 or abs(pf.get("pitch_deg") or 0) > 15:
+            self.log("robot is tilted after standing (pinned leg?); stopping"); return False
+        return True
+
+    def _drive(self) -> int:
+        a, R = self.a, self.robot
+        if R.get("/api/robot").get("armed"):
+            self.log("robot already armed; limp it first"); return 1
+        if not self._stand():
+            self.robot.cmd("X"); return 2
+        cal = calibrate_heading(R, self.pose, self.log)
+        if cal is None:
+            self.robot.cmd("X"); return 2
+        waypoints = a.waypoints or [(300.0, 450.0), (300.0, 900.0)]
+        self.log(f"patrol waypoints (floor mm): {waypoints}")
+        owner = str(uuid.uuid4())
+        R.post("/api/rl/drive/start", {"vx": 0.05, "vy": 0, "wz": 0, "dh": 0, "command_owner": owner}, timeout=40)
+        t0 = time.time(); wi = 0; lost = 0; last_prog = time.time(); best = None
+        try:
+            while time.time() - t0 < a.max_s:
+                pz = self.pose()
+                if pz is None:
+                    lost += 1
+                    if lost >= 8:
+                        self.log("lost the chassis tag for 8 reads; stopping"); break
+                    time.sleep(0.2); continue
+                lost = 0
+                x, y, yaw = pz
+                tgt = waypoints[wi]
+                if a.keep_in and not inside_box((x, y), a.keep_in):
+                    self.log(f"chassis left keep-in box at {x:.0f},{y:.0f}; stopping"); break
+                if reached((x, y), tgt):
+                    wi = (wi + 1) % len(waypoints)
+                    self.log(f"reached waypoint; next -> {waypoints[wi]}"); continue
+                d = math.hypot(tgt[0] - x, tgt[1] - y)
+                if best is None or d < best - 20:
+                    best = d; last_prog = time.time()
+                elif time.time() - last_prog > 12:
+                    self.log("no progress toward the waypoint for 12 s; stopping"); break
+                vx, wz = steer_command((x, y), yaw, tgt, cal, vx_max=a.vx)
+                hb = R.post("/api/rl/drive/cmd", {"vx": vx, "vy": 0, "wz": wz, "dh": 0, "command_owner": owner}, timeout=5)
+                if hb.get("active") is False:
+                    self.log(f"drive ended: {hb.get('error')}"); break
+                time.sleep(0.25)
+            R.post("/api/rl/drive/stop", {}, timeout=20)
+        finally:
+            try:
+                R.post("/api/rl/lower", {}, timeout=40)
+                for _ in range(45):
+                    time.sleep(1)
+                    if not ((R.get("/api/demo/status").get("demo") or {}).get("running")):
+                        break
+            finally:
+                self.log(f"lowered; X -> {R.cmd('X')}")
+        return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -587,6 +791,16 @@ def main(argv=None) -> int:
     p.add_argument("--max-drift-mm", type=float, default=300.0,
                    help="beyond this distance from the sweep start the next exposure heads back (needs --chassis-tag)")
     p.add_argument("--no-camera", action="store_true")
+    p = sub.add_parser("walk", help="stand, learn direction from the camera, patrol open-floor waypoints")
+    p.add_argument("--host", default=os.environ.get("HEXAPOD_HOST", "http://hexapod.local:8080"))
+    p.add_argument("--out", required=True)
+    p.add_argument("--chassis-tag", required=True, help="AprilTag id on this robot's chassis lid (hexapod2: 119)")
+    p.add_argument("--gait", default="walkteach_allhead_acq12m_100hz.json")
+    p.add_argument("--waypoints", default=None, help="floor-mm x,y;x,y;... to patrol between (default two open-floor points)")
+    p.add_argument("--keep-in", default=None, help="floor-mm box xmin,xmax,ymin,ymax the chassis must stay in")
+    p.add_argument("--vx", type=float, default=0.09)
+    p.add_argument("--max-s", type=float, default=120.0)
+    p.add_argument("--camera-role", default="top")
     p = sub.add_parser("analyze"); p.add_argument("run"); p.add_argument("--chassis-tag", default=None)
     p = sub.add_parser("table"); p.add_argument("runs", nargs="+")
     args = ap.parse_args(argv)
@@ -602,6 +816,10 @@ def main(argv=None) -> int:
             if len(args.keep_in) != 4 or not args.chassis_tag:
                 sys.exit("--keep-in needs xmin,xmax,ymin,ymax and --chassis-tag")
         return Sweep(args).run()
+    if args.cmd == "walk":
+        args.waypoints = [tuple(float(v) for v in wp.split(",")) for wp in args.waypoints.split(";")] if args.waypoints else None
+        args.keep_in = tuple(float(v) for v in args.keep_in.split(",")) if args.keep_in else None
+        return WalkAround(args).run()
     if args.cmd == "analyze":
         analyze(Path(args.run), args.chassis_tag)
         return 0

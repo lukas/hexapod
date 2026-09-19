@@ -143,6 +143,14 @@ DRIVE_ASYNC_SNAPSHOT_HZ = 10.0
 # interval plus a small UART/scheduler margin, but never a quarter-second of
 # blind learned motion.
 DRIVE_ASYNC_STATE_MAX_AGE_S = 0.15
+# The encoder/position freshness bar stays strict (0.15 s): control must never
+# act on stale joint feedback. The IMU is only a slowly-changing attitude input
+# to the policy, and the MCU's I2C IMU read intermittently stalls 0.2-0.7 s
+# (hexapod2 2026-09-10 and 09-18) while positions keep answering. Treating that
+# blip as fatal limped/held a healthy walker. So the IMU gets its own, much
+# larger cap: a brief missing IMU reading holds the last present attitude and
+# the walk continues; only a sustained IMU loss (> this) faults.
+DRIVE_IMU_MAX_AGE_S = 1.0
 ASYNC_READY_GOOD_SAMPLES = 3
 ASYNC_READY_TIMEOUT_S = 1.0
 DRIVE_BUS_WRITE_MAX_HZ = 50.0
@@ -963,9 +971,10 @@ def _probe_async_transport(bus, *, samples: int = 3,
     max_age_ms = float(max_age_s) * 1000.0
     all_advanced = (len(seqs) == out["requested_samples"]
                     and out["seq_advance_count"] == len(seqs) - 1)
+    imu_max_age_ms = DRIVE_IMU_MAX_AGE_S * 1000.0
     ages_ok = bool(pos_ages and imu_ages
                    and max(pos_ages) <= max_age_ms
-                   and max(imu_ages) <= max_age_ms)
+                   and max(imu_ages) <= imu_max_age_ms)
     out["async_capable"] = bool(not error and all_advanced and ages_ok)
     if error:
         out["error"] = error
@@ -1061,10 +1070,15 @@ def _stream_target(bus, est: RobotStateEstimator,
                 age_ms = float(raw_age)
             except (TypeError, ValueError):
                 return f"step_all snapshot {key} missing/invalid: {raw_age!r}"
+            # Positions strict; the IMU may be a bit stale (held last attitude).
+            key_cap_ms = (max_age_ms if key == "pos_age_ms"
+                          else DRIVE_IMU_MAX_AGE_S * 1000.0)
+            if key == "imu_age_ms" and age_ms > max_age_ms:
+                diag["imu_blind"] = True
             if (not math.isfinite(age_ms) or age_ms < 0.0
-                    or age_ms > max_age_ms):
+                    or age_ms > key_cap_ms):
                 return (f"step_all snapshot {key} {raw_age!r} outside "
-                        f"0..{max_age_ms:.1f} ms")
+                        f"0..{key_cap_ms:.1f} ms")
 
         previous_raw = dict(
             getattr(last_good_state, "timing", {}) or {}).get(
@@ -1106,12 +1120,16 @@ def _stream_target(bus, est: RobotStateEstimator,
             # target, now using the previous combined-S result directly.
             prior_timing = dict(getattr(last_good_state, "timing", {}) or {})
             try:
-                prior_age = (time.monotonic() - last_good_state.timestamp
-                             + max(float(prior_timing["pos_age_ms"]),
-                                   float(prior_timing["imu_age_ms"])) / 1000.0)
+                elapsed_s = time.monotonic() - last_good_state.timestamp
+                prior_age = (elapsed_s
+                             + float(prior_timing["pos_age_ms"]) / 1000.0)
+                prior_imu_age = (elapsed_s
+                                 + float(prior_timing["imu_age_ms"]) / 1000.0)
             except (AttributeError, KeyError, TypeError, ValueError):
-                prior_age = math.inf
+                prior_age = prior_imu_age = math.inf
+            # Positions strict; the IMU has its own larger cap (held attitude).
             if (not math.isfinite(prior_age) or prior_age > max_state_age_s
+                    or prior_imu_age > DRIVE_IMU_MAX_AGE_S
                     or not getattr(last_good_state, "bus_ok", False)
                     or not getattr(last_good_state, "imu_ok", False)):
                 return (last_good_state, t_next, overruns,

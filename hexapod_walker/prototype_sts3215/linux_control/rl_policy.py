@@ -2119,7 +2119,7 @@ WALK_MAX_TOTAL_S = 20.0
 WALK_START_TOL_DEG = 25.0    # near the sim-default walk-ready stance
 WALK_STEP_START_TOL_DEG = 35.0  # explicit compatibility hook only
 DRIVE_HOLD_REFRESH_S = 0.25     # low-rate active refresh for joint-hold
-FREEZE_HOLD_RATE_DPS = 30.0     # hold_mode="freeze": glide back to the walk-ready start pose at this rate when not walking
+FREEZE_HOLD_RATE_DPS = 15.0     # hold_mode="freeze": glide the COMMAND back to the walk-ready start pose at this rate when not walking
 RL_HOLD_TORQUE_LIMIT = 1000     # weight-bearing hold torque limit
 ADDR_TORQUE_LIMIT = 48          # STS3215 SRAM max torque/current register
 DRIVE_START_REFRESH_S = 0.45    # re-hold sim walk start through drive arming
@@ -4966,7 +4966,13 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
             active = "hold"
             model_switch_tick = i
             walk_active_since = None
+            _keep_cmd = last_q_policy_cmd.copy()
             reanchor()
+            if hold_mode == "freeze":
+                # 2026-09-20 (hexapod2 log, tick 6.24 -> 6.28): re-anchoring the command to the MEASURED pose released every
+                # knee and hip at once (command 85 -> 80, 30 -> 20 in one tick: "all knees pushed together").  In freeze
+                # mode keep gliding from the last policy command instead, at FREEZE_HOLD_RATE_DPS.
+                last_q_policy_cmd = _keep_cmd
             last_hold_refresh_t = -DRIVE_HOLD_REFRESH_S
             debug.event("drive_model_switch", tick=i, t_s=t,
                         from_model=prev_active, to_model=active,

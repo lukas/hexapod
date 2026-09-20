@@ -401,16 +401,20 @@ class StandupApi:
                     with self._lock:
                         self._cal_progress = {
                             "msg": f"{mode} {verb}: aligning"}
-                    align_s = max(0.6, kf_path[0][1] / speed)
                     if careful_down:
-                        align_s = max(align_s, float(worst0) / 12.0, 2.0)   # sagged stance: never faster than 12 deg/s
-                        result["careful_align_s"] = round(align_s, 1)
-                    ok = ease_to_pose(
-                        d.bus, q0,
-                        abort_check=self._demo_abort.is_set,
-                        seconds=align_s,
-                        label=f"{mode} align",
-                        current_tracker=tracker)
+                        # Off the stance while standing: re-seat the feet by TRIPODS, never ease six loaded legs at once
+                        # (operator rule, 2026-09-20).  _replant lifts 0,2,4 then 1,3,5 onto q0.
+                        with self._lock:
+                            self._cal_progress = {"msg": f"{mode} {verb}: re-seating feet by tripods"}
+                        ok = _replant(q0)
+                        result["careful_replant"] = True
+                    else:
+                        ok = ease_to_pose(
+                            d.bus, q0,
+                            abort_check=self._demo_abort.is_set,
+                            seconds=max(0.6, kf_path[0][1] / speed),
+                            label=f"{mode} align",
+                            current_tracker=tracker)
                     aborted = not ok
                 # Schedule: each segment gets max(authored/tempo,
                 # travel-at-90deg/s). PER-SEGMENT, not a uniform

@@ -909,7 +909,8 @@ class RlApi:
                        wz: float = 0.0, dh: float = 0.0,
                        velocity_filter_alpha: float | None = None,
                        active_duration_s: float | None = None,
-                       command_owner: str | None = None) -> dict:
+                       command_owner: str | None = None,
+                       hold_mode: str = "policy") -> dict:
         """Start a persistent RL drive session (async, demo slot).
 
         Motion-free start contract: read-only preflight accepts the
@@ -1034,7 +1035,8 @@ class RlApi:
                     abort_check=self._demo_abort.is_set,
                     walk_weights=walk_w, hold_weights=hold_w,
                     velocity_filter_alpha=velocity_filter_alpha,
-                    active_duration_s=active_duration_s)
+                    active_duration_s=active_duration_s,
+                    hold_mode=("freeze" if str(hold_mode).lower() == "freeze" else "policy"))
                 if gen != self._demo_gen:
                     return
                 with self._lock:

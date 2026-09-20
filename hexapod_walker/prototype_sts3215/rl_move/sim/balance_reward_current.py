@@ -7,6 +7,7 @@ from __future__ import annotations
 import numpy as np
 
 from rl_move.config import cfg_get
+from rl_move.robot_state import over_current_reading
 
 
 def current_penalties(env, parts, reward):
@@ -25,7 +26,10 @@ def current_penalties(env, parts, reward):
     if k_hot > 0.0 and env._state.servo_current is not None:
         hot_a = float(cfg_get(env.cfg, "reward", "current_hot_a",
                               default=1.0))
-        over = np.maximum(env._state.servo_current - hot_a, 0.0)
+        # Per-servo hotspot price is trip-proximity shaping: read the
+        # stall-sensitive current (default power model reads ~0 at a stall),
+        # falling back to servo_current on hardware / legacy model.
+        over = np.maximum(over_current_reading(env._state) - hot_a, 0.0)
         r_hot = -k_hot * float(np.sum(over ** 2))
         parts["reward_current_hot"] = r_hot
         reward += r_hot
@@ -83,7 +87,7 @@ def current_penalties(env, parts, reward):
                 env.cfg, "reward", "current_pretuck_hot_a",
                 default=0.3))
             over_pt = np.maximum(
-                env._state.servo_current - pretuck_a, 0.0)
+                over_current_reading(env._state) - pretuck_a, 0.0)
             r_pretuck = -k_pretuck * float(np.sum(over_pt ** 2))
             parts["reward_current_pretuck"] = r_pretuck
             reward += r_pretuck

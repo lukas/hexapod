@@ -36,7 +36,7 @@ from rl_move.config import cfg_get, load_config
 from rl_move.env import (build_obs, compute_reward, current_sense_obs_dim,
                           start_kind_of)
 from rl_move.robot_state import (
-    DEG2RAD, N_JOINTS, RAD2DEG, RobotState,
+    DEG2RAD, N_JOINTS, RAD2DEG, RobotState, over_current_reading,
 )
 from rl_move.safety import SafetyLayer, action_to_body_offset
 
@@ -355,6 +355,22 @@ class SimHexapodBalanceEnv(_GymBase):
             * 360.0 / 4096.0)
         self.write_acc_units = float(
             cfg_get(self.cfg, "bus", "write_acc", default=20))
+
+        # Servo current ESTIMATE model (see _read_state). Default "power":
+        # the validated mechanical-power model (fitted 2026-09-19,
+        # /tmp/gaitval) iq/18 + k*|torque*qvel|. Legacy "torque_proxy":
+        # the pre-2026-09-19 min(|torque|*1.2, 3.0) rail image.
+        self._current_model = str(cfg_get(
+            self.cfg, "bus", "current_model", default="power")).lower()
+        if self._current_model not in ("power", "torque_proxy"):
+            raise ValueError(
+                f"bus.current_model must be 'power' or 'torque_proxy', "
+                f"got {self._current_model!r}")
+        _iq_bus_a = float(cfg_get(
+            self.cfg, "bus", "current_iq_bus_a", default=0.19))
+        self._current_iq_joint = _iq_bus_a / N_JOINTS
+        self._current_k_a_per_w = float(cfg_get(
+            self.cfg, "bus", "current_k_a_per_w", default=0.02282))
 
         # Servo-profile RAMP-IN (2026-08-20, fast anti-skate option (b),
         # q_20260820T0830Z: the bcgait1_hard1 transplant dies zero-shot
@@ -688,6 +704,7 @@ class SimHexapodBalanceEnv(_GymBase):
         self._gyro_accum = np.zeros(3)
         self._gyro_n = 0
         self._att_rp: np.ndarray | None = None
+        self._trip_cur_filt: np.ndarray | None = None
         self._tilt_ref0 = (0.0, 0.0)
         self._settle_lean = (0.0, 0.0)
         self._z0 = 0.0
@@ -1026,24 +1043,60 @@ class SimHexapodBalanceEnv(_GymBase):
         if self._deployed_transport is None:
             roll, pitch = float(self._att_rp[0]), float(self._att_rp[1])
 
-        # Servo current ≈ |net actuator torque| × A/N·m. Feeds the effort
-        # reward penalty AND the SafetyLayer over-current trip (2.5 A), so
-        # stall-fighting a bad pose terminates in sim like it must on
-        # hardware. 1.2 A/N·m puts torque saturation (2.2 N·m) just past
-        # the trip — SUSTAINED saturation = episode over. Low-pass with a
-        # ~0.1 s time constant so a millisecond torque spike doesn't trip:
-        # hardware reads current at ~10 Hz and never sees such transients.
-        # Cap at ~stall current: the same motor is on every joint, so the
-        # estimate can't exceed what the winding physically draws at 12 V
-        # (fitted per-axis torque limits would otherwise let some axes
-        # report 4+ A).
-        raw_current = np.minimum(np.abs(torque) * 1.2, 3.0)
+        # Servo current estimate. torque and qvel are both in MuJoCo DOF
+        # order here (torque = qfrc_actuator[_vadr], NOT remapped to
+        # logical); this is what the estimate has always used and what the
+        # power model was fitted against, so per-joint order is consistent.
+        #
+        # DEFAULT ("power"): the validated mechanical-power model (fitted
+        # 2026-09-19, /tmp/gaitval, over survey gaits 1-4,7,10 vs the real
+        # robots' walk_summary current_mean_a):
+        #     per-joint current = iq/18 + k * |torque * qvel|
+        # (iq_bus=0.19 A, k=0.02282 A/W), then a 0.1 s low-pass. The
+        # ~345:1 non-backdrivable STS3215 gearbox holds a static load at
+        # ~0 winding current, so this correctly makes holding/stance cheap
+        # — the old min(|torque|*1.2, 3.0) proxy overstated holding current
+        # ~20x. See rl_move/sim/audit_over_current.py for the old proxy's
+        # anatomy.
+        #
+        # SAFETY: precisely because holding is cheap, a STALL (high torque,
+        # ~0 speed → ~0 mechanical power) also reads ~0 A under this model,
+        # so keying the SafetyLayer over-current trip on it would SILENTLY
+        # DISABLE stall protection (a real STS3215 melts fighting a bad
+        # pose — cooked knee, 2026-08-06). We therefore keep a SEPARATE,
+        # stall-sensitive trip signal from the LEGACY torque proxy
+        # (min(|torque|*1.2, 3.0), same 0.1 s low-pass) in
+        # ``over_current_signal``; the SafetyLayer and trip-proximity
+        # reward shaping prefer it (robot_state.over_current_reading), so a
+        # stall trips EXACTLY as before while the reward sees true power.
+        #
+        # LEGACY ("torque_proxy"): servo_current = the old proxy and NO
+        # separate trip signal (over_current_signal=None → the trip falls
+        # back to servo_current). Bit-exact with pre-2026-09-19 behavior.
+        alpha = self.dt / (self.dt + 0.1)
+        legacy_current = np.minimum(np.abs(torque) * 1.2, 3.0)
+        if self._current_model == "power":
+            qvel_raw = self.data.qvel[self._vadr]  # MuJoCo order, w/ torque
+            raw_current = (self._current_iq_joint
+                           + self._current_k_a_per_w
+                           * np.abs(torque * qvel_raw))
+            raw_trip = legacy_current
+        else:
+            raw_current = legacy_current
+            raw_trip = None
         if getattr(self, "_cur_filt", None) is None:
             self._cur_filt = raw_current
         else:
-            alpha = self.dt / (self.dt + 0.1)
             self._cur_filt = (1.0 - alpha) * self._cur_filt + alpha * raw_current
         servo_current = self._cur_filt.copy()
+        over_current_signal = None
+        if raw_trip is not None:
+            if getattr(self, "_trip_cur_filt", None) is None:
+                self._trip_cur_filt = raw_trip
+            else:
+                self._trip_cur_filt = ((1.0 - alpha) * self._trip_cur_filt
+                                       + alpha * raw_trip)
+            over_current_signal = self._trip_cur_filt.copy()
 
         del mujoco
         state = RobotState(
@@ -1057,6 +1110,7 @@ class SimHexapodBalanceEnv(_GymBase):
             imu_accel=f_imu,
             commanded_position=self._cmd.copy(),
             servo_current=servo_current,
+            over_current_signal=over_current_signal,
             bus_ok=True,
             imu_ok=True,
             dt=self.dt,
@@ -1873,6 +1927,7 @@ class SimHexapodBalanceEnv(_GymBase):
         )
         self.safety.set_nominal(self._q_nom)
         self._cur_filt = None
+        self._trip_cur_filt = None
         self._torque_debt = None
         self._prev_current_rate = None
         self._imu_prev_v = None
@@ -2238,7 +2293,10 @@ class SimHexapodBalanceEnv(_GymBase):
                  for i, b in enumerate(self._pad_bids)]
         feet_xy = np.array([self.data.xpos[b, :2]
                             for b in self._pad_bids])
-        cur = self._state.servo_current
+        # Plant-validity strain gate: read the stall-sensitive current so a
+        # strained plant is still rejected (default power model reads ~0 at
+        # a stall); falls back to servo_current on hardware / legacy model.
+        cur = over_current_reading(self._state)
         return valid_plant(
             pad_clear_m=clear, feet_xy=feet_xy,
             com_xy=self.data.subtree_com[0, :2],

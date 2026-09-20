@@ -8,6 +8,7 @@ from __future__ import annotations
 import numpy as np
 
 from rl_move.config import cfg_get
+from rl_move.robot_state import over_current_reading
 
 from .balance_helpers import action_rate_penalty, support_margin_m, torque_headroom_debt_step
 
@@ -96,7 +97,11 @@ def posture_support_load_headroom_reward(env, goal, parts, reward):
     k_headroom = float(cfg_get(env.cfg, "reward", "k_torque_headroom",
                                 default=0.0))
     if k_headroom > 0.0 and env._state.servo_current is not None:
-        cur = np.abs(env._state.servo_current)
+        # Torque-headroom debt is measured against the 2.64 A over-current
+        # rail, so read the stall-sensitive current (default power model
+        # reads ~0 at a stall); falls back to servo_current on hardware /
+        # legacy model.
+        cur = np.abs(over_current_reading(env._state))
         if (getattr(env, "_torque_debt", None) is None
                 or env._torque_debt.shape != cur.shape):
             env._torque_debt = np.zeros_like(cur)

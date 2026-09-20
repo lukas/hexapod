@@ -6,10 +6,18 @@ This tool makes the estimator's anatomy explicit and classifies each
 alleged trip with corroborating dynamics, so current telemetry can be
 reported separately from physical-quality verdicts.
 
+NOTE (2026-09-19): as of bus.current_model="power" (the DEFAULT), the
+anatomy below describes the OVER-CURRENT TRIP SIGNAL (state.
+over_current_signal), NOT the reported state.servo_current. servo_current
+now reads the validated mechanical-power model (iq/18 + k*|torque*qvel|,
+~0 A while holding/stalling); the trip is kept on this legacy torque proxy
+so a stall still trips. Under bus.current_model="torque_proxy" (legacy)
+servo_current IS this proxy and there is no separate trip signal.
+
 ESTIMATOR ANATOMY (rl_move/sim/sim_env.py::_read_state):
 
     raw_current  = min(|actuator_torque| * 1.2 A/N*m, 3.0 A)
-    servo_current = lowpass(raw_current, tau=0.1 s)
+    trip_current = lowpass(raw_current, tau=0.1 s)   # over_current_signal
 
 The actuator forcerange is +-2.2 N*m, so |torque| saturates at 2.2 and
 2.2 * 1.2 = 2.64 A EXACTLY. A bit-exact 2.64 A reading therefore means

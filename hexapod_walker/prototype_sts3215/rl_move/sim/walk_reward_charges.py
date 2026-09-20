@@ -12,6 +12,7 @@ from __future__ import annotations
 import numpy as np
 
 from rl_move.config import cfg_get
+from rl_move.robot_state import over_current_reading
 
 
 def idle_travel_floor_charge(env, along, info, reward, s_ref):
@@ -98,7 +99,11 @@ def move_current_charge(env, info, reward, s_ref):
     k_movecur = float(cfg_get(env.cfg, "reward",
                               "k_walk_move_current", default=0.0))
     if k_movecur > 0.0 and s_ref > 1e-3:
-        cur_mv = getattr(env._state, "servo_current", None)
+        # Rail-proximity charge (thr 2.2 A, under the 2.5 A trip): read the
+        # stall-sensitive current so it still bites at a stall (default
+        # power model reads ~0); falls back to servo_current on hardware /
+        # legacy model.
+        cur_mv = over_current_reading(env._state)
         if cur_mv is not None:
             thr_mv = 2.2
             cap_mv = 4.0
@@ -227,7 +232,10 @@ def stop_charges(env, goal, info, reward, s_ref, v):
             and not (env._yaw_cmd
                      and abs(float(getattr(goal, "wz_ref", 0.0)
                                    or 0.0)) > 1e-3)):
-        cur_sc = getattr(env._state, "servo_current", None)
+        # Rail-proximity charge (thr 1.5 A): read the stall-sensitive
+        # current (default power model reads ~0 at a stall); falls back to
+        # servo_current on hardware / legacy model.
+        cur_sc = over_current_reading(env._state)
         if cur_sc is not None:
             thr_cur = 1.5
             cap_cur = 4.0

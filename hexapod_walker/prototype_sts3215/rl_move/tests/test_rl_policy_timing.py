@@ -1723,8 +1723,9 @@ def test_drive_joint_hold_trips_current_at_fresh_feedback_cadence(monkeypatch):
             pass
 
     class _NoopLog:
-        def __init__(self, _mode, params=None, obs_dim=0, debug=None):
-            del params, debug
+        def __init__(self, _mode, params=None, obs_dim=0, debug=None,
+                     body_frame=None):
+            del params, debug, body_frame
             self.obs_dim = int(obs_dim)
 
         def tick(self, *_args, **_kwargs):
@@ -2067,8 +2068,9 @@ def _run_direct_pending_policy_harness(monkeypatch, snapshots, *,
             pass
 
     class _Log:
-        def __init__(self, _mode, params=None, obs_dim=0, debug=None):
-            del params, debug
+        def __init__(self, _mode, params=None, obs_dim=0, debug=None,
+                     body_frame=None):
+            del params, debug, body_frame
             self.obs_dim = int(obs_dim)
             self.rows = []
             log_instances.append(self)

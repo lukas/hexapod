@@ -64,18 +64,27 @@ TRACKER_DIR = os.environ.get("HEXAPOD_TRACKER_DIR", str(Path.home() / "hexapod-t
 # --- pure analysis (tested) --------------------------------------------------
 
 def imu_metrics(rows: list[dict]) -> dict:
-    """Roll/pitch peak+rms over the walk phase of a drive CSV (all rows if no phase column)."""
+    """Chassis roll/pitch peak+rms over the walk phase, from the mount-corrected
+    body_* columns.
+
+    Reports ``imu_uncalibrated=True`` and NO roll/pitch stats when the run had
+    no IMU body-frame calibration (body_* columns absent or all blank).  The
+    raw ``uncal_*`` / legacy ``roll_deg`` columns are mount-uncorrected and must
+    never be reported as chassis tilt, so they are deliberately not read here.
+    """
     if not rows:
         return {}
     walk = [r for r in rows if str(r.get("phase", "")).startswith("walk")] or rows
     def col(name):
         return [float(r[name]) for r in walk if r.get(name) not in (None, "")]
-    roll, pitch = col("roll_deg"), col("pitch_deg")
+    roll, pitch = col("body_roll_deg"), col("body_pitch_deg")
     out = {"walk_ticks": len(walk)}
     if roll:
         out.update(roll_peak=round(max(map(abs, roll)), 2), roll_rms=round(math.sqrt(st.mean(v * v for v in roll)), 2))
     if pitch:
         out.update(pitch_peak=round(max(map(abs, pitch)), 2), pitch_rms=round(math.sqrt(st.mean(v * v for v in pitch)), 2))
+    if not roll and not pitch:
+        out["imu_uncalibrated"] = True  # no trustworthy chassis-tilt metric
     cur = col("max_cur_a")
     if cur:
         out["max_cur_a"] = round(max(cur), 2)
@@ -343,10 +352,20 @@ class Sweep:
         except Exception:
             sys.exit(f"camera check gave no JSON: {r.stdout[-300:]} {r.stderr[-300:]}")
         (self.out / "camera_check.json").write_text(json.dumps(j, indent=1))
+        drift = j.get("drift_rms_px")
         if not j.get("ok"):
-            sys.exit(f"top camera floor fit is off (drift {j.get('drift_rms_px')} px): {j.get('reason')}. "
-                     f"Run `hexapod-cameras calibrate floor --role {self.a.camera_role}` and retry.")
-        self.log(f"camera {self.a.camera_role} floor fit ok (drift {j.get('drift_rms_px')} px, anchors {j.get('anchors_seen')})")
+            # A marginal floor fit (camera bumped, or too few anchors to refit)
+            # only adds ~cm error to the base-motion overlay; the joint/IMU
+            # traces don't use the camera at all. Warn and proceed unless the
+            # drift is large enough to make even relative tracking unreliable.
+            if self.a.allow_camera_drift and isinstance(drift, (int, float)) and drift < 40.0:
+                self.log(f"WARNING camera floor fit off (drift {drift} px): {j.get('reason')}; "
+                         "proceeding (traces unaffected, base-motion ~cm off)")
+                return
+            sys.exit(f"top camera floor fit is off (drift {drift} px): {j.get('reason')}. "
+                     f"Refit (`hexapod-cameras calibrate floor --role {self.a.camera_role}`) "
+                     f"or pass --allow-camera-drift to collect traces anyway.")
+        self.log(f"camera {self.a.camera_role} floor fit ok (drift {drift} px, anchors {j.get('anchors_seen')})")
 
     def camera_start(self) -> None:
         if self.a.no_camera:
@@ -760,10 +779,13 @@ class WalkAround:
                 break
         rb = R.get("/api/robot")
         pf = R.get("/api/rl/preflight?mode=walk")
-        self.log(f"stood: armed={rb.get('armed')} tilt={pf.get('roll_deg')}/{pf.get('pitch_deg')}")
+        # Preflight tilt is sensor-frame; a per-axis gate is meaningless under a
+        # rotated IMU mount, so gate on total-tilt MAGNITUDE (rotation-invariant).
+        tilt = math.hypot(pf.get("roll_deg") or 0, pf.get("pitch_deg") or 0)
+        self.log(f"stood: armed={rb.get('armed')} tilt={tilt:.1f}deg (sensor magnitude)")
         if not rb.get("armed"):
             self.log("stand did not arm; stopping"); return False
-        if abs(pf.get("roll_deg") or 0) > 12 or abs(pf.get("pitch_deg") or 0) > 15:
+        if tilt > 12:
             self.log("robot is tilted after standing (pinned leg?); stopping"); return False
         return True
 
@@ -851,6 +873,8 @@ def main(argv=None) -> int:
     p.add_argument("--max-drift-mm", type=float, default=300.0,
                    help="beyond this distance from the sweep start the next exposure heads back (needs --chassis-tag)")
     p.add_argument("--no-camera", action="store_true")
+    p.add_argument("--allow-camera-drift", action="store_true",
+                   help="proceed on a marginal floor fit (<40 px); traces are unaffected, base-motion ~cm off")
     p = sub.add_parser("walk", help="stand, learn direction from the camera, patrol open-floor waypoints")
     p.add_argument("--host", default=os.environ.get("HEXAPOD_HOST", "http://hexapod.local:8080"))
     p.add_argument("--out", required=True)

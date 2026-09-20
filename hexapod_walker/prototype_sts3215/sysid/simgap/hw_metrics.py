@@ -29,6 +29,15 @@ rows_out = []
 for p in sorted(D.glob('*.csv')):
     fn = p.name.split('__', 1)[1]
     e = ent.get(fn, {}); d = load(p)
+    # Chassis tilt from the mount-corrected body_* columns ONLY; never the raw
+    # uncal_*/roll_deg columns. Uncalibrated run -> NaN arrays so tilt metrics
+    # come out NaN instead of silently reporting mount-uncorrected sensor tilt.
+    _roll = d.get('body_roll_deg'); _pitch = d.get('body_pitch_deg')
+    _tilt_ok = (_roll is not None and _pitch is not None
+                and np.isfinite(_roll).any() and np.isfinite(_pitch).any())
+    if not _tilt_ok:
+        _roll = np.full(len(d['t_s']), np.nan)
+        _pitch = np.full(len(d['t_s']), np.nan)
     t = d.get('mono_s', d['t_s']);
     if np.any(np.diff(t) <= 0): t = d['t_s']
     q = np.stack([d[f'q{i}_deg'] for i in range(18)], 1); c = np.stack([d[f'cmd{i}_deg'] for i in range(18)], 1)
@@ -36,7 +45,8 @@ for p in sorted(D.glob('*.csv')):
     hold = (ph == 'hold'); walk = np.isin(ph, ['walk', 'run'])
     sgn = q - c
     r = {'run': e.get('run_id', '?'), 'file': fn, 'family': e.get('family', '?'), 'cmd': e.get('command', '?'),
-         'hz': round(len(t) / (t[-1] - t[0]), 1), 'n_hold': int(hold.sum()), 'n_walk': int(walk.sum())}
+         'hz': round(len(t) / (t[-1] - t[0]), 1), 'n_hold': int(hold.sum()), 'n_walk': int(walk.sum()),
+         'imu_uncalibrated': not _tilt_ok}
     if hold.sum() > 10:
         # last 60% of hold rows = settled
         idx = np.where(hold)[0]; idx = idx[len(idx) // 2:]
@@ -46,7 +56,7 @@ for p in sorted(D.glob('*.csv')):
         r['hold_droop_yaw'] = [round(float(m[0 + 3 * l]), 1) for l in range(6)]
         r['hold_pose_hip'] = [round(float(np.nanmean(c[idx, 1 + 3 * l])), 1) for l in range(6)]
         r['hold_pose_knee'] = [round(float(np.nanmean(c[idx, 2 + 3 * l])), 1) for l in range(6)]
-        r['hold_roll_pitch'] = [round(float(np.nanmean(d['roll_deg'][idx])), 1), round(float(np.nanmean(d['pitch_deg'][idx])), 1)]
+        r['hold_roll_pitch'] = [round(float(np.nanmean(_roll[idx])), 1), round(float(np.nanmean(_pitch[idx])), 1)]
     if walk.sum() > 64:
         w = np.where(walk)[0]; tw = t[w]
         err = np.abs(sgn[w])
@@ -57,13 +67,13 @@ for p in sorted(D.glob('*.csv')):
         stride, _ = dom_hz(tw, c[w, 2]);  # knee cmd of leg 0
         st = [dom_hz(tw, c[w, 2 + 3 * l])[0] for l in range(6)]; stride = float(np.nanmedian(st))
         r['stride_hz'] = round(stride, 2)
-        fr, pr = dom_hz(tw, d['roll_deg'][w]); fg, pg = dom_hz(tw, d['gyro_x_dps'][w]); fp, pp = dom_hz(tw, d['pitch_deg'][w])
+        fr, pr = dom_hz(tw, _roll[w]); fg, pg = dom_hz(tw, d['gyro_x_dps'][w]); fp, pp = dom_hz(tw, _pitch[w])
         r['roll_dom_hz'] = round(fr, 2); r['roll_dom_frac'] = round(pr, 2); r['gyro_x_dom_hz'] = round(fg, 2); r['pitch_dom_hz'] = round(fp, 2)
-        r['roll_rel_peak'] = round(float(np.nanmax(np.abs(d['roll_deg'][w] - np.nanmedian(d['roll_deg'][w[:5]])))), 1)
-        r['roll_rms'] = round(float(np.nanstd(d['roll_deg'][w])), 2); r['pitch_rms'] = round(float(np.nanstd(d['pitch_deg'][w])), 2)
+        r['roll_rel_peak'] = round(float(np.nanmax(np.abs(_roll[w] - np.nanmedian(_roll[w[:5]])))), 1)
+        r['roll_rms'] = round(float(np.nanstd(_roll[w])), 2); r['pitch_rms'] = round(float(np.nanstd(_pitch[w])), 2)
         r['gyro_x_rms'] = round(float(np.sqrt(np.nanmean(d['gyro_x_dps'][w] ** 2))), 1)
         # roll band power split: stride band vs 2x stride vs sub-stride
-        x = np.nan_to_num(d['roll_deg'][w] - np.nanmean(d['roll_deg'][w])); dt = float(np.median(np.diff(tw)))
+        x = np.nan_to_num(_roll[w] - np.nanmean(_roll[w])); dt = float(np.median(np.diff(tw)))
         f = np.fft.rfftfreq(len(x), dt); P = np.abs(np.fft.rfft(x)) ** 2; tot = P[f > 0.2].sum() + 1e-9
         def band(a, b): return round(float(P[(f >= a) & (f < b)].sum() / tot), 2)
         r['roll_band_sub'] = band(0.2, 0.7 * stride) if stride == stride else None

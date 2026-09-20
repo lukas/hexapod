@@ -80,6 +80,20 @@ CONTACT_N = 0.5           # touch-sensor force threshold
 # Trace loading
 # ---------------------------------------------------------------------------
 
+def _tilt_col(row: dict, axis: str) -> float:
+    """Read one tilt axis from a drive CSV row, preferring the mount-corrected
+    body_* column, then the new uncal_* column, then the legacy roll_deg column.
+    Returns NaN when none is present/finite."""
+    for key in (f"body_{axis}_deg", f"uncal_{axis}_deg", f"{axis}_deg"):
+        val = row.get(key)
+        if val not in (None, ""):
+            try:
+                return float(val)
+            except (TypeError, ValueError):
+                pass
+    return float("nan")
+
+
 def _phase_window(rows: list[dict], phase: str) -> list[dict]:
     """First-to-last active-phase window, including brief interruptions.
 
@@ -144,8 +158,11 @@ def load_trace(csv_path: Path, *, phase: str = "auto") -> dict:
         "interrupted_ticks": len(rows) - active_count,
         "time_source": time_source,
         "t": trace_t,
-        "roll": np.array([float(r["roll_deg"]) for r in rows]),
-        "pitch": np.array([float(r["pitch_deg"]) for r in rows]),
+        # Prefer mount-corrected body_* (chassis); fall back to the new
+        # uncal_* or legacy roll_deg columns. replay_trace uses these only as a
+        # RELATIVE (self-zeroing) reference, so a sensor-frame fallback is safe.
+        "roll": np.array([_tilt_col(r, "roll") for r in rows]),
+        "pitch": np.array([_tilt_col(r, "pitch") for r in rows]),
         "gyro_x": np.array([float(r["gyro_x_dps"]) for r in rows]),
         "gyro_y": np.array([float(r["gyro_y_dps"]) for r in rows]),
         "q": np.array([[float(r[f"q{j}_deg"]) for j in range(18)]

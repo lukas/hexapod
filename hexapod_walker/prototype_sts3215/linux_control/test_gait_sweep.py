@@ -3,12 +3,23 @@ import gait_sweep
 
 
 def test_imu_metrics_use_walk_phase_only():
-    rows = [{"phase": "stand", "roll_deg": "30", "pitch_deg": "0"},
-            {"phase": "walk", "roll_deg": "3", "pitch_deg": "4", "max_cur_a": "0.5"},
-            {"phase": "walk", "roll_deg": "-3", "pitch_deg": "0", "max_cur_a": "0.7"}]
+    # Chassis tilt comes from the mount-corrected body_* columns.
+    rows = [{"phase": "stand", "body_roll_deg": "30", "body_pitch_deg": "0"},
+            {"phase": "walk", "body_roll_deg": "3", "body_pitch_deg": "4", "max_cur_a": "0.5"},
+            {"phase": "walk", "body_roll_deg": "-3", "body_pitch_deg": "0", "max_cur_a": "0.7"}]
     m = gait_sweep.imu_metrics(rows)
     assert m["walk_ticks"] == 2 and m["roll_peak"] == 3.0 and m["roll_rms"] == 3.0
     assert m["pitch_peak"] == 4.0 and m["max_cur_a"] == 0.7
+
+
+def test_imu_metrics_uncalibrated_skips_tilt():
+    # Uncalibrated run: only mount-uncorrected columns -> no chassis-tilt stats.
+    rows = [{"phase": "walk", "uncal_roll_deg": "3", "uncal_pitch_deg": "4",
+             "body_roll_deg": "", "body_pitch_deg": "", "max_cur_a": "0.5"}]
+    m = gait_sweep.imu_metrics(rows)
+    assert m["imu_uncalibrated"] is True
+    assert "roll_peak" not in m and "pitch_peak" not in m
+    assert m["max_cur_a"] == 0.5
 
 
 def _vision(tag, xs, t0=100.0):

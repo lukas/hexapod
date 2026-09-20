@@ -67,9 +67,15 @@ def metrics(d: dict) -> dict:
         "knee_cmd_amp_per_leg": [round(float(a), 1) for a in camp[2::3]],
         "hip_cmd_amp_per_leg": [round(float(a), 1) for a in camp[1::3]],
     }
-    for col, name in (("roll_deg", "roll_deg"), ("pitch_deg", "pitch_deg")):
-        if col in d:
+    # Chassis tilt from the mount-corrected body_* columns only; the raw
+    # uncal_*/roll_deg columns are never reported as chassis tilt.
+    tilt_ok = False
+    for col, name in (("body_roll_deg", "roll_deg"), ("body_pitch_deg", "pitch_deg")):
+        if col in d and np.isfinite(d[col]).any():
             out[name] = [round(float(np.nanmin(d[col])), 1), round(float(np.nanmax(d[col])), 1)]
+            tilt_ok = True
+    if not tilt_ok:
+        out["imu_uncalibrated"] = True  # no trustworthy chassis-tilt metric
     if "gyro_z_dps" in d:
         out["gyro_z_rms_dps"] = round(float(np.sqrt(np.nanmean(d["gyro_z_dps"] ** 2))), 1)
     if "vx_ref_mps" in d:

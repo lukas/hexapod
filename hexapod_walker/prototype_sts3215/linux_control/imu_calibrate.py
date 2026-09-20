@@ -340,6 +340,29 @@ def reset_imu_calib() -> dict:
     return st
 
 
+def sensor_to_body_tilt_deg(
+        roll_deg: float, pitch_deg: float,
+        body_frame: dict | None) -> tuple[float, float] | None:
+    """Rotate mount-uncorrected sensor-frame roll/pitch into chassis body frame.
+
+    Returns ``(body_roll_deg, body_pitch_deg)``, or None when ``body_frame`` is
+    not a valid calibration (so callers must treat the sensor value as
+    uncalibrated rather than silently trusting it).  This is the SINGLE shared
+    rotation: both the on-robot calib apply path (``apply_imu_calib``) and the
+    drive-trace CSV writer use it, so there is exactly one formula.
+    """
+    bf = _valid_body_frame(body_frame)
+    if not bf:
+        return None
+    body_pitch = bf["pitch_sign"] * (
+        roll_deg * bf["pitch_axis_roll"]
+        + pitch_deg * bf["pitch_axis_pitch"])
+    body_roll = (
+        roll_deg * -bf["pitch_axis_pitch"]
+        + pitch_deg * bf["pitch_axis_roll"])
+    return body_roll, body_pitch
+
+
 def apply_imu_calib(sample: dict, calib: dict | None) -> dict:
     """Return a copy with gyro/accel biases and body-frame tilt applied."""
     out = dict(sample)
@@ -362,12 +385,8 @@ def apply_imu_calib(sample: dict, calib: dict | None) -> dict:
         out["pitch_deg"] = pitch
         bf = _valid_body_frame(calib.get("body_frame"))
         if bf:
-            body_pitch = bf["pitch_sign"] * (
-                roll * bf["pitch_axis_roll"]
-                + pitch * bf["pitch_axis_pitch"])
-            body_roll = (
-                roll * -bf["pitch_axis_pitch"]
-                + pitch * bf["pitch_axis_roll"])
+            body_roll, body_pitch = sensor_to_body_tilt_deg(
+                roll, pitch, calib.get("body_frame"))
             out["body_pitch_deg"] = body_pitch
             out["body_roll_deg"] = body_roll
             out["body_frame_calibrated"] = True

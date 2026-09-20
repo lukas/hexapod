@@ -138,6 +138,31 @@ def cmd_status(args) -> int:
                         print(f"                   IMU ok ({age:.0f} ms)")
             except (urllib.error.URLError, OSError, TimeoutError):
                 pass
+            # IMU calibration: imu_calib.json is NOT in git and lives in the
+            # deploy tree, so a tree wipe/reflash loses it silently and the
+            # tilt telemetry (body_roll/pitch_deg) goes wrong without warning.
+            # Flag its absence here so it is caught before a run, and restore
+            # from ~/.hexapod/imu_calib_backups (or re-run the checkup).
+            try:
+                ic = r.get("/api/imu", timeout=6.0)
+                # Trust the PER-SAMPLE body_frame_calibrated from /api/feedback,
+                # not /api/imu body_calibrated: the latter is True whenever a
+                # body_frame is stored, even one that fails validation (axis
+                # norm < 0.5), whereas feedback reports the validated result.
+                try:
+                    fb = r.get("/api/feedback", timeout=6.0)
+                    bf_ok = bool(fb.get("body_frame_calibrated")) if isinstance(fb, dict) else False
+                except (urllib.error.URLError, OSError, TimeoutError):
+                    bf_ok = False
+                if isinstance(ic, dict):
+                    if not ic.get("learned"):
+                        print("                   IMU NOT CALIBRATED <-- POST /api/calibrate {\"mode\":\"checkup\"}; restore ~/.hexapod/imu_calib_backups")
+                        any_action_needed = True
+                    else:
+                        bf = "body_frame" if bf_ok else "NO body_frame (raw tilt axes)"
+                        print(f"                   IMU calib {ic.get('grade','?')}  {bf}  {str(ic.get('timestamp',''))[:10]}")
+            except (urllib.error.URLError, OSError, TimeoutError):
+                pass
             try:
                 cj = r.get("/api/commands", timeout=6.0)
                 entries = (cj.get("entries") or cj.get("commands") or []) if isinstance(cj, dict) else []

@@ -2195,6 +2195,7 @@ class ChiralitySelector:
 # several good walking policies were never trained to be still at vx=vy=0.
 DRIVE_CMD_TIMEOUT_S = 0.6    # heartbeats at ~5 Hz; 3 misses = stop
 DRIVE_IDLE_END_S = 120.0     # no heartbeat at all -> end session (hold)
+DRIVE_END_REFRESH_S = 1.5    # at a graceful end, glide back to the walk-ready start pose and settle before the session ends
 DRIVE_MAX_SESSION_S = 300.0  # hard cap per session (decel + hold)
 DRIVE_WALK_ENGAGE_S = 0.0    # first real held direction engages gait now
 DRIVE_WALK_ACTION_RAMP_S = 1.5  # blend first learned targets from stance
@@ -4911,7 +4912,21 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
             walk_cmd_since = None
             moving = False
         if stopping is not None and not moving:
-            # Graceful end: refs decayed to zero, robot HOLDS the pose.
+            # Graceful end: refs decayed to zero.  2026-09-20 (hexapod2, video): the policy's own zero-velocity stop
+            # left one joint up to 60 deg off the walk-ready stance; the stance then failed the upright classifier and
+            # the next lower went through safe zero's descent (chassis dropped, feet slid).  So end IN the walk-ready
+            # start pose: the same verified glide the start used, then hold there.
+            if mode == "walk" and start_target_deg is not None:
+                try:
+                    tgt = np.asarray(start_target_deg, dtype=float)
+                    debug.event("end_refresh_begin", target_deg=tgt.tolist(), publish=False, flush=False)
+                    est.set_commanded(tgt * DEG2RAD)
+                    bus.write_all(tgt.tolist(), speed=min(int(write_speed), DRIVE_START_REFRESH_SPEED),
+                                  acc=min(int(write_acc), DRIVE_START_REFRESH_ACC))
+                    time.sleep(DRIVE_END_REFRESH_S)
+                    result["end_pose"] = "walk_ready"
+                except Exception as e:  # noqa: BLE001
+                    result["end_pose_error"] = str(e)
             result.update(ticks=i, ended=stopping)
             break
 

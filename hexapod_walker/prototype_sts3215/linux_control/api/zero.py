@@ -781,12 +781,28 @@ class ZeroApi:
                         "route": "step_lower",
                         "standing": standing,
                         "msg": "standing pose: would use STEP lower"}
-            res = self.standup(mode="step", speed=10.0,
+            res = self.standup(mode="step", speed=1.0,
                                direction="down")
             res["route"] = "step_lower"
             res["standing"] = standing
             return res
 
+        # 2026-09-20 (hexapod2, on video): a post-walk stance that failed the upright classifier reached the planner,
+        # whose "low-drag descent" lowered the chassis while sliding loaded feet outward.  At standing height the only
+        # sanctioned way down is a walk-ready re-plant + STEP-down; safe zero is for poses at or near the floor.
+        try:
+            from safe_zero import STAND_DETECT_MM, median_foot_z_mm
+            _mz = median_foot_z_mm(present)
+            off_floor = _mz < belly_ground_z_mm() - STAND_DETECT_MM
+        except Exception:
+            _mz, off_floor = None, False
+        if off_floor and not force and not (pinned and pinned.get("pinned")):
+            return {"ok": False, "code": "standing_no_descent",
+                    "median_foot_z_mm": None if _mz is None else round(_mz, 1),
+                    "error": (f"robot is standing (median foot {-_mz:.0f} mm below the hip pivot) but not in a "
+                              "recognised upright stance: safe zero does not lower a standing robot. Re-plant to "
+                              "walk-ready (POST /api/rl/stand) and STEP-down (POST /api/standup direction=down); "
+                              "force=true only while watching.")}
         plan = plan_safe_zero(present, ground_z_mm=belly_ground_z_mm(),
                               allow_loaded_blend=bool(force))
         plan["present_deg"] = [round(v, 2) for v in present]

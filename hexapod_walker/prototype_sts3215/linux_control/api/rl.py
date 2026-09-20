@@ -1239,7 +1239,7 @@ class RlApi:
         if mode == "stand" and not learned:
             return self._rl_walk_ready_stand()
         if mode == "lower" and not learned:
-            return self.standup(mode="step", speed=10.0,
+            return self.standup(mode="step", speed=1.0,
                                 direction="down")
         weights_path = self._role_weights(mode)
         if learned and mode in ("stand", "lower"):

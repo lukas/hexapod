@@ -120,6 +120,22 @@ class StandupApi:
         safe_zero_before_up = bool(not force and not down
                                    and standing is None)
         if down and not force and standing is None:
+            # 2026-09-20: a standing robot whose stance the upright classifier rejects (post-RL-walk, one joint 60 deg
+            # off) must NOT be handed to safe zero: its planner lowered the chassis while sliding loaded feet outward.
+            # At standing height the caller re-plants to walk-ready first (/api/rl/stand) and steps down; safe zero
+            # stays the recovery path only for poses already at or near the floor.
+            try:
+                from safe_zero import BELLY_GROUND_Z_MM, STAND_DETECT_MM, median_foot_z_mm
+                off_floor = median_foot_z_mm(present) < BELLY_GROUND_Z_MM - STAND_DETECT_MM
+            except Exception:
+                off_floor = True
+            if off_floor:
+                return {"ok": False, "code": "standing_not_upright",
+                        "route": "refused",
+                        "error": ("robot is standing but not in a recognised upright stance; "
+                                  "refusing safe-zero from standing height. Re-plant with "
+                                  "/api/rl/stand (walk-ready) and repeat direction=down, or "
+                                  "force=true while watching.")}
             if sync_gen is None:
                 res = self.safe_zero(force=force)
                 res["route"] = "safe_zero_not_standing"

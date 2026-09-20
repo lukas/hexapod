@@ -43,7 +43,11 @@
    "logs/ckpt_eval/lifecycle_handoff_rlonly_v1/strips/direct_0.png",
    "logs/ckpt_eval/lifecycle_handoff_rlonly_v1/strips/plant_0.png"
   ],
-  "visual_read": "1fps strip, episode 0, det pass: rise from flat -> settled hold -> direct handoff (blue=hold, green=forward-command arrow) -> forward walk with all-leg tripod cycling visible, no dragged/frozen leg, no height/tilt discontinuity across the handoff frames."
+  "visual_read": "1fps strip, episode 0, det pass: rise from flat -> settled hold -> direct handoff (blue=hold, green=forward-command arrow) -> forward walk with all-leg tripod cycling visible, no dragged/frozen leg, no height/tilt discontinuity across the handoff frames.",
+  "mp4": {
+   "drive.mp4": "forward (heading 0deg) direct-arm composed rise+hold->walk sequence, episode 0 det, full fps (50), rendered 2026-09-20 via eval_lifecycle_handoff_rlonly.py --video (new flag, default off, this cycle)",
+   "drive_h90_rot60.mp4": "+90deg heading, rot60-wrapped walk role, direct-arm composed rise+hold->walk sequence, episode 0 det, full fps (50) -- the full-direction extension headline (previously only shown as 1fps strips), rendered same cycle"
+  }
  },
  "no_lower_role_in_this_bundle": "This composition covers rise+hold->walk ONLY. `lower` remains CLOSED (all 16 agent-doable RL mechanism classes refuted, parked on Robot Lab achievability review, CURRENT_TRUTHS.md 2026-09-17) -- this is NOT a full sit-to-walk-to-sit lifecycle. A physical trial still needs a manual/gantry catch at the end.",
  "transfer_blockers_or_work": [
@@ -65,6 +69,7 @@
   "candidate_rot60_on_det_and_sto_n3_each_hold15s": "Every one of all 8 headings x {det,sto} = 16 conditions: direct-arm gait_valid 3/3, handoff_falls 0/3, sacrificed_legs_union [] -- ZERO exceptions. 96 total episodes (48 direct + 48 plant) across the full panel, 0 falls, 0 sacrificed legs anywhere. This is the FIRST time the composed (post-real-rise+hold-handoff) rise->walk sequence has been validated across the full commanded-heading envelope, not just forward.",
   "evidence": "logs/ckpt_eval/lifecycle_rot60_fullheading_panel_20260920T113129Z/{baseline,candidate}/*.json, strips_h090/{direct_0,plant_0}.png",
   "reading": "Closes a real, previously-open gap for Goal 2 (rl_only): the composed rise+hold->walk sim demo now covers the FULL 8-way heading envelope, not just forward, using zero new training (same two already-clean-RL checkpoints, same zero-retrain rot60 wrapper already validated in isolation by rot60_fullcircle). This is composition/role-selection plumbing (RL_GOALS.md-allowed), not a new motion role -- rot60 only permutes which of the walk champion's own already-trained per-leg actions applies to which leg index. Still NOT claimed: (1) tracking accuracy at these headings (not measured here, same open caveat rot60_fullcircle already named for the walk-alone case), (2) any speed/heading other than the bundle's trained 0.06 m/s point, (3) lower (still closed/parked on Robot Lab review) -- this is a genuine coverage extension of rise+hold+walk, not full lifecycle completion.",
-  "recommendation": "Treat this rot60-wrapped composition as the default full-direction OPTION for bundle_rlonly_lifecycle_v1, layered on top of (not replacing) the conservative forward-only default, exactly the same OPTION pattern bundle_rlonly_v2/rot60_fullcircle already established for the walk role alone."
+  "recommendation": "Treat this rot60-wrapped composition as the default full-direction OPTION for bundle_rlonly_lifecycle_v1, layered on top of (not replacing) the conservative forward-only default, exactly the same OPTION pattern bundle_rlonly_v2/rot60_fullcircle already established for the walk role alone.",
+  "video": "drive_h90_rot60.mp4 (added 2026-09-20, same cycle as the --video flag build; previously only 1fps strips existed for this arm)"
  }
 }

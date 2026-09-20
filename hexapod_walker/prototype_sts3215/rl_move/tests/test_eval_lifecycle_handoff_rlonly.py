@@ -13,6 +13,7 @@ from rl_move.sim.eval_lifecycle_handoff_rlonly import (
     capture_physical_state,
     heading_to_vxvy,
     sacrificed_legs,
+    write_mp4,
 )
 
 
@@ -140,3 +141,18 @@ def test_cli_registers_heading_and_rot60_flags_default_off(capsys):
     assert "--heading-deg" in out
     assert "--rot60" in out
     assert "--hold-s" in out
+    assert "--video" in out
+
+
+def test_write_mp4_empty_frames_is_noop(tmp_path):
+    out = tmp_path / "clip.mp4"
+    write_mp4([], out, fps=25)
+    assert not out.exists()
+
+
+def test_write_mp4_writes_a_nonempty_file(tmp_path):
+    frames = [np.zeros((8, 16, 3), dtype=np.uint8) for _ in range(4)]
+    out = tmp_path / "sub" / "clip.mp4"
+    write_mp4(frames, out, fps=25)
+    assert out.exists()
+    assert out.stat().st_size > 0

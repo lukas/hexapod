@@ -133,6 +133,23 @@ def heading_to_vxvy(speed: float, heading_deg: float) -> tuple[float, float]:
     return speed * math.cos(rad), speed * math.sin(rad)
 
 
+def write_mp4(frames: list, path: Path, fps: int) -> None:
+    """Write ``frames`` (list of HxWx3 uint8 arrays) to ``path`` as an
+    mp4 at ``fps``. Pure I/O helper, no env/model dependency, so it is
+    testable with plain numpy arrays -- same convention as
+    ``eval_checkpoint.py``'s ``_save_video`` (macro_block_size=1 so
+    non-multiple-of-16 render resolutions don't get silently cropped),
+    kept as a standalone function here rather than importing that
+    module's private helper (this tool has no other dependency on
+    ``eval_checkpoint``).  No-op on an empty frame list (caller's
+    responsibility to skip the call, mirrored here defensively)."""
+    import imageio
+    if not frames:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    imageio.mimsave(path, frames, fps=fps, macro_block_size=1)
+
+
 def _set_mix(gen, **p) -> None:
     for attr in [a for a in vars(gen) if a.startswith("p_")]:
         setattr(gen, attr, 0.0)
@@ -234,6 +251,14 @@ def main() -> int:
     ap.add_argument("--strips", type=Path, default=None,
                     help="dir for 1 fps frame-strip PNGs (episode 0 of "
                          "each arm)")
+    ap.add_argument("--video", type=Path, default=None,
+                    help="dir for full-fps <arm>_<ep>.mp4 (episode 0 of "
+                         "each arm; default None = no video rendered, "
+                         "matches the pre-2026-09-20 tool exactly). "
+                         "Polish item named in bundle_rlonly_lifecycle_v1/"
+                         "GO_NOGO.md's own 09-20 Next list ('an mp4, not "
+                         "just 1fps strips, would make the demo easier "
+                         "to show')")
     ap.add_argument("--stochastic", action="store_true",
                     help="sample both policies stochastically instead "
                          "of deterministic (default det, matches the "
@@ -251,12 +276,14 @@ def main() -> int:
 
     stance_cfg_args = list(BASE_CFG_ARGS) + list(FLATONLY_OVERRIDE_ARGS)
     want_strips = args.strips is not None
+    want_video = args.video is not None
+    want_render = want_strips or want_video
 
     env_rise = _build_env(stance_cfg_args, episode_seconds=15.0,
-                           seed=args.seed, render=want_strips)
+                           seed=args.seed, render=want_render)
     walk_episode_s = max(20.0, args.hold_s + 1.0 + 2.0 + 2.0)  # +2s margin
     env_walk = _build_env(WALK_CFG_ARGS, episode_seconds=walk_episode_s,
-                           seed=args.seed, render=want_strips)
+                           seed=args.seed, render=want_render)
 
     stance = PPO.load(args.stance, device="cpu")
     walk = PPO.load(args.walk, device="cpu")
@@ -275,12 +302,18 @@ def main() -> int:
     deterministic = not args.stochastic
 
     strip_frames: list = []
+    video_frames: list = []
 
     def grab(env, final: bool = False) -> None:
-        if not want_strips:
+        if not want_strips and not want_video:
             return
-        if final or (grab.n % max(1, int(round(1.0 / env.dt))) == 0):
-            strip_frames.append(env.render())
+        frame = None
+        if want_video:
+            frame = env.render()
+            video_frames.append(frame)
+        if want_strips and (final or (grab.n % max(
+                1, int(round(1.0 / env.dt))) == 0)):
+            strip_frames.append(frame if frame is not None else env.render())
         grab.n += 1
     grab.n = 0
 
@@ -292,6 +325,13 @@ def main() -> int:
         imageio.imwrite(args.strips / f"{name}.png",
                         np.hstack(strip_frames))
         strip_frames.clear()
+
+    def save_video(name: str) -> None:
+        if not want_video or not video_frames:
+            return
+        write_mp4(list(video_frames), args.video / f"{name}.mp4",
+                  fps=round(1.0 / env_walk.dt))
+        video_frames.clear()
 
     def rise_phase(ep_seed: int) -> tuple[dict, bool, PhysicalState | None]:
         gen = env_rise._goal_gen
@@ -400,6 +440,7 @@ def main() -> int:
             rec = {"arm": arm, "ep": ep}
             name = f"{arm}_{ep}"
             strip_frames.clear()
+            video_frames.clear()
             if arm == "plant":
                 gen = env_walk._goal_gen
                 _set_mix(gen, walk=1.0)
@@ -413,10 +454,11 @@ def main() -> int:
                     rec.update(drive(obs))
                 else:
                     rec["fall"] = "before_handoff"
-            if want_strips and ep == 0:
+            if (want_strips or want_video) and ep == 0:
                 grab(env_walk if rec.get("fall") != "before_handoff"
                      else env_rise, final=True)
                 save_strip(name)
+                save_video(name)
             results["episodes"].append(rec)
             print(f"[{arm:6s}] ep{ep} "
                   f"rise_ok={rec.get('rise_valid_plant', '-')} "

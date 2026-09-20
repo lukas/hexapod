@@ -165,6 +165,17 @@ Evidence: `logs/ckpt_eval/lifecycle_rot60_fullheading_panel_20260920T113129Z/
    is a separate hardware-runtime build, not evaluated here.
 2. Cloud: `lower` remains the last lifecycle gap; no new agent-doable lever
    is open (16/16 mechanism classes closed) absent a genuinely new idea.
-3. Cloud, optional polish: an mp4 (not just 1fps strips) of the composed
-   sequence would make the demo easier to show, if a future cycle has spare
-   CPU time and no higher-priority lever.
+3. **DONE 2026-09-20 (refill cycle, no GPU spend).** Added a `--video`
+   flag to `eval_lifecycle_handoff_rlonly.py` (default off, bit-exact when
+   unset — reuses the existing `grab()`/`render()` call sites instead of a
+   second rollout, new pure `write_mp4()` helper, 3 new mechanics-only
+   tests) and rendered two real mp4s: `drive.mp4` (forward, the original
+   direct-handoff demo) and `drive_h90_rot60.mp4` (the full-direction
+   extension's own +90 deg headline arm) — both checked in here, matching
+   the `todaypolicy` bundles' own `drive.mp4` convention. Re-verified both
+   clean while rendering (fresh det runs, same cfg/checkpoints, no new
+   training): forward `gait_valid=1/1, handoff_falls=0`; +90 rot60
+   `gait_valid=1/1, handoff_falls=0` — identical verdict to the panel this
+   bundle already reports, just now with a real playable video instead of
+   only 1fps strips. This directly serves RL_GOALS.md's "make sim demos
+   visible as soon as ready" requirement for Goal 2's simulation evidence.

@@ -6,6 +6,7 @@ the over_current audit's exact lowpass deconvolution.
 """
 from __future__ import annotations
 
+import math
 from types import SimpleNamespace
 
 import numpy as np
@@ -14,7 +15,7 @@ import numpy as np
 from rl_move.config import load_config
 from rl_move.sim.walk_task import SimHexapodJointWalkEnv
 from rl_move.sim.eval_cmd_stress import aggregate_stress
-from rl_move.sim.eval_checkpoint import _smoothness_fields
+from rl_move.sim.eval_checkpoint import _smoothness_fields, _gyro_fields
 from rl_move.sim.audit_over_current import (
     AMPS_PER_NM, CUR_CAP_A, LP_TAU_S, RAIL_A, deconvolve_torque)
 
@@ -137,3 +138,22 @@ def test_smoothness_fields_units_and_saturation():
     assert abs(f["cmd_rate_max_deg_s"] - 37.5) < 1e-6
     assert f["cmd_jerk_p95_deg_s2"] == 0.0
     assert _smoothness_fields(cmd[:2], env) == {}
+
+
+def test_gyro_fields_units_and_empty():
+    # constant 1 rad/s about x only -> RMS/peak both exactly
+    # degrees(1) regardless of sample count (raw, unweighted — no
+    # reward.k_gyro anywhere in this computation).
+    gyro = [np.array([1.0, 0.0, 0.0]) for _ in range(50)]
+    f = _gyro_fields(gyro)
+    assert abs(f["gyro_rms_dps"] - math.degrees(1.0)) < 1e-3
+    assert abs(f["gyro_peak_dps"] - math.degrees(1.0)) < 1e-3
+    assert _gyro_fields([]) == {}
+
+
+def test_gyro_fields_rms_lt_peak_when_varying():
+    rng = np.random.default_rng(3)
+    gyro = [rng.normal(size=3) for _ in range(200)]
+    f = _gyro_fields(gyro)
+    assert f["gyro_rms_dps"] <= f["gyro_peak_dps"] + 1e-9
+    assert f["gyro_rms_dps"] > 0.0

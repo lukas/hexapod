@@ -390,6 +390,38 @@ def _smoothness_fields(cmd_hist: list, env) -> dict:
     }
 
 
+def _gyro_fields(gyro_hist: list) -> dict:
+    """Additive per-episode RAW body-rate telemetry (2026-09-20,
+    smoothrew-s0/slewcap-lifted-s0 triage): both of this session's
+    smoothness verdicts had to fall back on the reward-WEIGHTED
+    ``env/reward_gyro`` W&B scalar (meaningless across two runs with
+    different ``k_gyro``, since a 0-weight run logs exactly 0
+    regardless of actual body rate) or on ``cmd_jerk_p95_deg_s2``,
+    which is computed on the POST-SafetyLayer command and therefore
+    saturates at the slew-cap's own derived ceiling (see
+    ``_smoothness_fields`` — confirmed pegged at the identical
+    2*max_delta_q_deg/dt^2 value across unrelated runs/panels). Neither
+    lets a future gate honestly judge 'is the BODY calmer', independent
+    of reward shaping or the rate limiter.
+
+    ``gyro_rms_dps``: RMS of ``|imu_gyro|`` (sim: privileged chassis
+    rate; hardware: the same IMU-derived estimate ``RobotState``
+    already exposes) over the whole episode, degrees/second — a raw
+    physical quantity, comparable across ANY two runs regardless of
+    ``reward.k_gyro``/safety caps/current model. Purely additive: {}
+    when no gyro samples were collected (episode too short / env
+    doesn't expose imu_gyro), so every existing report stays
+    byte-identical in shape otherwise.
+    """
+    if len(gyro_hist) < 1:
+        return {}
+    g = np.degrees(np.asarray(gyro_hist, dtype=np.float64))   # (T, 3) deg/s
+    return {
+        "gyro_rms_dps": round(float(np.sqrt(np.mean(np.sum(g ** 2, axis=1)))), 3),
+        "gyro_peak_dps": round(float(np.max(np.linalg.norm(g, axis=1))), 3),
+    }
+
+
 def _maybe_reset_gsde_noise(model, *, _depth: int = 0) -> None:
     """Resample the gSDE exploration matrix once per episode (2026-09-05,
     walkcurr sde-s3-c1b triage): SB3's ``model.predict()`` NEVER calls
@@ -527,6 +559,7 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
     frames = []
     cur_hist = []            # (T, 18) per-servo current
     cmd_hist = []            # (T, 18) post-SafetyLayer joint targets, deg
+    gyro_hist = []           # (T, 3) raw imu_gyro, rad/s
     contact_hist = []        # (T, 6) bool
     pad_xy_hist = []         # (T, 6, 2) world
     rolls_rel = []           # (T,) |roll − ref|, deg
@@ -592,6 +625,9 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
             # action-rate/jerk/saturation dwell alongside gate scalars).
             cmd_hist.append(np.asarray(st.commanded_position,
                                        dtype=np.float64).copy())
+        if getattr(st, "imu_gyro", None) is not None:
+            gyro_hist.append(np.asarray(st.imu_gyro,
+                                        dtype=np.float64).copy())
         if trace_sink is not None:
             trace_sink.append({
                 "step": int(env._step_i),
@@ -768,6 +804,7 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
         "cur_rail_frac": round(
             float((cur >= 2.639).any(axis=1).mean()), 3),
         **_smoothness_fields(cmd_hist, env),
+        **_gyro_fields(gyro_hist),
         # gait (RL_PLAN_NEXT §5)
         "duty_cycle": [round(float(x), 2) for x in duty],
         "swing_count": swings,

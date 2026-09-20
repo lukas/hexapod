@@ -88,6 +88,73 @@ at the switch frame.
   (CURRENT_TRUTHS.md 2026-09-17); this is rise+hold+walk only.
 - Physical acceptance: NOT CLAIMED — sim-only, CPU MuJoCo, no robot access.
 
+## UPDATE 2026-09-20: full-direction OPTION — rot60-wrapped walk role, composed after a real rise+hold handoff, across all 8 headings
+
+One plain sentence: wrapping the walk role in the SAME `rot60.Rot60Policy`
+zero-retrain canonicalizer `bundle_rlonly_v2/rot60_fullcircle` already
+validated in isolation, and driving the composed rise+hold->walk sequence
+built above at all 8 standard headings (0/+-45/+-90/+-135/180 deg) with a
+sustained 15s hold (the closed pathology needs >10s to manifest, the
+original 6s hold above never actually exercised this axis), makes the
+composed lifecycle demo genuinely full-direction for the first time — 0
+falls, 0 sacrificed legs at every heading, det AND stochastic, both the
+`direct` (post-handoff) and `plant` (clean-reset control) arms.
+
+**Why this was needed:** the composition above validated the mechanical
+HANDOFF was clean, but only ever drove straight forward — the walk role's
+own OWN closed limitation ("AVOID sustained (>10s) off-forward headings",
+13/13 mechanism classes closed) was never actually tested THROUGH the
+handoff, so the composed bundle silently inherited a forward-only
+restriction nobody had re-examined against the ALREADY-VALIDATED rot60
+fix.
+
+**Built:** two new bit-exact-when-unset flags on
+`eval_lifecycle_handoff_rlonly.py`: `--heading-deg` (default 0.0 =
+identical to the old forward-only behavior) and `--rot60` (default off =
+unwrapped walk champion); `--hold-s` (default 6.0, unchanged) to extend
+the command-hold window past the 10s sustained-pathology threshold. Also
+added `sacrificed_legs`/`gait_valid` per-episode reporting (identical
+formula to `eval_checkpoint.py`'s own walk-mode gait-validity gate,
+reused not re-derived) since falls/trk_err alone cannot see this
+pathology (it is a locked-leg drag, not a termination). 13 new
+mechanics-only tests (`test_eval_lifecycle_handoff_rlonly.py`, 12/12 new
++ existing green, <0.2s).
+
+**Result (CPU-only, mesh_mjx, no GPU spend, no new training):**
+
+| condition | headings tested | episodes | direct gait_valid | direct falls |
+|---|---|---|---|---|
+| baseline (rot60 OFF, det, hold=15s) | all 8 | n=2 each | 8/16 (fails exactly h+-90/h+-135, matches the known pathology) | 0/16 |
+| candidate (rot60 ON, det, hold=15s) | all 8 | n=3 each | 24/24 | 0/24 |
+| candidate (rot60 ON, stochastic, hold=15s) | all 8 | n=3 each | 24/24 | 0/24 |
+
+The baseline arm reproduces the EXACT already-known failure signature
+(sacrificed legs [5]/[5]/[0]/[0] at h+90/h+135/h-90/h-135, clean at
+h0/h+-45/h180) through the real composed handoff for the first time,
+confirming the harness is measuring the real thing before trusting the
+rot60 read. The candidate arm is unanimous: 48/48 direct-arm episodes
+across the full panel are gait_valid with zero falls and zero
+sacrificed legs — the SAME zero-training composition mechanism already
+proven for the walk role alone now demonstrably survives a real prior
+rise+hold handoff too.
+
+**Reading:** this closes a genuine, previously-open gap toward Goal 2's
+"full-direction joystick walking plus rise/hold/lower" requirement in
+simulation — the composed rise+hold->walk demo is no longer forward-only.
+Still open: tracking accuracy at off-forward headings was not measured
+here (same caveat `rot60_fullcircle` already carries for the walk role
+alone); `lower` remains the one lifecycle segment with no clean-RL
+candidate (parked on Robot Lab achievability review, all 16 agent-doable
+mechanism classes closed, CURRENT_TRUTHS.md 2026-09-17) — this update
+does not touch or reopen that. No physical claim; sim-only.
+
+Evidence: `logs/ckpt_eval/lifecycle_rot60_fullheading_panel_20260920T113129Z/
+{baseline,candidate}/*.json`, `strips_h090/{direct_0,plant_0}.png`;
+`rl_move/sim/eval_lifecycle_handoff_rlonly.py`
+(`heading_to_vxvy`/`sacrificed_legs`/`--rot60`/`--hold-s`);
+`rl_move/tests/test_eval_lifecycle_handoff_rlonly.py`; `transfer_manifest.json`
+`full_direction_rot60_extension_2026_09_20` key; snapshot (see RL_LOG).
+
 ## Next
 
 1. Robot Lab (when a bounded trial is queued): the composed runtime must

@@ -57,6 +57,28 @@ inside the plant arm's band (same rule of thumb as eval_handoff.py).
 This eval does NOT claim `lower` (still closed) or a full sit-walk-sit
 cycle -- rise+hold -> walk only, matching what the two source bundles
 actually cover.
+
+FULL-DIRECTION EXTENSION (2026-09-20, walkcurr): the original tool only
+ever drove straight forward (vx=speed, vy=0) -- fine for validating the
+handoff mechanic itself, but `bundle_rlonly_lifecycle_v1` is otherwise
+the composed rise+hold->walk demo Goal 2 ("full-direction joystick
+walking plus rise/hold/lower") would point to, and it had never been
+run at any other heading. The walk champion's own OFF-forward headings
+are the already-closed 13/13-mechanism chronic front-pair-sacrifice
+failure (bundle_rlonly_v2/GO_NOGO.md); `rot60_fullcircle` already
+proved wrapping that SAME checkpoint in `rot60.Rot60Policy` removes it
+(0 falls/16 episodes, sustained 60s, full heading set) but only for the
+walk role in isolation, starting from ITS OWN clean plant reset, never
+composed after a real rise+hold handoff. Two new, bit-exact-when-unset
+flags close that gap: ``--heading-deg`` (default 0.0 = old forward-only
+behavior) drives at an arbitrary commanded heading instead of pure
+forward, and ``--rot60`` (default off) wraps the walk policy in
+``Rot60Policy`` before driving (the SAME wrapper/checkpoint
+`rot60_fullcircle` validated, zero retrain). This is composition/
+role-selection plumbing, not a new scripted motion role -- the wrapper
+only permutes which of the walk champion's OWN already-trained actions
+applies to which leg index, per `rot60.py`'s own exact-symmetry
+argument.
 """
 from __future__ import annotations
 
@@ -76,7 +98,39 @@ import numpy as np
 
 PHASE_A_S = 12.5     # stance rise+settle horizon (mirrors eval_handoff.py)
 STUMBLE_S = 2.0
-SCHEDULE = lambda v: [(1.0, 0.0, 0.0), (6.0, v, 0.0), (2.0, 0.0, 0.0)]
+DEFAULT_HOLD_S = 6.0   # matches the original forward-only default exactly
+
+
+def schedule(vx: float, vy: float, hold_s: float = DEFAULT_HOLD_S):
+    return [(1.0, 0.0, 0.0), (hold_s, vx, vy), (2.0, 0.0, 0.0)]
+CONTACT_N = 0.5   # SAME threshold eval_checkpoint.py uses for touch contact
+
+
+def sacrificed_legs(contact: np.ndarray, pad_xy: np.ndarray) -> list[int]:
+    """Identical formula to ``eval_checkpoint.py``'s walk-mode
+    gait-validity gate (guardrails, external review Sec 5b): a leg is
+    sacrificed if it is airborne (duty<0.10, a parked flag leg) or
+    grounded the whole window with zero swings (duty>0.95, a dragged
+    anchor). ``contact``: (T,6) bool, ``pad_xy``: (T,6,2) world xy.
+    Pure array function, reused here (not re-derived) so the composed
+    lifecycle's own pathology read is directly comparable to every
+    other gait_valid number in this codebase."""
+    duty = contact.mean(axis=0)
+    swings = np.zeros(6, dtype=int)
+    for f in range(6):
+        d = np.diff(contact[:, f].astype(int))
+        swings[f] = int(np.sum(d == -1))
+    return [f for f in range(6)
+            if duty[f] < 0.10 or (duty[f] > 0.95 and swings[f] == 0)]
+
+
+def heading_to_vxvy(speed: float, heading_deg: float) -> tuple[float, float]:
+    """Commanded (vx, vy) for a body-frame heading in degrees, 0 = pure
+    forward (matches ``eval_checkpoint.py``'s ``_HEADING_LABELS``
+    convention: 0/+-45/+-90/+-135/180). Pure function, no env/model
+    dependency, so it's testable without mujoco."""
+    rad = math.radians(heading_deg)
+    return speed * math.cos(rad), speed * math.sin(rad)
 
 
 def _set_mix(gen, **p) -> None:
@@ -153,6 +207,28 @@ def main() -> int:
                                  "warmadapt_acq1.zip"))
     ap.add_argument("--episodes", type=int, default=6)
     ap.add_argument("--speed", type=float, default=0.06)
+    ap.add_argument("--hold-s", type=float, default=DEFAULT_HOLD_S,
+                     help="seconds the commanded heading is held after "
+                          "the 1s settle+before the 2s stop (default "
+                          "6.0 = old behavior; the closed chronic "
+                          "off-forward sacrifice mechanism is a "
+                          "SUSTAINED (>10s) pathology, so a full-"
+                          "heading check needs a longer hold than the "
+                          "original forward-only smoke duration)")
+    ap.add_argument("--heading-deg", type=float, default=0.0,
+                     help="commanded body-frame heading in degrees, "
+                          "0=forward (default, matches the original "
+                          "forward-only behavior bit-exactly); "
+                          "+-45/+-90/+-135/180 match eval_checkpoint.py's "
+                          "PINNED_HEADING_DEFAULTS convention")
+    ap.add_argument("--rot60", action="store_true",
+                     help="wrap the WALK policy in rot60.Rot60Policy "
+                          "(default off = bit-exact unwrapped champion) "
+                          "-- the same wrapper rot60_fullcircle already "
+                          "validated removes the chronic off-forward "
+                          "front-pair-sacrifice failure, tested here "
+                          "AFTER a real rise+hold handoff instead of "
+                          "the walk role's own isolated clean reset")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", type=Path, default=None)
     ap.add_argument("--strips", type=Path, default=None,
@@ -178,11 +254,15 @@ def main() -> int:
 
     env_rise = _build_env(stance_cfg_args, episode_seconds=15.0,
                            seed=args.seed, render=want_strips)
-    env_walk = _build_env(WALK_CFG_ARGS, episode_seconds=20.0,
+    walk_episode_s = max(20.0, args.hold_s + 1.0 + 2.0 + 2.0)  # +2s margin
+    env_walk = _build_env(WALK_CFG_ARGS, episode_seconds=walk_episode_s,
                            seed=args.seed, render=want_strips)
 
     stance = PPO.load(args.stance, device="cpu")
     walk = PPO.load(args.walk, device="cpu")
+    if args.rot60:
+        from .rot60 import Rot60Policy
+        walk = Rot60Policy(walk)
     n_stance = int(stance.observation_space.shape[0])
     n_env_rise = int(env_rise.observation_space.shape[0])
     n_env_walk = int(env_walk.observation_space.shape[0])
@@ -249,13 +329,20 @@ def main() -> int:
                       env_walk._prev_action, goal=env_walk._current_goal(),
                       tilt_ref=env_walk._tilt_ref0), reset=True)
 
+    pads_walk = [env_walk.model.body(f"L{i}_pad").id for i in range(6)]
+
     def drive(obs) -> dict:
+        if hasattr(walk, "reset"):
+            walk.reset()   # rot60 sector state is per-episode
         traj = env_walk._goal_traj
         r = {"fall": None, "trk_err": 0.0, "dist_m": 0.0,
              "stumble_max_tilt_deg": 0.0, "stumble_min_height_mm": 1e9}
         n_err, t = 0, 0.0
         p0 = np.array(env_walk.data.qpos[:2], dtype=float)
-        for seconds, vx, vy in SCHEDULE(args.speed):
+        cmd_vx, cmd_vy = heading_to_vxvy(args.speed, args.heading_deg)
+        contact_hist: list = []
+        pad_xy_hist: list = []
+        for seconds, vx, vy in schedule(cmd_vx, cmd_vy, args.hold_s):
             for _ in range(max(1, int(round(seconds / env_walk.dt)))):
                 if hasattr(traj, "vx"):
                     traj.vx[:] = vx
@@ -266,6 +353,11 @@ def main() -> int:
                 obs, _rw, term, trunc, info = env_walk.step(a)
                 grab(env_walk)
                 t += env_walk.dt
+                contact_hist.append([
+                    float(env_walk.data.sensordata[adr]) > CONTACT_N
+                    for adr in env_walk._touch_adr])
+                pad_xy_hist.append(
+                    [env_walk.data.xpos[b, :2].copy() for b in pads_walk])
                 if t <= STUMBLE_S:
                     tr, tp = env_walk._true_roll_pitch()
                     r["stumble_max_tilt_deg"] = max(
@@ -289,10 +381,18 @@ def main() -> int:
             *(np.array(env_walk.data.qpos[:2], dtype=float) - p0))), 3)
         r["stumble_max_tilt_deg"] = round(r["stumble_max_tilt_deg"], 1)
         r["stumble_min_height_mm"] = round(r["stumble_min_height_mm"], 1)
+        contact_arr = np.asarray(contact_hist, dtype=bool)
+        pad_xy_arr = np.asarray(pad_xy_hist)
+        sac = (sacrificed_legs(contact_arr, pad_xy_arr)
+               if len(contact_hist) > 1 else [])
+        r["sacrificed_legs"] = sac
+        r["gait_valid"] = not sac
         return r
 
     results: dict = {"stance": str(args.stance), "walk": str(args.walk),
-                      "speed": args.speed, "deterministic": deterministic,
+                      "speed": args.speed, "heading_deg": args.heading_deg,
+                      "rot60": bool(args.rot60),
+                      "deterministic": deterministic,
                       "episodes": []}
 
     for arm in ("direct", "plant"):
@@ -323,7 +423,9 @@ def main() -> int:
                   f"fall={rec.get('fall')} trk={rec.get('trk_err', '-')} "
                   f"dist={rec.get('dist_m', '-')} "
                   f"tilt2s={rec.get('stumble_max_tilt_deg', '-')} "
-                  f"hmin2s={rec.get('stumble_min_height_mm', '-')}")
+                  f"hmin2s={rec.get('stumble_min_height_mm', '-')} "
+                  f"gait_valid={rec.get('gait_valid', '-')} "
+                  f"sacrificed={rec.get('sacrificed_legs', '-')}")
 
     def band(arm: str, key: str) -> list:
         vals = [e[key] for e in results["episodes"]
@@ -342,6 +444,10 @@ def main() -> int:
             "rise_failed_pre_handoff": sum(
                 1 for e in eps if e.get("fall") == "before_handoff"),
             "handoff_falls": sum(1 for e in handed if e.get("fall")),
+            "gait_valid": sum(1 for e in handed if e.get("gait_valid")),
+            "sacrificed_legs_union": sorted({
+                leg for e in handed for leg in e.get("sacrificed_legs", [])
+            }),
             "trk_err_band": band(arm, "trk_err"),
             "dist_band": band(arm, "dist_m"),
             "stumble_tilt_band": band(arm, "stumble_max_tilt_deg"),
@@ -351,9 +457,14 @@ def main() -> int:
     direct = summary["direct"]
     direct_ok = (direct["handoff_falls"] == 0
                  and direct["rise_failed_pre_handoff"] < direct["episodes"])
+    direct_gait_valid = (direct_ok
+                          and direct["gait_valid"] == direct["episodes"])
     print("LIFECYCLE HANDOFF (direct, no scripted blend):",
           "CLEAN — no falls after switching on the stance role's pose"
           if direct_ok else "NOT CLEAN — see per-episode records")
+    print("LIFECYCLE GAIT VALIDITY (direct, no sacrificed leg):",
+          "CLEAN" if direct_gait_valid else
+          f"NOT CLEAN — sacrificed_legs_union={direct['sacrificed_legs_union']}")
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(json.dumps(results, indent=1))

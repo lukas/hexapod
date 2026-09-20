@@ -2119,7 +2119,9 @@ WALK_MAX_TOTAL_S = 20.0
 WALK_START_TOL_DEG = 25.0    # near the sim-default walk-ready stance
 WALK_STEP_START_TOL_DEG = 35.0  # explicit compatibility hook only
 DRIVE_HOLD_REFRESH_S = 0.25     # low-rate active refresh for joint-hold
-FREEZE_HOLD_RATE_DPS = 15.0     # hold_mode="freeze": glide the COMMAND back to the walk-ready start pose at this rate when not walking
+START_REPLANT_DELTA_DEG = 4.0   # drive start: if the pose is further than this from walk-ready, re-seat the feet by TRIPODS
+TRIPOD_LIFT_HIP_DEG, TRIPOD_LIFT_KNEE_DEG = 6.0, 6.0
+TRIPOD_STEP_SPEED, TRIPOD_STEP_ACC = 300, 40
 RL_HOLD_TORQUE_LIMIT = 1000     # weight-bearing hold torque limit
 ADDR_TORQUE_LIMIT = 48          # STS3215 SRAM max torque/current register
 DRIVE_START_REFRESH_S = 0.45    # re-hold sim walk start through drive arming
@@ -2196,7 +2198,6 @@ class ChiralitySelector:
 # several good walking policies were never trained to be still at vx=vy=0.
 DRIVE_CMD_TIMEOUT_S = 0.6    # heartbeats at ~5 Hz; 3 misses = stop
 DRIVE_IDLE_END_S = 120.0     # no heartbeat at all -> end session (hold)
-DRIVE_END_REFRESH_S = 1.5    # at a graceful end, glide back to the walk-ready start pose and settle before the session ends
 DRIVE_MAX_SESSION_S = 300.0  # hard cap per session (decel + hold)
 DRIVE_WALK_ENGAGE_S = 0.0    # first real held direction engages gait now
 DRIVE_WALK_ACTION_RAMP_S = 1.5  # blend first learned targets from stance
@@ -3066,6 +3067,31 @@ def _max_pose_delta_deg(q_robot_rad: np.ndarray,
     return float(dq[worst]) if len(dq) else 0.0, worst
 
 
+def tripod_replant(bus, present_deg, target_deg, *, abort_check=None,
+                   speed: int = TRIPOD_STEP_SPEED, acc: int = TRIPOD_STEP_ACC) -> bool:
+    """Move six legs to ``target_deg`` THREE AT A TIME: lift one tripod (hip -6, knee +6), place it at the target, then
+    the other tripod.  A moving leg is unloaded, so it reaches its target; the standing tripod never moves.  Never write
+    all six legs to a new stance at once (operator rule, 2026-09-20)."""
+    cur = [float(x) for x in present_deg]
+    tgt = [float(x) for x in target_deg]
+    for legs in ((0, 2, 4), (1, 3, 5)):
+        if abort_check is not None and abort_check():
+            return False
+        lifted = list(cur)
+        for leg in legs:
+            lifted[leg * 3] = tgt[leg * 3]
+            lifted[leg * 3 + 1] = tgt[leg * 3 + 1] - TRIPOD_LIFT_HIP_DEG
+            lifted[leg * 3 + 2] = tgt[leg * 3 + 2] + TRIPOD_LIFT_KNEE_DEG
+        bus.write_all(lifted, speed=speed, acc=acc)
+        time.sleep(0.4)
+        for leg in legs:
+            for k in range(3):
+                cur[leg * 3 + k] = tgt[leg * 3 + k]
+        bus.write_all(list(cur), speed=speed, acc=acc)
+        time.sleep(0.45)
+    return True
+
+
 def _refresh_verified_start_pose(
         bus, est: RobotStateEstimator, target_deg: np.ndarray, *,
         timing, write_speed: int, write_acc: int, abort_check,
@@ -3086,6 +3112,22 @@ def _refresh_verified_start_pose(
                     acc=acc, target_deg=target_deg.tolist(),
                     duration_s=DRIVE_START_REFRESH_S)
     try:
+        # Off the start pose by more than a few degrees (a policy's stopped stance, a sag): re-seat the feet by tripods
+        # first.  Writing all 18 joints to walk-ready at once moved six legs together (operator rule, 2026-09-20).
+        try:
+            present = est.update()
+            present_deg = (np.asarray(present.joint_position, dtype=float) * RAD2DEG).tolist() if present is not None else None
+        except Exception:
+            present_deg = None
+        if present_deg is not None and len(present_deg) == N_JOINTS:
+            worst = float(np.max(np.abs(np.asarray(present_deg) - target_deg)))
+            refresh["start_delta_deg"] = round(worst, 1)
+            if worst > START_REPLANT_DELTA_DEG:
+                if debug is not None:
+                    debug.event("start_replant_tripods", worst_delta_deg=round(worst, 1))
+                if not tripod_replant(bus, present_deg, target_deg.tolist(), abort_check=abort_check):
+                    return None, refresh, "aborted"
+                refresh["replanted_by_tripods"] = True
         est.set_commanded(target_robot)
         bus.write_all(target_deg.tolist(), speed=speed, acc=acc)
     except Exception as e:
@@ -4919,17 +4961,9 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
             # left one joint up to 60 deg off the walk-ready stance; the stance then failed the upright classifier and
             # the next lower went through safe zero's descent (chassis dropped, feet slid).  So end IN the walk-ready
             # start pose: the same verified glide the start used, then hold there.
-            if start_target_deg is not None:          # drive sessions are always walk mode
-                try:
-                    tgt = np.asarray(start_target_deg, dtype=float)
-                    debug.event("end_refresh_begin", target_deg=tgt.tolist(), publish=False, flush=False)
-                    est.set_commanded(tgt * DEG2RAD)
-                    bus.write_all(tgt.tolist(), speed=min(int(write_speed), DRIVE_START_REFRESH_SPEED),
-                                  acc=min(int(write_acc), DRIVE_START_REFRESH_ACC))
-                    time.sleep(DRIVE_END_REFRESH_S)
-                    result["end_pose"] = "walk_ready"
-                except Exception as e:  # noqa: BLE001
-                    result["end_pose_error"] = str(e)
+            # The session ends HOLDING its last command (no six-leg glide back to walk-ready: operator rule 2026-09-20).
+            # The next drive start or the lowering re-seats feet by tripods if the stance is off.
+            result["end_pose"] = "last_command"
             result.update(ticks=i, ended=stopping)
             break
 
@@ -4970,8 +5004,7 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
             reanchor()
             if hold_mode == "freeze":
                 # 2026-09-20 (hexapod2 log, tick 6.24 -> 6.28): re-anchoring the command to the MEASURED pose released every
-                # knee and hip at once (command 85 -> 80, 30 -> 20 in one tick: "all knees pushed together").  In freeze
-                # mode keep gliding from the last policy command instead, at FREEZE_HOLD_RATE_DPS.
+                # knee and hip at once ("all knees pushed together").  Freeze keeps the last policy command as the hold.
                 last_q_policy_cmd = _keep_cmd
             last_hold_refresh_t = -DRIVE_HOLD_REFRESH_S
             debug.event("drive_model_switch", tick=i, t_s=t,
@@ -5007,8 +5040,8 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
             active, hold_policy, walk_has_engaged=walk_has_engaged)
         if hold_mode == "freeze" and active != "walk":
             # 2026-09-20 (hexapod2, per-tick log): the learned hold model folded the knees 80 -> 46 deg and swung the
-            # hips to -32 within two seconds of every zero-velocity hold.  "freeze" holds the verified walk-ready start
-            # pose instead, gliding back to it at FREEZE_HOLD_RATE_DPS from wherever the walk stopped.
+            # hips to -32 within two seconds of every zero-velocity hold.  "freeze" never runs it: the last policy
+            # command is the hold, and any return to walk-ready happens by tripods at the next drive start.
             uses_policy = False
         if uses_policy:
             if need_obs in WALK_OBS_DIMS:
@@ -5059,11 +5092,7 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
         else:
             obs_s = time.monotonic() - stage_t
             stage_t = time.monotonic()
-            if hold_mode == "freeze" and active != "walk":
-                step = math.radians(FREEZE_HOLD_RATE_DPS) * timing.policy_dt
-                q_prop = last_q_policy_cmd + np.clip(q_nom_robot - last_q_policy_cmd, -step, step)
-            else:
-                q_prop = last_q_policy_cmd.copy()
+            q_prop = last_q_policy_cmd.copy()          # freeze: the last command IS the hold; no six-leg glide, ever
         q_safe, status = safety.filter(
             q_prop, state, action=action)
         q_robot_cmd = q_safe.copy()

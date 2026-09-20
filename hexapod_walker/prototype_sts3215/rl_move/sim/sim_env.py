@@ -355,6 +355,14 @@ class SimHexapodBalanceEnv(_GymBase):
         self._hist_buf: list | None = None
 
         self.dt = 1.0 / float(cfg_get(self.cfg, "control", "hz", default=25))
+        # Gyro-trust of the inline complementary attitude filter that
+        # produces the training obs' roll/pitch "the way the hardware
+        # computes it". Config-driven (sensing.attitude_alpha) so training
+        # can reject the fore-aft surge accel; default 0.98 is bit-exact
+        # with the pre-2026-09-20 hardcoded value. Same knob RobotState-
+        # Estimator reads on hardware.
+        self._attitude_alpha = float(
+            cfg_get(self.cfg, "sensing", "attitude_alpha", default=0.98))
         self._deployed_transport = DeployedTransport.from_cfg(
             self.cfg, 1.0 / self.dt)
         ep_s = (episode_seconds if episode_seconds is not None
@@ -691,6 +699,9 @@ class SimHexapodBalanceEnv(_GymBase):
         self.n_act = N_ACT
         self._q_nom = np.zeros(N_JOINTS, dtype=float)
         self._prev_action = np.zeros(self.n_act, dtype=float)
+        # Action two ticks ago, for the optional Δ²action smoothness term
+        # (reward.k_action_accel). Unused unless that knob is on.
+        self._prev_prev_action = np.zeros(self.n_act, dtype=float)
         self._cmd = np.zeros(N_JOINTS, dtype=float)
         self._profile: ServoProfile | None = None
         self._backlash: JointBacklash | None = None
@@ -1046,11 +1057,13 @@ class SimHexapodBalanceEnv(_GymBase):
                     + self.rng.normal(0.0, er.gyro_noise_rad_s, 3))
 
         # Complementary filter, same as the hardware estimator
-        # (ComplementaryAttitude alpha=0.98): integrate gyro, drift-correct
-        # slowly toward the accel tilt. Without it the raw accel tilt sees
-        # the full lever-arm spikes of an off-center IMU (±20° for one
-        # tick) — real firmware filters those out, so the sim must too.
-        alpha = 0.98
+        # (ComplementaryAttitude, default alpha=0.98): integrate gyro,
+        # drift-correct slowly toward the accel tilt. Without it the raw
+        # accel tilt sees the full lever-arm spikes of an off-center IMU
+        # (±20° for one tick) — real firmware filters those out, so the
+        # sim must too. alpha is config-driven (sensing.attitude_alpha) so
+        # training matches whatever gyro-trust the deployed runner uses.
+        alpha = self._attitude_alpha
         if self._deployed_transport is not None:
             # The acquired-frame hardware filter below owns integration.
             # Never integrate held observations once per policy tick.
@@ -1752,6 +1765,7 @@ class SimHexapodBalanceEnv(_GymBase):
         self._episode += 1
         self._step_i = 0
         self._prev_action[:] = 0.0
+        self._prev_prev_action = np.zeros(self.n_act, dtype=float)
         self.safety.clear_estop()
         self._tipped_applied = False
         self._flip_spawn_pending = None
@@ -3562,7 +3576,8 @@ class SimHexapodBalanceEnv(_GymBase):
                                        tilt_ref=self._tilt_ref0,
                                        height_err=h_err,
                                        unload_force_n=unload_f,
-                                       ref_quiet=ref_quiet)
+                                       ref_quiet=ref_quiet,
+                                       prev_prev_action=self._prev_prev_action)
         reward = hold_still_gate_reward(self, goal, parts, ref_quiet, reward)
         reward = hold_minload_shortfall_reward(self, minload_floor_n,
             minload_in_hold, minload_short_k, parts, reward)
@@ -3581,6 +3596,7 @@ class SimHexapodBalanceEnv(_GymBase):
             lower_score_mode, parts, pen, reward, terminated)
         reward = rise_curl_only_pretrain_reward(self, parts, reward)
         truncated = self._step_i >= self._active_episode_steps()
+        self._prev_prev_action = self._prev_action
         self._prev_action = clipped.copy()
         info = {"termination_reason": status.reason, **parts,
                 "safety_ok": status.ok,

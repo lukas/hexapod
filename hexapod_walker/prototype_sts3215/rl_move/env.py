@@ -288,6 +288,7 @@ def compute_reward(cfg: dict, state: RobotState, action: np.ndarray,
                    unload_force_n: float | None = None,
                    ref_quiet: bool = False,
                    tilt_settle_scale: float = 1.0,
+                   prev_prev_action: np.ndarray | None = None,
                    ) -> tuple[float, dict]:
     """Task-tracking reward. Shared by hardware env and sim twin.
 
@@ -325,6 +326,16 @@ def compute_reward(cfg: dict, state: RobotState, action: np.ndarray,
     kg = float(cfg_get(cfg, "reward", "k_gyro", default=0.05))
     ka = float(cfg_get(cfg, "reward", "k_action", default=0.005))
     kad = float(cfg_get(cfg, "reward", "k_action_delta", default=0.01))
+    # Joint-acceleration (Δ²action) smoothness penalty (default OFF): sum of
+    # squared SECOND differences of the commanded action. k_action_delta above
+    # prices action RATE (velocity); this prices action ACCELERATION (the jerk
+    # the gearbox/backlash actually feels — the mechanism behind the residual
+    # under-rock gap). For the walk task the action is the 18-vector of joint
+    # targets, so Δ²action IS commanded joint acceleration; for the 6-DOF body-
+    # IK balance env it is body-offset acceleration. Needs prev_prev_action;
+    # 0.0 (default) + a missing prev_prev_action = bit-exact no-op. See the
+    # recommended "smoothness" profile in config.yaml.
+    kaa = float(cfg_get(cfg, "reward", "k_action_accel", default=0.0))
     kc = float(cfg_get(cfg, "reward", "k_current", default=0.005))
     # Peak-load penalty (default OFF): squared max |current| over all
     # servos. The sum-square term barely distinguishes "18 motors at
@@ -392,11 +403,21 @@ def compute_reward(cfg: dict, state: RobotState, action: np.ndarray,
     r_gyro = -kg * float(np.sum(state.imu_gyro ** 2))
     r_act = -ka * float(np.sum(action ** 2))
     r_dad = -kad * float(np.sum((action - prev_action) ** 2))
+    # Joint-acceleration (2nd-difference) smoothness term. Guarded: only
+    # computed when the knob is on AND the caller threads prev_prev_action,
+    # so the default (kaa=0.0 / prev_prev_action=None) adds exactly 0.0 and
+    # is bit-exact with every pre-existing caller.
+    r_aacc = 0.0
+    if kaa > 0.0 and prev_prev_action is not None:
+        d2a = action - 2.0 * prev_action + prev_prev_action
+        r_aacc = -kaa * float(np.sum(d2a ** 2))
     # Effort: penalize fighting (sum of squared servo currents, A²) —
     # the "don't cook motors" signal (2026-08-06: ~7 A holds). Kept weak
     # so moving toward the goal is never more expensive than tracking
-    # pays. Sim fills servo_current from actuator torque; hardware from
-    # the ~10 Hz full-feedback read.
+    # pays. Under the default "power" current model the sim fills
+    # servo_current from the fitted mechanical-power model (iq/18 +
+    # k·|τ·qvel|, 2026-09-19); hardware from the ~10 Hz full-feedback read.
+    # This term therefore prices REAL power now, not the old torque proxy.
     r_cur = 0.0
     r_cur_max = 0.0
     if state.servo_current is not None:
@@ -434,6 +455,7 @@ def compute_reward(cfg: dict, state: RobotState, action: np.ndarray,
         "reward_gyro": r_gyro,
         "reward_action": r_act,
         "reward_action_delta": r_dad,
+        "reward_action_accel": r_aacc,
         "reward_current": r_cur,
         "reward_current_max": r_cur_max,
         "reward_unload": r_unload,
@@ -444,7 +466,7 @@ def compute_reward(cfg: dict, state: RobotState, action: np.ndarray,
         "tilt_settle_scale": tilt_settle_scale,
     }
     return (r_task + alive + r_roll + r_pitch + r_height + r_gyro + r_act
-            + r_dad + r_cur + r_cur_max + r_unload + r_still, parts)
+            + r_dad + r_aacc + r_cur + r_cur_max + r_unload + r_still, parts)
 
 
 class HexapodBalanceEnv:
@@ -470,6 +492,9 @@ class HexapodBalanceEnv:
             self.cfg, "sensing", "full_feedback_hz", default=10)))
         self._q_nom = _standing_q_rad()
         self._prev_action = np.zeros(self.ACT_DIM, dtype=float)
+        # Action from two ticks ago, for the optional Δ²action smoothness
+        # term (reward.k_action_accel). Unused unless that knob is on.
+        self._prev_prev_action = np.zeros(self.ACT_DIM, dtype=float)
         self._tilt_ref0 = (0.0, 0.0)
         # obs.height_vel_sense (see build_obs/height_vel_sense_obs_dim):
         # the stateful estimator lives on the env (board-side, same
@@ -551,7 +576,8 @@ class HexapodBalanceEnv:
     def _reward(self, state: RobotState, action: np.ndarray
                 ) -> tuple[float, dict]:
         return compute_reward(self.cfg, state, action, self._prev_action,
-                              tilt_ref=self._tilt_ref0)
+                              tilt_ref=self._tilt_ref0,
+                              prev_prev_action=self._prev_prev_action)
 
     def _command_deg(self, q_rad: np.ndarray, *, speed: int | None = None) -> None:
         self.estimator.set_commanded(q_rad)
@@ -636,6 +662,7 @@ class HexapodBalanceEnv:
         self._episode += 1
         self._step = 0
         self._prev_action[:] = 0.0
+        self._prev_prev_action[:] = 0.0
         self.safety.clear_estop()
 
         # Sensor-only first — refuse to move if already tipped.
@@ -756,6 +783,7 @@ class HexapodBalanceEnv:
                 truncated=truncated, reason=status.reason,
                 tick_overrun=False,
                 extra={"t_cmd": t_cmd, "t_step": time.monotonic() - t0}))
+        self._prev_prev_action = self._prev_action
         self._prev_action = clipped.copy()
         info = {"termination_reason": status.reason, **parts,
                 "safety_ok": status.ok}

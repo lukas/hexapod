@@ -111,6 +111,13 @@ class DeployedTransport:
         section = cfg.get("transport") or {}
         if not bool(section.get("enabled", False)):
             return None
+        # Single source of truth for attitude gyro-trust: fall back to
+        # sensing.attitude_alpha when the transport section doesn't pin its
+        # own value, so one knob drives training, the inline sim filter, and
+        # this hardware-transport filter alike. Default 0.98 is bit-exact.
+        if "attitude_alpha" not in section:
+            section = {**section, "attitude_alpha": float(
+                (cfg.get("sensing") or {}).get("attitude_alpha", 0.98))}
         return cls(section, policy_hz)
 
     def _cadence(self, name, default, seed):

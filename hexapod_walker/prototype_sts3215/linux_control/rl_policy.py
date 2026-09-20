@@ -2119,6 +2119,7 @@ WALK_MAX_TOTAL_S = 20.0
 WALK_START_TOL_DEG = 25.0    # near the sim-default walk-ready stance
 WALK_STEP_START_TOL_DEG = 35.0  # explicit compatibility hook only
 DRIVE_HOLD_REFRESH_S = 0.25     # low-rate active refresh for joint-hold
+FREEZE_HOLD_RATE_DPS = 30.0     # hold_mode="freeze": glide back to the walk-ready start pose at this rate when not walking
 RL_HOLD_TORQUE_LIMIT = 1000     # weight-bearing hold torque limit
 ADDR_TORQUE_LIMIT = 48          # STS3215 SRAM max torque/current register
 DRIVE_START_REFRESH_S = 0.45    # re-hold sim walk start through drive arming
@@ -4358,7 +4359,8 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
                             hold_weights: Path | None = None,
                             allow_step_stand_start: bool = False,
                             velocity_filter_alpha: float | None = None,
-                            active_duration_s: float | None = None) -> dict:
+                            active_duration_s: float | None = None,
+                            hold_mode: str = "policy") -> dict:
     """Blocking persistent drive session (MuJoCo-viewer-style driving).
 
     Same conventions as run_policy_move mode="walk" — plant-stance
@@ -4488,6 +4490,7 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
         "walk_policy_name": walk_policy.meta.get("name"),
         "walk_obs_dim": walk_obs,
         "hold_policy_path": str(hold_weights) if hold_weights else None,
+        "hold_mode": hold_mode,
         "hold_obs_dim": hold_obs,
         "joint_frame": joint_frame,
         "joint_contract": JOINT_CONTRACT,
@@ -4996,6 +4999,11 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
         policy_s = 0.0
         uses_policy = _drive_should_run_learned_policy(
             active, hold_policy, walk_has_engaged=walk_has_engaged)
+        if hold_mode == "freeze" and active != "walk":
+            # 2026-09-20 (hexapod2, per-tick log): the learned hold model folded the knees 80 -> 46 deg and swung the
+            # hips to -32 within two seconds of every zero-velocity hold.  "freeze" holds the verified walk-ready start
+            # pose instead, gliding back to it at FREEZE_HOLD_RATE_DPS from wherever the walk stopped.
+            uses_policy = False
         if uses_policy:
             if need_obs in WALK_OBS_DIMS:
                 obs = np.concatenate(
@@ -5045,7 +5053,11 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
         else:
             obs_s = time.monotonic() - stage_t
             stage_t = time.monotonic()
-            q_prop = last_q_policy_cmd.copy()
+            if hold_mode == "freeze" and active != "walk":
+                step = math.radians(FREEZE_HOLD_RATE_DPS) * timing.policy_dt
+                q_prop = last_q_policy_cmd + np.clip(q_nom_robot - last_q_policy_cmd, -step, step)
+            else:
+                q_prop = last_q_policy_cmd.copy()
         q_safe, status = safety.filter(
             q_prop, state, action=action)
         q_robot_cmd = q_safe.copy()
@@ -5422,7 +5434,8 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
                       hold_weights: Path | None = None,
                       allow_step_stand_start: bool = False,
                       velocity_filter_alpha: float | None = None,
-                      active_duration_s: float | None = None) -> dict:
+                      active_duration_s: float | None = None,
+                      hold_mode: str = "policy") -> dict:
     """Exception-safe public wrapper for a persistent drive session."""
     require_bus_available(getattr(drive, "bus", None))
     try:
@@ -5432,6 +5445,6 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
             walk_weights=walk_weights, hold_weights=hold_weights,
             allow_step_stand_start=allow_step_stand_start,
             velocity_filter_alpha=velocity_filter_alpha,
-            active_duration_s=active_duration_s)
+            active_duration_s=active_duration_s, hold_mode=hold_mode)
     finally:
         _stop_active_async_samplers()

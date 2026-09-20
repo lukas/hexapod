@@ -125,7 +125,13 @@ class RobotStateEstimator:
         self._fb_period = (1.0 / fb_hz) if fb_hz > 0 else 1e9
         self._qd_filter = JointVelocityFilter(
             alpha=self._alpha, max_jump_rad=self._max_jump)
-        self._att = ComplementaryAttitude(alpha=0.98)
+        # Gyro-trust of the complementary attitude filter. Higher rejects
+        # accel/surge contamination (the fore-aft walk surge shows up as
+        # spurious accel tilt) but drifts more on gyro bias over an episode.
+        # Default 0.98 = bit-exact with the pre-2026-09-20 hardcoded value;
+        # a run opts into a different value / DR range via sensing.attitude_alpha.
+        self._att = ComplementaryAttitude(alpha=float(
+            cfg_get(cfg, "sensing", "attitude_alpha", default=0.98)))
         self._cmd = np.zeros(N_JOINTS, dtype=float)
         self._last_fb_t = -1e9
         self._load = np.zeros(N_JOINTS, dtype=float)

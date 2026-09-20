@@ -182,11 +182,22 @@ reward:
   # optimize smoothness/effort later (they can be raised for fine-tuning).
   k_gyro: 0.05
   k_action: 0.005
-  k_action_delta: 0.01
-  # Effort penalty: sum of squared servo currents (A²). Quiet hold
-  # (~0.2 A × 18) costs ~0.004/step. "Don't cook motors" — see 2026-08-06
-  # — but weak enough that moving toward the goal always pays more than
-  # it costs.
+  k_action_delta: 0.01         # action RATE (Δaction) penalty
+  # Action ACCELERATION penalty: sum of squared 2nd differences of the
+  # commanded action (Δ²action = action - 2·prev + prev_prev). For the walk
+  # task the action is the 18 joint targets, so this is commanded joint
+  # acceleration — the jerk the gearbox/backlash actually feels, the
+  # smoothest-walking lever that k_action_delta (rate) alone can't reach.
+  # DEFAULT 0.0 = OFF, bit-exact: the term is only evaluated when >0 and the
+  # env threads prev_prev_action. Opt in via the smoothness profile below.
+  k_action_accel: 0.0
+  # Effort penalty: sum of squared servo currents (A²). Under the default
+  # "power" current model (bus.current_model=power, fitted 2026-09-19) this
+  # now prices REAL mechanical power (holding is cheap, ~0 A), not the old
+  # torque proxy — so it is a physically meaningful smoothness/effort lever.
+  # Quiet hold (~0.2 A × 18) costs ~0.004/step. "Don't cook motors" — see
+  # 2026-08-06 — but weak enough that moving toward the goal always pays
+  # more than it costs.
   k_current: 0.005
   # Weight-shift goal: weak gradient toward zero leg current (the kernel
   # pays the success itself).
@@ -203,6 +214,20 @@ sensing:
   # RAM, so polling faster than 10 buys nothing; positions + IMU are NOT
   # throttled by this — they come fresh (~150-250 Hz cache) every tick.
   full_feedback_hz: 10
+  # Complementary attitude filter gyro-trust (ComplementaryAttitude.alpha),
+  # read by BOTH the sim training obs filter (sim_env) and the deployed
+  # RobotStateEstimator. alpha→1 trusts the gyro more, rejecting the fore-aft
+  # walk SURGE (which the accelerometer misreads as body tilt — the measured
+  # IMU "tilt" overstates true rotation ~3x during the surge); the cost is
+  # more drift from residual gyro bias over an episode. Time constant
+  # τ = alpha·dt/(1-alpha): at the shipped 100 Hz, alpha 0.98 → τ≈0.49 s,
+  # 0.99 → τ≈0.99 s, 0.995 → τ≈1.99 s (double each at the 50 Hz variant).
+  # DEFAULT 0.98 = bit-exact with the pre-2026-09-20 hardcoded value.
+  # WARNING: this filter also feeds the DEPLOYED policy runner's obs, so
+  # changing the DEFAULT would shift every existing policy's observations —
+  # that is why the default stays 0.98 and new training opts in. See the
+  # recommended value in the smoothness profile below.
+  attitude_alpha: 0.98
 
 struct_comp:
   # First-pass structural flex model for the MuJoCo twin. Units are
@@ -288,3 +313,61 @@ bus:
 logging:
   dir: logs/rl_move
   format: csv                # csv | jsonl
+
+# =====================================================================
+# RECOMMENDED OPT-IN PROFILES (2026-09-20, smoother-walk training work).
+# These are DOCUMENTATION ONLY — nothing below is read by the loader.
+# The shipped defaults above are unchanged (existing training stays
+# bit-exact). Pass the values as --cfg-set overrides to opt in. All
+# recommended magnitudes are STARTING points and need a sweep.
+# ---------------------------------------------------------------------
+# ITEM 2+4 — "smoothness" reward profile. Raise the (now physically
+# meaningful) regularizers and turn on the new Δ²action term; sizes chosen
+# so each term costs ~5-10% of the task kernel (~1/tick) at the current
+# champion's operating point — RE-CHECK against logs/ckpt_eval/* and sweep:
+#   --cfg-set reward.k_gyro=0.15 \
+#             reward.k_action_delta=0.03 \
+#             reward.k_action_accel=0.02 \
+#             reward.k_current=0.02 \
+#             sensing.attitude_alpha=0.99
+#   Foot-slip smoothness ALREADY exists (no new term added); to price it,
+#   also pass the existing opt-in gate, e.g.
+#             reward.walk_leg_loadslip_ratio_charge=0.5   (default 0.0)
+#   Rationale: k_action_delta prices joint VELOCITY, k_action_accel prices
+#   joint ACCELERATION (the jerk the gearbox/backlash feels) — together they
+#   are the highest-value smoothness levers on the residual under-rock gap.
+#   attitude_alpha 0.99 (τ≈1 s at 100 Hz, ≈2 s at 50 Hz) roughly doubles surge-accel
+#   rejection while keeping episode drift bounded (τ*≈sqrt(A_surge/(2πf·b))
+#   with gait f~1-2 Hz and post-calib gyro bias well under the 0.5 deg/s DR
+#   bound lands ~0.99-0.995); a small DR band sensing.attitude_alpha over
+#   [0.98, 0.995] also works and makes the policy alpha-robust.
+# ---------------------------------------------------------------------
+# ITEM 3 — DR preset for the residual reality gap (real vs sim ~2-4x
+# under-rock; position-domain backlash/link-length moved the needle, chassis
+# flex did NOT). All axes below ALREADY EXIST in domain_rand.RandRanges;
+# overrides are ABSOLUTE and applied only when the randomizer exists, so this
+# preset requires DR on (e.g. --dr-scale 1) and is otherwise a no-op — main's
+# config.yaml has no dr: section, so it is default-OFF. cfg-set list:
+#   --dr-scale 1 --cfg-set \
+#     dr.joint_backlash_deg=0.5,2.0 \        # position-domain backlash gap
+#     dr.joint_backlash_load_gain=0.0,0.5 \  # load-coupled gap widening
+#     dr.link_len_scale_pct=0.03 \           # global link-length error
+#     dr.link_len_leg_pct=0.02 \             # per-leg assembly spread
+#     dr.contact_stiff_scale=0.6,2.5 \       # ground/contact softness
+#     dr.foot_stickslip_gain=0.0,0.4 \       # per-foot stick-slip
+#     dr.latency_scale=0.7,2.0 \             # actuator command latency
+#     dr.latency_load_gain=0.0,0.5 \         # load-coupled latency
+#     dr.kv_scale_pct=0.30 \                 # velocity-gain (speed) spread
+#     dr.vel_scale=0.8,1.2 \                 # speed-ceiling spread (× the
+#                                            #   run's bus.write_speed, set
+#                                            #   for the ~176 deg/s operating
+#                                            #   point; this is the ± spread)
+#     dr.mass_scale=0.85,1.20 \              # chassis mass
+#     dr.com_offset_m=0.02                   # CoM shift (battery/wiring)
+#   Rationale: centered on measured reality — backlash + link-length are the
+#   position-domain mechanisms the speed-track found actually reduce the
+#   sim-to-real roll-signature gap; contact softness + stick-slip cover the
+#   broadband contact behaviour; latency + kv/vel spread cover the servo
+#   dynamics (~176 deg/s); mass/CoM cover the build. Ranges are starting
+#   points — sweep and prune to whatever holds the >=30% roll-reduction floor.
+# =====================================================================

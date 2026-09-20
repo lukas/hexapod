@@ -4916,7 +4916,7 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
             # left one joint up to 60 deg off the walk-ready stance; the stance then failed the upright classifier and
             # the next lower went through safe zero's descent (chassis dropped, feet slid).  So end IN the walk-ready
             # start pose: the same verified glide the start used, then hold there.
-            if mode == "walk" and start_target_deg is not None:
+            if start_target_deg is not None:          # drive sessions are always walk mode
                 try:
                     tgt = np.asarray(start_target_deg, dtype=float)
                     debug.event("end_refresh_begin", target_deg=tgt.tolist(), publish=False, flush=False)

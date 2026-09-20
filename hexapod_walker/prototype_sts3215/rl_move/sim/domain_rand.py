@@ -612,6 +612,49 @@ class RandRanges:
     # a LEG-only group name (see ``leg_group_mask`` -- length has no
     # joint axis, same vocabulary as ``leg_mass_bias_group``).
     link_len_bias_group: str = ""
+    # Structured, concentrated PER-LEG FOOT-CONTACT compliance
+    # (2026-09-20, speed track). DESIGN.md's mechanism inventory names
+    # "ground and per-foot friction/compliance" but every prior probe in
+    # this saga only exercised FRICTION (foot_friction_scale) or a
+    # GLOBAL, uniform solref timeconst applied to every geom alike
+    # (contact_stiff_scale, ground and feet together). A soft rubber
+    # pad, worn foot, or squashed-print foot geometry is a per-FOOT,
+    # persistent story distinct from both -- the digital-twin replay
+    # (HEXAPOD2_DIGITAL_TWIN_2026-09-12.md) separately tested and
+    # REJECTED a chassis/leg-ROOT flex mechanism (closed: it moves
+    # PS200 the wrong direction and invents roll in negative controls);
+    # foot-level contact softening was never dosed by that study or this
+    # saga. (0.0, 0.0) = OFF, guarded (no rng consumed, no earlier draw
+    # shifted), bit-exact -- draws a SINGLE scalar magnitude (not
+    # independent per leg) applied as a multiplicative INCREASE to the
+    # foot geom's solref timeconst (softer contact, more give under
+    # load), on top of (not instead of) the existing global
+    # contact_stiff_scale.
+    foot_contact_soft_pct: tuple[float, float] = (0.0, 0.0)
+    # "" (default) = every foot softened identically; else a LEG-only
+    # group name (see ``leg_group_mask`` -- contact softness has no
+    # joint axis, same vocabulary as ``foot_stickslip_group``).
+    foot_contact_soft_group: str = ""
+    # Structured, concentrated PER-LEG FOOT TORSIONAL/ROLLING friction
+    # reduction (2026-09-20, speed track). ``foot_friction_scale`` above
+    # only ever touches ``geom_friction[:, 0]`` (SLIDING). MuJoCo's foot
+    # pad geom is condim=6 (full torsional + rolling friction), never
+    # randomized before now. A worn/rounded pad or a bearing that lets a
+    # planted foot twist more freely under yaw reaction is a physically
+    # distinct defect from sliding grip: it lets the SUPPORT TRIPOD pivot
+    # under a swinging leg's reaction torque rather than holding still,
+    # a candidate route from ordinary gait yaw reaction into extra BODY
+    # roll that no prior probe in this saga (friction, contact-stiffness,
+    # backlash, link-length, mass/CoM) has dosed. (0.0, 0.0) = OFF,
+    # guarded (no rng consumed, no earlier draw shifted), bit-exact --
+    # draws a SINGLE scalar magnitude applied as a multiplicative
+    # DECREASE (``1 - magnitude``, floored at 0) to the foot geom's
+    # torsional (index 1) and rolling (index 2) friction coefficients,
+    # on top of (not instead of) the existing sliding-friction dose.
+    foot_torsion_soft_pct: tuple[float, float] = (0.0, 0.0)
+    # "" (default) = every foot softened identically; else a LEG-only
+    # group name (see ``leg_group_mask``).
+    foot_torsion_soft_group: str = ""
     # Adaptive/adversarial hard-case sampler (2026-09-14, speed track —
     # the DR-composition panel's next-named lever after CTRL/WIDE/
     # STRUCT/COMBO all missed the held-out >=30% roll-reduction floor,
@@ -752,6 +795,16 @@ class RandRanges:
             link_len_bias_pct=(self.link_len_bias_pct[0] * s,
                                 self.link_len_bias_pct[1] * s),
             link_len_bias_group=self.link_len_bias_group,
+            # Same convention: magnitude range follows the curriculum,
+            # the categorical group name does not.
+            foot_contact_soft_pct=(self.foot_contact_soft_pct[0] * s,
+                                    self.foot_contact_soft_pct[1] * s),
+            foot_contact_soft_group=self.foot_contact_soft_group,
+            # Same convention: magnitude range follows the curriculum,
+            # the categorical group name does not.
+            foot_torsion_soft_pct=(self.foot_torsion_soft_pct[0] * s,
+                                    self.foot_torsion_soft_pct[1] * s),
+            foot_torsion_soft_group=self.foot_torsion_soft_group,
         )
 
 
@@ -876,6 +929,17 @@ class EpisodeRandomization:
     # -group, see RandRanges). All-ones (the default) = OFF, byte-exact
     # (multiplying by 1.0 in apply_to_model is a pure no-op).
     link_len_bias_scale: np.ndarray = field(
+        default_factory=lambda: np.ones(N_LEGS))
+    # Structured per-leg foot-contact softening (dr.foot_contact_soft_pct
+    # / -group, see RandRanges). All-ones (the default) = OFF, byte-exact
+    # (multiplying by 1.0 in apply_to_model is a pure no-op).
+    foot_contact_soft_scale: np.ndarray = field(
+        default_factory=lambda: np.ones(N_LEGS))
+    # Structured per-leg foot torsional/rolling-friction softening
+    # (dr.foot_torsion_soft_pct / -group, see RandRanges). All-ones (the
+    # default) = OFF, byte-exact (multiplying by 1.0 in apply_to_model
+    # is a pure no-op).
+    foot_torsion_soft_scale: np.ndarray = field(
         default_factory=lambda: np.ones(N_LEGS))
     struct_dr_mode: str = ""
     # "" = no structured overlay this episode; else one of
@@ -1056,6 +1120,36 @@ class EpisodeRandomization:
                 model.geom_friction[g, 0] = min(
                     float(model.geom_friction[g, 0]), cap)
 
+        # Per-foot contact softening (dr.foot_contact_soft_pct / struct
+        # overlay). Guarded no-op at all-ones. Multiplies ONLY the named
+        # foot geoms' solref timeconst (softer contact, more give under
+        # load) on top of the global contact_stiff_scale above, which
+        # touches every geom (feet AND ground) uniformly -- this is a
+        # persistent, per-foot-concentrated defect (worn/soft pad,
+        # squashed print), not a symmetric ground/foot-alike change.
+        fcs = np.asarray(self.foot_contact_soft_scale, dtype=float)
+        if np.any(fcs != 1.0):
+            for i in range(N_LEGS):
+                g = gid(f"L{i}_foot")
+                if g < 0:
+                    raise ValueError(f"model has no L{i}_foot geom")
+                model.geom_solref[g, 0] *= float(fcs[i])
+
+        # Per-foot torsional/rolling-friction softening (dr.
+        # foot_torsion_soft_pct / struct overlay). Guarded no-op at
+        # all-ones. Touches ONLY the named foot geoms' torsional (index
+        # 1) and rolling (index 2) friction -- distinct from the
+        # existing sliding-friction dose (index 0, foot_friction_scale)
+        # above.
+        fts = np.asarray(self.foot_torsion_soft_scale, dtype=float)
+        if np.any(fts != 1.0):
+            for i in range(N_LEGS):
+                g = gid(f"L{i}_foot")
+                if g < 0:
+                    raise ValueError(f"model has no L{i}_foot geom")
+                model.geom_friction[g, 1] *= float(fts[i])
+                model.geom_friction[g, 2] *= float(fts[i])
+
     def summary(self) -> dict:
         tilt = math.degrees(math.acos(
             min(1.0, -float(self.gravity_vec[2]) / G0)))
@@ -1104,6 +1198,10 @@ class EpisodeRandomization:
                 float(np.max(self.latency_load_gain)), 3),
             "foot_stickslip_gain_max": round(
                 float(np.max(self.foot_stickslip_gain)), 3),
+            "foot_contact_soft_max": round(
+                float(np.max(self.foot_contact_soft_scale)), 3),
+            "foot_torsion_soft_min": round(
+                float(np.min(self.foot_torsion_soft_scale)), 3),
         }
 
 
@@ -1683,4 +1781,36 @@ class DomainRandomizer:
                     r.link_len_bias_group,
                     param_name="link_len_bias_group").astype(float)
             ep = replace(ep, link_len_bias_scale=1.0 + len_bias_vec)
+        # Structured per-leg foot-contact softening: drawn LAST
+        # (guarded), same convention as link_len_bias_pct immediately
+        # above -- default (0.0, 0.0) never consumes rng and leaves
+        # every earlier draw byte-exact. A SINGLE scalar magnitude
+        # (not independent per leg) so a masked group gets one
+        # consistent, persistent softening rather than more symmetric
+        # noise.
+        if max(r.foot_contact_soft_pct) > 0.0:
+            soft_mag = float(u(*r.foot_contact_soft_pct))
+            soft_vec = np.full(N_LEGS, soft_mag)
+            if r.foot_contact_soft_group:
+                soft_vec = soft_vec * leg_group_mask(
+                    r.foot_contact_soft_group,
+                    param_name="foot_contact_soft_group").astype(float)
+            ep = replace(ep, foot_contact_soft_scale=1.0 + soft_vec)
+        # Structured per-leg foot torsional/rolling-friction softening:
+        # drawn LAST (guarded), same convention as foot_contact_soft_pct
+        # immediately above -- default (0.0, 0.0) never consumes rng and
+        # leaves every earlier draw byte-exact. A SINGLE scalar
+        # magnitude, applied as a multiplicative DECREASE (floored at 0)
+        # rather than an increase like every prior "bias"/"soft" field,
+        # because torsional grip only ever gets WORSE (worn/rounded),
+        # never spontaneously stronger.
+        if max(r.foot_torsion_soft_pct) > 0.0:
+            tors_mag = float(u(*r.foot_torsion_soft_pct))
+            tors_vec = np.full(N_LEGS, tors_mag)
+            if r.foot_torsion_soft_group:
+                tors_vec = tors_vec * leg_group_mask(
+                    r.foot_torsion_soft_group,
+                    param_name="foot_torsion_soft_group").astype(float)
+            ep = replace(ep, foot_torsion_soft_scale=np.clip(
+                1.0 - tors_vec, 0.0, 1.0))
         return ep

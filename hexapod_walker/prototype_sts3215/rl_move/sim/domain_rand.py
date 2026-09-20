@@ -655,6 +655,35 @@ class RandRanges:
     # "" (default) = every foot softened identically; else a LEG-only
     # group name (see ``leg_group_mask``).
     foot_torsion_soft_group: str = ""
+    # Transient PER-LEG foot-catch/stumble EVENT (2026-09-20, speed
+    # track, STATUS.md 09-20 ~10:3x "Next" item 2). Every mechanism
+    # dosed so far this saga (backlash, link-length, mass/CoM, contact
+    # softness, torsional friction) is a CONTINUOUS per-episode model
+    # parameter -- exactly what the digital-twin's own causal read of
+    # the PS200 trace (HEXAPOD2_DIGITAL_TWIN_2026-09-12.md: "load-
+    # dependent post-encoder deformation ... unloads one support foot,
+    # followed by body pivot and SWING-FOOT CONTACT") says the real
+    # event is NOT: it is a one-shot TRANSIENT per stride, not a
+    # standing softness/gap. This axis models the LAST link of that
+    # chain directly -- an unintended catch/snag on the swinging foot
+    # -- rather than trying to cause it indirectly through a
+    # compliance parameter (which the whole 09-14..09-20 probe series
+    # showed the position-controlled actuator stack simply absorbs).
+    # (0.0, 0.0) = OFF, guarded (no rng consumed, no earlier draw
+    # shifted), bit-exact -- draws a SINGLE scalar magnitude (peak
+    # yank force, Newtons) applied to every masked leg. sim_env fires
+    # the event ONCE PER REAL LIFTOFF (foot touch sensor transitions
+    # planted -> airborne, see sim_env._update_foot_catch_state), never
+    # on a blind clock -- coupled to the policy's OWN gait phase, not a
+    # guessed period, which is the "coupled to gait phase" requirement
+    # named in STATUS.md. Applied as a brief (~0.12s) retrograde +
+    # downward force on the caught foot's pad body via xfrc_applied
+    # (sim_env._advance), then released.
+    foot_catch_force_n: tuple[float, float] = (0.0, 0.0)
+    # "" (default) = every leg catches identically; else a LEG-only
+    # group name (see ``leg_group_mask`` -- a catch event has no joint
+    # axis).
+    foot_catch_force_group: str = ""
     # Adaptive/adversarial hard-case sampler (2026-09-14, speed track —
     # the DR-composition panel's next-named lever after CTRL/WIDE/
     # STRUCT/COMBO all missed the held-out >=30% roll-reduction floor,
@@ -805,6 +834,11 @@ class RandRanges:
             foot_torsion_soft_pct=(self.foot_torsion_soft_pct[0] * s,
                                     self.foot_torsion_soft_pct[1] * s),
             foot_torsion_soft_group=self.foot_torsion_soft_group,
+            # Same convention: magnitude range follows the curriculum,
+            # the categorical group name does not.
+            foot_catch_force_n=(self.foot_catch_force_n[0] * s,
+                                 self.foot_catch_force_n[1] * s),
+            foot_catch_force_group=self.foot_catch_force_group,
         )
 
 
@@ -941,6 +975,13 @@ class EpisodeRandomization:
     # is a pure no-op).
     foot_torsion_soft_scale: np.ndarray = field(
         default_factory=lambda: np.ones(N_LEGS))
+    # Transient per-leg foot-catch/stumble event peak force, Newtons
+    # (dr.foot_catch_force_n / -group, see RandRanges). All-zero (the
+    # default) = OFF, byte-exact -- sim_env's liftoff detector and
+    # _advance's xfrc application are both guarded no-ops whenever
+    # every entry is 0.0.
+    foot_catch_force_n: np.ndarray = field(
+        default_factory=lambda: np.zeros(N_LEGS))
     struct_dr_mode: str = ""
     # "" = no structured overlay this episode; else one of
     # domain_rand.STRUCT_STORIES — the granular key the adaptive
@@ -1813,4 +1854,18 @@ class DomainRandomizer:
                     param_name="foot_torsion_soft_group").astype(float)
             ep = replace(ep, foot_torsion_soft_scale=np.clip(
                 1.0 - tors_vec, 0.0, 1.0))
+        # Transient per-leg foot-catch/stumble event: drawn LAST
+        # (guarded), same convention as foot_torsion_soft_pct
+        # immediately above -- default (0.0, 0.0) never consumes rng
+        # and leaves every earlier draw byte-exact. A SINGLE scalar
+        # magnitude (peak yank force, Newtons), not independent per
+        # leg, so a masked group gets one consistent event strength.
+        if max(r.foot_catch_force_n) > 0.0:
+            catch_mag = float(u(*r.foot_catch_force_n))
+            catch_vec = np.full(N_LEGS, catch_mag)
+            if r.foot_catch_force_group:
+                catch_vec = catch_vec * leg_group_mask(
+                    r.foot_catch_force_group,
+                    param_name="foot_catch_force_group").astype(float)
+            ep = replace(ep, foot_catch_force_n=catch_vec)
         return ep

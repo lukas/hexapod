@@ -93,6 +93,15 @@ from .balance_bc_anchor import (
 G0 = 9.80665
 N_OBS = 47
 
+# Transient per-leg foot-catch/stumble event (dr.foot_catch_force_n,
+# see domain_rand.RandRanges + sim_env._update_foot_catch_state/
+# _advance). Fixed physical constants, not swept doses -- only the
+# peak force magnitude is a dr.* range.
+FOOT_CATCH_LOAD_ON_N = 0.05     # touch reading counted as "planted"
+FOOT_CATCH_DURATION_S = 0.12    # how long one triggered yank lasts
+FOOT_CATCH_COOLDOWN_S = 0.30    # min gap between triggers on one leg
+FOOT_CATCH_DOWN_FRAC = 0.5      # vertical component / horizontal peak
+
 
 try:  # gymnasium is optional for pure scripted use
     import gymnasium as _gym
@@ -550,6 +559,16 @@ class SimHexapodBalanceEnv(_GymBase):
         self._stickslip_base_mu = np.zeros(6, dtype=float)
         self._stickslip_prev_xy: np.ndarray | None = None
         self._stickslip_active = False
+
+        # Transient per-leg foot-catch/stumble event (dr.foot_catch_
+        # force_n / -group, see domain_rand.EpisodeRandomization and
+        # sim_env._update_foot_catch_state / _advance). Reuses
+        # ``_touch_adr`` and ``_pad_bids`` (both defined above) -- no
+        # new geom/sensor lookups needed.
+        self._foot_catch_owns_row = False
+        self._foot_catch_prev_touch = np.ones(6, dtype=bool)
+        self._foot_catch_end_s = np.full(6, -1.0, dtype=float)
+        self._foot_catch_cooldown_until_s = np.zeros(6, dtype=float)
 
         # Soften the foot contacts: the CAD model's solref (0.01 s) is
         # near-rigid, so mm-scale randomized leg-length differences make
@@ -1237,6 +1256,17 @@ class SimHexapodBalanceEnv(_GymBase):
         # stays a complete no-op and cannot clobber their state.
         ext_push_owns_row = (not limp and self._ep_rand is not None
                              and self._ep_rand.ext_push_peak_n != 0.0)
+        # Transient per-leg foot-catch/stumble event (dr.foot_catch_
+        # force_n, see _update_foot_catch_state for the liftoff-
+        # triggered window this reads). Computed ONCE per tick like
+        # push_nm/push_fx above -- the window (_foot_catch_end_s) is
+        # tick-granularity, not substep-granularity. foot_catch_active
+        # is None whenever this episode owns no row (the default),
+        # so the substep loop below skips the per-leg write entirely.
+        foot_catch_active = None
+        if not limp and self._foot_catch_owns_row:
+            t_now = self._step_i * self.dt
+            foot_catch_active = t_now < self._foot_catch_end_s
         for _ in range(self._substeps):
             # load_nm feeds BOTH the dynamic backlash (if active) and the
             # load-coupled latency (if active) -- same one-substep-lagged
@@ -1287,6 +1317,27 @@ class SimHexapodBalanceEnv(_GymBase):
             if ext_push_owns_row:
                 self.data.xfrc_applied[self._chassis_bid, 0:3] = (
                     push_fx, push_fy, 0.0)
+            # Transient foot-catch/stumble event: brief retrograde
+            # (opposing the chassis's current forward direction, same
+            # Rp as the takeoff torque above) + downward force on the
+            # caught foot's PAD body -- world-frame, overwritten every
+            # substep, zeroed outside each leg's own active window
+            # (same no-state-survives-the-window convention as every
+            # other pulse in this file). Only touches pad-body xfrc
+            # rows for episodes that own them (see reset-time
+            # ``_foot_catch_owns_row``) -- nothing else in this file
+            # writes ``xfrc_applied`` on ``_pad_bids``.
+            if foot_catch_active is not None:
+                fwd = Rp[:, 0]
+                for i in range(6):
+                    if foot_catch_active[i]:
+                        fmag = float(self._ep_rand.foot_catch_force_n[i])
+                        self.data.xfrc_applied[self._pad_bids[i], 0:3] = (
+                            -fwd[0] * fmag, -fwd[1] * fmag,
+                            -fmag * FOOT_CATCH_DOWN_FRAC)
+                    else:
+                        self.data.xfrc_applied[self._pad_bids[i], 0:3] = (
+                            0.0, 0.0, 0.0)
             mujoco.mj_step(self.model, self.data)
             # Unconditional (was gated on self._backlash is not None):
             # the load-coupled latency mechanism (ServoProfile.tick's
@@ -1855,6 +1906,28 @@ class SimHexapodBalanceEnv(_GymBase):
             float(er_ss.foot_stickslip_vel_ref_mps)
             if er_ss is not None else 0.02)
         self._stickslip_prev_xy = None
+        # Transient foot-catch/stumble event (dr.foot_catch_force_n):
+        # only claim the pad-body xfrc rows for episodes that actually
+        # drew a nonzero magnitude this episode (same "owns_row"
+        # discipline as _ext_push_force_n) -- assume every foot starts
+        # PLANTED (matches every episode's settled start pose) so the
+        # very first liftoff of the episode can still trigger.
+        er_fc = self._ep_rand
+        self._foot_catch_owns_row = (
+            er_fc is not None and bool(np.any(er_fc.foot_catch_force_n != 0.0)))
+        if self._foot_catch_owns_row and any(b < 0 for b in self._pad_bids):
+            # Fail loud, not silent: xfrc_applied[-1] would land on an
+            # arbitrary body, not a real foot pad. Both current model
+            # families (mesh and legacy primitive) define named
+            # "L{i}_pad" bodies, so this should never fire in practice
+            # -- defensive only, for a future model variant that drops
+            # the pad body.
+            raise ValueError(
+                "dr.foot_catch_force_n needs L{i}_pad bodies -- "
+                "model has none")
+        self._foot_catch_prev_touch = np.ones(6, dtype=bool)
+        self._foot_catch_end_s = np.full(6, -1.0, dtype=float)
+        self._foot_catch_cooldown_until_s = np.zeros(6, dtype=float)
         self._apply_struct_compliance_to_model(self.model)
         if self._ease_g != 1.0:
             # Physics-easing fallback for randomize=False private-model
@@ -2918,11 +2991,48 @@ class SimHexapodBalanceEnv(_GymBase):
         self.model.geom_friction[self._stickslip_foot_gids, 0] = (
             self._stickslip_base_mu * mult)
 
+    def _update_foot_catch_state(self) -> None:
+        """Per-CONTROL-TICK liftoff detector driving the transient
+        foot-catch/stumble event (dr.foot_catch_force_n, see
+        domain_rand.EpisodeRandomization). Guarded no-op whenever this
+        episode drew all-zero magnitude (the default) -- costs one
+        attribute check.
+
+        Fires once per genuine LIFTOFF: the foot's own touch-force
+        sensor (``_touch_adr``, the same ground-truth load reading
+        ``_lower_stage_planted_frac``/``hold_feet_load`` use) transi-
+        tioning from planted to airborne. This is deliberately NOT a
+        blind clock/phase guess -- it is coupled to whatever gait the
+        frozen policy actually produces, on this exact tick, which is
+        the "coupled to gait phase" requirement named in
+        rl_docs/tracks/speed/STATUS.md (09-20). A cooldown prevents a
+        chattering touch reading near the threshold from re-triggering
+        mid-event.
+
+        Called ONCE per real env.step() (before ``_advance``, same
+        site/cadence as ``_apply_foot_stickslip``) using THIS tick's
+        sensor data -- i.e. the result of the PREVIOUS tick's physics,
+        never a look-ahead into the tick about to run."""
+        if not self._foot_catch_owns_row:
+            return
+        t = self._step_i * self.dt
+        for i in range(6):
+            adr = self._touch_adr[i]
+            f_n = float(self.data.sensordata[adr]) if adr >= 0 else 0.0
+            touched = f_n > FOOT_CATCH_LOAD_ON_N
+            if (self._foot_catch_prev_touch[i] and not touched
+                    and t >= self._foot_catch_cooldown_until_s[i]):
+                self._foot_catch_end_s[i] = t + FOOT_CATCH_DURATION_S
+                self._foot_catch_cooldown_until_s[i] = (
+                    t + FOOT_CATCH_COOLDOWN_S)
+            self._foot_catch_prev_touch[i] = touched
+
     def step(self, action):
         early, ctx = self._step_begin(action)
         if early is not None:
             return self._post_step(early)
         self._apply_foot_stickslip()
+        self._update_foot_catch_state()
         self._advance()
         return self._post_step(self._step_finish(ctx))
 

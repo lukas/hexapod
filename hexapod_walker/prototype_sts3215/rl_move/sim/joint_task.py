@@ -67,6 +67,7 @@ class SimHexapodJointGoalEnv(SimHexapodGoalEnv):
         super().__init__(*args, **kwargs)
         self.n_act = N_JOINTS
         self._prev_action = np.zeros(self.n_act, dtype=float)
+        self._prev_prev_action = np.zeros(self.n_act, dtype=float)
         if _gym is not None:
             self.action_space = _gym.spaces.Box(
                 -1.0, 1.0, shape=(self.n_act,), dtype=np.float32)

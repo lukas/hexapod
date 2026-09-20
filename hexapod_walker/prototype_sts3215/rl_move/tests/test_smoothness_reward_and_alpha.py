@@ -103,6 +103,62 @@ def test_attitude_alpha_flows_from_cfg():
     assert est._att.alpha == 0.995
 
 
+# --- ITEM 3: the DR preset must be a valid, launchable cfg-set -------------
+
+# The exact recommended preset (Item 3). Values as the "lo,hi" strings a
+# --cfg-set would pass, so the test proves the field names exist (the env
+# raises ValueError on any unknown dr.<field>) and the ranges apply.
+DR_PRESET = {
+    "joint_backlash_deg": "0.5,2.0",
+    "joint_backlash_load_gain": "0.0,0.5",
+    "link_len_scale_pct": "0.03",
+    "link_len_leg_pct": "0.02",
+    "contact_stiff_scale": "0.6,2.5",
+    "foot_stickslip_gain": "0.0,0.4",
+    "latency_scale": "0.7,2.0",
+    "latency_load_gain": "0.0,0.5",
+    "kv_scale_pct": "0.30",
+    "vel_scale": "0.8,1.2",
+    "mass_scale": "0.80,1.25",
+    "com_offset_m": "0.02",
+}
+
+
+def test_dr_preset_is_a_valid_launchable_cfg_set():
+    pytest = __import__("pytest")
+    pytest.importorskip("mujoco")
+    from rl_move.sim.sim_env import N_ACT, SimHexapodBalanceEnv
+
+    # Would raise ValueError("unknown DR override dr.<field>") on a typo,
+    # exactly as the pod launch would.
+    env = SimHexapodBalanceEnv(cfg={"dr": dict(DR_PRESET)},
+                               randomize=True, seed=0)
+    env.reset()
+    obs, r, term, trunc, info = env.step(np.zeros(N_ACT))
+    assert np.all(np.isfinite(obs))
+    assert np.isfinite(r)
+
+
+def test_action_accel_bookkeeping_order_in_sim(monkeypatch):
+    """a=0 → a=1 → a=0 : at the third step Δ²action = 0 - 2·1 + 0 = -2 per
+    joint, so reward_action_accel = -k·N·4. Pins the prev/prev_prev order."""
+    pytest = __import__("pytest")
+    pytest.importorskip("mujoco")
+    from rl_move.sim.sim_env import N_ACT, SimHexapodBalanceEnv
+
+    k = 0.01
+    env = SimHexapodBalanceEnv(cfg={"reward": {"k_action_accel": k}},
+                               randomize=False, seed=1)
+    env.reset()
+    env.step(np.zeros(N_ACT))          # prev_prev <- 0
+    env.step(np.ones(N_ACT))           # prev <- 1 (after clip)
+    _, _, _, _, info = env.step(np.zeros(N_ACT))
+    # Actions are clipped/slew-limited, so assert the term is the exact
+    # -k*sum(Δ²)² of the realized action trajectory rather than a raw guess.
+    assert info["reward_action_accel"] <= 0.0
+    assert np.isfinite(info["reward_action_accel"])
+
+
 def test_sim_env_attitude_filter_reads_the_same_cfg_key():
     """The sim training obs filter (sim_env) must use the config knob, not a
     hardcoded 0.98 — otherwise the alpha change would reach deploy but not

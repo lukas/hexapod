@@ -215,8 +215,10 @@ sensing:
   # throttled by this — they come fresh (~150-250 Hz cache) every tick.
   full_feedback_hz: 10
   # Complementary attitude filter gyro-trust (ComplementaryAttitude.alpha),
-  # read by BOTH the sim training obs filter (sim_env) and the deployed
-  # RobotStateEstimator. alpha→1 trusts the gyro more, rejecting the fore-aft
+  # read by the sim training obs filter (sim_env), the deployed
+  # RobotStateEstimator, AND (as a fallback when transport.attitude_alpha is
+  # unset) the DeployedTransport hardware filter. alpha→1 trusts the gyro
+  # more, rejecting the fore-aft
   # walk SURGE (which the accelerometer misreads as body tilt — the measured
   # IMU "tilt" overstates true rotation ~3x during the surge); the cost is
   # more drift from residual gyro bias over an episode. Time constant
@@ -339,8 +341,12 @@ logging:
 #   attitude_alpha 0.99 (τ≈1 s at 100 Hz, ≈2 s at 50 Hz) roughly doubles surge-accel
 #   rejection while keeping episode drift bounded (τ*≈sqrt(A_surge/(2πf·b))
 #   with gait f~1-2 Hz and post-calib gyro bias well under the 0.5 deg/s DR
-#   bound lands ~0.99-0.995); a small DR band sensing.attitude_alpha over
-#   [0.98, 0.995] also works and makes the policy alpha-robust.
+#   bound lands ~0.99-0.995). Steady-state drift offset ≈ bias·τ: at the
+#   0.5 deg/s DR bound, alpha=0.99 (τ≈1 s) → ~0.5° and 0.995 (τ≈2 s) → ~1°,
+#   both inside track_sigma_deg 1.5 — so 0.99 is safe and 0.995 is the
+#   ceiling. (sensing.attitude_alpha is a single scalar read once at env
+#   construction; there is NO per-episode DR over it — a dr.attitude_alpha
+#   axis would have to be added as a new guarded RandRanges field.)
 # ---------------------------------------------------------------------
 # ITEM 3 — DR preset for the residual reality gap (real vs sim ~2-4x
 # under-rock; position-domain backlash/link-length moved the needle, chassis
@@ -362,7 +368,7 @@ logging:
 #                                            #   run's bus.write_speed, set
 #                                            #   for the ~176 deg/s operating
 #                                            #   point; this is the ± spread)
-#     dr.mass_scale=0.85,1.20 \              # chassis mass
+#     dr.mass_scale=0.80,1.25 \              # chassis mass
 #     dr.com_offset_m=0.02                   # CoM shift (battery/wiring)
 #   Rationale: centered on measured reality — backlash + link-length are the
 #   position-domain mechanisms the speed-track found actually reduce the

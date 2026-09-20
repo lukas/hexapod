@@ -32,7 +32,8 @@ DEG2RAD = np.pi / 180.0
 # ``safety`` and ``ik`` are stateful objects (estop latches, tilt refs,
 # foot anchors) and are deep-copied whole.
 SNAP_ATTRS = (
-    "_ep_rand", "_goal_traj", "_q_nom", "_cmd", "_prev_action", "_step_i",
+    "_ep_rand", "_goal_traj", "_q_nom", "_cmd", "_prev_action",
+    "_prev_prev_action", "_step_i",
     "_state", "_att_rp", "_cur_filt", "_tilt_ref0", "_settle_lean",
     "_z0", "_pad_z_ref",
     "_h_target", "_h_milestones", "_prev_h_err_abs", "_is_rise",

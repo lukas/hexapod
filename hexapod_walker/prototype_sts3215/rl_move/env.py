@@ -15,6 +15,7 @@ from .control_loop import ControlLoop
 from .logger import EpisodeLogger, flatten_state_row
 from .robot_state import (
     DEG2RAD, N_JOINTS, RAD2DEG, RobotState, RobotStateEstimator,
+    over_current_reading,
 )
 from .safety import SafetyLayer, action_to_body_offset
 
@@ -401,8 +402,13 @@ def compute_reward(cfg: dict, state: RobotState, action: np.ndarray,
     if state.servo_current is not None:
         r_cur = -kc * float(np.sum(np.square(state.servo_current)))
         if kcm > 0.0:
-            r_cur_max = -kcm * float(
-                np.max(np.abs(state.servo_current))) ** 2
+            # Peak-load term is a TRIP-PROXIMITY penalty ("don't ride a few
+            # motors near the 2.5 A breaker"), so key it on the stall-
+            # sensitive reading, not the mechanical-power servo_current
+            # (which reads ~0 at a stall). Falls back to servo_current on
+            # hardware / legacy model. Default OFF (kcm=0).
+            cur_trip = over_current_reading(state)
+            r_cur_max = -kcm * float(np.max(np.abs(cur_trip))) ** 2
     # Weight-shift goal: weak linear gradient toward zero load (the
     # kernel above pays the actual success but is flat far from it).
     r_unload = 0.0

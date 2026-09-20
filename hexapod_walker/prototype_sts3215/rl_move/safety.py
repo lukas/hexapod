@@ -303,7 +303,15 @@ class SafetyLayer:
                     detail=f"{_joint_name(j)} {float(temp[j]):.1f}C",
                     held=True)
 
-        current, current_ids = selected("servo_current")
+        # Prefer the sim's separate stall-sensitive trip signal when
+        # present (default "power" current model — servo_current itself
+        # reads ~0 mechanical power at a stall and would never trip). On
+        # hardware and the legacy "torque_proxy" model over_current_signal
+        # is None, so this falls back to the measured servo_current and the
+        # trip is byte-identical to before.
+        current, current_ids = selected("over_current_signal")
+        if current is None or not current_ids:
+            current, current_ids = selected("servo_current")
         if consume_health_sample and current is not None and current_ids:
             cur = np.abs(current)
             j = max(current_ids, key=lambda idx: float(cur[idx]))

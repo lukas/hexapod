@@ -29,11 +29,36 @@ class RobotState:
     commanded_position: np.ndarray   # (18,) rad
     servo_load: np.ndarray | None = None
     servo_current: np.ndarray | None = None
+    # Separate STALL-SENSITIVE current reading for the SafetyLayer
+    # over-current trip. On hardware this is None and the trip uses the
+    # measured ``servo_current``. In sim under the default "power" current
+    # model ``servo_current`` reads ~0 at a stall (high torque, zero speed
+    # → ~0 mechanical power), which would silently disable the over-current
+    # trip; ``over_current_signal`` carries the legacy torque-proxy current
+    # so a stall still trips. None → consumers fall back to servo_current
+    # (see ``over_current_reading``). See sim_env._read_state / safety.py.
+    over_current_signal: np.ndarray | None = None
     servo_temperature: np.ndarray | None = None
     bus_ok: bool = True
     imu_ok: bool = True
     dt: float = 0.0
     timing: dict = field(default_factory=dict)
+
+
+def over_current_reading(state: "RobotState") -> np.ndarray | None:
+    """Current array a stall/over-current-sensitive consumer should read.
+
+    Returns ``state.over_current_signal`` when the sim has published a
+    separate stall-sensitive trip signal (default "power" current model),
+    otherwise ``state.servo_current`` (hardware, and the legacy
+    "torque_proxy" sim model). Trip-proximity reward shaping and the
+    SafetyLayer over-current trip use this so a stall still costs / trips
+    even though the reported ``servo_current`` reads ~0 mechanical power
+    at a stall. Effort/telemetry consumers keep reading ``servo_current``
+    directly (they want calibrated amps).
+    """
+    sig = state.over_current_signal
+    return sig if sig is not None else state.servo_current
 
 
 @dataclass

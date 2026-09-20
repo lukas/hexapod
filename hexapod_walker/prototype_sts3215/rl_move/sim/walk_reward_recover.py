@@ -14,6 +14,7 @@ import math
 import numpy as np
 
 from rl_move.config import cfg_get
+from rl_move.robot_state import over_current_reading
 from .walk_task import (
     K_PROG, K_WALK, SIGMA_V, WALK_DIRECTION_MIN_SPEED_M_S,
     _add_walk_direction_info,
@@ -85,7 +86,11 @@ def recover_reward(env, reward, term, trunc, info):
     qd_rms = float(np.sqrt(np.mean(
         np.square(env._state.joint_velocity))))
     v = env._body_vel_xy()
-    cur = getattr(env._state, "servo_current", None)
+    # Recovery strain gate: don't declare recovery while a motor is over
+    # ~3 A. Read the stall-sensitive current (default power model reads ~0
+    # at a strain/stall, which would make this gate vacuous); falls back to
+    # servo_current on hardware / legacy model.
+    cur = over_current_reading(env._state)
     cur_ok = cur is None or float(np.max(cur)) <= 3.0
     ok = (abs(z - z_full) <= h_tol
           and tilt_deg <= 6.0

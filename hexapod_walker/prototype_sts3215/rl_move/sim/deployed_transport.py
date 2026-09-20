@@ -155,7 +155,9 @@ class DeployedTransport:
                 imu_accel=accel, imu_gyro=raw.imu_gyro.copy(), dt=dt,
                 commanded_position=raw.commanded_position.copy(),
                 servo_current=(None if raw.servo_current is None
-                               else raw.servo_current.copy()))
+                               else raw.servo_current.copy()),
+                over_current_signal=(None if raw.over_current_signal is None
+                                     else raw.over_current_signal.copy()))
         assert self.state is not None
         age = max(0.0, now - self.state.timestamp)
         self.max_snapshot_age_s = max(self.max_snapshot_age_s, age)
@@ -176,8 +178,8 @@ class DeployedTransport:
         """Match the async hardware runner's once-per-frame health mask."""
         if state.timing.get("snapshot_fresh"):
             return state
-        return replace(state, servo_current=None, servo_load=None,
-                       servo_temperature=None)
+        return replace(state, servo_current=None, over_current_signal=None,
+                       servo_load=None, servo_temperature=None)
 
     def summary(self):
         return {

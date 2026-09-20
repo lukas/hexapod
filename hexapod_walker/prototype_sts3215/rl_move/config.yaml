@@ -265,6 +265,19 @@ pd:
 
 bus:
   port: null                 # null → open_feetech_bus default
+  # Sim servo-current estimate (rl_move/sim/sim_env.py::_read_state).
+  #   power         → validated mechanical-power model (DEFAULT, fitted
+  #                   2026-09-19): current = current_iq_bus_a/18
+  #                   + current_k_a_per_w * |torque*qvel|, 0.1 s low-pass.
+  #                   Holding/stance is ~0 A (345:1 non-backdrivable
+  #                   gearbox). A separate torque-proxy trip signal keeps
+  #                   the over-current stall trip alive (safety.py).
+  #   torque_proxy  → legacy min(|torque|*1.2, 3.0) rail image (the
+  #                   pre-2026-09-19 behavior; over-current trip reads it
+  #                   directly).
+  current_model: power
+  current_iq_bus_a: 0.19     # standstill bus idle (A), split over 18 joints
+  current_k_a_per_w: 0.02282 # A per W of |torque*qvel| mechanical power
   # Default OFF after 2026-08-06 cooked-knee incident. Explicit opt-in only.
   enable_motion: false
   write_speed: 400           # gentler after tip event

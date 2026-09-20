@@ -185,3 +185,37 @@ def test_export_refuses_unstamped_checkpoint(tmp_path):
                training_hz=100.0,
                extra_meta={"phase_hz": 1.333333,
                            "walk_phase_run_on_yaw": True})
+
+
+def test_export_records_source_run_from_the_ledger(tmp_path, monkeypatch):
+    """meta.source_run = the ledger run whose checkpoint this is (by the
+    launcher's ppo_goal_<run> naming contract); absent when no ledger."""
+    from stable_baselines3 import PPO
+
+    from rl_move import ledger
+
+    model = PPO(
+        "MlpPolicy", _ExportEnv(75), n_steps=8, batch_size=8,
+        n_epochs=1, seed=5, device="cpu",
+        policy_kwargs={"net_arch": [11, 9]})
+    _stamp(model)
+    checkpoint = tmp_path / "ppo_goal_cw_walk50hz_demo_acq1.zip"
+    model.save(checkpoint)
+    monkeypatch.setattr(ledger, "load_ledger", lambda: [
+        {"run": "cw-walk50hz-demo-acq1", "status": "PASS",
+         "created": "2026-09-20T10:00:00+00:00"},
+        {"run": "cw-other", "status": "FAIL",
+         "created": "2026-09-20T11:00:00+00:00"}])
+
+    phase = {"phase_hz": 0.6667, "walk_phase_run_on_yaw": True}
+    payload = export(str(checkpoint), str(tmp_path / "a.json"), training_hz=50.0,
+                     extra_meta=phase)
+    assert payload["meta"]["source_run"] == "cw-walk50hz-demo-acq1"
+    assert payload["meta"]["source"] == str(checkpoint)
+
+    def _missing():
+        raise FileNotFoundError("no state dir")
+    monkeypatch.setattr(ledger, "load_ledger", _missing)
+    payload = export(str(checkpoint), str(tmp_path / "b.json"), training_hz=50.0,
+                     extra_meta=phase)
+    assert "source_run" not in payload["meta"]

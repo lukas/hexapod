@@ -300,6 +300,24 @@ def _parity_dual_gru(model, payload: dict, samples: int = 200
     return worst_action, worst_hidden
 
 
+def _ledger_run_for(policy_path: str) -> str | None:
+    """Ledger run whose checkpoint `policy_path` is, by the launcher's naming
+    contract (`ppo_goal_<run with '-' as '_'>.zip`); None when no ledger is
+    reachable (GPU pods, laptops without the state dir) or nothing matches."""
+    stem = Path(policy_path).stem
+    if stem.startswith("ppo_goal_"):
+        stem = stem[len("ppo_goal_"):]
+    try:
+        from rl_move import ledger
+        runs = ledger.current_entries(ledger.load_ledger())
+    except Exception:  # noqa: BLE001 -- the ledger is optional context here
+        return None
+    for run in runs:
+        if run.replace("-", "_") == stem:
+            return run
+    return None
+
+
 def export(policy_path: str, out_path: str, *, name: str = "",
            notes: str = "", extra_meta: dict | None = None,
            training_hz: float | None = None,
@@ -336,6 +354,13 @@ def export(policy_path: str, out_path: str, *, name: str = "",
     }
     meta.setdefault(
         "control_hz", float(control_hz if control_hz is not None else hz))
+    # The training run this checkpoint came from, so downstream readers
+    # (Robot Lab run folders, the orchestrator's rl_index) can join a real
+    # walk back to its hypothesis/verdict without guessing from file names.
+    if "source_run" not in meta:
+        run = _ledger_run_for(policy_path)
+        if run:
+            meta["source_run"] = run
     # These widths are unambiguous descendants of the phase+yaw lineage.
     # Write the contract explicitly so the validator/runner never has to
     # infer it from a number alone.

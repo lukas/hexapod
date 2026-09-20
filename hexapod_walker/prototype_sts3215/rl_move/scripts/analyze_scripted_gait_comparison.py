@@ -71,17 +71,27 @@ def _trajectory(
 
 def _trusted_hardware_tilt(
     rows: list[dict[str, str]],
-) -> tuple[np.ndarray, np.ndarray, int]:
-    """Apply the recorder's gyro-bounded Euler-glitch rejection offline."""
+) -> tuple[np.ndarray, np.ndarray, int, bool]:
+    """Apply the recorder's gyro-bounded Euler-glitch rejection offline.
+
+    Chassis tilt comes ONLY from the mount-corrected body_* columns; the raw
+    uncal_*/roll_deg columns are never substituted.  Returns a trailing
+    ``uncalibrated`` flag (True when no row carries a body_* value), so the
+    caller reports "no chassis tilt" instead of trusting uncalibrated data.
+    """
     roll_values: list[float] = []
     pitch_values: list[float] = []
     previous: tuple[float, float, float] | None = None
     rejected = 0
+    usable = 0
     for row in rows:
-        roll = float(row.get("body_roll_deg") or row.get("roll_deg") or 0.0)
-        pitch = float(
-            row.get("body_pitch_deg") or row.get("pitch_deg") or 0.0
-        )
+        br = row.get("body_roll_deg")
+        bp = row.get("body_pitch_deg")
+        if br in (None, "") or bp in (None, ""):
+            continue  # uncalibrated row: no trustworthy chassis tilt
+        usable += 1
+        roll = float(br)
+        pitch = float(bp)
         elapsed = float(row.get("elapsed_s") or 0.0)
         if previous is not None:
             previous_roll, previous_pitch, previous_elapsed = previous
@@ -107,6 +117,7 @@ def _trusted_hardware_tilt(
         np.asarray(roll_values or [0.0]),
         np.asarray(pitch_values or [0.0]),
         rejected,
+        usable == 0,
     )
 
 
@@ -121,7 +132,8 @@ def _phase_compare(
     si = np.column_stack([np.interp(grid, st, sq[:, j]) for j in range(18)])
     error = hi - si
     joint_rmse = np.sqrt(np.mean(error * error, axis=0))
-    hroll, hpitch, rejected_tilt_samples = _trusted_hardware_tilt(hardware)
+    hroll, hpitch, rejected_tilt_samples, tilt_uncalibrated = \
+        _trusted_hardware_tilt(hardware)
     sroll = np.asarray([float(row["roll_deg"]) for row in simulation])
     spitch = np.asarray([float(row["pitch_deg"]) for row in simulation])
     # Hardware body_roll/body_pitch are the complementary-filter IMU
@@ -156,8 +168,10 @@ def _phase_compare(
             {"joint": int(j), "rmse_deg": round(float(joint_rmse[j]), 3)}
             for j in np.argsort(joint_rmse)[-3:][::-1]
         ],
-        "hardware_imu_estimator_peak_tilt_deg": round(float(max(
-            np.max(np.abs(hroll)), np.max(np.abs(hpitch)))), 3),
+        "hardware_imu_estimator_peak_tilt_deg": (
+            None if tilt_uncalibrated else round(float(max(
+                np.max(np.abs(hroll)), np.max(np.abs(hpitch)))), 3)),
+        "hardware_imu_uncalibrated": tilt_uncalibrated,
         "hardware_imu_glitch_samples_rejected": rejected_tilt_samples,
         "mujoco_physical_peak_tilt_deg": round(float(max(
             np.max(np.abs(sroll)), np.max(np.abs(spitch)))), 3),

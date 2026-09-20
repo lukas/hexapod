@@ -78,6 +78,7 @@ from async_bus_guard import (                            # noqa: E402
     AsyncSamplerCleanupError, clear_bus_quarantine, quarantine_bus,
     require_bus_available,
 )
+from imu_calibrate import sensor_to_body_tilt_deg         # noqa: E402
 
 # Rot-60 canonicalizer (08-11, RL_PLAN queue 2.1 deploy-side port).
 # numpy-only module, shipped by deploy_adb.sh. The wrapper is an exact
@@ -2567,8 +2568,10 @@ def _state_debug(state, *, q_cmd_rad=None, target_robot=None) -> dict:
         "joint_contract": JOINT_CONTRACT,
         "bus_ok": bool(getattr(state, "bus_ok", False)),
         "imu_ok": bool(getattr(state, "imu_ok", False)),
-        "roll_deg": round(float(state.imu_roll) * RAD2DEG, 2),
-        "pitch_deg": round(float(state.imu_pitch) * RAD2DEG, 2),
+        # Mount-uncorrected sensor frame -> uncal_* so debug-log readers do
+        # not mistake it for chassis tilt (see imu_calibrate body-frame calib).
+        "uncal_roll_deg": round(float(state.imu_roll) * RAD2DEG, 2),
+        "uncal_pitch_deg": round(float(state.imu_pitch) * RAD2DEG, 2),
         "gyro_dps": [round(float(x) * RAD2DEG, 2)
                      for x in np.asarray(state.imu_gyro, dtype=float)],
         "q_deg": [round(float(x) * RAD2DEG, 2) for x in q],
@@ -2693,7 +2696,8 @@ class _EpisodeLog:
     """
 
     def __init__(self, mode: str, params: dict, obs_dim: int = 0,
-                 debug: _RunDebug | None = None):
+                 debug: _RunDebug | None = None,
+                 body_frame: dict | None = None):
         stamp = time.strftime("%Y%m%d_%H%M%S")
         d = _HERE / "logs"
         d.mkdir(exist_ok=True)
@@ -2701,6 +2705,10 @@ class _EpisodeLog:
         self.params = params
         self.obs_dim = int(obs_dim)
         self.debug = debug
+        # IMU body-frame calib (or None). Rotates the filtered sensor-frame
+        # tilt into chassis (body_*) columns; blank when uncalibrated so the
+        # mount-uncorrected uncal_* columns are never mistaken for chassis tilt.
+        self.body_frame = body_frame
         self.csv_path = d / f"rl_{mode}_{stamp}.csv"
         self.sum_path = d / f"rl_{mode}_{stamp}_summary.json"
         self.started_iso = time.strftime("%Y-%m-%dT%H:%M:%S")
@@ -2719,7 +2727,11 @@ class _EpisodeLog:
         # policy be replayed offline: action mismatch = obs/weights
         # bug, action match = behavior/contact story.
         self._w.writerow(
-            ["t_s", "phase", "roll_deg", "pitch_deg",
+            # roll/pitch here are MOUNT-UNCORRECTED sensor frame -> named
+            # uncal_* so no reader treats them as chassis tilt.  The trusted
+            # chassis tilt is body_roll_deg/body_pitch_deg, appended LAST and
+            # blank when the IMU has no valid body-frame calibration.
+            ["t_s", "phase", "uncal_roll_deg", "uncal_pitch_deg",
              "gyro_x_dps", "gyro_y_dps", "gyro_z_dps",
              "height_ref_mm", "vx_ref_mps", "vy_ref_mps", "max_cur_a"]
             + [f"q{j}_deg" for j in range(N_JOINTS)]
@@ -2748,7 +2760,11 @@ class _EpisodeLog:
                # every existing offline column index.  They let the digital
                # twin run the same complementary attitude estimator instead
                # of comparing hardware estimator output to a quaternion.
-               "ax_g", "ay_g", "az_g"])
+               "ax_g", "ay_g", "az_g",
+               # Chassis-frame tilt (filtered sensor rotated by the IMU
+               # body-frame calib). Blank when uncalibrated -> the ONLY
+               # trustworthy tilt columns. Appended last for index stability.
+               "body_roll_deg", "body_pitch_deg"])
         try:
             from event_log import emit
             emit("rl_episode", f"{mode} started ({self.csv_path.name})",
@@ -2803,10 +2819,16 @@ class _EpisodeLog:
                 return ""
             return round(float(runner_timing[key]) * 1000.0, 3)
 
+        # Mount-uncorrected sensor-frame tilt (filtered). The trusted chassis
+        # tilt is this rotated by the body-frame calib; blank when uncalibrated.
+        uncal_roll = round(state.imu_roll * RAD2DEG, 2)
+        uncal_pitch = round(state.imu_pitch * RAD2DEG, 2)
+        body = sensor_to_body_tilt_deg(uncal_roll, uncal_pitch, self.body_frame)
+        body_cols = ["", ""] if body is None else [round(body[0], 2),
+                                                   round(body[1], 2)]
+
         self._w.writerow(
-            [round(t, 3), phase,
-             round(state.imu_roll * RAD2DEG, 2),
-             round(state.imu_pitch * RAD2DEG, 2)]
+            [round(t, 3), phase, uncal_roll, uncal_pitch]
             + [round(float(g) * RAD2DEG, 2) for g in state.imu_gyro]
             + [round(goal.height_ref * 1000, 1) if goal is not None
                else "",
@@ -2844,7 +2866,8 @@ class _EpisodeLog:
                imu_age_ms, int(bus_write_due), timing.get("snapshot_seq", ""),
                r_ms("period_s")]
             + np.round(np.asarray(state.imu_accel, dtype=float)
-                       / 9.80665, 6).tolist())
+                       / 9.80665, 6).tolist()
+            + body_cols)
         self._n += 1
         if self._n % 25 == 0:      # survive a mid-run kill: flush each ~1 s
             self._f.flush()
@@ -3549,6 +3572,8 @@ def _run_policy_move_impl(drive, mode: str, *, on_progress=None,
     first_stale_at_s: float | None = None
     last_stale_at_s: float | None = None
     elog = _EpisodeLog(mode, obs_dim=int(policy.meta.get("obs_dim", 0)),
+                       body_frame=(getattr(bus, "_imu_calib", None)
+                                   or {}).get("body_frame"),
                        params={
         "mode": mode, "total_s": round(total_s, 1),
         "hz": timing.policy_hz,
@@ -4687,7 +4712,9 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
     last_stale_at_s: float | None = None
     waiting_for_command_logged = False
     first_drive_command_logged = False
-    elog = _EpisodeLog("drive", obs_dim=int(walk_obs), params={
+    elog = _EpisodeLog("drive", obs_dim=int(walk_obs),
+                       body_frame=(getattr(bus, "_imu_calib", None)
+                                   or {}).get("body_frame"), params={
         "velocity_filter_alpha": actual_velocity_alpha,
         "mode": "drive", "hz": timing.policy_hz,
         "policy_hz": timing.policy_hz,

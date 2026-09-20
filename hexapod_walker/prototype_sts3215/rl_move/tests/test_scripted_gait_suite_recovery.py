@@ -322,27 +322,38 @@ def test_comparison_uses_longest_contiguous_attempt_after_recovery():
 
 
 def test_comparison_rejects_quiet_impossible_euler_jump():
+    # Trusted chassis tilt comes from the mount-corrected body_* columns.
     rows = [
         {
-            "elapsed_s": "0.0", "roll_deg": "1.0", "pitch_deg": "2.0",
-            "body_roll_deg": "", "body_pitch_deg": "",
+            "elapsed_s": "0.0", "body_roll_deg": "1.0", "body_pitch_deg": "2.0",
             "gyro_xyz_dps": "[0,0,0]",
         },
         {
-            "elapsed_s": "0.1", "roll_deg": "-179.0", "pitch_deg": "20.0",
-            "body_roll_deg": "", "body_pitch_deg": "",
-            "gyro_xyz_dps": "[1,1,1]",
+            "elapsed_s": "0.1", "body_roll_deg": "-179.0",
+            "body_pitch_deg": "20.0", "gyro_xyz_dps": "[1,1,1]",
         },
         {
-            "elapsed_s": "0.2", "roll_deg": "3.0", "pitch_deg": "4.0",
-            "body_roll_deg": "", "body_pitch_deg": "",
+            "elapsed_s": "0.2", "body_roll_deg": "3.0", "body_pitch_deg": "4.0",
             "gyro_xyz_dps": "[1,1,1]",
         },
     ]
-    roll, pitch, rejected = _trusted_hardware_tilt(rows)
+    roll, pitch, rejected, uncalibrated = _trusted_hardware_tilt(rows)
+    assert uncalibrated is False
     assert rejected == 1
     assert roll.tolist() == [1.0, 3.0]
     assert pitch.tolist() == [2.0, 4.0]
+
+
+def test_trusted_hardware_tilt_flags_uncalibrated_and_ignores_sensor():
+    # No body_* values -> uncalibrated; the raw uncal_*/roll_deg columns are
+    # never substituted as chassis tilt.
+    rows = [
+        {"elapsed_s": "0.0", "uncal_roll_deg": "1.0", "uncal_pitch_deg": "2.0",
+         "roll_deg": "1.0", "pitch_deg": "2.0",
+         "body_roll_deg": "", "body_pitch_deg": "", "gyro_xyz_dps": "[0,0,0]"},
+    ]
+    _roll, _pitch, _rejected, uncalibrated = _trusted_hardware_tilt(rows)
+    assert uncalibrated is True
 
 
 def test_camera_center_anchor_uses_operator_approved_start(tmp_path, monkeypatch):

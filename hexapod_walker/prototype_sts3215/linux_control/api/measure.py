@@ -82,8 +82,12 @@ class MeasureApi:
             ws = _csv.writer(fs)
             ws.writerow(hdr)
             wi = _csv.writer(fi)
-            wi.writerow(["t_unix", "roll_deg", "pitch_deg",
-                         "gx_dps", "gy_dps", "gz_dps"])
+            # roll/pitch are mount-uncorrected sensor frame -> uncal_*; the
+            # trusted chassis tilt (body_*) is appended and blank when the IMU
+            # is not body-frame calibrated.
+            wi.writerow(["t_unix", "uncal_roll_deg", "uncal_pitch_deg",
+                         "gx_dps", "gy_dps", "gz_dps",
+                         "body_roll_deg", "body_pitch_deg"])
             while time.monotonic() < t_end:
                 if self._demo_abort.is_set():
                     break
@@ -115,14 +119,20 @@ class MeasureApi:
                     roll, pitch = fb.get("roll_deg"), fb.get("pitch_deg")
                     if roll is not None and pitch is not None:
                         g = fb.get("gyro_dps") or ["", "", ""]
-                        wi.writerow([t, roll, pitch, *g])
+                        broll = fb.get("body_roll_deg")
+                        bpitch = fb.get("body_pitch_deg")
+                        wi.writerow([t, roll, pitch, *g,
+                                     "" if broll is None else broll,
+                                     "" if bpitch is None else bpitch])
                         fi.flush()
                         agg["max_abs_roll_deg"] = max(
                             agg["max_abs_roll_deg"], abs(float(roll)))
                         agg["max_abs_pitch_deg"] = max(
                             agg["max_abs_pitch_deg"], abs(float(pitch)))
-                        if (abs(float(roll)) > self.MEAS_TILT_STOP_DEG or
-                                abs(float(pitch)) > self.MEAS_TILT_STOP_DEG):
+                        # per-axis is meaningless under a rotated IMU mount;
+                        # gate on total-tilt magnitude (rotation-invariant).
+                        tilt_mag = (float(roll) ** 2 + float(pitch) ** 2) ** 0.5
+                        if tilt_mag > self.MEAS_TILT_STOP_DEG:
                             agg["tilt_alert"] = True
                             break
                 time.sleep(max(0.0, self.MEAS_POLL_S
@@ -542,12 +552,28 @@ class MeasureApi:
                     }
                     rec["samples"].append(sample)
                     last_good = sample
-                    body_roll = imu.get("body_roll_deg", imu.get("roll_deg"))
+                    # Roll guard: use the mount-corrected body roll when the IMU
+                    # is body-frame calibrated; otherwise NEVER trust the
+                    # uncalibrated per-axis roll -- fall back to total-tilt
+                    # magnitude (rotation-invariant) so the guard still fires.
+                    body_roll = imu.get("body_roll_deg")
+                    if body_roll is not None:
+                        guard_val = abs(float(body_roll))
+                        guard_label = f"roll guard {float(body_roll):+.1f}deg"
+                    else:
+                        sr = imu.get("roll_deg")
+                        sp = imu.get("pitch_deg")
+                        if sr is None or sp is None:
+                            guard_val = None
+                        else:
+                            guard_val = (float(sr) ** 2 + float(sp) ** 2) ** 0.5
+                            guard_label = (f"tilt guard {guard_val:.1f}deg "
+                                           "(uncalibrated: sensor magnitude)")
                     if not ok:
                         aborted = "motion aborted"
                         break
-                    if body_roll is not None and abs(float(body_roll)) > roll_guard:
-                        aborted = f"roll guard {body_roll:+.1f}deg"
+                    if guard_val is not None and guard_val > roll_guard:
+                        aborted = guard_label
                         break
                     if tracker.peak_a > current_guard:
                         aborted = f"current guard {tracker.peak_a:.2f}A"

@@ -415,8 +415,9 @@ def _run_drive_stop_harness(monkeypatch, *, fault, hold_result):
             pass
 
     class _SessionLog:
-        def __init__(self, _mode, params=None, obs_dim=0, debug=None):
-            del params, debug
+        def __init__(self, _mode, params=None, obs_dim=0, debug=None,
+                     body_frame=None):
+            del params, debug, body_frame
             self.obs_dim = int(obs_dim)
 
         def tick(self, *_args, **_kwargs):

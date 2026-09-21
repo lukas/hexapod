@@ -95,6 +95,10 @@ def aggregate_stress(reports: dict[str, dict], *, strict: bool = False,
     oc = sum(c for r, c in base["term_reasons"].items()
              if r in MECH_TERM_EXCLUDED)
     rates, jerks, sats, rails = [], [], [], []
+    # Cap-/weight-independent smoothness (smoothrew re-dose 2026-09-20):
+    # body gyro RMS (true rock) and MEASURED-motion jerk, neither of
+    # which pins at the slew cap the way cmd_jerk_p95_deg_s2 does.
+    gyros, mjerks_p95, mjerks_rms = [], [], []
     for _p, rep in reports.items():
         for _l, ep in _episodes(rep):
             if ep.get("cmd_rate_p95_deg_s") is not None:
@@ -105,11 +109,20 @@ def aggregate_stress(reports: dict[str, dict], *, strict: bool = False,
                 sats.append(float(ep["slew_sat_frac"]))
             if ep.get("cur_rail_frac") is not None:
                 rails.append(float(ep["cur_rail_frac"]))
+            if ep.get("body_gyro_rms_dps") is not None:
+                gyros.append(float(ep["body_gyro_rms_dps"]))
+            if ep.get("meas_jerk_p95_deg_s2") is not None:
+                mjerks_p95.append(float(ep["meas_jerk_p95_deg_s2"]))
+            if ep.get("meas_jerk_rms_deg_s2") is not None:
+                mjerks_rms.append(float(ep["meas_jerk_rms_deg_s2"]))
     base["smoothness"] = {
         "cmd_rate_p95_deg_s_med": _med(rates),
         "cmd_jerk_p95_deg_s2_med": _med(jerks),
         "slew_sat_frac_med": _med(sats),
         "cur_rail_frac_med": _med(rails),
+        "body_gyro_rms_dps_med": _med(gyros),
+        "meas_jerk_p95_deg_s2_med": _med(mjerks_p95),
+        "meas_jerk_rms_deg_s2_med": _med(mjerks_rms),
     }
     base["mech_term_reasons"] = mech
     base["over_current_terms"] = oc

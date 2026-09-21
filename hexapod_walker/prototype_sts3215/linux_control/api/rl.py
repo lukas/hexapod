@@ -997,7 +997,10 @@ class RlApi:
                 "error": error,
             }
 
-        ok, reason, details = preflight(self.drive.bus, "walk")
+        import rl_policy as _rlp
+        ok, reason, details = preflight(
+            self.drive.bus, "walk",
+            replant_tol_deg=getattr(_rlp, "DRIVE_START_REPLANT_MAX_DEG", 45.0))
         if not ok:
             try:
                 from event_log import emit

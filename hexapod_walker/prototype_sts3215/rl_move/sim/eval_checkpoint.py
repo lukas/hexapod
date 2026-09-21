@@ -422,6 +422,53 @@ def _gyro_fields(gyro_hist: list) -> dict:
     }
 
 
+def _body_smoothness_fields(gyro_sq_sum, gyro_n: int,
+                            q_hist: list, dt: float) -> dict:
+    """Additive per-episode CAP- and WEIGHT-independent smoothness
+    telemetry (smoothrew re-dose, 2026-09-20; merged from origin/main
+    2026-09-21). Complements ``_gyro_fields`` above (which reads
+    ``state.imu_gyro``, the DR-bias/noise-carrying HARDWARE-realistic
+    estimate) with the noise-free simulator ground truth, for gates
+    that need to separate "is the body actually calmer" from "did this
+    DR draw's sensor bias/noise change":
+
+    - ``body_gyro_rms_dps`` (+ per-axis roll/pitch/yaw): RMS of the
+      chassis body angular rate over the episode, from the MuJoCo
+      ``chassis_gyro`` sensor (bias/noise-free, so it is comparable
+      across DR0 and DR runs — unlike ``state.imu_gyro`` which carries
+      the DR bias/noise draw). This is the true-rock measure and matches
+      how we score the real robot (gyro RMS, not accel tilt).
+    - ``meas_jerk_p95_deg_s2`` / ``meas_jerk_rms_deg_s2``: 2nd difference
+      of the ACTUAL (measured) joint positions ``qpos``, worst-joint per
+      tick. Because it is measured motion — bounded by the servo speed
+      profile / physics, not the commanded delta clipped at the cap — it
+      does not pin at the cap ceiling. Same 2nd-difference-of-position
+      convention (and ``_deg_s2`` name) as ``cmd_jerk_*`` for parity, so
+      the two are directly comparable; keep the ``cmd_jerk`` field too.
+
+    Purely additive; returns ``{}`` (so every existing report stays
+    byte-identical in shape) when the sim exposed neither stream this
+    episode (``gyro_n`` == 0 and fewer than 3 measured-q samples).
+    """
+    out: dict = {}
+    if gyro_n > 0:
+        ms = np.asarray(gyro_sq_sum, dtype=np.float64) / gyro_n  # (rad/s)^2
+        rms_axis = np.degrees(np.sqrt(ms))
+        out["body_gyro_rms_dps"] = round(
+            float(np.degrees(np.sqrt(ms.sum()))), 2)
+        out["body_gyro_rms_roll_dps"] = round(float(rms_axis[0]), 2)
+        out["body_gyro_rms_pitch_dps"] = round(float(rms_axis[1]), 2)
+        out["body_gyro_rms_yaw_dps"] = round(float(rms_axis[2]), 2)
+    if len(q_hist) >= 3:
+        q = np.degrees(np.asarray(q_hist, dtype=np.float64))
+        d2 = np.abs(np.diff(q, n=2, axis=0)).max(axis=1)   # deg/tick^2
+        out["meas_jerk_p95_deg_s2"] = round(
+            float(np.percentile(d2, 95)) / (dt * dt), 1)
+        out["meas_jerk_rms_deg_s2"] = round(
+            float(np.sqrt(np.mean(d2 * d2))) / (dt * dt), 1)
+    return out
+
+
 def _maybe_reset_gsde_noise(model, *, _depth: int = 0) -> None:
     """Resample the gSDE exploration matrix once per episode (2026-09-05,
     walkcurr sde-s3-c1b triage): SB3's ``model.predict()`` NEVER calls
@@ -560,6 +607,14 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
     cur_hist = []            # (T, 18) per-servo current
     cmd_hist = []            # (T, 18) post-SafetyLayer joint targets, deg
     gyro_hist = []           # (T, 3) raw imu_gyro, rad/s
+    # Cap-/weight-independent smoothness ground-truth (smoothrew re-dose
+    # 2026-09-20, see _body_smoothness_fields): online RMS of the chassis
+    # body gyro (bias/noise-free MuJoCo sensor, rad/s) + measured joint
+    # positions for a jerk metric that is not the slew-cap saturation
+    # image the command-side cmd_jerk is.
+    q_hist = []              # (T, 18) MEASURED joint positions, rad
+    gyro_sq_sum = np.zeros(3)   # sum of (roll/pitch/yaw rate)^2, (rad/s)^2
+    gyro_n = 0
     contact_hist = []        # (T, 6) bool
     pad_xy_hist = []         # (T, 6, 2) world
     rolls_rel = []           # (T,) |roll − ref|, deg
@@ -628,6 +683,21 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
         if getattr(st, "imu_gyro", None) is not None:
             gyro_hist.append(np.asarray(st.imu_gyro,
                                         dtype=np.float64).copy())
+        # Ground-truth smoothness accumulators (smoothrew re-dose): the
+        # MuJoCo chassis_gyro reads the true body angular rate in rad/s
+        # (bias/noise-free, unlike state.imu_gyro which carries the DR
+        # draw), and qpos[_qadr] is the ACTUAL joint motion (bounded by
+        # physics, not the slew cap). Guarded so mock envs without the
+        # sim addresses are unaffected. See _body_smoothness_fields.
+        gyro_adr = getattr(env, "_gyro_adr", None)
+        if gyro_adr is not None:
+            g = env.data.sensordata[gyro_adr:gyro_adr + 3]
+            gyro_sq_sum += np.asarray(g, dtype=np.float64) ** 2
+            gyro_n += 1
+        qadr = getattr(env, "_qadr", None)
+        if qadr is not None:
+            q_hist.append(np.asarray(env.data.qpos[qadr],
+                                     dtype=np.float64).copy())
         if trace_sink is not None:
             trace_sink.append({
                 "step": int(env._step_i),
@@ -805,6 +875,7 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
             float((cur >= 2.639).any(axis=1).mean()), 3),
         **_smoothness_fields(cmd_hist, env),
         **_gyro_fields(gyro_hist),
+        **_body_smoothness_fields(gyro_sq_sum, gyro_n, q_hist, env.dt),
         # gait (RL_PLAN_NEXT §5)
         "duty_cycle": [round(float(x), 2) for x in duty],
         "swing_count": swings,
@@ -1393,7 +1464,23 @@ def _wandb_push(report: dict, out: Path, args) -> None:
                              "course_motion_valid_frac_2s_med"),
                             ("roll_peak_deg", "roll_peak_med"),
                             ("roll_tail_deg", "roll_tail_med"),
-                            ("slip_m_total", "drag_m_med")):
+                            ("slip_m_total", "drag_m_med"),
+                            # cap-/weight-independent smoothness (smoothrew
+                            # re-dose 2026-09-20): lower = smoother.
+                            # median key = <report_key>_med, matching
+                            # eval_cmd_stress's smoothness rollup + its
+                            # smooth_caps `k + "_med"` gate lookup.
+                            ("body_gyro_rms_dps", "body_gyro_rms_dps_med"),
+                            ("body_gyro_rms_roll_dps",
+                             "body_gyro_rms_roll_dps_med"),
+                            ("body_gyro_rms_pitch_dps",
+                             "body_gyro_rms_pitch_dps_med"),
+                            ("body_gyro_rms_yaw_dps",
+                             "body_gyro_rms_yaw_dps_med"),
+                            ("meas_jerk_p95_deg_s2",
+                             "meas_jerk_p95_deg_s2_med"),
+                            ("meas_jerk_rms_deg_s2",
+                             "meas_jerk_rms_deg_s2_med")):
                 v = _ep_median(eps, k)
                 if v is not None:
                     flat[f"{pre}/{name}"] = v

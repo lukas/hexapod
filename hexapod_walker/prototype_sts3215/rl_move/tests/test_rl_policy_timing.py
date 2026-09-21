@@ -469,6 +469,20 @@ def test_legacy_policy_streams_25hz_decisions_at_100hz_inner_rate():
     assert inner_dt == pytest.approx(0.01)
 
 
+def test_inner_stream_plan_writes_once_per_tick_at_50hz():
+    # inner_hz 100 with a 50 Hz brain meant two ~6 ms step_all round trips per 20 ms tick (hexapod2 2026-09-20:
+    # 20.7 ms service, 45.6 Hz, every drive ended on a timing overrun).  One round trip per tick.
+    cfg = {"control": {"inner_hz": 100}}
+
+    steps, actual_hz, inner_dt = rl_policy._inner_stream_plan(  # noqa: SLF001
+        _policy({"control_hz": 50}), cfg, policy_hz=50
+    )
+
+    assert steps == 1
+    assert actual_hz == pytest.approx(50.0)
+    assert inner_dt == pytest.approx(0.02)
+
+
 def test_inner_stream_plan_can_be_disabled():
     cfg = {"control": {"inner_hz": 25}}
 

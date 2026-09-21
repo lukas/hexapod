@@ -107,3 +107,42 @@ wrong motor contract (control.hz=100/legacy bus defaults instead of the
 trained 50Hz/4096-cps contract) and produces a spurious catastrophic
 fall pattern that looks like a real regression until checked against a
 matched-contract control (see the transfer_manifest.json caution note).
+
+## UPDATE 2026-09-21: same OPTION re-verified on the promoted `slew-smooth-s0` reference (no retrain)
+
+One plain sentence: `walkcurr/STATUS.md`'s 09-21 ~03:3x entry promoted
+`cw-walk50hz-slew-smooth-s0` over this bundle's own `crutchoff-s0-
+warmadapt-acq1` checkpoint as the walkcurr 50Hz hardware-transfer
+reference, and this sub-bundle's own rot60 sustained-multiheading gate
+had never been re-run against it — closed that gap this cycle, CPU-only,
+zero retrain, same wrapper.
+
+**What ran:** `rl_move/sim/cfg_recipe_walk50hz_slew_smooth_s0.py` (new,
+mirrors this checkpoint's sibling recipe module 1:1, verbatim from
+`ops.sh entry cw-walk50hz-slew-smooth-s0`) + the SAME sustained (60s)
+sector-stop panel this sub-bundle's own `matched_trained_contract_
+speed_check_2026_09_18` entry used (`--task joint_walk --modes walk
+--per-mode 4 --episode-seconds 60 --dr-scale 0.0 --rot60`, full-circle
+heading override), against `ppo_goal_cw_walk50hz_slew_smooth_s0.zip`.
+
+**Result:** 16/16 `gait_valid`, 0/16 falls/terminations across all 4
+panels (walk/det, walk/sto, walk_startjitter/det, walk_startjitter/sto)
+— matches or exceeds this sub-bundle's original 15/16 finding on the
+superseded checkpoint. `roll_peak_deg` 7.0-11.4deg, `slip_per_m`
+3.7-12.9 (in-band with the rest of this bundle's own numbers).
+
+**Reading:** the rot60 envelope-extension OPTION transfers cleanly onto
+the newly-promoted reference checkpoint — same zero-retrain wrapper,
+same mesh-verified exact-symmetry argument (`rot60.py` never depended
+on which walk checkpoint it wraps), no new caveat introduced. This does
+NOT change the verdict above (still an OPTION layered on top, not a
+replacement for the conservative forward-biased default) and does NOT
+re-litigate the parent bundle's own physical-trial plan — it just keeps
+this sub-bundle's evidence current with the promoted reference instead
+of silently going stale.
+
+Evidence: `logs/ckpt_eval/cw_walk50hz_slew_smooth_s0_rot60_sectorstop60s_speed006/report.json`;
+`rl_move/sim/cfg_recipe_walk50hz_slew_smooth_s0.py`; `rl_move/tests/
+test_cfg_recipe_walk50hz_slew_smooth_s0.py` (5 tests); see also
+`bundle_rlonly_lifecycle_v1/slewsmooth_s0/` for the composed rise+hold
+-> walk full-heading re-verification.

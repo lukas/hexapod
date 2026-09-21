@@ -246,6 +246,18 @@ def main() -> int:
                           "front-pair-sacrifice failure, tested here "
                           "AFTER a real rise+hold handoff instead of "
                           "the walk role's own isolated clean reset")
+    ap.add_argument("--walk-recipe", choices=("rlonly_v2", "slew_smooth_s0"),
+                     default="rlonly_v2",
+                     help="which versioned walk-role cfg-set recipe to "
+                          "build env_walk from (default rlonly_v2 = "
+                          "bit-exact original behavior, the "
+                          "bundle_rlonly_v2/crutchoff-s0-warmadapt-acq1 "
+                          "champion's own trained contract); "
+                          "slew_smooth_s0 = the promoted "
+                          "cw-walk50hz-slew-smooth-s0 hardware-transfer "
+                          "reference's own trained contract -- pass "
+                          "--walk pointing at that checkpoint's .zip "
+                          "too when using this")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", type=Path, default=None)
     ap.add_argument("--strips", type=Path, default=None,
@@ -269,7 +281,12 @@ def main() -> int:
     from stable_baselines3 import PPO
 
     from rl_move.env import build_obs
-    from .cfg_recipe_walk50hz_rlonly_v2 import CFG_ARGS as WALK_CFG_ARGS
+    if args.walk_recipe == "slew_smooth_s0":
+        from .cfg_recipe_walk50hz_slew_smooth_s0 import (
+            CFG_ARGS as WALK_CFG_ARGS,
+        )
+    else:
+        from .cfg_recipe_walk50hz_rlonly_v2 import CFG_ARGS as WALK_CFG_ARGS
     from .probe_currentcap29_flatonly import (
         BASE_CFG_ARGS, FLATONLY_OVERRIDE_ARGS,
     )
@@ -430,6 +447,7 @@ def main() -> int:
         return r
 
     results: dict = {"stance": str(args.stance), "walk": str(args.walk),
+                      "walk_recipe": args.walk_recipe,
                       "speed": args.speed, "heading_deg": args.heading_deg,
                       "rot60": bool(args.rot60),
                       "deterministic": deterministic,

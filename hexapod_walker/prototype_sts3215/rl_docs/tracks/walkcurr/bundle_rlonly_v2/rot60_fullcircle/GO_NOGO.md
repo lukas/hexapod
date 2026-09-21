@@ -159,3 +159,52 @@ honest finding that this checkpoint's off-axis defect is a milder
 progress-only issue (not the gait_valid-breaking sacrifice
 `slew-smooth-s0` shows), in `bundle_rlonly_v2/safewiden6_acq1/
 {transfer_manifest.json,GO_NOGO.md}`.
+
+## UPDATE 2026-09-21 (later still): tracking-accuracy item CLOSED for BOTH packaged candidates — no new eval needed, the numbers were already sitting in cached report.json files
+
+One plain sentence: the ~08:2x STATUS.md entry flagged "measure the rot60
+sub-bundle's TRACKING ACCURACY at its fixed 0.06 m/s command point for both
+packaged candidates ... never measured" as an open CPU-only item, but both
+candidates' own `cfg_recipe_*` modules already pin
+`goal.walk_speed_min_m_s=goal.walk_speed_max_m_s=0.06`, so the sustained
+rot60 panels each candidate already has on record (`slew_smooth_s0`'s own
+`_speed006` rerun; `safewiden6_acq1`'s `_rot60_sectorstop60s` panel from
+this same day) ARE the fixed-0.06-m/s tracking measurement — this update
+just pulls `vel_err_mean`/`speed_mean_m_s` out of the already-cached JSON
+rather than running anything new.
+
+**Numbers (n=16 episodes each, det+sto x walk/walk_startjitter):**
+
+| candidate | speed_mean_m_s range | vel_err_mean range | success (vel_err<=0.03) | gait_valid |
+|---|---:|---:|---:|---:|
+| `slew-smooth-s0` | 0.119-0.140 | 0.052-0.072 | 0/16 | 16/16 |
+| `safewiden6-acq1` | 0.119-0.153 | 0.053-0.086 | 0/16 | 16/16 |
+
+**Reading:** both candidates reproduce the exact same pattern the
+`crutchoff-s0-warmadapt-acq1` matched-contract check already explained
+mechanistically on 2026-09-18: `reward.k_track=0.0` in every one of these
+lineages' own trained cfg (confirmed directly in
+`cfg_recipe_walk50hz_slew_smooth_s0.py` and
+`cfg_recipe_walk50hz_fs_bisect_drv_safewiden6_acq1.py` — both carry the
+identical line), so there is no active velocity-tracking reward term and
+each checkpoint cruises at its own natural ~0.12-0.15 m/s regardless of the
+0.06 m/s nominal command, independent of rot60. The strict
+`vel_err_mean<=0.03` "success" bar therefore reads FALSE for both, exactly
+as expected from that mechanism — this is NOT a rot60 defect, NOT a
+regression vs the reference checkpoint, and NOT a new finding requiring
+action; it is confirmation that the already-closed 2026-09-18 explanation
+generalizes losslessly to both packaged fallback/alternative candidates.
+`gait_valid` (the actual walking-quality bar this sub-bundle exists to
+protect) stays 16/16 for both at this exact command point, matching each
+candidate's own headline result.
+
+No new eval run, no code change, no GPU spend. This closes the
+`rot60_fullcircle` sub-bundle's own open item in full — no further tracking
+-accuracy question is open on any of its three now-packaged checkpoints
+(`crutchoff-s0-warmadapt-acq1`, `slew-smooth-s0`, `safewiden6-acq1`).
+
+Evidence: `logs/ckpt_eval/cw_walk50hz_slew_smooth_s0_rot60_sectorstop60s_speed006/report.json`;
+`logs/ckpt_eval/cw_walk50hz_fs_bisect_drv_safewiden6_acq1_rot60_sectorstop60s/report.json`;
+`rl_move/sim/cfg_recipe_walk50hz_slew_smooth_s0.py` (`reward.k_track=0.0`);
+`rl_move/sim/cfg_recipe_walk50hz_fs_bisect_drv_safewiden6_acq1.py`
+(`reward.k_track=0.0`).

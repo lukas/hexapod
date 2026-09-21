@@ -179,3 +179,54 @@ Evidence: `logs/ckpt_eval/lifecycle_rot60_fullheading_panel_20260920T113129Z/
    bundle already reports, just now with a real playable video instead of
    only 1fps strips. This directly serves RL_GOALS.md's "make sim demos
    visible as soon as ready" requirement for Goal 2's simulation evidence.
+
+## UPDATE 2026-09-21: re-verified on the promoted `slew-smooth-s0` walk role (no retrain, no scripted blend)
+
+One plain sentence: `walkcurr/STATUS.md`'s 09-21 ~03:3x entry promoted
+`cw-walk50hz-slew-smooth-s0` over this bundle's `crutchoff-s0-warmadapt-
+acq1` walk role as the walkcurr 50Hz hardware-transfer reference, and
+this composed rise+hold->walk demo -- built entirely around the OLD
+checkpoint's own cfg contract -- had never been re-run against it; this
+was the concrete Next item the promotion cycle itself named ("repackaging
+onto slew-smooth-s0 ... is the next concrete, agent-doable, CPU-only
+step -- not done yet").
+
+**Built:** a `--walk-recipe {rlonly_v2,slew_smooth_s0}` flag on
+`eval_lifecycle_handoff_rlonly.py` (default `rlonly_v2` = bit-exact
+original behavior; new `slew_smooth_s0` selects the new
+`cfg_recipe_walk50hz_slew_smooth_s0.CFG_ARGS` module for `env_walk`'s
+construction -- the two roles' cfg genuinely differ, `bus.write_speed`/
+`safety.max_delta_q_deg`/reward retune, so this can't be a bare
+checkpoint swap). Bit-exact-when-unset (old callers/tests untouched);
+`test_cli_registers_heading_and_rot60_flags_default_off` extended to
+also assert `--walk-recipe` and both its choices are registered.
+
+**Ran (CPU-only, mesh_mjx, no GPU spend, no new training):**
+
+| condition | headings | episodes | direct gait_valid | direct falls |
+|---|---|---|---|---|
+| forward-only smoke (rot60 off, det, hold=6s) | 0 only | n=3 | 3/3 | 0/3 |
+| baseline (rot60 off, det, hold=15s) | all 8 | n=2 each | 11/16 (fails h+-90/h+135/h-135, same signature class as the original checkpoint) | 0/16 |
+| candidate (rot60 on, det, hold=15s) | all 8 | n=2 each | 16/16 | 0/16 |
+
+The baseline arm reproduces the same off-forward front/side-pair
+sacrifice pathology class through the real composed handoff on the NEW
+checkpoint (confirming the harness measures the real thing on this
+lineage too, not just the old one); the candidate arm is unanimous
+again -- 0 sacrificed legs, 0 falls at every heading. `drive.mp4` /
+`drive_h90_rot60.mp4` re-rendered fresh under `slewsmooth_s0/` (same
+convention as the originals above), both `gait_valid=1/1,
+handoff_falls=0`.
+
+**Reading:** the composed rise+hold->walk lifecycle demo (with the
+rot60 full-direction option) transfers cleanly to the promoted
+hardware-transfer reference -- no new caveat, no regression vs the
+superseded checkpoint's own numbers. This does not itself re-verify the
+stance role or claim `lower`; those gaps are unchanged from above.
+
+Evidence: `logs/ckpt_eval/lifecycle_rot60_fullheading_panel_slewsmooth_20260921/{baseline,candidate}/*.json`;
+`logs/ckpt_eval/lifecycle_handoff_rlonly_slewsmooth_forward.json`;
+`rl_docs/tracks/walkcurr/bundle_rlonly_lifecycle_v1/slewsmooth_s0/{drive.mp4,drive_h90_rot60.mp4}`;
+`rl_move/sim/cfg_recipe_walk50hz_slew_smooth_s0.py`;
+`rl_move/sim/eval_lifecycle_handoff_rlonly.py` (`--walk-recipe`);
+`rl_move/tests/test_eval_lifecycle_handoff_rlonly.py`.

@@ -1,0 +1,63 @@
+{
+  "schema": "hexapod.transfer_candidate.v1",
+  "candidate_name": "walkcurr-rlonly-slew-smooth-s0-50hz",
+  "parent_goal": "rl_only",
+  "supersedes": "walkcurr-rlonly-widen8-crutchoff-s0-warmadapt-50hz-acq1-v2 (rl_docs/tracks/walkcurr/bundle_rlonly_v2) -- walkcurr/STATUS.md 2026-09-21 ~03:3x promoted this checkpoint to the walkcurr 50Hz hardware-transfer REFERENCE after confirming its one open caution (duty-cycle/torque-margin at the raised slew cap) reads CLEAN vs the champion under a matched current model; the older v2 candidate is not devalued as a lineage ancestor (this checkpoint is a --init-from-source warm start of it) or deleted, just superseded for the walk-role hardware-transfer role.",
+  "source_demo_summaries": [
+    "logs/ckpt_eval/cw_walk50hz_slew_smooth_s0_gate/report.json"
+  ],
+  "no_physical_robot_motion_performed": true,
+  "candidate_is_composition_not_single_policy": false,
+  "training_lineage_contract": "walkcurr rl_only (tracks.json): no gait clock, no BC teacher, no motion prior, no AMP/demo reward anywhere in this lineage. This checkpoint is a plain --init-from-source warm start of walkcurr-rlonly-widen8-crutchoff-s0-warmadapt-50hz-acq1-v2 (itself a clean rl_only lineage, see that bundle's own manifest) that (1) raises the joint slew cap safety.max_delta_q_deg 0.375->3.5deg (the true ~176deg/s servo profile, previously masked by an overly-tight cap) and (2) retunes the smoothness reward (k_gyro 0->0.15, k_action_delta 0.01->0.03, k_current 0->0.02, new k_action_accel=0.02) plus sets bus.current_model=power (the mesh-family default since 2026-09-19). No demonstration data, teacher action target, or scripted motion role enters this lineage at any point -- same reward/task stack, same clean provenance as its parent.",
+  "components": [
+    {
+      "state": "walk_ready -> walk_done (single policy, no stand/lower composition)",
+      "controller": "rl_move/sim/policies/ppo_goal_cw_walk50hz_slew_smooth_s0.zip",
+      "checkpoint_sha256": "e11a723fda95076fa1f865d6fa365c0ff31fee42b045a96a2e72446b3aeb7ad5",
+      "policy_mode": "deterministic",
+      "exported_np_policy": "linux_control/policies/walkscratch_walk50hz_slew_smooth_s0.json",
+      "exported_np_policy_sha256": "3d30e59cd962a44908971cb09e6cb0eb60632ec29ed4a84d237b7aabb3451945",
+      "export_notes": "export_policy_np.py --training-hz 50 --inner-hz 50 --control-hz 50, generic N-layer/ELU format (net-arch 256,256,128), parity 2.18e-07 over 200 random obs (bar 1e-5).",
+      "joystick_contract": {
+        "body_frame_vx_vy_m_s": true,
+        "trained_speed_m_s": 0.06,
+        "trained_heading_set_rad_8way": true,
+        "obs_dim": 72,
+        "control_hz": 50
+      }
+    }
+  ],
+  "no_stand_or_lower_role_in_this_bundle": "This candidate is the WALK role only, same limitation as its parent bundle_rlonly_v2. A physical trial needs a separate stand-up to the walk_ready pose and a separate lower/catch at the end.",
+  "seed_family_status": "s0 only (this respec). The parent bundle's s1/s2 siblings (same-quality alternate seeds) have NOT been re-trained with this slew-cap/smoothness recipe; not required for this candidate's GO.",
+  "transfer_blockers_or_work": [
+    "PHYSICAL SAFETY: this checkpoint trained with bus.write_speed=4096, bus.write_acc=1000 and safety.max_delta_q_deg=3.5 (175 deg/s per-tick cap at 50Hz -- roughly 10x the parent bundle's own 7.2deg-per-100Hz-tick / 3.6deg-per-100Hz-tick-equivalent contract history; see cfg_recipe_walk50hz_slew_smooth_s0.py for the exact verbatim values). This is the SIM TRAINING contract, not a physical-safe contract. Robot Lab MUST independently verify/derate these against real servo/current limits before ANY motion; do not run the exported JSON's contract values as-is. Flagged in the exported JSON's own meta.PHYSICAL_SAFETY_CAUTION-equivalent notes field so it travels with the artifact.",
+    "CONTROL RATE: control.hz=50 (20ms tick), the operator-mandated deployable rate for hexapod2 (op_20260910_50hz).",
+    "DUTY-CYCLE/TORQUE-MARGIN: checked CLEAN this cycle (walkcurr/STATUS.md 2026-09-21 ~03:3x) -- current draw under the matched `power` current model is trivial (<0.25A) vs the 2.5A safety.max_current_a trip in every mode, both at this cap and the parent's tighter cap. slew_sat_frac stays near 1.0 at BOTH cap values (command-clipping-frequency artifact of this walk role's low-torque high-cadence action space, not a load signature).",
+    "KNOWN BEHAVIORAL LIMITATION (carried unchanged from the crutchoff-s0-warmadapt-acq1 lineage, re-confirmed on this checkpoint this cycle): a SUSTAINED (~15s) off-forward heading (+-90/+-135deg) chronically sacrifices one leg's swing through a real composed rise+hold->walk handoff (11/16 gait_valid across the 8-heading x2-episode panel, failing exactly h+-90/h135/h-135 -- the same signature class as the parent). The mesh-verified rot60.Rot60Policy exact-symmetry wrapper (zero retrain, same checkpoint) removes this failure mode: 16/16 gait_valid across the same panel with --rot60 on. See rot60_fullcircle/GO_NOGO.md's 2026-09-21 update and bundle_rlonly_lifecycle_v1/GO_NOGO.md's 2026-09-21 update for the composed-handoff re-verification.",
+    "Run only the read-only hardware preflight first: 18 servos, IMU, pose near walk_ready, tilt within limit.",
+    "Joystick commands must stay inside the trained command envelope (0.06 m/s, the 8-way heading set) until a hardware ladder says otherwise.",
+    "Stop immediately on tip, brownout, high current, missing servo, or hot motor.",
+    "This is a single learned policy with clean rl_only ancestry, but it has NOT been through any physical trial; GO below is for simulation/export readiness, not physical acceptance."
+  ],
+  "demo_metrics": {
+    "own_gate_dr0_n6": {
+      "walk_det": {"gait_valid": "6/6", "cur_max_a_max": 0.19, "forward_dist_m": "up in 3/4 modes vs parent, flat in 4th"},
+      "walk_sto": {"gait_valid": "5/6", "cur_max_a_max": 0.17},
+      "walk_startjitter_det": {"gait_valid": "6/6", "cur_max_a_max": 0.17},
+      "walk_startjitter_sto": {"gait_valid": "6/6", "cur_max_a_max": 0.19}
+    },
+    "rot60_sustained_multiheading_60s_n4permode": {
+      "walk_det": {"gait_valid": "4/4", "falls": 0},
+      "walk_sto": {"gait_valid": "4/4", "falls": 0},
+      "walk_startjitter_det": {"gait_valid": "4/4", "falls": 0},
+      "walk_startjitter_sto": {"gait_valid": "4/4", "falls": 0}
+    },
+    "composed_lifecycle_full_heading_panel_n2permode": {
+      "baseline_rot60_off": {"direct_gait_valid": "11/16", "direct_falls": 0},
+      "candidate_rot60_on": {"direct_gait_valid": "16/16", "direct_falls": 0}
+    }
+  },
+  "interactive_launch": "cd hexapod_walker/prototype_sts3215 && sim_viewer/sim_web.sh --walk rl_move/sim/policies/ppo_goal_cw_walk50hz_slew_smooth_s0.zip",
+  "reproducible_video_capture": "uv run python -m rl_move.sim.eval_lifecycle_handoff_rlonly --walk rl_move/sim/policies/ppo_goal_cw_walk50hz_slew_smooth_s0.zip --walk-recipe slew_smooth_s0 --episodes 1 --hold-s 6.0 --video <dir>   (add --rot60 --heading-deg 90 --hold-s 15.0 for the full-direction demo)",
+  "open_caveats_not_hidden": "off-forward tracking accuracy (vel_err_mean<=0.03 bar) not measured at any speed on this checkpoint (same k_track=0.0 mechanistic explanation as the parent bundle -- the trained reward has no active speed-tracking term, only capped freeprog income, so the policy cruises at its own natural speed regardless of the nominal command)."
+}

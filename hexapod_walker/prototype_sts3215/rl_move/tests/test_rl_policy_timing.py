@@ -1335,7 +1335,7 @@ def test_async_ready_detects_confirmed_current_in_partial_frames():
 
 @pytest.mark.parametrize(("samples", "expected_calls", "reason"), [
     ([{"temperature": 66.0}] * 3, 3, "over_temp"),
-    ([{"load": 91.0}], 1, "over_load"),
+    ([{"load": 91.0}] * 3, 3, "over_load"),
 ])
 def test_async_ready_uses_safety_debounce_for_physical_trip(
         samples, expected_calls, reason):

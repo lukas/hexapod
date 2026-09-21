@@ -132,6 +132,11 @@ class SafetyLayer:
         self._over_temp_trip_ticks = 3
         self._over_temp_ticks = 0
         self.max_load = float(cfg_get(cfg, "safety", "max_load_pct", default=90))
+        # Over-load, like over-temp, needs consecutive FRESH feedback samples: on 2026-09-20 two single 92-93 %
+        # knee-load samples each ended a walk and (via limp) collapsed a standing hexapod2.  Normal RL walking runs
+        # knees at p95 ~25 %, max ~50 %, so three sustained samples (~300 ms) still catch a real jam.
+        self._over_load_trip_ticks = 3
+        self._over_load_ticks = 0
         self._incomplete_feedback_trip_ticks = 3
         self._incomplete_feedback_ticks = 0
         self._last_feedback_sample_seq: int | None = None
@@ -144,6 +149,7 @@ class SafetyLayer:
         self._last_safe = np.asarray(q_rad, dtype=float).reshape(N_JOINTS).copy()
         self._over_current_ticks = 0
         self._over_temp_ticks = 0
+        self._over_load_ticks = 0
         self._incomplete_feedback_ticks = 0
         self._last_feedback_sample_seq = None
         self._entry_ticks = 0
@@ -329,10 +335,14 @@ class SafetyLayer:
         if consume_health_sample and load is not None and load_ids:
             j = max(load_ids, key=lambda idx: float(load[idx]))
             if float(load[j]) > self.max_load:
-                return SafetyStatus(
-                    ok=False, terminate=True, reason="over_load",
-                    detail=f"{_joint_name(j)} {float(load[j]):.0f}%",
-                    held=True)
+                self._over_load_ticks += 1
+                if self._over_load_ticks >= self._over_load_trip_ticks:
+                    return SafetyStatus(
+                        ok=False, terminate=True, reason="over_load",
+                        detail=f"{_joint_name(j)} {float(load[j]):.0f}%",
+                        held=True)
+            elif complete:
+                self._over_load_ticks = 0
 
         if fresh_sample:
             if complete:

@@ -1755,6 +1755,7 @@ def _async_health_safety_error(safety: SafetyLayer, state) -> str:
     gate.max_load = safety.max_load
     gate._over_temp_trip_ticks = 1  # noqa: SLF001
     gate._over_current_trip_ticks = 1  # noqa: SLF001
+    gate._over_load_trip_ticks = 1  # noqa: SLF001
     status = gate.check_servo_health(state)
     if status is not None and status.reason in {
             "over_temp", "over_current", "over_load"}:
@@ -5104,17 +5105,24 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
         q_robot_cmd = q_safe.copy()
         safety_s = time.monotonic() - stage_t
         if status.terminate:
-            limp()
+            # over_load (a knee at > 90 % for 3 fresh samples) ends the walk but keeps torque: the servos hold the last
+            # written target and the operator/lab lowers the robot carefully.  Cutting torque on a standing robot is
+            # a drop (hexapod2 collapsed twice on 2026-09-20).  over_current / over_temp are motor killers: still limp.
+            hold_not_limp = status.reason == "over_load"
+            if not hold_not_limp:
+                limp()
             debug.event("safety_trip", tick=i, t_s=t, active=active,
                         reason=status.reason, detail=status.detail,
-                        held=status.held, state=_state_debug(state),
+                        held=status.held, limped=not hold_not_limp,
+                        state=_state_debug(state),
                         q_prop_deg=[round(float(x) * RAD2DEG, 2)
                                     for x in q_prop],
                         q_safe_deg=[round(float(x) * RAD2DEG, 2)
                                     for x in q_safe])
             result.update(ok=False, error=f"safety trip: {status.reason}"
                           + (f" ({status.detail})" if status.detail else ""),
-                          limped=True, ticks=i)
+                          held_pose=hold_not_limp, limped=not hold_not_limp,
+                          ticks=i)
             break
         prev_stale_ticks = stale_stream_ticks
         pending_seen = False

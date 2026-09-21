@@ -101,3 +101,6 @@ hexapod_walker/prototype_sts3215/linux_control/logs/
 # Orchestrator runtime state, a plain directory synced from the orchestrator
 # (https://github.com/lukas/hexapod-orchestrator); rl_move/ledger.py reads it.
 .state
+
+# stray local wandb run dir (repo root, not the prototype subdir)
+/wandb/

@@ -305,6 +305,18 @@ bus:
   current_model: power
   current_iq_bus_a: 0.19     # standstill bus idle (A), split over 18 joints
   current_k_a_per_w: 0.02282 # A per W of |torque*qvel| mechanical power
+  # Winding/load-stall term (2026-09-21 reality-gap refit, claude/sim-refit):
+  # current += current_k_stall_a_per_nm * max(|torque| - current_stall_thr_nm, 0).
+  # The pure power model reads ~0 A at a stall and under-predicted the real
+  # combo-walk mechanical current ~4x (real 0.32 vs sim 0.08 A above idle);
+  # this adds winding current on the load-bearing hip/knee that ride the 2.2
+  # N·m rail, closing bus mean ~0.31->0.38 A (real 0.53) while leaving idle,
+  # the scripted-gait fit (gaitval), and the over-current trip untouched
+  # (torque < thr => term is 0; the trip rides a separate torque proxy).
+  # Fit on ONE tape — see /tmp/simgap; needs multi-protocol sysid to confirm.
+  # Peaks stay under (open-loop replay cannot reproduce real impact loads).
+  current_k_stall_a_per_nm: 0.042  # A per N·m of |torque| above thr (0 = off)
+  current_stall_thr_nm: 1.2        # free-hold torque rail (N·m)
   # Default OFF after 2026-08-06 cooked-knee incident. Explicit opt-in only.
   enable_motion: false
   write_speed: 400           # gentler after tip event

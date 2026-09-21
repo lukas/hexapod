@@ -379,6 +379,28 @@ class SimHexapodBalanceEnv(_GymBase):
         self._current_iq_joint = _iq_bus_a / N_JOINTS
         self._current_k_a_per_w = float(cfg_get(
             self.cfg, "bus", "current_k_a_per_w", default=0.02282))
+        # Winding / load-stall current term (2026-09-21 reality-gap refit,
+        # claude/sim-refit): the pure mechanical-power model reads ~0 A at a
+        # stall (high torque, ~0 speed) and under-predicted this robot's
+        # combo-walk mechanical current ~4x (real 0.32 vs sim 0.08 A bus
+        # above idle) — the deficit sits on the load-bearing hip/knee that
+        # ride the 2.2 N·m torque rail. STS3215 winding current flows
+        # ~proportional to motor torque ABOVE the non-backdrivable gearbox's
+        # free-hold capacity, so we add k_stall*relu(|torque|-thr):
+        #   - thr keeps gentle holds/stance AND the validated scripted-gait
+        #     fit (test_current_model.test_constants_reproduce_the_fit,
+        #     /tmp/gaitval gaits 1-4/7/10) untouched — their |torque| rarely
+        #     exceeds thr, so the term stays ~0 there and k_a_per_w is
+        #     unchanged (0.02282);
+        #   - it does NOT feed the over-current TRIP (that still rides the
+        #     separate torque-proxy over_current_signal below), so a stall
+        #     trips exactly as before.
+        # Default 0.0 = OFF (bit-exact power model); config.yaml ships the
+        # fitted 0.042 A/N·m @ 1.2 N·m.
+        self._current_k_stall_a_per_nm = float(cfg_get(
+            self.cfg, "bus", "current_k_stall_a_per_nm", default=0.0))
+        self._current_stall_thr_nm = float(cfg_get(
+            self.cfg, "bus", "current_stall_thr_nm", default=1.2))
 
         # Servo-profile RAMP-IN (2026-08-20, fast anti-skate option (b),
         # q_20260820T0830Z: the bcgait1_hard1 transplant dies zero-shot
@@ -1093,6 +1115,15 @@ class SimHexapodBalanceEnv(_GymBase):
             raw_current = (self._current_iq_joint
                            + self._current_k_a_per_w
                            * np.abs(torque * qvel_raw))
+            if self._current_k_stall_a_per_nm:
+                # Winding/load-stall term: current ~ torque above the free-
+                # hold rail (2026-09-21 refit). Zero at idle/gentle holds
+                # (|torque| < thr), so idle stays iq_bus and the trip signal
+                # (below) is untouched.
+                raw_current = (raw_current
+                               + self._current_k_stall_a_per_nm
+                               * np.maximum(np.abs(torque)
+                                            - self._current_stall_thr_nm, 0.0))
             raw_trip = legacy_current
         else:
             raw_current = legacy_current

@@ -129,3 +129,18 @@ at this bundle's own fixed 0.06 m/s point) named plainly. See
 `rl_docs/tracks/walkcurr/bundle_rlonly_v2/rot60_fullcircle/{transfer_manifest.json,GO_NOGO.md}`.
 This is an OPTION layered on top, not a replacement — the plan above
 stays the conservative default.
+
+**UPDATE 2026-09-21 ~03:3x:** the sibling raised-slew-cap candidate
+`cw-walk50hz-slew-smooth-s0` (0.375deg->3.5deg `safety.max_delta_q_deg`
++ smoothness-reward retune, warm-started off THIS bundle's checkpoint)
+is now the walkcurr 50Hz hardware-transfer REFERENCE (see walkcurr
+STATUS.md same timestamp): same-or-better `gait_valid`/speed/roll, and
+its one open caution (duty-cycle/torque-margin at the raised cap) is
+now checked CLEAN. This bundle's `transfer_manifest.json` and the
+`rot60_fullcircle/` sub-bundle still point at the superseded
+`crutchoff-s0-warmadapt-acq1` checkpoint/export — repackaging onto
+`slew-smooth-s0` (re-run `test_rot60.py`/`test_rot60_mesh.py` against
+the new checkpoint, re-export + SB3-parity, re-run the sustained-
+multiheading panel and the `bundle_rlonly_lifecycle_v1` handoff panel)
+is the next concrete, agent-doable, CPU-only step — not done yet, not
+a blocker on the plan above in the meantime.

@@ -127,6 +127,8 @@ HZ = float(cfg_get(_RUNNER_CFG, "control", "hz",
                    default=LEGACY_POLICY_HZ) or LEGACY_POLICY_HZ)
 DT = 1.0 / HZ
 MAX_INNER_STEPS = 8
+# Policies at or above this rate write the bus once per tick (see _inner_stream_plan).
+INNER_SPLIT_MAX_POLICY_HZ = 40.0
 
 # Timing trips are relative to each policy's declared tick budget. Tiny
 # scheduler slips are counted but tolerated; repeated or large misses are
@@ -784,7 +786,11 @@ def _inner_stream_plan(policy: "NumpyPolicy", cfg: dict,
     if raw_hz is None:
         raw_hz = cfg_get(cfg, "control", "inner_hz", default=base_hz)
     requested_hz = _positive_float(raw_hz, base_hz)
-    if requested_hz <= base_hz:
+    if requested_hz <= base_hz or base_hz >= INNER_SPLIT_MAX_POLICY_HZ:
+        # One step_all round trip costs ~6 ms on the MCU bridge (the MCU polls 18 servos on the half-duplex servo bus;
+        # hexapod2 2026-09-20).  Two per 20 ms tick left the 50 Hz policies at 20.7 ms service / 45.6 Hz, and every drive
+        # ended on a timing overrun within 1-2 min.  Policies at >= INNER_SPLIT_MAX_POLICY_HZ get exactly one bus round
+        # trip per policy tick; only slow (25 Hz) brains still stream interpolated sub-steps.
         return 1, base_hz, base_dt
     steps = max(1, min(MAX_INNER_STEPS, int(round(requested_hz / base_hz))))
     actual_hz = base_hz * steps

@@ -647,9 +647,47 @@ def loaded_slip_gate(env,
         # (no-op, bit-exact) otherwise.
         k_lse *= env._loadslip_excess_scale()
         if k_lse > 0.0:
-            r_lse = -k_lse * max(ratio - ls_ok, 0.0) * env.dt
+            # reward.loadslip_excess_cap (0.0 = OFF, 2026-09-21
+            # standwalk track): `ratio` above has a FLOOR
+            # (loadslip_floor_m / loadslip_floor_m_s) but no
+            # CEILING -- a near-stalled foot that keeps sliding
+            # while progress stays pinned near the floor can
+            # send `ratio` (and so this term's excess) to values
+            # far past loadslip_max with no bound, so a handful
+            # of bad ticks can dominate the whole per-tick
+            # reward once wider DR pushes slip up. Exactly the
+            # mechanism already root-caused, independently, in
+            # BOTH `cw-walk50hz-mlp-powercurrent-widedr-s0-r2`
+            # (env/reward_loadslip_excess growing monotonically
+            # to -1.36/tick as the DR ramp completed, crashing
+            # ep_rew_mean from +938 to a -450..-750 flat plateau)
+            # and the GRU fromcont DR-ladder's THIRD collapse
+            # (`cw-walk50hz-gru-dr050-ladder-s0`:
+            # env/walk_loadslip_ratio ~5.3 by quarter 0, climbing
+            # to ~6.1-6.2 for the rest of training while reward
+            # fell then flattened negative) -- see
+            # rl_docs/tracks/standwalk/STATUS.md 2026-09-21
+            # ~22:1x/~22:2x. Same cap-if-set/uncapped-if-0 shape
+            # as the existing, already-shipped
+            # `walk_leg_loadslip_ratio_excess_cap` sibling above
+            # in this file (untested there; this is the first
+            # live dose of the pattern). Capping the EXCESS (not
+            # the raw ratio) at this value bounds the per-tick
+            # charge to `-k_lse*cap*dt` regardless of how extreme
+            # the tail ratio gets, without touching any episode
+            # whose excess never reaches the cap. Default 0.0 =
+            # no cap, bit-exact legacy (identical
+            # `max(ratio-ls_ok,0.0)` term unchanged).
+            excess = max(ratio - ls_ok, 0.0)
+            lse_cap = float(cfg_get(env.cfg, "reward",
+                                    "loadslip_excess_cap",
+                                    default=0.0))
+            priced_excess = (min(excess, lse_cap)
+                              if lse_cap > 0.0 else excess)
+            r_lse = -k_lse * priced_excess * env.dt
             reward += r_lse
             info["reward_loadslip_excess"] = r_lse
+            info["walk_loadslip_excess_raw"] = excess
     return r_prog, r_walk, reward, support_gate
 
 

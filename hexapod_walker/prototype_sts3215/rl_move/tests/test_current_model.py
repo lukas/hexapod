@@ -151,7 +151,8 @@ def test_stall_term_gaitval_drift_bounded():
     """GUARD (the check the 2026-09-21 refit omitted): the winding term is NOT
     ~0 on the scripted gaitval gaits — their |torque| ALSO rails at 2.2 N·m
     (> thr) — so it DRIFTS the validated scripted-gait bus current. At the
-    shipped (k_stall, thr) that drift is small (max ~0.08 A, on gait 1); this
+    shipped (k_stall, thr) that drift is small (max ~0.06 A on gait 1 with the
+    run_C air params this test reads, ~0.08 A with the current refit params); this
     test bounds it so a future coefficient crank that reaches for the walk peak
     (e.g. k_stall≈0.23 would add ~0.24 A to gait 1) fails loudly instead of
     silently wrecking the gaitval fit. Skips if the /tmp telemetry is gone

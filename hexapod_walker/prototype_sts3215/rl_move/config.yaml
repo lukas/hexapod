@@ -333,7 +333,7 @@ bus:
   # The pure power model reads ~0 A at a stall and under-predicted the real
   # combo-walk mechanical current ~4x (real 0.32 vs sim 0.08 A above idle);
   # this adds winding current on the load-bearing hip/knee that ride the 2.2
-  # N·m rail, closing bus mean ~0.31->0.38 A (real 0.53); idle and the
+  # N·m rail, closing walk bus mean ~0.31->0.43 A (real LPF 0.53); idle and the
   # over-current trip stay untouched (trip rides a separate torque proxy).
   # CAVEAT (2026-09-21 peak-fit review, claude/current-peak-fit): the term is
   # NOT ~0 on the scripted gaitval gaits — their torque ALSO rails at 2.2 N·m

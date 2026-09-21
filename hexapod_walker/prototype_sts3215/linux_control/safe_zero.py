@@ -77,7 +77,8 @@ import math
 import time
 from pathlib import Path
 
-from feetech_bus import AXIS_LIMITS_DEG, N_JOINTS, joint_to_servo_id
+from feetech_bus import (AXIS_LIMITS_DEG, N_JOINTS, joint_to_servo_id,
+                         robot_pose_to_raw_degrees)
 from hexapod_core.tripod_gait import (
     CHASSIS_FLAT_TO_FLAT_MM, COXA_MM, FEMUR_MM, TIBIA_MM,
 )
@@ -422,6 +423,20 @@ def _max_delta(q0: list[float], q1: list[float]) -> float:
     return max(abs(b - a) for a, b in zip(q0, q1))
 
 
+def validate_motor_pose_path(poses, trims=None) -> None:
+    """Reject any absolute pose whose physical motor targets exceed limits.
+
+    Absolute tibia to relative knee (and trim) conversion is affine. Thus
+    valid endpoints also bound every motor along each linear pose segment;
+    checking only the absolute tibia limits misses a folded knee stop.
+    """
+    for index, pose in enumerate(poses):
+        try:
+            robot_pose_to_raw_degrees(pose, trims=trims)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"pose {index}: {exc}") from exc
+
+
 def _path_violation(q0: list[float], q1: list[float], *,
                     ground_z_mm: float | None = None,
                     clear_mm: float = LIFT_CLEAR_MM,
@@ -432,6 +447,10 @@ def _path_violation(q0: list[float], q1: list[float], *,
     long as the move does not bring it closer (so separating crossed
     legs is always allowed).
     """
+    try:
+        validate_motor_pose_path((q0, q1))
+    except ValueError as exc:
+        return f"physical motor limits: {exc}"
     base = _adjacent_dists(q0)
     prev_z = [foot_z_mm(q0[leg * 3 + 1], q0[leg * 3 + 2])
               for leg in range(6)]
@@ -825,11 +844,10 @@ def plan_safe_zero(present: list[float], *,
     full-torque straighten blend of all six loaded legs — lifted the
     chassis and dropped it on its belly on video (2026-09-10 ×9,
     2026-09-11 ×2). Standing robots lower through STEP-down / the
-    walk-ready glide, not through this planner. The fold family
-    (``fold_family``: femurs up, tibias folded, chassis on the floor
-    after an untrap) keeps the blend: unfolding a 150 mm tibia from
-    there cannot avoid pressing the floor, and the body is already
-    down.
+    walk-ready glide, not through this planner. Negative hips and deep
+    tibias can also describe a tall standing robot: ``fold_family`` is
+    not evidence of belly contact. A caller that observed its own untrap
+    may explicitly allow the loaded blend after that recovery.
     """
     if (not isinstance(present, (list, tuple)) or len(present) != N_JOINTS
             or any(v is None or not math.isfinite(float(v))
@@ -850,6 +868,11 @@ def plan_safe_zero(present: list[float], *,
                     "wrong; hand-set the known pose and POST /api/set_zero "
                     "before any absolute move."),
             }
+
+    try:
+        validate_motor_pose_path((present,))
+    except ValueError as exc:
+        return {"ok": False, "code": "motor_limits", "error": str(exc)}
 
     if max(abs(v) for v in present) <= done_tol_deg:
         return {"ok": True, "stages": [], "already_at_zero": True,
@@ -915,13 +938,10 @@ def plan_safe_zero(present: list[float], *,
                     f"slide <= {desc['loaded_slide_mm']:.0f} mm "
                     f"(legacy blend ~= {desc['legacy_slide_mm']:.0f} mm)")
                 stage1_done = True
-            elif fold_family(present) or allow_loaded_blend:
+            elif allow_loaded_blend:
                 notes.append(f"low-drag descent unavailable "
                              f"({desc.get('why')}); using monitored "
-                             "straighten blend"
-                             + (" (fold family: chassis already down)"
-                                if fold_family(present) else
-                                " (allow_loaded_blend forced)"))
+                             "straighten blend (allow_loaded_blend explicit)")
                 v = _path_violation(present, q_lift, ground_z_mm=None)
                 if v:
                     return {"ok": False,
@@ -1019,6 +1039,10 @@ def plan_safe_zero(present: list[float], *,
             "extend legs straight (zero)", q_zero,
             min(5.0, max(2.0, d3 / 15.0)), False))
 
+    try:
+        validate_motor_pose_path([present] + [s["goal"] for s in stages])
+    except ValueError as exc:
+        return {"ok": False, "code": "motor_limits", "error": str(exc)}
     out = {
         "ok": True,
         "stages": stages,
@@ -1039,18 +1063,29 @@ def plan_safe_zero(present: list[float], *,
 def run_safe_zero(bus, stages: list[dict], *,
                   abort_check=None,
                   on_progress=None,
-                  torque_limit: int = 700) -> dict:
+                  torque_limit: int = 700,
+                  prepare_torque=None) -> dict:
     """Execute planner stages with per-sweep anomaly monitoring.
 
     Any trip (stall-fight, hard current cap, sustained load, quiet
     no-progress stall, lost feedback, over-temp) → LIMP ALL SERVOS and
     return ``{"ok": False, "limp": True, ...}``. Operator abort → hold.
+    ``prepare_torque`` lets a disarmed controller preload exact present
+    counts after all preflight checks and before this executor enables.
     """
     from inplace_demos import (_enable_torque, _glide_speed_acc, _hold_here,
                                _limp_all, _live_robot_ids, _read_pose,
                                _set_torque_limit, _write_pose)
     check = abort_check or (lambda: False)
     prog = on_progress or (lambda d: None)
+
+    # Validate the entire supplied path before any torque/goal write. This
+    # also protects callers supplying stages without using our planner.
+    try:
+        validate_motor_pose_path([s["goal"] for s in stages],
+                                 getattr(bus, "trims", None))
+    except (KeyError, TypeError, ValueError) as exc:
+        return {"ok": False, "code": "motor_limits", "error": str(exc)}
 
     live = _live_robot_ids(bus)
     missing = [joint_to_servo_id(j) for j in range(N_JOINTS)
@@ -1059,6 +1094,18 @@ def run_safe_zero(bus, stages: list[dict], *,
         return {"ok": False,
                 "error": (f"servo IDs {missing} not answering — safe zero "
                           "needs all 18 joints for its monitoring")}
+
+    try:
+        initial_pose = _read_pose(bus, live)
+        validate_motor_pose_path((initial_pose,), getattr(bus, "trims", None))
+    except (TypeError, ValueError, RuntimeError) as exc:
+        return {"ok": False, "error": f"cannot verify start pose: {exc}"}
+
+    if prepare_torque is not None:
+        try:
+            prepare_torque()
+        except (TypeError, ValueError, RuntimeError) as exc:
+            return {"ok": False, "error": f"cannot prepare torque: {exc}"}
 
     bulk = hasattr(bus, "read_all_feedback")
 
@@ -1106,6 +1153,7 @@ def run_safe_zero(bus, stages: list[dict], *,
     _enable_torque(bus, live)
     cur_torque = int(torque_limit)
     n = len(stages)
+    label = "start"
     try:
         for si, st in enumerate(stages):
             goal = [float(v) for v in st["goal"]]
@@ -1128,6 +1176,8 @@ def run_safe_zero(bus, stages: list[dict], *,
                 _set_torque_limit(bus, live, want_torque)
                 cur_torque = want_torque
             start = _read_pose(bus, live)
+            validate_motor_pose_path((start, goal), getattr(bus, "trims", None))
+            raw_goal = robot_pose_to_raw_degrees(goal, getattr(bus, "trims", None))
             speed, acc = _glide_speed_acc(start, goal, live, secs)
             prog({"msg": f"safe_zero {si + 1}/{n}: {label}",
                   "stage": si + 1, "of": n})
@@ -1177,7 +1227,8 @@ def run_safe_zero(bus, stages: list[dict], *,
                     sweep_misses = 0
 
                     for j in range(N_JOINTS):
-                        if j in fb_map:
+                        if (j in fb_map and fb_map[j].get("deg") is not None
+                                and math.isfinite(float(fb_map[j]["deg"]))):
                             miss_count[j] = 0
                         else:
                             miss_count[j] = miss_count.get(j, 0) + 1
@@ -1186,17 +1237,29 @@ def run_safe_zero(bus, stages: list[dict], *,
                                     f"{joint_name(j)} stopped answering "
                                     "feedback", label)
 
-                    errs = {j: abs(goal[j] - float(fb["deg"]))
-                            for j, fb in fb_map.items()}
-                    worst_err = max(errs.values(), default=0.0)
+                    logical_errs = {
+                        j: abs(goal[j] - float(fb["deg"]))
+                        for j, fb in fb_map.items()
+                        if fb.get("deg") is not None
+                        and math.isfinite(float(fb["deg"]))}
+                    # Missing paired hip feedback must not make a knee
+                    # look settled or borrow a previous sweep's hip.
+                    worst_err = (max(logical_errs.values())
+                                 if len(logical_errs) == N_JOINTS
+                                 else float("inf"))
+                    errs = {
+                        j: abs(raw_goal[j] - float(fb.get("raw_deg", fb.get("deg"))))
+                        for j, fb in fb_map.items()
+                        if fb.get("raw_deg", fb.get("deg")) is not None
+                        and math.isfinite(float(fb.get("raw_deg", fb.get("deg"))))}
 
                     def _slow(fb) -> bool:
-                        return abs(float(fb.get("speed_deg_s") or 0.0)
+                        return abs(float(fb.get("raw_speed_deg_s", fb.get("speed_deg_s")) or 0.0)
                                    ) < slow_dps
 
                     def _dps(j: int) -> float:
                         return abs(float(
-                            fb_map[j].get("speed_deg_s") or 0.0))
+                            fb_map[j].get("raw_speed_deg_s", fb_map[j].get("speed_deg_s")) or 0.0))
 
                     now_wild: set[int] = set()
                     now_hard: set[int] = set()
@@ -1263,7 +1326,7 @@ def run_safe_zero(bus, stages: list[dict], *,
 
                     now_stall = {
                         j for j, fb in fb_map.items()
-                        if abs(float(fb.get("current_a") or 0.0)) > cur_lim
+                        if j in errs and abs(float(fb.get("current_a") or 0.0)) > cur_lim
                         and _slow(fb) and errs[j] > 4.0}
                     bad = _confirm(stall_count, now_stall)
                     if bad is not None:
@@ -1277,7 +1340,7 @@ def run_safe_zero(bus, stages: list[dict], *,
 
                     now_load = {
                         j for j, fb in fb_map.items()
-                        if float(fb.get("load_pct") or 0.0) > load_lim
+                        if j in errs and float(fb.get("load_pct") or 0.0) > load_lim
                         and _slow(fb) and errs[j] > 4.0}
                     bad = _confirm(load_count, now_load)
                     if bad is not None:
@@ -1332,6 +1395,8 @@ def run_safe_zero(bus, stages: list[dict], *,
 
         return {"ok": True, "stages_done": n,
                 "peak_a": round(peak_a, 2), "peak_joint": peak_j}
+    except (TypeError, ValueError, RuntimeError) as exc:
+        return _trip(f"cannot verify motion pose: {exc}", label)
     finally:
         try:
             _set_torque_limit(bus, live, 1000)

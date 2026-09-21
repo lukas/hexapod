@@ -1,15 +1,18 @@
 """The one logical joint-coordinate contract used by the hexapod.
 
-Every public controller, gait, policy, observation, telemetry record and
-experiment uses ``robot_abs``:
+Logical controller/gait poses, policy actions and observations use
+``robot_abs``:
 
 * yaw: coxa yaw;
 * hip: absolute femur angle in the leg plane;
 * knee: absolute tibia angle in the same leg plane.
 
-MuJoCo necessarily stores its knee hinge relative to the femur.  The two
-conversion functions in this module exist only for an explicit physics
-boundary; MuJoCo coordinates are never a policy or gait option.
+MuJoCo stores its knee hinge relative to the femur. The conversions in this
+module serve that simulation boundary. Physical knee servos also measure a
+relative hinge angle: motor_setup.feetech_bus separately converts logical
+poses and coherent raw feedback, including trims and physical limits. Raw
+servo diagnostics are explicitly servo_relative, never logical policy poses.
+See JOINT_COORDINATES.md for the historical hardware enforcement gap.
 
 Ordering contract (one vocabulary, one indexing API, no hand-rolled math):
   * ``N_LEGS`` = 6 legs, counter-clockwise from the front-left; ``AXES`` =
@@ -116,6 +119,16 @@ def _check_joint(j: int) -> None:
 
 FRAME_ROBOT_ABS = "robot_abs"
 JOINT_CONTRACT = "robot_abs_tibia_v2"
+
+# The historical MuJoCo plant is hip=20, relative knee=80. Hardware and
+# policy coordinates describe the absolute tibia: 20 + 80 = 100 degrees.
+WALK_START_HIP_ABS_DEG = 20.0
+WALK_START_TIBIA_ABS_DEG = 100.0
+
+
+def walk_start_pose_degrees() -> list[float]:
+    """Default walk reset in robot_abs, shared by sim and hardware."""
+    return [0.0, WALK_START_HIP_ABS_DEG, WALK_START_TIBIA_ABS_DEG] * 6
 
 
 def _as_joint_array(q: np.ndarray | list[float] | tuple[float, ...]) -> np.ndarray:

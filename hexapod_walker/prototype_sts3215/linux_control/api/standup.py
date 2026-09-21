@@ -8,6 +8,45 @@ from __future__ import annotations
 from .common import *  # noqa: F401,F403
 
 
+def validated_standup_frames(keyframes, *, down=False, trims=None):
+    """Preflight the authored path and optional replant before any motion."""
+    from safe_zero import validate_motor_pose_path
+    frames = [([float(v) for v in kf["q_deg"]], float(kf["s"]))
+              for kf in keyframes]
+    if not frames:
+        raise ValueError("stand-up has no keyframes")
+    if any(not math.isfinite(s) or s <= 0 for _, s in frames):
+        raise ValueError("stand-up durations must be finite and positive")
+    if down:
+        qs = [q for q, _ in frames]
+        ss = [s for _, s in frames]
+        frames = [(qs[-1], 0.8)] + [
+            (qs[i], ss[i + 1]) for i in range(len(qs) - 2, -1, -1)]
+    # Check every motor endpoint (including possible replant lifts)
+    # before acquisition or arming. Relative knee limits constrain
+    # combinations of hip and absolute tibia, not either alone.
+    motor_path = [q for q, _ in frames]
+    replant_targets = [frames[-1][0]] if not down else (
+        [frames[1][0]] if len(frames) > 1 else [])
+    for target in replant_targets:
+        for legs in ((0, 2, 4), (1, 3, 5)):
+            lifted = list(target)
+            for leg in legs:
+                lifted[joint_index(leg, "hip")] -= 6.0
+                lifted[joint_index(leg, "knee")] += 6.0
+            motor_path.append(lifted)
+    validate_motor_pose_path(motor_path, trims)
+    return frames
+
+
+def descent_frames_from_present(frames, present, *, trims=None):
+    """Begin an approved descent at measured support, without an align move."""
+    from safe_zero import validate_motor_pose_path
+    updated = [(list(present), frames[0][1])] + list(frames[1:])
+    validate_motor_pose_path([q for q, _ in updated], trims)
+    return updated
+
+
 class StandupApi:
     # -- stand-up lab ---------------------------------------------------------
     # Sim-validated stand-up strategies (rl_move/sim/compare_standup.py):
@@ -18,7 +57,10 @@ class StandupApi:
     def _load_standup(self) -> dict:
         # Read fresh each call (small file) so a re-deployed bake is
         # picked up without restarting the service.
-        return json.loads(self.STANDUP_FILE.read_text())
+        from hexapod_core.joint_frame import require_robot_abs_joint_frame
+        data = json.loads(self.STANDUP_FILE.read_text())
+        require_robot_abs_joint_frame(data, source="stand-up keyframes")
+        return data
 
     def standup_modes(self) -> dict:
         """List the available stand-up strategies (web UI selector)."""
@@ -74,6 +116,8 @@ class StandupApi:
                 ease_to_pose,
             )
             from drive_controller import MAX_SAFE_DELTA_DEG
+            from feetech_bus import robot_pose_to_raw_degrees
+            from safe_zero import validate_motor_pose_path
         except ImportError as e:
             return {"ok": False, "error": str(e)}
         if self.drive.dry_run or not self.drive.bus:
@@ -149,13 +193,11 @@ class StandupApi:
         # keeps each segment's duration with its segment: the glide from
         # keyframe i to i-1 takes what i-1 -> i took, plus a short
         # align glide onto the last keyframe first.
-        frames = [([float(v) for v in kf["q_deg"]], float(kf["s"]))
-                  for kf in keyframes]
-        if down:
-            qs = [q for q, _ in frames]
-            ss = [s for _, s in frames]
-            frames = [(qs[-1], 0.8)] + [
-                (qs[i], ss[i + 1]) for i in range(len(qs) - 2, -1, -1)]
+        try:
+            frames = validated_standup_frames(
+                keyframes, down=down, trims=getattr(self.drive.bus, "trims", None))
+        except (TypeError, KeyError, ValueError) as exc:
+            return {"ok": False, "code": "motor_limits", "error": str(exc)}
         first = frames[0][0]
         acquire_zero_first = False
         safe_down_instead = False
@@ -203,14 +245,9 @@ class StandupApi:
 
         def _worker():
             d = self.drive
-            with d._lock:
-                d.mode = "demo"
-                d.gait.stop()
-                if not d.armed:
-                    d._torque_all(True)
-                    d.armed = True
             live = _live_robot_ids(d.bus)
             tracker = CurrentPeakTracker()
+            arm_ready = d.armed
             result: dict = {"ok": False, "mode": mode,
                             "direction": direction}
             # Worker-local copy: the down path drops the wide frame
@@ -227,6 +264,9 @@ class StandupApi:
             except Exception:
                 pass
             try:
+                with d._lock:
+                    d.mode = "demo"
+                    d.gait.stop()
                 self._bus_hot_begin()
 
                 def _acq_prog(p: dict) -> None:
@@ -268,6 +308,20 @@ class StandupApi:
                                 "msg": self._demo_status}
                         return result
 
+                # Acquisition has its own preflight/guarded executor. A
+                # refused acquisition must not leave a previously limp
+                # robot armed merely because a stand was requested.
+                present, missing = self._present_pose18()
+                if missing:
+                    result["error"] = f"missing stand-up joints: {missing}"
+                    return result
+                validate_motor_pose_path(
+                    [present] + [q for q, _ in kf_path],
+                    getattr(d.bus, "trims", None))
+                with d._lock:
+                    if not d.armed:
+                        d.arm_at_present(torque, abort_check=self._demo_abort.is_set)
+                    arm_ready = True
                 _set_torque_limit(d.bus, live, torque)
                 _enable_torque(d.bus, live)
                 n = len(kf_path)
@@ -286,46 +340,11 @@ class StandupApi:
                             f"{abort_current_a:.1f} A) — stall-fight, "
                             "not grinding on it")
 
-                # Guard semantics (08-10, after a 3.04 A spike aborted
-                # a healthy 10x stand at 60%): trip on STALL-FIGHT —
-                # a joint over the limit while NOT MOVING, two sweeps
-                # in a row — not on an instantaneous reading. A moving
-                # joint briefly over 3 A is honest acceleration work.
-                #
-                # Hard cap (09-09, after experiment 922434955b's cycle 2
-                # self-aborted 1.76 s in on a 106.50 A reading — 0x4000,
-                # one flipped bit, against a true run peak of 2.88 A):
-                # the cap needs TWO consecutive sweeps too, and reads
-                # the sweep's own plausible peak rather than the
-                # running-max peak_a. Two independent bugs made one
-                # corrupt sample fatal: peak_a is monotonic, so a single
-                # spike latched the trip on forever, and a low-bit flip
-                # lands at 3.3 A / 6.7 A — under any plausibility
-                # ceiling but over this cap. The tracker already keeps
-                # physically impossible values (>= 10 A, vs the STS3215's
-                # 2.70 A stall) out of peak_a and escalates a joint that
-                # returns three in a row as a telemetry fault, which
-                # still stops the run — with a distinct message.
-                HARD_CAP_A = 4.0
-                stall_prev: set = set()
-                cap_prev = False
-
                 def stall_trip() -> bool:
-                    nonlocal stall_prev, cap_prev
-                    if tracker.telemetry_fault_joint is not None:
-                        return True
-                    sweep_peak, _sweep_joint = tracker.sweep_peak_a()
-                    over_cap = sweep_peak > HARD_CAP_A
-                    if over_cap and cap_prev:
-                        return True
-                    cap_prev = over_cap
-                    now = {fb["joint"] for fb in tracker.last_fb
-                           if fb["joint"] not in tracker.implausible_joints
-                           and abs(fb["current_a"]) > abort_current_a
-                           and abs(fb["speed_deg_s"]) < 8.0}
-                    hit = bool(now & stall_prev)
-                    stall_prev = now
-                    return hit
+                    return (tracker.telemetry_fault_joint is not None
+                            or tracker.confirmed_current_joint(4.0) is not None
+                            or tracker.confirmed_current_joint(
+                                abort_current_a, slow_dps=8.0) is not None)
 
                 def _replant(target_q: list[float]) -> bool:
                     """Re-seat all six feet at target_q, one tripod
@@ -367,34 +386,15 @@ class StandupApi:
                 q0 = kf_path[0][0]
                 aborted = False
                 t_run0 = time.monotonic()
-                if down and len(kf_path) >= 2:
-                    # Sit starts at the wide (tibia-vertical) stance;
-                    # the feet must come back UNDER the body before
-                    # the fold, and loaded feet can't slide inward —
-                    # re-seat them on the narrow stance by tripods.
-                    # If the robot already stands narrow (old-stance
-                    # or RL walk-ready start) skip the wide frame instead
-                    # of easing outward pointlessly.
-                    with self.drive._lock:
-                        w_wide, _ = (self.drive
-                                     ._max_delta_vs_present(
-                                         kf_path[0][0]))
-                        w_narrow, _ = (self.drive
-                                       ._max_delta_vs_present(
-                                           kf_path[1][0]))
-                    if w_narrow <= w_wide:
-                        kf_path = kf_path[1:]
-                        q0 = kf_path[0][0]
-                    else:
-                        with self._lock:
-                            self._cal_progress = {
-                                "msg": f"{mode} {verb}: re-seating "
-                                       "feet under body"}
-                        if not _replant(kf_path[1][0]):
-                            aborted = True
-                        else:
-                            kf_path = kf_path[1:]
-                            q0 = kf_path[0][0]
+                if down:
+                    # Standing was established before entering this worker.
+                    # Start the descent at the measured pose: trying to drag
+                    # loaded feet back onto a nominal keyframe can stall.
+                    q0, missing = self._present_pose18()
+                    if missing:
+                        raise ValueError(f"missing descent start joints: {missing}")
+                    kf_path = descent_frames_from_present(
+                        kf_path, q0, trims=getattr(d.bus, "trims", None))
                 with self.drive._lock:
                     worst0, _ = self.drive._max_delta_vs_present(q0)
                 if worst0 > 5.0 and not aborted:
@@ -440,8 +440,9 @@ class StandupApi:
                 ts, qs = [0.0], [q0]
                 loaded_seg = [False]     # loaded_seg[s]: segment s-1 -> s moves all six hips
                 for q_deg, kf_s in kf_path[1:]:
-                    d_seg = max(abs(b - a) for a, b in
-                                zip(qs[-1], q_deg))
+                    d_seg = max(abs(b - a) for a, b in zip(
+                        robot_pose_to_raw_degrees(qs[-1], getattr(d.bus, "trims", None)),
+                        robot_pose_to_raw_degrees(q_deg, getattr(d.bus, "trims", None))))
                     hips_moving = sum(
                         1 for lg in range(6)
                         if abs(q_deg[joint_index(lg, "hip")]
@@ -457,7 +458,7 @@ class StandupApi:
                 # skip the streamer's gentle first-write ease (speed
                 # 120 ≈ 10 deg/s — measured as a near-stalled first
                 # 0.3 s of every run).
-                streamer.last = list(q0)
+                streamer.prime(d.bus, q0)
                 tripped = False
                 seg, last_sample = 1, -1.0
                 t0 = time.monotonic()
@@ -536,9 +537,14 @@ class StandupApi:
                         # lag vs the SCHEDULE pose (not the carrot,
                         # which is deliberately ahead by rate*look)
                         q_sched = _q_at(t)
+                        raw_sched = robot_pose_to_raw_degrees(
+                            q_sched, getattr(d.bus, "trims", None))
                         err = max(
-                            (abs(q_sched[fb["joint"]] - fb["deg"])
-                             for fb in tracker.last_fb), default=0.0)
+                            (abs(raw_sched[fb["joint"]]
+                                 - fb.get("raw_deg", fb.get("deg")))
+                             for fb in tracker.last_fb
+                             if fb.get("raw_deg", fb.get("deg")) is not None),
+                            default=float("inf"))
                         if err < 16.0:
                             rate = min(rate * 1.35, 2.8)
                         elif err > 28.0:
@@ -679,7 +685,8 @@ class StandupApi:
                 if gen != self._demo_gen:
                     return
                 try:
-                    _set_torque_limit(d.bus, live, 1000)
+                    if arm_ready:
+                        _set_torque_limit(d.bus, live, 1000)
                 except Exception:
                     pass
                 with d._lock:

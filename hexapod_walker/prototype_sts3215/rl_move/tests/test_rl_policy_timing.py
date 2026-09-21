@@ -541,12 +541,12 @@ def test_walk_start_options_use_sim_start_only():
     assert "sim_walk_start" in names
     assert names == ["sim_walk_start"]
     pose = dict((name, pose) for name, pose, _tol in options)["sim_walk_start"]
-    assert pose.tolist() == pytest.approx([0.0, 20.0, 80.0] * 6)
+    assert pose.tolist() == pytest.approx([0.0, 20.0, 100.0] * 6)
 
 
 def test_walk_preflight_reports_sim_walk_start():
     ok, reason, details = rl_policy.preflight(
-        _PreflightBus([0.0, 20.0, 80.0] * 6), "walk")
+        _PreflightBus([0.0, 20.0, 100.0] * 6), "walk")
 
     assert ok, reason
     assert details["start_pose"] == "sim_walk_start"
@@ -2199,6 +2199,82 @@ def test_direct_stream_returns_pending_at_first_repeated_snapshot():
     assert state.timing["stale_diag"]["stale_pending"] is True
     assert "did not advance" in state.timing["stale_diag"][
         "snapshot_freshness_error"]
+
+
+@pytest.mark.parametrize("mode", ["recover", "persistent", "duplicate", "no_budget"])
+def test_direct_missing_reply_retries_inside_original_deadline(monkeypatch, mode):
+    clock = [10.0]
+    monkeypatch.setattr(rl_policy.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(rl_policy.time, "sleep",
+                        lambda dt: clock.__setitem__(0, clock[0] + dt))
+
+    def incomplete(seq):
+        snap = _snapshot(seq)
+        del snap["pos_deg"][13]
+        del snap["pos_deg"][14]
+        return snap
+
+    class Bus(_FakeStepBus):
+        reads = 0
+
+        def step_all(self, deg, *, speed, acc):
+            super().step_all(deg, speed=speed, acc=acc)
+            clock[0] += 0.017 if mode == "no_budget" else 0.006
+            return incomplete(8)
+
+        def read_snapshot(self):
+            self.reads += 1
+            clock[0] += 0.003
+            if mode == "recover":
+                return _snapshot(9)
+            return incomplete(8 if mode == "duplicate" else 8 + self.reads)
+
+    class Estimator(_MetadataSnapshotEstimator):
+        def update_from_snapshot(self, snap):
+            state = super().update_from_snapshot(snap)
+            state.bus_ok = len(snap["pos_deg"]) == rl_policy.N_JOINTS
+            return state
+
+    bus, est = Bus(), Estimator()
+    initial = _state(timestamp=10.0, timing={
+        "snapshot_seq": 7, "pos_age_ms": 1, "imu_age_ms": 1})
+    out = rl_policy._stream_target(
+        bus, est, np.zeros(18), np.ones(18) * 0.1,
+        t_next=10.0, inner_steps=1, inner_dt=0.020,
+        write_speed=100, write_acc=20, abort_check=lambda: False,
+        last_good_state=initial, max_stale_ticks=10)
+
+    assert bus.steps == 1  # retries never send another motor target
+    assert clock[0] <= 10.020 + 1e-9
+    if mode == "recover":
+        assert bus.reads == 1
+        assert out[3] == ""
+        assert out[0].bus_ok
+        assert [s["seq"] for s in est.snapshots] == [9]
+        assert out[5] == 1
+    elif mode == "persistent":
+        assert bus.reads == 2
+        assert out[3] == "persistent missing servo positions: [13, 14]"
+        assert est.snapshots == []
+    else:
+        assert bus.reads == (1 if mode == "duplicate" else 0)
+        assert out[3] == rl_policy.DIRECT_STREAM_STALE_PENDING
+        assert out[4] == 1  # duplicate reads never confirm a missing servo
+
+
+def test_rejected_motor_target_retains_support_and_actual_error(monkeypatch):
+    def reject(self, deg, *, speed, acc):
+        self.steps += 1
+        raise ValueError("raw servo joint 5 outside limits: 153")
+
+    monkeypatch.setattr(_FakeStepBus, "step_all", reject)
+    run = _run_direct_pending_policy_harness(
+        monkeypatch, [_snapshot(1)], abort_after_steps=100)
+    assert run.result["error"] == (
+        "stream command rejected: raw servo joint 5 outside limits: 153")
+    assert run.result["held_pose"] is True
+    assert run.result["limped"] is False
+    assert run.bus.steps == 1
 
 
 @pytest.mark.parametrize("snapshot", [

@@ -13,6 +13,8 @@ Everything measured maps to a MuJoCo knob: delay→action latency,
 rise/settle→kp/kv fit, peak speed→velocity ceiling, ramp→frictionloss/
 deadband, ±step asymmetry→gravity/mass sanity check.
 
+All angles and velocities here are raw servo-relative coordinates, including
+the physical zero and excluding any second application of software trims.
 Logs a CSV and writes ``logs/motor_model.json``. Soft torque, current
 trip, temp trip, single-joint writes only.
 
@@ -21,13 +23,15 @@ HTTP: ``POST /api/rl/probe_dynamics``.
 from __future__ import annotations
 
 import csv
+from contextlib import ExitStack
 import json
 import statistics
 import time
 from pathlib import Path
 from typing import Callable
 
-from feetech_bus import HOLD_SPEED, N_JOINTS, joint_to_servo_id
+from feetech_bus import (HOLD_SPEED, N_JOINTS, joint_to_servo_id,
+                         raw_degree_to_count, raw_pose_to_counts)
 
 LOG_DIR = Path(__file__).resolve().parent / "logs"
 AXIS = ("yaw", "hip", "knee")
@@ -215,6 +219,11 @@ def run_motor_dynamics(
     battery (default: FULL_LEG's yaw/hip/knee, if live).
     """
     abort_check = abort_check or (lambda: False)
+    required = ('read_raw_feedback', 'read_raw_position_deg',
+                'read_all_raw_positions', 'write_raw_joint', 'write_raw_all')
+    if any(not callable(getattr(bus, name, None)) for name in required):
+        return {'ok': False, 'mode': 'dynamics', 'joint_frame': 'servo_relative',
+                'error': 'motor dynamics requires an explicit raw servo bus'}
     amp_deg = max(6.0, min(MAX_AMP_DEG, float(amp_deg)))
     repeats = int(max(1, min(4, repeats)))
     soft_torque = int(max(200, min(800, soft_torque)))
@@ -227,7 +236,7 @@ def run_motor_dynamics(
     try:
         from inplace_demos import (
             _enable_torque, _live_robot_ids, _limp_all,
-            _set_torque_limit, _write_pose,
+            _set_torque_limit,
         )
     except ImportError as e:
         return {"ok": False, "error": f"inplace_demos missing: {e}",
@@ -275,35 +284,28 @@ def run_motor_dynamics(
 
     def _fb(j: int) -> dict | None:
         try:
-            return bus.read_feedback(j)
+            return bus.read_raw_feedback(j)
         except Exception:
             return None
 
-    def _read_pose() -> list[float]:
-        pose = [0.0] * N_JOINTS
-        for j in live_joints:
-            d = bus.read_position_deg(j)
+    def _read_raw_position(j: int) -> float | None:
+        for attempt in range(3):
+            d = bus.read_raw_position_deg(j)
             if d is not None:
-                pose[j] = float(d)
-        return pose
+                return float(d)
+            if attempt < 2:
+                time.sleep(.05)
+        return None
 
     def _write_one(joint: int, deg: float, *, speed: int = SPEED,
                    acc: int = ACC) -> None:
         """Command ONLY this joint — never SyncWrite the whole body."""
-        if hasattr(bus, "write_joint"):
-            bus.write_joint(joint, float(deg), speed=speed, acc=acc)
-            return
-        sid = joint_to_servo_id(joint)
-        pose = _read_pose()
-        pose[joint] = float(deg)
-        _write_pose(bus, pose, {sid}, speed=speed, acc=acc)
+        bus.write_raw_joint(joint, float(deg), speed=speed, acc=acc)
 
     t0 = time.monotonic()
     _progress(f"soft torque {soft_torque}, HOLD current pose "
               f"(single-joint writes only), "
               f"{len(targets)} joints ±{amp_deg:.0f}°")
-    _set_torque_limit(bus, live_ids, soft_torque)
-    _enable_torque(bus, live_ids)
     if abort_check():
         _limp_all(bus, live_ids)
         return {"ok": False, "aborted": True, "mode": "dynamics"}
@@ -312,25 +314,56 @@ def run_motor_dynamics(
     # a failed read (that yanked stilts / browned the board before).
     base_pose = [0.0] * N_JOINTS
     hold_ids: set[int] = set()
+    for attempt in range(3):
+        present = bus.read_all_raw_positions()
+        if all(present.get(j) is not None for j in live_joints):
+            break
+        if attempt < 2:
+            time.sleep(.05)
+    else:
+        return {'ok': False, 'mode': 'dynamics', 'joint_frame': 'servo_relative',
+                'error': 'missing raw servo positions before torque enable'}
     for j in live_joints:
-        d = bus.read_position_deg(j)
-        if d is None:
-            continue
-        base_pose[j] = float(d)
+        base_pose[j] = float(present[j])
         hold_ids.add(joint_to_servo_id(j))
-    if hold_ids:
-        _write_pose(bus, base_pose, hold_ids, speed=HOLD_SPEED, acc=25)
-    time.sleep(0.3)
+
+    def _validate_extents(joint: int, home: float) -> None:
+        extent = (max(amp_deg, SMALL_AMP_DEG, RAMP_AMP_DEG)
+                  if joint in full_set else amp_deg)
+        for endpoint in (home - extent, home + extent):
+            raw_degree_to_count(joint, endpoint)
+
+    # Validate the entire requested battery before preloading or enabling
+    # any motor. Runtime drift is checked again and still covered by limp.
+    try:
+        raw_pose_to_counts(base_pose)
+        for joint in targets:
+            _validate_extents(joint, base_pose[joint])
+    except ValueError as exc:
+        return {'ok': False, 'mode': 'dynamics', 'joint_frame': 'servo_relative',
+                'error': f'motor dynamics extent preflight: {exc}'}
 
     summaries: list[dict] = []
     aborted = False
     overcurrent = False
 
-    with csv_path.open("w", newline="") as fh:
+    with ExitStack() as cleanup, csv_path.open("w", newline="") as fh:
+        # Register before the first preload/enable, including partial-enable
+        # and transport failures. An exception must never skip the air-test
+        # torque-off path; leave the soft limit in place on failed runs.
+        cleanup.callback(_limp_all, bus, live_ids)
+        _set_torque_limit(bus, live_ids, soft_torque)
+        if hold_ids:
+            bus.write_raw_all(base_pose, ids=hold_ids, speed=HOLD_SPEED, acc=25)
+        if abort_check():
+            return {'ok': False, 'aborted': True, 'mode': 'dynamics'}
+        _enable_torque(bus, live_ids)
+        time.sleep(0.3)
         fields = [
             "t_s", "phase", "joint", "id", "name",
             "cmd_deg", "present_deg", "err_deg",
             "speed_deg_s", "load_pct", "current_a", "volt", "temp_c",
+            "joint_frame",
         ]
         w = csv.DictWriter(fh, fieldnames=fields)
         w.writeheader()
@@ -360,13 +393,16 @@ def run_motor_dynamics(
                     "volt": f"{float(fb.get('volt') or 0):.2f}",
                     "temp_c": f"{float(fb.get('temp_c') or 0):.1f}",
                 }
+            row['joint_frame'] = 'servo_relative'
             w.writerow(row)
             return row
 
         def _run_step(joint: int, amp: float, phase: str) -> tuple[dict, bool]:
             nonlocal overcurrent
-            d0 = bus.read_position_deg(joint)
-            start = float(d0) if d0 is not None else 0.0
+            d0 = _read_raw_position(joint)
+            if d0 is None:
+                return {'ok': False, 'error': 'missing raw servo position'}, True
+            start = float(d0)
             target = start + amp
             t_cmd = time.monotonic() - t0
             _write_one(joint, target)
@@ -462,7 +498,12 @@ def run_motor_dynamics(
                 break
             name = joint_name(joint, names)
             full = joint in full_set
-            home = _read_pose()[joint]
+            home = _read_raw_position(joint)
+            if home is None:
+                _progress(f'{name}: missing raw servo position; stopping')
+                aborted = True
+                break
+            _validate_extents(joint, home)
 
             # Step plan: verify joints get one large ± pair; full-battery
             # joints get (small ± , large ±) × repeats, then the ramp.
@@ -499,6 +540,9 @@ def run_motor_dynamics(
                         summary["plus"] = fit
                     elif amp < 0 and summary["minus"] is None:
                         summary["minus"] = fit
+                if ab:
+                    aborted = True
+                    break
                 ret_ab = _return_home(joint, home)
                 if fit.get("tripped"):
                     tripped = True
@@ -518,13 +562,10 @@ def run_motor_dynamics(
                     aborted = ab or aborted
                     break
 
-    # Limp immediately — do not re-hold the whole body after probing.
+    # The context has already limped. Only a completed execution restores
+    # the default torque limit; exceptions leave the soft limit in place.
     try:
         _set_torque_limit(bus, live_ids, 1000)
-    except Exception:
-        pass
-    try:
-        _limp_all(bus, live_ids)
     except Exception:
         pass
 
@@ -612,6 +653,7 @@ def run_motor_dynamics(
     deviants = [j["name"] for j in model_joints
                 if j.get("matches_axis_model") is False]
     model = {
+        "joint_frame": "servo_relative",
         "ok": (not aborted) and ok_n >= max(1, len(targets) // 2),
         "mode": "dynamics",
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),

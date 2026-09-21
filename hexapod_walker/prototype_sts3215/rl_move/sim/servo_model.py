@@ -43,9 +43,14 @@ COUNTS_PER_DEG = 4096.0 / 360.0
 
 SIM_MODEL_PATH = Path(__file__).resolve().parent / "sim_model.json"
 # Loaded-actuator fit (fit_loaded_actuator.py, 08-10 bench session):
-# selected with --cfg-set bus.servo_params=loaded; the default stays the
-# air fit so every existing lineage is untouched.
+# selected with --cfg-set bus.servo_params=loaded.
 LOADED_MODEL_PATH = Path(__file__).resolve().parent / "sim_model_loaded.json"
+# Original air fit (2026-08-07), preserved as an explicit A/B target when
+# the default sim_model.json was refit against the real combo-walk tape
+# (2026-09-21, claude/sim-refit). --cfg-set bus.servo_params=air restores
+# the pre-refit per-axis actuator; the DR `spread` ranges are the same in
+# both so DR remains interpretable across the switch.
+AIR_MODEL_PATH = Path(__file__).resolve().parent / "sim_model_air_20260807.json"
 
 
 @dataclass
@@ -125,12 +130,14 @@ class SimServoParams:
     def from_cfg(cls, cfg: dict | None) -> "SimServoParams":
         """Resolve the params set from cfg key ``bus.servo_params``.
 
-        "" / absent (default) -> the air fit (``sim_model.json``) —
-        legacy byte-exact; "loaded" -> ``sim_model_loaded.json`` (the
-        08-10 loaded bench fit); any other value -> explicit json path.
-        A missing file for an EXPLICIT selection raises instead of
-        silently falling back (a dropped reward/cfg package voided a
-        verdict once — gotcha 3; same failure class).
+        "" / absent (default) -> ``sim_model.json`` — the 2026-09-21
+        reality-gap refit (per-axis actuator; claude/sim-refit); "air" ->
+        ``sim_model_air_20260807.json`` (the pre-refit air fit, for A/B);
+        "loaded" -> ``sim_model_loaded.json`` (the 08-10 loaded bench
+        fit); any other value -> explicit json path. A missing file for
+        an EXPLICIT selection raises instead of silently falling back (a
+        dropped reward/cfg package voided a verdict once — gotcha 3; same
+        failure class).
         """
         sel = ""
         if cfg is not None:
@@ -139,7 +146,12 @@ class SimServoParams:
         if not sel:
             params = cls.load()
         else:
-            path = LOADED_MODEL_PATH if sel == "loaded" else Path(sel)
+            if sel == "loaded":
+                path = LOADED_MODEL_PATH
+            elif sel == "air":
+                path = AIR_MODEL_PATH
+            else:
+                path = Path(sel)
             if not path.is_file():
                 raise FileNotFoundError(
                     f"bus.servo_params={sel!r} -> {path} does not exist; "

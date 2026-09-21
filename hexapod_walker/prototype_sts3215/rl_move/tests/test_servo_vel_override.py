@@ -90,17 +90,22 @@ def _settle_time(params: SimServoParams, speed_counts_s: float,
 
 
 def test_profile_actually_goes_faster_with_override():
-    """The whole point: write_speed=1500 is clamped to ~350 counts/s
-    without the override, and genuinely ~4x faster with it."""
+    """The whole point: write_speed=1500 is clamped to the fitted ceiling
+    without the override, and genuinely much faster with it. The 2026-09-21
+    reality-gap refit raised that fitted ceiling 350 -> 400 counts/s (the
+    run's write_speed=400, previously clamped to the stale 350), so the
+    default clamp reference is 400 counts/s now, not 350."""
     stock = SimServoParams.from_cfg(None)
     fast = SimServoParams.from_cfg(
         {"bus": {"servo_vel_max_counts_s": "write_speed",
                  "write_speed": 1500}})
     t_stock = _settle_time(stock, 1500, 80)
     t_fast = _settle_time(fast, 1500, 80)
-    assert t_fast < t_stock / 2.5, (t_stock, t_fast)
-    # Clamped case ~= commanding the old ceiling explicitly.
-    t_ceiling = _settle_time(stock, 350, 80)
+    # Override genuinely lifts the ceiling (acceleration-limited, so the
+    # settle-time ratio is below the raw 1500/400 speed ratio).
+    assert t_fast < t_stock / 2.0, (t_stock, t_fast)
+    # Clamped case == commanding the fitted ceiling (400 counts/s) explicitly.
+    t_ceiling = _settle_time(stock, 400, 80)
     assert abs(t_stock - t_ceiling) < 0.02, (t_stock, t_ceiling)
 
 

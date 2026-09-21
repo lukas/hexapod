@@ -266,6 +266,29 @@ plant:
   hip_deg: null              # null → standing_pose / plant_pose.json
   knee_deg: null
 
+env:
+  # NOTE (2026-09-21 reality-gap refit, item #5, DEFERRED): the twin
+  # assumes total mass 3.49 kg / an uncalibrated CoM+inertia (mesh model).
+  # The combo-tape gap analysis could NOT confirm these -- it needs the
+  # real robot WEIGHED (and a CoM/inertia measurement). Body-rate and
+  # current both scale with mass/inertia, so a wrong mass would alias into
+  # the actuator/current fits here. Left UNCHANGED (guessing mass would
+  # corrupt the fit); revisit once the robot is weighed. See handback.
+  #
+  # Foot-ground SLIDE friction (pair mu; 0 = keep the XML default 2.0).
+  # 2026-09-21 reality-gap refit (claude/sim-refit) PROBED lowering this
+  # (item #4): the twin over-progresses ~1.7x on the real combo tape (sim
+  # net 46 vs real 26 mm/s). mu=0.6 in the /tmp/simgap replay moved net
+  # speed 46 -> 35 mm/s AND raised body-rate 11.8 -> 15.9 dps (both toward
+  # real) with tracking unchanged -- BUT the added slip unloads the joints
+  # and REGRESSED the mechanical-current match (bus 0.43 -> 0.31 A vs real
+  # 0.53), because real slip is policy-reactive (the robot fights while it
+  # slips) not passive. NOT adopted (task rule: only if it moves speed
+  # "without breaking the others" -- it breaks current). Left at the XML
+  # default; set 0.6 to reproduce the probe. Needs a tape-measured travel
+  # ratio (calibrate_slip.py) on fresh data to calibrate properly.
+  foot_friction_slide: 0.0
+
 obs:
   q_scale: 1.0               # rad → obs (tune from logs)
   qd_scale: 2.0              # rad/s
@@ -305,6 +328,18 @@ bus:
   current_model: power
   current_iq_bus_a: 0.19     # standstill bus idle (A), split over 18 joints
   current_k_a_per_w: 0.02282 # A per W of |torque*qvel| mechanical power
+  # Winding/load-stall term (2026-09-21 reality-gap refit, claude/sim-refit):
+  # current += current_k_stall_a_per_nm * max(|torque| - current_stall_thr_nm, 0).
+  # The pure power model reads ~0 A at a stall and under-predicted the real
+  # combo-walk mechanical current ~4x (real 0.32 vs sim 0.08 A above idle);
+  # this adds winding current on the load-bearing hip/knee that ride the 2.2
+  # N·m rail, closing bus mean ~0.31->0.38 A (real 0.53) while leaving idle,
+  # the scripted-gait fit (gaitval), and the over-current trip untouched
+  # (torque < thr => term is 0; the trip rides a separate torque proxy).
+  # Fit on ONE tape — see /tmp/simgap; needs multi-protocol sysid to confirm.
+  # Peaks stay under (open-loop replay cannot reproduce real impact loads).
+  current_k_stall_a_per_nm: 0.042  # A per N·m of |torque| above thr (0 = off)
+  current_stall_thr_nm: 1.2        # free-hold torque rail (N·m)
   # Default OFF after 2026-08-06 cooked-knee incident. Explicit opt-in only.
   enable_motion: false
   write_speed: 400           # gentler after tip event

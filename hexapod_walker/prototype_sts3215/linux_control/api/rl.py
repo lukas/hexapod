@@ -469,17 +469,23 @@ class RlApi:
         blocked = self._bus_admission_error()
         if blocked is not None:
             return blocked
-        if self._demo_thread and self._demo_thread.is_alive():
-            # A running job (RL drive, stand-up, demo) owns the bus.  This bulk read is a full host round trip; on
-            # 2026-09-20 one got no MCU reply for 1.5 s and the 50 Hz drive loop starved behind the bus lock
-            # ("feedback stale during stream").  Temperatures meanwhile: the servo watchdog block in /api/robot.
-            return {"ok": False, "error": "robot busy: a job owns the servo bus; read the servo block of /api/robot",
-                    "busy": True}
+        cached_at = None
         bus = d.bus
-        try:
-            fb = bus.read_all_feedback()
-        except Exception as e:
-            return {"ok": False, "error": f"feedback: {e}"}
+        if self._demo_thread and self._demo_thread.is_alive():
+            # A running job (RL drive, stand-up, demo) owns the bus.  This bulk read (+ the IMU read below) is two host
+            # round trips; on 2026-09-20 one got no MCU reply for 1.5 s and the 50 Hz drive loop starved behind the bus
+            # lock ("feedback stale during stream").  Serve the servo watchdog's last bulk read instead (<= 5 s old).
+            watch = getattr(self, "_servo_watch", None)
+            last = watch.last_feedback() if watch is not None and hasattr(watch, "last_feedback") else None
+            if not last:
+                return {"ok": False, "error": "robot busy: a job owns the servo bus and no cached feedback yet",
+                        "busy": True}
+            fb, cached_at = last
+        else:
+            try:
+                fb = bus.read_all_feedback()
+            except Exception as e:
+                return {"ok": False, "error": f"feedback: {e}"}
         joints: list[dict | None] = []
         for j in range(N_JOINTS):
             f = fb.get(j)
@@ -492,6 +498,12 @@ class RlApi:
             })
         out: dict = {"ok": True, "t_unix": round(time.time(), 3),
                      "live": len(fb), "joints": joints}
+        if cached_at is not None:
+            # no IMU round trip either; roll/pitch are absent while a job runs (the drive loop has its own tilt trip)
+            out["cached"] = True
+            out["busy"] = True
+            out["age_s"] = round(time.time() - cached_at, 1)
+            return out
         try:
             imu = bus.read_imu(apply_calib=True)
         except Exception:

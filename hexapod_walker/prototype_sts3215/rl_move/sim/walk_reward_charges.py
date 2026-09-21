@@ -255,6 +255,7 @@ def stop_charges(env, goal, info, reward, s_ref, v):
             info["walk_stop_current_max_a"] = float(
                 np.max(np.abs(cur_sc)))
             info["reward_walk_stop_current"] = r_stopcur
+            info["walk_stop_current_grace_mult"] = gm_cur
     return reward
 
 

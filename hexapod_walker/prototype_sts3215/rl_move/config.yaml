@@ -266,6 +266,21 @@ plant:
   hip_deg: null              # null → standing_pose / plant_pose.json
   knee_deg: null
 
+env:
+  # Foot-ground SLIDE friction (pair mu; 0 = keep the XML default 2.0).
+  # 2026-09-21 reality-gap refit (claude/sim-refit) PROBED lowering this
+  # (item #4): the twin over-progresses ~1.7x on the real combo tape (sim
+  # net 46 vs real 26 mm/s). mu=0.6 in the /tmp/simgap replay moved net
+  # speed 46 -> 35 mm/s AND raised body-rate 11.8 -> 15.9 dps (both toward
+  # real) with tracking unchanged -- BUT the added slip unloads the joints
+  # and REGRESSED the mechanical-current match (bus 0.43 -> 0.31 A vs real
+  # 0.53), because real slip is policy-reactive (the robot fights while it
+  # slips) not passive. NOT adopted (task rule: only if it moves speed
+  # "without breaking the others" -- it breaks current). Left at the XML
+  # default; set 0.6 to reproduce the probe. Needs a tape-measured travel
+  # ratio (calibrate_slip.py) on fresh data to calibrate properly.
+  foot_friction_slide: 0.0
+
 obs:
   q_scale: 1.0               # rad → obs (tune from logs)
   qd_scale: 2.0              # rad/s

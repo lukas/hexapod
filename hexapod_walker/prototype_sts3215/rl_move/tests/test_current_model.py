@@ -61,16 +61,54 @@ def test_power_model_current_value():
     assert np.allclose(over_current_reading(st), st.over_current_signal)
 
 
-def test_power_model_reads_near_zero_at_stall():
-    """A stall (high torque, ~0 speed) reads ~0 A of mechanical power, but
-    the separate trip signal railed at 2.64 A."""
+# Winding/load-stall term shipped in config.yaml by the 2026-09-21
+# reality-gap refit (claude/sim-refit): current += K_STALL*relu(|tau|-THR).
+K_STALL = 0.042
+STALL_THR = 1.2
+
+
+def test_gravity_hold_below_thr_reads_idle():
+    """A gentle gravity-hold (|torque| < STALL_THR, ~0 speed) still reads
+    just the bus idle share — the winding term is gated above the free-hold
+    torque rail so idle/stance stays ~0.19 A bus and the validated
+    scripted-gait fit is untouched."""
+    env = _mkenv("power")
+    j = 5
+    _set_joint(env, j, torque=0.8, qvel=0.0)  # below the STALL_THR rail
+    st = env._read_state()
+    assert st.servo_current[j] == pytest.approx(IQ_JOINT, abs=1e-6)
+
+
+def test_stall_current_elevated_by_winding_term_but_trip_still_fires():
+    """POST-REFIT: a stall (high torque, ~0 speed) reads ~0 W of mechanical
+    power, so the pure power model read ~0 A — the winding/load-stall term
+    now lifts the reported current to K_STALL*(|tau|-STALL_THR) above idle so
+    the reward SEES stall load, while staying far below the 2.5 A trip. The
+    stall trip itself still rides the SEPARATE torque-proxy signal (2.64 A)."""
     env = _mkenv("power")
     j = 5
     _set_joint(env, j, torque=2.2, qvel=0.0)  # rail torque, no motion
     st = env._read_state()
-    assert st.servo_current[j] == pytest.approx(IQ_JOINT, abs=1e-6)
+    expected = IQ_JOINT + K_STALL * (2.2 - STALL_THR)
+    assert st.servo_current[j] == pytest.approx(expected, abs=1e-6)
+    assert expected > IQ_JOINT  # winding term is load-bearing (not ~0)
     assert st.servo_current.max() < 0.5  # nowhere near the 2.5 A trip
+    # the SEPARATE stall trip signal is unchanged (legacy proxy, railed)
     assert st.over_current_signal[j] == pytest.approx(min(2.2 * 1.2, 3.0))
+
+
+def test_winding_term_off_is_bitexact_power_model():
+    """current_k_stall_a_per_nm=0 reproduces the pure power model bit-exact
+    (holding/stall read ~0 A) — the pre-refit default and any dict-only
+    caller that never sets the key."""
+    cfg = load_config()
+    cfg["bus"]["current_k_stall_a_per_nm"] = 0.0
+    env = SimHexapodBalanceEnv(cfg=cfg, seed=1)
+    env.reset()
+    j = 5
+    _set_joint(env, j, torque=2.2, qvel=0.0)
+    st = env._read_state()
+    assert st.servo_current[j] == pytest.approx(IQ_JOINT, abs=1e-6)
 
 
 def test_legacy_model_bit_exact():

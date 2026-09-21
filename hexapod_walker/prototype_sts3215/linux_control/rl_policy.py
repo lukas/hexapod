@@ -2126,6 +2126,7 @@ WALK_MAX_TOTAL_S = 20.0
 WALK_START_TOL_DEG = 25.0    # near the sim-default walk-ready stance
 WALK_STEP_START_TOL_DEG = 35.0  # explicit compatibility hook only
 DRIVE_HOLD_REFRESH_S = 0.25     # low-rate active refresh for joint-hold
+DRIVE_START_REPLANT_MAX_DEG = 45.0  # drive start: preflight accepts a pose this far off walk-ready; the tripod re-plant below fixes it
 START_REPLANT_DELTA_DEG = 4.0   # drive start: if the pose is further than this from walk-ready, re-seat the feet by TRIPODS
 TRIPOD_LIFT_HIP_DEG, TRIPOD_LIFT_KNEE_DEG = 6.0, 6.0
 TRIPOD_STEP_SPEED, TRIPOD_STEP_ACC = 300, 40
@@ -2977,9 +2978,16 @@ def _expected_start_options_deg(
     return options, ""
 
 
-def preflight(bus, mode: str, *, allow_step_stand: bool = False
+def preflight(bus, mode: str, *, allow_step_stand: bool = False,
+              replant_tol_deg: float | None = None
               ) -> tuple[bool, str, dict]:
-    """All checks are read-only. Returns (ok, reason, details)."""
+    """All checks are read-only. Returns (ok, reason, details).
+
+    ``replant_tol_deg`` (drive start only): a pose up to this far from
+    walk-ready still passes, flagged ``replant_at_start`` -- the drive start
+    re-seats the feet by TRIPODS before walking (a policy's frozen stance is
+    routinely 25-35 deg off on one knee after a policy switch, 2026-09-20).
+    """
     q_deg, err = _read_q_deg(bus)
     if q_deg is None:
         return False, err, {}
@@ -3036,6 +3044,11 @@ def preflight(bus, mode: str, *, allow_step_stand: bool = False
                        f"(roll {roll:+.1f} pitch {pitch:+.1f}){hint}"
                        ), details
     if best_delta > best_tol:
+        if (replant_tol_deg is not None and mode == "walk"
+                and best_delta <= float(replant_tol_deg)):
+            details["replant_at_start"] = True
+            details["replant_tol_deg"] = float(replant_tol_deg)
+            return True, "", details
         worst = best_joint
         want = ("belly-down, legs straight out (logical zero)"
                 if mode == "stand" else
@@ -4575,7 +4588,8 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
                               "(rl_move/sim/rot60.py not deployed)")})
 
     ok, reason, details = preflight(
-        bus, "walk", allow_step_stand=bool(allow_step_stand_start))
+        bus, "walk", allow_step_stand=bool(allow_step_stand_start),
+        replant_tol_deg=DRIVE_START_REPLANT_MAX_DEG)
     debug.event("preflight", ok=ok, reason=reason, details=details)
     if not ok:
         return _finish_debug(

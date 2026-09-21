@@ -26,7 +26,8 @@ Python gait / teleop / demos run on the **Linux** side.
 
 **Preferred bus path (live):** the STM32 MCU sketch
 [`feetech_bridge`](feetech_bridge/) owns **D0/D1 → FE-URT UART at 1 Mbps**.
-Linux talks to the sketch over **`/dev/ttyHS1` @ 921600**
+Linux talks to the sketch over **`/dev/ttyHS1` @ 2 Mbaud** (since 2026-09-21; the host
+falls back to 921600 for an older sketch)
 (`linux_control/mcu_feetech_bus.py`).
 
 **Power (Aug 2026 as-built):** **no external buck, no PDB**. The 3S

@@ -6,7 +6,8 @@ never see 0x68 there. Talk to the sketch instead:
 
     uv run python mpu_probe.py            # on the Uno Q
 
-Protocol (ASCII on /dev/ttyHS1 @ 921600, stop arduino-router first):
+Protocol (ASCII on /dev/ttyHS1 @ 2 Mbaud since 2026-09-21, 921600 on an older
+sketch -- both are tried; stop arduino-router first):
     HELLO → HELLO feetech_bridge
     I2CSCAN → OK 0x68,...
     IMU → OK 0x68
@@ -22,7 +23,7 @@ import time
 from pathlib import Path
 
 MCU_PORT_DEFAULT = "/dev/ttyHS1"
-MCU_BAUD = 921_600  # match feetech_bridge HOST_BAUD
+MCU_BAUDS = (2_000_000, 921_600)  # feetech_bridge HOST_BAUD, new then old sketch
 
 
 def _sudo(cmd: list[str]) -> bool:
@@ -97,11 +98,16 @@ def main() -> int:
     import serial
 
     port = claim_mcu_port(args.port)
-    ser = serial.Serial(port, MCU_BAUD, timeout=0.05, write_timeout=1.0)
-    try:
+    ser = hello = None
+    for baud in MCU_BAUDS:
+        ser = serial.Serial(port, baud, timeout=0.05, write_timeout=1.0)
         _drain(ser)
         hello = cmd(ser, "HELLO")
-        print(f"HELLO → {hello}")
+        if "feetech_bridge" in hello:
+            print(f"HELLO → {hello}  (link {baud} baud)")
+            break
+        ser.close()
+    try:
         if "feetech_bridge" not in hello:
             print("ERR: expected feetech_bridge (flash firmware/feetech_bridge)",
                   file=sys.stderr)

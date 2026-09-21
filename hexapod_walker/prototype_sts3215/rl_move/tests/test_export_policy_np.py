@@ -11,8 +11,10 @@ from gymnasium import spaces
 from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT
 from rl_move.np_policy import (
     ARCH_DUAL_GRU,
+    ARCH_SINGLE_GRU,
     MAX_POLICY_BYTES,
     NumpyDualGruModel,
+    NumpyGruModel,
     NumpyMLPNLayerModel,
     load_np_policy,
     validate_np_policy,
@@ -71,6 +73,83 @@ def test_export_dual_gru_is_compact_valid_and_loadable(tmp_path):
     obs = np.zeros(81, dtype=np.float32)
     obs[-3] = 1.0
     assert loaded.act(obs).shape == (18,)
+
+
+def test_export_single_gru_is_compact_valid_and_loadable(tmp_path):
+    """Plain --gru (non-mode-gated, e.g. the standwalk DR-ladder lineage):
+    single core + N-layer tanh head, no mode one-hot required."""
+    from sb3_contrib import RecurrentPPO
+
+    from rl_move.sim.gru_policy import GruActorCriticPolicy
+
+    model = RecurrentPPO(
+        GruActorCriticPolicy, _ExportEnv(74), n_steps=8,
+        batch_size=8, n_epochs=1, seed=4, device="cpu",
+        policy_kwargs={"lstm_hidden_size": 8, "net_arch": [16, 12, 9]})
+    _stamp(model)
+    checkpoint = tmp_path / "single.zip"
+    artifact = tmp_path / "single.json"
+    model.save(checkpoint)
+
+    payload = export(
+        str(checkpoint), str(artifact), training_hz=50.0,
+        extra_meta={"phase_hz": 1.333333})
+
+    assert payload["meta"]["architecture"] == ARCH_SINGLE_GRU
+    assert payload["meta"]["hidden"] == [8, 16, 12, 9]
+    assert "mode_onehot_order" not in payload["meta"]
+    assert artifact.stat().st_size < MAX_POLICY_BYTES
+    errors, info = validate_np_policy(json.loads(artifact.read_text()))
+    assert errors == []
+    assert info["hidden"] == [8, 16, 12, 9]
+    loaded = load_np_policy(artifact)
+    assert isinstance(loaded, NumpyGruModel)
+    assert loaded.recurrent is True
+    obs = np.zeros(74, dtype=np.float32)
+    assert loaded.act(obs).shape == (18,)
+    loaded.reset()  # the smoke act() above left residual hidden state
+
+    # Sequence parity, including a mid-episode reset -- the state
+    # convention (plain (1, 1, hidden) h, unlike the dual model's
+    # stacked-2-core packing) must round-trip through both the numpy
+    # runner and the real RecurrentPPO checkpoint identically.
+    rng = np.random.default_rng(2)
+    state_sb3 = None
+    state_np = None
+    worst = 0.0
+    for tick in range(40):
+        probe = rng.normal(0, 1, 74).astype(np.float32)
+        episode_start = np.asarray([tick == 17], dtype=bool)
+        a_sb3, state_sb3 = model.predict(
+            probe, state=state_sb3, episode_start=episode_start,
+            deterministic=True)
+        a_np, state_np = loaded.predict(
+            probe, state=state_np, episode_start=episode_start,
+            deterministic=True)
+        worst = max(worst, float(np.max(np.abs(a_np - a_sb3))))
+    assert worst < 1e-5
+
+
+def test_export_dual_gru_subclasses_stay_unsupported(tmp_path):
+    """Triple/mode-experts GRU also set lstm_actor but to a multi-core
+    module this exporter cannot pack yet -- must fail loudly, not
+    silently mis-treat them as the plain single-core case."""
+    from sb3_contrib import RecurrentPPO
+
+    from rl_move.sim.gru_policy import TripleGruActorCriticPolicy
+
+    model = RecurrentPPO(
+        TripleGruActorCriticPolicy, _ExportEnv(81), n_steps=8,
+        batch_size=8, n_epochs=1, seed=6, device="cpu",
+        policy_kwargs={"lstm_hidden_size": 8, "net_arch": [16, 12]})
+    _stamp(model)
+    checkpoint = tmp_path / "triple.zip"
+    model.save(checkpoint)
+    with pytest.raises(ValueError, match="only mode-gated"):
+        export(str(checkpoint), str(tmp_path / "no.json"),
+               training_hz=100.0,
+               extra_meta={"phase_hz": 1.333333,
+                           "walk_phase_run_on_yaw": True})
 
 
 def test_export_obs75_mlp_keeps_legacy_matrix_layout(tmp_path):

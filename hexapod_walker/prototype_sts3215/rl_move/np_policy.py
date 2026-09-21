@@ -37,6 +37,14 @@ the observation tail selects the output.  ``NumpyDualGruModel`` owns
 that persistent hidden state and exposes ``reset()`` at episode
 boundaries.
 
+Plain (non-mode-gated) single-GRU exports -- the bare ``--gru`` flag,
+e.g. the standwalk DR-ladder lineage -- use
+``meta.architecture="gru"`` plus a ``gru`` object: one GRU cell
+(``weight_ih``/``weight_hh``/``bias_ih``/``bias_hh``) feeding an
+N-layer tanh head (``gru.head.layers``/``Wout``/``bout``, same shape
+convention as the generic MLP ``"layers"`` format).  ``NumpyGruModel``
+owns the single persistent hidden state.
+
 Actors deeper than two hidden layers, or using ``ELU`` instead of
 ``tanh`` (e.g. ``net-arch 256,256,128``), export as the generic
 N-layer format instead of the legacy two-matrix layout: a top-level
@@ -80,6 +88,7 @@ YAW_OBS = (75, 81, 93)
 MODE_ONEHOT_ORDER = ("hold", "rise", "lower", "walk", "turn", "quad")
 ARCH_MLP = "mlp"
 ARCH_DUAL_GRU = "dual_gru"
+ARCH_SINGLE_GRU = "gru"
 _MATS = ("W1", "b1", "W2", "b2", "Wout", "bout")
 _GRU_MATS = ("weight_ih", "weight_hh", "bias_ih", "bias_hh")
 # meta.activation values accepted for the generic N-layer MLP format
@@ -257,6 +266,64 @@ def _validate_dual_gru(obj: dict, meta: dict, obs: int,
     return errs, {"hidden": [hidden, *(head_dims or [])], "decoded": decoded}
 
 
+def _validate_single_gru(obj: dict, meta: dict, obs: int,
+                         act: int) -> tuple[list[str], dict]:
+    """Validate the plain (non-mode-gated) single-core GRU format.
+
+    Mirrors :func:`_validate_dual_gru`'s shape checks for the one-core
+    case: no mode one-hot tail, an N-layer tanh head (reuses
+    :func:`_validate_mlp_nlayer`'s shape logic with the GRU's hidden
+    size as the head's input width).
+    """
+    errs: list[str] = []
+    try:
+        hidden = int(meta["recurrent_hidden_size"])
+    except (KeyError, TypeError, ValueError):
+        errs.append("gru requires integer meta.recurrent_hidden_size")
+        hidden = 0
+    if hidden < 1 or hidden > 4096:
+        errs.append("meta.recurrent_hidden_size must be in [1, 4096]")
+    recurrent = obj.get("gru")
+    if not isinstance(recurrent, dict):
+        return errs + ["missing gru object"], {}
+
+    decoded: dict[str, np.ndarray] = {}
+    for key in _GRU_MATS:
+        try:
+            decoded[key] = unpack_f32(recurrent.get(key), name=f"gru.{key}")
+        except ValueError as exc:
+            errs.append(str(exc))
+    if len(decoded) == len(_GRU_MATS) and hidden:
+        expected = {
+            "weight_ih": (3 * hidden, obs),
+            "weight_hh": (3 * hidden, hidden),
+            "bias_ih": (3 * hidden,),
+            "bias_hh": (3 * hidden,),
+        }
+        for key, want in expected.items():
+            value = decoded[key]
+            if value.shape != want:
+                errs.append(f"gru.{key} shape {value.shape} != {want}")
+            if not np.all(np.isfinite(value)):
+                errs.append(f"gru.{key} contains non-finite values")
+
+    head = recurrent.get("head")
+    if not isinstance(head, dict):
+        return errs + ["missing gru.head object"], {}
+    if head.get("activation", "tanh") not in _NLAYER_ACTIVATIONS:
+        errs.append(
+            "gru.head.activation must be one of "
+            f"{sorted(_NLAYER_ACTIVATIONS)}, got {head.get('activation')!r}")
+    head_errs, head_info = _validate_mlp_nlayer(
+        {"layers": head.get("layers"), "Wout": head.get("Wout"),
+         "bout": head.get("bout")},
+        hidden or 0, act)
+    errs.extend(f"gru.head.{e}" for e in head_errs)
+    if errs:
+        return errs, {}
+    return [], {"hidden": [hidden, *head_info["hidden"]]}
+
+
 def _validate_mlp_nlayer(obj: dict, obs: int, act: int) -> tuple[list[str], dict]:
     """Validate the generic N-layer ``obj["layers"]`` MLP format."""
     errs: list[str] = []
@@ -340,7 +407,7 @@ def validate_np_policy(obj) -> tuple[list[str], dict]:
         require_robot_abs_joint_frame(meta, source="numpy policy")
     except ValueError as exc:
         errs.append(str(exc))
-    if architecture not in (ARCH_MLP, ARCH_DUAL_GRU):
+    if architecture not in (ARCH_MLP, ARCH_DUAL_GRU, ARCH_SINGLE_GRU):
         errs.append(f"unsupported meta.architecture {architecture!r}")
     is_nlayer = architecture == ARCH_MLP and isinstance(obj, dict) and "layers" in obj
     activation = meta.get("activation", "tanh")
@@ -385,6 +452,24 @@ def validate_np_policy(obj) -> tuple[list[str], dict]:
         else:
             if action.shape != (18,) or not np.all(np.isfinite(action)):
                 errs.append("dual_gru smoke forward pass failed")
+        return errs, info
+
+    if architecture == ARCH_SINGLE_GRU:
+        recurrent_errs, recurrent_info = _validate_single_gru(
+            obj, meta, int(obs), int(act))
+        errs.extend(recurrent_errs)
+        if errs:
+            return errs, info
+        info["hidden"] = recurrent_info["hidden"]
+        try:
+            model = NumpyGruModel(obj)
+            probe = np.zeros(int(obs), dtype=np.float32)
+            action = model.act(probe)
+        except (KeyError, TypeError, ValueError) as exc:
+            errs.append(f"gru smoke forward pass failed: {exc}")
+        else:
+            if action.shape != (18,) or not np.all(np.isfinite(action)):
+                errs.append("gru smoke forward pass failed")
         return errs, info
 
     if is_nlayer:
@@ -678,15 +763,105 @@ class NumpyDualGruModel:
         return action, self._state_tuple()
 
 
+class NumpyGruModel:
+    """Persistent single-core GRU deterministic actor, without torch.
+
+    Mirrors :class:`rl_move.sim.gru_policy.GruActorCriticPolicy` (the
+    plain, non-mode-gated recurrent actor trained with a bare
+    ``--gru`` flag -- e.g. the standwalk DR-ladder lineage) rather
+    than the mode-gated dual-core actor above: one GRU cell advances
+    every tick, feeding an N-layer tanh head. Recurrent state is kept
+    in sb3-contrib's OWN convention (``h`` shaped
+    ``(num_layers=1, n_envs, hidden)``, ``c`` all-zeros and unused) --
+    unlike :class:`NumpyDualGruModel`'s custom 2-core packing, there is
+    only one core here, so no repacking is needed and a state captured
+    from (or fed back into) the real ``RecurrentPPO`` model round-trips
+    unchanged.
+    """
+
+    def __init__(self, obj: dict, path: Path | None = None):
+        self.meta = dict(obj["meta"])
+        self.path = path
+        recurrent = obj["gru"]
+        self.core = _NumpyGruCell(recurrent)
+        head = recurrent["head"]
+        self.layers = [
+            (unpack_f32(layer["W"], name="gru.head.layers.W"),
+             unpack_f32(layer["b"], name="gru.head.layers.b"))
+            for layer in head["layers"]
+        ]
+        self.Wo = unpack_f32(head["Wout"], name="gru.head.Wout")
+        self.bo = unpack_f32(head["bout"], name="gru.head.bout")
+        activation = str(head.get("activation", "tanh"))
+        if activation not in _NLAYER_ACTIVATIONS:
+            raise ValueError(f"unsupported activation {activation!r}")
+        self._act_fn = _NLAYER_ACTIVATIONS[activation]
+        self.observation_space = _Space(int(self.meta["obs_dim"]))
+        self.action_space = _Space(int(self.meta.get("act_dim", 18)))
+        self.hidden = [self.core.hidden_size] + [
+            int(W.shape[0]) for W, _ in self.layers]
+        self.recurrent = True
+        self.reset()
+
+    def reset(self) -> None:
+        self.h = np.zeros(self.core.hidden_size, dtype=np.float32)
+
+    def _state_tuple(self):
+        hidden = self.h[None, None, :].copy()
+        return hidden, np.zeros_like(hidden)
+
+    def _restore_state(self, state) -> None:
+        hidden = state[0] if isinstance(state, tuple) else state
+        hidden = np.asarray(hidden, dtype=np.float32)
+        if hidden.ndim == 3 and hidden.shape[0] == 1 and hidden.shape[1] == 1:
+            hidden = hidden[0, 0, :]
+        want = (self.core.hidden_size,)
+        if hidden.shape != want:
+            raise ValueError(f"gru state shape {hidden.shape} != {want}")
+        self.h = hidden.copy()
+
+    def act(self, obs: np.ndarray) -> np.ndarray:
+        obs = np.asarray(obs, dtype=np.float32)
+        if obs.shape != self.observation_space.shape:
+            raise ValueError(
+                f"observation shape {obs.shape} != {self.observation_space.shape}")
+        self.h = self.core.step(obs, self.h)
+        hidden = self.h
+        for W, b in self.layers:
+            hidden = self._act_fn(W @ hidden + b)
+        mean = self.Wo @ hidden + self.bo
+        return np.clip(mean, -1.0, 1.0).astype(np.float32, copy=False)
+
+    def predict(self, obs, state=None, episode_start=None,
+                deterministic: bool = True, **_kw):
+        del deterministic  # exported actors are deterministic-only
+        batched = np.asarray(obs).ndim == 2
+        values = np.asarray(obs, dtype=np.float32)
+        if batched:
+            if values.shape[0] != 1:
+                raise ValueError("numpy gru supports one stream at a time")
+            values = values[0]
+        if state is not None:
+            self._restore_state(state)
+        if episode_start is not None and bool(np.asarray(episode_start).reshape(-1)[0]):
+            self.reset()
+        action = self.act(values)
+        if batched:
+            action = action[None, :]
+        return action, self._state_tuple()
+
+
 def load_np_policy(
     path,
-) -> NumpyMLPModel | NumpyMLPNLayerModel | NumpyDualGruModel:
+) -> NumpyMLPModel | NumpyMLPNLayerModel | NumpyDualGruModel | NumpyGruModel:
     obj = json.loads(Path(path).read_text())
     errs, _ = validate_np_policy(obj)
     if errs:
         raise ValueError(f"{Path(path).name}: " + "; ".join(errs[:3]))
     if obj["meta"].get("architecture", ARCH_MLP) == ARCH_DUAL_GRU:
         return NumpyDualGruModel(obj, Path(path))
+    if obj["meta"].get("architecture") == ARCH_SINGLE_GRU:
+        return NumpyGruModel(obj, Path(path))
     if "layers" in obj:
         return NumpyMLPNLayerModel(obj, Path(path))
     return NumpyMLPModel(obj, Path(path))

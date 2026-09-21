@@ -146,3 +146,16 @@ Evidence: `logs/ckpt_eval/cw_walk50hz_slew_smooth_s0_rot60_sectorstop60s_speed00
 test_cfg_recipe_walk50hz_slew_smooth_s0.py` (5 tests); see also
 `bundle_rlonly_lifecycle_v1/slewsmooth_s0/` for the composed rise+hold
 -> walk full-heading re-verification.
+
+## UPDATE 2026-09-21 (later same day): same OPTION verified on the `safewiden6-acq1` fallback candidate too (no retrain)
+
+Ran the identical rot60 sustained-multiheading gate (DR-0, 60s
+episodes, per-mode 4, det+sto x walk/walk_startjitter) against
+`cw-walk50hz-fs-bisect-drv-safewiden6-acq1` (the fs-bisect 5-group
+safe-widen DR-robustness alternative, packaged this cycle as
+`bundle_rlonly_v2/safewiden6_acq1/`): **16/16 gait_valid, 0/16 falls**
+-- ties `slew-smooth-s0`'s own result. Full detail, including an
+honest finding that this checkpoint's off-axis defect is a milder
+progress-only issue (not the gait_valid-breaking sacrifice
+`slew-smooth-s0` shows), in `bundle_rlonly_v2/safewiden6_acq1/
+{transfer_manifest.json,GO_NOGO.md}`.

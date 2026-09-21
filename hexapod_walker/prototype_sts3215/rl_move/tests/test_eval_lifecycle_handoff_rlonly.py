@@ -145,6 +145,7 @@ def test_cli_registers_heading_and_rot60_flags_default_off(capsys):
     assert "--walk-recipe" in out
     assert "rlonly_v2" in out
     assert "slew_smooth_s0" in out
+    assert "safewiden6_acq1" in out
 
 
 def test_write_mp4_empty_frames_is_noop(tmp_path):

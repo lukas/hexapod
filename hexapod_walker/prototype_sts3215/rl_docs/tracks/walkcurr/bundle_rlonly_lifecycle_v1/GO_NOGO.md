@@ -230,3 +230,21 @@ Evidence: `logs/ckpt_eval/lifecycle_rot60_fullheading_panel_slewsmooth_20260921/
 `rl_move/sim/cfg_recipe_walk50hz_slew_smooth_s0.py`;
 `rl_move/sim/eval_lifecycle_handoff_rlonly.py` (`--walk-recipe`);
 `rl_move/tests/test_eval_lifecycle_handoff_rlonly.py`.
+
+## UPDATE 2026-09-21 (later same day): re-verified on the `safewiden6-acq1` fallback candidate (no retrain, no scripted blend)
+
+Re-ran the identical composed rise+hold->walk full-heading panel
+(8 headings x2 episodes, baseline rot60-off vs candidate rot60-on)
+against `cw-walk50hz-fs-bisect-drv-safewiden6-acq1` (packaged this
+cycle as `bundle_rlonly_v2/safewiden6_acq1/`). Unlike `slew-smooth-s0`
+(whose raw baseline fails `gait_valid` outright off-axis, 11/16), this
+checkpoint's raw baseline already clears `gait_valid` 16/16 at every
+heading with 0 falls -- but off-axis (h135/h180/h-135) `dist_m`
+collapses to 0.03-0.42m (near-stationary) vs 0.65-1.02m on-axis, a real
+progress penalty `gait_valid` alone misses. The rot60 wrap (same
+checkpoint, zero retrain) restores off-axis `dist_m` to 0.77-0.95m,
+matching the on-axis band, 0/16 falls either arm. Read as a genuine but
+SMALLER-IN-KIND rot60 benefit than on the reference checkpoint -- see
+`bundle_rlonly_v2/safewiden6_acq1/GO_NOGO.md` for the full write-up and
+the caution against over-reading this as a second confirmation of the
+same chronic-sacrifice mechanism class.

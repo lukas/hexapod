@@ -1,0 +1,64 @@
+{
+  "schema": "hexapod.transfer_candidate.v1",
+  "candidate_name": "walkcurr-rlonly-fs-bisect-drv-safewiden6-acq1-50hz",
+  "parent_goal": "rl_only",
+  "supersedes": null,
+  "not_a_promotion_over": "walkcurr-rlonly-slew-smooth-s0-50hz (rl_docs/tracks/walkcurr/bundle_rlonly_v2/slew_smooth_s0) -- per walkcurr/STATUS.md 2026-09-21 ~07:3x/03:3x, `slew-smooth-s0` (23/24 gait_valid on its own DR-0 gate) remains the walkcurr 50Hz hardware-transfer REFERENCE. This checkpoint (21/24 gait_valid) is a validated ALTERNATIVE with a wider DR-robustness margin (5-group safe-widen bundle: mass, contact_stiff, kv+vel, latency, com_offset widened; joint backlash + foot stick-slip tried and closed for recombination onto this bundle at full/half/quarter dose -- STATUS.md 09-21 ~00:0x-~07:3x), packaged here as a fully-documented fallback candidate, not a new reference.",
+  "source_demo_summaries": [
+    "logs/ckpt_eval/cw_walk50hz_fs_bisect_drv_safewiden6_acq1_gate/report.json"
+  ],
+  "no_physical_robot_motion_performed": true,
+  "candidate_is_composition_not_single_policy": false,
+  "training_lineage_contract": "walkcurr rl_only (tracks.json): no gait clock, no BC teacher, no motion prior, no AMP/demo reward anywhere in this lineage. This checkpoint is a plain --init-from-source warm start of cw-walk50hz-fs-bisect-drv-safewiden6-s0 (itself warm-started from cw-walk50hz-slew-smooth-s0, a clean rl_only lineage -- see that bundle's own manifest) that widens 5 DR axis groups (dr.mass_scale, dr.contact_stiff_scale, dr.kv_scale_pct+dr.vel_scale, dr.latency_scale+dr.latency_load_gain, dr.com_offset_m) to the fs-bisect campaign's own bisected-safe values while leaving joint backlash and foot stick-slip disabled (both closed for recombination onto this bundle at every dose tried). No demonstration data, teacher action target, or scripted motion role enters this lineage at any point -- same reward/task stack, same clean provenance as its parent.",
+  "components": [
+    {
+      "state": "walk_ready -> walk_done (single policy, no stand/lower composition)",
+      "controller": "rl_move/sim/policies/ppo_goal_cw_walk50hz_fs_bisect_drv_safewiden6_acq1.zip",
+      "checkpoint_sha256": "1b106264e21b391c9884eb951ef64874a8888fdf4f0e485356eb1281e444fae5",
+      "policy_mode": "deterministic",
+      "exported_np_policy": "linux_control/policies/walkscratch_walk50hz_fs_bisect_drv_safewiden6_acq1.json",
+      "exported_np_policy_sha256": "df6d7d3a23efdd291a01e8b896ec2015d8fcf99e8001c1929b65e413c06da6ed",
+      "export_notes": "export_policy_np.py --training-hz 50 --control-hz 50 --bus-write-speed 4096 --bus-write-acc 1000, generic N-layer/ELU format (net-arch 256,256,128), parity 2.41e-07 over 200 random obs (bar 1e-5).",
+      "joystick_contract": {
+        "body_frame_vx_vy_m_s": true,
+        "trained_speed_m_s": 0.06,
+        "trained_heading_set_rad_8way": true,
+        "obs_dim": 72,
+        "control_hz": 50
+      }
+    }
+  ],
+  "no_stand_or_lower_role_in_this_bundle": "This candidate is the WALK role only, same limitation as slew_smooth_s0 and the parent bundle_rlonly_v2. A physical trial needs a separate stand-up to the walk_ready pose and a separate lower/catch at the end.",
+  "seed_family_status": "single seed (seed 2, this lineage's own). Not a seed-swept candidate.",
+  "transfer_blockers_or_work": [
+    "PHYSICAL SAFETY: same motor/safety contract as slew_smooth_s0 (bus.write_speed=4096, bus.write_acc=1000, safety.max_delta_q_deg=3.5 -- 175 deg/s per-tick cap at 50Hz). This is the SIM TRAINING contract, not a physical-safe contract. Robot Lab MUST independently verify/derate these against real servo/current limits before ANY motion.",
+    "CONTROL RATE: control.hz=50 (20ms tick), the operator-mandated deployable rate for hexapod2 (op_20260910_50hz).",
+    "DR-ROBUSTNESS MARGIN (this candidate's own reason to exist): trained under widened mass/contact_stiff/kv+vel/latency/com_offset ranges vs slew_smooth_s0's narrower (identity-only) always-on set -- see cfg_recipe_walk50hz_fs_bisect_drv_safewiden6_acq1.py for the exact verbatim widened values. Own DR-0 gate (dr_scale=0.0, n=6/mode) reads 21/24 gait_valid (walk/det 5/6 sac[5], walk/sto 5/6 sac[5], walk_startjitter/det 6/6, walk_startjitter/sto 5/6 sac[0]) -- slightly below slew_smooth_s0's 23/24, the reason this stays an alternative, not a promotion.",
+    "KNOWN BEHAVIORAL LIMITATION -- DIFFERENT SHAPE FROM slew_smooth_s0, not identical: the composed rise+hold->walk full-heading panel (8 headings x2 episodes, this cycle) shows this checkpoint's RAW (rot60 off) baseline ALREADY clears gait_valid 16/16 with 0 falls at every heading, unlike slew_smooth_s0's own baseline (11/16, failing h+-90/h135/h-135) -- the wider DR training this bundle exists for appears to have also reduced (not eliminated) the chronic off-forward leg-sacrifice signature. However, dist_m at h135/h180/h-135 drops to 0.03-0.42m in the raw baseline (near-stationary) vs 0.65-1.02m at on-axis headings -- a real off-axis PROGRESS penalty that gait_valid alone does not catch. The rot60 wrap (zero retrain, same checkpoint) removes this too: dist_m at those same headings rises to 0.77-0.95m, matching the on-axis band, with 0/16 falls either way. Read as: rot60 remains a real, free-lunch improvement on this checkpoint's off-axis PROGRESS even though the raw leg-sacrifice/gait_valid failure mode it was built to fix does not manifest as sharply here.",
+    "Run only the read-only hardware preflight first: 18 servos, IMU, pose near walk_ready, tilt within limit.",
+    "Joystick commands must stay inside the trained command envelope (0.06 m/s, the 8-way heading set) until a hardware ladder says otherwise.",
+    "Stop immediately on tip, brownout, high current, missing servo, or hot motor.",
+    "This is a single learned policy with clean rl_only ancestry, but it has NOT been through any physical trial; GO below is for simulation/export readiness, not physical acceptance."
+  ],
+  "demo_metrics": {
+    "own_gate_dr0_n6": {
+      "walk_det": {"gait_valid": "5/6", "sacrificed_legs_ep": "[5]"},
+      "walk_sto": {"gait_valid": "5/6", "sacrificed_legs_ep": "[5]"},
+      "walk_startjitter_det": {"gait_valid": "6/6"},
+      "walk_startjitter_sto": {"gait_valid": "5/6", "sacrificed_legs_ep": "[0]"}
+    },
+    "rot60_sustained_multiheading_60s_n4permode": {
+      "walk_det": {"gait_valid": "4/4", "falls": 0},
+      "walk_sto": {"gait_valid": "4/4", "falls": 0},
+      "walk_startjitter_det": {"gait_valid": "4/4", "falls": 0},
+      "walk_startjitter_sto": {"gait_valid": "4/4", "falls": 0}
+    },
+    "composed_lifecycle_full_heading_panel_n2permode": {
+      "baseline_rot60_off": {"direct_gait_valid": "16/16", "direct_falls": 0, "off_axis_dist_m_note": "h135/h180/h-135 dist_band 0.03-0.42m (near-stationary) vs 0.65-1.02m on-axis"},
+      "candidate_rot60_on": {"direct_gait_valid": "16/16", "direct_falls": 0, "off_axis_dist_m_note": "h135/h180/h-135 dist_band 0.77-0.95m, matching on-axis band"}
+    }
+  },
+  "interactive_launch": "cd hexapod_walker/prototype_sts3215 && sim_viewer/sim_web.sh --walk rl_move/sim/policies/ppo_goal_cw_walk50hz_fs_bisect_drv_safewiden6_acq1.zip",
+  "reproducible_video_capture": "uv run python -m rl_move.sim.eval_lifecycle_handoff_rlonly --walk rl_move/sim/policies/ppo_goal_cw_walk50hz_fs_bisect_drv_safewiden6_acq1.zip --walk-recipe safewiden6_acq1 --episodes 1 --hold-s 6.0 --video <dir>   (add --rot60 --heading-deg 90 --hold-s 15.0 for the full-direction demo)",
+  "open_caveats_not_hidden": "off-forward tracking accuracy (vel_err_mean<=0.03 bar) not measured at any speed on this checkpoint, same k_track=0.0 mechanistic explanation as every other checkpoint in this lineage. Rot60's benefit here is real but SMALLER in kind than on slew_smooth_s0 (progress-only, not a gait_valid rescue) -- do not cite this checkpoint as a second confirmation of the same chronic leg-sacrifice mechanism class; it is a milder, partially-already-mitigated instance."
+}

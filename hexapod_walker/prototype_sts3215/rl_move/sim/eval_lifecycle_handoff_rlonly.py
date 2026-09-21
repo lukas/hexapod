@@ -246,7 +246,9 @@ def main() -> int:
                           "front-pair-sacrifice failure, tested here "
                           "AFTER a real rise+hold handoff instead of "
                           "the walk role's own isolated clean reset")
-    ap.add_argument("--walk-recipe", choices=("rlonly_v2", "slew_smooth_s0"),
+    ap.add_argument("--walk-recipe",
+                     choices=("rlonly_v2", "slew_smooth_s0",
+                              "safewiden6_acq1"),
                      default="rlonly_v2",
                      help="which versioned walk-role cfg-set recipe to "
                           "build env_walk from (default rlonly_v2 = "
@@ -255,9 +257,13 @@ def main() -> int:
                           "champion's own trained contract); "
                           "slew_smooth_s0 = the promoted "
                           "cw-walk50hz-slew-smooth-s0 hardware-transfer "
-                          "reference's own trained contract -- pass "
-                          "--walk pointing at that checkpoint's .zip "
-                          "too when using this")
+                          "reference's own trained contract; "
+                          "safewiden6_acq1 = the fs-bisect 5-group "
+                          "safe-widen DR-robustness alternative "
+                          "(cw-walk50hz-fs-bisect-drv-safewiden6-acq1, "
+                          "21/24 gait_valid) -- pass --walk pointing at "
+                          "the matching checkpoint's .zip too when "
+                          "using either non-default recipe")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", type=Path, default=None)
     ap.add_argument("--strips", type=Path, default=None,
@@ -283,6 +289,10 @@ def main() -> int:
     from rl_move.env import build_obs
     if args.walk_recipe == "slew_smooth_s0":
         from .cfg_recipe_walk50hz_slew_smooth_s0 import (
+            CFG_ARGS as WALK_CFG_ARGS,
+        )
+    elif args.walk_recipe == "safewiden6_acq1":
+        from .cfg_recipe_walk50hz_fs_bisect_drv_safewiden6_acq1 import (
             CFG_ARGS as WALK_CFG_ARGS,
         )
     else:

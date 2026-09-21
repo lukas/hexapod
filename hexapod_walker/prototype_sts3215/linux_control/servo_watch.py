@@ -79,6 +79,11 @@ class ServoWatch:
     def stop(self) -> None:
         self._stop.set()
 
+    def last_feedback(self) -> tuple[dict, float] | None:
+        """Most recent raw ``read_all_feedback`` result and its unix time (no bus traffic)."""
+        with self._lock:
+            return getattr(self, "_last_fb", None)
+
     def state(self) -> dict:
         """Latest snapshot (display-ready; no bus traffic)."""
         with self._lock:
@@ -146,6 +151,8 @@ class ServoWatch:
                             "tripped": j in self._tripped})
 
         with self._lock:
+            # raw per-joint feedback for /api/feedback while a job owns the bus (no extra bus traffic)
+            self._last_fb = ({j: dict(f) for j, f in fb.items()}, now)
             self._snap = {
                 "ok": True,
                 "ts": now,

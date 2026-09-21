@@ -333,11 +333,26 @@ bus:
   # The pure power model reads ~0 A at a stall and under-predicted the real
   # combo-walk mechanical current ~4x (real 0.32 vs sim 0.08 A above idle);
   # this adds winding current on the load-bearing hip/knee that ride the 2.2
-  # N·m rail, closing bus mean ~0.31->0.38 A (real 0.53) while leaving idle,
-  # the scripted-gait fit (gaitval), and the over-current trip untouched
-  # (torque < thr => term is 0; the trip rides a separate torque proxy).
-  # Fit on ONE tape — see /tmp/simgap; needs multi-protocol sysid to confirm.
-  # Peaks stay under (open-loop replay cannot reproduce real impact loads).
+  # N·m rail, closing bus mean ~0.31->0.38 A (real 0.53); idle and the
+  # over-current trip stay untouched (trip rides a separate torque proxy).
+  # CAVEAT (2026-09-21 peak-fit review, claude/current-peak-fit): the term is
+  # NOT ~0 on the scripted gaitval gaits — their torque ALSO rails at 2.2 N·m
+  # (> thr), so this DRIFTS gaitval bus current, most on the high-load gait 1
+  # (+~0.08 A: pure-power 0.37 -> 0.44 vs real 0.34). It is a small deliberate
+  # gaitval regression traded for the walk-mean gain, and this (ks,thr) is
+  # Pareto-optimal: no coefficient raises the walk peak without worsening
+  # gaitval further (walk & scripted gaits are kinematically indistinguishable
+  # at the joints; both saturate the 2.2 N·m torque clamp). See
+  # rl_move/tests/test_current_model.py:test_stall_term_gaitval_drift_bounded.
+  # PEAK CEILING: the walk peak stays under NOT because of this coefficient but
+  # because the sim |tau| is clamped at AxisParams.torque_limit_nm=2.2 N·m,
+  # while the real robot's footfall torque implies ~4 N·m (raising the clamp to
+  # 4.0 re-saturates |tau| there). Real LPF-matched per-joint hip/knee peaks
+  # ~0.58-0.61 A need ~4 N·m; at the shipped k_stall this term tops out at only
+  # ~0.05 A/joint (IQ_J+0.042*(2.2-1.2)); even the gaitval-breaking k_stall≈0.23
+  # reaches just ~0.18 A/joint. Matching the peak is a dynamics fix
+  # (torque_limit_nm / contact load / under-rock),
+  # not a current coefficient. Fit on ONE tape (run b616) — see /tmp/simgap.
   current_k_stall_a_per_nm: 0.042  # A per N·m of |torque| above thr (0 = off)
   current_stall_thr_nm: 1.2        # free-hold torque rail (N·m)
   # Default OFF after 2026-08-06 cooked-knee incident. Explicit opt-in only.

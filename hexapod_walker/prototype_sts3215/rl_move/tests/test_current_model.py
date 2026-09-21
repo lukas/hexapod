@@ -111,6 +111,79 @@ def test_winding_term_off_is_bitexact_power_model():
     assert st.servo_current[j] == pytest.approx(IQ_JOINT, abs=1e-6)
 
 
+def test_peak_stall_current_is_capped_by_the_torque_rail():
+    """PEAK CEILING (2026-09-21 peak-fit review, claude/current-peak-fit).
+
+    The winding/stall term rides |torque|, and the sim's actuator force is
+    clamped at ``AxisParams.torque_limit_nm`` (2.2 N·m; servo_model). So the
+    MOST per-joint stall current the model can emit is
+    ``IQ_JOINT + K_STALL*(rail - STALL_THR)`` — ~0.05 A at the shipped
+    k_stall=0.042 (and only ~0.18 A even at a gaitval-breaking 0.23) — below
+    the real
+    robot's LPF-matched per-joint walk peak (~0.58-0.61 A on hip/knee, run
+    b616; a raised-rail probe re-saturates |tau| at 4 N·m, so the real
+    footfall torque implies ~4 N·m, ~2x the sim clamp).
+
+    i.e. the current-model MAPPING cannot reproduce the real per-joint current
+    PEAK: the sim |tau| rails at about half the real robot's implied footfall
+    torque, and cranking K_STALL to reach the peak would break the scripted
+    gaitval-gait current (test_stall_term_gaitval_drift_bounded). Matching the
+    peak is a dynamics fix (torque_limit_nm / contact load / under-rock), not
+    a current coefficient. This pins the ceiling so a future K_STALL crank is
+    not mistaken for a peak fix.
+    """
+    from rl_move.sim.servo_model import SimServoParams
+    env = _mkenv("power")
+    rail = SimServoParams.from_cfg(env.cfg).axes["hip"].torque_limit_nm
+    assert rail == pytest.approx(2.2)
+    j = 5
+    _set_joint(env, j, torque=rail, qvel=0.0)  # joint pinned at the force clamp
+    st = env._read_state()
+    ceiling = IQ_JOINT + K_STALL * (rail - STALL_THR)
+    assert st.servo_current[j] == pytest.approx(ceiling, abs=1e-6)
+    # the mapping ceiling is far below the measured real per-joint LPF peak
+    REAL_HIP_KNEE_LPF_PEAK_A = 0.58
+    assert ceiling < 0.25
+    assert ceiling < 0.5 * REAL_HIP_KNEE_LPF_PEAK_A
+
+
+def test_stall_term_gaitval_drift_bounded():
+    """GUARD (the check the 2026-09-21 refit omitted): the winding term is NOT
+    ~0 on the scripted gaitval gaits — their |torque| ALSO rails at 2.2 N·m
+    (> thr) — so it DRIFTS the validated scripted-gait bus current. At the
+    shipped (k_stall, thr) that drift is small (max ~0.08 A, on gait 1); this
+    test bounds it so a future coefficient crank that reaches for the walk peak
+    (e.g. k_stall≈0.23 would add ~0.24 A to gait 1) fails loudly instead of
+    silently wrecking the gaitval fit. Skips if the /tmp telemetry is gone
+    (same policy as test_constants_reproduce_the_fit)."""
+    import csv
+    import json
+    import os
+
+    csv_path = "/tmp/gaitval/run_C/sim_telemetry.csv"
+    if not os.path.exists(csv_path):
+        pytest.skip("gaitval telemetry artifact absent")
+    cfg = load_config()
+    k_stall = float(cfg["bus"].get("current_k_stall_a_per_nm", 0.0))
+    thr = float(cfg["bus"].get("current_stall_thr_nm", 1.2))
+    rows = list(csv.DictReader(open(csv_path)))
+    GUARD_A = 0.12  # bus stall-term add budget per gait (on-main ~0.08 max)
+    worst = 0.0
+    for g in (1, 2, 3, 4, 7, 10):
+        sel = [r for r in rows if r["phase"] == f"gait_{g}_forward"]
+        if not sel:
+            continue
+        add = np.mean([
+            float(np.sum(k_stall * np.maximum(
+                np.abs(np.array(json.loads(r["joint_torque_nm"]))) - thr, 0.0)))
+            for r in sel])
+        worst = max(worst, add)
+    assert worst < GUARD_A, (
+        f"stall term adds {worst:.3f} A to a gaitval gait (> {GUARD_A} guard) "
+        f"at k_stall={k_stall}, thr={thr} — this breaks the scripted-gait "
+        f"current fit; the walk peak is upstream-limited, not a k_stall knob")
+
+
 def test_legacy_model_bit_exact():
     """torque_proxy reproduces the pre-2026-09-19 estimate and sets NO
     separate trip signal (trip reads servo_current)."""

@@ -267,6 +267,14 @@ plant:
   knee_deg: null
 
 env:
+  # NOTE (2026-09-21 reality-gap refit, item #5, DEFERRED): the twin
+  # assumes total mass 3.49 kg / an uncalibrated CoM+inertia (mesh model).
+  # The combo-tape gap analysis could NOT confirm these -- it needs the
+  # real robot WEIGHED (and a CoM/inertia measurement). Body-rate and
+  # current both scale with mass/inertia, so a wrong mass would alias into
+  # the actuator/current fits here. Left UNCHANGED (guessing mass would
+  # corrupt the fit); revisit once the robot is weighed. See handback.
+  #
   # Foot-ground SLIDE friction (pair mu; 0 = keep the XML default 2.0).
   # 2026-09-21 reality-gap refit (claude/sim-refit) PROBED lowering this
   # (item #4): the twin over-progresses ~1.7x on the real combo tape (sim

@@ -43,6 +43,7 @@ import csv
 import filecmp
 import json
 import math
+import os
 import sys
 import queue
 import threading
@@ -4232,6 +4233,58 @@ def _run_policy_move_impl(drive, mode: str, *, on_progress=None,
     return result
 
 
+# Real-time scheduling for the control-loop thread (2026-09-21).  The tick
+# loop sleeps until its deadline and then must run immediately; under
+# SCHED_OTHER the wake-up lag averaged ~0.9 ms on the Uno Q with 55 ms
+# outliers ("hard lag" trips).  SCHED_FIFO at a modest priority puts the
+# control thread ahead of the web server, pollers and the episode logger.
+# Needs RLIMIT_RTPRIO (systemd LimitRTPRIO= in hexapod-web.service) or
+# CAP_SYS_NICE; without it this is a silent no-op, so tests and macOS are
+# unaffected.  Only the calling thread is changed (pid 0 = this thread on
+# Linux) and it is restored on exit.
+CONTROL_LOOP_RT_PRIORITY = int(os.environ.get("HEXAPOD_CONTROL_RT_PRIORITY", "30"))
+_rt_status: dict = {"requested": False, "active": False, "error": ""}
+
+
+class _control_loop_realtime:
+    """Context manager: SCHED_FIFO for the calling thread while inside."""
+
+    def __init__(self, priority: int | None = None):
+        self.priority = (CONTROL_LOOP_RT_PRIORITY if priority is None
+                         else int(priority))
+        self._restore = None
+
+    def __enter__(self):
+        _rt_status.update(requested=True, active=False, error="")
+        if self.priority <= 0 or not hasattr(os, "sched_setscheduler"):
+            return self
+        try:
+            prev_policy = os.sched_getscheduler(0)
+            prev_param = os.sched_getparam(0)
+            os.sched_setscheduler(0, os.SCHED_FIFO,
+                                  os.sched_param(self.priority))
+            self._restore = (prev_policy, prev_param)
+            _rt_status.update(active=True)
+        except (OSError, AttributeError, ValueError) as e:
+            _rt_status.update(error=f"{type(e).__name__}: {e}")
+        return self
+
+    def __exit__(self, *exc):
+        if self._restore is not None:
+            try:
+                os.sched_setscheduler(0, self._restore[0], self._restore[1])
+            except OSError:
+                pass
+            self._restore = None
+        _rt_status.update(active=False)
+        return False
+
+
+def control_loop_rt_status() -> dict:
+    """What the last control loop got from the scheduler (for summaries)."""
+    return dict(_rt_status)
+
+
 def run_policy_move(drive, mode: str, *, on_progress=None,
                     abort_check=None, vx: float = 0.03, vy: float = 0.0,
                     duration_s: float = 6.0, rot60: bool = True,
@@ -4244,14 +4297,18 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
     """Exception-safe public wrapper for a bounded policy move."""
     require_bus_available(getattr(drive, "bus", None))
     try:
-        return _run_policy_move_impl(
-            drive, mode, on_progress=on_progress,
-            abort_check=abort_check, vx=vx, vy=vy,
-            duration_s=duration_s, rot60=rot60, turn=turn,
-            weights_path=weights_path, tilt_trip_deg=tilt_trip_deg,
-            extra_hold_s=extra_hold_s,
-            allow_step_stand_start=allow_step_stand_start,
-            stand_handoff=stand_handoff)
+        with _control_loop_realtime():
+            result = _run_policy_move_impl(
+                drive, mode, on_progress=on_progress,
+                abort_check=abort_check, vx=vx, vy=vy,
+                duration_s=duration_s, rot60=rot60, turn=turn,
+                weights_path=weights_path, tilt_trip_deg=tilt_trip_deg,
+                extra_hold_s=extra_hold_s,
+                allow_step_stand_start=allow_step_stand_start,
+                stand_handoff=stand_handoff)
+        if isinstance(result, dict):
+            result.setdefault("realtime", control_loop_rt_status())
+        return result
     finally:
         _stop_active_async_samplers()
 
@@ -5561,12 +5618,16 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
     """Exception-safe public wrapper for a persistent drive session."""
     require_bus_available(getattr(drive, "bus", None))
     try:
-        return _run_drive_session_impl(
-            drive, cmd, on_progress=on_progress,
-            abort_check=abort_check, rot60=rot60,
-            walk_weights=walk_weights, hold_weights=hold_weights,
-            allow_step_stand_start=allow_step_stand_start,
-            velocity_filter_alpha=velocity_filter_alpha,
-            active_duration_s=active_duration_s, hold_mode=hold_mode)
+        with _control_loop_realtime():
+            result = _run_drive_session_impl(
+                drive, cmd, on_progress=on_progress,
+                abort_check=abort_check, rot60=rot60,
+                walk_weights=walk_weights, hold_weights=hold_weights,
+                allow_step_stand_start=allow_step_stand_start,
+                velocity_filter_alpha=velocity_filter_alpha,
+                active_duration_s=active_duration_s, hold_mode=hold_mode)
+        if isinstance(result, dict):
+            result.setdefault("realtime", control_loop_rt_status())
+        return result
     finally:
         _stop_active_async_samplers()

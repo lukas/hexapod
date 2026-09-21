@@ -62,9 +62,14 @@ from feetech_bus import (  # noqa: E402
 )
 
 MCU_PORT_DEFAULT = "/dev/ttyHS1"
-# Firmware HOST_BAUD. The STREAM sketch only speaks 921600; the old 115200
-# fallback existed for pre-STREAM sketches and is gone with them.
+# Firmware HOST_BAUD.  Since 2026-09-21 the bridge speaks 2 Mbaud (a 113-byte
+# 'S' tick frame + 129-byte reply is 2.6 ms of wire time at 921600 and 1.2 ms
+# at 2 M); the host tries the fast rate first and falls back to 921600 so a
+# robot still on the older sketch keeps working (it just keeps the slower
+# link).  The old 115200 ASCII path is gone.
+MCU_BAUD_FAST = 2_000_000
 MCU_BAUD = 921_600
+MCU_BAUDS = (MCU_BAUD_FAST, MCU_BAUD)
 FLASH_HINT = ("flash the current bridge with "
               "firmware/flash_feetech_bridge.sh arduino@<robot>.local, "
               "then sudo systemctl restart hexapod-web")
@@ -278,7 +283,7 @@ class _FakePort:
 
     def setBaudRate(self, baud: int) -> bool:
         # Host↔MCU link baud; servo-bus baud changes aren't wired yet.
-        return baud in (MCU_BAUD, 115_200, BAUD_DEFAULT, 1_000_000)
+        return baud in (MCU_BAUD_FAST, MCU_BAUD, 115_200, BAUD_DEFAULT, 1_000_000)
 
     def closePort(self) -> None:
         pass
@@ -421,21 +426,27 @@ class McuFeetechBus:
         # much cheaper.
         rounds = 6
         for attempt in range(rounds):
-            try:
-                if self._ser is not None:
-                    self._ser.close()
-            except Exception:
-                pass
-            self._ser = serial.Serial(
-                port, MCU_BAUD, timeout=MCU_SERIAL_READ_TIMEOUT,
-                write_timeout=1.0)
-            time.sleep(0.12)
-            self._serial_reset_input()
-            # TFT bitbang init can briefly stall the MCU after reset.
-            hello = self._transact("HELLO", timeout=2.0)
-            last_hello = hello
-            if hello is not None and "HELLO" in hello:
-                connected = True
+            # Fast link first, legacy 921600 second (older sketch).  A HELLO
+            # at the wrong rate reads as garbage/nothing, never as "HELLO".
+            for baud in MCU_BAUDS:
+                try:
+                    if self._ser is not None:
+                        self._ser.close()
+                except Exception:
+                    pass
+                self._ser = serial.Serial(
+                    port, baud, timeout=MCU_SERIAL_READ_TIMEOUT,
+                    write_timeout=1.0)
+                time.sleep(0.12)
+                self._serial_reset_input()
+                # TFT bitbang init can briefly stall the MCU after reset.
+                hello = self._transact("HELLO", timeout=2.0)
+                last_hello = hello
+                if hello is not None and "HELLO" in hello:
+                    self.baud = baud
+                    connected = True
+                    break
+            if connected:
                 break
             print(f"[bus] no HELLO from {port} (attempt {attempt + 1}/"
                   f"{rounds}, got {last_hello!r}) — retrying")
@@ -500,7 +511,8 @@ class McuFeetechBus:
         self.sync_write_retries = 0
         self.imu_wake_attempts = 0
         self._imu_wake_mono = 0.0
-        print("[bus] MCU stream mode ON")
+        print(f"[bus] MCU stream mode ON (host link {self.baud} baud, "
+              f"hello {last_hello!r})")
 
     def set_telemetry_sink(self, sink) -> None:
         """Attach/detach a nonblocking passive recorder callback.
@@ -822,6 +834,7 @@ class McuFeetechBus:
                 buf.extend(chunk)
             else:
                 time.sleep(0.0005)
+        self._last_partial_read = bytes(buf)
         return bytes(buf) if len(buf) == n else None
 
     def _record_bin_trace(self, trace: dict, *, ok: bool,
@@ -902,16 +915,19 @@ class McuFeetechBus:
             t_locked = time.monotonic()
             trace["lock_wait_ms"] = round((t_locked - t_lock_req) * 1000.0, 3)
             t0 = time.monotonic()
-            self._serial_reset_input()
+            # tcflush costs ~0.27 ms on the Uno Q; only pay it when stale
+            # bytes are actually buffered (a late reply from a timed-out txn).
+            if getattr(self._ser, "in_waiting", 1):
+                self._serial_reset_input()
             trace["reset_input_ms"] = round((time.monotonic() - t0) * 1000.0, 3)
             t_write = time.monotonic()
             self._serial_write(frame)
             trace["serial_write_ms"] = round(
                 (time.monotonic() - t_write) * 1000.0, 3)
-            t_flush = time.monotonic()
-            self._ser.flush()
-            trace["serial_flush_ms"] = round(
-                (time.monotonic() - t_flush) * 1000.0, 3)
+            # No tcdrain here (removed 2026-09-21): waiting for the reply
+            # below already covers the wire time, and the drain's polling
+            # overshoot was ~0.3 ms mean / ~1 ms p95 per tick on the Uno Q.
+            trace["serial_flush_ms"] = 0.0
             trace["write_flush_ms"] = round((time.monotonic() - t0) * 1000.0, 3)
             # Skip any ASCII chatter (HELLO) until A5 arrives.
             deadline = time.monotonic() + timeout
@@ -980,17 +996,24 @@ class McuFeetechBus:
                 return finish(None, ok=False, reason="reply_n_gt_18")
             want_len = head_len + rn * rec_size
             t0 = time.monotonic()
-            payload = self._read_exact(head_len + rn * rec_size, timeout)
+            # payload + checksum in ONE read: each extra read() boundary
+            # cost ~0.1-0.3 ms on the Uno Q.
+            body = self._read_exact(want_len + 1, timeout)
             trace["payload_ms"] = round((time.monotonic() - t0) * 1000.0, 3)
-            trace["payload_len"] = 0 if payload is None else len(payload)
+            trace["checksum_ms"] = 0.0
+            if body is None:
+                # Distinguish "no payload" from "payload but no checksum" the
+                # way the two-read version did, for the trace reader.
+                got = len(self._last_partial_read) if hasattr(
+                    self, "_last_partial_read") else 0
+                trace["payload_len"] = min(got, want_len)
+                trace["payload_want_len"] = int(want_len)
+                return finish(None, ok=False,
+                              reason=("checksum_timeout" if got >= want_len
+                                      else "payload_timeout"))
+            payload, chk = body[:want_len], body[want_len:]
+            trace["payload_len"] = len(payload)
             trace["payload_want_len"] = int(want_len)
-            if payload is None:
-                return finish(None, ok=False, reason="payload_timeout")
-            t0 = time.monotonic()
-            chk = self._read_exact(1, timeout)
-            trace["checksum_ms"] = round((time.monotonic() - t0) * 1000.0, 3)
-            if chk is None:
-                return finish(None, ok=False, reason="checksum_timeout")
             x = hdr[1] ^ rn
             for b in payload:
                 x ^= b

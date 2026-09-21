@@ -469,6 +469,12 @@ class RlApi:
         blocked = self._bus_admission_error()
         if blocked is not None:
             return blocked
+        if self._demo_thread and self._demo_thread.is_alive():
+            # A running job (RL drive, stand-up, demo) owns the bus.  This bulk read is a full host round trip; on
+            # 2026-09-20 one got no MCU reply for 1.5 s and the 50 Hz drive loop starved behind the bus lock
+            # ("feedback stale during stream").  Temperatures meanwhile: the servo watchdog block in /api/robot.
+            return {"ok": False, "error": "robot busy: a job owns the servo bus; read the servo block of /api/robot",
+                    "busy": True}
         bus = d.bus
         try:
             fb = bus.read_all_feedback()

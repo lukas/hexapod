@@ -44,6 +44,7 @@ import filecmp
 import json
 import math
 import sys
+import queue
 import threading
 import time
 from dataclasses import dataclass, replace
@@ -2788,17 +2789,71 @@ class _EpisodeLog:
                              summary=self.sum_path.name,
                              params=params)
 
+        # The CSV row is built and written by a daemon thread (2026-09-21).  Formatting
+        # one row (~200 columns of round()/tolist()) cost ~1.1 ms of the control thread's
+        # 20 ms tick on the Uno Q (measured 1.13 ms mean, 1.39 ms p95; the snapshot below
+        # costs 0.16 ms); with a 256-wide dual-GRU policy that is most of the margin
+        # between fitting 50 Hz and tripping the timing guard.  tick() now
+        # only snapshots the values (arrays are copied because the estimator reuses
+        # its buffers and callers mutate state after ticking) and enqueues them.
+        self._q: queue.SimpleQueue = queue.SimpleQueue()
+        self._written = 0
+        self._writer_error: str | None = None
+        self._writer = threading.Thread(target=self._drain, name="rl-episode-log",
+                                        daemon=True)
+        self._writer.start()
+
     def tick(self, t: float, state, action, q_cmd_rad, goal,
              vx_r: float, vy_r: float, max_cur: float,
              obs=None, phase: str = "run", rot60_k=None,
              mirror_on=None, runner_timing: dict | None = None,
              walk_engaged: bool = False, learned_policy_active: bool = False,
              bus_write_due: bool = False) -> None:
-        cur = (state.servo_current.tolist()
-               if state.servo_current is not None else [None] * N_JOINTS)
-        timing = dict(getattr(state, "timing", {}) or {})
-        now_mono = time.monotonic()
-        host_age_ms = max(0.0, now_mono - state.timestamp) * 1000.0
+        """Control-thread side: copy what the row needs and hand it to the writer."""
+        def arr(v):
+            return None if v is None else np.array(v, dtype=float)
+        rec = (
+            float(t), phase,
+            # state snapshot (only the fields the row reads)
+            float(state.timestamp), arr(state.joint_position),
+            float(state.imu_roll), float(state.imu_pitch),
+            arr(state.imu_gyro), arr(state.imu_accel),
+            arr(state.servo_current),
+            bool(getattr(state, "bus_ok", False)), bool(getattr(state, "imu_ok", False)),
+            dict(getattr(state, "timing", {}) or {}),
+            arr(action), arr(q_cmd_rad),
+            None if goal is None else float(goal.height_ref),
+            float(vx_r), float(vy_r), float(max_cur), arr(obs),
+            rot60_k, mirror_on,
+            None if runner_timing is None else dict(runner_timing),
+            bool(walk_engaged), bool(learned_policy_active), bool(bus_write_due),
+            time.monotonic(), time.time(),
+        )
+        self._n += 1
+        self._q.put(rec)
+
+    def _drain(self) -> None:
+        while True:
+            rec = self._q.get()
+            if rec is None:
+                return
+            try:
+                self._w.writerow(self._row(*rec))
+            except Exception as e:        # a bad row must never kill the logger
+                self._writer_error = f"{type(e).__name__}: {e}"
+                continue
+            self._written += 1
+            if self._written % 25 == 0:   # survive a mid-run kill: flush each ~1 s
+                self._f.flush()
+
+    def _row(self, t, phase, ts, joint_position, imu_roll, imu_pitch, imu_gyro,
+             imu_accel, servo_current, bus_ok, imu_ok, timing, action, q_cmd_rad,
+             height_ref, vx_r, vy_r, max_cur, obs, rot60_k, mirror_on,
+             runner_timing, walk_engaged, learned_policy_active, bus_write_due,
+             now_mono, wall) -> list:
+        cur = (servo_current.tolist() if servo_current is not None
+               else [None] * N_JOINTS)
+        host_age_ms = max(0.0, now_mono - ts) * 1000.0
 
         def sensor_age_ms(key: str):
             value = timing.get(key)
@@ -2813,11 +2868,10 @@ class _EpisodeLog:
         state_age_ms = round(max(
             [host_age_ms] + [age for age in (pos_age_ms, imu_age_ms)
                              if age != ""]), 3)
-        obs_cols = (np.round(np.asarray(obs, dtype=float), 4).tolist()
+        obs_cols = (np.round(obs, 4).tolist()
                     if obs is not None else [""] * self.obs_dim)
         if q_cmd_rad is not None:
-            q_err = np.abs(np.asarray(state.joint_position, dtype=float)
-                           - np.asarray(q_cmd_rad, dtype=float)) * RAD2DEG
+            q_err = np.abs(joint_position - q_cmd_rad) * RAD2DEG
             q_err_j = int(np.argmax(q_err)) if len(q_err) else 0
             q_err_max = round(float(q_err[q_err_j]) if len(q_err) else 0.0, 2)
         else:
@@ -2832,31 +2886,28 @@ class _EpisodeLog:
 
         # Mount-uncorrected sensor-frame tilt (filtered). The trusted chassis
         # tilt is this rotated by the body-frame calib; blank when uncalibrated.
-        uncal_roll = round(state.imu_roll * RAD2DEG, 2)
-        uncal_pitch = round(state.imu_pitch * RAD2DEG, 2)
+        uncal_roll = round(imu_roll * RAD2DEG, 2)
+        uncal_pitch = round(imu_pitch * RAD2DEG, 2)
         body = sensor_to_body_tilt_deg(uncal_roll, uncal_pitch, self.body_frame)
         body_cols = ["", ""] if body is None else [round(body[0], 2),
                                                    round(body[1], 2)]
 
-        self._w.writerow(
+        return (
             [round(t, 3), phase, uncal_roll, uncal_pitch]
-            + [round(float(g) * RAD2DEG, 2) for g in state.imu_gyro]
-            + [round(goal.height_ref * 1000, 1) if goal is not None
-               else "",
+            + [round(float(g) * RAD2DEG, 2) for g in imu_gyro]
+            + [round(height_ref * 1000, 1) if height_ref is not None else "",
                round(vx_r, 4), round(vy_r, 4), round(max_cur, 3)]
-            + np.round(np.asarray(state.joint_position, dtype=float)
-                       * RAD2DEG, 2).tolist()
-            + (np.round(np.asarray(q_cmd_rad, dtype=float)
-                        * RAD2DEG, 2).tolist()
+            + np.round(joint_position * RAD2DEG, 2).tolist()
+            + (np.round(q_cmd_rad * RAD2DEG, 2).tolist()
                if q_cmd_rad is not None else [""] * N_JOINTS)
-            + (np.round(np.asarray(action, dtype=float), 4).tolist()
+            + (np.round(action, 4).tolist()
                if action is not None else [""] * N_JOINTS)
             + ["" if c is None else round(float(c), 3) for c in cur]
             + obs_cols
             + ["" if rot60_k is None else int(rot60_k),
                "" if mirror_on is None else int(mirror_on),
-               int(bool(getattr(state, "bus_ok", False))),
-               int(bool(getattr(state, "imu_ok", False))),
+               int(bus_ok),
+               int(imu_ok),
                int(bool(timing.get("stale_feedback"))),
                timing.get("stale_ticks", ""),
                round(float(timing.get("t_pos") or 0.0) * 1000.0, 3),
@@ -2872,18 +2923,17 @@ class _EpisodeLog:
                r_ms("lag_s"),
                q_err_max, q_err_j, act_abs,
                round(now_mono, 6), round(now_mono - self._started_mono, 6),
-               round(time.time(), 6), int(walk_engaged),
+               round(wall, 6), int(walk_engaged),
                int(learned_policy_active), state_age_ms, pos_age_ms,
                imu_age_ms, int(bus_write_due), timing.get("snapshot_seq", ""),
                r_ms("period_s")]
-            + np.round(np.asarray(state.imu_accel, dtype=float)
-                       / 9.80665, 6).tolist()
+            + np.round(imu_accel / 9.80665, 6).tolist()
             + body_cols)
-        self._n += 1
-        if self._n % 25 == 0:      # survive a mid-run kill: flush each ~1 s
-            self._f.flush()
 
     def close(self, result: dict) -> str:
+        # Drain everything the control thread enqueued before closing the file.
+        self._q.put(None)
+        self._writer.join(timeout=10.0)
         try:
             self._f.close()
         except Exception:
@@ -2892,7 +2942,10 @@ class _EpisodeLog:
             self.sum_path.write_text(json.dumps(
                 {"started": self.started_iso, "csv": self.csv_path.name,
                  "debug_log": self.debug.name if self.debug else None,
-                 "ticks_logged": self._n, "params": self.params,
+                 "ticks_logged": self._n, "ticks_written": self._written,
+                 "writer_error": self._writer_error,
+                 "writer_drained": not self._writer.is_alive(),
+                 "params": self.params,
                  "result": result}, indent=1))
         except Exception:
             pass
@@ -2903,7 +2956,13 @@ class _EpisodeLog:
                                     else f"FAILED: {result.get('error')}"),
                  src="rl_policy",
                  level="info" if result.get("ok") else "warn",
-                 data={"csv": self.csv_path.name, **result})
+                 data={"csv": self.csv_path.name,
+                       **({"writer_error": self._writer_error,
+                           "ticks_written": self._written,
+                           "ticks_logged": self._n}
+                          if self._writer_error or self._written != self._n
+                          else {}),
+                       **result})
         except Exception:
             pass
         return self.csv_path.name

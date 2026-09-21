@@ -543,24 +543,50 @@ class _NumpyGruCell:
         self.weight_hh = unpack_f32(obj["weight_hh"], name="weight_hh")
         self.bias_ih = unpack_f32(obj["bias_ih"], name="bias_ih")
         self.bias_hh = unpack_f32(obj["bias_hh"], name="bias_hh")
-        self.hidden_size = self.weight_hh.shape[1]
+        self.hidden_size = h = self.weight_hh.shape[1]
+        nx = self.input_size = self.weight_ih.shape[1]
+        # Hot-path layout (2026-09-21, measured on the Uno Q: a 256-wide cell cost 1.08 ms of
+        # which only 0.43 ms was the two matvecs; the rest was ~20 small numpy calls, and
+        # np.clip alone was ~70 us per call through its Python wrapper).  step() works on
+        # one vector xh = [x, 1, h]: the constant 1 lets every bias ride inside its matvec.
+        #   rz  = sigmoid([W_ih_rz | b_rz | W_hh_rz] @ xh)          one matvec, no adds
+        #   n   = tanh([W_in | b_in] @ xh[:nx+1] + r * ([b_hn | W_hn] @ xh[nx:]))
+        # The candidate keeps its hidden half separate because torch gates it by r first.
+        f32 = np.float32
+        b_rz = (self.bias_ih[:2 * h] + self.bias_hh[:2 * h]).astype(f32)
+        self._w_rz = np.ascontiguousarray(np.concatenate(
+            [self.weight_ih[:2 * h], b_rz[:, None], self.weight_hh[:2 * h]], axis=1), dtype=f32)
+        self._w_in = np.ascontiguousarray(np.concatenate(
+            [self.weight_ih[2 * h:], self.bias_ih[2 * h:, None]], axis=1), dtype=f32)
+        self._w_hn = np.ascontiguousarray(np.concatenate(
+            [self.bias_hh[2 * h:, None], self.weight_hh[2 * h:]], axis=1), dtype=f32)
+        self._one = np.ones(1, dtype=f32)
+        self._nx = nx
 
     @staticmethod
     def _sigmoid(x: np.ndarray) -> np.ndarray:
-        # Clipping avoids overflow on a corrupt/extreme observation while
-        # matching torch.sigmoid to float32 precision over the useful range.
-        return 1.0 / (1.0 + np.exp(-np.clip(x, -80.0, 80.0)))
+        # sigmoid(x) = (1 + tanh(x/2)) / 2: saturates cleanly on an extreme observation,
+        # no overflow, no clip; matches torch.sigmoid to float32 precision.
+        x *= 0.5
+        np.tanh(x, out=x)
+        x += 1.0
+        x *= 0.5
+        return x
 
     def step(self, x: np.ndarray, hidden: np.ndarray) -> np.ndarray:
-        input_gates = self.weight_ih @ x + self.bias_ih
-        hidden_gates = self.weight_hh @ hidden + self.bias_hh
-        ir, iz, inn = np.split(input_gates, 3)
-        hr, hz, hn = np.split(hidden_gates, 3)
-        reset = self._sigmoid(ir + hr)
-        update = self._sigmoid(iz + hz)
-        candidate = np.tanh(inn + reset * hn)
-        return ((1.0 - update) * candidate + update * hidden).astype(
-            np.float32, copy=False)
+        h, nx = self.hidden_size, self._nx
+        xh = np.concatenate((np.asarray(x, dtype=np.float32), self._one, hidden))
+        rz = self._sigmoid(self._w_rz @ xh)
+        reset, update = rz[:h], rz[h:]
+        hn = self._w_hn @ xh[nx:]
+        hn *= reset
+        hn += self._w_in @ xh[:nx + 1]
+        candidate = np.tanh(hn, out=hn)
+        # (1 - z) * n + z * h == n + z * (h - n): fewer ops, same value to float32 rounding
+        delta = hidden - candidate
+        delta *= update
+        delta += candidate
+        return delta
 
 
 class _NumpyActorHead:
@@ -626,10 +652,12 @@ class NumpyDualGruModel:
                 f"observation shape {obs.shape} != {self.observation_space.shape}")
         self.h_a = self.core_a.step(obs, self.h_a)
         self.h_b = self.core_b.step(obs, self.h_b)
-        gate = float(np.clip(np.sum(obs[-3:]), 0.0, 1.0))
+        gate = min(1.0, max(0.0, float(np.sum(obs[-3:]))))
         mean = gate * self.head_a.forward(self.h_a) \
             + (1.0 - gate) * self.head_b.forward(self.h_b)
-        return np.clip(mean, -1.0, 1.0).astype(np.float32, copy=False)
+        np.maximum(mean, -1.0, out=mean)
+        np.minimum(mean, 1.0, out=mean)
+        return mean.astype(np.float32, copy=False)
 
     def predict(self, obs, state=None, episode_start=None,
                 deterministic: bool = True, **_kw):

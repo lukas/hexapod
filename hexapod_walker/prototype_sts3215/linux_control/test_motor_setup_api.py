@@ -1,4 +1,5 @@
 import json, sys, tempfile, threading, unittest
+import unittest.mock
 from pathlib import Path
 from types import SimpleNamespace
 from motor_setup_api import MotorSetup
@@ -17,6 +18,8 @@ class Bus:
 
 class SetupTests(unittest.TestCase):
     def setUp(self):
+        # real waits are not the subject here (robot-side tests must finish in 0.5 s)
+        _sp = unittest.mock.patch('time.sleep', lambda s: None); _sp.start(); self.addCleanup(_sp.stop)
         self.tmp=tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
         self.bus=Bus(); self.drive=SimpleNamespace(bus=self.bus, dry_run=False, armed=False, _lock=threading.Lock())
         self.api=MotorSetup(self.drive,SimpleNamespace(_demo_thread=None),Path(self.tmp.name)/'registry.json')

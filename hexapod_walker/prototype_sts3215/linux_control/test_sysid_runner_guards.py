@@ -138,6 +138,7 @@ def test_remote_abort_ends_holding_the_present_pose_not_limp(monkeypatch, tmp_pa
     monkeypatch.setitem(sys.modules, "inplace_demos", fake_demos)
     monkeypatch.setattr(sysid_runner, "validate", lambda protocol: [])
     monkeypatch.setattr(sysid_runner, "start_pose", lambda protocol: None)
+    monkeypatch.setattr(sysid_runner.time, "sleep", lambda s: None)   # real waits are not the subject here
     monkeypatch.setattr(
         sysid_runner,
         "materialize",
@@ -430,6 +431,7 @@ def test_hold_write_failure_falls_back_to_limp(monkeypatch, tmp_path):
     monkeypatch.setitem(sys.modules, "inplace_demos", fake_demos)
     monkeypatch.setattr(sysid_runner, "validate", lambda protocol: [])
     monkeypatch.setattr(sysid_runner, "start_pose", lambda protocol: None)
+    monkeypatch.setattr(sysid_runner.time, "sleep", lambda s: None)   # real waits are not the subject here
     monkeypatch.setattr(
         sysid_runner, "materialize",
         lambda protocol: {"hz": 10.0, "seg_labels": ["test"],

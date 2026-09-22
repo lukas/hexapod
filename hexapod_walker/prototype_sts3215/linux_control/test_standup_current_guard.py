@@ -134,12 +134,19 @@ def test_sweep_total_tracks_bus_current_and_ignores_corrupt_samples():
 def test_motion_guard_two_sweep_rules_and_messages():
     """MotionGuard is the one guard every scripted loop uses (2026-09-22)."""
     from inplace_demos import MotionGuard
-    # bus total: one sweep over is not a trip, two are
+    # summed current while STILL: one sweep over is not a trip, two are
     t = CurrentPeakTracker(); g = MotionGuard(t, stall_a=3.0, total_cap_a=6.0)
     t.sample(FakeBus({j: 0.5 for j in range(N_JOINTS)}), LIVE); assert g.check() is False
     t.sample(FakeBus({j: 0.5 for j in range(N_JOINTS)}), LIVE); assert g.check() is True
-    assert g.trip_kind == "total" and "bus total" in g.message()
+    assert g.trip_kind == "total" and "summed servo current" in g.message()
     assert g.check() is True, "latched"
+    # the same 9 A while the legs MOVE is an honest loaded push (hexapod2 STEP rise 2026-09-22): no trip
+    t = CurrentPeakTracker(); g = MotionGuard(t, stall_a=3.0, total_cap_a=6.0)
+    for _ in range(4):
+        t.sample(FakeBus({j: 0.5 for j in range(N_JOINTS)}, speed_deg_s=30.0), LIVE); assert g.check() is False
+    # ...until the absolute cap: 18 x 0.9 A = 16 A moving still trips
+    t.sample(FakeBus({j: 0.9 for j in range(N_JOINTS)}, speed_deg_s=30.0), LIVE); assert g.check() is False
+    t.sample(FakeBus({j: 0.9 for j in range(N_JOINTS)}, speed_deg_s=30.0), LIVE); assert g.check() is True and g.trip_kind == "total"
     # hard cap: a single corrupt-looking 4.5 A sweep does not trip; two do
     # (FakeBus idles the other 17 joints at 0.1 A = 1.7 A, so lift the total cap out of the way here)
     t = CurrentPeakTracker(); g = MotionGuard(t, total_cap_a=20.0)

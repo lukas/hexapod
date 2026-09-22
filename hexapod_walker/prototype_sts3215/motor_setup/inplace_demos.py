@@ -481,9 +481,13 @@ class MotionGuard:
 
     * ``telemetry``: a joint returned IMPLAUSIBLE_FAULT_READS impossible
       readings in a row (bus fault, not an over-current);
-    * ``total``: bus total over ``total_cap_a`` two sweeps running -- every
-      servo pushing at once folds a shared bench supply before any one servo
-      trips (hexapod1 tuck, 9 A at 0.78 V, 2026-09-21);
+    * ``total``: summed servo current over ``total_cap_a`` two sweeps running
+      while NOTHING is moving -- eighteen servos pushing against a target none
+      of them reaches (the fight that folded the bench supply, hexapod1 tuck
+      2026-09-21).  The servos report motor phase current, whose sum during an
+      honest loaded push (all six hips lifting the body) is legitimately 8-9 A
+      on hexapod2 with no servo above 1.9 A, so a moving robot is only capped
+      at ``TOTAL_HARD_CAP_A``;
     * ``cap``: one servo over ``HARD_CAP_A`` two sweeps running (a single
       corrupt reading cannot fire it);
     * ``stall``: one joint over ``stall_a`` while NOT moving, two sweeps
@@ -496,7 +500,8 @@ class MotionGuard:
     """
 
     HARD_CAP_A = 4.0
-    TOTAL_CAP_A = float(os.environ.get("HEXAPOD_STANDUP_TOTAL_CAP_A", "6.0"))
+    TOTAL_CAP_A = float(os.environ.get("HEXAPOD_STANDUP_TOTAL_CAP_A", "6.0"))       # summed, while still
+    TOTAL_HARD_CAP_A = float(os.environ.get("HEXAPOD_STANDUP_TOTAL_HARD_CAP_A", "14.0"))  # summed, moving or not
     STILL_DPS = 8.0
 
     def __init__(self, tracker: "CurrentPeakTracker", *, stall_a: float = 3.0,
@@ -517,7 +522,9 @@ class MotionGuard:
         if t.telemetry_fault_joint is not None:
             self.trip_kind = "telemetry"
             return True
-        over_total = t.sweep_total_a() > self.total_cap_a
+        total = t.sweep_total_a()
+        moving = any(abs(float(fb.get("speed_deg_s") or 0.0)) >= self.STILL_DPS for fb in t.last_fb)
+        over_total = total > self.TOTAL_HARD_CAP_A or (total > self.total_cap_a and not moving)
         if over_total and self._total_prev:
             self.trip_kind = "total"
             return True
@@ -541,8 +548,9 @@ class MotionGuard:
     def message(self) -> str:
         t = self.tracker
         if self.trip_kind == "total":
-            return (f"stopped: {t.sweep_total_a():.1f} A bus total (> {self.total_cap_a:.1f} A) two sweeps "
-                    "running — every servo pushing at once, the shared supply folds before any one servo trips")
+            return (f"stopped: {t.sweep_total_a():.1f} A summed servo current two sweeps running "
+                    f"(> {self.total_cap_a:.1f} A with nothing moving, or > {self.TOTAL_HARD_CAP_A:.1f} A) — "
+                    "every servo pushing at once against a target it cannot reach")
         if self.trip_kind == "telemetry":
             return (f"stopped: joint {t.telemetry_fault_joint} returned {IMPLAUSIBLE_FAULT_READS} impossible current "
                     f"readings in a row (peak {t.discarded_peak_a:.1f} A) — bus telemetry fault, not an over-current")

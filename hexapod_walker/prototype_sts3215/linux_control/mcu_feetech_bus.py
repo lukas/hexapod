@@ -438,6 +438,13 @@ class McuFeetechBus:
                     port, baud, timeout=MCU_SERIAL_READ_TIMEOUT,
                     write_timeout=1.0)
                 time.sleep(0.12)
+                # Probing at the other rate leaves garbage (no newline) in
+                # the sketch's ASCII line buffer; a HELLO appended to it is
+                # answered with ERR.  Terminate that half-line first and drop
+                # the ERR it produces (seen 2026-09-22: every fallback HELLO
+                # got 'ERR' and the service crash-looped).
+                self._serial_write(b"\n")
+                time.sleep(0.08)
                 self._serial_reset_input()
                 # TFT bitbang init can briefly stall the MCU after reset.
                 hello = self._transact("HELLO", timeout=2.0)

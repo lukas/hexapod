@@ -34,6 +34,7 @@ from __future__ import annotations
 import glob
 import json
 import os
+import re
 import struct
 import subprocess
 import threading
@@ -97,6 +98,11 @@ class McuFirmwareError(McuBridgeError):
 # imu 7×i16) then 6 bytes per servo (id, ok, pos i16, spd i16).
 SNAP_HEAD_LEN = 20
 SNAP_REC_LEN = 6
+# Compact tick reply 't' (firmware proto>=2, 2026-09-22): the 's' head, a
+# 3-byte ok bitmap (bit k = id 2+k), then {pos i16, spd i16} per id.
+TICK_OK_BITMAP_LEN = 3
+TICK_HEAD_LEN = SNAP_HEAD_LEN + TICK_OK_BITMAP_LEN
+TICK_REC_LEN = 4
 SNAP_AGE_INVALID = 0xFFFF
 # bb2071e98: bounded retry for the empty-reply boot race on STREAM 1.
 STREAM_HANDSHAKE_ATTEMPTS = 3
@@ -122,6 +128,62 @@ def encode_sync_frame(cmd: int, items: list[tuple[int, int, int, int]]
             x ^= b
     payload.append(x)
     return bytes(payload)
+
+
+def encode_profile_frame(speed: int, acc: int) -> bytes:
+    """Binary ``A5 5A 'V' 1 {spd u16le, acc u8} xor`` (proto>=2)."""
+    body = bytes([ord("V"), 1]) + struct.pack("<HB", int(speed) & 0xFFFF,
+                                               int(acc) & 0xFF)
+    x = 0
+    for b in body:
+        x ^= b
+    return bytes([0xA5, 0x5A]) + body + bytes([x])
+
+
+def encode_tick_frame(positions: list[int]) -> bytes:
+    """Binary ``A5 5A 'T' 18 {pos i16le}x18 xor`` (proto>=2).
+
+    ``positions`` are servo counts in joint order (ids 2..19 implied);
+    speed/acc come from the profile set with :func:`encode_profile_frame`.
+    """
+    if len(positions) != N_JOINTS:
+        raise ValueError(f"tick frame needs {N_JOINTS} positions, "
+                         f"got {len(positions)}")
+    body = bytearray([ord("T"), N_JOINTS])
+    for pos in positions:
+        body.extend(struct.pack("<h", int(pos)))
+    x = 0
+    for b in body:
+        x ^= b
+    return bytes([0xA5, 0x5A]) + bytes(body) + bytes([x])
+
+
+def parse_tick_payload(rn: int, payload: bytes) -> dict:
+    """Decode the compact 't' reply into the same dict as
+    :func:`parse_snapshot_payload` (ids 2+k, ok from the bitmap)."""
+    seq, pos_age, imu_age = struct.unpack_from("<HHH", payload, 0)
+    imu_raw = struct.unpack_from("<7h", payload, 6)
+    bits = payload[SNAP_HEAD_LEN:SNAP_HEAD_LEN + TICK_OK_BITMAP_LEN]
+    servos = []
+    for k in range(rn):
+        pos, spd = struct.unpack_from("<hh", payload,
+                                      TICK_HEAD_LEN + k * TICK_REC_LEN)
+        ok = bool(bits[k >> 3] & (1 << (k & 7))) if k < 24 else False
+        servos.append({"id": 2 + k, "ok": ok,
+                       "pos_counts": pos, "spd_counts_s": spd})
+    return {
+        "seq": seq,
+        "pos_age_ms": pos_age,
+        "imu_age_ms": imu_age,
+        "imu_raw": imu_raw,
+        "servos": servos,
+    }
+
+
+def hello_proto(hello: str | None) -> int:
+    """Protocol level advertised in a HELLO line (``proto=N``), default 1."""
+    m = re.search(r"\bproto=(\d+)", hello or "")
+    return int(m.group(1)) if m else 1
 
 
 def parse_snapshot_payload(rn: int, payload: bytes) -> dict:
@@ -520,8 +582,13 @@ class McuFeetechBus:
         self.sync_write_retries = 0
         self.imu_wake_attempts = 0
         self._imu_wake_mono = 0.0
+        # proto>=2: the compact 'V'/'T' tick (fewer bytes per control tick).
+        # The profile is re-sent whenever step_all sees a new speed/acc pair
+        # or after a failed tick (an MCU reset forgets it).
+        self.proto = hello_proto(last_hello)
+        self._profile_sent: tuple[int, int] | None = None
         print(f"[bus] MCU stream mode ON (host link {self.baud} baud, "
-              f"hello {last_hello!r})")
+              f"proto {self.proto}, hello {last_hello!r})")
 
     def set_telemetry_sink(self, sink) -> None:
         """Attach/detach a nonblocking passive recorder callback.
@@ -1262,7 +1329,10 @@ class McuFeetechBus:
             items.append((joint_to_servo_id(joint),
                           deg_to_count(joint, deg, self.trims[joint]),
                           speed, acc))
-        snapshot = self._snapshot_txn(items, apply_calib=apply_calib)
+        if getattr(self, "proto", 1) >= 2 and len(items) == N_JOINTS:
+            snapshot = self._tick_txn(items, apply_calib=apply_calib)
+        else:
+            snapshot = self._snapshot_txn(items, apply_calib=apply_calib)
         if getattr(self, "_telemetry_sink", None) is not None:
             payload = self._snapshot_payload(snapshot)
             payload.update({
@@ -1293,7 +1363,38 @@ class McuFeetechBus:
         if not got:
             return None
         rn, payload = got
-        snap = parse_snapshot_payload(rn, payload)
+        return self._snapshot_from_parsed(parse_snapshot_payload(rn, payload),
+                                          apply_calib=apply_calib)
+
+    def _tick_txn(self, items: list[tuple[int, int, int, int]], *,
+                  apply_calib: bool) -> dict | None:
+        """Compact control tick (proto>=2): 'V' once per profile, then 'T'.
+
+        Same return as ``_snapshot_txn``.  A failed 'T' returns None AND
+        forgets the profile, so the next tick re-sends 'V' (an MCU reset
+        drops the profile and answers ERR to 'T').  No retry inside the
+        tick: the runner treats None as one missing sample.
+        """
+        speed, acc = int(items[0][2]), int(items[0][3])
+        if getattr(self, "_profile_sent", None) != (speed, acc):
+            got = self._bin_txn(encode_profile_frame(speed, acc), ord("v"),
+                                0, head_len=0, timeout=0.5)
+            if got is None:
+                self._profile_sent = None
+                return None
+            self._profile_sent = (speed, acc)
+        # items are in joint order (joint_to_servo_id(j) == 2 + j).
+        frame = encode_tick_frame([count for _sid, count, _s, _a in items])
+        got = self._bin_txn(frame, ord("t"), TICK_REC_LEN,
+                            head_len=TICK_HEAD_LEN, timeout=0.5)
+        if not got:
+            self._profile_sent = None
+            return None
+        rn, payload = got
+        return self._snapshot_from_parsed(parse_tick_payload(rn, payload),
+                                          apply_calib=apply_calib)
+
+    def _snapshot_from_parsed(self, snap: dict, *, apply_calib: bool) -> dict:
         pos_deg: dict[int, float] = {}
         speed_deg_s: dict[int, float] = {}
         for rec in snap["servos"]:

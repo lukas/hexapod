@@ -603,3 +603,145 @@ def _main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(_main())
+
+
+# ---------------------------------------------------------------------------
+# Compact tick (proto>=2, 2026-09-22): 'V' profile once, then 'T' -> 't'
+# ---------------------------------------------------------------------------
+
+from mcu_feetech_bus import (encode_profile_frame, encode_tick_frame,
+                             parse_tick_payload, hello_proto,
+                             TICK_HEAD_LEN, TICK_REC_LEN)
+
+
+def _fw_tick_payload(seq, pos_age, imu_age, imu_raw, ok_bits, recs) -> bytes:
+    payload = struct.pack("<HHH", seq, pos_age, imu_age)
+    payload += struct.pack("<7h", *imu_raw)
+    bits = bytearray(3)
+    for k, ok in enumerate(ok_bits):
+        if ok:
+            bits[k >> 3] |= 1 << (k & 7)
+    payload += bytes(bits)
+    for pos, spd in recs:
+        payload += struct.pack("<hh", pos, spd)
+    return payload
+
+
+def _fw_bin_reply(cmd: str, n: int, payload: bytes) -> bytes:
+    body = bytes([ord(cmd), n]) + payload
+    return bytes([0xA5, 0x5A]) + body + bytes([_xor(body)])
+
+
+def test_hello_proto_parsing():
+    assert hello_proto("HELLO feetech_bridge") == 1
+    assert hello_proto("HELLO feetech_bridge baud=921600 ring=1024") == 1
+    assert hello_proto("HELLO feetech_bridge baud=921600 ring=1024 proto=2") == 2
+    assert hello_proto(None) == 1
+
+
+def test_encode_profile_and_tick_frames_are_small():
+    v = encode_profile_frame(400, 20)
+    assert v[:4] == bytes([0xA5, 0x5A, ord("V"), 1])
+    assert v[4:7] == struct.pack("<HB", 400, 20)
+    assert len(v) == 8
+    t = encode_tick_frame([2048 + j for j in range(18)])
+    assert t[:4] == bytes([0xA5, 0x5A, ord("T"), 18])
+    assert struct.unpack_from("<h", t, 4)[0] == 2048
+    assert struct.unpack_from("<h", t, 4 + 17 * 2)[0] == 2065
+    assert len(t) == 41            # was 113 for the 'S' frame
+    assert t[-1] == _xor(t[2:-1])
+    with pytest.raises(ValueError):
+        encode_tick_frame([0] * 17)
+
+
+def test_parse_tick_payload_matches_snapshot_shape():
+    imu_raw = (100, -200, 16384, -5, 6, -7, 1234)
+    ok = [True] * 18
+    ok[5] = False
+    recs = [(2048 + j, -30 + j) for j in range(18)]
+    payload = _fw_tick_payload(7, 3, 2, imu_raw, ok, recs)
+    assert len(payload) == TICK_HEAD_LEN + 18 * TICK_REC_LEN
+    snap = parse_tick_payload(18, payload)
+    ref = parse_snapshot_payload(18, _fw_snapshot_payload(
+        7, 3, 2, imu_raw, [(2 + j, int(ok[j]), *recs[j]) for j in range(18)]))
+    assert snap == ref            # identical dict for every downstream consumer
+    assert snap["servos"][5] == {"id": 7, "ok": False,
+                                 "pos_counts": 2053, "spd_counts_s": -25}
+
+
+def _tick_bus(replies: bytes) -> McuFeetechBus:
+    bus = _mk_bus(replies)
+    bus.proto = 2
+    bus._profile_sent = None
+    return bus
+
+
+def test_step_all_uses_profile_then_tick_on_proto2():
+    imu_raw = (0, 0, 16384, 131, -131, 0, 0)
+    recs = [(2048 + 10 * j, 40) for j in range(18)]
+    t_reply = _fw_bin_reply("t", 18, _fw_tick_payload(42, 4, 1, imu_raw,
+                                                      [True] * 18, recs))
+    v_reply = _fw_bin_reply("v", 0, b"")
+    bus = _tick_bus(v_reply + t_reply + t_reply)
+    degrees = [float(j) for j in range(N_JOINTS)]
+
+    snap = bus.step_all(degrees, speed=400, acc=20)
+    assert snap is not None and snap["seq"] == 42
+    counts = [deg_to_count(j, degrees[j], 0.0) for j in range(N_JOINTS)]
+    assert bytes(bus._ser.tx) == (encode_profile_frame(400, 20)
+                                  + encode_tick_frame(counts))
+    assert bus._profile_sent == (400, 20)
+    for j in range(N_JOINTS):
+        assert abs(snap["pos_deg"][j] - count_to_deg(j, 2048 + 10 * j)) < 1e-9
+        assert abs(snap["speed_deg_s"][j] - speed_counts_to_deg_s(40)) < 1e-9
+    assert abs(snap["imu"]["az_g"] - 1.0) < 1e-6
+
+    # Same profile again: only the 41-byte tick goes out.
+    n_before = len(bus._ser.tx)
+    assert bus.step_all(degrees, speed=400, acc=20) is not None
+    assert bytes(bus._ser.tx[n_before:]) == encode_tick_frame(counts)
+
+
+def test_step_all_resends_profile_when_it_changes_or_after_a_failed_tick():
+    imu_raw = (0, 0, 16384, 0, 0, 0, 0)
+    recs = [(2048, 0)] * 18
+    t_reply = _fw_bin_reply("t", 18, _fw_tick_payload(1, 1, 1, imu_raw,
+                                                      [True] * 18, recs))
+    v_reply = _fw_bin_reply("v", 0, b"")
+    # V, T ok; then a new speed -> V again, T ok; then T answers ERR
+    # (MCU rebooted, profile gone) -> None and the profile is forgotten.
+    bus = _tick_bus(v_reply + t_reply + v_reply + t_reply + b"ERR\n"
+                    + v_reply + t_reply)
+    degrees = [0.0] * N_JOINTS
+    assert bus.step_all(degrees, speed=400, acc=20) is not None
+    assert bus.step_all(degrees, speed=600, acc=20) is not None
+    assert bus._profile_sent == (600, 20)
+    tx = bytes(bus._ser.tx)
+    assert tx.count(bytes([0xA5, 0x5A, ord("V")])) == 2
+    assert bus.step_all(degrees, speed=600, acc=20) is None
+    assert bus._profile_sent is None
+    assert bus.step_all(degrees, speed=600, acc=20) is not None
+    assert bytes(bus._ser.tx).count(bytes([0xA5, 0x5A, ord("V")])) == 3
+
+
+def test_step_all_tick_bitmap_marks_dead_servo():
+    imu_raw = (0, 0, 16384, 0, 0, 0, 0)
+    ok = [True] * 18
+    ok[3] = False
+    recs = [(2048, 0)] * 18
+    bus = _tick_bus(_fw_bin_reply("v", 0, b"")
+                    + _fw_bin_reply("t", 18, _fw_tick_payload(
+                        9, 1, 1, imu_raw, ok, recs)))
+    snap = bus.step_all([0.0] * N_JOINTS, speed=400, acc=20)
+    assert snap is not None
+    assert 3 not in snap["pos_deg"] and 2 in snap["pos_deg"]
+    assert snap["servo_reports"][3]["ok"] is False
+
+
+def test_step_all_keeps_the_s_frame_on_proto1():
+    imu_raw = (0, 0, 16384, 0, 0, 0, 0)
+    servos = [(2 + j, 1, 2048, 0) for j in range(18)]
+    bus = _mk_bus(_fw_snapshot_frame(
+        _fw_snapshot_payload(1, 1, 1, imu_raw, servos), 18))
+    assert bus.step_all([0.0] * N_JOINTS, speed=400, acc=20) is not None
+    assert bytes(bus._ser.tx)[:3] == bytes([0xA5, 0x5A, ord("S")])

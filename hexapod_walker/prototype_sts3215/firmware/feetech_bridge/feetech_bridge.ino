@@ -67,6 +67,20 @@
        snapshot — ONE host round-trip per control tick. n=0 = no
        write, snapshot only: positions + speed + IMU in one round
        trip for sense-compute-act loops.)
+    A5 5A 'V' 1  {spd u16le, acc u8}  xor            (proto=2, 2026-09-22)
+    → A5 5A 'v' 0 xor | ERR\n
+      (Set the servo speed/acc profile the compact tick below applies to
+       every servo.  Lost on MCU reset: a 'T' with no profile set answers
+       ERR, never a default -- speed/acc are part of the trained contract.)
+    A5 5A 'T' 18 {pos i16le}×18  xor                 (proto=2, 2026-09-22)
+    → A5 5A 't' 18 {seq u16, pos_age_ms u16, imu_age_ms u16,
+                    imu i16×7 (ax ay az gx gy gz temp),
+                    ok bitmap u8×3 (bit k = id 2+k, LSB first),
+                    18×{pos i16le, spd i16le}} xor
+      (The compact control tick: same as 'S' n=18 with ids implied
+       2..19 and speed/acc from 'V'.  41 bytes out + 100 back instead of
+       113 + 134: 1.5 ms of wire time per tick at 921600 instead of 2.6.
+       Sync-write first, then snapshot, exactly like 'S'.)
 
   STREAM mode (the 50–100 Hz feedback architecture, 2026-08-19):
     While STREAM 1 and the host line is idle, the MCU free-runs the
@@ -222,6 +236,9 @@ static uint32_t dbgBinFramesExecuted = 0;
 static uint32_t dbgBinChecksumBad = 0;
 static uint32_t dbgBinBadN = 0;
 static uint32_t dbgBinBadCmd = 0;
+static uint32_t dbgProfileSets = 0;      // 'V' accepted
+static uint32_t dbgTickFrames = 0;       // 'T' executed
+static uint32_t dbgTickNoProfile = 0;    // 'T' refused: no profile since boot
 static uint32_t dbgBinReplyHeaders = 0;
 static uint32_t dbgDesyncResets = 0;
 static uint32_t dbgSyncWriteCalls = 0;
@@ -271,6 +288,9 @@ static void dbgResetCounters() {
   dbgBinChecksumBad = 0;
   dbgBinBadN = 0;
   dbgBinBadCmd = 0;
+  dbgProfileSets = 0;
+  dbgTickFrames = 0;
+  dbgTickNoProfile = 0;
   dbgBinReplyHeaders = 0;
   dbgDesyncResets = 0;
   dbgSyncWriteCalls = 0;
@@ -332,6 +352,9 @@ static void cmdDbg(bool reset) {
   dbgPrintKV(F("bin_checksum_bad"), dbgBinChecksumBad);
   dbgPrintKV(F("bin_bad_n"), dbgBinBadN);
   dbgPrintKV(F("bin_bad_cmd"), dbgBinBadCmd);
+  dbgPrintKV(F("profile_sets"), dbgProfileSets);
+  dbgPrintKV(F("tick_frames"), dbgTickFrames);
+  dbgPrintKV(F("tick_no_profile"), dbgTickNoProfile);
   dbgPrintKV(F("bin_reply_headers"), dbgBinReplyHeaders);
   dbgPrintKV(F("desync_resets"), dbgDesyncResets);
   dbgPrintKV(F("syncwrite_calls"), dbgSyncWriteCalls);
@@ -551,7 +574,8 @@ static void cmdHello() {
   Serial1.print(F("HELLO feetech_bridge baud="));
   Serial1.print(HOST_BAUD);
   Serial1.print(F(" ring="));
-  Serial1.println(Serial1.availableForWrite());
+  Serial1.print(Serial1.availableForWrite());
+  Serial1.println(F(" proto=2"));  // 'V'/'T'/'t' compact tick available
 }
 
 static void cmdPing(long id) {
@@ -987,6 +1011,21 @@ static uint8_t binN = 0;
 static uint8_t binNeed = 0;
 static uint8_t binGot = 0;
 static uint8_t binPayload[MAX_N * 6];
+// Servo speed/acc profile for the compact 'T' tick, set by 'V'.  Invalid
+// until the host sets it after every MCU boot (see the protocol block).
+static bool hostProfileValid = false;
+static u16 hostProfileSpd = 0;
+static u8 hostProfileAcc = 0;
+
+// Payload byte count the binary parser must collect for cmd/n, or -1 for
+// an unknown command (pure: covered by firmware/tests).
+static int16_t binPayloadNeed(uint8_t cmd, uint8_t n) {
+  if (cmd == 'W' || cmd == 'S') return (n == 0 || n > MAX_N) ? 0 : (int16_t)n * 6;
+  if (cmd == 'F' || cmd == 'P') return (n > MAX_N) ? 0 : (int16_t)n;  // n==0: default ids
+  if (cmd == 'T') return (n == 0 || n > MAX_N) ? 0 : (int16_t)n * 2;
+  if (cmd == 'V') return (n == 1) ? 3 : 0;
+  return -1;
+}
 static uint8_t binXor = 0;
 
 static void binPutU16(uint8_t *p, uint16_t v) {
@@ -1353,6 +1392,43 @@ static void sendSnapshot() {
   Serial1.write(x);
 }
 
+// Compact 't' reply for the 'T' tick: same head as 's', then a 3-byte ok
+// bitmap (bit k = id 2+k) and {pos, spd} per id -- no per-record id/ok bytes.
+static void sendSnapshotCompact() {
+  uint8_t ids[MAX_N];
+  uint8_t n;
+  fillDefaultIds(ids, n);
+  uint16_t posAge = ageMs(posStampMs, posStampMs != 0);
+  uint16_t imuAge = ageMs(imuStampMs, imuCacheValid);
+  uint8_t x = 0;
+  sendBinHeader('t', n, x);
+  sendBinByte((uint8_t)(posSeq & 0xFF), x);
+  sendBinByte((uint8_t)(posSeq >> 8), x);
+  sendBinByte((uint8_t)(posAge & 0xFF), x);
+  sendBinByte((uint8_t)(posAge >> 8), x);
+  sendBinByte((uint8_t)(imuAge & 0xFF), x);
+  sendBinByte((uint8_t)(imuAge >> 8), x);
+  for (uint8_t i = 0; i < 7; i++) {
+    uint16_t v = (uint16_t)imuCache[i];
+    sendBinByte((uint8_t)(v & 0xFF), x);
+    sendBinByte((uint8_t)(v >> 8), x);
+  }
+  uint8_t okBits[3] = {0, 0, 0};
+  for (uint8_t k = 0; k < n && k < 24; k++) {
+    if (posOk[k]) okBits[k >> 3] |= (uint8_t)(1u << (k & 7));
+  }
+  for (uint8_t i = 0; i < 3; i++) sendBinByte(okBits[i], x);
+  for (uint8_t k = 0; k < n; k++) {
+    uint16_t p = (uint16_t)posCache[k];
+    sendBinByte((uint8_t)(p & 0xFF), x);
+    sendBinByte((uint8_t)(p >> 8), x);
+    uint16_t s = (uint16_t)spdCache[k];
+    sendBinByte((uint8_t)(s & 0xFF), x);
+    sendBinByte((uint8_t)(s >> 8), x);
+  }
+  Serial1.write(x);
+}
+
 // True when every requested id is in the streamed set (2..19).
 static bool idsInStreamSet(uint8_t n, const uint8_t *ids) {
   for (uint8_t i = 0; i < n; i++) {
@@ -1551,6 +1627,53 @@ static void handleBinaryFrame() {
     cmdBulkPositions(binN, binPayload);
     return;
   }
+  if (binCmd == 'V') {
+    if (binN != 1 || binGot != 3) {
+      replyErr();
+      return;
+    }
+    hostProfileSpd = (u16)((uint16_t)binPayload[0] | ((uint16_t)binPayload[1] << 8));
+    hostProfileAcc = binPayload[2];
+    hostProfileValid = true;
+    dbgProfileSets++;
+    uint8_t x = 0;
+    sendBinHeader('v', 0, x);
+    Serial1.write(x);
+    return;
+  }
+  if (binCmd == 'T') {
+    // Compact tick: 18 positions for ids 2..19, speed/acc from 'V'.  No
+    // profile = ERR (never a default: speed/acc are the trained contract).
+    if (!hostProfileValid) {
+      dbgTickNoProfile++;
+      replyErr();
+      return;
+    }
+    if (binN != MAX_N || binGot != MAX_N * 2) {
+      replyErr();
+      return;
+    }
+    uint8_t ids[MAX_N];
+    uint8_t n;
+    fillDefaultIds(ids, n);
+    s16 pos[MAX_N];
+    u16 spd[MAX_N];
+    u8 acc[MAX_N];
+    for (uint8_t k = 0; k < n; k++) {
+      const uint8_t *p = binPayload + k * 2;
+      pos[k] = (s16)((uint16_t)p[0] | ((uint16_t)p[1] << 8));
+      spd[k] = hostProfileSpd;
+      acc[k] = hostProfileAcc;
+    }
+    if (!applySyncWrite(n, ids, pos, spd, acc)) {
+      replyErr();
+      return;
+    }
+    dbgTickFrames++;
+    prepareSnapshotForHost();
+    sendSnapshotCompact();
+    return;
+  }
   replyErr();
 }
 
@@ -1608,15 +1731,13 @@ static void feedHostByte(uint8_t b) {
     binN = b;
     binGot = 0;
     binXor = (uint8_t)(binCmd ^ binN);
-    if (binCmd == 'W' || binCmd == 'S') {
-      binNeed = (uint8_t)(binN * 6);
-      if (binN == 0 || binN > MAX_N) binNeed = 0;
-    } else if (binCmd == 'F' || binCmd == 'P') {
-      // n==0 means "default IDs 2..19" — no id payload.
-      binNeed = (binN > MAX_N) ? 0 : binN;
-    } else {
-      dbgBinBadCmd++;
-      binNeed = 0;
+    {
+      int16_t need = binPayloadNeed(binCmd, binN);
+      if (need < 0) {
+        dbgBinBadCmd++;
+        need = 0;
+      }
+      binNeed = (uint8_t)need;
     }
     binState = 4;
     return;

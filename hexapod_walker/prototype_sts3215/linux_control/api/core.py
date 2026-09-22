@@ -377,6 +377,33 @@ class CoreApi:
             on_strain=self.static_strain_release)
         self._servo_watch.start()
 
+    def servo_regs(self, addr: int, size: int = 1, ids=None) -> dict:
+        """Read-only: one register from each servo (STS3215 memory table).
+
+        2026-09-22: four legs went limp after a clean STEP stand with no
+        software release and no heat; answering "did the servo's own
+        overload protection unload it?" needs the status byte (65) and the
+        protection settings (26-28, 34-36) -- there was no way to read a
+        register through the running service."""
+        bus = self.drive.bus
+        if bus is None:
+            return {"ok": False, "error": "no bus"}
+        blocked = self._bus_admission_error()
+        if blocked:
+            return blocked
+        addr = int(addr)
+        size = 2 if int(size) == 2 else 1
+        want = sorted(set(int(i) for i in ids)) if ids else sorted(SERVO_IDS)
+        fn = bus.pkt.read2ByteTxRx if size == 2 else bus.pkt.read1ByteTxRx
+        out: dict = {}
+        for sid in want:
+            try:
+                value, comm, err = fn(sid, addr)
+                out[str(sid)] = {"value": (int(value) if comm == 0 else None), "comm": int(comm), "err": int(err)}
+            except Exception as e:  # noqa: BLE001
+                out[str(sid)] = {"value": None, "error": str(e)[:80]}
+        return {"ok": True, "addr": addr, "size": size, "servos": out}
+
     def static_strain_release(self, reason: str, info: dict) -> None:
         """The watchdog found the robot armed, idle, still and drawing
         current (2026-09-22): 18 servos pulling toward an unreachable target

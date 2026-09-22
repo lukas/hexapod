@@ -26,15 +26,16 @@ CORRUPT_A = 16384 * 0.0065
 class FakeBus:
     """Returns whatever per-joint currents the test scripts."""
 
-    def __init__(self, currents: dict[int, float], *, speed_deg_s=0.0):
+    def __init__(self, currents: dict[int, float], *, speed_deg_s=0.0, deg=0.0):
         self.currents = currents
         self.speed_deg_s = speed_deg_s
+        self.deg = deg
 
     def read_feedback(self, joint: int) -> dict:
         return {"joint": joint,
                 "current_a": self.currents.get(joint, 0.1),
                 "speed_deg_s": self.speed_deg_s,
-                "deg": 0.0}
+                "deg": self.deg}
 
 
 def test_corrupt_sample_stays_out_of_peak():
@@ -162,3 +163,18 @@ def test_motion_guard_two_sweep_rules_and_messages():
     t = CurrentPeakTracker(); g = MotionGuard(t, stall_a=3.0, total_cap_a=20.0)
     for _ in range(3):
         t.sample(FakeBus({5: 3.2}, speed_deg_s=60.0), LIVE); assert g.check() is False
+
+
+def test_motion_guard_judges_motion_by_position_progress():
+    """A slow loaded push reads < 8 deg/s on the speed register but the joints advance
+    several degrees per sweep: that is work, not a fight.  Same current with the
+    positions frozen is a jam."""
+    from inplace_demos import MotionGuard
+    t = CurrentPeakTracker(); g = MotionGuard(t, total_cap_a=6.0)
+    for k in range(4):                                  # 9 A, speed register ~0, positions advancing 5 deg/sweep
+        t.sample(FakeBus({j: 0.5 for j in range(N_JOINTS)}, speed_deg_s=1.0, deg=5.0 * k), LIVE)
+        assert g.check() is False, k
+    t.sample(FakeBus({j: 0.5 for j in range(N_JOINTS)}, speed_deg_s=1.0, deg=15.0), LIVE)   # stopped advancing
+    assert g.check() is False                            # first still sweep: not yet
+    t.sample(FakeBus({j: 0.5 for j in range(N_JOINTS)}, speed_deg_s=1.0, deg=15.0), LIVE)
+    assert g.check() is True and g.trip_kind == "total"

@@ -493,6 +493,12 @@ class MotionGuard:
     * ``stall``: one joint over ``stall_a`` while NOT moving, two sweeps
       running -- stall-fight, not honest acceleration work.
 
+    "Moving" is judged from POSITION progress between sweeps (any joint by
+    >= MOVE_DEG), not from the servo's speed register: a slow loaded push
+    (30 deg/s) reads under 8 deg/s on that register and looked "still"
+    (hexapod2 STEP push, 2026-09-22), while a knee jammed on its stop is
+    exactly still.
+
     Stopping is ``stop_hold``: re-command the MEASURED pose and drop the
     torque limit to STOP_HOLD_TORQUE.  Never leave a loop's last target in
     place (a streamer's carrot pulls 18 servos at 2-4 A forever) and never
@@ -503,6 +509,7 @@ class MotionGuard:
     TOTAL_CAP_A = float(os.environ.get("HEXAPOD_STANDUP_TOTAL_CAP_A", "6.0"))       # summed, while still
     TOTAL_HARD_CAP_A = float(os.environ.get("HEXAPOD_STANDUP_TOTAL_HARD_CAP_A", "14.0"))  # summed, moving or not
     STILL_DPS = 8.0
+    MOVE_DEG = 2.0
 
     def __init__(self, tracker: "CurrentPeakTracker", *, stall_a: float = 3.0,
                  total_cap_a: float | None = None):
@@ -513,6 +520,16 @@ class MotionGuard:
         self._stall_prev: set[int] = set()
         self._cap_prev = False
         self._total_prev = False
+        self._pos_prev: dict[int, float] = {}
+        self.moving_joints: set[int] = set()
+
+    def _progress(self) -> set[int]:
+        """Joints that moved >= MOVE_DEG since the previous sweep (position based)."""
+        now = {int(fb["joint"]): float(fb.get("deg") or 0.0) for fb in self.tracker.last_fb}
+        moved = {j for j, d in now.items() if j in self._pos_prev and abs(d - self._pos_prev[j]) >= self.MOVE_DEG}
+        self._pos_prev = now
+        self.moving_joints = moved
+        return moved
 
     def check(self) -> bool:
         """True once tripped (stays True).  Call after tracker.sample()."""
@@ -523,7 +540,9 @@ class MotionGuard:
             self.trip_kind = "telemetry"
             return True
         total = t.sweep_total_a()
-        moving = any(abs(float(fb.get("speed_deg_s") or 0.0)) >= self.STILL_DPS for fb in t.last_fb)
+        moved = self._progress()
+        moving = bool(moved) or any(abs(float(fb.get("speed_deg_s") or 0.0)) >= self.STILL_DPS
+                                    for fb in t.last_fb)
         over_total = total > self.TOTAL_HARD_CAP_A or (total > self.total_cap_a and not moving)
         if over_total and self._total_prev:
             self.trip_kind = "total"
@@ -538,6 +557,7 @@ class MotionGuard:
         now = {int(fb["joint"]) for fb in t.last_fb
                if int(fb["joint"]) not in t.implausible_joints
                and abs(float(fb["current_a"])) > self.stall_a
+               and int(fb["joint"]) not in moved
                and abs(float(fb.get("speed_deg_s") or 0.0)) < self.STILL_DPS}
         hit = bool(now & self._stall_prev)
         self._stall_prev = now

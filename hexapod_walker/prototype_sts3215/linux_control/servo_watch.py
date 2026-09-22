@@ -63,12 +63,15 @@ class ServoWatch:
                  label: Callable[[int], str],
                  on_trip: Callable[[str], None] | None = None,
                  *, is_armed: Callable[[], bool] | None = None,
-                 on_strain: Callable[[str, dict], None] | None = None):
+                 on_strain: Callable[[str, dict], None] | None = None,
+                 on_torque_lost: Callable[[str, dict], None] | None = None):
         self._get_bus = get_bus
         self._is_busy = is_busy
         self._label = label  # joint index -> human name ("L5 knee")
         self._is_armed = is_armed
         self._on_strain = on_strain
+        self._on_torque_lost = on_torque_lost
+        self._torque_lost_latched = False
         self._strain_reads = 0
         self._strain_released = False   # latched until the robot reads calm again
         self._strain: dict = {}
@@ -171,6 +174,7 @@ class ServoWatch:
                             "tripped": j in self._tripped})
 
         self._check_static_strain(fb)
+        self._check_torque_lost(bus, fb)
 
         with self._lock:
             # raw per-joint feedback for /api/feedback while a job owns the bus (no extra bus traffic)
@@ -193,7 +197,56 @@ class ServoWatch:
                 "temp_trip_reads": TEMP_TRIP_READS,
                 "imu_ok": imu_ok,
                 "strain": dict(self._strain),
+                "torque_off": list(getattr(self, "_snap_torque_off", [])),
             }
+
+    def _check_torque_lost(self, bus: Any, fb: dict) -> None:
+        """Armed on the host but torque OFF in the servos = something the host
+        did not do turned them off (2026-09-22, hexapod2: twice, 30-150 s
+        after a clean stand, all 18 at once, no software path, alarm bytes
+        clear afterwards).  Read torque-enable (reg 40) while armed and not
+        busy; if any dropped, capture that servo's alarm byte (65) and
+        voltage (62) NOW and tell the owner.  One report per episode."""
+        armed = bool(self._is_armed()) if self._is_armed is not None else False
+        if not armed or bool(self._is_busy()) or self._on_torque_lost is None:
+            self._torque_lost_latched = False
+            return
+        pkt = getattr(bus, "pkt", None)
+        if pkt is None or not hasattr(pkt, "read1ByteTxRx"):
+            return
+        off: dict[int, dict] = {}
+        for j in sorted(fb):
+            sid = joint_to_servo_id(j)
+            try:
+                v, comm, _err = pkt.read1ByteTxRx(sid, 40)
+            except Exception:
+                continue
+            if comm == 0 and int(v) == 0:
+                info = {"joint": j, "name": self._label(j), "servo_id": sid}
+                for addr, key in ((65, "status_bits"), (62, "volt_0v1")):
+                    try:
+                        vv, c2, _e2 = pkt.read1ByteTxRx(sid, addr)
+                        info[key] = int(vv) if c2 == 0 else None
+                    except Exception:
+                        info[key] = None
+                off[j] = info
+        with self._lock:
+            self._snap_torque_off = sorted(off)
+        if not off:
+            self._torque_lost_latched = False
+            return
+        if self._torque_lost_latched:
+            return
+        self._torque_lost_latched = True
+        names = ", ".join(v["name"] for v in off.values())
+        reason = (f"torque OFF in {len(off)}/{len(fb)} servos while the host thinks it is armed: {names}; "
+                  f"alarm bits {[v.get('status_bits') for v in off.values()]}, "
+                  f"volt(0.1V) {[v.get('volt_0v1') for v in off.values()]}")
+        self._emit("torque_lost", reason, {"servos": list(off.values())}, level="warn")
+        try:
+            self._on_torque_lost(reason, {"servos": list(off.values())})
+        except Exception as e:
+            self._emit("torque_lost", f"owner callback failed: {e}", {}, level="warn")
 
     def _check_static_strain(self, fb: dict) -> None:
         """Armed + idle + still + drawing current = fighting.  Two reads -> release."""

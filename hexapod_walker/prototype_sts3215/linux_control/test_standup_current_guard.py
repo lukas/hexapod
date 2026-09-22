@@ -114,3 +114,18 @@ if __name__ == "__main__":
             print(f"  FAIL  {name}: {e}")
     print(f"{len(fns) - failed}/{len(fns)} passed")
     sys.exit(1 if failed else 0)
+
+
+def test_sweep_total_tracks_bus_current_and_ignores_corrupt_samples():
+    """2026-09-21: 18 servos at ~0.5 A each folded the shared supply (9 A)
+    with no single servo over 2.2 A -- the guard needs the sweep TOTAL."""
+    t = CurrentPeakTracker()
+    t.sample(FakeBus({j: 0.5 for j in range(N_JOINTS)}), LIVE)
+    assert abs(t.sweep_total_a() - 9.0) < 1e-9, t.sweep_total_a()
+    assert abs(t.peak_total_a - 9.0) < 1e-9
+    # a corrupt reading is excluded from the total, not summed
+    t.sample(FakeBus({0: CORRUPT_A}), LIVE)
+    assert abs(t.sweep_total_a() - 17 * 0.1) < 1e-9, t.sweep_total_a()
+    # peak_total_a is a running max; the live total has moved on
+    assert abs(t.peak_total_a - 9.0) < 1e-9
+    assert t.peak_a == 0.5

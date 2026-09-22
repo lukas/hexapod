@@ -5,6 +5,8 @@ mixed into ``bench_api.BenchAPI``. Route/JSON shapes are unchanged.
 """
 from __future__ import annotations
 
+import os
+
 from .common import *  # noqa: F401,F403
 
 
@@ -273,6 +275,12 @@ class StandupApi:
                 n = len(kf_path)
 
                 def guard_msg() -> str:
+                    if trip_kind == "total":
+                        return (f"stopped: {tracker.sweep_total_a():.1f} A "
+                                f"bus total (> {TOTAL_CAP_A:.1f} A) two "
+                                "sweeps running — every servo pushing at "
+                                "once, the shared supply folds before any "
+                                "one servo trips")
                     if tracker.telemetry_fault_joint is not None:
                         return (
                             "stopped: joint "
@@ -307,16 +315,36 @@ class StandupApi:
                 # returns three in a row as a telemetry fault, which
                 # still stops the run — with a distinct message.
                 HARD_CAP_A = 4.0
+                # Bus-total cap (2026-09-21, hexapod1): a tuck started from
+                # a sagged crouch drove all 18 servos into the floor at
+                # once -- no servo over 2.2 A, yet the bench supply read
+                # 8.35 A @ 8.15 V then 9.2 A @ 0.78 V for ~0.4 s (top-camera
+                # video of the PSU display).  On a shared rail that
+                # brownout reboots the OTHER robot's board.  Normal peaks:
+                # stand 1.2-1.3 A, tuck 2.1-2.2 A total.  Same two-sweep
+                # confirmation as the hard cap so one corrupt reading
+                # cannot fire it.
+                TOTAL_CAP_A = float(os.environ.get(
+                    "HEXAPOD_STANDUP_TOTAL_CAP_A", "6.0"))
                 stall_prev: set = set()
                 cap_prev = False
+                total_prev = False
+                trip_kind = ""
 
                 def stall_trip() -> bool:
-                    nonlocal stall_prev, cap_prev
+                    nonlocal stall_prev, cap_prev, total_prev, trip_kind
                     if tracker.telemetry_fault_joint is not None:
+                        trip_kind = "telemetry"
                         return True
+                    over_total = tracker.sweep_total_a() > TOTAL_CAP_A
+                    if over_total and total_prev:
+                        trip_kind = "total"
+                        return True
+                    total_prev = over_total
                     sweep_peak, _sweep_joint = tracker.sweep_peak_a()
                     over_cap = sweep_peak > HARD_CAP_A
                     if over_cap and cap_prev:
+                        trip_kind = "cap"
                         return True
                     cap_prev = over_cap
                     now = {fb["joint"] for fb in tracker.last_fb
@@ -325,6 +353,8 @@ class StandupApi:
                            and abs(fb["speed_deg_s"]) < 8.0}
                     hit = bool(now & stall_prev)
                     stall_prev = now
+                    if hit:
+                        trip_kind = "stall"
                     return hit
 
                 def _replant(target_q: list[float]) -> bool:
@@ -646,6 +676,7 @@ class StandupApi:
                     result["ok"] = True
                 result["keyframes_done"] = min(seg, n)
                 result["peak_a"] = round(tracker.peak_a, 2)
+                result["peak_total_a"] = round(tracker.peak_total_a, 2)
                 result["peak_joint"] = tracker.peak_joint
                 if tracker.discarded:
                     # Surface corruption instead of silently dropping it:

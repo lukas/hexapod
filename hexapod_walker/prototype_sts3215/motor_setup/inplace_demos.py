@@ -369,6 +369,11 @@ class CurrentPeakTracker:
         self.implausible_joints: set[int] = set()
         self.telemetry_fault_joint: int | None = None
         self._implausible_run: dict[int, int] = {}
+        # Running max of the per-sweep TOTAL plausible current (what the
+        # shared bench supply sees, minus the board).  2026-09-21: a tuck
+        # from a distorted pose pulled 8-9 A total with no single servo
+        # above 2.2 A and folded the supply to 0.8 V (see standup.py).
+        self.peak_total_a = 0.0
 
     def sample(self, bus: FeetechBus, live: set[int]) -> None:
         self.samples += 1
@@ -406,6 +411,12 @@ class CurrentPeakTracker:
                 self.peak_t_s = t
         self.last_fb = sweep
         self.implausible_joints = implausible
+        self.peak_total_a = max(self.peak_total_a, self.sweep_total_a())
+
+    def sweep_total_a(self) -> float:
+        """Sum of plausible |current| over the MOST RECENT sweep (bus total)."""
+        return sum(abs(float(fb["current_a"])) for fb in self.last_fb
+                   if int(fb["joint"]) not in self.implausible_joints)
 
     def sweep_peak_a(self) -> tuple[float, int | None]:
         """Plausible |current| peak of the MOST RECENT sweep only.

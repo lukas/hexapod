@@ -1,4 +1,4 @@
-"""BenchAPI route group: go_zero, set-zero-here, safe_zero, pinned-tip untrap.
+"""BenchAPI route group: go_zero, set-zero-here, zero acquisition (settle + glide).
 
 Moved verbatim from bench_api.py (2026-08-29 component-boundaries split);
 mixed into ``bench_api.BenchAPI``. Route/JSON shapes are unchanged.
@@ -44,8 +44,11 @@ class ZeroApi:
         self._quad_reared = False
 
         if pose == "sit":
-            return self.standup(mode="step", speed=10.0,
-                                direction="down")
+            present, missing = self._present_pose18()
+            if not missing and self._normal_standing_pose(present):
+                return self.standup(mode="step", speed=10.0,
+                                    direction="down")
+            # not standing (low, folded, odd): settle + guarded glide, as a job
 
         # Standard stand = the validated STEP keyframes at 10x. When the
         # robot is already near the first STEP frame (belly-down, legs
@@ -91,10 +94,9 @@ class ZeroApi:
                     result = self._acquire_start("stand", gen=gen,
                                                  on_progress=_prog)
                 else:
-                    result = self._safe_zero_sync(
+                    result = self._zero_sync(
                         abort_check=self._demo_abort.is_set,
-                        on_progress=_prog,
-                        allow_loaded_blend=bool(force))
+                        on_progress=_prog)
                 if gen != self._demo_gen:
                     return
                 with self._lock:
@@ -233,91 +235,126 @@ class ZeroApi:
                 vals[j] = None if v is None else float(v)
         return vals, [j for j, v in enumerate(vals) if v is None]
 
-    def _safe_zero_sync(self, *, abort_check, on_progress=None,
-                        allow_loaded_blend: bool = False) -> dict:
-        """Plan + execute the collision-aware go-to-zero SYNCHRONOUSLY.
+    # ---- zero: ONE way down, no planner (2026-09-22) ------------------------
+    ZERO_AT_DEG = 8.0           # every joint within this of 0 = already at zero
+    ZERO_GLIDE_TORQUE = 350     # torque limit while gliding the legs flat (body already on the floor)
+    ZERO_GLIDE_DPS = 25.0       # glide rate
+    ZERO_SETTLE_TORQUES = (500, 300, 180)   # hold-present ramp that lets an odd stance sink onto its belly
+    ZERO_STALL_A = 3.0          # a hip/knee at this during the glide = jammed leg: stop and hold
 
-        Runs in the caller's worker thread; claims no job slot and
-        paints no status — the caller owns those. No-ops when already
-        at zero. Any anomaly during motion limps the robot
-        (``run_safe_zero``) and returns ``ok=False`` — the caller must
-        stop its own routine in that case.
+    def _zero_sync(self, *, abort_check, on_progress=None, **_legacy) -> dict:
+        """Bring the robot to zero (belly down, legs straight out) SYNCHRONOUSLY.
 
-        PINNED-TIP GATE (08-11 overheat lesson): when the read-only
-        detector says the body is tipped over a folded knee, the
-        low-torque untrap fold runs FIRST — driving 18 joints toward
-        zero at working torque against a pinned leg is exactly the
-        loop that stacked hips to 71 °C. Every motion path that
-        acquires its start through here inherits the gate.
+        Replaces the collision-aware safe_zero planner and the pinned-tip
+        untrap fold (both removed 2026-09-22 as unreliable).  One policy:
+
+        * within ZERO_AT_DEG of zero already: nothing to do;
+        * a normal upright stance: the baked STEP sit-down, then the glide
+          below for whatever is left;
+        * anything else (low, folded, kneeling, odd): SETTLE first -- hold
+          the MEASURED pose while the torque limit steps down so the body
+          sinks onto its belly under its own weight (no servo pulls toward a
+          target it has not reached) -- then ONE guarded low-torque glide to
+          zero.  The glide stops on a hip/knee stall and the robot then holds
+          the measured pose at STOP_HOLD_TORQUE: a jammed leg is for hands,
+          not for more torque.
+
+        Runs in the caller's worker thread; claims no job slot.  Returns
+        ok / error / already_at_zero / limp like its predecessor.
         """
         try:
-            from safe_zero import (belly_ground_z_mm, plan_safe_zero,
-                                   run_safe_zero)
+            from inplace_demos import (STOP_HOLD_TORQUE, CurrentPeakTracker, MotionGuard,
+                                       _live_robot_ids, _read_pose, _set_torque_limit,
+                                       _write_pose, ease_to_pose)
         except ImportError as e:
             return {"ok": False, "error": str(e)}
-        untrap = None
-        try:
-            from pinned_tip import check_pinned_tip, run_untrap_tuck
-            verdict = check_pinned_tip(self.drive.bus)
-        except Exception:
-            verdict = {"pinned": False}
-        if verdict.get("pinned"):
-            try:
-                from event_log import emit
-                emit("pinned_tip", verdict.get("why", "pinned-leg tip"),
-                     data=verdict, level="warn")
-            except Exception:
-                pass
+        bus = self.drive.bus
+        if bus is None:
+            return {"ok": False, "error": "no bus"}
+
+        def _prog(msg: str) -> None:
             if on_progress:
-                on_progress({"msg": "tipped on a trapped leg — "
-                                    "low-torque untrap fold first"})
-            self._untrap_fold_mono = time.monotonic()
-            untrap = run_untrap_tuck(self.drive.bus,
-                                     abort_check=abort_check,
-                                     on_progress=on_progress)
-            allow_loaded_blend = True   # our own fold: chassis is down
-            if not untrap.get("ok"):
-                return {"ok": False, "limp": bool(untrap.get("limp")),
-                        "untrap": untrap, "pinned_tip": verdict,
-                        "error": ("untrap failed: "
-                                  + str(untrap.get("error") or "?"))}
+                try:
+                    on_progress({"msg": msg})
+                except Exception:
+                    pass
+
         present, missing = self._present_pose18()
         if missing:
-            return {"ok": False,
-                    "error": ("no encoder reading from " + ", ".join(
-                        joint_label(j, self.names) for j in missing))}
-        plan = plan_safe_zero(present, ground_z_mm=belly_ground_z_mm(),
-                              allow_loaded_blend=allow_loaded_blend)
-        if not plan.get("ok"):
-            if untrap is not None:
-                plan["untrap"] = untrap
-            return plan
-        if not plan["stages"]:
-            return {"ok": True, "already_at_zero": True,
-                    **({"untrap": untrap} if untrap else {})}
-        result = run_safe_zero(self.drive.bus, plan["stages"],
-                               abort_check=abort_check,
-                               on_progress=on_progress)
-        if untrap is not None:
-            result["untrap"] = untrap
-        return result
+            return {"ok": False, "error": "no encoder reading from " + ", ".join(
+                joint_label(j, self.names) for j in missing)}
+        if max(abs(float(v)) for v in present) <= self.ZERO_AT_DEG:
+            return {"ok": True, "already_at_zero": True}
+        live = _live_robot_ids(bus)
+        if len(live) < N_JOINTS:
+            return {"ok": False, "error": f"only {len(live)}/18 servos live"}
+
+        standing = self._normal_standing_pose(present)
+        if standing:
+            _prog("zero: standing — STEP sit-down first")
+            rs = self.standup(mode="step", speed=1.0, direction="down",
+                              sync_gen=self._demo_gen)
+            if not rs.get("ok"):
+                return {"ok": False, "error": "STEP sit-down failed: "
+                        + str(rs.get("error") or "aborted"), **({"aborted": True} if rs.get("aborted") else {})}
+            present, missing = self._present_pose18()
+            if missing:
+                return {"ok": False, "error": "no encoder reading after the sit-down"}
+            if max(abs(float(v)) for v in present) <= self.ZERO_AT_DEG:
+                return {"ok": True, "route": "step_down"}
+        else:
+            # settle: re-command the measured pose at a falling torque limit
+            for limit in self.ZERO_SETTLE_TORQUES:
+                if abort_check():
+                    return {"ok": False, "aborted": True, "error": "aborted during settle"}
+                _prog(f"zero: settling onto the belly (torque limit {limit})")
+                pose_now = _read_pose(bus, live)
+                _set_torque_limit(bus, live, limit)
+                _write_pose(bus, pose_now, live, speed=180, acc=25)
+                time.sleep(0.8)
+
+        # the guarded glide: legs to straight-out at low torque, stop on a stall
+        present = _read_pose(bus, live)
+        worst = max(abs(float(v)) for v in present)
+        seconds = max(2.0, worst / self.ZERO_GLIDE_DPS)
+        _prog(f"zero: gliding the legs flat over {seconds:.0f} s (worst {worst:.0f} deg)")
+        _set_torque_limit(bus, live, self.ZERO_GLIDE_TORQUE)
+        tracker = CurrentPeakTracker()
+        try:
+            ok = ease_to_pose(bus, [0.0] * N_JOINTS, abort_check=abort_check, seconds=seconds,
+                              label="zero", current_tracker=tracker,
+                              contact_current_a=self.ZERO_STALL_A)
+        except Exception as e:  # noqa: BLE001
+            ok = False
+            _prog(f"zero: glide error {e}")
+        after = _read_pose(bus, live)
+        worst_after = max(abs(float(v)) for v in after)
+        stalled = tracker.peak_a >= self.ZERO_STALL_A or tracker.peak_total_a > MotionGuard.TOTAL_CAP_A
+        if not ok or stalled or worst_after > 12.0:
+            # STOP MEANS STOP WHERE YOU ARE; the servo watch releases a sustained fight
+            try:
+                MotionGuard.stop_hold(bus, live)
+            except Exception:
+                pass
+            why = ("aborted" if abort_check() else
+                   f"stalled at {tracker.peak_a:.2f} A (joint {tracker.peak_joint}, bus {tracker.peak_total_a:.1f} A)"
+                   if stalled else f"did not reach zero (worst joint {worst_after:.0f} deg off)")
+            return {"ok": False, "aborted": bool(abort_check()),
+                    "error": f"zero glide {why}; holding the measured pose at torque {STOP_HOLD_TORQUE} — "
+                             "a leg is jammed: free it by hand, then retry",
+                    "peak_a": round(tracker.peak_a, 2), "peak_total_a": round(tracker.peak_total_a, 2)}
+        _set_torque_limit(bus, live, 1000)
+        return {"ok": True, "route": "settle_glide" if not standing else "step_down_glide",
+                "peak_a": round(tracker.peak_a, 2), "peak_total_a": round(tracker.peak_total_a, 2)}
 
     def _acquire_start(self, kind: str, *, gen: int,
                        on_progress=None) -> dict:
-        """Safely bring the robot to a routine's required start pose.
-
-        ``kind``: ``zero`` (belly down, legs out), ``stand`` (baked
-        step stand), or ``stand_tuck`` (quad's slower step stand
-        acquisition).
-        Runs INSIDE the caller's worker thread — the caller must own
-        the job slot (``gen``).
-
-        Operator directive 08-11: stance-gated routines ACQUIRE their
-        start instead of refusing. Strategy: collision-aware safe zero
-        first, then the validated keyframe step stand-up when a stand
-        is needed. On ANY failure the failing engine has
-        already stopped the robot (hold or limp); this returns
-        ``ok=False`` and the caller MUST NOT run its routine.
+        """Bring the robot to a routine's start pose: ``zero`` (belly down,
+        legs out) or ``stand`` (the baked STEP stand, finished at the sim
+        walk-ready stance).  ``stand_tuck`` is accepted as ``stand`` (the tuck
+        keyframes are gone).  Runs INSIDE the caller's worker (``gen``).
+        On any failure the robot has already been stopped (hold or limp);
+        returns ``ok=False`` and the caller MUST NOT run its routine.
         """
         def _prog(p: dict) -> None:
             if on_progress:
@@ -329,602 +366,40 @@ class ZeroApi:
                 with self._lock:
                     self._cal_progress = dict(p)
 
-        raw_kind = str(kind).strip().lower()
-        tuck_stand = raw_kind in ("stand_tuck", "tuck_stand",
-                                  "quad_stand")
-        kind = "stand" if raw_kind.startswith("stand") else "zero"
-        d = self.drive
+        kind = "stand" if str(kind).strip().lower().startswith(("stand", "tuck", "quad")) else "zero"
         acquired: list[str] = []
         if kind == "stand":
             present, missing = self._present_pose18()
-            standing = (None if missing else
-                        self._normal_standing_pose(present))
+            standing = None if missing else self._normal_standing_pose(present)
             if standing:
-                res = (self._settle_stand_pose_sync(
-                    abort_check=self._demo_abort.is_set,
-                    on_progress=on_progress) if tuck_stand else
-                    self._step_to_rl_walk_ready_start_sync(
-                        abort_check=self._demo_abort.is_set,
-                        on_progress=on_progress))
+                res = self._step_to_rl_walk_ready_start_sync(
+                    abort_check=self._demo_abort.is_set, on_progress=on_progress)
                 if not res.get("ok"):
                     return {"ok": False, "acquired": acquired,
                             "error": str(res.get("error") or "failed")}
-                tag = ("tuck_stand_adjusted" if tuck_stand
-                       else "stand_adjusted")
-                return {"ok": True, "acquired": [tag],
-                        "standing": standing, **res}
-        # Legs folded UNDER a low chassis (median hip negative, median
-        # knee deep) is the pinned signature even when the body is level
-        # enough that pinned_tip's 12 deg tilt gate does not fire. Driving
-        # safe_zero's "straighten" stage from there jammed L0 hip / crossed
-        # tibias twice on 2026-09-10; the 20 % torque untrap fold first
-        # lets the pinned tibias slide out, then safe_zero is routine.
-        present, missing = self._present_pose18()
-        # 2026-09-11: the fold signature alone is NOT enough. A level robot
-        # standing tall on vertical tibias (hips negative, knees > 90 after a
-        # hand reposition / RL hold) has the same joint medians as the tuck,
-        # and folding it dropped the chassis, after which safe_zero's loaded
-        # blend lifted and dropped it again (on video, twice). The fold path
-        # now needs evidence that the robot is actually down on folded legs:
-        # the read-only tip detector, or an untrap fold we ran ourselves.
-        tilt_deg = None
-        pinned = False
-        verdict: dict = {}
-        try:
-            from pinned_tip import check_pinned_tip
-            verdict = check_pinned_tip(d.bus) or {}
-            if verdict.get("tilt_deg") is not None:
-                tilt_deg = float(verdict["tilt_deg"])
-            pinned = bool(verdict.get("pinned") or verdict.get("tipped"))
-        except Exception:
-            verdict = {}
-        route, why = ("safe_zero", "pose unreadable")
-        if not missing:
-            route, why = self._stand_route_decision(
-                present, tilt_deg=tilt_deg, pinned=pinned,
-                fold_recent=self._fold_recent())
-            if kind != "stand" and route == "glide":
-                route, why = "safe_zero", why + " (zero requested)"
-        try:
-            from event_log import emit
-            emit("stand_route", f"{kind}: {route} — {why}", data={
-                "kind": kind, "route": route, "why": why,
-                "present_deg": [None if v is None else round(v, 1)
-                                for v in present],
-                "tilt_deg": tilt_deg, "pinned": pinned,
-                "fold_recent": self._fold_recent(),
-                "standing": bool(kind == "stand" and standing)},
-                level="info")
-        except Exception:
-            pass
-        _prog({"msg": f"acquiring start: route {route} ({why})"})
-        if route == "glide":
-            res = self._step_to_rl_walk_ready_start_sync(
-                abort_check=self._demo_abort.is_set,
-                on_progress=on_progress)
-            if not res.get("ok"):
-                # No fallback into the fold / loaded-blend path: a glide
-                # that fails on an upright robot leaves it holding, which
-                # beats a planner that drops it.
-                return {"ok": False, "acquired": acquired,
-                        "limp": bool(res.get("limp")),
-                        "error": ("upright but unrecognised stance; the "
-                                  "walk-ready glide failed: "
-                                  + str(res.get("error") or "failed")
-                                  + ". Not folding a standing robot — "
-                                  "check the legs / lower with STEP-down.")}
-            return {"ok": True, "acquired": ["glide_unclassified_upright"],
-                    "route_why": why, **res}
-        if route == "fold":
-            try:
-                from pinned_tip import run_untrap_tuck
-            except ImportError:
-                run_untrap_tuck = None
-            if run_untrap_tuck is not None:
-                _prog({"msg": "acquiring start: legs folded under — "
-                              "low-torque untrap fold first…"})
-                self._untrap_fold_mono = time.monotonic()
-                ru = run_untrap_tuck(d.bus,
-                                     abort_check=self._demo_abort.is_set,
-                                     on_progress=_prog)
-                if not ru.get("ok"):
-                    return {"ok": False, "acquired": acquired,
-                            "limp": True,
-                            "error": ("untrap fold failed: "
-                                      + str(ru.get("error") or "aborted"))}
-                acquired.append("untrap")
-        # Everything else goes through a safe zero first (no-op when
-        # already there; plans around ground / leg collisions; limps
-        # on stall or unexpected force).
-        _prog({"msg": "acquiring start: safe zero…"})
-        rz = self._safe_zero_sync(abort_check=self._demo_abort.is_set,
-                                  on_progress=_prog,
-                                  allow_loaded_blend=("untrap" in acquired))
+                return {"ok": True, "acquired": ["stand_adjusted"], "standing": standing, **res}
+        _prog({"msg": "acquiring start: zero…"})
+        rz = self._zero_sync(abort_check=self._demo_abort.is_set, on_progress=_prog)
         if not rz.get("ok"):
-            why = (rz.get("error")
-                   or ("aborted" if rz.get("aborted") else "failed"))
-            return {"ok": False, "acquired": acquired,
-                    "limp": bool(rz.get("limp")),
-                    "error": f"could not reach zero start: {why}"}
+            return {"ok": False, "acquired": acquired, "limp": bool(rz.get("limp")),
+                    "error": "could not reach zero start: "
+                             + str(rz.get("error") or ("aborted" if rz.get("aborted") else "failed"))}
         if not rz.get("already_at_zero"):
-            acquired.append("safe_zero")
+            acquired.append("zero")
         if kind == "zero":
             return {"ok": True, "acquired": acquired}
-        mode = "step"
-        label = "STEP stand"
-        _prog({"msg": f"acquiring start: stand-up to {label}…"})
-        rs = self.standup(mode=mode, speed=(6.0 if tuck_stand else 10.0),
-                          direction="up",
-                          sync_gen=gen)
+        _prog({"msg": "acquiring start: STEP stand-up…"})
+        rs = self.standup(mode="step", speed=10.0, direction="up", sync_gen=gen)
         if not rs.get("ok"):
             return {"ok": False, "acquired": acquired,
-                    "error": ("could not reach stand start: "
-                              + str(rs.get("error") or "aborted"))}
+                    "error": "could not reach stand start: " + str(rs.get("error") or "aborted")}
         acquired.append("standup_step")
-        if not tuck_stand:
-            # The baked step stand-up ends near the simulator's walk reset
-            # pose. Re-hold/verify that explicit pose here; do not read
-            # plant_pose.json, which is only a calibration artifact.
-            _prog({"msg": "acquiring start: sim walk-ready pose…"})
-            settle_result = self._step_to_rl_walk_ready_start_sync(
-                abort_check=self._demo_abort.is_set,
-                on_progress=_prog)
-            if not settle_result.get("ok"):
-                why = (settle_result.get("error")
-                       or ("aborted" if settle_result.get("aborted")
-                           else "failed"))
-                return {"ok": False, "acquired": acquired,
-                        "limp": bool(settle_result.get("limp")),
-                        "error": f"could not reach walk-ready start: {why}"}
-            acquired.append("sim_walk_start")
+        _prog({"msg": "acquiring start: sim walk-ready pose…"})
+        settle_result = self._step_to_rl_walk_ready_start_sync(
+            abort_check=self._demo_abort.is_set, on_progress=_prog)
+        if not settle_result.get("ok"):
+            why = settle_result.get("error") or ("aborted" if settle_result.get("aborted") else "failed")
+            return {"ok": False, "acquired": acquired, "limp": bool(settle_result.get("limp")),
+                    "error": f"could not reach walk-ready start: {why}"}
+        acquired.append("sim_walk_start")
         return {"ok": True, "acquired": acquired}
-
-    FOLD_EVIDENCE_S = 900.0     # an untrap fold we ran counts this long
-
-    def _fold_recent(self) -> bool:
-        t = getattr(self, "_untrap_fold_mono", None)
-        return t is not None and (time.monotonic() - t) < self.FOLD_EVIDENCE_S
-
-    @staticmethod
-    def _stand_route_decision(present: list, *, tilt_deg: float | None,
-                              pinned: bool, fold_recent: bool,
-                              ground_z_mm: float | None = None
-                              ) -> tuple[str, str]:
-        """Pure routing for a pose the upright classifier rejected.
-
-        Returns ``(route, why)`` with route one of:
-
-        * ``fold``      — low-torque untrap fold, then safe_zero (loaded
-                          blend allowed). Only with EVIDENCE the robot is
-                          down on folded legs: tip detector, or an untrap
-                          fold we ran within ``FOLD_EVIDENCE_S``.
-        * ``glide``     — level robot whose modelled feet are well below
-                          the belly plane: it is standing on its legs in a
-                          stance we do not recognise. Step it to walk-ready
-                          (tripod glide) — never fold, never blend.
-        * ``safe_zero`` — belly-ish / unknown: collision-aware planner
-                          (which itself refuses loaded blends now).
-
-        The joint model cannot tell a tall high-knee stance from the tuck
-        (both: hips negative, knees deep), so the fold shape without
-        evidence and with a level IMU is treated as STANDING. Without an
-        IMU reading the legacy fold route is kept for the fold shape.
-        """
-        try:
-            from safe_zero import (BELLY_GROUND_Z_MM, STAND_DETECT_MM,
-                                   fold_family, median_foot_z_mm)
-        except ImportError:
-            return "safe_zero", "safe_zero planner unavailable"
-        gz = BELLY_GROUND_Z_MM if ground_z_mm is None else ground_z_mm
-        folded = fold_family(present)
-        level = tilt_deg is not None and abs(float(tilt_deg)) < 12.0
-        try:
-            mz = median_foot_z_mm(present)
-        except (TypeError, ValueError):
-            return "safe_zero", "pose unreadable"
-        # Any median foot below the belly plane means the chassis is off the
-        # floor. 09-11: the post-walk crouch (median foot 50-60 mm below the
-        # hip pivot) failed the old STAND_DETECT test and was dropped onto
-        # its belly by safe_zero, then stood up again at 10x -- the
-        # sit/crash cycle before the leg 3 clamp broke.
-        modelled_stand = mz < gz - 5.0
-        if folded and (pinned or fold_recent):
-            return "fold", ("folded-under shape with "
-                            + ("tip-detector" if pinned else "recent untrap")
-                            + " evidence")
-        if folded and tilt_deg is None:
-            return "fold", "folded-under shape, no IMU to rule out a tuck"
-        if level and (modelled_stand or folded):
-            return "glide", (f"level ({tilt_deg:.0f}°), median foot "
-                             f"{-mz:.0f} mm below hip pivot, no tip/untrap "
-                             "evidence: standing in an unrecognised stance")
-        if folded:
-            return "fold", f"folded-under shape, tilted {tilt_deg:.0f}°"
-        return "safe_zero", (f"median foot {-mz:.0f} mm below hip pivot"
-                             + ("" if tilt_deg is None else
-                                f", tilt {tilt_deg:.0f}°"))
-
-    @staticmethod
-    def _folded_under_signature(present: list) -> bool:
-        """Median hip negative AND median knee deep: legs tucked under."""
-        try:
-            hips = sorted(float(present[joint_index(leg, "hip")]) for leg in range(6))
-            knees = sorted(float(present[joint_index(leg, "knee")]) for leg in range(6))
-        except (TypeError, ValueError):
-            return False
-        hip_med = (hips[2] + hips[3]) / 2.0
-        knee_med = (knees[2] + knees[3]) / 2.0
-        return hip_med < 0.0 and knee_med > 90.0
-
-    def pinned_tip_state(self) -> dict:
-        """READ-ONLY pinned-leg-tip verdict (see pinned_tip.py).
-
-        One IMU read on a level robot; when tipped it settles ~1.2 s
-        and reads again before classifying. Never commands motion —
-        safe to poll from the web UI.
-        """
-        try:
-            from pinned_tip import check_pinned_tip
-        except ImportError as e:
-            return {"ok": False, "error": str(e)}
-        if self.drive.dry_run or not self.drive.bus:
-            return {"ok": False, "error": "no bus"}
-        v = check_pinned_tip(self.drive.bus)
-        return {"ok": "error" not in v, **v}
-
-    def untrap(self, *, force: bool = False) -> dict:
-        """Low-torque untrap fold (pinned_tip.run_untrap_tuck) as a job.
-
-        Refuses unless the read-only detector confirms a pinned-leg
-        tip (``force=true`` overrides for bench testing while the
-        operator watches — the move is torque-bounded either way).
-        Success leaves the robot level + folded, holding at the LOW
-        limit; run safe_zero next. Failure/abort leaves it LIMP.
-        """
-        try:
-            from pinned_tip import TUCK_TORQUE, check_pinned_tip, \
-                run_untrap_tuck
-        except ImportError as e:
-            return {"ok": False, "error": str(e)}
-        if self.drive.dry_run or not self.drive.bus:
-            return {"ok": False, "error": "no bus"}
-
-        verdict = check_pinned_tip(self.drive.bus)
-        if not verdict.get("pinned") and not force:
-            return {"ok": False, "pinned_tip": verdict,
-                    "error": ("not a pinned-leg tip ("
-                              + str(verdict.get("why")
-                                    or verdict.get("error") or "?")
-                              + ") — nothing to untrap. force=true "
-                              "runs the fold anyway (watching!).")}
-
-        if self._demo_thread and self._demo_thread.is_alive():
-            if not self._preempt_demo_thread(reason="→ untrap",
-                                             timeout=5.0):
-                return {"ok": False,
-                        "error": ("previous job did not stop — "
-                                  "try Stop / E-STOP"),
-                        "robot": self.robot_state()}
-
-        self._demo_gen += 1
-        gen = self._demo_gen
-        self._demo_abort.clear()
-        with self._lock:
-            self._demo_name = "untrap"
-            self._demo_status = "untrap: low-torque fold"
-            self._demo_params = {"force": bool(force),
-                                 "torque_limit": TUCK_TORQUE}
-            self._cal_result = None
-            self._cal_progress = {"msg": "untrap: starting"}
-        self._set_activity("zeroing", "untrap (low-torque fold)")
-        self._untrap_fold_mono = time.monotonic()
-
-        def _worker():
-            d = self.drive
-            with d._lock:
-                d.mode = "demo"
-                d.gait.stop()
-            result: dict = {}
-            try:
-                from event_log import emit
-                emit("untrap", "start", data=verdict, level="warn")
-            except Exception:
-                pass
-            try:
-                self._bus_hot_begin()
-
-                def _prog(dct: dict) -> None:
-                    with self._lock:
-                        self._cal_progress = dict(dct)
-
-                result = run_untrap_tuck(
-                    d.bus, abort_check=self._demo_abort.is_set,
-                    on_progress=_prog)
-                result["pinned_tip"] = verdict
-            except Exception as e:
-                result = {"ok": False, "error": str(e)}
-            finally:
-                self._bus_hot_end()
-                if gen != self._demo_gen:
-                    return
-                limp = bool(result.get("limp"))
-                with self._lock:
-                    self._cal_result = result
-                    if result.get("ok"):
-                        self._demo_status = ("done · level + folded "
-                                             "(low torque) — safe zero "
-                                             "next")
-                    else:
-                        self._demo_status = str(
-                            result.get("error") or "error")
-                    self._cal_progress = {"msg": self._demo_status}
-                    st = self._demo_status
-                with d._lock:
-                    if d.mode == "demo":
-                        d.mode = "idle"
-                    if limp:
-                        d.armed = False
-                    else:
-                        d.armed = True
-                    d.status = st
-                try:
-                    from event_log import emit
-                    emit("untrap", "done" if result.get("ok") else st,
-                         data={k: result.get(k)
-                               for k in ("ok", "limp", "tilt_deg",
-                                         "trapped_names", "peak_a")
-                               if k in result})
-                except Exception:
-                    pass
-                self._set_activity(
-                    "limp" if limp else "armed", st)
-
-        self._demo_thread = threading.Thread(target=_worker, daemon=True)
-        self._demo_thread.start()
-        return {"ok": True, "started": True, "pinned_tip": verdict,
-                "demo": self.demo_state(), "robot": self.robot_state()}
-
-    def safe_zero(self, *, dry_run: bool = False,
-                  force: bool = False) -> dict:
-        """Smart go-to-zero with STEP-down for normal stance.
-
-        If the robot is level and near a normal standing pose (captured
-        plant or STEP's final stance), this endpoint delegates to
-        STEP-down. That is the normal descent path.
-
-        Otherwise this is the collision-aware untangle/recovery path:
-        it plans staged waypoints from present encoders to logical 0°
-        (``safe_zero.plan_safe_zero``: straighten → center yaws with feet
-        lifted clear of the ground → extend flat) and REFUSES with an
-        error when no ground/self-collision-free path exists. During
-        motion, any servo reporting stall-fight current, sustained load,
-        or "commanded but not turning" LIMPS the whole robot immediately
-        (``run_safe_zero``).
-
-        ``dry_run=True`` returns the plan without any motion.
-        ``force`` bypasses the IMU tilt gate and (09-11) permits the
-        planner's full-torque straighten blend from a standing pose,
-        which is otherwise refused (``code: standing_no_descent``) —
-        never the geometric feasibility or wrong-zero refusals.
-        """
-        try:
-            import math as _math
-            from safe_zero import belly_ground_z_mm, plan_safe_zero
-        except ImportError as e:
-            return {"ok": False, "error": str(e)}
-        if self.drive.dry_run:
-            return {"ok": True, "dry_run": True}
-        bus = self.drive.bus
-        if not bus:
-            return {"ok": False, "error": "no bus"}
-        if self._running_calibration_name():
-            return self._calibration_busy_response("safe zero")
-
-        present, missing = self._present_pose18()
-        if missing:
-            return {"ok": False,
-                    "error": ("no encoder reading from " + ", ".join(
-                        joint_label(j, self.names) for j in missing)
-                        + " — safe zero needs all 18 joints")}
-
-        # Tilt gate: the planner's ground model assumes a roughly
-        # level body (belly-down or standing on its feet).
-        tilt = None
-        pinned = None
-        try:
-            if hasattr(bus, "read_imu"):
-                imu = bus.read_imu()
-                if imu:
-                    ax = float(imu.get("ax_g", 0.0))
-                    ay = float(imu.get("ay_g", 0.0))
-                    az = float(imu.get("az_g", 0.0))
-                    roll = _math.degrees(_math.atan2(ay, az))
-                    pitch = _math.degrees(
-                        _math.atan2(-ax, _math.hypot(ay, az)))
-                    tilt = max(abs(roll), abs(pitch))
-        except Exception:
-            tilt = None
-        if tilt is not None:
-            # Tipped over a folded knee (THE post-fall state, 08-11)?
-            # Then safe zero knows how to proceed: the worker runs the
-            # low-torque untrap fold before any planned stage, so a
-            # bare refusal here would just push the caller to retry
-            # stand/walk against the pin instead. Classify on EVERY
-            # call (pure math on data already in hand) — the first
-            # live pinned test rested at only 13° tilt, well under
-            # this endpoint's 20° hard gate, and a pinned pose can
-            # also defeat the preview planner below.
-            try:
-                from pinned_tip import classify_pinned_tip
-                pinned = classify_pinned_tip(present, roll, pitch)
-            except Exception:
-                pinned = None
-            if (tilt > 20.0 and not (pinned and pinned.get("pinned"))
-                    and not force):
-                return {"ok": False, "tilt_deg": round(tilt, 1),
-                        **({"pinned_tip": pinned} if pinned else {}),
-                        "error": (f"body tilted {tilt:.0f}° with legs "
-                                  "near straight — on a slope or "
-                                  "hand-placed? Safe zero assumes "
-                                  "roughly level. Right the robot (or "
-                                  "force=true while watching).")}
-
-        standing = self._normal_standing_pose(
-            present, tilt_deg=tilt, pinned=pinned)
-        if standing:
-            # Safe zero is the tangled/unknown recovery path. A level,
-            # normal standing robot should descend through the same STEP
-            # lower used by all non-Experiments controls, not through the
-            # collision-avoidance untangle planner.
-            if dry_run:
-                return {"ok": True, "dry_run": True,
-                        "route": "step_lower",
-                        "standing": standing,
-                        "msg": "standing pose: would use STEP lower"}
-            res = self.standup(mode="step", speed=1.0,
-                               direction="down")
-            res["route"] = "step_lower"
-            res["standing"] = standing
-            return res
-
-        # 2026-09-20 (hexapod2, on video): a post-walk stance that failed the upright classifier reached the planner,
-        # whose "low-drag descent" lowered the chassis while sliding loaded feet outward.  At standing height the only
-        # sanctioned way down is a walk-ready re-plant + STEP-down; safe zero is for poses at or near the floor.
-        try:
-            from safe_zero import STAND_DETECT_MM, median_foot_z_mm
-            _mz = median_foot_z_mm(present)
-            off_floor = _mz < belly_ground_z_mm() - STAND_DETECT_MM
-        except Exception:
-            _mz, off_floor = None, False
-        if off_floor and not force and not (pinned and pinned.get("pinned")):
-            return {"ok": False, "code": "standing_no_descent",
-                    "median_foot_z_mm": None if _mz is None else round(_mz, 1),
-                    "error": (f"robot is standing (median foot {-_mz:.0f} mm below the hip pivot) but not in a "
-                              "recognised upright stance: safe zero does not lower a standing robot. Re-plant to "
-                              "walk-ready (POST /api/rl/stand) and STEP-down (POST /api/standup direction=down); "
-                              "force=true only while watching.")}
-        plan = plan_safe_zero(present, ground_z_mm=belly_ground_z_mm(),
-                              allow_loaded_blend=bool(force))
-        plan["present_deg"] = [round(v, 2) for v in present]
-        if tilt is not None:
-            plan["tilt_deg"] = round(tilt, 1)
-        if pinned and pinned.get("pinned"):
-            plan["pinned_tip"] = pinned
-            if not plan.get("ok"):
-                # A tipped pose can defeat the preview planner (crossed
-                # legs); the worker re-plans on fresh encoders AFTER the
-                # untrap fold, so this preview must not block motion.
-                plan = {"ok": True, "stages": [], "pinned_tip": pinned,
-                        "present_deg": plan["present_deg"],
-                        "tilt_deg": plan.get("tilt_deg"),
-                        "notes": ["pinned-leg tip: low-torque untrap "
-                                  "fold first, then re-plan"]}
-        if dry_run or not plan.get("ok"):
-            plan["dry_run"] = bool(dry_run)
-            return plan
-        if not plan["stages"] and not (pinned and pinned.get("pinned")):
-            return {**plan, "msg": "already at zero"}
-
-        if self._demo_thread and self._demo_thread.is_alive():
-            if not self._preempt_demo_thread(reason="→ safe zero",
-                                             timeout=5.0):
-                return {"ok": False,
-                        "error": ("previous job did not stop — "
-                                  "try Stop / E-STOP"),
-                        "robot": self.robot_state()}
-
-        self._demo_gen += 1
-        gen = self._demo_gen
-        self._demo_abort.clear()
-        with self._lock:
-            self._demo_name = "safe_zero"
-            self._demo_status = "safe zero"
-            self._demo_params = {"stages": len(plan["stages"]),
-                                 "force": bool(force)}
-            self._cal_result = None
-            self._cal_progress = {"msg": "safe zero: starting"}
-        self._set_activity("zeroing", "safe zero")
-
-        def _worker():
-            d = self.drive
-            with d._lock:
-                d.mode = "demo"
-                d.gait.stop()
-                if not d.armed:
-                    d._torque_all(True)
-                    d.armed = True
-            result: dict = {}
-            try:
-                from event_log import emit
-                emit("safe_zero",
-                     f"start ({len(plan['stages'])} stages, "
-                     f"{plan.get('total_s')}s)",
-                     data={"stages": [s["label"]
-                                      for s in plan["stages"]]})
-            except Exception:
-                pass
-            try:
-                self._bus_hot_begin()
-
-                def _prog(dct: dict) -> None:
-                    with self._lock:
-                        self._cal_progress = dct
-
-                # _safe_zero_sync re-plans on fresh encoders: a limp
-                # robot may have sagged between the HTTP call and
-                # torque-on.
-                result = self._safe_zero_sync(
-                    abort_check=self._demo_abort.is_set,
-                    on_progress=_prog)
-                if result.get("already_at_zero"):
-                    result.setdefault("msg", "already at zero")
-            except Exception as e:
-                result = {"ok": False, "error": str(e)}
-            finally:
-                self._bus_hot_end()
-                if gen != self._demo_gen:
-                    return
-                limp = bool(result.get("limp"))
-                with self._lock:
-                    self._cal_result = result
-                    if result.get("ok"):
-                        self._demo_status = "done · at zero (safe)"
-                    elif result.get("aborted"):
-                        self._demo_status = "aborted (holding)"
-                    else:
-                        self._demo_status = str(
-                            result.get("error") or "error")
-                    self._cal_progress = {"msg": self._demo_status}
-                    st = self._demo_status
-                with d._lock:
-                    if d.mode == "demo":
-                        d.mode = "idle"
-                    if limp:
-                        d.armed = False
-                        d.status = st
-                try:
-                    from event_log import emit
-                    emit("safe_zero",
-                         "done" if result.get("ok") else st,
-                         data={k: result.get(k)
-                               for k in ("ok", "limp", "stage", "peak_a",
-                                         "peak_joint")
-                               if k in result})
-                except Exception:
-                    pass
-                self._set_activity(
-                    "limp" if (limp or not d.armed) else "armed", st)
-
-        self._demo_thread = threading.Thread(target=_worker, daemon=True)
-        self._demo_thread.start()
-        return {
-            "ok": True, "started": True,
-            "plan": {"stages": [{"label": s["label"],
-                                 "seconds": s["seconds"]}
-                                for s in plan["stages"]],
-                     "total_s": plan.get("total_s"),
-                     "notes": plan.get("notes") or []},
-            "demo": self.demo_state(),
-            "robot": self.robot_state(),
-        }
-

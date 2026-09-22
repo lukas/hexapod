@@ -501,7 +501,7 @@ class DemosApi:
                                                     or f"homing {home_msg}")
 
                     start_kind = ("zero" if home == "sit"
-                                  else "stand_tuck" if quad_tuck_home
+                                  else "stand" if quad_tuck_home
                                   else "stand")
                     res_home = self._acquire_start(
                         start_kind, gen=gen, on_progress=_home_prog)
@@ -897,7 +897,7 @@ class DemosApi:
         # 26-45 deg from walk-ready while the robot is plainly standing
         # (the median shape gate above already passed). With the old 25/35
         # deg limits every such stand/lower request was classified as a
-        # recovery pose and routed to safe_zero, whose first stage
+        # recovery pose and routed to zero acquisition, whose first stage
         # straightens LOADED legs outward and drops the chassis onto its
         # belly (nine times that day, on video). A standing robot must be
         # re-held via the walk-ready glide / STEP-down instead, so the
@@ -937,39 +937,6 @@ class DemosApi:
                 best = verdict
         return best
 
-    def _settle_stand_pose_sync(self, *, abort_check,
-                                on_progress=None) -> dict:
-        """Legacy tuck-stand adjust path for non-RL planted stand helpers."""
-        try:
-            from inplace_demos import CurrentPeakTracker, go_to_stand_pose
-        except ImportError as e:
-            return {"ok": False, "error": str(e)}
-
-        def _prog(msg: str) -> None:
-            if not on_progress:
-                return
-            try:
-                on_progress({"msg": msg})
-            except Exception:
-                pass
-
-        _prog("standing already: adjusting legs / plant height…")
-        result: dict = {}
-        tracker = CurrentPeakTracker()
-        try:
-            ok = go_to_stand_pose(
-                self.drive.bus, abort_check=abort_check,
-                seconds=4.5, current_tracker=tracker, result=result)
-        except Exception as e:
-            return {"ok": False,
-                    "error": f"could not adjust standing pose: {e}"}
-        if not ok:
-            why = (result.get("error")
-                   or ("aborted" if result.get("aborted") else "failed"))
-            return {"ok": False, "error": f"standing adjust failed: {why}"}
-        return {"ok": True, "settled_stand": True,
-                "stand_check": result}
-
     def _step_to_rl_walk_ready_start_sync(self, *, abort_check,
                                           on_progress=None) -> dict:
         """Step or settle from the current upright pose to sim walk start.
@@ -980,7 +947,7 @@ class DemosApi:
         """
         try:
             from inplace_demos import (
-                CurrentPeakTracker, _enable_torque, _limp_all,
+                CurrentPeakTracker, MotionGuard, _enable_torque,
                 _live_robot_ids, _set_torque_limit, _write_pose,
             )
             from rl_walk_start import walk_start_pose_degrees
@@ -1024,26 +991,25 @@ class DemosApi:
                               "walk-ready start")}
         tracker = CurrentPeakTracker()
 
+        guard = MotionGuard(tracker)
+
         def _current_trip() -> dict:
-            # A stalled joint at 100 % torque limit pulls ~5 A. Returning
-            # the error used to leave it fighting the jam, armed, until the
-            # servo watch cut it at 72 C twelve seconds later (2026-09-15
-            # 14:42 UTC, L0 knee; wires melted). Limp everything now.
+            # STOP MEANS STOP WHERE YOU ARE (2026-09-22): hold the measured
+            # pose at a low torque limit instead of limping a robot that is
+            # standing on its feet; the servo watch releases a sustained
+            # fight.  (08-15 the old path limped everything after a stalled
+            # joint pulled ~5 A for twelve seconds -- the guard now trips on
+            # the second sweep and the hold cannot sustain that fight.)
             try:
-                _limp_all(bus, live)
+                MotionGuard.stop_hold(bus, live)
             except Exception:
                 pass
-            d = self.drive
-            with d._lock:
-                d.armed = False
-                d.status = "limp: current trip"
             return {"ok": False,
-                    "error": (f"walk-ready start current trip "
-                              f"{tracker.peak_a:.2f} A on joint "
-                              f"{tracker.peak_joint} — torque off all"),
+                    "error": "walk-ready start " + guard.message() + " — holding the measured pose",
                     "peak_a": round(tracker.peak_a, 2),
                     "peak_joint": tracker.peak_joint,
-                    "limped": True}
+                    "peak_total_a": round(tracker.peak_total_a, 2),
+                    "held": True}
 
         _set_torque_limit(bus, live, 1000)
         _enable_torque(bus, live)
@@ -1067,7 +1033,7 @@ class DemosApi:
                     tracker.sample(bus, live)
                 except Exception:
                     pass
-                if tracker.peak_a > 4.0:
+                if guard.check():
                     return _current_trip()
             try:
                 _emit_servo_fb("walk-ready start: settle", tracker,
@@ -1106,7 +1072,7 @@ class DemosApi:
                     tracker.sample(bus, live)
                 except Exception:
                     pass
-                if tracker.peak_a > 4.0:
+                if guard.check():
                     return _current_trip()
             try:
                 _emit_servo_fb(label, tracker, target=frame.q_deg)

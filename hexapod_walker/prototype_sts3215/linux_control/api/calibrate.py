@@ -2719,7 +2719,7 @@ class CalibrateApi:
                 time.sleep(0.25)
 
             progress("Slip: seated yaw reference")
-            zero_res = self._safe_zero_sync(
+            zero_res = self._zero_sync(
                 abort_check=abort_check,
                 on_progress=lambda p: progress(
                     "Slip zero: " + str(p.get("msg") or "running"),
@@ -2733,7 +2733,7 @@ class CalibrateApi:
                     "error": (
                         "sit reference interrupted"
                         if stopped else "sit reference failed: "
-                        + str(zero_res.get("error") or "safe_zero failed")),
+                        + str(zero_res.get("error") or "zero failed")),
                     "zero_result": zero_res,
                     "samples": samples,
                 }
@@ -2901,9 +2901,9 @@ class CalibrateApi:
         except ImportError as e:
             return {"ok": False, "mode": "checkup", "error": str(e)}
 
-        def run_safe_zero_phase(phase_id: str, label: str) -> dict:
+        def run_zero_phase(phase_id: str, label: str) -> dict:
             progress(label, phase_id)
-            res = self._safe_zero_sync(
+            res = self._zero_sync(
                 abort_check=abort_check,
                 on_progress=lambda p: progress(
                     label + ": " + str(p.get("msg") or "running"),
@@ -2919,7 +2919,7 @@ class CalibrateApi:
                         "safe stages")
             return res
 
-        zero_res = run_safe_zero_phase("safe_zero", "Safe zero start pose")
+        zero_res = run_zero_phase("safe_zero", "Zero start pose")
         phase("safe_zero", zero_res)
         if (abort_check() or zero_res.get("aborted")
                 or not zero_res.get("ok")):
@@ -3208,7 +3208,7 @@ class CalibrateApi:
                     "limp for inspection"),
             })
         else:
-            return_zero_res = run_safe_zero_phase(
+            return_zero_res = run_zero_phase(
                 "return_zero", "Return zero before torque-off")
             phase("return_zero", return_zero_res)
             returned_zero = bool(return_zero_res.get("ok"))

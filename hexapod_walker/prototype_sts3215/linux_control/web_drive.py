@@ -1386,6 +1386,7 @@ class Handler(BaseHTTPRequestHandler):
                     speed=float(data.get("speed", 1.0)),
                     direction=str(data.get("direction", "up")),
                     force=bool(data.get("force", False)),
+                    start_keyframe=int(data.get("start_keyframe", 0)),
                     torque=int(data.get("torque", 700))))
         elif path == "/api/standup/stop":
             self._json(200, BENCH.stop_demo() if BENCH

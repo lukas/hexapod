@@ -424,5 +424,5 @@
    "total_s": 9.36
   }
  },
- "note": "2026-09-22: blend/drag/tuck stand variants removed; STEP is the one stand-up and (reversed) the one sit-down."
+ "note": "2026-09-22: blend/drag/tuck stand variants removed; STEP is the one stand-up and (reversed) the one sit-down. A dedicated 'lower' mode was tried and rejected the same day (multi-step drop, 3-leg load); per-robot fold caps in api/standup.py make the reversed STEP complete on hexapod2."
 }

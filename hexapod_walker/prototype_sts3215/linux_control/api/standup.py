@@ -6,10 +6,19 @@ mixed into ``bench_api.BenchAPI``. Route/JSON shapes are unchanged.
 from __future__ import annotations
 
 import os
+import socket
 
 from inplace_demos import STOP_HOLD_TORQUE  # every scripted loop holds at this after a stop
 # most acute knee fold the stand-up may command (deg from straight); see the frames cap in standup()
-KNEE_FOLD_CAP_DEG = float(os.environ.get("HEXAPOD_KNEE_FOLD_CAP_DEG", "135"))
+# Per-robot mechanical stops (2026-09-22): hexapod2's femur meets the top chassis near -55 and its L0
+# knee stops near 126 (the others 130-135).  The baked STEP frames ask for hips -65/-78 and knees 146:
+# commanding past a stop is a fight against plastic (8.2 A summed this afternoon).  Cap per hostname;
+# env vars override.  Other robots keep the frames as baked.
+_FOLD_CAPS = {"hexapod2": (-52.0, 125.0)}          # hostname -> (hip min deg, knee max deg)
+_host = socket.gethostname().split(".")[0]
+_hip_cap_default, _knee_cap_default = _FOLD_CAPS.get(_host, (-80.0, 150.0))
+KNEE_FOLD_CAP_DEG = float(os.environ.get("HEXAPOD_KNEE_FOLD_CAP_DEG", str(_knee_cap_default)))
+HIP_FOLD_CAP_DEG = float(os.environ.get("HEXAPOD_HIP_FOLD_CAP_DEG", str(_hip_cap_default)))
 
 from .common import *  # noqa: F401,F403
 
@@ -59,7 +68,7 @@ class StandupApi:
         }
 
     def standup(self, *, mode: str = "step", speed: float = 1.0,
-                direction: str = "up", force: bool = False,
+                direction: str = "up", force: bool = False, start_keyframe: int = 0,
                 torque: int = 700, abort_current_a: float = 3.0,
                 sync_gen: int | None = None) -> dict:
         """Play one baked stand-up strategy (async).
@@ -104,11 +113,16 @@ class StandupApi:
             if str(mode) == "plant":
                 return {"ok": False,
                         "error": "stand-up mode 'plant' was removed; use 'step'"}
+            down = str(direction) == "down"
+            # The sit-down IS the stand-up played backwards (Lukas, 2026-09-22, after watching
+            # the alternatives: one continuous motion, all six legs sharing the load, feet pulled
+            # inward as the knees fold).  What made it fail on hexapod2 was the frames asking for
+            # more fold than its hips/knees have -- fixed by the per-robot caps above, not by a
+            # different lower.
             m = data["modes"][str(mode)]
             keyframes = m["keyframes"]
         except (OSError, ValueError, KeyError, ImportError) as e:
             return {"ok": False, "error": f"unknown stand-up mode: {e}"}
-        down = str(direction) == "down"
         if sync_gen is None and self._drive_active():
             return {"ok": False,
                     "error": ("drive session active/stopping; use End "
@@ -169,9 +183,18 @@ class StandupApi:
         # (zero re-set that morning); commanding past it drove six knee servos
         # into the stop -- current with nothing moving, the guard tripped, the
         # robot parked tall on its knee stops.  Cap every commanded knee.
-        frames = [([min(float(v), KNEE_FOLD_CAP_DEG) if (i % 3 == 2) else float(v)
+        frames = [([min(float(v), KNEE_FOLD_CAP_DEG) if (i % 3 == 2) else
+                    (max(float(v), HIP_FOLD_CAP_DEG) if (i % 3 == 1) else float(v))
                     for i, v in enumerate(kf["q_deg"])], float(kf["s"]))
                   for kf in keyframes]
+        if start_keyframe:
+            # resume a stand-up from a later keyframe (e.g. the STEP push from the tucked pose the
+            # reversed sit-down parks in on hexapod2): align onto that frame from the present pose
+            # and play on; no zero acquisition.
+            if not (0 < int(start_keyframe) < len(frames)):
+                return {"ok": False, "error": f"start_keyframe out of range (1..{len(frames) - 1})"}
+            frames = frames[int(start_keyframe):]
+            acquire_zero_first = False
         if down:
             qs = [q for q, _ in frames]
             ss = [s for _, s in frames]
@@ -186,7 +209,7 @@ class StandupApi:
                                   "up after restart?) — cannot check "
                                   "the start pose; retry in a few "
                                   "seconds")}
-            if worst > MAX_SAFE_DELTA_DEG and not down:
+            if worst > MAX_SAFE_DELTA_DEG and not down and not start_keyframe:
                 acquire_zero_first = True   # acquire the start pose instead of refusing (08-11)
 
         verb = "sit-down" if down else "stand-up"

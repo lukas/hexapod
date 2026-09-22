@@ -1852,7 +1852,7 @@ void loop() {
   if (parkedKind != 0) execParked();
   // Desync guard: a torn binary frame (host retry after timeout) must
   // not eat the next frame's header as payload.
-  if (binState != 0 && now - lastHostMs > HOST_BIN_DESYNC_MS) {
+  if (binState != 0 && (long)(now - lastHostMs) > (long)HOST_BIN_DESYNC_MS) {
     dbgDesyncResets++;
     binState = 0;
     replyErr();
@@ -1924,13 +1924,21 @@ void loop() {
     tft::bootTick(now);
     return;
   }
-  if (now - lastHostMs > HOST_LOST_MS) {
+  // 2026-09-22 BUG (hexapod2 collapsed standing, twice, ~1 min after a
+  // move, no software cause): `now` is sampled at the top of loop(), but
+  // hostPump() inside the stream passes above updates lastHostMs with a
+  // LATER millis().  `now - lastHostMs` then wraps to ~4e9 as unsigned,
+  // "host lost for 49 days", and every servo was torque-cut although the
+  // host had just spoken.  Re-sample the clock and compare signed, so a
+  // lastHostMs in the future reads as "heard from the host just now".
+  const long sinceHostMs = (long)(millis() - lastHostMs);
+  if (sinceHostMs > (long)HOST_LOST_MS) {
     static unsigned long lastWarnMs = 0;
     if (now - lastWarnMs >= 1000) {
       lastWarnMs = now;
-      tft::hostLostTick((now - lastHostMs) / 1000UL);
+      tft::hostLostTick((unsigned long)sinceHostMs / 1000UL);
     }
-    if (!autoLimped && now - lastHostMs > HOST_LIMP_MS) {
+    if (!autoLimped && sinceHostMs > (long)HOST_LIMP_MS) {
       autoLimped = true;
       dbgAutoLimps++;              // 2026-09-22: the host had no way to know this happened
       dbgAutoLimpLastMs = now;

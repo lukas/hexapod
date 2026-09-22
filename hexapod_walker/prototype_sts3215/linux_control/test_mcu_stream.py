@@ -506,7 +506,9 @@ class _ScriptedSerial(FakeSerial):
     def write(self, data):
         super().write(data)
         self.lines.append(bytes(data))
-        if self.replies:
+        # A bare newline only terminates a half-line on the sketch (open()
+        # sends one before HELLO since 2026-09-22); it is not a command.
+        if bytes(data) != b"\n" and self.replies:
             self._rx.extend(self.replies.pop(0))
 
     def read(self, n: int = 1) -> bytes:
@@ -536,7 +538,7 @@ def test_open_accepts_stream_firmware(monkeypatch):
         monkeypatch, [b"HELLO feetech_bridge v3\n", b"OK STREAM 1\n"])
     bus = McuFeetechBus("/dev/fake", claim=False)
     assert bus.streaming is True
-    assert ser.lines == [b"HELLO\n", b"STREAM 1\n"]
+    assert ser.lines == [b"\n", b"HELLO\n", b"STREAM 1\n"]
     assert not hasattr(bus, "has_stream")
 
 

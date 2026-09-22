@@ -679,11 +679,53 @@ def loaded_slip_gate(env,
             # no cap, bit-exact legacy (identical
             # `max(ratio-ls_ok,0.0)` term unchanged).
             excess = max(ratio - ls_ok, 0.0)
-            lse_cap = float(cfg_get(env.cfg, "reward",
-                                    "loadslip_excess_cap",
-                                    default=0.0))
-            priced_excess = (min(excess, lse_cap)
-                              if lse_cap > 0.0 else excess)
+            # reward.loadslip_excess_log_scale (0.0 = OFF, 2026-09-22
+            # standwalk track, cap-rescale-family close-out): the
+            # HARD cap above (loadslip_excess_cap) fixes the
+            # unbounded-tail-dominates-the-tick problem but trades it
+            # for a NEW one, root-caused this cycle on the dr=0.8 GRU
+            # rung (`cw-walk50hz-gru-dr08-ladder-loadslipcap-{cap45,
+            # cap60}-s0`, both NOGO): once `excess` clears the cap the
+            # charge is EXACTLY flat (`min(excess, cap)` has zero
+            # gradient in `excess` above the cap), so every tail
+            # episode above the ceiling gets IDENTICAL pricing no
+            # matter how much worse its slip is, and raising the cap
+            # value (3.0->4.5->6.0) only lets MORE of the identical
+            # excess get priced before saturating -- it reprices the
+            # SAME measured slip harder (env/reward_loadslip_excess
+            # -0.51 -> -0.67 -> -0.75 across the dose bracket while
+            # env/walk_loadslip_ratio stayed statistically flat at
+            # ~6.9-7.2 the whole time), never gives the policy a
+            # gradient to actually reduce slip. This is a genuinely
+            # different pricing SHAPE, not another cap dose: replaces
+            # the hard clamp with `scale * log1p(excess / scale)`,
+            # which matches the raw linear charge's slope (1) at
+            # excess=0 (small-excess dosing unchanged) but grows only
+            # LOGARITHMICALLY for large excess -- bounded growth RATE
+            # like the cap (one bad tick can't blow up the whole
+            # per-tick reward) while remaining STRICTLY increasing
+            # (`d/d(excess) = 1/(1+excess/scale) > 0` for every finite
+            # excess), so even the worst tail episode always has a
+            # gradient telling it to reduce slip further, unlike the
+            # hard cap's exact zero above threshold. Mutually
+            # exclusive with `loadslip_excess_cap`: when this is set
+            # (>0) it takes priority and the hard cap is ignored (the
+            # two are alternative pricing shapes for the same
+            # quantity, not stackable); when it is 0 (default) the
+            # hard-cap-or-uncapped legacy path below runs bit-exact
+            # unchanged. cfg: reward.loadslip_excess_log_scale.
+            lse_log_scale = float(cfg_get(env.cfg, "reward",
+                                          "loadslip_excess_log_scale",
+                                          default=0.0))
+            if lse_log_scale > 0.0:
+                priced_excess = lse_log_scale * math.log1p(
+                    excess / lse_log_scale)
+            else:
+                lse_cap = float(cfg_get(env.cfg, "reward",
+                                        "loadslip_excess_cap",
+                                        default=0.0))
+                priced_excess = (min(excess, lse_cap)
+                                  if lse_cap > 0.0 else excess)
             r_lse = -k_lse * priced_excess * env.dt
             reward += r_lse
             info["reward_loadslip_excess"] = r_lse

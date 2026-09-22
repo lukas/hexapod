@@ -765,6 +765,15 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/rl/state" or path == "/api/rl":
             self._json(200, BENCH.rl_state() if BENCH
                        else {"ok": False, "error": "no bench"})
+        elif path == "/api/servo/regs":
+            # read-only servo register dump: ?addr=65&size=1&ids=2,3
+            q = parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
+            try:
+                addr = int(q.get("addr", ["65"])[0]); size = int(q.get("size", ["1"])[0])
+                ids = [int(x) for x in q.get("ids", [""])[0].split(",") if x.strip()] or None
+            except ValueError:
+                self._json(400, {"ok": False, "error": "addr/size/ids must be integers"}); return
+            self._json(200, BENCH.servo_regs(addr, size, ids) if BENCH else {"ok": False, "error": "no bench"})
         elif path == "/api/standup/modes":
             self._json(200, BENCH.standup_modes() if BENCH
                        else {"ok": False, "error": "no bench"})

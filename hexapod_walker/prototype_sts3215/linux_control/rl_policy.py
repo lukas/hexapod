@@ -4206,6 +4206,8 @@ def _run_policy_move_impl(drive, mode: str, *, on_progress=None,
                                 if last_stale_at_s is not None else None),
         max_stale_stream_ticks=DRIVE_STREAM_STALE_TICKS,
         timing=timing_stats.summary(),
+        # scheduler outcome of this loop's thread (set by _control_loop_realtime)
+        realtime=control_loop_rt_status(),
         tilt_ref_deg=[round(tilt_ref0[0] * RAD2DEG, 2),
                       round(tilt_ref0[1] * RAD2DEG, 2)],
         # Attitude bookkeeping, all relative to the episode tilt ref:
@@ -5592,6 +5594,8 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
         max_stale_stream_ticks=PERSISTENT_DRIVE_STREAM_STALE_TICKS,
         transport="step_all",
         timing=timing_stats.summary(),
+        # scheduler outcome of this loop's thread (set by _control_loop_realtime)
+        realtime=control_loop_rt_status(),
         tilt_ref_deg=[round(tilt_ref0[0] * RAD2DEG, 2),
                       round(tilt_ref0[1] * RAD2DEG, 2)],
         tilt_rel_max_deg=round(tilt_rel_max, 1),

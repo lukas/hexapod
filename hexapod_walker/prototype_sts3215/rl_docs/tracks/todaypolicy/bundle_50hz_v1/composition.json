@@ -30,6 +30,19 @@
         "export": "linux_control/policies/walkteach_scripted_allhead_scratch_50hz.json",
         "det_progress_ratio_med": 0.38,
         "det_slip_med": 2.57
+      },
+      "alternate_dr_hardened_2026_09_22": {
+        "run": "cw-walk50hz-gru-dr10-lsc-pinrobust2-s0-r1",
+        "export": "linux_control/policies/walk50hz_gru_dr10_lsc_pinrobust2_s0_r1.json",
+        "obs_dim": 74,
+        "architecture": "gru (single-core, hidden 128)",
+        "det_progress_ratio_med_dr0": 0.44,
+        "det_slip_med_dr0": 3.87,
+        "det_progress_ratio_med_owndr10": 0.35,
+        "det_slip_med_owndr10": 4.54,
+        "why": "standwalk's dr08/dr09/dr10 DR-ladder CEILING (pinrobust2: nostart+nolat 2-axis pin), 3/3-seed-confirmed at every rung, dr=1.0 the nominal ceiling -- the first walk-role candidate in this bundle actually TRAINED under heavy domain randomization (start-pose+contact-stiffness+ground-tilt+command-latency, up to nominal amplitude) rather than nominal-only. gait_valid 6/6 with ZERO sacrificed-leg episodes at every one of DR-0/own-DR(1.0)/startjitter x det/sto -- matches or beats the plain default's DR-0 progress_ratio (0.44 vs 0.41) at a real slip cost (3.87 vs 2.19) and holds up (still 6/6, no sacrifice) at own-DR=1.0, a stress level the plain default/alternate roles have never been evaluated under.",
+        "known_limit": "own-DR(1.0) slip climbs to 4.5-9.5 across det/sto/startjitter splits (vs DR-0's 3.5-9.0) -- real but bounded degradation, not collapse. Not yet driven on real hardware; registered here as the Robot-Lab-facing hardware-transfer candidate for this role, not a default swap (raw-quality default stays walk_straight/default pending a physical trial).",
+        "hardware_ready": true
       }
     },
     "walk_turn_capable": {

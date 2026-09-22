@@ -99,7 +99,8 @@ def foot_path_min_clearance(fkm: RealLegFK, hk0, hk1, z_floor: float, n: int = 1
 
 def plan(fkm: RealLegFK, stance_hk: tuple[float, float], z_gnd: float,
          hip_min_deg: float = HIP_MIN_DEG, knee_max_deg: float = KNEE_MAX_DEG,
-         first_step_out: bool = False, descent_s_per_m: float | None = None) -> list[dict]:
+         first_step_out: bool = False, descent_s_per_m: float | None = None,
+         r_end: float | None = None, style: str = "step", press: float = 0.003) -> list[dict]:
     """Keyframes: {"q_deg": 18 logical degrees, "s": glide seconds, "phase": str, "loaded": bool}."""
     hip_min, knee_max = math.radians(hip_min_deg), math.radians(knee_max_deg)
     r_s, z_s = fkm.fk(*stance_hk)
@@ -135,30 +136,38 @@ def plan(fkm: RealLegFK, stance_hk: tuple[float, float], z_gnd: float,
                     legs[i] = t[i]
             add(list(legs), SPEEDS["settle"], f"{phase}:settle", loaded=False)
 
+    def _r_at(z_now: float, z_from: float, z_to: float, r_from: float) -> float:
+        if r_end is None or abs(z_to - z_from) < 1e-9:
+            return r_from
+        frac = (z_now - z_from) / (z_to - z_from)
+        return r_from + (r_end - r_from) * max(0.0, min(1.0, frac))
+
     def step_descend(r: float, z_to: float, phase: str):
         """Lukas, 2026-09-22: 'it should step'.  The body comes down one tripod step at a time:
         tripod T lifts (unloaded) and is placed a step LOWER (hovering above the current floor),
         the other tripod S carries the body down that step (three loaded legs, feet planted)
         until T's feet land; then the roles swap.  No six-leg push, ever."""
         z = legs[0][1]
+        z_from, r_from = z, r
         n = max(1, int(math.ceil(abs(z_to - z) / DZ_STEP_M)))
         dz = (z_to - z) / n
         for i in range(n):
             T, S = TRIPODS[i % 2], TRIPODS[(i + 1) % 2]
             z_next = z + dz
+            r_next = _r_at(z_next, z_from, z_to, r_from)
             t = list(legs)
             for l in T:
-                t[l] = (r, z + STEP_LIFT_M)                     # lift T clear of the floor
+                t[l] = (legs[l][0], z + STEP_LIFT_M)             # lift T clear of the floor
             add(t, SPEEDS["lift"], f"{phase}:lift", loaded=True)
             for l in T:
-                t[l] = (r, z_next)                              # hover T where the floor will be after the step
+                t[l] = (r_next, z_next)                          # hover T where the floor will be after the step
             add(t, SPEEDS["place"], f"{phase}:hover", loaded=True)
             for l in S:
-                t[l] = (r, z_next)                              # S lowers the body one step; T lands
+                t[l] = (r_next, z_next)                          # S lowers the body one step; T lands
             add(t, SPEEDS["descent_per_m"] * abs(dz), f"{phase}:step", loaded=True)
             add(t, SPEEDS["settle"], f"{phase}:settle", loaded=True)
             for l in range(6):
-                legs[l] = (r, z_next)
+                legs[l] = (r_next, z_next)
             z = z_next
 
     def descend(r: float, z_to: float, phase: str):
@@ -166,14 +175,15 @@ def plan(fkm: RealLegFK, stance_hk: tuple[float, float], z_gnd: float,
         n = max(1, int(math.ceil(abs(z_to - z0) / DESCENT_STEP_M)))
         for i in range(1, n + 1):
             z = z0 + (z_to - z0) * i / n
+            rr = _r_at(z, z0, z_to, r)
             for l in range(6):
-                legs[l] = (r, z)
+                legs[l] = (rr, z)
             add(list(legs), SPEEDS["descent_per_m"] * abs(z_to - z0) / n, f"{phase}:descent", loaded=True)
 
     if descent_s_per_m is not None:
         SPEEDS["descent_per_m"] = descent_s_per_m
     add(list(legs), 0.8, "start", loaded=True)                              # align onto the stance
-    z_target = z_gnd                         # stop AT the floor plane: the belly takes the load, no pressing
+    z_target = z_gnd - press                 # a few mm past the floor plane so the belly surely carries the body before the feet lift
     r, z = r_s, z_s
     for n_it, (phase_out, phase_down) in enumerate((("A", "B"), ("C", "D"), ("F", "G"))):
         r_wide = widest_radius(fkm, z, hip_min, knee_max, r) - 0.008
@@ -181,10 +191,11 @@ def plan(fkm: RealLegFK, stance_hk: tuple[float, float], z_gnd: float,
         if allow_step and r_wide - r >= STEP_OUT_MIN_GAIN_M:   # a tripod step is only worth it if it buys real reach
             step_out(r_wide, z, phase_out)
             r = r_wide
-        z_low = lowest_z(fkm, r, z, z_target, hip_min, knee_max)
+        z_low = lowest_z(fkm, r_end if r_end is not None else r, z, z_target, hip_min, knee_max)
         if abs(z_low - z) >= 0.003:
-            step_descend(r, z_low, phase_down)
+            (step_descend if style == "step" else descend)(r, z_low, phase_down)
             z = z_low
+            r = legs[0][0]
         if abs(z - z_target) < 0.002:
             break
     if abs(z - z_target) >= 0.002:
@@ -204,11 +215,14 @@ def plan(fkm: RealLegFK, stance_hk: tuple[float, float], z_gnd: float,
     add(list(legs), 0.8, "E:unload", loaded=False)
     hk_up = hk[0]
     via = None
-    for k_deg in range(6, 60, 2):
-        cand = (0.0, math.radians(k_deg))          # hip level, tibia angled down k_deg: foot above the floor
-        if foot_path_min_clearance(fkm, hk_up, cand, z_gnd) > 0.004 and \
-           foot_path_min_clearance(fkm, cand, (0.0, 0.0), z_gnd) > -0.002:
-            via = cand
+    for h_deg in (0.0, -10.0, -20.0, -30.0):
+        for k_deg in range(6, 90, 2):
+            cand = (math.radians(h_deg), math.radians(k_deg))   # foot above the floor on the way to zero
+            if foot_path_min_clearance(fkm, hk_up, cand, z_gnd) > 0.004 and \
+               foot_path_min_clearance(fkm, cand, (0.0, 0.0), z_gnd) > -0.002:
+                via = cand
+                break
+        if via is not None:
             break
     if via is None:
         raise RuntimeError("no airborne path from belly rest to zero")
@@ -255,6 +269,7 @@ def run(frames: list[dict], mu: float | None, *, seed: int = 0, sheet: Path | No
     prev_f = [0.0] * 6
     anchor: dict[str, list] = {}          # phase -> per-leg xy where the loaded foot was when the phase began
     excursion: dict[str, float] = {}      # phase -> max loaded-foot displacement from its anchor (m)
+    radial: dict[str, list] = {}          # phase -> [min, max] signed radial displacement (outward +)
     cur_phase = None
     cur_peak: dict[str, float] = {}
     cur_peak_joint: dict[str, int] = {}
@@ -289,6 +304,10 @@ def run(frames: list[dict], mu: float | None, *, seed: int = 0, sheet: Path | No
                     anchor[key][i] = xy.copy()      # (re)anchor when a foot lands
                 else:
                     excursion[key] = max(excursion.get(key, 0.0), float(np.linalg.norm(xy - anchor[key][i])))
+                    c = env.data.xpos[env._chassis_bid, :2]
+                    dr = float(np.linalg.norm(xy - c) - np.linalg.norm(anchor[key][i] - c))
+                    lo, hi = radial.get(key, [0.0, 0.0])
+                    radial[key] = [min(lo, dr), max(hi, dr)]
             if ph == "E:zero" and t > sum(fr["s"] for fr in frames) - 0.5:
                 contact_in_zero = max(contact_in_zero, f)
             prev_f[i] = f
@@ -303,6 +322,7 @@ def run(frames: list[dict], mu: float | None, *, seed: int = 0, sheet: Path | No
     return {"mu": mu, "PASS_zero_slip": bool(worst_slip <= SLIP_GATE_MM), "worst_loaded_slip_mm": round(worst_slip, 1),
             "z_stance_m": round(z_stance, 4), "z_end_m": round(z_end, 4),
             "loaded_foot_excursion_mm": {k: round(v * 1000, 1) for k, v in excursion.items()},
+            "radial_mm_in_out": {k: [round(v[0] * 1000, 1), round(v[1] * 1000, 1)] for k, v in radial.items()},
             "cur_peak_a": {k: f"{round(v, 2)}@j{cur_peak_joint[k]}" for k, v in cur_peak.items()},
             "chassis_z_end_mm": {k: round(v * 1000) for k, v in z_phase_end.items()},
             "tilt_peak_deg": round(math.degrees(tilt_peak), 1),
@@ -353,6 +373,12 @@ def main() -> None:
     ap.add_argument("--first-step", action="store_true", help="allow a tripod step-out at stance height (3-leg support up high)")
     ap.add_argument("--descent-s-per-m", type=float, default=None, help="planted descent pace (s per metre of body drop), default 45")
     ap.add_argument("--skip-old", action="store_true")
+    ap.add_argument("--r-end", type=float, default=None, help="foot radius (m, chassis centre) at belly rest; smaller = pull in")
+    ap.add_argument("--style", choices=["step", "six"], default="step")
+    ap.add_argument("--hip-min", type=float, default=HIP_MIN_DEG)
+    ap.add_argument("--dz-step", type=float, default=None, help="body drop per tripod step (m), default 0.019")
+    ap.add_argument("--press", type=float, default=0.003, help="m past the floor plane at belly rest (belly carries before feet lift)")
+    ap.add_argument("--knee-max", type=float, default=KNEE_MAX_DEG)
     ap.add_argument("--stance", type=float, nargs=2, metavar=("HIP_DEG", "KNEE_DEG"), default=[20.0, 80.0],
                     help="start stance (logical deg); default = the STEP stand-up's end pose")
     a = ap.parse_args()
@@ -373,7 +399,11 @@ def main() -> None:
               f"{math.degrees(cmd[joint_index(0, 'knee')]):.1f} deg; planning from {a.stance}")
     start_q = np.radians(np.array(pose18(*stance) * 0 + 0, dtype=float))
     start_q = pose18(*stance)
-    frames = plan(fkm, stance, z_gnd, first_step_out=a.first_step, descent_s_per_m=a.descent_s_per_m)
+    global DZ_STEP_M
+    if a.dz_step:
+        DZ_STEP_M = a.dz_step
+    frames = plan(fkm, stance, z_gnd, first_step_out=a.first_step, descent_s_per_m=a.descent_s_per_m,
+                  r_end=a.r_end, style=a.style, hip_min_deg=a.hip_min, knee_max_deg=a.knee_max, press=a.press)
     # joint-space glide bow: how far the planted foot radius wanders between descent keyframes (leg 0)
     bow = 0.0
     for f0, f1 in zip(frames, frames[1:]):

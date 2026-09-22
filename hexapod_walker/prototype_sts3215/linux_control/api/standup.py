@@ -10,6 +10,9 @@ import os
 from inplace_demos import STOP_HOLD_TORQUE  # every scripted loop holds at this after a stop
 # most acute knee fold the stand-up may command (deg from straight); see the frames cap in standup()
 KNEE_FOLD_CAP_DEG = float(os.environ.get("HEXAPOD_KNEE_FOLD_CAP_DEG", "135"))
+# most raised femur the stand-up may command (deg; negative = femur up).  hexapod2's femur meets the top
+# chassis near -55: the baked STEP frames ask for -65/-78, which is a fight against the plate (2026-09-22).
+HIP_FOLD_CAP_DEG = float(os.environ.get("HEXAPOD_HIP_FOLD_CAP_DEG", "-52"))
 
 from .common import *  # noqa: F401,F403
 
@@ -60,7 +63,8 @@ class StandupApi:
         }
 
     def standup(self, *, mode: str = "step", speed: float = 1.0,
-                direction: str = "up", force: bool = False,
+                direction: str = "up", force: bool = False, reverse_step: bool = False,
+                start_keyframe: int = 0,
                 torque: int = 700, abort_current_a: float = 3.0,
                 sync_gen: int | None = None) -> dict:
         """Play one baked stand-up strategy (async).
@@ -106,7 +110,7 @@ class StandupApi:
                 return {"ok": False,
                         "error": "stand-up mode 'plant' was removed; use 'step'"}
             down = str(direction) == "down"
-            if down and "lower" in data["modes"]:
+            if down and "lower" in data["modes"] and not reverse_step:
                 # 2026-09-22: the sit-down is its OWN mode (rl_move/sim/lower_sim.py), played
                 # forward.  Reverse-playing the STEP stand-up pulled the hips to -65 (femur
                 # into the top chassis on hexapod2) and the knees to the fold cap, parked the
@@ -178,9 +182,18 @@ class StandupApi:
         # (zero re-set that morning); commanding past it drove six knee servos
         # into the stop -- current with nothing moving, the guard tripped, the
         # robot parked tall on its knee stops.  Cap every commanded knee.
-        frames = [([min(float(v), KNEE_FOLD_CAP_DEG) if (i % 3 == 2) else float(v)
+        frames = [([min(float(v), KNEE_FOLD_CAP_DEG) if (i % 3 == 2) else
+                    (max(float(v), HIP_FOLD_CAP_DEG) if (i % 3 == 1) else float(v))
                     for i, v in enumerate(kf["q_deg"])], float(kf["s"]))
                   for kf in keyframes]
+        if start_keyframe:
+            # resume a stand-up from a later keyframe (e.g. the STEP push from the tucked pose the
+            # reversed sit-down parks in on hexapod2): align onto that frame from the present pose
+            # and play on; no zero acquisition.
+            if not (0 < int(start_keyframe) < len(frames)):
+                return {"ok": False, "error": f"start_keyframe out of range (1..{len(frames) - 1})"}
+            frames = frames[int(start_keyframe):]
+            acquire_zero_first = False
         if down and not m.get("down_only"):
             # legacy: no dedicated lower mode in the file -> reverse the stand-up
             qs = [q for q, _ in frames]
@@ -196,7 +209,7 @@ class StandupApi:
                                   "up after restart?) — cannot check "
                                   "the start pose; retry in a few "
                                   "seconds")}
-            if worst > MAX_SAFE_DELTA_DEG and not down:
+            if worst > MAX_SAFE_DELTA_DEG and not down and not start_keyframe:
                 acquire_zero_first = True   # acquire the start pose instead of refusing (08-11)
 
         verb = "sit-down" if down else "stand-up"

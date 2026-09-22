@@ -12,6 +12,9 @@ Supported actor architectures:
 * ``DualGruActorCriticPolicy``: the two actor GRU cells plus their two
   tanh action heads. Both hidden states persist and advance every tick;
   the six-wide mode one-hot at the observation tail selects the output.
+* ``GruActorCriticPolicy`` (plain, non-mode-gated single-core recurrent
+  actor -- the bare ``--gru`` flag, e.g. the standwalk DR-ladder
+  lineage): one GRU cell plus its N-layer tanh head.
 
 The Uno Q does not need torch. Recurrent arrays are base64-packed
 little-endian float32 values inside the JSON so the artifact remains a
@@ -42,8 +45,10 @@ from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT
 from rl_move.np_policy import (
     ARCH_DUAL_GRU,
     ARCH_MLP,
+    ARCH_SINGLE_GRU,
     MODE_ONEHOT_ORDER,
     NumpyDualGruModel,
+    NumpyGruModel,
     NumpyMLPNLayerModel,
     pack_f32,
     validate_np_policy,
@@ -150,6 +155,10 @@ def _structural_meta(pol, architecture: str) -> dict:
             "recurrent_hidden_size": int(pol.lstm_actor.hidden_size),
             "mode_onehot_order": list(MODE_ONEHOT_ORDER),
         })
+    elif architecture == ARCH_SINGLE_GRU:
+        meta.update({
+            "recurrent_hidden_size": int(pol.lstm_actor.hidden_size),
+        })
     return meta
 
 
@@ -233,6 +242,48 @@ def _dual_gru_payload(pol, meta: dict) -> dict:
     }
 
 
+def _single_gru_payload(pol, meta: dict) -> dict:
+    from .gru_policy import GruActorCriticPolicy
+
+    if type(pol) is not GruActorCriticPolicy:
+        raise TypeError(
+            f"expected plain GruActorCriticPolicy, got {type(pol)}")
+    if pol.lstm_actor.num_layers != 1:
+        raise ValueError("only single-layer GRU cores are supported")
+    if (getattr(pol.features_extractor, "features_dim", None)
+            != int(pol.observation_space.shape[0])):
+        raise ValueError(
+            "single-GRU export requires an identity/flatten extractor")
+
+    linears, activation = _generic_hidden_layers(
+        pol.mlp_extractor.policy_net, name="single-GRU actor head")
+    if activation != "tanh":
+        raise ValueError(
+            "single-GRU export only supports a tanh head "
+            f"(got {activation!r}; elu heads are not yet wired for this "
+            "architecture)")
+    meta["hidden"] = [int(pol.lstm_actor.hidden_size)] + [
+        int(lin.out_features) for lin in linears]
+    return {
+        "meta": meta,
+        "gru": {
+            "weight_ih": _tpack(pol.lstm_actor.weight_ih_l0),
+            "weight_hh": _tpack(pol.lstm_actor.weight_hh_l0),
+            "bias_ih": _tpack(pol.lstm_actor.bias_ih_l0),
+            "bias_hh": _tpack(pol.lstm_actor.bias_hh_l0),
+            "head": {
+                "layers": [
+                    {"W": _tpack(lin.weight), "b": _tpack(lin.bias)}
+                    for lin in linears
+                ],
+                "Wout": _tpack(pol.action_net.weight),
+                "bout": _tpack(pol.action_net.bias),
+                "activation": activation,
+            },
+        },
+    }
+
+
 def _parity_mlp(model, payload: dict, samples: int = 200) -> float:
     if "layers" in payload:
         # Generic N-layer path: run through the ACTUAL production loader
@@ -300,6 +351,39 @@ def _parity_dual_gru(model, payload: dict, samples: int = 200
     return worst_action, worst_hidden
 
 
+def _parity_single_gru(model, payload: dict, samples: int = 200
+                       ) -> tuple[float, float]:
+    """Sequence parity for the plain single-core GRU, incl. episode resets.
+
+    No mode one-hot to drive (this architecture has none) -- otherwise
+    identical protocol to :func:`_parity_dual_gru`.
+    """
+    numpy_model = NumpyGruModel(payload)
+    rng = np.random.default_rng(0)
+    state_sb3 = None
+    state_np = None
+    worst_action = 0.0
+    worst_hidden = 0.0
+    reset_ticks = {0, 37, 113, 177}
+    for tick in range(samples):
+        obs = rng.normal(
+            0, 1, payload["meta"]["obs_dim"]).astype(np.float32)
+        episode_start = np.asarray([tick in reset_ticks], dtype=bool)
+        action_sb3, state_sb3 = model.predict(
+            obs, state=state_sb3, episode_start=episode_start,
+            deterministic=True)
+        action_np, state_np = numpy_model.predict(
+            obs, state=state_np, episode_start=episode_start,
+            deterministic=True)
+        worst_action = max(
+            worst_action, float(np.max(np.abs(action_np - action_sb3))))
+        worst_hidden = max(
+            worst_hidden,
+            float(np.max(np.abs(np.asarray(state_np[0])
+                                - np.asarray(state_sb3[0])))))
+    return worst_action, worst_hidden
+
+
 def _ledger_run_for(policy_path: str) -> str | None:
     """Ledger run whose checkpoint `policy_path` is, by the launcher's naming
     contract (`ppo_goal_<run with '-' as '_'>.zip`); None when no ledger is
@@ -323,7 +407,8 @@ def export(policy_path: str, out_path: str, *, name: str = "",
            training_hz: float | None = None,
            control_hz: float | None = None) -> dict:
     """Export, verify, and write one portable actor artifact."""
-    from .gru_policy import DualGruActorCriticPolicy, load_checkpoint_auto
+    from .gru_policy import (DualGruActorCriticPolicy, GruActorCriticPolicy,
+                             load_checkpoint_auto)
 
     model = load_checkpoint_auto(policy_path, device="cpu")
     if (getattr(model, "joint_frame", None) != FRAME_ROBOT_ABS
@@ -334,11 +419,19 @@ def export(policy_path: str, out_path: str, *, name: str = "",
             "cannot be relabeled during export")
     pol = model.policy
     if getattr(pol, "lstm_actor", None) is not None:
-        if not isinstance(pol, DualGruActorCriticPolicy):
+        if isinstance(pol, DualGruActorCriticPolicy):
+            architecture = ARCH_DUAL_GRU
+        elif type(pol) is GruActorCriticPolicy:
+            # Exactly the plain single-core class, not a mode-gated
+            # subclass (Triple/ModeExperts) that also sets lstm_actor
+            # but to a multi-core module this exporter doesn't know
+            # how to pack yet -- those still raise below.
+            architecture = ARCH_SINGLE_GRU
+        else:
             raise ValueError(
-                "only mode-gated DualGruActorCriticPolicy recurrent "
-                f"checkpoints are deployable (got {type(pol).__name__})")
-        architecture = ARCH_DUAL_GRU
+                "only mode-gated DualGruActorCriticPolicy or plain "
+                "single-core GruActorCriticPolicy recurrent checkpoints "
+                f"are deployable (got {type(pol).__name__})")
     else:
         architecture = ARCH_MLP
 
@@ -373,8 +466,9 @@ def export(policy_path: str, out_path: str, *, name: str = "",
                 f"extra metadata cannot override structural {key}: "
                 f"{meta.get(key)!r} != {expected!r}")
 
-    payload = (_dual_gru_payload(pol, meta)
-               if architecture == ARCH_DUAL_GRU
+    payload = (_dual_gru_payload(pol, meta) if architecture == ARCH_DUAL_GRU
+               else _single_gru_payload(pol, meta)
+               if architecture == ARCH_SINGLE_GRU
                else _mlp_payload(pol, meta))
     errors, _ = validate_np_policy(payload)
     if errors:
@@ -387,6 +481,13 @@ def export(policy_path: str, out_path: str, *, name: str = "",
               f"{worst:.2e}; max |h_np - h_sb3| = {hidden_worst:.2e}")
         if worst >= 1e-5 or hidden_worst >= 1e-5:
             raise AssertionError("numpy dual-GRU forward does not match SB3")
+    elif architecture == ARCH_SINGLE_GRU:
+        worst, hidden_worst = _parity_single_gru(model, payload)
+        print("parity: max |a_np - a_sb3| over recurrent sequence = "
+              f"{worst:.2e}; max |h_np - h_sb3| = {hidden_worst:.2e}")
+        if worst >= 1e-5 or hidden_worst >= 1e-5:
+            raise AssertionError(
+                "numpy single-GRU forward does not match SB3")
     else:
         worst = _parity_mlp(model, payload)
         print(

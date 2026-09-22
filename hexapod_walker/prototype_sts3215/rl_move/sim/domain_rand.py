@@ -259,6 +259,25 @@ class RandRanges:
     deadband_scale: tuple[float, float] = (0.5, 1.8)
     vel_scale: tuple[float, float] = (0.85, 1.10)
     cmd_drop_prob_max: float = 0.05      # lost SyncWrite per control tick
+    # cmd_drop BURSTS (2026-09-22, hardware-failure axis): brownout/bus
+    # stalls drop SEVERAL consecutive SyncWrites, not i.i.d. single ticks.
+    # Mean run length in ticks (>=1) once a drop is entered (geometric, exit
+    # prob 1/len). 0.0 (default) = OFF => i.i.d. single-tick drops exactly as
+    # before, bit-exact (no rng consumed). DOSE, NOT scaled by scaled(s):
+    # probability follows the curriculum via cmd_drop_prob_max, length does not.
+    cmd_drop_burst_len: float = 0.0
+    # IMU dropout / freeze (2026-09-22, hardware-failure axis): the real
+    # MPU-6050 freezes to a stuck sentinel (65534) / reads dead and needs a
+    # power-cycle; stale-IMU has cut real runs. With prob imu_dropout_prob_max
+    # (scaled by the curriculum) an episode enters IMU dropouts; each lasts a
+    # geometric run of mean imu_dropout_ticks (>=1) during which the obs
+    # roll/pitch/gyro FREEZE at the last healthy read or go DEAD (zero), chosen
+    # per dropout by imu_dropout_dead_frac. A recurrent policy can dead-reckon
+    # through it. (0.0) = OFF, guarded, bit-exact. LENGTH + dead-fraction are
+    # DOSE (not scaled); only the probability follows the curriculum.
+    imu_dropout_prob_max: float = 0.0
+    imu_dropout_ticks: float = 0.0
+    imu_dropout_dead_frac: float = 0.0
     # Start pose: how the human placed the robot this episode.
     placement_noise_deg: float = 2.0     # per-joint hand-placement slop
     bad_start_prob: float = 0.25         # episodes with badly-off joints
@@ -729,6 +748,12 @@ class RandRanges:
             deadband_scale=pair(*self.deadband_scale),
             vel_scale=pair(*self.vel_scale),
             cmd_drop_prob_max=self.cmd_drop_prob_max * s,
+            # Failure-injection DOSE passes through unscaled; only the
+            # probability follows the curriculum (tipped/kick/push convention).
+            cmd_drop_burst_len=self.cmd_drop_burst_len,
+            imu_dropout_prob_max=self.imu_dropout_prob_max * s,
+            imu_dropout_ticks=self.imu_dropout_ticks,
+            imu_dropout_dead_frac=self.imu_dropout_dead_frac,
             placement_noise_deg=self.placement_noise_deg * s,
             bad_start_prob=self.bad_start_prob * s,
             bad_start_max_joints=self.bad_start_max_joints,
@@ -954,6 +979,12 @@ class EpisodeRandomization:
     foot_stickslip_gain: np.ndarray = field(
         default_factory=lambda: np.zeros(N_LEGS))
     foot_stickslip_vel_ref_mps: float = 0.02
+    # Hardware-failure axes (2026-09-22): servo cmd drop-bursts + IMU
+    # dropout/freeze. Defaults keep them OFF and bit-exact.
+    cmd_drop_burst_len: float = 0.0
+    imu_dropout_prob: float = 0.0
+    imu_dropout_ticks: float = 0.0
+    imu_dropout_dead_frac: float = 0.0
     # Structured per-leg mass/inertia bias (dr.leg_mass_bias_pct /
     # -group, see RandRanges). All-ones (the default) = OFF, byte-exact
     # (multiplying by 1.0 in apply_to_model is a pure no-op).
@@ -1683,6 +1714,9 @@ class DomainRandomizer:
             deadband_scale=u(*r.deadband_scale),
             vel_scale=u(*r.vel_scale),
             cmd_drop_prob=u(0.0, r.cmd_drop_prob_max),
+            cmd_drop_burst_len=r.cmd_drop_burst_len,
+            imu_dropout_ticks=r.imu_dropout_ticks,
+            imu_dropout_dead_frac=r.imu_dropout_dead_frac,
             start_offset_rad=start_offset,
             bad_start_joints=bad_joints,
             joint_zero_bias_rad=u(
@@ -1868,4 +1902,10 @@ class DomainRandomizer:
                     r.foot_catch_force_group,
                     param_name="foot_catch_force_group").astype(float)
             ep = replace(ep, foot_catch_force_n=catch_vec)
+        # IMU dropout / freeze (2026-09-22): guarded draw, LAST, same
+        # convention as the blocks above -- prob_max 0.0 (default) consumes
+        # no rng and leaves every earlier draw byte-exact.
+        if r.imu_dropout_prob_max > 0.0:
+            ep = replace(
+                ep, imu_dropout_prob=float(u(0.0, r.imu_dropout_prob_max)))
         return ep

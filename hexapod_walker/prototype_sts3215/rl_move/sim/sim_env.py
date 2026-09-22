@@ -757,6 +757,13 @@ class SimHexapodBalanceEnv(_GymBase):
         self._gyro_accum = np.zeros(3)
         self._gyro_n = 0
         self._att_rp: np.ndarray | None = None
+        # Hardware-failure DR episode state (dr.cmd_drop_burst_len /
+        # dr.imu_dropout_*, default OFF). Untouched unless the axis is on.
+        self._cmd_dropping = False
+        self._imu_dropping = False
+        self._imu_drop_dead = False
+        self._imu_hold_rp: tuple | None = None
+        self._imu_hold_gyro: np.ndarray | None = None
         self._trip_cur_filt: np.ndarray | None = None
         self._tilt_ref0 = (0.0, 0.0)
         self._settle_lean = (0.0, 0.0)
@@ -1023,6 +1030,37 @@ class SimHexapodBalanceEnv(_GymBase):
     # state readout (sim → RobotState, with DR sensor corruption)
     # ------------------------------------------------------------------
 
+    def _apply_imu_dropout(self, er, roll, pitch, gyro):
+        """dr.imu_dropout_* -- model a frozen/dead IMU (the real MPU-6050
+        sentinel-65534 failure). Two-state Markov: enter a dropout with
+        er.imu_dropout_prob, stay each tick with prob (1 - 1/ticks); while
+        dropped the obs roll/pitch/gyro FREEZE at the last healthy read or go
+        DEAD (zero), chosen per dropout by er.imu_dropout_dead_frac. Only
+        called when the axis is on (caller guards imu_dropout_ticks>0), so the
+        default path is bit-exact."""
+        if self._imu_hold_rp is None:
+            self._imu_hold_rp = (float(roll), float(pitch))
+            self._imu_hold_gyro = np.asarray(gyro, dtype=float).copy()
+        ticks = max(float(er.imu_dropout_ticks), 1.0)
+        if self._imu_dropping:
+            dropped = True
+            if self.rng.random() < (1.0 / ticks):
+                self._imu_dropping = False
+        else:
+            dropped = self.rng.random() < er.imu_dropout_prob
+            if dropped:
+                self._imu_dropping = True
+                self._imu_drop_dead = bool(
+                    self.rng.random() < er.imu_dropout_dead_frac)
+        if dropped:
+            if self._imu_drop_dead:
+                return 0.0, 0.0, np.zeros(3)
+            r, pch = self._imu_hold_rp
+            return r, pch, self._imu_hold_gyro
+        self._imu_hold_rp = (float(roll), float(pitch))
+        self._imu_hold_gyro = np.asarray(gyro, dtype=float).copy()
+        return roll, pitch, gyro
+
     def _read_state(self) -> RobotState:
         mujoco = self._mujoco
         q = self.data.qpos[self._qadr].copy()
@@ -1100,6 +1138,13 @@ class SimHexapodBalanceEnv(_GymBase):
                 + (1.0 - alpha) * pitch_acc])
         if self._deployed_transport is None:
             roll, pitch = float(self._att_rp[0]), float(self._att_rp[1])
+        # DR: IMU dropout / freeze (dr.imu_dropout_*, default OFF => the
+        # guard skips the call: no rng, no state touched, bit-exact). Models
+        # the real MPU-6050 freezing to a stuck sentinel (65534) / reading dead.
+        _er_imu = self._ep_rand
+        if _er_imu is not None and _er_imu.imu_dropout_ticks > 0.0:
+            roll, pitch, gyro = self._apply_imu_dropout(
+                _er_imu, roll, pitch, gyro)
 
         # Servo current estimate. torque and qvel are both in MuJoCo DOF
         # order here (torque = qfrc_actuator[_vadr], NOT remapped to
@@ -2078,6 +2123,11 @@ class SimHexapodBalanceEnv(_GymBase):
         self._gyro_accum[:] = 0.0
         self._gyro_n = 0
         self._att_rp = None
+        self._cmd_dropping = False
+        self._imu_dropping = False
+        self._imu_drop_dead = False
+        self._imu_hold_rp = None
+        self._imu_hold_gyro = None
         if self._deployed_transport is not None:
             self._deployed_transport.reset()
         # Height anchor: goal height refs (rise) are relative to wherever
@@ -2970,8 +3020,24 @@ class SimHexapodBalanceEnv(_GymBase):
             self._cmd = q_safe.copy()
             # DR: occasionally a SyncWrite is lost on the bus — the servos
             # keep chasing the previous goal for one tick.
-            dropped = (self._ep_rand is not None
-                       and self.rng.random() < self._ep_rand.cmd_drop_prob)
+            if self._ep_rand is None:
+                dropped = False
+            elif self._ep_rand.cmd_drop_burst_len > 0.0:
+                # DR: bursty drops (dr.cmd_drop_burst_len) -- brownout/bus
+                # stalls drop CONSECUTIVE SyncWrites. Two-state Markov: enter
+                # with cmd_drop_prob, stay with (1 - 1/len). The else-branch
+                # (==0, default) is the i.i.d. single-tick path, bit-exact.
+                if self._cmd_dropping:
+                    dropped = True
+                    if self.rng.random() < (
+                            1.0 / max(self._ep_rand.cmd_drop_burst_len, 1.0)):
+                        self._cmd_dropping = False
+                else:
+                    dropped = self.rng.random() < self._ep_rand.cmd_drop_prob
+                    if dropped:
+                        self._cmd_dropping = True
+            else:
+                dropped = self.rng.random() < self._ep_rand.cmd_drop_prob
             write_due = (self._deployed_transport is None
                          or self._deployed_transport.write.due(self.data.time))
             if not dropped and write_due:

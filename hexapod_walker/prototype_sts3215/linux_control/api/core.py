@@ -372,8 +372,59 @@ class CoreApi:
             lambda: self.drive.bus,
             lambda: bool(self._demo_thread and self._demo_thread.is_alive()),
             lambda j: joint_label(j, self.names),
-            on_trip=self.thermal_panic)
+            on_trip=self.thermal_panic,
+            is_armed=lambda: bool(self.drive.armed),
+            on_strain=self.static_strain_release)
         self._servo_watch.start()
+
+    def static_strain_release(self, reason: str, info: dict) -> None:
+        """The watchdog found the robot armed, idle, still and drawing
+        current (2026-09-22): 18 servos pulling toward an unreachable target
+        after a stopped lower.  A static hold must be ~free; this one is a
+        fight.  Release GENTLY: step the torque limit down so the robot
+        settles under its own weight over a few seconds, then torque off.
+        Runs on the watchdog thread; never raises.  No job is running by
+        definition, so nothing else is driving the servos."""
+        d = self.drive
+        bus = d.bus
+        try:
+            from event_log import emit
+            emit("static_strain_release", f"STATIC STRAIN: {reason} — stepping torque down, then off",
+                 src="servo_watch", data=info, level="warn")
+        except Exception:
+            print(f"[static_strain] {reason}", flush=True)
+        if bus is None:
+            return
+        try:
+            from inplace_demos import _live_robot_ids, _set_torque_limit
+            live = _live_robot_ids(bus)
+            for limit in (500, 300, 180, 100):
+                _set_torque_limit(bus, live, limit)
+                time.sleep(1.0)
+        except Exception as e:
+            print(f"[static_strain] torque ramp failed: {e}", flush=True)
+        with d._lock:
+            d.mode = "idle"
+            try:
+                d.gait.stop()
+            except Exception:
+                pass
+            try:
+                d._torque_all(False)
+            except Exception as e:
+                print(f"[static_strain] torque off failed: {e}", flush=True)
+            d.armed = False
+            d.status = "limp: released after static strain"
+        try:
+            from inplace_demos import _live_robot_ids, _set_torque_limit
+            _set_torque_limit(bus, _live_robot_ids(bus), 1000)   # leave the limit as the next job expects
+        except Exception:
+            pass
+        try:
+            from event_log import emit
+            emit("static_strain_release", "released: torque off, robot limp", src="servo_watch", data=info)
+        except Exception:
+            pass
 
     def thermal_panic(self, reason: str) -> None:
         """Kill ALL motion and limp the robot — the watchdog's overtemp

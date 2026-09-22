@@ -7,6 +7,10 @@ from __future__ import annotations
 
 import os
 
+# Torque limit held after a stand-up/lower is stopped mid-way (guard or abort).  Enough to
+# keep the pose against gravity for the operator, not enough to sustain a stall fight.
+STOP_HOLD_TORQUE = int(os.environ.get("HEXAPOD_STOP_HOLD_TORQUE", "400"))
+
 from .common import *  # noqa: F401,F403
 
 
@@ -590,6 +594,31 @@ class StandupApi:
                         tripped = stall_trip()
                     time.sleep(0.05)
                 stream_s = time.monotonic() - t0
+                if aborted or tripped:
+                    # STOP MEANS STOP WHERE YOU ARE.  The streamer commands a
+                    # carrot ~2 ticks ahead of the schedule, so at the moment
+                    # of a trip every servo is still pulling toward a pose it
+                    # has not reached.  Leaving that target in place after the
+                    # loop exits made 18 servos fight geometry at 2-4 A for
+                    # minutes (2026-09-22, hexapod2: tuck lower tripped the
+                    # bus-total guard, hips sat at 60-70 % load until their
+                    # own overload protection cut them; L5 hip 56 C).  Hold
+                    # the MEASURED pose instead, at a torque that cannot
+                    # sustain a fight; the servo watch releases anything that
+                    # still strains at rest.
+                    try:
+                        present, _missing = self._present_pose18()
+                        _write_pose(d.bus, present, live, speed=300, acc=40)
+                        _set_torque_limit(d.bus, live, STOP_HOLD_TORQUE)
+                        from event_log import emit as _emit_ev
+                        _emit_ev("standup_stop_hold",
+                                 f"{mode} {verb} stopped ({'aborted' if aborted else 'guard'}): "
+                                 f"holding the measured pose at torque {STOP_HOLD_TORQUE}",
+                                 src="standup", level="warn",
+                                 data={"mode": mode, "direction": direction, "tripped": tripped,
+                                       "aborted": aborted, "torque": STOP_HOLD_TORQUE})
+                    except Exception as e:  # noqa: BLE001
+                        print(f"[standup] stop-hold failed: {e}", flush=True)
                 settle_s, worst = 0.0, -1.0
                 if not aborted and not tripped:
                     # settle: direct command to the final pose, then

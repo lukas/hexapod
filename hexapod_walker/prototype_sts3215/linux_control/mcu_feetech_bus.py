@@ -62,14 +62,16 @@ from feetech_bus import (  # noqa: E402
 )
 
 MCU_PORT_DEFAULT = "/dev/ttyHS1"
-# Firmware HOST_BAUD.  Since 2026-09-21 the bridge speaks 2 Mbaud (a 113-byte
-# 'S' tick frame + 129-byte reply is 2.6 ms of wire time at 921600 and 1.2 ms
-# at 2 M); the host tries the fast rate first and falls back to 921600 so a
-# robot still on the older sketch keeps working (it just keeps the slower
-# link).  The old 115200 ASCII path is gone.
-MCU_BAUD_FAST = 2_000_000
+# Firmware HOST_BAUD.  The bridge speaks 921600.  2 Mbaud was tried on
+# 2026-09-22: MCU->host was clean but ~64 % of host->MCU lines arrived
+# corrupted (the sketch's Serial RX tolerates ~one byte time of interrupt
+# latency; 5 us at 2 M is below what its servo/IMU passes allow), so the
+# firmware stays at 921600.  The connect loop still tries every rate in
+# MCU_BAUDS, current rate first, so a future faster sketch needs no host
+# change beyond this tuple.  The old 115200 ASCII path is gone.
 MCU_BAUD = 921_600
-MCU_BAUDS = (MCU_BAUD_FAST, MCU_BAUD)
+MCU_BAUD_FAST = 2_000_000
+MCU_BAUDS = (MCU_BAUD, MCU_BAUD_FAST)
 FLASH_HINT = ("flash the current bridge with "
               "firmware/flash_feetech_bridge.sh arduino@<robot>.local, "
               "then sudo systemctl restart hexapod-web")
@@ -426,8 +428,8 @@ class McuFeetechBus:
         # much cheaper.
         rounds = 6
         for attempt in range(rounds):
-            # Fast link first, legacy 921600 second (older sketch).  A HELLO
-            # at the wrong rate reads as garbage/nothing, never as "HELLO".
+            # Current rate first, then any other rate a sketch may speak.  A
+            # HELLO at the wrong rate reads as garbage/nothing, never "HELLO".
             for baud in MCU_BAUDS:
                 try:
                     if self._ser is not None:

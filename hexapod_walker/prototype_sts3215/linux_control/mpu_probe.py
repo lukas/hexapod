@@ -6,8 +6,8 @@ never see 0x68 there. Talk to the sketch instead:
 
     uv run python mpu_probe.py            # on the Uno Q
 
-Protocol (ASCII on /dev/ttyHS1 @ 2 Mbaud since 2026-09-21, 921600 on an older
-sketch -- both are tried; stop arduino-router first):
+Protocol (ASCII on /dev/ttyHS1 @ 921600; other rates in MCU_BAUDS are tried too;
+stop arduino-router first):
     HELLO → HELLO feetech_bridge
     I2CSCAN → OK 0x68,...
     IMU → OK 0x68
@@ -23,7 +23,7 @@ import time
 from pathlib import Path
 
 MCU_PORT_DEFAULT = "/dev/ttyHS1"
-MCU_BAUDS = (2_000_000, 921_600)  # feetech_bridge HOST_BAUD, new then old sketch
+MCU_BAUDS = (921_600, 2_000_000)  # feetech_bridge HOST_BAUD first
 
 
 def _sudo(cmd: list[str]) -> bool:

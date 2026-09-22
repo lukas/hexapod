@@ -3,8 +3,7 @@
 
   Hardware
     Serial  (USART1, D0/D1) @ 1 Mbps  → FE-URT UART header (TX–TX, RX–RX, GND)
-    Serial1 (LPUART1)       @ 2000000 → Linux /dev/ttyHS1 (stop arduino-router;
-                                        921600 before 2026-09-21, host auto-detects)
+    Serial1 (LPUART1)       @ 921600  → Linux /dev/ttyHS1 (stop arduino-router)
     Wire    (I2C2)          SDA/SCL   → GY-521 MPU-6050 (header D20/D21, 3V3)
     ST7789 TFT (bitbang SPI): SCL D13, SDA D11, RST D8, DC D9, CS D10,
       BLK D7, VCC 3.3V, GND common
@@ -98,10 +97,14 @@ static const uint8_t MPU_REG_WHO_AM_I = 0x75;
 static bool mpuReady = false;
 
 static const uint32_t BUS_BAUD = 1000000UL;
-// 2 Mbaud since 2026-09-21 (was 921600): a 113-byte 'S' tick frame plus its
-// 129-byte reply drop from 2.6 ms to 1.2 ms of wire time.  The host tries this
-// rate first and falls back to 921600 for an older sketch (mcu_feetech_bus.py).
-static const uint32_t HOST_BAUD = 2000000UL;  // Linux /dev/ttyHS1 must match
+// 921600.  2 Mbaud was tried 2026-09-22 (hexapod.local): MCU->host was clean but
+// ~64 % of host->MCU lines arrived corrupted (DBG unknown_ascii) -- the Arduino
+// Serial RX path here tolerates about one byte time of interrupt latency, 5 us
+// at 2 M vs 11 us at 921600, and the servo/IMU passes exceed that.  Raising
+// this needs FIFO/DMA RX in the loader firmware, not a sketch change.  The host
+// (mcu_feetech_bus.py MCU_BAUDS) still negotiates, so the value here is the
+// only thing to change if that ever lands.
+static const uint32_t HOST_BAUD = 921600UL;  // Linux /dev/ttyHS1 must match
 static const uint8_t ID_LO = 2;
 static const uint8_t ID_HI = 19;
 static const uint8_t MAX_N = 18;
@@ -1677,8 +1680,8 @@ static unsigned long lastHostMs = 0;
 // Linux refreshes the panel every ~2 s; this much silence after first
 // contact means the web service (or the SoC) died.
 static const unsigned long HOST_LOST_MS = 12000;
-// Once a binary host frame has started, the rest should arrive in ~0.6 ms
-// at 2 Mbaud (~1.2 ms on the old 921600 link). Do not start another servo stream pass while the parser is
+// Once a binary host frame has started, the rest should arrive in ~1.2 ms
+// at 921600 baud. Do not start another servo stream pass while the parser is
 // mid-frame; if bytes really vanished, reset quickly and tell Linux.
 static const unsigned long HOST_BIN_DESYNC_MS = 10;
 // After this much silence, cut all servo torque so a dead brain can't

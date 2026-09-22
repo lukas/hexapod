@@ -32,6 +32,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import time
 from pathlib import Path
 from typing import Any
@@ -469,6 +470,20 @@ class _Recorder:
         if self.walk_xy:
             out.update(self._course_window_ep_keys(
                 self.walk_xy, self.walk_cmd, self.env.dt))
+            if os.environ.get("HYBRID_DEMO_DEBUG_COURSE") == "1":
+                # Opt-in diagnostic only (09-22 transition-tick artifact
+                # investigation): dump (window_start_s, err_deg) for the
+                # 1s window so a one-off analysis can correlate high-error
+                # windows with scripted heading-change timestamps instead
+                # of re-deriving this from scratch. Zero effect on the
+                # normal report/gate keys above; not read by any gate.
+                from .eval_checkpoint import windowed_course_stats
+                dbg: list = []
+                windowed_course_stats(self.walk_xy, self.walk_cmd,
+                                      self.env.dt, 1.0, debug_i0=dbg)
+                out["_debug_course_1s_windows"] = [
+                    [round(i0 * self.env.dt, 3), round(err, 2)]
+                    for i0, err in dbg]
         out["walk_gait_valid"] = not out["sacrificed_legs_all_phases"]
         return out
 

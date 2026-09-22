@@ -206,7 +206,8 @@ def windowed_course_stats(xy, cmd, dt: float, window_s: float, *,
                           motion_floor_m_s: float = 0.01,
                           min_cmd_coherence: float = 0.5,
                           with_sway: bool = False,
-                          wz=None, yaw=None) -> dict:
+                          wz=None, yaw=None,
+                          debug_i0: list | None = None) -> dict:
     """Rolling-window net-course statistics over one episode.
 
     ``xy``: (T,2) body XY per tick; ``cmd``: (T,2) commanded XY
@@ -300,6 +301,8 @@ def windowed_course_stats(xy, cmd, dt: float, window_s: float, *,
         err = math.degrees(math.acos(max(-1.0, min(1.0, cosv))))
         out["err_deg"].append(err)
         out["wrong"].append(1.0 if err > 90.0 else 0.0)
+        if debug_i0 is not None:
+            debug_i0.append((i0, err))
     return out
 
 

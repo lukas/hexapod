@@ -72,6 +72,12 @@
           },
           "conclusion": "all four clear the <=15 bar under the settled metric; the original envwide-s0 FAIL / headset16 FAIL / speedfixed FAIL verdicts (recorded before the settled metric existed) were corrected to PASS on 2026-09-22. envwide-s0 is adopted here as the widest-envelope candidate since it gives both continuous heading AND variable speed without regressing.",
           "evidence": "logs/manual_drive/cw_walk50hz_gru_dr10_{lsc_pinrobust2_s0_r1,envwide_s0,envwide_headset16_s0,envwide_speedfixed_s0}_hybrid_settledcheck_20260922/summary.json; ops.sh index story cw-walk50hz-gru-dr10-envwide-s0 (verdict text)."
+        },
+        "seed_confirm_2026_09_22": {
+          "status": "GO 2/2 (3 total checkpoints: s0+s1+s2). Both independent seeds match s0 on every structural bar (own-cfg(dr=1.0) gait_valid 6/6 all 4 buckets, zero sacrifices, det prog med 0.38, sto prog med 0.14, env/walk_loadslip_ratio last-third 6.05-6.61) AND the DR-0 settled course-tracking clause (course_err_1s_settled_p90_deg 10.02/9.94, both <=15 bar, close to s0's own 11.63). Zero falls/sacrifices in either hybriddemo.",
+          "checkpoints": ["ppo_goal_cw_walk50hz_gru_dr10_envwide_s1.zip", "ppo_goal_cw_walk50hz_gru_dr10_envwide_s2.zip"],
+          "evidence": "ops.sh verdict cw-walk50hz-gru-dr10-envwide-{s1,s2}; logs/ckpt_eval/cw_walk50hz_gru_dr10_envwide_{s1,s2}_{gate,owncfg}/report.json; logs/manual_drive/cw_walk50hz_gru_dr10_envwide_{s1,s2}_hybrid_settledcheck/summary.json.",
+          "conclusion": "envwide-s0's full-envelope PASS is a real structural result, not seed luck -- matches the saga's own pinrobust2/quad4-safe/quad5-torque seed-confirm convention. No further seed repeats queued on this recipe."
         }
       }
     },

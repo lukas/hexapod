@@ -43,6 +43,8 @@ KNEE_MAX_DEG = 110.0     # never near the 135 cap / 140 stop
 LIFT_M = 0.030           # foot clearance while a tripod swings
 DESCENT_STEP_M = 0.015   # keyframe spacing on a planted descent (joint-space glides bow the foot path)
 STEP_OUT_MIN_GAIN_M = 0.025  # a tripod step (body on 3 legs) only when it buys this much reach
+DZ_STEP_M = 0.019            # body drop per tripod step (stance 116 mm -> belly 40 mm in 4 steps)
+STEP_LIFT_M = 0.012          # how far the stepping tripod lifts its feet before re-placing them
 SPEEDS = {"lift": 0.5, "swing": 0.6, "place": 0.45, "settle": 0.3, "descent_per_m": 60.0, "zero": 2.5}
 
 
@@ -129,6 +131,32 @@ def plan(fkm: RealLegFK, stance_hk: tuple[float, float], z_gnd: float,
                     legs[i] = t[i]
             add(list(legs), SPEEDS["settle"], f"{phase}:settle", loaded=False)
 
+    def step_descend(r: float, z_to: float, phase: str):
+        """Lukas, 2026-09-22: 'it should step'.  The body comes down one tripod step at a time:
+        tripod T lifts (unloaded) and is placed a step LOWER (hovering above the current floor),
+        the other tripod S carries the body down that step (three loaded legs, feet planted)
+        until T's feet land; then the roles swap.  No six-leg push, ever."""
+        z = legs[0][1]
+        n = max(1, int(math.ceil(abs(z_to - z) / DZ_STEP_M)))
+        dz = (z_to - z) / n
+        for i in range(n):
+            T, S = TRIPODS[i % 2], TRIPODS[(i + 1) % 2]
+            z_next = z + dz
+            t = list(legs)
+            for l in T:
+                t[l] = (r, z + STEP_LIFT_M)                     # lift T clear of the floor
+            add(t, SPEEDS["lift"], f"{phase}:lift", loaded=True)
+            for l in T:
+                t[l] = (r, z_next)                              # hover T where the floor will be after the step
+            add(t, SPEEDS["place"], f"{phase}:hover", loaded=True)
+            for l in S:
+                t[l] = (r, z_next)                              # S lowers the body one step; T lands
+            add(t, SPEEDS["descent_per_m"] * abs(dz), f"{phase}:step", loaded=True)
+            add(t, SPEEDS["settle"], f"{phase}:settle", loaded=True)
+            for l in range(6):
+                legs[l] = (r, z_next)
+            z = z_next
+
     def descend(r: float, z_to: float, phase: str):
         z0 = legs[0][1]
         n = max(1, int(math.ceil(abs(z_to - z0) / DESCENT_STEP_M)))
@@ -151,7 +179,7 @@ def plan(fkm: RealLegFK, stance_hk: tuple[float, float], z_gnd: float,
             r = r_wide
         z_low = lowest_z(fkm, r, z, z_target, hip_min, knee_max)
         if abs(z_low - z) >= 0.003:
-            descend(r, z_low, phase_down)
+            step_descend(r, z_low, phase_down)
             z = z_low
         if abs(z - z_target) < 0.002:
             break
@@ -306,7 +334,8 @@ def describe(frames: list[dict]) -> str:
         q = f["q_deg"]
         hips = [q[joint_index(l, "hip")] for l in range(6)]
         knees = [q[joint_index(l, "knee")] for l in range(6)]
-        out.append(f"{i:2d} {f['phase']:11s} s={f['s']:4.2f} hip[{min(hips):6.1f}..{max(hips):6.1f}] knee[{min(knees):6.1f}..{max(knees):6.1f}]")
+        out.append(f"{i:2d} {f['phase']:11s} s={f['s']:4.2f} hip[" + " ".join(f"{h:5.0f}" for h in hips)
+                   + "] knee[" + " ".join(f"{k:4.0f}" for k in knees) + "]")
     return "\n".join(out)
 
 
@@ -342,7 +371,7 @@ def main() -> None:
     # joint-space glide bow: how far the planted foot radius wanders between descent keyframes (leg 0)
     bow = 0.0
     for f0, f1 in zip(frames, frames[1:]):
-        if "descent" in f1["phase"]:
+        if "descent" in f1["phase"] or f1["phase"].endswith(":step"):
             hk0 = (math.radians(f0["q_deg"][joint_index(0, "hip")]), math.radians(f0["q_deg"][joint_index(0, "knee")]))
             hk1 = (math.radians(f1["q_deg"][joint_index(0, "hip")]), math.radians(f1["q_deg"][joint_index(0, "knee")]))
             r_end = fkm.fk(*hk1)[0]

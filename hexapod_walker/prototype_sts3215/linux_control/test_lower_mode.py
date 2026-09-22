@@ -26,9 +26,21 @@ def test_lower_mode_is_down_only_and_inside_the_mechanical_box():
     assert 6.0 <= m["total_s"] <= 20.0
 
 
-def test_lower_descent_is_slow_and_monotonic():
+def test_lower_steps_down_by_tripods_never_six_loaded_legs_at_once():
+    """Lukas, 2026-09-22: 'it should step'.  Each body step: one tripod lifts and hovers a step lower
+    while the other three carry the body down; the two tripods alternate."""
     m = _lower()
-    hips0 = [f["q_deg"][joint_index(0, "hip")] for f in m["keyframes"] if "descent" in f.get("phase", "")]
-    assert len(hips0) >= 4
+    steps = [f for f in m["keyframes"] if f.get("phase", "").endswith(":step")]
+    assert len(steps) >= 3
+    hips0 = [f["q_deg"][joint_index(0, "hip")] for f in steps]
     assert all(b < a for a, b in zip(hips0, hips0[1:])), "the body comes down step by step"
-    assert all(f["s"] >= 0.5 for f in m["keyframes"] if "descent" in f.get("phase", ""))
+    assert all(f["s"] >= 0.8 for f in steps), "each step is slow"
+    lifts = [f for f in m["keyframes"] if f.get("phase", "").endswith(":lift")]
+    assert len(lifts) == len(steps)
+    prev = None
+    for lift, before in zip(lifts, [m["keyframes"][m["keyframes"].index(l) - 1] for l in lifts]):
+        moved = {l for l in range(6)
+                 if abs(lift["q_deg"][joint_index(l, "hip")] - before["q_deg"][joint_index(l, "hip")]) > 1.0}
+        assert moved in ({0, 2, 4}, {1, 3, 5}), f"a lift moves exactly one tripod, got {sorted(moved)}"
+        assert moved != prev, "tripods alternate"
+        prev = moved

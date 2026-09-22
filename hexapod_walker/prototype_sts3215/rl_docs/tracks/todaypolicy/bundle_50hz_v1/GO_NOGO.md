@@ -226,3 +226,61 @@ drive_sheet.png,summary.json}` (schema-matched to `walkcurr`'s
    modest net forward progress) and integration into
    `eval_checkpoint.py`/`drive_video.py` are the open next steps before
    this could supersede/extend the turn-only composition.
+
+## Update, 2026-09-22 — two new full-envelope walk-role candidates, WITH a physical-trial priority ranking (refill cycle, doc-only, no code/GPU spend)
+
+One plain sentence: since 09-21/09-22 the `standwalk` widedr saga produced
+two architecturally-distinct, independently-DR-hardened walk-role
+candidates that generalize to the FULL continuous-heading/variable-speed
+joystick envelope (not the 8-fixed-heading/fixed-speed grid every earlier
+candidate in this doc trains on) — both are real upgrades over every
+candidate named above, but a same-day composed-session diagnostic found
+they are NOT equally safe to hand to Robot Lab, so this update names a
+priority order rather than just adding two more rows nobody would notice.
+
+**Candidates** (registered in `composition.json` under
+`roles.walk_straight`, not yet promoted to this doc's own default/alternate
+table above — both are still `alternate_dr_hardened_fullenvelope*`
+entries):
+- `alternate_dr_hardened_fullenvelope_2026_09_22` (GRU, uniform
+  `dr_scale=1.0`) → `linux_control/policies/walk50hz_gru_dr10_envwide_s0.json`.
+  Seed-confirmed 3/3 GO. Composed own-DR(1.0) roll-peak band 3.4-7.2°,
+  **0/4 seed terminations**.
+- `alternate_dr_hardened_fullenvelope_mlp_2026_09_22` (MLP, per-axis-
+  widened DR: torque/mass/foot_friction/friction/vel/contact/backlash
+  each individually widened) →
+  `linux_control/policies/walk50hz_mlp_widedr_quad5_torque_envwide_s0.json`.
+  Seed-confirmed 3/3 GO. Composed own-DR(1.0) roll-peak band 3.7-26.3°,
+  **1/4 seeds TERMINATED (`tilt_roll`)**.
+
+**Root cause of the fall (not the MLP walk gait itself)**: the walk phase
+proper is calm and comparable between architectures in 3/4 MLP seeds
+(max 3.7-4.3° vs GRU's 3.4-4.0°). The fatal/near-fatal roll peaks occur in
+the shared frozen **lower** phase (`stand50hz_stance_tuckclock_scratch6m_
+curhot_b23k12`, same checkpoint both candidates use), whose own adoption
+gate only ever verified robustness up to `dr_scale=0.2` (see that
+checkpoint's own `known_limit` in `composition.json`'s `stand_lower` role
+and its `-drwiden35` child FAIL, 2026-09-11 — widening this exact
+checkpoint's own training DR was already tried and refuted, so this is
+NOT a queued retrain lever). Composing it after the MLP recipe's wider
+per-axis DR draw exposes that comparatively-narrow-DR lower controller to
+physics variety well outside its own verified band; the GRU recipe's
+uniform (not per-axis-widened) DR draw happens not to stress the same
+weak point as hard.
+
+**Practical recommendation for whoever runs the next physical joystick
+trial**: prefer the **GRU-composed bundle**
+(`alternate_dr_hardened_fullenvelope_2026_09_22`) over the MLP one for the
+first full-envelope physical trial — same envelope coverage and identical
+walk-mode gate bars, but a materially tighter/zero-termination composed
+own-DR safety margin. The MLP candidate remains a valid second
+architecturally-independent full-envelope option (useful if the GRU
+bundle needs a fallback or for a future architecture-robustness
+comparison) but should not be the first one tried hands-on.
+
+Full evidence chain: `rl_docs/tracks/todaypolicy/STATUS.md` and
+`rl_docs/tracks/standwalk/STATUS.md`, both 2026-09-22 ~12:0x through
+~13:3x; `composition.json`'s `seed_sweep_roll_diagnostic_2026_09_22b`
+field. No config default changed, no code change, no GPU spend (this
+update only republishes an already-recorded finding into the doc Robot
+Lab actually reads before a trial).

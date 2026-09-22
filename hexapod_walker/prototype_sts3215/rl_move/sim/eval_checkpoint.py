@@ -206,7 +206,9 @@ def windowed_course_stats(xy, cmd, dt: float, window_s: float, *,
                           motion_floor_m_s: float = 0.01,
                           min_cmd_coherence: float = 0.5,
                           with_sway: bool = False,
-                          wz=None, yaw=None) -> dict:
+                          wz=None, yaw=None,
+                          debug_i0: list | None = None,
+                          max_turn_deg: float | None = None) -> dict:
     """Rolling-window net-course statistics over one episode.
 
     ``xy``: (T,2) body XY per tick; ``cmd``: (T,2) commanded XY
@@ -281,6 +283,27 @@ def windowed_course_stats(xy, cmd, dt: float, window_s: float, *,
         cmd_dist = float(cum_abs[i1] - cum_abs[i0])
         if cmd_dist <= 1e-9 or d_cmd_n < min_cmd_coherence * cmd_dist:
             continue                       # command flipped mid-window
+        if max_turn_deg is not None:
+            # Opt-in (09-22 hybrid_demo transition-tick artifact
+            # investigation): min_cmd_coherence only catches near-
+            # REVERSALS (cancellation), not a moderate scripted turn
+            # (e.g. forward -> crab-right is ~90deg, not a reversal --
+            # its vector-sum ratio stays ~0.7, above the 0.5 floor, so
+            # it slips through uncaught). A window whose command
+            # direction at the START differs from its END by more than
+            # max_turn_deg is scoring the ROBOT'S PHYSICAL reorientation
+            # lag after a scripted heading change, not steady-state
+            # course tracking -- exclude it here instead of charging it
+            # to the policy. Off by default (None): bit-identical to
+            # every existing call site/gate/history.
+            c0, c1v = cmd[i0], cmd[i1 - 1]
+            n0, n1v = float(np.hypot(*c0)), float(np.hypot(*c1v))
+            if n0 > 1e-6 and n1v > 1e-6:
+                cos_turn = float(c0 @ c1v) / (n0 * n1v)
+                turn_deg = math.degrees(
+                    math.acos(max(-1.0, min(1.0, cos_turn))))
+                if turn_deg > max_turn_deg:
+                    continue                # scripted mid-window turn
         out["n_cmd_windows"] += 1
         d_xy = xy[i1] - xy[i0]
         d_n = float(np.hypot(*d_xy))
@@ -300,11 +323,14 @@ def windowed_course_stats(xy, cmd, dt: float, window_s: float, *,
         err = math.degrees(math.acos(max(-1.0, min(1.0, cosv))))
         out["err_deg"].append(err)
         out["wrong"].append(1.0 if err > 90.0 else 0.0)
+        if debug_i0 is not None:
+            debug_i0.append((i0, err))
     return out
 
 
 def _course_window_ep_keys(course_xy, course_cmd, dt: float,
-                           course_wz=None, course_yaw=None) -> dict:
+                           course_wz=None, course_yaw=None,
+                           max_turn_deg: float | None = None) -> dict:
     """ep-dict fields for the windowed course metrics (both windows).
 
     When per-tick commanded-yaw + body-yaw streams are supplied, a
@@ -312,6 +338,12 @@ def _course_window_ep_keys(course_xy, course_cmd, dt: float,
     commanded-yaw-rotated reference (body-frame joystick semantics —
     see windowed_course_stats).  Additive only: the legacy
     ``course_*`` keys are byte-identical with or without the streams.
+
+    ``max_turn_deg`` (09-22, opt-in, default None = unchanged): passed
+    through to ``windowed_course_stats`` to exclude windows whose
+    scripted command direction changes mid-window by more than this
+    many degrees (a scripted-transition reorientation artifact, not a
+    steady-state tracking failure — see that function's docstring).
     """
     keys: dict = {}
     variants = [("course", None, None)]
@@ -321,7 +353,8 @@ def _course_window_ep_keys(course_xy, course_cmd, dt: float,
     for prefix, v_wz, v_yaw in variants:
         for wl, wtag in COURSE_WINDOWS:
             st = windowed_course_stats(course_xy, course_cmd, dt, wl,
-                                       wz=v_wz, yaw=v_yaw)
+                                       wz=v_wz, yaw=v_yaw,
+                                       max_turn_deg=max_turn_deg)
             if st["n_cmd_windows"] == 0:
                 continue
             keys[f"{prefix}_windows_{wtag}"] = st["n_cmd_windows"]

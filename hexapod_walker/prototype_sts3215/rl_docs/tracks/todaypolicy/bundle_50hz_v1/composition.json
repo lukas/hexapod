@@ -97,6 +97,15 @@
           "note_on_cfg_override": "this MLP recipe bakes env.dr_stage_ramp_steps=5000000 into its training cfg-set; hybrid_demo.py's plain `randomize=(dr_scale>0)` logic (unlike eval_checkpoint.py, which auto-detects a DR override) errors when dr-scale=0.0 tries to disable the randomizer while ramp_steps>0 is staged. The override forces ramp_steps=0 for this DR-0 diagnostic call only -- ramp semantics do not apply at eval time regardless.",
           "artifacts_dr0": "logs/manual_drive/cw_walk50hz_mlp_powercurrent_widedr_quad5_torque_envwide_s0_hybrid_settledcheck/",
           "result_dr0": "terminated=false, sacrificed_legs_all_phases=[], walk_gait_valid=true, walk_progress_ratio=0.398, roll_peak_abs_deg=3.75, cur_max_a=0.16A, course_err_1s_med_deg=5.82, course_err_1s_p90_deg=27.11 (raw, expected to read high per the settled-metric correction below), course_err_1s_settled_p90_deg=11.31 (<=15 bar, clears cleanly)."
+        },
+        "seed_confirm_2026_09_22": {
+          "status": "GO 2/2 (3 total checkpoints: s0+s1+s2). Both independent seeds match s0 on every structural bar (own-cfg(dr=1.0) gait_valid 6/6 walk/det, 6/6 walk/sto, 6/6 walk_startjitter/det, 5/6 walk_startjitter/sto -- same recurring sac[2] outlier bucket as s0; prog med s1 0.26/0.16/0.23/0.23, s2 0.26/0.20/0.22/0.19, all >=0.15 bar; slip meds well inside the ~20 2x-reference ceiling) AND the DR-0 hybriddemo settled course-tracking clause (course_err_1s_settled_p90_deg 12.65 s1 / 13.31 s2, both <=15 bar). Zero falls/sacrifices in either.",
+          "checkpoints": [
+            "ppo_goal_cw_walk50hz_mlp_powercurrent_widedr_quad5_torque_envwide_s1.zip",
+            "ppo_goal_cw_walk50hz_mlp_powercurrent_widedr_quad5_torque_envwide_s2.zip"
+          ],
+          "evidence": "ops.sh verdict cw-walk50hz-mlp-powercurrent-widedr-quad5-torque-envwide-{s1,s2}; logs/ckpt_eval/cw_walk50hz_mlp_powercurrent_widedr_quad5_torque_envwide_{s1,s2}_{gate,owncfg}/report.json; logs/manual_drive/cw_walk50hz_mlp_powercurrent_widedr_quad5_torque_envwide_{s1,s2}_hybrid_settledcheck/summary.json.",
+          "conclusion": "envwide-s0's full-envelope PASS is a real structural result, not seed luck -- matches the saga's own pinrobust2/quad4-safe/quad5-torque/GRU-envwide seed-confirm convention. The widedr saga is now fully exhausted end-to-end on BOTH architectures (GRU envwide 3/3, MLP envwide 3/3); no further seed repeats queued on either full-envelope candidate."
         }
       }
     },

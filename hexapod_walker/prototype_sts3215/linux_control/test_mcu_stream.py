@@ -190,9 +190,14 @@ def test_snapshot_trace_separates_lock_write_flush_and_reply():
     assert trace["lock_wait_ms"] == 21.0
     assert trace["reset_input_ms"] == 3.0
     assert trace["serial_write_ms"] == 7.0
-    assert trace["serial_flush_ms"] == 53.0
-    assert trace["write_flush_ms"] == 63.0
+    # No tcdrain on the hot path since 2026-09-21: the key stays for readers.
+    assert trace["serial_flush_ms"] == 0.0
+    assert trace["write_flush_ms"] == 10.0
     assert trace["first_byte_wait_ms"] == 11.0
+    # header (one read) then payload+checksum in ONE read
+    assert trace["hdr_ms"] == 11.0
+    assert trace["payload_ms"] == 11.0
+    assert trace["checksum_ms"] == 0.0
 
 
 def test_sync_write_trace_preserves_ack_and_retry():

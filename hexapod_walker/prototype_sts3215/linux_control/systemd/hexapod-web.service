@@ -24,6 +24,11 @@ Environment=PYTHONUNBUFFERED=1
 Environment=PYTHONPATH=vendor:../motor_setup:.:..
 # mcu_feetech_bus uses sudo -S to stop arduino-router when claiming ttyHS1.
 Environment=HEXAPOD_SUDO_PASSWORD=arduino
+# Lets the RL control-loop thread take SCHED_FIFO (rl_policy._control_loop_realtime,
+# priority 30 by default) so its 50/100 Hz deadline wake-ups are not delayed by the
+# web server, pollers or the episode logger.  Without this limit the request fails
+# quietly and the loop runs at normal priority as before.
+LimitRTPRIO=80
 # Timestamped command/log stream → laptop(s). Auto-discovers via
 # subnet broadcast + laptop beacons on :9378 (no HEXAPOD_LOG_HOST needed).
 Environment=HEXAPOD_LOG_PORT=9377

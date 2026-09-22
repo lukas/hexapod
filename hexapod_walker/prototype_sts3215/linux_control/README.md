@@ -15,7 +15,7 @@ Laptop browser / Xbox ──HTTPS──▶ Uno Q web_drive.py
                     ┌─────────────────┴─────────────────┐
                     ▼                                   ▼
             McuFeetechBus                         FeetechBus (USB)
-            /dev/ttyHS1 @921600                   /dev/ttyUSB* @1Mbps
+            /dev/ttyHS1 @2 Mbaud (921600 fallback) /dev/ttyUSB* @1Mbps
                     │                                   │
                     ▼                                   │
             feetech_bridge (MCU)                        │

@@ -23,6 +23,11 @@ sysid/
                  per-servo spread, champion traj)  -> protocols/*.json
   run_hw.py      HTTP client: run a protocol on the robot, pull the
                  trace                             -> datasets/<run>/
+  gait_metrics.py  joint amplitudes / tracking / stride from any per-tick
+                 CSV; --footfall adds per-leg duty, lift, swing, stride,
+                 slip from foot kinematics (sim and robot alike)
+  rollout_policy_csv.py  roll an exported numpy policy in the twin and
+                 write a robot-format CSV for gait_metrics
   trace.py       sysid CSV schema load/write
   analyze_hysteresis.py
                  matched-dwell radial-shear loop metrics

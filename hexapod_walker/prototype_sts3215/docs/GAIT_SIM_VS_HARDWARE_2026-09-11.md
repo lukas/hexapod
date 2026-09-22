@@ -101,3 +101,8 @@ Camera speed for walkteach and AMP (the tag tracker only ran for the scripted
 suite), any sim replay of the whole-body protocols on the ground, and a
 smoothness metric in the loop itself. `gait_metrics.py` is the start of the
 last one: run it after every run and file the numbers with `hexapod-lab2 note`.
+
+2026-09-21: `sysid/gait_metrics.py --footfall` now also gives the per-leg duty / lift /
+swing / stride / slip view (foot kinematics + ground plane), and `sysid/rollout_policy_csv.py`
+writes a sim CSV in the robot's format so both sides go through it. Findings for the
+armcombo policy: `rl_move/sim/REALITY_GAP_REFIT.md`, "Per-leg footfall view".

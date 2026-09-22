@@ -765,6 +765,8 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/rl/state" or path == "/api/rl":
             self._json(200, BENCH.rl_state() if BENCH
                        else {"ok": False, "error": "no bench"})
+        elif path == "/api/mcu/dbg":
+            self._json(200, BENCH.mcu_dbg() if BENCH else {"ok": False, "error": "no bench"})
         elif path == "/api/servo/regs":
             # read-only servo register dump: ?addr=65&size=1&ids=2,3
             q = parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}

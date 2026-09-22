@@ -374,8 +374,49 @@ class CoreApi:
             lambda j: joint_label(j, self.names),
             on_trip=self.thermal_panic,
             is_armed=lambda: bool(self.drive.armed),
-            on_strain=self.static_strain_release)
+            on_strain=self.static_strain_release,
+            on_torque_lost=self.torque_lost)
         self._servo_watch.start()
+
+    def torque_lost(self, reason: str, info: dict) -> None:
+        """Servos dropped torque on their own (voltage unload, MCU host-lost
+        auto-limp, ...).  The host's armed flag is a lie now: record it,
+        mark the robot limp so nothing assumes it can stand, never re-arm."""
+        d = self.drive
+        try:
+            from event_log import emit
+            emit("torque_lost", f"TORQUE LOST: {reason}", src="servo_watch", data=info, level="error")
+        except Exception:
+            print(f"[torque_lost] {reason}", flush=True)
+        with d._lock:
+            d.mode = "idle"
+            try:
+                d.gait.stop()
+            except Exception:
+                pass
+            d.armed = False
+            d.status = "limp: servos dropped torque on their own (see torque_lost event)"
+
+    def mcu_dbg(self) -> dict:
+        """The MCU bridge's DBG counters (auto_limps, desync, checksum, ...)."""
+        bus = self.drive.bus
+        if bus is None or not hasattr(bus, "_transact"):
+            return {"ok": False, "error": "no MCU bus"}
+        blocked = self._bus_admission_error()
+        if blocked:
+            return blocked
+        line = bus._transact("DBG", timeout=1.5)
+        if not line or not line.startswith("OK"):
+            return {"ok": False, "error": f"DBG answered {line!r}"}
+        out = {}
+        for tok in line.split()[1:]:
+            if "=" in tok:
+                k, v = tok.split("=", 1)
+                try:
+                    out[k] = int(v)
+                except ValueError:
+                    out[k] = v
+        return {"ok": True, "dbg": out}
 
     def servo_regs(self, addr: int, size: int = 1, ids=None) -> dict:
         """Read-only: one register from each servo (STS3215 memory table).

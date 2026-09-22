@@ -239,6 +239,8 @@ static uint32_t dbgBinBadCmd = 0;
 static uint32_t dbgProfileSets = 0;      // 'V' accepted
 static uint32_t dbgTickFrames = 0;       // 'T' executed
 static uint32_t dbgTickNoProfile = 0;    // 'T' refused: no profile since boot
+static uint32_t dbgAutoLimps = 0;        // host silent > HOST_LIMP_MS: torque cut on all servos (never reset)
+static uint32_t dbgAutoLimpLastMs = 0;
 static uint32_t dbgBinReplyHeaders = 0;
 static uint32_t dbgDesyncResets = 0;
 static uint32_t dbgSyncWriteCalls = 0;
@@ -355,6 +357,8 @@ static void cmdDbg(bool reset) {
   dbgPrintKV(F("profile_sets"), dbgProfileSets);
   dbgPrintKV(F("tick_frames"), dbgTickFrames);
   dbgPrintKV(F("tick_no_profile"), dbgTickNoProfile);
+  dbgPrintKV(F("auto_limps"), dbgAutoLimps);
+  dbgPrintKV(F("auto_limp_last_ms"), dbgAutoLimpLastMs);
   dbgPrintKV(F("bin_reply_headers"), dbgBinReplyHeaders);
   dbgPrintKV(F("desync_resets"), dbgDesyncResets);
   dbgPrintKV(F("syncwrite_calls"), dbgSyncWriteCalls);
@@ -1928,9 +1932,12 @@ void loop() {
     }
     if (!autoLimped && now - lastHostMs > HOST_LIMP_MS) {
       autoLimped = true;
+      dbgAutoLimps++;              // 2026-09-22: the host had no way to know this happened
+      dbgAutoLimpLastMs = now;
       for (int id = ID_LO; id <= ID_HI; id++) {
         sts.EnableTorque((u8)id, 0);
       }
+      Serial1.println(F("AUTOLIMP host silent"));   // lands in the host's bus trace (pre_a5_lines)
       tft::autoLimpPaint();
     }
   }

@@ -45,6 +45,10 @@ DESCENT_STEP_M = 0.015   # keyframe spacing on a planted descent (joint-space gl
 STEP_OUT_MIN_GAIN_M = 0.025  # a tripod step (body on 3 legs) only when it buys this much reach
 DZ_STEP_M = 0.019            # body drop per tripod step (stance 116 mm -> belly 40 mm in 4 steps)
 STEP_LIFT_M = 0.012          # how far the stepping tripod lifts its feet before re-placing them
+# HARD GATE (Lukas, 2026-09-22): a LOADED foot must not move across the floor.  Not "a little", not
+# "at low current": it stresses the plastic and makes every maneuver uncertain.  A maneuver whose
+# loaded-foot excursion exceeds this in the sim is REJECTED, whatever else it achieves.
+SLIP_GATE_MM = 3.0
 SPEEDS = {"lift": 0.5, "swing": 0.6, "place": 0.45, "settle": 0.3, "descent_per_m": 60.0, "zero": 2.5}
 
 
@@ -295,7 +299,9 @@ def run(frames: list[dict], mu: float | None, *, seed: int = 0, sheet: Path | No
     env.close()
     if sheet is not None and imgs:
         _sheet(imgs, sheet)
-    return {"mu": mu, "z_stance_m": round(z_stance, 4), "z_end_m": round(z_end, 4),
+    worst_slip = max([v for k, v in excursion.items() if k != "start"], default=0.0) * 1000
+    return {"mu": mu, "PASS_zero_slip": bool(worst_slip <= SLIP_GATE_MM), "worst_loaded_slip_mm": round(worst_slip, 1),
+            "z_stance_m": round(z_stance, 4), "z_end_m": round(z_end, 4),
             "loaded_foot_excursion_mm": {k: round(v * 1000, 1) for k, v in excursion.items()},
             "cur_peak_a": {k: f"{round(v, 2)}@j{cur_peak_joint[k]}" for k, v in cur_peak.items()},
             "chassis_z_end_mm": {k: round(v * 1000) for k, v in z_phase_end.items()},

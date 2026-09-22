@@ -8,6 +8,8 @@ from __future__ import annotations
 import os
 
 from inplace_demos import STOP_HOLD_TORQUE  # every scripted loop holds at this after a stop
+# most acute knee fold the stand-up may command (deg from straight); see the frames cap in standup()
+KNEE_FOLD_CAP_DEG = float(os.environ.get("HEXAPOD_KNEE_FOLD_CAP_DEG", "135"))
 
 from .common import *  # noqa: F401,F403
 
@@ -161,7 +163,14 @@ class StandupApi:
         # keeps each segment's duration with its segment: the glide from
         # keyframe i to i-1 takes what i-1 -> i took, plus a short
         # align glide onto the last keyframe first.
-        frames = [([float(v) for v in kf["q_deg"]], float(kf["s"]))
+        # Knee fold cap (2026-09-22, hexapod2): the baked STEP keyframes fold
+        # the knees to 146-148 deg in the tuck/push phase.  The software limit
+        # is 150, but the knee reaches its MECHANICAL stop near 140 on hexapod2
+        # (zero re-set that morning); commanding past it drove six knee servos
+        # into the stop -- current with nothing moving, the guard tripped, the
+        # robot parked tall on its knee stops.  Cap every commanded knee.
+        frames = [([min(float(v), KNEE_FOLD_CAP_DEG) if (i % 3 == 2) else float(v)
+                    for i, v in enumerate(kf["q_deg"])], float(kf["s"]))
                   for kf in keyframes]
         if down:
             qs = [q for q, _ in frames]

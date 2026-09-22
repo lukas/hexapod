@@ -3697,7 +3697,7 @@ async function suLoadModes(){
     const r = await fetch('/api/standup/modes', {cache:'no-store'});
     const d = await r.json();
     if(!d.ok){ $('sulab-desc').textContent = d.error || 'modes unavailable'; return; }
-    suModes = d.modes || [];
+    suModes = (d.modes || []).filter(m => !m.down_only);   // 'lower' is the sit-down, not a stand option
     const box = $('sulab-modes'); box.innerHTML = '';
     for(const m of suModes){
       const b = document.createElement('button');

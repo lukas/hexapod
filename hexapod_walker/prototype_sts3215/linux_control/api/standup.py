@@ -54,7 +54,8 @@ class StandupApi:
                 {"name": name,
                  "description": m.get("description", ""),
                  "keyframes": len(m.get("keyframes", [])),
-                 "total_s": m.get("total_s")}
+                 "total_s": m.get("total_s"),
+                 "down_only": bool(m.get("down_only", False))}
                 for name, m in (data.get("modes") or {}).items()],
         }
 
@@ -104,11 +105,19 @@ class StandupApi:
             if str(mode) == "plant":
                 return {"ok": False,
                         "error": "stand-up mode 'plant' was removed; use 'step'"}
+            down = str(direction) == "down"
+            if down and "lower" in data["modes"]:
+                # 2026-09-22: the sit-down is its OWN mode (rl_move/sim/lower_sim.py), played
+                # forward.  Reverse-playing the STEP stand-up pulled the hips to -65 (femur
+                # into the top chassis on hexapod2) and the knees to the fold cap, parked the
+                # robot tall on tucked legs, and the zero glide from there dragged the feet.
+                mode = "lower"
             m = data["modes"][str(mode)]
+            if m.get("down_only") and not down:
+                return {"ok": False, "error": f"stand-up mode '{mode}' is a sit-down (down only); use 'step' to stand"}
             keyframes = m["keyframes"]
         except (OSError, ValueError, KeyError, ImportError) as e:
             return {"ok": False, "error": f"unknown stand-up mode: {e}"}
-        down = str(direction) == "down"
         if sync_gen is None and self._drive_active():
             return {"ok": False,
                     "error": ("drive session active/stopping; use End "
@@ -172,7 +181,8 @@ class StandupApi:
         frames = [([min(float(v), KNEE_FOLD_CAP_DEG) if (i % 3 == 2) else float(v)
                     for i, v in enumerate(kf["q_deg"])], float(kf["s"]))
                   for kf in keyframes]
-        if down:
+        if down and not m.get("down_only"):
+            # legacy: no dedicated lower mode in the file -> reverse the stand-up
             qs = [q for q, _ in frames]
             ss = [s for _, s in frames]
             frames = [(qs[-1], 0.8)] + [
@@ -313,8 +323,8 @@ class StandupApi:
                 q0 = kf_path[0][0]
                 aborted = False
                 t_run0 = time.monotonic()
-                if down and len(kf_path) >= 2:
-                    # Sit starts at the wide (tibia-vertical) stance;
+                if down and not m.get("down_only") and len(kf_path) >= 2:
+                    # (legacy reversed stand-up only) Sit starts at the wide (tibia-vertical) stance;
                     # the feet must come back UNDER the body before
                     # the fold, and loaded feet can't slide inward —
                     # re-seat them on the narrow stance by tripods.

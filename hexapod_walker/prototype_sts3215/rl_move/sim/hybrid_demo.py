@@ -470,6 +470,33 @@ class _Recorder:
         if self.walk_xy:
             out.update(self._course_window_ep_keys(
                 self.walk_xy, self.walk_cmd, self.env.dt))
+            # "_settled" variant (09-22 transition-tick artifact fix):
+            # additive-only new keys alongside the legacy course_err_*
+            # ones above (those stay byte-identical for any historical
+            # comparison). Scripted multi-phase demos (human/human_turn/
+            # square) change the commanded heading instantaneously at a
+            # handful of known timestamps; a window straddling one of
+            # those charges the robot's unavoidable physical
+            # reorientation lag as "course error", which dominates the
+            # p90 statistic and has nothing to do with steady-state
+            # tracking quality (measured 09-22: envwide-headset16's
+            # course_err_1s_p90_deg=22.63 -- p90=9.54 once transition-
+            # straddling windows are excluded via max_turn_deg=45).
+            # This is the metric a hybrid_demo course-tracking gate
+            # should actually read.
+            from .eval_checkpoint import windowed_course_stats
+            st_settled = windowed_course_stats(
+                self.walk_xy, self.walk_cmd, self.env.dt, 1.0,
+                max_turn_deg=45.0)
+            if st_settled["err_deg"]:
+                out["course_err_1s_settled_windows"] = st_settled[
+                    "n_cmd_windows"]
+                out["course_err_1s_settled_mean_deg"] = round(
+                    float(np.mean(st_settled["err_deg"])), 2)
+                out["course_err_1s_settled_med_deg"] = round(
+                    float(np.median(st_settled["err_deg"])), 2)
+                out["course_err_1s_settled_p90_deg"] = round(
+                    float(np.percentile(st_settled["err_deg"], 90)), 2)
             if os.environ.get("HYBRID_DEMO_DEBUG_COURSE") == "1":
                 # Opt-in diagnostic only (09-22 transition-tick artifact
                 # investigation): dump (window_start_s, err_deg) for the

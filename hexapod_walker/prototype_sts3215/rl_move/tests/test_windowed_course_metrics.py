@@ -118,3 +118,55 @@ def test_zigzag_sway_vs_net_course():
         *_path(lambda t: (0.05, 0.0), lambda t: (0.05, 0.0), 8.0),
         DT, 1.0, with_sway=True)
     assert max(st0["sway_rms_m"]) < 1e-6
+
+
+def _cmd_fn_90turn(t):
+    return (0.05, 0.0) if t < 3.0 else (0.0, 0.05)
+
+
+def _vel_fn_90turn_with_lag(t):
+    # Models unavoidable physical reorientation lag (a real gait needs
+    # time to reorient stance after a heading command changes): the
+    # velocity keeps the OLD direction for 0.4s past the command
+    # change, then snaps to the new one and tracks perfectly forever
+    # after -- i.e. perfect steady-state tracking, transient-only lag.
+    return (0.05, 0.0) if t < 3.4 else (0.0, 0.05)
+
+
+def test_scripted_90deg_turn_slips_past_coherence_floor_by_default():
+    """A moderate (90 deg, non-reversing) scripted command change does
+    NOT trip the reversal-grace floor (its vector-sum ratio stays
+    ~0.71, above the 0.5 min_cmd_coherence default) -- so by default a
+    window straddling it IS scored, charging a brief, unavoidable
+    physical reorientation lag as course error even though tracking is
+    perfect before and after. This is the 09-22 hybrid_demo
+    transition-tick artifact (measured live: envwide-headset16's
+    course_err_1s_p90_deg dominated by windows straddling scripted
+    heading changes, not steady-state tracking)."""
+    xy, cmd = _path(_vel_fn_90turn_with_lag, _cmd_fn_90turn, 6.0)
+    st = windowed_course_stats(xy, cmd, DT, 1.0)
+    assert st["n_cmd_windows"] > 0
+    assert np.percentile(st["err_deg"], 90) > 25.0   # the artifact: NOT excluded
+
+
+def test_max_turn_deg_excludes_the_scripted_turn_window():
+    """Opt-in max_turn_deg fixes the P90 statistic (the actual gate
+    quantity) for the artifact above: excluding windows whose command
+    direction changes >45 deg mid-window removes the reference-
+    blending windows that preceded the transition entirely (their OWN
+    command integral mixes both phases), collapsing p90 from ~34deg to
+    0deg. A handful of windows starting exactly AT/just-after the
+    transition still show real residual reorientation-catch-up error
+    (not excluded by this filter, and correctly so -- that error is
+    genuine, just a small minority no longer able to dominate the p90
+    tail). Bit-identical to the default (None) call otherwise."""
+    xy, cmd = _path(_vel_fn_90turn_with_lag, _cmd_fn_90turn, 6.0)
+    baseline = windowed_course_stats(xy, cmd, DT, 1.0)
+    st = windowed_course_stats(xy, cmd, DT, 1.0, max_turn_deg=45.0)
+    assert st["n_cmd_windows"] < baseline["n_cmd_windows"]
+    assert np.percentile(baseline["err_deg"], 90) > 25.0
+    assert np.percentile(st["err_deg"], 90) < 5.0
+    # default (None) is unaffected -- exact same call with no kwarg
+    st_default = windowed_course_stats(xy, cmd, DT, 1.0)
+    assert st_default["n_cmd_windows"] == baseline["n_cmd_windows"]
+    assert st_default["err_deg"] == baseline["err_deg"]

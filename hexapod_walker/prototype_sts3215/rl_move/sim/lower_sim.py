@@ -1,4 +1,12 @@
-"""Design + sim-validate the LOWER (stand -> belly -> zero) for the real robot.
+"""Sim gate for scripted stand/sit maneuvers + a lower-design search (kept as a TOOL, its 'lower' mode was REJECTED).
+
+VERDICT 2026-09-22 (Lukas, watching the robot): the sit-down stays the STEP stand-up played
+backwards, with per-robot fold caps (api/standup.py).  It is one continuous motion with all six
+legs sharing the load (peak 20 % on one leg, no load handoffs until the belly is down) and pulls
+the feet inward.  The tripod-stepping lower designed here had the lowest sim SLIP (10 mm vs 22)
+but 36 % peak load on one leg and 22 load handoffs in 4 s: a multi-step drop.  Slip alone is the
+wrong score; report slip AND peak single-foot load share AND handoff count.  `--export` writes a
+'lower' mode only if you ask for it; nothing on the robot reads it any more.
 
 2026-09-22: the reversed STEP stand-up was the sit-down.  On hexapod2 it pulls
 the hips to -65 deg (the femur hits the top chassis at about -55) and the knees

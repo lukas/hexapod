@@ -6,13 +6,19 @@ mixed into ``bench_api.BenchAPI``. Route/JSON shapes are unchanged.
 from __future__ import annotations
 
 import os
+import socket
 
 from inplace_demos import STOP_HOLD_TORQUE  # every scripted loop holds at this after a stop
 # most acute knee fold the stand-up may command (deg from straight); see the frames cap in standup()
-KNEE_FOLD_CAP_DEG = float(os.environ.get("HEXAPOD_KNEE_FOLD_CAP_DEG", "135"))
-# most raised femur the stand-up may command (deg; negative = femur up).  hexapod2's femur meets the top
-# chassis near -55: the baked STEP frames ask for -65/-78, which is a fight against the plate (2026-09-22).
-HIP_FOLD_CAP_DEG = float(os.environ.get("HEXAPOD_HIP_FOLD_CAP_DEG", "-52"))
+# Per-robot mechanical stops (2026-09-22): hexapod2's femur meets the top chassis near -55 and its L0
+# knee stops near 126 (the others 130-135).  The baked STEP frames ask for hips -65/-78 and knees 146:
+# commanding past a stop is a fight against plastic (8.2 A summed this afternoon).  Cap per hostname;
+# env vars override.  Other robots keep the frames as baked.
+_FOLD_CAPS = {"hexapod2": (-52.0, 125.0)}          # hostname -> (hip min deg, knee max deg)
+_host = socket.gethostname().split(".")[0]
+_hip_cap_default, _knee_cap_default = _FOLD_CAPS.get(_host, (-80.0, 150.0))
+KNEE_FOLD_CAP_DEG = float(os.environ.get("HEXAPOD_KNEE_FOLD_CAP_DEG", str(_knee_cap_default)))
+HIP_FOLD_CAP_DEG = float(os.environ.get("HEXAPOD_HIP_FOLD_CAP_DEG", str(_hip_cap_default)))
 
 from .common import *  # noqa: F401,F403
 
@@ -57,14 +63,12 @@ class StandupApi:
                 {"name": name,
                  "description": m.get("description", ""),
                  "keyframes": len(m.get("keyframes", [])),
-                 "total_s": m.get("total_s"),
-                 "down_only": bool(m.get("down_only", False))}
+                 "total_s": m.get("total_s")}
                 for name, m in (data.get("modes") or {}).items()],
         }
 
     def standup(self, *, mode: str = "step", speed: float = 1.0,
-                direction: str = "up", force: bool = False, reverse_step: bool = False,
-                start_keyframe: int = 0,
+                direction: str = "up", force: bool = False, start_keyframe: int = 0,
                 torque: int = 700, abort_current_a: float = 3.0,
                 sync_gen: int | None = None) -> dict:
         """Play one baked stand-up strategy (async).
@@ -110,15 +114,12 @@ class StandupApi:
                 return {"ok": False,
                         "error": "stand-up mode 'plant' was removed; use 'step'"}
             down = str(direction) == "down"
-            if down and "lower" in data["modes"] and not reverse_step:
-                # 2026-09-22: the sit-down is its OWN mode (rl_move/sim/lower_sim.py), played
-                # forward.  Reverse-playing the STEP stand-up pulled the hips to -65 (femur
-                # into the top chassis on hexapod2) and the knees to the fold cap, parked the
-                # robot tall on tucked legs, and the zero glide from there dragged the feet.
-                mode = "lower"
+            # The sit-down IS the stand-up played backwards (Lukas, 2026-09-22, after watching
+            # the alternatives: one continuous motion, all six legs sharing the load, feet pulled
+            # inward as the knees fold).  What made it fail on hexapod2 was the frames asking for
+            # more fold than its hips/knees have -- fixed by the per-robot caps above, not by a
+            # different lower.
             m = data["modes"][str(mode)]
-            if m.get("down_only") and not down:
-                return {"ok": False, "error": f"stand-up mode '{mode}' is a sit-down (down only); use 'step' to stand"}
             keyframes = m["keyframes"]
         except (OSError, ValueError, KeyError, ImportError) as e:
             return {"ok": False, "error": f"unknown stand-up mode: {e}"}
@@ -194,8 +195,7 @@ class StandupApi:
                 return {"ok": False, "error": f"start_keyframe out of range (1..{len(frames) - 1})"}
             frames = frames[int(start_keyframe):]
             acquire_zero_first = False
-        if down and not m.get("down_only"):
-            # legacy: no dedicated lower mode in the file -> reverse the stand-up
+        if down:
             qs = [q for q, _ in frames]
             ss = [s for _, s in frames]
             frames = [(qs[-1], 0.8)] + [
@@ -336,8 +336,8 @@ class StandupApi:
                 q0 = kf_path[0][0]
                 aborted = False
                 t_run0 = time.monotonic()
-                if down and not m.get("down_only") and len(kf_path) >= 2:
-                    # (legacy reversed stand-up only) Sit starts at the wide (tibia-vertical) stance;
+                if down and len(kf_path) >= 2:
+                    # Sit starts at the wide (tibia-vertical) stance;
                     # the feet must come back UNDER the body before
                     # the fold, and loaded feet can't slide inward —
                     # re-seat them on the narrow stance by tripods.

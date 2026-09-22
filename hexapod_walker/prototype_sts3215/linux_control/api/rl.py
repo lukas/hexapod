@@ -1396,7 +1396,7 @@ class RlApi:
                     # episode is not the same as standing (08-11: a
                     # nominally-ok run ended legs-flailed at 0.16 A).
                     try:
-                        kfs = (self._load_standup()["modes"]["tuck"]
+                        kfs = (self._load_standup()["modes"]["step"]
                                ["keyframes"])
                         stance = [float(x) for x in
                                   kfs[-1]["q_deg"]]

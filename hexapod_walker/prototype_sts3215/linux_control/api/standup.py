@@ -7,9 +7,7 @@ from __future__ import annotations
 
 import os
 
-# Torque limit held after a stand-up/lower is stopped mid-way (guard or abort).  Enough to
-# keep the pose against gravity for the operator, not enough to sustain a stall fight.
-STOP_HOLD_TORQUE = int(os.environ.get("HEXAPOD_STOP_HOLD_TORQUE", "400"))
+from inplace_demos import STOP_HOLD_TORQUE  # every scripted loop holds at this after a stop
 
 from .common import *  # noqa: F401,F403
 
@@ -25,6 +23,21 @@ class StandupApi:
         # Read fresh each call (small file) so a re-deployed bake is
         # picked up without restarting the service.
         return json.loads(self.STANDUP_FILE.read_text())
+
+    def _sagged_stance(self, present) -> bool:
+        """Up on its feet with the stance merely off (hips still positive,
+        knees in the standing band, nothing folded under): the tripod
+        re-plant + keyframes path handles it.  Anything else that is not a
+        normal stance is folded/kneeling/low and goes through settle+glide."""
+        try:
+            hips = [float(present[joint_index(leg, "hip")]) for leg in range(6)]
+            knees = [float(present[joint_index(leg, "knee")]) for leg in range(6)]
+        except Exception:
+            return False
+        hip_med, knee_med = self._median(hips), self._median(knees)
+        if hip_med <= 0.0 or not (40.0 <= knee_med <= 110.0):
+            return False
+        return not any(k > 115.0 and h < 0.0 for h, k in zip(hips, knees))
 
     def standup_modes(self) -> dict:
         """List the available stand-up strategies (web UI selector)."""
@@ -75,7 +88,7 @@ class StandupApi:
         try:
             from inplace_demos import (
                 IMPLAUSIBLE_FAULT_READS,
-                CurrentPeakTracker, PoseStreamer, _enable_torque,
+                CurrentPeakTracker, MotionGuard, PoseStreamer, _enable_torque,
                 _live_robot_ids, _set_torque_limit, _write_pose,
                 ease_to_pose,
             )
@@ -123,31 +136,24 @@ class StandupApi:
             res["route"] = "stand_adjust"
             res["standing"] = standing
             return res
-        safe_zero_before_up = bool(not force and not down
-                                   and standing is None)
         careful_down = False
         if down and not force and standing is None:
-            # 2026-09-20: a standing robot whose stance the upright classifier rejects (post-RL-walk, one joint 60 deg
-            # off) must NOT be handed to safe zero: its planner lowered the chassis while sliding loaded feet outward.
-            # Off the floor -> CAREFUL lowering through this mode's own reverse path (feet re-seated under the body by
-            # tripods, a slow align, then the keyframes) -- user: "lower it carefully, don't dump it, don't push the
-            # legs out".  Safe zero stays the recovery path only for poses already at or near the floor.
-            try:
-                from safe_zero import BELLY_GROUND_Z_MM, STAND_DETECT_MM, median_foot_z_mm
-                off_floor = median_foot_z_mm(present) < BELLY_GROUND_Z_MM - STAND_DETECT_MM
-            except Exception:
-                off_floor = True
-            if off_floor:
+            if self._sagged_stance(present):
+                # UP, stance merely off (an RL hold sagged, a stopped move):
+                # re-seat the feet by TRIPODS onto the stance, then play the
+                # sit-down keyframes (operator rule 2026-09-20: never ease six
+                # loaded legs at once).
                 careful_down = True
-            elif sync_gen is None:
-                res = self.safe_zero(force=force)
-                res["route"] = "safe_zero_not_standing"
-                return res
             else:
-                res = self._safe_zero_sync(
-                    abort_check=self._demo_abort.is_set)
-                res["route"] = "safe_zero_not_standing"
+                # folded / kneeling / low / odd: never play keyframes into it.
+                # Settle + guarded glide to zero (ZeroApi._zero_sync), 2026-09-22.
+                if sync_gen is None:
+                    res = self.go_zero(pose="sit", force=force)
+                else:
+                    res = self._zero_sync(abort_check=self._demo_abort.is_set)
+                res["route"] = "settle_zero_not_standing"
                 return res
+        acquire_zero_first = bool(not force and not down and standing is None)
 
         speed = max(0.25, min(10.0, float(speed)))
         torque = max(300, min(1000, int(torque)))
@@ -163,10 +169,6 @@ class StandupApi:
             frames = [(qs[-1], 0.8)] + [
                 (qs[i], ss[i + 1]) for i in range(len(qs) - 2, -1, -1)]
         first = frames[0][0]
-        acquire_zero_first = False
-        safe_down_instead = False
-        if safe_zero_before_up:
-            acquire_zero_first = True
         if not force:
             worst, j = self._delta_vs_present(first)
             if worst is None:
@@ -175,16 +177,8 @@ class StandupApi:
                                   "up after restart?) — cannot check "
                                   "the start pose; retry in a few "
                                   "seconds")}
-            if worst > MAX_SAFE_DELTA_DEG:
-                # 08-11 directive: acquire the start pose instead of
-                # refusing. Up → safe zero first. Down from a pose the
-                # keyframes weren't baked for → the safe descent IS
-                # the down path (never play reversed keyframes from an
-                # unknown stance).
-                if down and not careful_down:
-                    safe_down_instead = True
-                elif not down:
-                    acquire_zero_first = True
+            if worst > MAX_SAFE_DELTA_DEG and not down:
+                acquire_zero_first = True   # acquire the start pose instead of refusing (08-11)
 
         verb = "sit-down" if down else "stand-up"
         if sync_gen is None:
@@ -239,25 +233,6 @@ class StandupApi:
                     with self._lock:
                         self._cal_progress = dict(p)
 
-                if safe_down_instead:
-                    # Not at this mode's stance — the collision-aware
-                    # descent is the whole down job.
-                    res = self._safe_zero_sync(
-                        abort_check=self._demo_abort.is_set,
-                        on_progress=_acq_prog)
-                    result.update(res)
-                    result["via"] = "safe_zero"
-                    result.setdefault("ok", False)
-                    if gen != self._demo_gen:
-                        return
-                    with self._lock:
-                        self._cal_result = result
-                        self._demo_status = (
-                            "done · safe descent to zero (was not at "
-                            "stance)" if result.get("ok") else
-                            str(result.get("error") or "aborted"))
-                        self._cal_progress = {"msg": self._demo_status}
-                    return result
                 if acquire_zero_first:
                     res_a = self._acquire_start("zero", gen=gen,
                                                 on_progress=_acq_prog)
@@ -278,88 +253,16 @@ class StandupApi:
                 _enable_torque(d.bus, live)
                 n = len(kf_path)
 
-                def guard_msg() -> str:
-                    if trip_kind == "total":
-                        return (f"stopped: {tracker.sweep_total_a():.1f} A "
-                                f"bus total (> {TOTAL_CAP_A:.1f} A) two "
-                                "sweeps running — every servo pushing at "
-                                "once, the shared supply folds before any "
-                                "one servo trips")
-                    if tracker.telemetry_fault_joint is not None:
-                        return (
-                            "stopped: joint "
-                            f"{tracker.telemetry_fault_joint} returned "
-                            f"{IMPLAUSIBLE_FAULT_READS} impossible "
-                            "current readings in a row (peak "
-                            f"{tracker.discarded_peak_a:.1f} A) — bus "
-                            "telemetry fault, not an over-current")
-                    return (f"stopped: {tracker.peak_a:.2f} A peak on "
-                            f"joint {tracker.peak_joint} (> "
-                            f"{abort_current_a:.1f} A) — stall-fight, "
-                            "not grinding on it")
+                # ONE guard for every scripted loop (inplace_demos.MotionGuard):
+                # per-servo hard cap, bus total, stall-fight, telemetry fault,
+                # all with two-sweep confirmation.  Stop = hold the measured pose.
+                guard = MotionGuard(tracker, stall_a=abort_current_a)
 
-                # Guard semantics (08-10, after a 3.04 A spike aborted
-                # a healthy 10x stand at 60%): trip on STALL-FIGHT —
-                # a joint over the limit while NOT MOVING, two sweeps
-                # in a row — not on an instantaneous reading. A moving
-                # joint briefly over 3 A is honest acceleration work.
-                #
-                # Hard cap (09-09, after experiment 922434955b's cycle 2
-                # self-aborted 1.76 s in on a 106.50 A reading — 0x4000,
-                # one flipped bit, against a true run peak of 2.88 A):
-                # the cap needs TWO consecutive sweeps too, and reads
-                # the sweep's own plausible peak rather than the
-                # running-max peak_a. Two independent bugs made one
-                # corrupt sample fatal: peak_a is monotonic, so a single
-                # spike latched the trip on forever, and a low-bit flip
-                # lands at 3.3 A / 6.7 A — under any plausibility
-                # ceiling but over this cap. The tracker already keeps
-                # physically impossible values (>= 10 A, vs the STS3215's
-                # 2.70 A stall) out of peak_a and escalates a joint that
-                # returns three in a row as a telemetry fault, which
-                # still stops the run — with a distinct message.
-                HARD_CAP_A = 4.0
-                # Bus-total cap (2026-09-21, hexapod1): a tuck started from
-                # a sagged crouch drove all 18 servos into the floor at
-                # once -- no servo over 2.2 A, yet the bench supply read
-                # 8.35 A @ 8.15 V then 9.2 A @ 0.78 V for ~0.4 s (top-camera
-                # video of the PSU display).  On a shared rail that
-                # brownout reboots the OTHER robot's board.  Normal peaks:
-                # stand 1.2-1.3 A, tuck 2.1-2.2 A total.  Same two-sweep
-                # confirmation as the hard cap so one corrupt reading
-                # cannot fire it.
-                TOTAL_CAP_A = float(os.environ.get(
-                    "HEXAPOD_STANDUP_TOTAL_CAP_A", "6.0"))
-                stall_prev: set = set()
-                cap_prev = False
-                total_prev = False
-                trip_kind = ""
+                def guard_msg() -> str:
+                    return guard.message()
 
                 def stall_trip() -> bool:
-                    nonlocal stall_prev, cap_prev, total_prev, trip_kind
-                    if tracker.telemetry_fault_joint is not None:
-                        trip_kind = "telemetry"
-                        return True
-                    over_total = tracker.sweep_total_a() > TOTAL_CAP_A
-                    if over_total and total_prev:
-                        trip_kind = "total"
-                        return True
-                    total_prev = over_total
-                    sweep_peak, _sweep_joint = tracker.sweep_peak_a()
-                    over_cap = sweep_peak > HARD_CAP_A
-                    if over_cap and cap_prev:
-                        trip_kind = "cap"
-                        return True
-                    cap_prev = over_cap
-                    now = {fb["joint"] for fb in tracker.last_fb
-                           if fb["joint"] not in tracker.implausible_joints
-                           and abs(fb["current_a"]) > abort_current_a
-                           and abs(fb["speed_deg_s"]) < 8.0}
-                    hit = bool(now & stall_prev)
-                    stall_prev = now
-                    if hit:
-                        trip_kind = "stall"
-                    return hit
+                    return guard.check()
 
                 def _replant(target_q: list[float]) -> bool:
                     """Re-seat all six feet at target_q, one tripod
@@ -607,9 +510,7 @@ class StandupApi:
                     # sustain a fight; the servo watch releases anything that
                     # still strains at rest.
                     try:
-                        present, _missing = self._present_pose18()
-                        _write_pose(d.bus, present, live, speed=300, acc=40)
-                        _set_torque_limit(d.bus, live, STOP_HOLD_TORQUE)
+                        MotionGuard.stop_hold(d.bus, live)
                         from event_log import emit as _emit_ev
                         _emit_ev("standup_stop_hold",
                                  f"{mode} {verb} stopped ({'aborted' if aborted else 'guard'}): "
@@ -683,7 +584,7 @@ class StandupApi:
                     # persistent telemetry fault rather than one
                     # corrupt sample.
                     settle_peak, _settle_joint = tracker.sweep_peak_a()
-                    tripped = (settle_peak > HARD_CAP_A
+                    tripped = (settle_peak > MotionGuard.HARD_CAP_A
                                or tracker.telemetry_fault_joint is not None)
                 timing = (f"align {align_s:.2f}s (worst0 "
                           f"{worst0:.1f}deg) + stream "

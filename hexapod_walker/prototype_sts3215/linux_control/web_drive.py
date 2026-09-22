@@ -308,7 +308,6 @@ BUS_REQUIRED_GET = frozenset({
     "/api/rl/state",
     "/api/rl",
     "/api/feedback",
-    "/api/pinned_tip",
 })
 BUS_REQUIRED_POST = frozenset({
     "/api/tft/ready",
@@ -321,8 +320,6 @@ BUS_REQUIRED_POST = frozenset({
     "/api/zero",
     "/api/set_zero",
     "/api/touchdown_zero/straight",
-    "/api/safe_zero",
-    "/api/untrap",
     "/api/calibrate",
     "/api/rl/find_plant",
     "/api/rl/capture_plant",
@@ -776,11 +773,6 @@ class Handler(BaseHTTPRequestHandler):
             # external loggers — /api/status's full scan takes seconds.
             self._json(200, BENCH.rl_feedback() if BENCH
                        else {"ok": False, "error": "no bench"})
-        elif path == "/api/pinned_tip":
-            # Read-only pinned-leg-tip verdict (tipped over a folded
-            # knee?). Never moves the robot.
-            self._json(200, BENCH.pinned_tip_state() if BENCH
-                       else {"ok": False, "error": "no bench"})
         else:
             self._send(404, "not found")
 
@@ -1140,33 +1132,6 @@ class Handler(BaseHTTPRequestHandler):
                     legs=data.get("legs"),
                     torque=data.get("torque"),
                     seconds=data.get("seconds"),
-                    force=bool(data.get("force", False))))
-        elif path == "/api/safe_zero":
-            try:
-                data = json.loads(body or "{}") if body else {}
-            except ValueError:
-                data = {}
-            if not isinstance(data, dict):
-                data = {}
-            if not BENCH:
-                self._json(400, {"ok": False, "error": "no bench"})
-            else:
-                self._json(200, BENCH.safe_zero(
-                    dry_run=bool(data.get("dry_run", False)),
-                    force=bool(data.get("force", False))))
-        elif path == "/api/untrap":
-            # Low-torque untrap fold; refuses unless the detector
-            # confirms a pinned-leg tip (force=true for bench tests).
-            try:
-                data = json.loads(body or "{}") if body else {}
-            except ValueError:
-                data = {}
-            if not isinstance(data, dict):
-                data = {}
-            if not BENCH:
-                self._json(400, {"ok": False, "error": "no bench"})
-            else:
-                self._json(200, BENCH.untrap(
                     force=bool(data.get("force", False))))
         elif path == "/api/calibrate":
             try:

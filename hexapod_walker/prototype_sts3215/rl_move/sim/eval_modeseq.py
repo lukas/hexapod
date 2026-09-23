@@ -305,6 +305,32 @@ def resolve_randomize(dr_scale: float) -> bool:
     return dr_scale > 0.0
 
 
+def seg_state_row(*, tag: str, ep: int, t_s: float, q_deg, qvel,
+                  chassis_z_m: float, z0: float | None,
+                  h_target: float | None,
+                  imu_roll_rad: float | None,
+                  imu_pitch_rad: float | None) -> dict:
+    """--dump-seg-qpos row builder, factored out of the `main()`
+    closure so it's unit-testable without a full env/checkpoint
+    (RESEARCH_RULES "Tests": fast, mechanics-only). Pure formatting +
+    unit conversion (rad -> deg, m -> mm); no MuJoCo/env access here,
+    that stays in `capture_seg_state`'s thin wrapper."""
+    height_err_mm = (
+        round((chassis_z_m - (z0 + h_target)) * 1000.0, 1)
+        if z0 is not None and h_target is not None else None)
+    roll_deg = (round(math.degrees(imu_roll_rad), 2)
+               if imu_roll_rad is not None else None)
+    pitch_deg = (round(math.degrees(imu_pitch_rad), 2)
+                if imu_pitch_rad is not None else None)
+    return {
+        "seg": tag, "ep": int(ep), "t_s": round(float(t_s), 2),
+        "q_deg": [round(float(x), 2) for x in q_deg],
+        "qvel_rad_s": [round(float(x), 3) for x in qvel],
+        "height_err_mm": height_err_mm,
+        "roll_deg": roll_deg, "pitch_deg": pitch_deg,
+    }
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--stand", type=Path,
@@ -400,6 +426,36 @@ def main() -> int:
                          "curriculum actually trains on, without a "
                          "second harness. Default None = no capture, "
                          "zero overhead/behavior change.")
+    ap.add_argument("--dump-seg-qpos", type=Path, default=None,
+                    help="diagnostic (09-23, standwalk composed-"
+                         "session own-DR fall gap: walk/lower "
+                         "analogue of --dump-rise-qpos): for every "
+                         "walk/lower reanchor_to() call, dump BOTH the "
+                         "fresh cold env.reset() pose for that mode "
+                         "(tag <mode>_cold_reset -- the exact pose "
+                         "each specialist's own isolated per-episode "
+                         "gate resets from, same reset() call) AND "
+                         "the actual composed-session carried-over "
+                         "pose restored on top of it a moment later "
+                         "(tag <mode>_entry), plus periodic mid-walk "
+                         "samples (tag walk_mid, see --dump-seg-"
+                         "interval-s) through the randomized drive "
+                         "schedule, to this npz (q_deg/qvel_rad_s/"
+                         "height_err_mm/roll_deg/pitch_deg per row). "
+                         "Lets a from-scratch analysis check whether "
+                         "the composed session's real joint/velocity/"
+                         "tilt state at each handoff (and through a "
+                         "long randomized walk) actually differs from "
+                         "what each specialist ever saw at its own "
+                         "isolated reset, before funding any DR-"
+                         "hardening retrain. Default None = no "
+                         "capture, zero overhead/behavior change.")
+    ap.add_argument("--dump-seg-interval-s", type=float, default=None,
+                    help="with --dump-seg-qpos, also sample the walk "
+                         "segment's live state (tag walk_mid) every "
+                         "this many seconds of drive-schedule time "
+                         "(default None = entry/cold-reset snapshots "
+                         "only, no mid-walk sampling)")
     ap.add_argument("--out", type=Path, default=None)
     ap.add_argument("--strips", type=Path, default=None,
                     help="dir for 1 fps frame-strip PNGs (episode 0 only)")
@@ -616,6 +672,30 @@ def main() -> int:
                         np.hstack(strip_frames))
         strip_frames.clear()
 
+    switch_win_n = max(1, int(round(SWITCH_WIN_S / dt)))
+    rise_qpos_dump: list = []
+    seg_qpos_dump: list = []
+
+    def capture_seg_state(tag: str, t_s: float) -> None:
+        """--dump-seg-qpos row: joint pose/velocity + height/tilt at
+        the current instant, tagged with which moment this is
+        (<mode>_cold_reset / <mode>_entry / walk_mid) and the episode
+        it belongs to (`ep`, the enclosing per-episode loop variable)."""
+        if args.dump_seg_qpos is None:
+            return
+        from hexapod_core.joint_frame import (
+            mujoco_rel_rad_to_robot_abs_deg)
+        q_deg = mujoco_rel_rad_to_robot_abs_deg(env.data.qpos[env._qadr])
+        qvel = np.asarray(env.data.qvel[env._vadr], dtype=float)
+        st = getattr(env, "_state", None)
+        seg_qpos_dump.append(seg_state_row(
+            tag=tag, ep=int(ep), t_s=t_s, q_deg=q_deg, qvel=qvel,
+            chassis_z_m=chassis_z(),
+            z0=getattr(env, "_z0", None),
+            h_target=getattr(env, "_h_target", None),
+            imu_roll_rad=(st.imu_roll if st is not None else None),
+            imu_pitch_rad=(st.imu_pitch if st is not None else None)))
+
     def reanchor_to(mode: str, *, force_rise_start: str | None = None):
         """Fresh <mode> episode at a clean reference frame, physics kept.
 
@@ -638,6 +718,13 @@ def main() -> int:
             gen.force_rise_start = force_rise_start
         env.reset()
         gen.force_rise_start = None
+        if mode in ("walk", "lower"):
+            # The pristine reset BEFORE the composed-session physical
+            # state is restored on top -- exactly the pose/velocity an
+            # isolated eval_checkpoint walk/lower episode starts from
+            # (same env, same cfg, same reset() call), captured here
+            # rather than in a separate harness run.
+            capture_seg_state(f"{mode}_cold_reset", 0.0)
         d.qpos[:] = keep_qpos
         d.qvel[:] = keep_qvel
         d.ctrl[:] = keep_ctrl
@@ -646,13 +733,12 @@ def main() -> int:
         env.safety._last_safe = keep_safe
         mujoco.mj_forward(env.model, env.data)
         env._state = env._read_state()
+        if mode in ("walk", "lower"):
+            capture_seg_state(f"{mode}_entry", 0.0)
         return env._final_obs(
             build_obs(env.cfg, env._state, env._q_nom,
                       env._prev_action, goal=env._current_goal(),
                       tilt_ref=env._tilt_ref0), reset=True)
-
-    switch_win_n = max(1, int(round(SWITCH_WIN_S / dt)))
-    rise_qpos_dump: list = []
 
     class _SegMeter:
         """Switch-window evidence (directive item 3, no bar in v1):
@@ -780,6 +866,11 @@ def main() -> int:
         pad_xy_hist: list = []       # (T, 6, 2) world
         pads = env._pad_bids
         meter = _SegMeter()
+        t_elapsed = 0.0
+        next_dump_t = (args.dump_seg_interval_s
+                      if (args.dump_seg_qpos is not None
+                          and args.dump_seg_interval_s)
+                      else None)
 
         def gait_metrics() -> None:
             # Identical definitions to eval_checkpoint (duty/swings/
@@ -826,6 +917,10 @@ def main() -> int:
                 obs, _rw, term, trunc, info = env.step(a)
                 grab()
                 meter.tick(info)
+                t_elapsed += dt
+                if next_dump_t is not None and t_elapsed >= next_dump_t:
+                    capture_seg_state("walk_mid", t_elapsed)
+                    next_dump_t += args.dump_seg_interval_s
                 if vx != 0.0 or vy != 0.0:
                     z_sum += chassis_z()
                     z_n += 1
@@ -1039,6 +1134,25 @@ def main() -> int:
                  entry_height_err_mm=h_err)
         print(f"wrote {args.dump_rise_qpos} ({len(rise_qpos_dump)} "
               "rise-entry poses)")
+    if args.dump_seg_qpos is not None and seg_qpos_dump:
+        def _col(key, fill=np.nan):
+            return np.array([
+                r[key] if r[key] is not None else fill
+                for r in seg_qpos_dump])
+        args.dump_seg_qpos.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(
+            args.dump_seg_qpos,
+            seg=np.array([r["seg"] for r in seg_qpos_dump]),
+            ep=np.array([r["ep"] for r in seg_qpos_dump]),
+            t_s=np.array([r["t_s"] for r in seg_qpos_dump]),
+            q_deg=np.array([r["q_deg"] for r in seg_qpos_dump]),
+            qvel_rad_s=np.array([r["qvel_rad_s"]
+                                 for r in seg_qpos_dump]),
+            height_err_mm=_col("height_err_mm"),
+            roll_deg=_col("roll_deg"),
+            pitch_deg=_col("pitch_deg"))
+        print(f"wrote {args.dump_seg_qpos} ({len(seg_qpos_dump)} "
+              "walk/lower seg-state samples)")
     return 0 if pass_ else 1
 
 

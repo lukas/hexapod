@@ -91,6 +91,36 @@ def spawn_pose_q_start(env, start_at):
         if env._ep_rand is not None:
             q_start = q_start + env._ep_rand.start_offset_rad
         q_start = env._clip_to_joint_limits(q_start)
+        # Momentum-restore companion (goal.bank_qvel_restore, 2026-
+        # 09-23 ~19:5x — see sim_env._apply_bank_qvel_handoff): stash
+        # THIS row's harvested qvel (None on a v1/qvel-less bank) so
+        # the post-settle hook can restore it later in reset(); a
+        # plain attribute set, not a behavior change by itself (the
+        # hook is separately gated off by default).
+        qvel_bank = env._lower_start_bank_qvel()
+        env._pending_bank_qvel_mj = (
+            None if qvel_bank is None else qvel_bank[bi].copy())
+    elif start_at == "walk_entry_bank":
+        # Composed-session WALK entry start (2026-09-23 ~19:5x,
+        # walk_task._sample_walk's own analogue of the lower_bank
+        # branch above -- reintroduces the walk-side mechanism the
+        # position-only v1 (goal.walk_entry_bank_frac) closed the
+        # same day, this time always carrying the matching harvested
+        # qvel row alongside the position).
+        bank = env._walk_entry_bank()
+        if bank is None:
+            raise RuntimeError(
+                "start_at='walk_entry_bank' requires "
+                "goal.walk_entry_bank")
+        bi = int(env.rng.integers(len(bank)))
+        q_start = bank[bi].copy()
+        q_start += env.rng.uniform(-2.0, 2.0, N_JOINTS) * DEG2RAD
+        if env._ep_rand is not None:
+            q_start = q_start + env._ep_rand.start_offset_rad
+        q_start = env._clip_to_joint_limits(q_start)
+        qvel_bank = env._walk_entry_bank_qvel()
+        env._pending_bank_qvel_mj = (
+            None if qvel_bank is None else qvel_bank[bi].copy())
     elif start_at == "gait":
         # Mid-stride TALL spawn (TALL LADDER T6: RSI-for-walk, see
         # walk_task._sample_walk). Scripted tripod-gait pose at a

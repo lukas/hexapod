@@ -1788,7 +1788,7 @@ class SimHexapodBalanceEnv(_GymBase):
         if hasattr(self, "_lower_bank_cache"):
             return self._lower_bank_cache
         path = cfg_get(self.cfg, "goal", "lower_start_bank", default=None)
-        bank = None
+        bank, qvel_bank = None, None
         if path:
             arr, npz = _load_robot_abs_q_npz(
                 str(path), source="lower_start_bank")
@@ -1797,9 +1797,129 @@ class SimHexapodBalanceEnv(_GymBase):
                     f"lower_start_bank {path}: expected (K,{N_JOINTS}) "
                     f"q_rad, got {arr.shape}")
             bank = arr
+            # v2 bank (goal.bank_qvel_restore, 2026-09-23 ~19:5x):
+            # MuJoCo-native qvel per row, same order as q_rad -- NOT
+            # under the robot_abs contract (velocity isn't a hardware
+            # deployment artifact), so read directly with no frame
+            # check. Absent on v1 banks -> None, same off-by-default
+            # bit-exact contract as everything else here.
+            if "qvel_mujoco" in npz.files:
+                qvel_bank = np.asarray(npz["qvel_mujoco"], dtype=float)
+                if qvel_bank.shape != bank.shape:
+                    npz.close()
+                    raise ValueError(
+                        f"lower_start_bank {path}: qvel_mujoco shape "
+                        f"{qvel_bank.shape} != q_rad shape {bank.shape}")
             npz.close()
         self._lower_bank_cache = bank
+        self._lower_bank_qvel_cache = qvel_bank
         return bank
+
+    def _lower_start_bank_qvel(self) -> np.ndarray | None:
+        """Companion qvel array for _lower_start_bank (None if the
+        configured bank predates goal.bank_qvel_restore or none is
+        configured); relies on _lower_start_bank having populated the
+        cache (same lazy-load call site pattern used everywhere else
+        in this file)."""
+        self._lower_start_bank()
+        return self._lower_bank_qvel_cache
+
+    def _walk_entry_bank(self) -> np.ndarray | None:
+        """Harvested composed-session walk-entry poses (2026-09-23,
+        goal.walk_entry_bank/walk_entry_bank_frac; same lazy-cache
+        contract as _rise_start_bank/_lower_start_bank -- the walk-
+        mode analogue, reintroduced 2026-09-23 ~19:5x alongside
+        goal.bank_qvel_restore. NOT the same mechanism as the v1
+        walk_entry_bank closed the same day (CURRENT_TRUTHS ~19:3x):
+        that one only ever varied the injected POSITION; this one is
+        rebuilt to always carry the matching momentum too."""
+        if hasattr(self, "_walk_bank_cache"):
+            return self._walk_bank_cache
+        path = cfg_get(self.cfg, "goal", "walk_entry_bank", default=None)
+        bank, qvel_bank = None, None
+        if path:
+            arr, npz = _load_robot_abs_q_npz(
+                str(path), source="walk_entry_bank")
+            if arr.ndim != 2 or arr.shape[1] != N_JOINTS or len(arr) == 0:
+                raise ValueError(
+                    f"walk_entry_bank {path}: expected (K,{N_JOINTS}) "
+                    f"q_rad, got {arr.shape}")
+            bank = arr
+            if "qvel_mujoco" in npz.files:
+                qvel_bank = np.asarray(npz["qvel_mujoco"], dtype=float)
+                if qvel_bank.shape != bank.shape:
+                    npz.close()
+                    raise ValueError(
+                        f"walk_entry_bank {path}: qvel_mujoco shape "
+                        f"{qvel_bank.shape} != q_rad shape {bank.shape}")
+            npz.close()
+        self._walk_bank_cache = bank
+        self._walk_bank_qvel_cache = qvel_bank
+        return bank
+
+    def _walk_entry_bank_qvel(self) -> np.ndarray | None:
+        """Companion qvel array for _walk_entry_bank (see
+        _lower_start_bank_qvel)."""
+        self._walk_entry_bank()
+        return self._walk_bank_qvel_cache
+
+    def _apply_bank_qvel_handoff(self) -> None:
+        """Composed-session momentum restore (2026-09-23 standwalk
+        ~19:5x): the velocity-preserving companion to goal.
+        rise_start_bank/goal.lower_start_bank/goal.walk_entry_bank.
+
+        Those banks (and the now-CLOSED walk_entry_bank_frac /
+        3-for-3-refuted lower_start_bank_frac doses, CURRENT_TRUTHS
+        2026-09-23 ~19:3x) matched only the joint ANGLE of a real
+        rise->walk / walk->lower composed-session handoff. Two things
+        then discarded the real momentum a moving specialist actually
+        carries at that instant: the bank stored q_rad alone (no
+        qvel), and even if it had, the standard ~1.2s static PD
+        settle every reset() runs (_place_at_plant + 2x _settle)
+        drives velocity back toward zero regardless of what pose it
+        is targeting -- so exposure to the exact harvested pose still
+        never taught a specialist to handle the live momentum a real
+        handoff hands it.
+
+        Called from reset() at the SAME insertion point as
+        _apply_walk_reverse_handoff (right after the ordinary settle/
+        q_nom capture, before _reset_finalize captures episode
+        references) -- so this restore is invisible to the episode's
+        own bookkeeping, exactly like that mechanism. Sets
+        data.qvel[_vadr] to the exact recorded row for the bank pose
+        this episode actually drew (already MuJoCo-native, no frame
+        conversion needed) plus a small multiplicative jitter, then
+        mj_forward()s so contact/derived quantities are consistent.
+
+        Default OFF (goal.bank_qvel_restore<=0): no-op even when a
+        v2 bank with qvel is configured, so every existing
+        rise_start_bank/lower_start_bank run stays bit-exact. Also a
+        no-op when the episode didn't draw a bank start at all, or
+        drew one from a v1 (position-only) bank.
+        """
+        qvel = self._pending_bank_qvel_mj
+        self._pending_bank_qvel_mj = None
+        if qvel is None:
+            return
+        if float(cfg_get(self.cfg, "goal", "bank_qvel_restore",
+                         default=0.0)) <= 0.0:
+            return
+        qvel = np.asarray(qvel, dtype=float)
+        jitter_frac = float(cfg_get(self.cfg, "goal",
+                                    "bank_qvel_jitter_frac",
+                                    default=0.15))
+        if jitter_frac < 0.0:
+            raise ValueError("goal.bank_qvel_jitter_frac must be >= 0")
+        if jitter_frac > 0.0:
+            # Multiplicative jitter with a small additive floor (rad/s)
+            # so near-zero-velocity joints in the harvested row still
+            # get SOME diversity across episodes, not a repeated exact
+            # zero -- same rationale as the position bank's own +-2deg
+            # jitter.
+            scale = np.maximum(np.abs(qvel), 0.05)
+            qvel = qvel + self.rng.normal(0.0, jitter_frac, N_JOINTS) * scale
+        self.data.qvel[self._vadr] = qvel
+        self._mujoco.mj_forward(self.model, self.data)
 
     def _place_at_plant(self, q_rad: np.ndarray) -> None:
         """Set qpos to ``q_rad`` with the chassis at foot-contact height."""
@@ -1882,6 +2002,13 @@ class SimHexapodBalanceEnv(_GymBase):
         self.safety.clear_estop()
         self._tipped_applied = False
         self._flip_spawn_pending = None
+        # Composed-session momentum-restore handoff (2026-09-23,
+        # standwalk ~19:5x — see _apply_bank_qvel_handoff): cleared
+        # every episode so a bank draw from a PRIOR episode can never
+        # leak into one that didn't itself draw a bank start this
+        # time; only spawn_pose_q_start's own rise_bank/lower_bank/
+        # walk_entry_bank branches (balance_reset.py) set it.
+        self._pending_bank_qvel_mj = None
 
         self._ep_rand = (self.randomizer.sample(self.rng)
                          if self.randomizer is not None else None)
@@ -2123,6 +2250,7 @@ class SimHexapodBalanceEnv(_GymBase):
         self._cmd = self._q_nom.copy()
         self._settle(0.3)
         self._apply_walk_reverse_handoff()
+        self._apply_bank_qvel_handoff()
         obs, info = self._reset_finalize()
         probe_n = self._reset_history_probe_steps()
         for _ in range(probe_n):

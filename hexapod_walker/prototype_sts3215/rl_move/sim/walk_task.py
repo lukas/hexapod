@@ -1927,15 +1927,39 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         park_frac = float(cfg_get(self.cfg, "goal", "walk_park_start_frac",
                                   default=0.0))
         start_at = "park" if rng.random() < park_frac else "plant"
-        # goal.walk_entry_bank/_frac (2026-09-23 standwalk ~18:3x -> a
+        # goal.walk_entry_bank/_frac v1 (2026-09-23 standwalk ~18:3x -> a
         # fixed-fraction blend of harvested composed-session rise->walk
-        # handoff poses into this task's own "plant" reset) was tried at
-        # 3 doses (15/20/30%) and closed 3/3 FAIL (~19:3x entry): the
-        # entry-vs-cold-reset delta for episodes that still fell never
-        # shrank toward the ok-episode band at any dose, matching
-        # goal.rise_start_bank's own 3/3 FAIL for the analogous
-        # post-lower rise gap. Removed per RESEARCH_RULES' close-the-key
-        # rule (every ledger entry that set it is now verdicted FAIL).
+        # handoff POSITIONS into this task's own "plant" reset) was
+        # tried at 3 doses (15/20/30%) and closed 3/3 FAIL (~19:3x
+        # entry): the entry-vs-cold-reset delta for episodes that still
+        # fell never shrank toward the ok-episode band at any dose,
+        # matching goal.rise_start_bank's own 3/3 FAIL for the analogous
+        # post-lower rise gap. That v1 mechanism (position only, and
+        # spawned into the same static ~1.2s PD settle as any other
+        # start_at) was removed per RESEARCH_RULES' close-the-key rule.
+        #
+        # v2 (2026-09-23 ~19:5x, genuinely different mechanism — see
+        # sim_env._apply_bank_qvel_handoff's own docstring for the
+        # full root-cause argument): reintroduced as a position+
+        # VELOCITY handoff. goal.walk_entry_bank names a v2 bank npz
+        # (q_rad + qvel_mujoco, built by build_seg_entry_bank.py);
+        # goal.walk_entry_bank_frac is the same conditional-draw
+        # fraction convention as goal.rise_start_bank/goal.
+        # lower_start_bank (extra rng draw ONLY taken when a bank path
+        # is actually configured, so the frac=0/no-bank legacy stream
+        # is bit-exact). The velocity restore itself is a SEPARATE gate
+        # (goal.bank_qvel_restore) applied later in reset() — this
+        # branch only chooses the start_at kind and stashes which bank
+        # row it drew.
+        entry_bank_path = str(cfg_get(self.cfg, "goal", "walk_entry_bank",
+                                      default="") or "")
+        entry_bank_frac = float(cfg_get(self.cfg, "goal",
+                                        "walk_entry_bank_frac",
+                                        default=0.0))
+        if (entry_bank_path and entry_bank_frac > 0.0
+                and start_at == "plant"
+                and rng.random() < entry_bank_frac):
+            start_at = "walk_entry_bank"
         # Turn-in-place curriculum (operator direction 08-10: the fix
         # for the structural left drift is COMMAND EXPOSURE, not more
         # price tuning). Under independent sampling, turn-in-place

@@ -298,12 +298,21 @@ zero-action baseline on pooled episodes.
 def _resolved_cfg(cfg_set: list | None) -> dict:
     """config.yaml resolved with the run's --cfg-set overrides — the
     cfg the envs will ACTUALLY be built from (same override semantics
-    as _build_env)."""
+    as _build_env, INCLUDING _build_env's tolerance of a dot-less key:
+    that sets a top-level cfg entry rather than a section.name pair —
+    see 2026-09-23 crash where a stray `--cfg-set dr_scale=0.6` [the
+    top-level dr scale is a separate --dr-scale CLI flag, not a cfg
+    key] took down wandb note generation before training ever started,
+    even though _build_env itself would have just silently no-op'd
+    it). Never raise here: this only feeds human-readable notes."""
     from rl_move.config import load_config
     cfg = load_config()
     for key, parsed in _parse_cfg_set(cfg_set or []).items():
-        sect, name = key.split(".", 1)
-        cfg.setdefault(sect, {})[name] = parsed
+        node = cfg
+        *path, leaf = key.split(".")
+        for k in path:
+            node = node.setdefault(k, {})
+        node[leaf] = parsed
     return cfg
 
 

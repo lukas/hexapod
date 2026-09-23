@@ -992,6 +992,11 @@ class DriveController:
                         self._sample_hold_snapshot()
                 else:
                     stand_hold_t = tick
+                    # armed + idle (the lab's STEP stand leaves the drive here): same 50 Hz snapshot
+                    # sampling as a stand hold, so a static planted hold has its IMU noise floor logged
+                    if (armed and mode == "idle" and SCRIPTED_SNAPSHOT_WRITES
+                            and (self._loop_ticks % HOLD_SNAPSHOT_EVERY) == 0):
+                        self._sample_hold_snapshot()
             deadline, skipped = _advance_periodic_deadline(
                 deadline, time.monotonic())
             self._loop_overruns += skipped

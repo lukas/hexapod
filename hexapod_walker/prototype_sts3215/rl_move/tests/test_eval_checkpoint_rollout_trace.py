@@ -167,3 +167,36 @@ def test_trace_sink_over_current_signal_none_under_torque_proxy(tmp_path):
     d = np.load(out, allow_pickle=True)
     # None-valued column -> not written at all (existing _col contract)
     assert "over_current_signal" not in d.files
+
+
+def test_trace_sink_records_raw_foot_force(tmp_path):
+    """2026-09-23 addition (standwalk dr=0.6 hold_min_load plateau
+    dig-in): the boolean ``contact`` field cannot distinguish a foot
+    at 0.01N from one at 0.29N, but the hold_min_load termination is a
+    raw-newton floor comparison (sim_env.py
+    _minload_min_force_now) -- need the real number to tell a
+    sustained per-leg load loss from a transient near-threshold blip.
+    One row per tick, one value per foot, no effect on the returned ep
+    dict or any other field (same no-op contract as the other
+    diagnostic columns in this file)."""
+    env = _rise_only_env(episode_seconds=8.0)
+    env.reset(seed=0)
+    sink: list = []
+    ep, _ = run_episode(env, _ZeroModel(), deterministic=True,
+                        video=False, annotate=None, trace_sink=sink)
+    env.close()
+    assert "foot_force" in sink[0]
+    assert sink[0]["foot_force"].shape == (len(env._touch_adr),)
+    # at least one foot has a real (non-NaN) touch sensor on this model
+    assert np.any(np.isfinite(sink[0]["foot_force"]))
+    out = tmp_path / "trace_foot_force.npz"
+    _save_rollout_trace(sink, out, ep)
+    d = np.load(out, allow_pickle=True)
+    assert "foot_force" in d.files
+    assert d["foot_force"].shape == (len(sink), len(env._touch_adr))
+    env2 = _rise_only_env(episode_seconds=8.0)
+    env2.reset(seed=0)
+    ep_notrace, _ = run_episode(env2, _ZeroModel(), deterministic=True,
+                                video=False, annotate=None)
+    env2.close()
+    assert ep == ep_notrace

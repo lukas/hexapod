@@ -784,6 +784,23 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
                 "contact": np.asarray(
                     [float(env.data.sensordata[adr]) > CONTACT_N
                      for adr in env._touch_adr], dtype=np.float64),
+                # Raw per-foot touch-sensor force (2026-09-23,
+                # standwalk dr=0.6 hold_min_load plateau dig-in): the
+                # boolean "contact" field above cannot distinguish a
+                # foot at 0.01N from one at 0.29N, but the
+                # hold_min_load termination/EMA (sim_env.py
+                # _minload_min_force_now) is a raw-newton floor
+                # comparison -- need the actual number to tell a real
+                # sustained per-leg load loss from a transient
+                # near-threshold EMA blip (the rise-phase over_current
+                # RAIL_MOVING-vs-stall distinction, same shape of
+                # question). adr<0 (no touch sensor on that foot) ->
+                # NaN, matching the clearance-fallback branch in
+                # _minload_min_force_now rather than faking a number.
+                "foot_force": np.asarray(
+                    [float(env.data.sensordata[adr]) if adr >= 0
+                     else float("nan") for adr in env._touch_adr],
+                    dtype=np.float64),
                 "height_mm": info.get("height_mm"),
                 "height_ref_mm": info.get("height_ref_mm"),
                 "reward": float(r),
@@ -1235,7 +1252,8 @@ def _save_rollout_trace(trace: list[dict], out_path: Path,
     """Write a ``--rollout-trace-out`` sink (see run_episode's
     trace_sink docstring) to one .npz: stacked per-tick arrays
     (``step``, ``t_s``, ``action``, ``qpos``, ``qvel``,
-    ``servo_current``, ``over_current_signal``, ``height_mm``,
+    ``servo_current``, ``over_current_signal``, ``contact``,
+    ``foot_force``, ``height_mm``,
     ``height_ref_mm``, ``reward``, ``terminated``) plus the episode's
     own summary dict as a single
     JSON string field (``ep_json``) for provenance (mode, start_kind,
@@ -1274,6 +1292,7 @@ def _save_rollout_trace(trace: list[dict], out_path: Path,
                "over_current_signal",
                "commanded_position", "applied_action",
                "proposed_position", "presafe_last_position", "contact",
+               "foot_force",
                "height_mm", "height_ref_mm"):
         col = _col(key)
         if col is not None:

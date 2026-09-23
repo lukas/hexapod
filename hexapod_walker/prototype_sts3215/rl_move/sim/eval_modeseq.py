@@ -229,6 +229,59 @@ def rise_from_h_traj(env, cfg: dict):
     return traj, h_target
 
 
+class TwoSpecialistDriver:
+    """Drives the two-specialist baseline's `--stand`/`--walk` models
+    with persistent per-policy hidden state across mode switches,
+    resetting only at true episode start.
+
+    Factored out of `main()`'s two-specialist branch so the recurrent-
+    state bug it fixes (a bare `PPO.load(...).predict(obs, ...)` call
+    silently re-zeroes a GRU checkpoint's hidden state on EVERY tick --
+    found while baselining this tool against the standwalk track's
+    dr=0.7 GRU stand champion and dr=1.0 GRU walk champion for the
+    first time) has a unit test that doesn't need real checkpoints or
+    a MuJoCo env. `stand`/`walk` are anything exposing SB3's
+    `.predict(obs, deterministic=...)` (non-recurrent) or, when
+    `stand_rec`/`walk_rec`, `.policy.predict(obs, state=, episode_start=,
+    deterministic=)` (recurrent) -- i.e. a loaded PPO or RecurrentPPO
+    model, or a test double with the same call surface.
+    """
+
+    def __init__(self, stand, walk, n_stand: int, det: bool,
+                 stand_rec: bool, walk_rec: bool):
+        self.stand, self.walk, self.n_stand, self.det = (
+            stand, walk, n_stand, det)
+        self.stand_rec, self.walk_rec = stand_rec, walk_rec
+        self.stand_state = None
+        self.walk_state = None
+        self.start = np.ones((1,), dtype=bool)
+
+    def episode_begin(self) -> None:
+        self.stand_state = None
+        self.walk_state = None
+        self.start = np.ones((1,), dtype=bool)
+
+    def act(self, obs, mode: str):
+        if mode == "walk":
+            if self.walk_rec:
+                a, self.walk_state = self.walk.policy.predict(
+                    obs, state=self.walk_state,
+                    episode_start=self.start, deterministic=self.det)
+            else:
+                a = self.walk.predict(obs, deterministic=self.det)[0]
+        else:
+            stand_obs = obs[:self.n_stand]
+            if self.stand_rec:
+                a, self.stand_state = self.stand.policy.predict(
+                    stand_obs, state=self.stand_state,
+                    episode_start=self.start, deterministic=self.det)
+            else:
+                a = self.stand.predict(stand_obs,
+                                        deterministic=self.det)[0]
+        self.start = np.zeros((1,), dtype=bool)
+        return a
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--stand", type=Path,
@@ -417,9 +470,21 @@ def main() -> int:
                 return single.predict(obs, deterministic=det)[0]
     else:
         # ---- two-specialist baseline path ----------------------------
+        # Both checkpoints load through load_checkpoint_auto (not a bare
+        # PPO.load): PPO.load happens to deserialize a GRU
+        # (RecurrentPPO/GruActorCriticPolicy) zip without raising, but
+        # calling .predict(obs, deterministic=det) on the result with no
+        # state/episode_start args silently re-zeroes the GRU hidden
+        # state on EVERY tick -- the model runs stateless, which for a
+        # recurrent policy is a lobotomy, not a baseline. Found while
+        # baselining this tool against the standwalk track's current
+        # dr=0.7 stand champions (GRU + MLP) and the dr=1.0 GRU walk
+        # champion for the first time (both are/can-be recurrent).
+        from .gru_policy import is_recurrent_checkpoint, \
+            load_checkpoint_auto
         env = make_env()
-        stand = PPO.load(args.stand, device="cpu")
-        walk = PPO.load(args.walk, device="cpu")
+        stand = load_checkpoint_auto(args.stand, device="cpu")
+        walk = load_checkpoint_auto(args.walk, device="cpu")
         n_stand = int(stand.observation_space.shape[0])
         n_env = int(env.observation_space.shape[0])
         assert walk.observation_space.shape[0] == n_env, (
@@ -429,13 +494,17 @@ def main() -> int:
             "stand policy obs must be a prefix of the walk env obs "
             f"(got {n_stand} vs {n_env})")
 
-        def episode_begin() -> None:
-            pass
-
-        def act(obs, mode):
-            if mode == "walk":
-                return walk.predict(obs, deterministic=det)[0]
-            return stand.predict(obs[:n_stand], deterministic=det)[0]
+        # True episode start only -- hidden state persists across
+        # segment/mode switches within an episode, same contract as the
+        # --single path (resetting on every rise<->walk<->lower handoff
+        # would evaluate a lobotomized policy, not the composed
+        # baseline this tool exists to measure).
+        driver = TwoSpecialistDriver(
+            stand, walk, n_stand, det,
+            stand_rec=is_recurrent_checkpoint(args.stand),
+            walk_rec=is_recurrent_checkpoint(args.walk))
+        episode_begin = driver.episode_begin
+        act = driver.act
 
     gen = env._goal_gen
     dt = env.dt

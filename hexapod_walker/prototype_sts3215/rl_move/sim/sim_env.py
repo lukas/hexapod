@@ -2535,11 +2535,10 @@ class SimHexapodBalanceEnv(_GymBase):
         return self._goal_traj.at(idx)
 
     def _rise_gate_tick(self) -> None:
-        """Two-phase rise sub-goal(s) (``goal.rise_curl_gate`` and/or
-        ``goal.rise_stability_gate``, both default 0 = OFF = bit-exact
-        identical to every prior checkpoint): called once per real
-        tick, right after ``self._step_i`` advances and before the
-        tick's reward/obs goal is read.
+        """Rise curl sub-goal (``goal.rise_curl_gate``, default 0 = OFF
+        = bit-exact identical to every prior checkpoint): called once
+        per real tick, right after ``self._step_i`` advances and
+        before the tick's reward/obs goal is read.
 
         Escalation context (2026-09-13, `risecurlgate-s1-canary2m`
         CANARY FAIL-MECHANISM): TWO successive income-repricing levers
@@ -2565,93 +2564,53 @@ class SimHexapodBalanceEnv(_GymBase):
         already ~0) are exempt from the curl sub-goal — nothing to
         gate.
 
-        ``goal.rise_stability_gate`` (2026-09-23, standwalk track
-        second-rise-gap dig-in): a second, independent sub-goal on the
-        SAME freeze mechanism — holds the ramp onset until measured
-        attitude (|roll|/|pitch| relative to this episode's own
-        ``_tilt_ref0``, the same reference the safety trip uses) settles
-        within ``rise_stability_gate_max_deg`` (default 6.0), up to its
-        own capped extra wait (`rise_stability_gate_max_extra_s`).
-        Motivated by the composed rise->walk->lower->rise->walk gate
-        baseline (`eval_modeseq.py`): the second (post-lower reanchor)
-        rise falls to tilt_roll/tilt_pitch within ~1.5s of the switch —
-        NOT at the switch instant itself (measured directly: the
-        restored physical attitude at the reanchor tick is level, ~0.0-
-        0.02deg from tilt_ref, ruling out a stale-reference or
-        teleport-discontinuity explanation) — so the tilt instability
-        DEVELOPS during the rise attempt. A cheap hidden-state-reset
-        ablation (`DEBUG_RESET_STAND_STATE`, `eval_modeseq.py`, one-off,
-        not shipped) also ruled out GRU recurrent-state carryover from
-        the prior `lower` segment as the driver (2/12 second-rise
-        success with the stand model's hidden state force-reset at the
-        switch vs the unablated baseline's 1/12 — statistically
-        unchanged). That leaves the physical hand-off itself: the
-        settled post-lower pose sits at a hip/knee combination
-        (hip~-15deg, knee~99.6deg) the cold rise curriculum
-        (flat/bridge/crouch, one blend fraction, tops out at knee~95deg)
-        never visits, and three doses (15/20/30%) of direct bank
-        exposure to that exact pose already failed to teach recovery
-        (`goal.rise_start_bank`, refuted 2026-09-23) — so the next
-        candidate is not "the pose is unfamiliar" but "the policy is
-        asked to climb before it has arrested whatever attitude/momentum
-        state that unfamiliar pose leaves it in"; this gate tests that
-        by buying it a dedicated stay-level grace window before the
-        height ramp resumes, independent of (and combinable with) the
-        curl sub-goal. Applies to EVERY rise start (not just post-lower
-        reanchors — there is no start_kind signal at this layer, and a
-        cold flat/bridge/crouch start's attitude is already ~level at
-        the natural schedule tick, so the sub-goal is met immediately
-        there and the gate is a no-op for those starts; it can only ever
-        extend PAST the post-lower-flagged case). When BOTH gates are
-        enabled the ramp waits for BOTH sub-goals (logical AND), capped
-        at the larger of the two configured extra-wait budgets.
+        (2026-09-23, standwalk track second-rise-gap dig-in: this
+        function used to also carry a second, independent sub-goal,
+        ``goal.rise_stability_gate`` — freeze the ramp onset until
+        measured attitude settled near-level, on the theory that the
+        composed rise->walk->lower->rise->walk gate baseline's second
+        (post-lower) rise falls because the policy is asked to climb
+        before it arrests the attitude/momentum an unfamiliar post-
+        lower pose leaves it in. Trained on both stand architectures
+        (`cw-stand50hz-gru-dr07-risestabgate-s1`,
+        `cw-stand50hz-mlp-dr07-risestabgate`) against a pre-registered
+        eval_modeseq gate: FAILed both — GRU second-rise stayed 5/24
+        (same band as the ungated parent), MLP reached 10/24 but with
+        own-cfg(dr=0.7) termination regressing 2/36->4/36 including a
+        severe over_current outlier. Refuted and removed per
+        RESEARCH_RULES' close-the-key rule; the postlower second-rise
+        gap needs a genuinely new curriculum-family design, not another
+        index-freeze variant on this same mechanism. See
+        `cw-stand50hz-gru-dr07-risestabgate-s1`/
+        `cw-stand50hz-mlp-dr07-risestabgate` run ledgers.)
 
-        Pure index-freeze in both cases: no new physics, no change to
-        any existing reward term's formula; every other reward/obs path
-        reads whatever ``_current_goal()`` returns exactly as before.
-        Tests: rl_move/tests/test_rise_curl_gate_hold.py,
-        rl_move/tests/test_rise_stability_gate_hold.py.
+        Pure index-freeze: no new physics, no change to any existing
+        reward term's formula; every other reward/obs path reads
+        whatever ``_current_goal()`` returns exactly as before.
+        Tests: rl_move/tests/test_rise_curl_gate_hold.py.
         """
         if not self._is_rise or self._goal_traj is None:
             return
         curl_on = float(cfg_get(self.cfg, "goal", "rise_curl_gate",
                                  default=0.0)) == 1.0
-        stab_on = float(cfg_get(self.cfg, "goal", "rise_stability_gate",
-                                 default=0.0)) == 1.0
-        if not curl_on and not stab_on:
+        if not curl_on:
             return
         hold_n = int(getattr(self, "_rise_ramp_i0", 0))
         freeze = self._rise_gate_freeze_ticks
         idx = self._step_i - freeze
         if idx < hold_n:
             return  # still inside the natural pre-ramp hold window
-        max_extra_s = 0.0
-        if curl_on:
-            max_extra_s = max(max_extra_s, float(cfg_get(
-                self.cfg, "goal", "rise_curl_gate_max_extra_s",
-                default=2.0)))
-        if stab_on:
-            max_extra_s = max(max_extra_s, float(cfg_get(
-                self.cfg, "goal", "rise_stability_gate_max_extra_s",
-                default=2.0)))
+        max_extra_s = float(cfg_get(
+            self.cfg, "goal", "rise_curl_gate_max_extra_s", default=2.0))
         max_extra_ticks = int(round(max_extra_s / self.dt))
         if freeze >= max_extra_ticks:
-            return  # capped -- let the ramp proceed without every
+            return  # capped -- let the ramp proceed without the
                     # sub-goal met
-        curl_met = (not curl_on
-                    or getattr(self._goal_traj, "start_at", None)
+        curl_met = (getattr(self._goal_traj, "start_at", None)
                     == "crouch"
                     or self._curl_dist() <= 40.0 * 0.001)
-        stab_met = True
-        if stab_on:
-            max_deg = float(cfg_get(
-                self.cfg, "goal", "rise_stability_gate_max_deg",
-                default=6.0))
-            roll_rel = abs(self._state.imu_roll - self._tilt_ref0[0])
-            pitch_rel = abs(self._state.imu_pitch - self._tilt_ref0[1])
-            stab_met = math.degrees(max(roll_rel, pitch_rel)) <= max_deg
-        if curl_met and stab_met:
-            return  # every enabled sub-goal met -- unlock permanently
+        if curl_met:
+            return  # sub-goal met -- unlock permanently
         self._rise_gate_freeze_ticks = freeze + 1
 
     def _lower_stage_planted_frac(self, load_ref_n: float) -> float:

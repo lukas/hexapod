@@ -364,6 +364,19 @@ def main() -> int:
     ap.add_argument("--rise-height-mm", default="108,114",
                     help="specialist's trained plant band (eval_handoff "
                          "default)")
+    ap.add_argument("--dump-rise-qpos", type=Path, default=None,
+                    help="diagnostic (09-23, standwalk second-rise-gap "
+                         "root cause): append every rise segment's "
+                         "settled joint pose (robot_abs deg, 18-dim) + "
+                         "start_kind + entry height-err at the moment "
+                         "the segment BEGINS (cold reset or post-lower "
+                         "reanchor, before the policy acts) to this "
+                         "npz. Lets a from-scratch analysis compare the "
+                         "reanchor_post_lower pose against the "
+                         "flat/bridge/crouch cold-start bands the rise "
+                         "curriculum actually trains on, without a "
+                         "second harness. Default None = no capture, "
+                         "zero overhead/behavior change.")
     ap.add_argument("--out", type=Path, default=None)
     ap.add_argument("--strips", type=Path, default=None,
                     help="dir for 1 fps frame-strip PNGs (episode 0 only)")
@@ -590,6 +603,7 @@ def main() -> int:
                       tilt_ref=env._tilt_ref0), reset=True)
 
     switch_win_n = max(1, int(round(SWITCH_WIN_S / dt)))
+    rise_qpos_dump: list = []
 
     class _SegMeter:
         """Switch-window evidence (directive item 3, no bar in v1):
@@ -636,9 +650,33 @@ def main() -> int:
             obs, _ = env.reset()
             gen.force_rise_start = None
             rec["start_kind"] = start_kind
+            if args.dump_rise_qpos is not None:
+                from hexapod_core.joint_frame import (
+                    mujoco_rel_rad_to_robot_abs_deg)
+                q_deg = mujoco_rel_rad_to_robot_abs_deg(
+                    env.data.qpos[env._qadr])
+                rise_qpos_dump.append({
+                    "start_kind": start_kind,
+                    "q_deg": [round(float(x), 2) for x in q_deg],
+                    "entry_height_err_mm": round(
+                        (chassis_z() - (env._z0 + env._h_target))
+                        * 1000.0, 1),
+                })
         else:
             obs = reanchor_to("rise", force_rise_start="flat")
             rec["start_kind"] = "reanchor_post_lower"
+            if args.dump_rise_qpos is not None:
+                from hexapod_core.joint_frame import (
+                    mujoco_rel_rad_to_robot_abs_deg)
+                q_deg = mujoco_rel_rad_to_robot_abs_deg(
+                    env.data.qpos[env._qadr])
+                rise_qpos_dump.append({
+                    "start_kind": "reanchor_post_lower",
+                    "q_deg": [round(float(x), 2) for x in q_deg],
+                    "entry_height_err_mm": round(
+                        (chassis_z() - (env._z0 + env._h_target))
+                        * 1000.0, 1),
+                })
             if args.rise_from_h:
                 traj, h_target = rise_from_h_traj(env, cfg)
                 env._goal_traj = traj
@@ -942,6 +980,16 @@ def main() -> int:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(json.dumps(results, indent=1))
         print(f"wrote {args.out}")
+    if args.dump_rise_qpos is not None and rise_qpos_dump:
+        kinds = np.array([r["start_kind"] for r in rise_qpos_dump])
+        q_deg = np.array([r["q_deg"] for r in rise_qpos_dump])
+        h_err = np.array([r["entry_height_err_mm"] for r in
+                          rise_qpos_dump])
+        args.dump_rise_qpos.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(args.dump_rise_qpos, start_kind=kinds, q_deg=q_deg,
+                 entry_height_err_mm=h_err)
+        print(f"wrote {args.dump_rise_qpos} ({len(rise_qpos_dump)} "
+              "rise-entry poses)")
     return 0 if pass_ else 1
 
 

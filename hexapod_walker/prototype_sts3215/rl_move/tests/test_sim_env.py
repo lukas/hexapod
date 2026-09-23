@@ -453,6 +453,60 @@ def test_rise_step_info_carries_start_kind():
             break
 
 
+def test_walk_step_info_carries_start_kind(tmp_path):
+    """WALK-START_KIND (2026-09-23, standwalk walk-entry composed-
+    session escalation): the info["start_kind"] channel the rise
+    branch above already carries now also fires for `walk` steps
+    (needed by goal_mode_batch_split.py's walk-side sub-split) --
+    plain "plant" ordinarily, "bank" when the episode was drawn from
+    goal.walk_entry_bank. Never read by reward/obs/termination."""
+    from rl_move.env import start_kind_of
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+    from rl_move.sim.sim_env import N_JOINTS
+
+    def _walk_env(seed, **goal_over):
+        from rl_move.config import load_config
+        cfg = load_config()
+        goal = cfg.setdefault("goal", {})
+        goal["walk_park_start_frac"] = 0.0
+        goal["walk_gait_start_frac"] = 0.0
+        goal["walk_turn_in_place_frac"] = 0.0
+        for k, v in goal_over.items():
+            goal[k] = v
+        env = SimHexapodJointWalkEnv(cfg, seed=seed)
+        g = env._goal_gen
+        for m in ("hold", "lean", "track", "unload", "raise", "rise",
+                 "lower"):
+            if hasattr(g, f"p_{m}"):
+                setattr(g, f"p_{m}", 0.0)
+        g.p_walk = 1.0
+        return env
+
+    env = _walk_env(seed=1)
+    obs, info = env.reset()
+    assert info["goal_mode"] == "walk"
+    assert start_kind_of(env._goal_traj) == "plant"
+    obs, r, term, trunc, info = env.step(
+        np.zeros(env.action_space.shape, dtype=np.float32))
+    assert info.get("start_kind") == "plant"
+    env.close()
+
+    q = np.zeros((3, N_JOINTS))
+    q[:, 2::3] = 0.2
+    bank_path = tmp_path / "walk_entry_bank.npz"
+    np.savez(bank_path, q_rad=q, joint_frame="robot_abs",
+            joint_contract="robot_abs_tibia_v2")
+    env_bank = _walk_env(seed=2, walk_entry_bank=str(bank_path),
+                        walk_entry_bank_frac=1.0)
+    obs, info = env_bank.reset()
+    assert env_bank._goal_traj.start_at == "walk_entry_bank"
+    assert start_kind_of(env_bank._goal_traj) == "bank"
+    obs, r, term, trunc, info = env_bank.step(
+        np.zeros(env_bank.action_space.shape, dtype=np.float32))
+    assert info.get("start_kind") == "bank"
+    env_bank.close()
+
+
 def test_non_rise_step_info_has_no_start_kind_key():
     """hold/lower steps never carry `start_kind` at all (only `rise`
     trajectories set the attribute) -- the batch-split label helper's

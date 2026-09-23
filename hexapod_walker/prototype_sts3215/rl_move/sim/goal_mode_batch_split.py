@@ -108,6 +108,29 @@ minibatch SOURCING changes) and same OFF-path bit-exactness (the flag
 defaults False and `_goal_mode_label` returns plain `"goal_mode"` for
 every mode when it's unset, byte-identical to the pre-09-14 capture).
 
+WALK-START_KIND SUB-SPLIT (2026-09-23, `train.goal_mode_batch_split_
+walk_start_kind`, default 0 = OFF/bit-exact): the standwalk composed-
+session WALK-entry handoff gap (a live rise->walk handoff hands the
+walk specialist a pose/momentum it never sees at its own cold reset)
+survived TWO different blend-fraction fixes at two doses each --
+`goal.walk_entry_bank`/`_frac` (position-only, 3/3 FAIL) and its
+`goal.bank_qvel_restore` sibling (position+velocity, 2/2 FAIL,
+CURRENT_TRUTHS 2026-09-23 ~19:3x/~21:3x) -- while the mirror-image
+`goal.lower_start_bank`+`bank_qvel_restore` combo DID fix the
+analogous lower-entry handoff gap on both architectures at the same
+dose. Neither walk-side blend touched batch COMPOSITION: harvested
+walk-entry episodes are still a small conditional-draw fraction of
+the shared `walk` minibatch pool, exactly the representation-scarcity
+failure this module was built to fix for `hold`/`rise:flat` -- one
+level finer, by `start_kind` inside `walk` instead of inside `rise`.
+When armed, `walk` steps are labeled `"walk:<start_kind>"` (`"walk:
+bank"` for a `goal.walk_entry_bank`-drawn episode, `"walk:plant"`
+otherwise, via `sim_env.py`'s now-walk-aware `info["start_kind"]`),
+so `walk:bank` gets its own disjoint, undiluted minibatch instead of
+being averaged away inside the majority-plant `walk` batch. Same
+RULE (a) contract and same OFF-path bit-exactness as the rise
+sub-split.
+
 See rl_move/tests/test_goal_mode_batch_split.py.
 """
 from __future__ import annotations
@@ -145,6 +168,17 @@ GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX = "train/goal_mode_batch_split_"
 # goal_mode=="rise" so are not included).
 _START_KIND_WANDB_ABBREV = {
     "flat": "f", "bridge": "b", "crouch": "c", "post_lower": "pl",
+    # WALK-START_KIND (2026-09-23): the two labels `start_kind_of` can
+    # emit for a `walk` step (`start_kind_of`'s only walk-side branch
+    # is `walk_entry_bank` -> "bank"; every other walk `start_at`
+    # -- plain plant, park, mid-gait -- still falls through to the
+    # generic "plant" default). Same collision-avoidance reasoning as
+    # the rise codes above: "goal_mode_batch_split_walk_" is the same
+    # length class as "..._rise_", so an un-abbreviated "plant"/"bank"
+    # suffix leaves too little of the 36-char HumanOutputFormat budget
+    # for the metric-name tail (_n/_pg_loss/_value_loss/...) to stay
+    # distinct once truncated.
+    "plant": "p", "bank": "k",
 }
 
 
@@ -168,7 +202,8 @@ def _group_label_key(label: str) -> str:
 def attach_goal_mode_batch_split(model, *, enabled: bool,
                                  min_group: int = 8,
                                  isolate_modes=None,
-                                 rise_start_kind: bool = False) -> None:
+                                 rise_start_kind: bool = False,
+                                 walk_start_kind: bool = False) -> None:
     """Sets the attributes `GoalModeBatchSplitPPO.train()` /
     `GoalModeCaptureCallback` read. A no-op when `enabled` is falsy.
 
@@ -197,7 +232,24 @@ def attach_goal_mode_batch_split(model, *, enabled: bool,
     resets terminate almost immediately (over_current), so even a
     healthy nominal reset-mix share dilutes to a tiny raw TICK share
     of the shared `rise` buffer -- the exact scarcity failure this
-    whole module was built to fix for `hold`, one level finer."""
+    whole module was built to fix for `hold`, one level finer.
+
+    `walk_start_kind`: default False (bit-exact legacy: `walk` is one
+    group). The walk-side sibling of `rise_start_kind` (2026-09-23):
+    when True, a `walk` step's label becomes `"walk:<start_kind>"`
+    (`"walk:bank"` for an episode drawn from `goal.walk_entry_bank`,
+    `"walk:plant"` for the ordinary reset) whenever
+    `info["start_kind"]` is present -- so the rare harvested-handoff
+    episodes get their own undiluted minibatch instead of being
+    averaged away inside the majority-plant `walk` batch, the same
+    representation-scarcity fix this module already gave `rise`'s
+    flat/bridge/crouch split. Named next lever after TWO different
+    walk-entry blend-fraction mechanisms (position-only, position+
+    velocity) both left the composed-session entry-vs-cold-reset delta
+    unchanged at every dose tried (CURRENT_TRUTHS 2026-09-23 ~19:3x /
+    ~21:3x) -- this tests whether the gap was a gradient-dilution
+    problem (this module's own proven fix class) rather than a missing
+    exposure or missing-momentum one (both already refuted)."""
     if not enabled:
         return
     model.goal_mode_batch_split_enabled = True
@@ -205,6 +257,7 @@ def attach_goal_mode_batch_split(model, *, enabled: bool,
     model.goal_mode_batch_split_isolate_modes = (
         frozenset(str(m) for m in isolate_modes) if isolate_modes else None)
     model.goal_mode_batch_split_rise_start_kind = bool(rise_start_kind)
+    model.goal_mode_batch_split_walk_start_kind = bool(walk_start_kind)
     if not hasattr(model, "_goal_mode_step_labels"):
         model._goal_mode_step_labels = []
 
@@ -237,6 +290,7 @@ def make_goal_mode_batch_split_ppo_class(base_cls):
         goal_mode_batch_split_min_group: int = 8
         goal_mode_batch_split_isolate_modes = None
         goal_mode_batch_split_rise_start_kind: bool = False
+        goal_mode_batch_split_walk_start_kind: bool = False
 
         def train(self) -> None:
             if not getattr(self, "goal_mode_batch_split_enabled", False):

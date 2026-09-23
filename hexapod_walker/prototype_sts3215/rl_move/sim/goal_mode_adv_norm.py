@@ -130,7 +130,21 @@ def _goal_mode_label(model, info: dict) -> str:
     `info["start_kind"]` is present and truthy; a rise step with no
     (or falsy) `start_kind` -- e.g. an older env build that never set
     the new info key -- falls back to plain `"rise"`, never crashes.
-    Non-rise modes are never touched by this flag."""
+
+    `model.goal_mode_batch_split_walk_start_kind` (2026-09-23, the
+    walk-side analog: two blend-fraction fixes for the composed-
+    session walk-entry handoff gap -- goal.walk_entry_bank position-
+    only and its goal.bank_qvel_restore position+velocity sibling --
+    both refuted 2/2 doses on the walk side specifically, and the
+    track's own named next lever is a discrete first-class start_kind
+    curriculum band, not another blend dose) does the identical thing
+    for `walk` steps: `"walk:<start_kind>"` (e.g. `"walk:bank"` for a
+    goal.walk_entry_bank-drawn episode, `"walk:plant"` for the
+    ordinary reset) whenever `info["start_kind"]` is present and
+    truthy, else plain `"walk"`.
+
+    Non-rise/non-walk modes (and rise/walk when their own flag is
+    off) are never touched by either flag."""
     mode = str(info.get("goal_mode", ""))
     if (mode == "rise"
             and getattr(model, "goal_mode_batch_split_rise_start_kind",
@@ -138,6 +152,12 @@ def _goal_mode_label(model, info: dict) -> str:
         sk = info.get("start_kind")
         if sk:
             return f"rise:{sk}"
+    if (mode == "walk"
+            and getattr(model, "goal_mode_batch_split_walk_start_kind",
+                        False)):
+        sk = info.get("start_kind")
+        if sk:
+            return f"walk:{sk}"
     return mode
 
 

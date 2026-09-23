@@ -1606,6 +1606,13 @@ def main(argv: list[str] | None = None) -> int:
     goal_mode_batch_split_rise_start_kind = bool(int(float(
         _parse_cfg_set(args.cfg_set).get(
             "train.goal_mode_batch_split_rise_start_kind", 0.0) or 0.0)))
+    # Walk-side sibling (2026-09-23, standwalk walk-entry composed-
+    # session handoff gap -- see goal_mode_batch_split.py's WALK-
+    # START_KIND docstring section): default off/bit-exact, same
+    # conditional-draw-free parse as the rise flag above.
+    goal_mode_batch_split_walk_start_kind = bool(int(float(
+        _parse_cfg_set(args.cfg_set).get(
+            "train.goal_mode_batch_split_walk_start_kind", 0.0) or 0.0)))
     if goal_mode_batch_split:
         from .goal_mode_batch_split import (
             make_goal_mode_batch_split_ppo_class)
@@ -1614,7 +1621,9 @@ def main(argv: list[str] | None = None) -> int:
               f"(min_group={goal_mode_batch_split_min_group}, "
               f"isolate={goal_mode_batch_split_isolate_modes or 'ALL'}, "
               "rise_start_kind="
-              f"{goal_mode_batch_split_rise_start_kind})")
+              f"{goal_mode_batch_split_rise_start_kind}, "
+              "walk_start_kind="
+              f"{goal_mode_batch_split_walk_start_kind})")
 
     policy_cls: str | type = "MlpPolicy"
     extra_pk: dict = {}
@@ -2918,7 +2927,8 @@ def main(argv: list[str] | None = None) -> int:
             model, enabled=goal_mode_batch_split,
             min_group=goal_mode_batch_split_min_group,
             isolate_modes=goal_mode_batch_split_isolate_modes,
-            rise_start_kind=goal_mode_batch_split_rise_start_kind)
+            rise_start_kind=goal_mode_batch_split_rise_start_kind,
+            walk_start_kind=goal_mode_batch_split_walk_start_kind)
     # Update-path protection (fb_20260817T005114; default off).
     if args.actor_lr > 0.0:
         from .update_health import (CRITIC_MARKERS,

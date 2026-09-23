@@ -45,6 +45,11 @@ def test_rise_bank_start_at_maps_to_post_lower():
     assert start_kind_of(t) == "post_lower"
 
 
+def test_walk_entry_bank_start_at_maps_to_bank():
+    t = SimpleNamespace(start_at="walk_entry_bank")
+    assert start_kind_of(t) == "bank"
+
+
 def test_zero_with_curl_is_bridge():
     t = SimpleNamespace(start_at="zero", start_curl=0.4)
     assert start_kind_of(t) == "bridge"

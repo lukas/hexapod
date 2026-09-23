@@ -108,6 +108,17 @@ def start_kind_of(traj: Any) -> str:
         return "post_lower"
     if start_at == "lower_bank":
         return "post_walk_lower"
+    if start_at == "walk_entry_bank":
+        # goal.walk_entry_bank (2026-09-23): a harvested real rise->walk
+        # composed-session handoff pose, the walk-side analog of
+        # rise_bank/lower_bank above. Short label ("bank", not the
+        # cfg-key-shaped "walk_entry_bank") so it composes cleanly as
+        # "walk:bank" in goal_mode_batch_split.py's per-start_kind
+        # sub-split (see that module's WALK-START_KIND section) without
+        # blowing the W&B HumanOutputFormat 36-char truncation budget
+        # the "rise:bridge"/"rise:crouch" collision bug already taught
+        # us to respect.
+        return "bank"
     if getattr(traj, "start_curl", 0.0) > 0:
         return "bridge"
     if start_at == "zero":

@@ -634,15 +634,225 @@ def test_group_label_key_has_no_sb3_console_collision():
         return (indented if len(indented) <= max_length
                 else indented[: max_length - 3] + "...")
 
-    kinds = ["flat", "bridge", "crouch", "post_lower"]
+    rise_kinds = ["flat", "bridge", "crouch", "post_lower"]
+    # WALK-START_KIND (2026-09-23): the two labels `start_kind_of` can
+    # actually emit for a `walk` step -- same collision class, same
+    # base-prefix length ("goal_mode_batch_split_walk_" vs "..._rise_").
+    walk_kinds = ["plant", "bank"]
     seen = {}
-    for kind in kinds:
-        label_key = _group_label_key(f"rise:{kind}")
-        for suffix in ("_n", "_pg_loss"):
-            full = (GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX
-                    + label_key + suffix)
-            truncated = sb3_truncate(full)
-            assert truncated not in seen or seen[truncated] == full, (
-                f"{full!r} and {seen.get(truncated)!r} both truncate "
-                f"to {truncated!r} -- SB3 console-table collision")
-            seen[truncated] = full
+    for base, kinds in (("rise", rise_kinds), ("walk", walk_kinds)):
+        for kind in kinds:
+            label_key = _group_label_key(f"{base}:{kind}")
+            for suffix in ("_n", "_pg_loss"):
+                full = (GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX
+                        + label_key + suffix)
+                truncated = sb3_truncate(full)
+                assert (truncated not in seen
+                       or seen[truncated] == full), (
+                    f"{full!r} and {seen.get(truncated)!r} both "
+                    f"truncate to {truncated!r} -- SB3 console-table "
+                    "collision")
+                seen[truncated] = full
+
+
+# ---------------------------------------------------------------------
+# 6. walk-start_kind sub-split (2026-09-23 walk-entry composed-session
+# handoff escalation -- see module docstring's WALK-START_KIND
+# section). Direct mirror of section 5 above, `walk`/`"bank"`+
+# `"plant"` in place of `rise`/`"flat"`+`"bridge"`.
+# ---------------------------------------------------------------------
+
+class _FakeWalkModel:
+    def __init__(self, walk_start_kind):
+        self.goal_mode_batch_split_walk_start_kind = walk_start_kind
+
+
+def test_goal_mode_label_walk_default_off_is_plain_mode():
+    m = _FakeWalkModel(False)
+    assert _goal_mode_label(m, {"goal_mode": "walk",
+                                "start_kind": "bank"}) == "walk"
+    assert _goal_mode_label(m, {"goal_mode": "hold"}) == "hold"
+
+
+def test_goal_mode_label_walk_on_composes_walk_with_start_kind():
+    m = _FakeWalkModel(True)
+    assert _goal_mode_label(
+        m, {"goal_mode": "walk", "start_kind": "bank"}) == "walk:bank"
+    assert _goal_mode_label(
+        m, {"goal_mode": "walk", "start_kind": "plant"}) == "walk:plant"
+
+
+def test_goal_mode_label_walk_on_non_walk_modes_untouched():
+    m = _FakeWalkModel(True)
+    assert _goal_mode_label(m, {"goal_mode": "hold",
+                                "start_kind": "bank"}) == "hold"
+    assert _goal_mode_label(m, {"goal_mode": "rise",
+                                "start_kind": "flat"}) == "rise"
+
+
+def test_goal_mode_label_walk_and_rise_flags_are_independent():
+    """Arming walk_start_kind alone must not also split rise (and
+    vice versa, covered by section 5's own tests) -- the two sibling
+    flags are read independently in `_goal_mode_label`."""
+    m = _FakeWalkModel(True)
+    assert not hasattr(m, "goal_mode_batch_split_rise_start_kind")
+    assert _goal_mode_label(
+        m, {"goal_mode": "rise", "start_kind": "flat"}) == "rise"
+
+
+def test_attach_walk_start_kind_defaults_false():
+    cls = make_goal_mode_batch_split_ppo_class(PPO)
+    m = _make_ppo(cls)
+    attach_goal_mode_batch_split(m, enabled=True, min_group=4)
+    assert m.goal_mode_batch_split_walk_start_kind is False
+
+
+def test_attach_walk_start_kind_true_is_stored():
+    cls = make_goal_mode_batch_split_ppo_class(PPO)
+    m = _make_ppo(cls)
+    attach_goal_mode_batch_split(m, enabled=True, min_group=4,
+                                 walk_start_kind=True)
+    assert m.goal_mode_batch_split_walk_start_kind is True
+
+
+def test_attach_walk_and_rise_start_kind_both_true_independently():
+    cls = make_goal_mode_batch_split_ppo_class(PPO)
+    m = _make_ppo(cls)
+    attach_goal_mode_batch_split(m, enabled=True, min_group=4,
+                                 rise_start_kind=True, walk_start_kind=True)
+    assert m.goal_mode_batch_split_rise_start_kind is True
+    assert m.goal_mode_batch_split_walk_start_kind is True
+
+
+_WALK_KINDS = ("bank", "plant")
+
+
+class _TinyWalkKindEnv(gym.Env):
+    """Like `_TinyRiseKindEnv`, but every instance is `goal_mode="walk"`
+    with a fixed `start_kind` (alternating bank/plant by env index),
+    plus one plain `hold` instance."""
+
+    metadata = {}
+
+    def __init__(self, env_idx: int):
+        super().__init__()
+        self.observation_space = spaces.Box(-10, 10, (_OBS_DIM,),
+                                            dtype=np.float32)
+        self.action_space = spaces.Box(-1, 1, (_N_ACT,), dtype=np.float32)
+        if env_idx % 4 == 3:
+            self._mode, self._kind = "hold", None
+        else:
+            self._mode = "walk"
+            self._kind = _WALK_KINDS[env_idx % len(_WALK_KINDS)]
+        self._t = 0
+
+    def reset(self, *, seed=None, options=None):
+        self._t = 0
+        return np.zeros(_OBS_DIM, dtype=np.float32), {}
+
+    def step(self, action):
+        self._t += 1
+        reward = -float(np.mean(np.asarray(action) ** 2))
+        term = self._t >= 8
+        info = {"goal_mode": self._mode}
+        if self._kind is not None:
+            info["start_kind"] = self._kind
+        return (np.zeros(_OBS_DIM, dtype=np.float32), reward, term,
+                False, info)
+
+
+def _make_walk_kind_ppo(cls, n_envs=8, seed=0):
+    venv = DummyVecEnv(
+        [lambda i=i: _TinyWalkKindEnv(i) for i in range(n_envs)])
+    m = cls("MlpPolicy", venv, n_steps=16, batch_size=32, n_epochs=2,
+            seed=seed, device="cpu", policy_kwargs=dict(net_arch=[16]))
+    m.set_random_seed(seed)
+    return m
+
+
+def test_walk_start_kind_off_keeps_walk_as_one_merged_group():
+    cls = make_goal_mode_batch_split_ppo_class(PPO)
+    m = _make_walk_kind_ppo(cls, n_envs=8)
+    attach_goal_mode_batch_split(m, enabled=True, min_group=4)
+
+    class _FakeLogger:
+        def __init__(self):
+            self.name_to_value = {}
+
+        def record(self, key, value, **kw):
+            self.name_to_value[key] = value
+
+    fake_logger = _FakeLogger()
+    m.set_logger(fake_logger)
+    _collect(m)
+    m.train()
+    assert fake_logger.name_to_value.get(
+        GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX + "n_groups") == 2
+    assert fake_logger.name_to_value.get(
+        GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX + "walk_n", 0) > 0
+    assert (GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX + "walk_bank_n"
+           ) not in fake_logger.name_to_value
+
+
+def test_walk_start_kind_on_splits_bank_from_plant():
+    """Armed: `walk:bank` and `walk:plant` each get their own disjoint
+    minibatch group, on top of `hold` -- 3 groups total, and no
+    minibatch this mechanism builds ever mixes bank with plant (or
+    either with hold)."""
+    cls = make_goal_mode_batch_split_ppo_class(PPO)
+    m = _make_walk_kind_ppo(cls, n_envs=8)
+    attach_goal_mode_batch_split(m, enabled=True, min_group=4,
+                                 walk_start_kind=True)
+    assert m.goal_mode_batch_split_walk_start_kind is True
+    m.set_logger(configure(None, ["stdout"]))
+    _collect(m)
+
+    labels_flat = _labels_to_flat(
+        m._goal_mode_step_labels, m.rollout_buffer.buffer_size,
+        m.rollout_buffer.n_envs)
+    assert set(labels_flat.tolist()) == {"walk:bank", "walk:plant",
+                                         "hold"}
+    seen_minibatch_label_sets = []
+    orig_get_samples = m.rollout_buffer._get_samples
+
+    def _spy_get_samples(batch_inds, env=None):
+        seen_minibatch_label_sets.append(
+            set(labels_flat[batch_inds].tolist()))
+        return orig_get_samples(batch_inds, env=env)
+
+    m.rollout_buffer._get_samples = _spy_get_samples
+    m.train()
+
+    assert seen_minibatch_label_sets
+    for label_set in seen_minibatch_label_sets:
+        assert len(label_set) == 1, (
+            f"a minibatch mixed walk start_kinds: {label_set}")
+
+
+def test_walk_start_kind_on_logs_sanitized_colon_free_keys():
+    """W&B metric keys for the walk-side composite label must also be
+    ':'-free -- `walk:bank` logs as `walk_k_n`, not `walk:bank_n`."""
+    cls = make_goal_mode_batch_split_ppo_class(PPO)
+    m = _make_walk_kind_ppo(cls, n_envs=8)
+    attach_goal_mode_batch_split(m, enabled=True, min_group=4,
+                                 walk_start_kind=True)
+
+    class _FakeLogger:
+        def __init__(self):
+            self.name_to_value = {}
+
+        def record(self, key, value, **kw):
+            self.name_to_value[key] = value
+
+    fake_logger = _FakeLogger()
+    m.set_logger(fake_logger)
+    _collect(m)
+    m.train()
+    assert fake_logger.name_to_value.get(
+        GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX + "n_groups") == 3
+    assert fake_logger.name_to_value.get(
+        GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX + "walk_k_n", 0) > 0
+    assert fake_logger.name_to_value.get(
+        GOAL_MODE_BATCH_SPLIT_WANDB_PREFIX + "walk_p_n", 0) > 0
+    for key in fake_logger.name_to_value:
+        assert ":" not in key, f"un-sanitized colon in W&B key: {key}"

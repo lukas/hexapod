@@ -3971,6 +3971,21 @@ class SimHexapodBalanceEnv(_GymBase):
                 # `risecurlgate-s1-canary2m` run despite being "on".
                 info["rise_gate_freeze_ticks"] = float(
                     self._rise_gate_freeze_ticks)
+            elif getattr(self._goal_traj, "mode", "") == "walk":
+                # WALK-START_KIND (2026-09-23, standwalk walk-entry
+                # composed-session gap: two blend-fraction mechanisms
+                # -- goal.walk_entry_bank position-only and its
+                # goal.bank_qvel_restore position+velocity sibling --
+                # both refuted 2/2 doses; the track's own named next
+                # lever is a DISCRETE first-class start_kind curriculum
+                # band, mirroring rise's flat/bridge/crouch sub-split
+                # above, rather than another blend dose). Same
+                # inert-by-default contract as the rise branch: a
+                # NEW-VALUE info key, never read by reward/obs/
+                # termination, only consumed by goal_mode_batch_split.
+                # py's WALK-START_KIND sub-split when that (also
+                # default-off) flag is armed.
+                info["start_kind"] = start_kind_of(self._goal_traj)
             if self._is_lower_bc:
                 # Staged-descent sub-goal observability
                 # (goal.lower_stage_gate): nonzero whenever the height

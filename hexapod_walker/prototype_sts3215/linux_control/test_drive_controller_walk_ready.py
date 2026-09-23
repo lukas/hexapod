@@ -53,6 +53,9 @@ def test_scripted_walk_uses_shared_100hz_raised_profile_contract():
         "servo_speed_counts_s": 2000,
         "servo_acc_units": 80,
         "deadline_overruns": 0,
+        "snapshot_writes": 0,
+        "snapshot_misses": 0,
+        "hold_snapshots": 0,
     }
 
 
@@ -336,3 +339,53 @@ def test_fluid_pulse_gait_id_compresses_hybrid_shift():
     assert drive.gait.period == 3.2
     assert abs(drive.gait._durations[0] / drive.gait.period - 0.06) < 1e-12
     assert abs(drive.gait._durations[1] / drive.gait.period - 0.42) < 1e-12
+
+
+class SnapshotBus(FakeBus):
+    """A bus with the RL tick's write+snapshot round trip and passive telemetry active."""
+
+    def __init__(self, pose):
+        super().__init__(pose)
+        self.step_calls = []
+        self.snapshot_reads = 0
+        self._telemetry_sink = object()
+
+    def step_all(self, degrees, speed=1500, acc=30, **_):
+        self.step_calls.append((list(degrees), speed, acc))
+        return {"seq": len(self.step_calls), "pos_age_ms": 1, "imu_age_ms": 1,
+                "imu": {"gx_dps": 0.0}, "pos_deg": {j: q for j, q in enumerate(degrees)}}
+
+    def read_snapshot(self):
+        self.snapshot_reads += 1
+        return super().read_snapshot()
+
+
+def test_scripted_write_rides_the_snapshot_round_trip_and_counts_it():
+    """2026-09-23: the scripted loop's tick is bus.step_all (SyncWrite + IMU/position snapshot in ONE
+    transaction) so the passive telemetry logs the full IMU set at the loop rate; a None reply is one
+    missing sample, never a second send."""
+    drive = DriveController(dry_run=False)
+    bus = SnapshotBus(walk_start_pose_degrees())
+    drive.bus = bus
+    drive.armed = True
+    drive._live_ids_cache = set(range(2, 20)); drive._live_ids_t = 1e18  # noqa: SLF001
+    pose = walk_start_pose_degrees()
+    drive._write_pose(pose, speed=2000, acc=80)  # noqa: SLF001
+    assert bus.step_calls == [(pose, 2000, 80)]
+    st = drive.scripted_contract_state()
+    assert st["snapshot_writes"] == 1 and st["snapshot_misses"] == 0
+    bus.step_all = lambda *a, **k: None
+    drive._write_pose(pose)  # noqa: SLF001
+    assert drive.scripted_contract_state()["snapshot_misses"] == 1
+
+
+def test_static_hold_samples_the_snapshot_for_telemetry():
+    drive = DriveController(dry_run=False)
+    bus = SnapshotBus(walk_start_pose_degrees())
+    drive.bus = bus
+    drive.armed = True
+    drive._sample_hold_snapshot()  # noqa: SLF001
+    assert bus.snapshot_reads == 1 and drive.scripted_contract_state()["hold_snapshots"] == 1
+    bus._telemetry_sink = None                       # telemetry off: the hold stays quiet on the bus
+    drive._sample_hold_snapshot()  # noqa: SLF001
+    assert bus.snapshot_reads == 1

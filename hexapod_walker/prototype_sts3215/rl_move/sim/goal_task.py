@@ -242,6 +242,13 @@ class GoalGenerator:
         self.lower_partial_frac = float(g.get("lower_partial_frac", 0.0))
         self.lower_partial_min_frac = 0.3
         self.lower_partial_max_frac = 0.8
+        # Composed-session lower-entry exposure bank (2026-09-23, see
+        # the sample()-site comment for full rationale) — the
+        # walk_entry_bank/lower_start_bank generalization of
+        # rise_start_bank's post-lower rise exposure fix.
+        self.lower_start_bank = str(g.get("lower_start_bank", "") or "")
+        self.lower_start_bank_frac = float(
+            g.get("lower_start_bank_frac", 0.0))
         # Slow on purpose: "gently, without banging" is the task. The
         # tracking kernel penalizes running ahead of the ramp, so a
         # 5 s descent IS the gentleness constraint.
@@ -607,6 +614,32 @@ class GoalGenerator:
                     end = min(hold_n + ramp_n, n_steps)
                     height[hold_n:end] = np.linspace(
                         0.0, target, end - hold_n)
+                # Composed-session LOWER entry exposure (2026-09-23,
+                # standwalk STATUS ~18:3x, same finding/mechanism class
+                # as goal.rise_start_bank/goal.walk_entry_bank above:
+                # `eval_modeseq.py --dump-seg-qpos` found the real
+                # walk->lower handoff pose in a composed session
+                # differs from this task's own idealized "plant"
+                # spawn — every lower episode today starts from the
+                # SYMMETRIC standing plant, never a real mid-gait
+                # walk-exit pose. goal.lower_start_bank = npz path
+                # (key q_rad, shape (K,18), harvested via that tool's
+                # "lower_entry" tag); goal.lower_start_bank_frac f =
+                # fraction of non-belly/non-partial lower episodes
+                # that spawn from a bank pose instead of the plant —
+                # only the joint spawn pose changes, the height-ref
+                # descent schedule above is unchanged (bank poses are
+                # standing-height-ish, like the plant they replace).
+                # Default OFF; conditional draw (only taken when a
+                # bank is configured) so legacy rng streams stay
+                # bit-exact.
+                bank_path = str(getattr(self, "lower_start_bank", "")
+                                or "")
+                bank_frac = float(getattr(self, "lower_start_bank_frac",
+                                          0.0))
+                if (bank_path and bank_frac > 0.0
+                        and rng.random() < bank_frac):
+                    start_at = "lower_bank"
         crouch_dz = 0.0
         start_curl = 0.0
         if mode == "lower" and start_at == "crouch":

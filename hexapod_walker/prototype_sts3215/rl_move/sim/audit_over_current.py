@@ -101,7 +101,26 @@ def classify_trace(npz_path: str, *, trip_a: float, trip_s: float,
                    stall_qvel: float) -> dict:
     d = np.load(npz_path, allow_pickle=True)
     ep = json.loads(str(d["ep_json"]))
-    cur = np.asarray(d["servo_current"], dtype=np.float64)  # (T, 18)
+    # BUG FIX (2026-09-23, cw-stand50hz dr=0.6 bridge-rise over_current
+    # triage): the 2026-09-19 current-model split (see module docstring)
+    # made ``over_current_signal`` -- not ``servo_current`` -- the
+    # SafetyLayer's actual trip channel under the now-default
+    # bus.current_model="power". This function kept reading
+    # servo_current unconditionally, so every power-model trace was
+    # classified against the near-zero mechanical-power estimate
+    # instead of the torque-proxy trip signal that actually fired --
+    # e.g. a trace with servo_current maxing at 0.13 A (NO_RAIL) whose
+    # own ep_json says term_reason="over_current". Prefer
+    # over_current_signal when the trace has it (present + non-NaN);
+    # fall back to servo_current for legacy torque_proxy traces (where
+    # over_current_signal is None and servo_current IS the trip
+    # signal, bit-exact with pre-09-19 behavior) and for any older
+    # trace file saved before this field existed.
+    if ("over_current_signal" in d.files
+            and np.isfinite(d["over_current_signal"]).any()):
+        cur = np.asarray(d["over_current_signal"], dtype=np.float64)
+    else:
+        cur = np.asarray(d["servo_current"], dtype=np.float64)  # (T, 18)
     t_s = np.asarray(d["t_s"], dtype=np.float64)
     dt = float(np.median(np.diff(t_s))) if len(t_s) > 1 else 0.01
     qvel = (np.asarray(d["qvel"], dtype=np.float64)
@@ -121,6 +140,10 @@ def classify_trace(npz_path: str, *, trip_a: float, trip_s: float,
 
     out = {
         "trace": str(npz_path),
+        "current_field": ("over_current_signal"
+                          if ("over_current_signal" in d.files
+                              and np.isfinite(d["over_current_signal"]).any())
+                          else "servo_current"),
         "mode": ep.get("mode"), "start_kind": ep.get("start_kind"),
         "term_reason": ep.get("term_reason"),
         "cur_max_a": float(cur.max()),
@@ -197,7 +220,8 @@ def main() -> None:
                for t in args.traces]
     for r in results:
         print(f"{Path(r['trace']).name}: {r['classification']}"
-              f"  (max {r['cur_max_a']:.3f} A, hot j{r['hot_joint']},"
+              f"  (field={r['current_field']}"
+              f" max {r['cur_max_a']:.3f} A, hot j{r['hot_joint']},"
               f" over-{args.trip_a}A longest {r['over_thresh_longest_s']:.2f}s,"
               f" would_trip={r['would_trip']})")
         if "window" in r:

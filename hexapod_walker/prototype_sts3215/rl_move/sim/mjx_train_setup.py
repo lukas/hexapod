@@ -52,6 +52,13 @@ def _env_kwargs(args, params: SimServoParams | None = None) -> dict:
             cfg.setdefault("goal", {})[
                 "recover_external_certification"] = 1.0
         kw["cfg"] = cfg
+        # plant_deg from cfg plant.hip_deg/knee_deg (2026-09-22 extended-plant
+        # campaign, lukas-ef spec). robot_abs [yaw,hip,knee]x6; null default =>
+        # env _default_plant_deg (tucked 20/100), bit-exact when unset.
+        _pl = cfg.get("plant") or {}
+        _ph, _pk = _pl.get("hip_deg"), _pl.get("knee_deg")
+        if _ph is not None and _pk is not None:
+            kw["plant_deg"] = [0.0, float(_ph), float(_pk)] * 6
     kw["params"] = (params if params is not None
                     else SimServoParams.from_cfg(kw.get("cfg")))
     return kw

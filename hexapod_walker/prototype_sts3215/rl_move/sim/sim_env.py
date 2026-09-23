@@ -1534,7 +1534,24 @@ class SimHexapodBalanceEnv(_GymBase):
     # settled roll ≈ 0.36 × fold, near-linear over 6-18° targets; see
     # the dr.tipped_start_* axis in domain_rand.py). The inverse maps
     # the sampled target roll to the fold the pattern commands.
+    # SHARED by rise_rock/walk_kick, whose doses were replay-calibrated
+    # against hardware tapes THROUGH this mapping — do not retune it
+    # for them (their targets are trip-crossing by design).
     TIP_ROLL_PER_FOLD = 0.36
+    # Tipped-START-only recalibration (dig-in 2026-09-23, hardstartcorr
+    # plateau root cause): at the current plant stance the 0.36 gain
+    # overshoots — achieved settle roll ≈ 1.33 × target on BOTH model
+    # families (measured med ratios 1.26–1.40 mesh, 1.31–1.37
+    # primitive over 3–7° targets, /tmp probe recorded in the 09-23
+    # standwalk STATUS entry), so a capped 7° target settled at
+    # 9.0–11.0° and spawned INSIDE the 10° tilt_roll trip band —
+    # violating this method's own "spawn with recovery headroom, never
+    # mid-trip" invariant and making ~30–40 % of max-dose tipped plant
+    # spawns unwinnable regardless of policy (terminated 0.76–1.0 s
+    # after reset under an idealized instant level command). The
+    # tipped path therefore uses its own measured gain so achieved
+    # roll ≈ sampled target; rise_rock/walk_kick keep 0.36 untouched.
+    TIPPED_START_ROLL_PER_FOLD = 0.48
 
     def _apply_tipped_start(self, q_start: np.ndarray) -> np.ndarray:
         """Add the tipped-start (roll recovery) pattern, if this episode
@@ -1557,7 +1574,7 @@ class SimHexapodBalanceEnv(_GymBase):
             return q_start
         cap = 0.7 * self.safety.max_roll * RAD2DEG
         roll = float(np.clip(er.tipped_roll_deg, -cap, cap))
-        fold = abs(roll) / self.TIP_ROLL_PER_FOLD * DEG2RAD
+        fold = abs(roll) / self.TIPPED_START_ROLL_PER_FOLD * DEG2RAD
         # Legs 0-2 mount on the +y (left) side (azimuths 30/90/150°),
         # legs 3-5 on the right; positive roll leans the body right
         # (IMU convention: roll = atan2(ay, az), +y side up).
@@ -1762,6 +1779,46 @@ class SimHexapodBalanceEnv(_GymBase):
             bank = arr
             npz.close()
         self._rise_bank_cache = bank
+        return bank
+
+    def _walk_entry_bank(self) -> np.ndarray | None:
+        """Harvested composed-session walk-entry poses (2026-09-23,
+        goal.walk_entry_bank/walk_entry_bank_frac; same lazy-cache
+        contract as _rise_start_bank)."""
+        if hasattr(self, "_walk_entry_bank_cache"):
+            return self._walk_entry_bank_cache
+        path = cfg_get(self.cfg, "goal", "walk_entry_bank", default=None)
+        bank = None
+        if path:
+            arr, npz = _load_robot_abs_q_npz(
+                str(path), source="walk_entry_bank")
+            if arr.ndim != 2 or arr.shape[1] != N_JOINTS or len(arr) == 0:
+                raise ValueError(
+                    f"walk_entry_bank {path}: expected (K,{N_JOINTS}) "
+                    f"q_rad, got {arr.shape}")
+            bank = arr
+            npz.close()
+        self._walk_entry_bank_cache = bank
+        return bank
+
+    def _lower_start_bank(self) -> np.ndarray | None:
+        """Harvested composed-session lower-entry poses (2026-09-23,
+        goal.lower_start_bank/lower_start_bank_frac; same lazy-cache
+        contract as _rise_start_bank)."""
+        if hasattr(self, "_lower_bank_cache"):
+            return self._lower_bank_cache
+        path = cfg_get(self.cfg, "goal", "lower_start_bank", default=None)
+        bank = None
+        if path:
+            arr, npz = _load_robot_abs_q_npz(
+                str(path), source="lower_start_bank")
+            if arr.ndim != 2 or arr.shape[1] != N_JOINTS or len(arr) == 0:
+                raise ValueError(
+                    f"lower_start_bank {path}: expected (K,{N_JOINTS}) "
+                    f"q_rad, got {arr.shape}")
+            bank = arr
+            npz.close()
+        self._lower_bank_cache = bank
         return bank
 
     def _place_at_plant(self, q_rad: np.ndarray) -> None:
@@ -2518,9 +2575,9 @@ class SimHexapodBalanceEnv(_GymBase):
         return self._goal_traj.at(idx)
 
     def _rise_gate_tick(self) -> None:
-        """Two-phase rise sub-goal (``goal.rise_curl_gate``, default 0 =
-        OFF = bit-exact identical to every prior checkpoint): called
-        once per real tick, right after ``self._step_i`` advances and
+        """Rise curl sub-goal (``goal.rise_curl_gate``, default 0 = OFF
+        = bit-exact identical to every prior checkpoint): called once
+        per real tick, right after ``self._step_i`` advances and
         before the tick's reward/obs goal is read.
 
         Escalation context (2026-09-13, `risecurlgate-s1-canary2m`
@@ -2544,19 +2601,40 @@ class SimHexapodBalanceEnv(_GymBase):
         computed at reset as the first nonzero index of the height
         schedule, for the pre-existing BC-reference alignment) doubles
         as the natural hold-boundary here. Crouch starts (curl_dist
-        already ~0) are exempt — nothing to gate. Pure index-freeze:
-        no new physics, no change to any existing reward term's
-        formula; every other reward path reads whatever goal
-        ``_current_goal()`` returns exactly as before.
+        already ~0) are exempt from the curl sub-goal — nothing to
+        gate.
+
+        (2026-09-23, standwalk track second-rise-gap dig-in: this
+        function used to also carry a second, independent sub-goal,
+        ``goal.rise_stability_gate`` — freeze the ramp onset until
+        measured attitude settled near-level, on the theory that the
+        composed rise->walk->lower->rise->walk gate baseline's second
+        (post-lower) rise falls because the policy is asked to climb
+        before it arrests the attitude/momentum an unfamiliar post-
+        lower pose leaves it in. Trained on both stand architectures
+        (`cw-stand50hz-gru-dr07-risestabgate-s1`,
+        `cw-stand50hz-mlp-dr07-risestabgate`) against a pre-registered
+        eval_modeseq gate: FAILed both — GRU second-rise stayed 5/24
+        (same band as the ungated parent), MLP reached 10/24 but with
+        own-cfg(dr=0.7) termination regressing 2/36->4/36 including a
+        severe over_current outlier. Refuted and removed per
+        RESEARCH_RULES' close-the-key rule; the postlower second-rise
+        gap needs a genuinely new curriculum-family design, not another
+        index-freeze variant on this same mechanism. See
+        `cw-stand50hz-gru-dr07-risestabgate-s1`/
+        `cw-stand50hz-mlp-dr07-risestabgate` run ledgers.)
+
+        Pure index-freeze: no new physics, no change to any existing
+        reward term's formula; every other reward/obs path reads
+        whatever ``_current_goal()`` returns exactly as before.
         Tests: rl_move/tests/test_rise_curl_gate_hold.py.
         """
         if not self._is_rise or self._goal_traj is None:
             return
-        if float(cfg_get(self.cfg, "goal", "rise_curl_gate",
-                          default=0.0)) != 1.0:
+        curl_on = float(cfg_get(self.cfg, "goal", "rise_curl_gate",
+                                 default=0.0)) == 1.0
+        if not curl_on:
             return
-        if getattr(self._goal_traj, "start_at", None) == "crouch":
-            return  # curl_dist ~0 already -- nothing to gate
         hold_n = int(getattr(self, "_rise_ramp_i0", 0))
         freeze = self._rise_gate_freeze_ticks
         idx = self._step_i - freeze
@@ -2566,9 +2644,13 @@ class SimHexapodBalanceEnv(_GymBase):
             self.cfg, "goal", "rise_curl_gate_max_extra_s", default=2.0))
         max_extra_ticks = int(round(max_extra_s / self.dt))
         if freeze >= max_extra_ticks:
-            return  # capped -- let the ramp proceed without the curl
-        if self._curl_dist() <= 40.0 * 0.001:
-            return  # sub-goal met -- unlock permanently from here on
+            return  # capped -- let the ramp proceed without the
+                    # sub-goal met
+        curl_met = (getattr(self._goal_traj, "start_at", None)
+                    == "crouch"
+                    or self._curl_dist() <= 40.0 * 0.001)
+        if curl_met:
+            return  # sub-goal met -- unlock permanently
         self._rise_gate_freeze_ticks = freeze + 1
 
     def _lower_stage_planted_frac(self, load_ref_n: float) -> float:
@@ -3238,6 +3320,36 @@ class SimHexapodBalanceEnv(_GymBase):
         -- see ``_default_plant_deg`` for the full derivation of this
         literal (100 = the historical mujoco-relative 80 + hip 20).
 
+        2026-09-23 (extplant82-actionbox-yaw11 dig-in follow-up): the
+        stance synced here used to be the LITERAL 20.0/100.0 pair above
+        regardless of ``self._plant_deg`` -- fine while every bc_anchor_
+        walk run trained under the legacy tucked plant (hip=20/knee=100
+        robot_abs, ``_default_plant_deg``'s own value, so the literal
+        WAS correct there), but the entire extplant82 extended-plant
+        family (``plant.hip_deg``/``plant.knee_deg`` cfg overrides,
+        2026-09-22 lukas-ef spec, e.g. hip=20/knee=82) sets
+        ``bc_anchor_coef=3.0`` too -- discovered live in the yaw11-
+        ramp5m-s0 FAIL triage: this teacher was STILL syncing to the
+        old knee=100 target, which is physically UNREACHABLE inside
+        that lineage's own action box (bias+box center 82, max reach
+        ~97) by DESIGN (the box exists specifically to make knee=100
+        unreachable, per the actionbox-s0 hypothesis). Every extplant82-
+        actionbox arm (s0/ramp/ramp5m/ramp5m-logstdcomp/yaw11-ramp5m)
+        therefore trained under a constant, unwinnable MSE-vs-
+        unreachable-target supervisory pull toward one edge the whole
+        run -- a plausible full explanation for the "policy never uses
+        the room it has" oscillation-suppression signature the
+        logstdcomp dig-in measured (3-10 deg peak-to-peak knee swing vs
+        the box's own ~24 deg width) that log-std compensation (which
+        doesn't touch this pull at all) could not fix. Fixed to read
+        the run's OWN resolved plant target (``self._plant_deg``, robot_
+        abs [yaw,hip,knee]x6, same array ``_default_plant_deg``/
+        ``plant_deg=`` populate) instead of the hardcoded literal --
+        bit-exact for every run that never overrides plant.hip_deg/
+        knee_deg (self._plant_deg defaults to exactly 20.0/100.0), only
+        a behavior change for the plant-overridden family that has
+        never had a verdicted PASS under the old hardcoded literal.
+
         ``train.bc_anchor_teacher_yaw_arm_scale`` (standwalk Next item
         2, candidate (i)-v2, 09-03 -- see tripod_gait.py's
         ``combined_yaw_arm_scale`` docstring for the full derivation):
@@ -3307,7 +3419,8 @@ class SimHexapodBalanceEnv(_GymBase):
             combined_selective_omega_boost=float(cfg_get(
                 self.cfg, "train", "bc_anchor_teacher_selective_omega_boost",
                 default=1.0)))
-        _g.sync_plant_stance(20.0, 100.0)
+        _g.sync_plant_stance(float(self._plant_deg[1]),
+                             float(self._plant_deg[2]))
         _g.reset_phase()
         return _g
 

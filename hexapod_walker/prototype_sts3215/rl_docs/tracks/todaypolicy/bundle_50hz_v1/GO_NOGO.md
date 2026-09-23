@@ -284,3 +284,70 @@ Full evidence chain: `rl_docs/tracks/todaypolicy/STATUS.md` and
 field. No config default changed, no code change, no GPU spend (this
 update only republishes an already-recorded finding into the doc Robot
 Lab actually reads before a trial).
+
+## Update, 2026-09-22 (refill cycle, no run completion required) — a THIRD GRU full-envelope candidate, strictly more DR-hardened than the one above, now exported with the tightest composed-session safety margin of any candidate in this bundle: **this is the new top physical-trial pick**
+
+One plain sentence: `standwalk`'s frictionasym+stickslip grid (registered
+in its own STATUS.md the same day) warm-started the exact same dr-1.0
+full-envelope GRU (`envwide-s2`) that produced
+`alternate_dr_hardened_fullenvelope_2026_09_22` above and added two foot
+axes that recipe never had (per-foot friction asymmetry, 2x-dosed
+stick-slip), closed 3/3 seeds GO with the dose ladder still not finding a
+break — this cycle exported the strongest rung of that grid
+(`dose08`) and ran it through the same composed stand→walk→lower
+DR-0/own-DR demo every other candidate in this doc got, and it comes out
+ahead on every composed-session number that matters for a physical
+handoff, not just tied.
+
+**Candidate**: `alternate_dr_hardened_fullenvelope_frictionasym_stickslip_2026_09_22`
+(GRU, same continuous full-envelope contract as `envwide-s0`, PLUS
+per-foot friction asymmetry `dr.foot_friction_scale=0.7,1.3` and
+stick-slip `dr.foot_stickslip_gain=0.0,0.8`) →
+`linux_control/policies/walk50hz_gru_dr10_frictionasym_stickslip_dose08.json`
+(export parity 1.79e-07 action / 2.38e-07 hidden, bar 1e-5).
+Seed-robust 3/3 at the source grid's own base dose (`s0`/`seed0`/`seed1`,
+standwalk's own verdicts); this exported checkpoint is the highest,
+still-undegraded dose rung of that same grid, not a separate seed
+question of its own.
+
+**Composed DR-0 / own-DR(1.0) session** (`ops.sh hybriddemo`, identical
+command shape to every sibling above — full detail in
+`composition.json`'s new field):
+
+| metric | `envwide_s0` (current top pick) | `quad5_torque_envwide_s0` (MLP) | **`frictionasym_stickslip_dose08` (this update)** |
+|---|---:|---:|---:|
+| roll_peak_abs_deg, DR-0 → own-DR(1.0) | 3.554 → 5.678 | 4.19 → **17.836 (1/4 seeds fell)** | 3.889 → **3.535 (flat, not degrading)** |
+| course_err_1s_settled_p90_deg, DR-0 → own-DR(1.0) | 11.63 → 30.64 | 15.75 → 31.84 | **9.34 → 8.26 (flat, best of the three)** |
+| walk_progress_ratio, DR-0 → own-DR(1.0) | 0.439 → 0.335 | 0.395 → 0.243 | 0.441 → 0.361 |
+| falls / sacrificed legs, either dose | 0 / none | 0 / none (own-DR seed-sweep found 1/4 seeds fall, see below) | 0 / none |
+
+This is the tightest own-DR roll band and the best settled-course number
+of any full-envelope candidate registered in this bundle to date — and
+unlike the other two, own-DR(1.0) roll/course barely move from DR-0
+rather than softening, despite carrying MORE randomized axes (friction
+asymmetry + 2x-dosed stick-slip on top of everything `envwide-s0`
+already had).
+
+**Practical recommendation, superseding the update above**: for the next
+physical joystick trial, prefer
+**`alternate_dr_hardened_fullenvelope_frictionasym_stickslip_2026_09_22`**
+over both `alternate_dr_hardened_fullenvelope_2026_09_22` (plain GRU
+envwide-s0) and the MLP candidate — same envelope coverage, strictly more
+randomized-axis coverage (adds the two foot-contact axes closest to the
+real robot's actual friction/slip physics), and the best-measured
+composed-session safety margin of the three. `envwide-s0` remains a valid
+fallback (still zero-termination, slightly wider roll swing); the MLP
+candidate stays third given its 1/4-seed composed-session fall rate
+documented above.
+
+No config default changed, no code change, no GPU spend (export +
+composed-demo only, reusing `export_policy_np.py`/`ops.sh hybriddemo`
+verbatim). `hardware_ready=true` set on
+`cw-walk50hz-gru-dr10-frictionasym-stickslip-dose08`.
+
+Evidence: `rl_docs/tracks/standwalk/STATUS.md` 2026-09-22 ~19:1x (grid
+closure); `composition.json`'s new
+`alternate_dr_hardened_fullenvelope_frictionasym_stickslip_2026_09_22`
+field; `logs/manual_drive/todaypolicy_bundle50hz_v1_stand_b23k12_walk_
+frictionasym_stickslip_dose08_{dr0,dr1}/{summary.json,drive.mp4,
+contact_sheet.png}`.

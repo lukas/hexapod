@@ -603,8 +603,11 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
 
     ``trace_sink``: an existing (empty) list -- when given, every
     tick appends a plain dict of ``{step, t_s, mode, action, qpos,
-    qvel, servo_current, height_mm, height_ref_mm, reward,
-    terminated}`` (numpy arrays copied, not views). Diagnostic-only,
+    qvel, servo_current, over_current_signal, height_mm,
+    height_ref_mm, reward, terminated}`` (numpy arrays copied, not
+    views; ``over_current_signal`` is None on legacy
+    ``bus.current_model="torque_proxy"`` runs, matching
+    ``RobotState``). Diagnostic-only,
     no effect on the returned ep dict/reward/frames -- built
     (2026-09-03, standwalk rise-stall redesign spec item) so a
     real qpos/action/current trace from a genuinely stalling rollout
@@ -742,6 +745,21 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
                 "servo_current": (st.servo_current.copy()
                                   if st.servo_current is not None
                                   else None),
+                # The SafetyLayer's actual over_current TRIP signal
+                # (2026-09-19 bus.current_model="power" default split --
+                # see sim_env.py::_read_state and audit_over_current.py's
+                # module docstring). Under the default "power" model this
+                # is a SEPARATE legacy torque-proxy channel from
+                # servo_current (which now reads near-zero while holding/
+                # stalling); under legacy "torque_proxy" it is None (the
+                # trip falls back to servo_current, unchanged). Added
+                # 2026-09-23 after finding audit_over_current.py silently
+                # auditing the wrong (near-zero) column for every
+                # power-model trace since the flip -- see that module.
+                "over_current_signal": (
+                    st.over_current_signal.copy()
+                    if getattr(st, "over_current_signal", None) is not None
+                    else None),
                 "commanded_position": (
                     np.asarray(st.commanded_position,
                                dtype=np.float64).copy()
@@ -766,6 +784,23 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
                 "contact": np.asarray(
                     [float(env.data.sensordata[adr]) > CONTACT_N
                      for adr in env._touch_adr], dtype=np.float64),
+                # Raw per-foot touch-sensor force (2026-09-23,
+                # standwalk dr=0.6 hold_min_load plateau dig-in): the
+                # boolean "contact" field above cannot distinguish a
+                # foot at 0.01N from one at 0.29N, but the
+                # hold_min_load termination/EMA (sim_env.py
+                # _minload_min_force_now) is a raw-newton floor
+                # comparison -- need the actual number to tell a real
+                # sustained per-leg load loss from a transient
+                # near-threshold EMA blip (the rise-phase over_current
+                # RAIL_MOVING-vs-stall distinction, same shape of
+                # question). adr<0 (no touch sensor on that foot) ->
+                # NaN, matching the clearance-fallback branch in
+                # _minload_min_force_now rather than faking a number.
+                "foot_force": np.asarray(
+                    [float(env.data.sensordata[adr]) if adr >= 0
+                     else float("nan") for adr in env._touch_adr],
+                    dtype=np.float64),
                 "height_mm": info.get("height_mm"),
                 "height_ref_mm": info.get("height_ref_mm"),
                 "reward": float(r),
@@ -1217,8 +1252,10 @@ def _save_rollout_trace(trace: list[dict], out_path: Path,
     """Write a ``--rollout-trace-out`` sink (see run_episode's
     trace_sink docstring) to one .npz: stacked per-tick arrays
     (``step``, ``t_s``, ``action``, ``qpos``, ``qvel``,
-    ``servo_current``, ``height_mm``, ``height_ref_mm``, ``reward``,
-    ``terminated``) plus the episode's own summary dict as a single
+    ``servo_current``, ``over_current_signal``, ``contact``,
+    ``foot_force``, ``height_mm``,
+    ``height_ref_mm``, ``reward``, ``terminated``) plus the episode's
+    own summary dict as a single
     JSON string field (``ep_json``) for provenance (mode, start_kind,
     term_reason, cur_max_a, height_err_end_mm, ...). None-valued
     fields (e.g. servo_current/height on a mode that lacks them) are
@@ -1252,8 +1289,10 @@ def _save_rollout_trace(trace: list[dict], out_path: Path,
         "ep_json": _json.dumps(ep),
     }
     for key in ("action", "qpos", "qvel", "servo_current",
+               "over_current_signal",
                "commanded_position", "applied_action",
                "proposed_position", "presafe_last_position", "contact",
+               "foot_force",
                "height_mm", "height_ref_mm"):
         col = _col(key)
         if col is not None:
@@ -1764,9 +1803,23 @@ def main() -> None:
     if args.cfg_set:
         from rl_move.config import load_config
         cfg = load_config()
+        # Dot-less key tolerance (2026-09-23, cw-stand50hz-mlp-dr06-
+        # fromdr05-hardstartcorr): must match _build_env/_resolved_cfg
+        # in train_ppo_sim.py exactly, INCLUDING their tolerance of a
+        # dot-less key (e.g. a stray `--cfg-set dr_scale=0.6`, which
+        # should have been the separate `--dr-scale` CLI flag) — that
+        # sets a harmless top-level cfg entry instead of a
+        # section.name pair rather than crashing. A plain
+        # `key.split(".", 1)` raised ValueError here on that exact
+        # replayed --cfg-set list, blocking gate-eval of a run that
+        # had already trained fine (train tolerated it as a no-op;
+        # eval must replay the SAME resolved cfg, not a stricter one).
         for key, parsed in _parse_cfg_set(args.cfg_set).items():
-            sect, name = key.split(".", 1)
-            cfg.setdefault(sect, {})[name] = parsed
+            node = cfg
+            *path, leaf = key.split(".")
+            for k in path:
+                node = node.setdefault(k, {})
+            node[leaf] = parsed
         cfg_kw["cfg"] = cfg
     # dr.<field> cfg overrides need the randomizer alive even at
     # --dr-scale 0 (payload/latency-axis arms: scale 0 = nominal sim +

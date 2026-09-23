@@ -114,3 +114,89 @@ def test_save_rollout_trace_empty_sink_does_not_crash(tmp_path):
     out = tmp_path / "empty.npz"
     _save_rollout_trace([], out, {"mode": "rise"})
     assert not out.exists()
+
+
+def test_trace_sink_records_over_current_signal_under_power_model(tmp_path):
+    """2026-09-23 fix: the trip-signal channel (see sim_env.py's
+    over_current_signal / audit_over_current.py) must round-trip
+    through the trace sink under the default bus.current_model="power"
+    -- previously this field was never captured, so the over_current
+    audit tool silently classified the wrong (near-zero
+    mechanical-power) column."""
+    env = _rise_only_env(episode_seconds=8.0)
+    assert env.cfg.get("bus", {}).get(
+        "current_model", "power") == "power" or "bus" not in env.cfg
+    env.reset(seed=0)
+    sink: list = []
+    ep, _ = run_episode(env, _ZeroModel(), deterministic=True,
+                        video=False, annotate=None, trace_sink=sink)
+    env.close()
+    assert "over_current_signal" in sink[0]
+    out = tmp_path / "trace_ocs.npz"
+    _save_rollout_trace(sink, out, ep)
+    d = np.load(out, allow_pickle=True)
+    assert "over_current_signal" in d.files
+    assert d["over_current_signal"].shape == d["servo_current"].shape
+    # power model: the two channels are genuinely different estimators
+    # (not the same array copied twice under a new name).
+    assert not np.allclose(d["over_current_signal"], d["servo_current"])
+
+
+def test_trace_sink_over_current_signal_none_under_torque_proxy(tmp_path):
+    """Legacy bus.current_model="torque_proxy": no separate trip
+    signal -- over_current_signal must stay None in the trace_sink
+    (servo_current IS the trip signal, bit-exact with pre-09-19
+    behavior), and _save_rollout_trace must not choke on the all-None
+    column."""
+    cfg = load_config()
+    cfg.setdefault("bus", {})["current_model"] = "torque_proxy"
+    env = SimHexapodJointWalkEnv(cfg, seed=0, episode_seconds=8.0)
+    gen = env._goal_gen
+    for m in ("hold", "lean", "track", "unload", "raise", "walk", "lower"):
+        if hasattr(gen, f"p_{m}"):
+            setattr(gen, f"p_{m}", 0.0)
+    gen.p_rise = 1.0
+    env.reset(seed=0)
+    sink: list = []
+    ep, _ = run_episode(env, _ZeroModel(), deterministic=True,
+                        video=False, annotate=None, trace_sink=sink)
+    env.close()
+    assert sink[0]["over_current_signal"] is None
+    out = tmp_path / "trace_legacy.npz"
+    _save_rollout_trace(sink, out, ep)
+    d = np.load(out, allow_pickle=True)
+    # None-valued column -> not written at all (existing _col contract)
+    assert "over_current_signal" not in d.files
+
+
+def test_trace_sink_records_raw_foot_force(tmp_path):
+    """2026-09-23 addition (standwalk dr=0.6 hold_min_load plateau
+    dig-in): the boolean ``contact`` field cannot distinguish a foot
+    at 0.01N from one at 0.29N, but the hold_min_load termination is a
+    raw-newton floor comparison (sim_env.py
+    _minload_min_force_now) -- need the real number to tell a
+    sustained per-leg load loss from a transient near-threshold blip.
+    One row per tick, one value per foot, no effect on the returned ep
+    dict or any other field (same no-op contract as the other
+    diagnostic columns in this file)."""
+    env = _rise_only_env(episode_seconds=8.0)
+    env.reset(seed=0)
+    sink: list = []
+    ep, _ = run_episode(env, _ZeroModel(), deterministic=True,
+                        video=False, annotate=None, trace_sink=sink)
+    env.close()
+    assert "foot_force" in sink[0]
+    assert sink[0]["foot_force"].shape == (len(env._touch_adr),)
+    # at least one foot has a real (non-NaN) touch sensor on this model
+    assert np.any(np.isfinite(sink[0]["foot_force"]))
+    out = tmp_path / "trace_foot_force.npz"
+    _save_rollout_trace(sink, out, ep)
+    d = np.load(out, allow_pickle=True)
+    assert "foot_force" in d.files
+    assert d["foot_force"].shape == (len(sink), len(env._touch_adr))
+    env2 = _rise_only_env(episode_seconds=8.0)
+    env2.reset(seed=0)
+    ep_notrace, _ = run_episode(env2, _ZeroModel(), deterministic=True,
+                                video=False, annotate=None)
+    env2.close()
+    assert ep == ep_notrace

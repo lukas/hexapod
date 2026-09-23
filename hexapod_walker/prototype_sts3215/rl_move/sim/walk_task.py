@@ -1927,6 +1927,31 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         park_frac = float(cfg_get(self.cfg, "goal", "walk_park_start_frac",
                                   default=0.0))
         start_at = "park" if rng.random() < park_frac else "plant"
+        # Post-rise composed-session WALK entry exposure (2026-09-23,
+        # standwalk STATUS ~18:3x: `eval_modeseq.py --dump-seg-qpos`
+        # found the real rise->walk handoff pose in a composed session
+        # differs from this task's own isolated "plant" spawn by a
+        # measurable joint-space/height offset that correlates with
+        # elevated fall risk — the SAME structural class of gap
+        # `goal.rise_start_bank` already closed for the post-lower
+        # rise). goal.walk_entry_bank = npz path (key q_rad, shape
+        # (K,18), harvested via that tool's "walk_entry" tag) holding
+        # real composed-session walk-entry poses; goal.
+        # walk_entry_bank_frac f = fraction of otherwise-"plant"
+        # walk episodes that spawn from a bank pose instead — only the
+        # joint spawn pose changes, the velocity/height command
+        # schedule stays whatever this episode already sampled (same
+        # scope as rise_start_bank leaving the rise ramp untouched).
+        # Default OFF; the draw is CONDITIONAL on a configured
+        # non-empty bank so legacy rng streams stay bit-exact.
+        entry_bank = str(cfg_get(self.cfg, "goal", "walk_entry_bank",
+                                 default="") or "")
+        entry_bank_frac = float(cfg_get(self.cfg, "goal",
+                                        "walk_entry_bank_frac",
+                                        default=0.0))
+        if (entry_bank and entry_bank_frac > 0.0 and start_at == "plant"
+                and rng.random() < entry_bank_frac):
+            start_at = "walk_entry_bank"
         # Turn-in-place curriculum (operator direction 08-10: the fix
         # for the structural left drift is COMMAND EXPOSURE, not more
         # price tuning). Under independent sampling, turn-in-place

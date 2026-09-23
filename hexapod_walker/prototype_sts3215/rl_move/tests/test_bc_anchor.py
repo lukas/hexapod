@@ -3498,3 +3498,54 @@ def test_attach_bc_anchor_anneal_gate_uses_the_fixed_schedule():
     assert model.bc_anneal_min_progress == 0.35
     assert model.bc_anneal_init_coef == 4.0
     assert model.bc_anneal_pass_step is None
+
+
+def test_walk_bc_gait_syncs_to_default_plant_stance():
+    """Bug fix (2026-09-23, extplant82-actionbox-yaw11 dig-in):
+    ``_make_walk_bc_gait`` used to hardcode ``sync_plant_stance(20.0,
+    100.0)`` regardless of the run's own resolved plant target. For
+    every run that never overrides ``plant.hip_deg``/``knee_deg``
+    (``self._plant_deg`` == ``_default_plant_deg()`` == robot_abs
+    20/100), the fixed read-from-``self._plant_deg`` code path must
+    still land on exactly 20.0/100.0 -- bit-exact, not just numerically
+    close."""
+    env = _make_walk_env(0, {("train", "bc_anchor_coef"): 1.0})
+    env.reset()
+    assert env._walk_bc_gait is not None
+    assert env._plant_deg[1] == 20.0
+    assert env._plant_deg[2] == 100.0
+    assert env._walk_bc_gait.plant_hip_deg == pytest.approx(20.0)
+    assert env._walk_bc_gait.plant_knee_deg == pytest.approx(100.0)
+
+
+def test_walk_bc_gait_syncs_to_overridden_plant_stance():
+    """Same fixture, but with an extplant82-style ``plant_deg`` override
+    (hip=20/knee=82 robot_abs, the extended-plant family): the walk BC
+    teacher must now sync to THAT stance, not the legacy 20/100 literal
+    -- the bug that let the entire extplant82-actionbox sub-lineage
+    (s0/ramp/ramp5m/ramp5m-logstdcomp/yaw11-ramp5m, all FAIL/PARTIAL)
+    train under a teacher target physically unreachable inside their
+    own action box (bias+box center 82, max reach ~97 < the old
+    target's 100)."""
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+    cfg = load_config()
+    ov = dict(WALK_OVERRIDES)
+    ov[("train", "bc_anchor_coef")] = 1.0
+    for (sec, leaf), val in ov.items():
+        cfg.setdefault(sec, {})[leaf] = val
+    plant_deg = [0.0, 20.0, 82.0] * 6
+    env = SimHexapodJointWalkEnv(
+        params=SimServoParams.from_cfg(None), randomize=False,
+        dr_scale=0.0, episode_seconds=15.0, seed=0, cfg=cfg,
+        plant_deg=plant_deg)
+    gen = env._goal_gen
+    for m in ("hold", "lean", "track", "unload", "raise", "rise",
+              "lower", "quad", "walk"):
+        if hasattr(gen, f"p_{m}"):
+            setattr(gen, f"p_{m}", 1.0 if m == "walk" else 0.0)
+    env.reset()
+    assert env._walk_bc_gait is not None
+    assert env._plant_deg[1] == 20.0
+    assert env._plant_deg[2] == 82.0
+    assert env._walk_bc_gait.plant_hip_deg == pytest.approx(20.0)
+    assert env._walk_bc_gait.plant_knee_deg == pytest.approx(82.0)

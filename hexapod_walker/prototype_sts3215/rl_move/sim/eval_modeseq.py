@@ -229,6 +229,108 @@ def rise_from_h_traj(env, cfg: dict):
     return traj, h_target
 
 
+class TwoSpecialistDriver:
+    """Drives the two-specialist baseline's `--stand`/`--walk` models
+    with persistent per-policy hidden state across mode switches,
+    resetting only at true episode start.
+
+    Factored out of `main()`'s two-specialist branch so the recurrent-
+    state bug it fixes (a bare `PPO.load(...).predict(obs, ...)` call
+    silently re-zeroes a GRU checkpoint's hidden state on EVERY tick --
+    found while baselining this tool against the standwalk track's
+    dr=0.7 GRU stand champion and dr=1.0 GRU walk champion for the
+    first time) has a unit test that doesn't need real checkpoints or
+    a MuJoCo env. `stand`/`walk` are anything exposing SB3's
+    `.predict(obs, deterministic=...)` (non-recurrent) or, when
+    `stand_rec`/`walk_rec`, `.policy.predict(obs, state=, episode_start=,
+    deterministic=)` (recurrent) -- i.e. a loaded PPO or RecurrentPPO
+    model, or a test double with the same call surface.
+    """
+
+    def __init__(self, stand, walk, n_stand: int, det: bool,
+                 stand_rec: bool, walk_rec: bool):
+        self.stand, self.walk, self.n_stand, self.det = (
+            stand, walk, n_stand, det)
+        self.stand_rec, self.walk_rec = stand_rec, walk_rec
+        self.stand_state = None
+        self.walk_state = None
+        self.start = np.ones((1,), dtype=bool)
+
+    def episode_begin(self) -> None:
+        self.stand_state = None
+        self.walk_state = None
+        self.start = np.ones((1,), dtype=bool)
+
+    def act(self, obs, mode: str):
+        if mode == "walk":
+            if self.walk_rec:
+                a, self.walk_state = self.walk.policy.predict(
+                    obs, state=self.walk_state,
+                    episode_start=self.start, deterministic=self.det)
+            else:
+                a = self.walk.predict(obs, deterministic=self.det)[0]
+        else:
+            stand_obs = obs[:self.n_stand]
+            if self.stand_rec:
+                a, self.stand_state = self.stand.policy.predict(
+                    stand_obs, state=self.stand_state,
+                    episode_start=self.start, deterministic=self.det)
+            else:
+                a = self.stand.predict(stand_obs,
+                                        deterministic=self.det)[0]
+        self.start = np.zeros((1,), dtype=bool)
+        return a
+
+
+def resolve_episode_seconds(episode_seconds_arg: float | None) -> float:
+    """--episode-seconds resolver, factored out so it's unit-testable
+    without a full main() invocation (checkpoints/MuJoCo). Default
+    None -> legacy hardcoded 20.0s (bit-exact); any explicit value
+    overrides it verbatim. See --episode-seconds help for why this
+    exists (09-23: the tool silently truncated any grammar/--drive-
+    seconds total exceeding 20s, marking the cut segment FAIL with
+    fall='episode_end' instead of erroring or warning)."""
+    return episode_seconds_arg if episode_seconds_arg is not None else 20.0
+
+
+def resolve_randomize(dr_scale: float) -> bool:
+    """--dr-scale resolver, factored out so it's unit-testable without
+    a full main() invocation (checkpoints/MuJoCo). This harness always
+    ran DR-0 only until 09-23 (`randomize=False` hardcoded); the
+    Stage-2 milestone gate needs both a DR-0 AND an own-DR pass, same
+    `randomize=dr_scale>0` convention every other eval harness in this
+    repo already uses (eval_checkpoint.py, eval_cmd_suite.py,
+    eval_drive.py, ...). Default 0.0 -> randomize=False, bit-exact
+    legacy behavior."""
+    return dr_scale > 0.0
+
+
+def seg_state_row(*, tag: str, ep: int, t_s: float, q_deg, qvel,
+                  chassis_z_m: float, z0: float | None,
+                  h_target: float | None,
+                  imu_roll_rad: float | None,
+                  imu_pitch_rad: float | None) -> dict:
+    """--dump-seg-qpos row builder, factored out of the `main()`
+    closure so it's unit-testable without a full env/checkpoint
+    (RESEARCH_RULES "Tests": fast, mechanics-only). Pure formatting +
+    unit conversion (rad -> deg, m -> mm); no MuJoCo/env access here,
+    that stays in `capture_seg_state`'s thin wrapper."""
+    height_err_mm = (
+        round((chassis_z_m - (z0 + h_target)) * 1000.0, 1)
+        if z0 is not None and h_target is not None else None)
+    roll_deg = (round(math.degrees(imu_roll_rad), 2)
+               if imu_roll_rad is not None else None)
+    pitch_deg = (round(math.degrees(imu_pitch_rad), 2)
+                if imu_pitch_rad is not None else None)
+    return {
+        "seg": tag, "ep": int(ep), "t_s": round(float(t_s), 2),
+        "q_deg": [round(float(x), 2) for x in q_deg],
+        "qvel_rad_s": [round(float(x), 3) for x in qvel],
+        "height_err_mm": height_err_mm,
+        "roll_deg": roll_deg, "pitch_deg": pitch_deg,
+    }
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--stand", type=Path,
@@ -311,11 +413,75 @@ def main() -> int:
     ap.add_argument("--rise-height-mm", default="108,114",
                     help="specialist's trained plant band (eval_handoff "
                          "default)")
+    ap.add_argument("--dump-rise-qpos", type=Path, default=None,
+                    help="diagnostic (09-23, standwalk second-rise-gap "
+                         "root cause): append every rise segment's "
+                         "settled joint pose (robot_abs deg, 18-dim) + "
+                         "start_kind + entry height-err at the moment "
+                         "the segment BEGINS (cold reset or post-lower "
+                         "reanchor, before the policy acts) to this "
+                         "npz. Lets a from-scratch analysis compare the "
+                         "reanchor_post_lower pose against the "
+                         "flat/bridge/crouch cold-start bands the rise "
+                         "curriculum actually trains on, without a "
+                         "second harness. Default None = no capture, "
+                         "zero overhead/behavior change.")
+    ap.add_argument("--dump-seg-qpos", type=Path, default=None,
+                    help="diagnostic (09-23, standwalk composed-"
+                         "session own-DR fall gap: walk/lower "
+                         "analogue of --dump-rise-qpos): for every "
+                         "walk/lower reanchor_to() call, dump BOTH the "
+                         "fresh cold env.reset() pose for that mode "
+                         "(tag <mode>_cold_reset -- the exact pose "
+                         "each specialist's own isolated per-episode "
+                         "gate resets from, same reset() call) AND "
+                         "the actual composed-session carried-over "
+                         "pose restored on top of it a moment later "
+                         "(tag <mode>_entry), plus periodic mid-walk "
+                         "samples (tag walk_mid, see --dump-seg-"
+                         "interval-s) through the randomized drive "
+                         "schedule, to this npz (q_deg/qvel_rad_s/"
+                         "height_err_mm/roll_deg/pitch_deg per row). "
+                         "Lets a from-scratch analysis check whether "
+                         "the composed session's real joint/velocity/"
+                         "tilt state at each handoff (and through a "
+                         "long randomized walk) actually differs from "
+                         "what each specialist ever saw at its own "
+                         "isolated reset, before funding any DR-"
+                         "hardening retrain. Default None = no "
+                         "capture, zero overhead/behavior change.")
+    ap.add_argument("--dump-seg-interval-s", type=float, default=None,
+                    help="with --dump-seg-qpos, also sample the walk "
+                         "segment's live state (tag walk_mid) every "
+                         "this many seconds of drive-schedule time "
+                         "(default None = entry/cold-reset snapshots "
+                         "only, no mid-walk sampling)")
     ap.add_argument("--out", type=Path, default=None)
     ap.add_argument("--strips", type=Path, default=None,
                     help="dir for 1 fps frame-strip PNGs (episode 0 only)")
     ap.add_argument("--cfg-set", action="append", default=None,
                     metavar="K=V")
+    ap.add_argument("--episode-seconds", type=float, default=None,
+                    help="override the harness env's internal "
+                         "episode time-limit (seconds). Default None "
+                         "= legacy hardcoded 20.0s, which silently "
+                         "truncates (segment marked FAIL, "
+                         "fall='episode_end') any grammar/--drive-"
+                         "seconds combination whose real total "
+                         "duration exceeds 20s -- found 09-23 trying "
+                         "to run the actual 60s randomized-joystick "
+                         "Stage-2 milestone through this tool for the "
+                         "first time. Bit-exact when omitted.")
+    ap.add_argument("--dr-scale", type=float, default=0.0,
+                    help="domain-randomization scale for the harness "
+                         "env (0.0 = legacy DR-0, bit-exact default). "
+                         "This tool always ran DR-0 only until 09-23; "
+                         "the Stage-2 milestone gate needs both a DR-0 "
+                         "AND an own-DR pass, and every other eval "
+                         "harness in this repo (eval_checkpoint, "
+                         "eval_cmd_suite, eval_drive, ...) already "
+                         "exposes this flag the same way "
+                         "(randomize=dr_scale>0, dr_scale=dr_scale).")
     args = ap.parse_args()
 
     import mujoco
@@ -367,10 +533,15 @@ def main() -> int:
     drive_rng = (np.random.default_rng(args.seed)
                  if args.drive_random else None)
 
+    episode_seconds = resolve_episode_seconds(args.episode_seconds)
+
     def make_env():
         return SimHexapodJointWalkEnv(
             params=SimServoParams.from_cfg(cfg), cfg=cfg,
-            randomize=False, episode_seconds=20.0, seed=args.seed,
+            randomize=resolve_randomize(args.dr_scale),
+            dr_scale=args.dr_scale,
+            episode_seconds=episode_seconds,
+            seed=args.seed,
             render_mode="rgb_array" if args.strips else None)
 
     if args.single is not None:
@@ -417,25 +588,59 @@ def main() -> int:
                 return single.predict(obs, deterministic=det)[0]
     else:
         # ---- two-specialist baseline path ----------------------------
+        # Both checkpoints load through load_checkpoint_auto (not a bare
+        # PPO.load): PPO.load happens to deserialize a GRU
+        # (RecurrentPPO/GruActorCriticPolicy) zip without raising, but
+        # calling .predict(obs, deterministic=det) on the result with no
+        # state/episode_start args silently re-zeroes the GRU hidden
+        # state on EVERY tick -- the model runs stateless, which for a
+        # recurrent policy is a lobotomy, not a baseline. Found while
+        # baselining this tool against the standwalk track's current
+        # dr=0.7 stand champions (GRU + MLP) and the dr=1.0 GRU walk
+        # champion for the first time (both are/can-be recurrent).
+        from .gru_policy import is_recurrent_checkpoint, \
+            load_checkpoint_auto
         env = make_env()
-        stand = PPO.load(args.stand, device="cpu")
-        walk = PPO.load(args.walk, device="cpu")
+        stand = load_checkpoint_auto(args.stand, device="cpu")
+        walk = load_checkpoint_auto(args.walk, device="cpu")
         n_stand = int(stand.observation_space.shape[0])
         n_env = int(env.observation_space.shape[0])
-        assert walk.observation_space.shape[0] == n_env, (
+        n_walk = int(walk.observation_space.shape[0])
+        if n_walk != n_env:
+            # Same dual-core mode-onehot convention the --single path
+            # already handled (`obs.mode_onehot`): a walk checkpoint
+            # trained with the extra N_MODE_OBS mode-onehot inputs
+            # needs the env rebuilt with that obs feature enabled.
+            # Found while baselining this tool for the first time
+            # against the dr=1.0 GRU walk champion (`dr10_lsc_pinrobust2`),
+            # which was trained with obs.mode_onehot=1.
+            from .walk_task import N_MODE_OBS
+            if n_walk == n_env + N_MODE_OBS:
+                print(f"[modeseq] walk checkpoint obs {n_walk} = env "
+                      f"{n_env} + {N_MODE_OBS}: enabling "
+                      f"obs.mode_onehot")
+                env.close()
+                cfg.setdefault("obs", {})["mode_onehot"] = 1.0
+                env = make_env()
+                n_env = int(env.observation_space.shape[0])
+        assert n_walk == n_env, (
             f"walk policy obs {walk.observation_space.shape} != env "
             f"{n_env}")
         assert n_stand < n_env, (
             "stand policy obs must be a prefix of the walk env obs "
             f"(got {n_stand} vs {n_env})")
 
-        def episode_begin() -> None:
-            pass
-
-        def act(obs, mode):
-            if mode == "walk":
-                return walk.predict(obs, deterministic=det)[0]
-            return stand.predict(obs[:n_stand], deterministic=det)[0]
+        # True episode start only -- hidden state persists across
+        # segment/mode switches within an episode, same contract as the
+        # --single path (resetting on every rise<->walk<->lower handoff
+        # would evaluate a lobotomized policy, not the composed
+        # baseline this tool exists to measure).
+        driver = TwoSpecialistDriver(
+            stand, walk, n_stand, det,
+            stand_rec=is_recurrent_checkpoint(args.stand),
+            walk_rec=is_recurrent_checkpoint(args.walk))
+        episode_begin = driver.episode_begin
+        act = driver.act
 
     gen = env._goal_gen
     dt = env.dt
@@ -467,6 +672,30 @@ def main() -> int:
                         np.hstack(strip_frames))
         strip_frames.clear()
 
+    switch_win_n = max(1, int(round(SWITCH_WIN_S / dt)))
+    rise_qpos_dump: list = []
+    seg_qpos_dump: list = []
+
+    def capture_seg_state(tag: str, t_s: float) -> None:
+        """--dump-seg-qpos row: joint pose/velocity + height/tilt at
+        the current instant, tagged with which moment this is
+        (<mode>_cold_reset / <mode>_entry / walk_mid) and the episode
+        it belongs to (`ep`, the enclosing per-episode loop variable)."""
+        if args.dump_seg_qpos is None:
+            return
+        from hexapod_core.joint_frame import (
+            mujoco_rel_rad_to_robot_abs_deg)
+        q_deg = mujoco_rel_rad_to_robot_abs_deg(env.data.qpos[env._qadr])
+        qvel = np.asarray(env.data.qvel[env._vadr], dtype=float)
+        st = getattr(env, "_state", None)
+        seg_qpos_dump.append(seg_state_row(
+            tag=tag, ep=int(ep), t_s=t_s, q_deg=q_deg, qvel=qvel,
+            chassis_z_m=chassis_z(),
+            z0=getattr(env, "_z0", None),
+            h_target=getattr(env, "_h_target", None),
+            imu_roll_rad=(st.imu_roll if st is not None else None),
+            imu_pitch_rad=(st.imu_pitch if st is not None else None)))
+
     def reanchor_to(mode: str, *, force_rise_start: str | None = None):
         """Fresh <mode> episode at a clean reference frame, physics kept.
 
@@ -489,6 +718,13 @@ def main() -> int:
             gen.force_rise_start = force_rise_start
         env.reset()
         gen.force_rise_start = None
+        if mode in ("walk", "lower"):
+            # The pristine reset BEFORE the composed-session physical
+            # state is restored on top -- exactly the pose/velocity an
+            # isolated eval_checkpoint walk/lower episode starts from
+            # (same env, same cfg, same reset() call), captured here
+            # rather than in a separate harness run.
+            capture_seg_state(f"{mode}_cold_reset", 0.0)
         d.qpos[:] = keep_qpos
         d.qvel[:] = keep_qvel
         d.ctrl[:] = keep_ctrl
@@ -497,12 +733,12 @@ def main() -> int:
         env.safety._last_safe = keep_safe
         mujoco.mj_forward(env.model, env.data)
         env._state = env._read_state()
+        if mode in ("walk", "lower"):
+            capture_seg_state(f"{mode}_entry", 0.0)
         return env._final_obs(
             build_obs(env.cfg, env._state, env._q_nom,
                       env._prev_action, goal=env._current_goal(),
                       tilt_ref=env._tilt_ref0), reset=True)
-
-    switch_win_n = max(1, int(round(SWITCH_WIN_S / dt)))
 
     class _SegMeter:
         """Switch-window evidence (directive item 3, no bar in v1):
@@ -549,9 +785,33 @@ def main() -> int:
             obs, _ = env.reset()
             gen.force_rise_start = None
             rec["start_kind"] = start_kind
+            if args.dump_rise_qpos is not None:
+                from hexapod_core.joint_frame import (
+                    mujoco_rel_rad_to_robot_abs_deg)
+                q_deg = mujoco_rel_rad_to_robot_abs_deg(
+                    env.data.qpos[env._qadr])
+                rise_qpos_dump.append({
+                    "start_kind": start_kind,
+                    "q_deg": [round(float(x), 2) for x in q_deg],
+                    "entry_height_err_mm": round(
+                        (chassis_z() - (env._z0 + env._h_target))
+                        * 1000.0, 1),
+                })
         else:
             obs = reanchor_to("rise", force_rise_start="flat")
             rec["start_kind"] = "reanchor_post_lower"
+            if args.dump_rise_qpos is not None:
+                from hexapod_core.joint_frame import (
+                    mujoco_rel_rad_to_robot_abs_deg)
+                q_deg = mujoco_rel_rad_to_robot_abs_deg(
+                    env.data.qpos[env._qadr])
+                rise_qpos_dump.append({
+                    "start_kind": "reanchor_post_lower",
+                    "q_deg": [round(float(x), 2) for x in q_deg],
+                    "entry_height_err_mm": round(
+                        (chassis_z() - (env._z0 + env._h_target))
+                        * 1000.0, 1),
+                })
             if args.rise_from_h:
                 traj, h_target = rise_from_h_traj(env, cfg)
                 env._goal_traj = traj
@@ -606,6 +866,11 @@ def main() -> int:
         pad_xy_hist: list = []       # (T, 6, 2) world
         pads = env._pad_bids
         meter = _SegMeter()
+        t_elapsed = 0.0
+        next_dump_t = (args.dump_seg_interval_s
+                      if (args.dump_seg_qpos is not None
+                          and args.dump_seg_interval_s)
+                      else None)
 
         def gait_metrics() -> None:
             # Identical definitions to eval_checkpoint (duty/swings/
@@ -652,6 +917,10 @@ def main() -> int:
                 obs, _rw, term, trunc, info = env.step(a)
                 grab()
                 meter.tick(info)
+                t_elapsed += dt
+                if next_dump_t is not None and t_elapsed >= next_dump_t:
+                    capture_seg_state("walk_mid", t_elapsed)
+                    next_dump_t += args.dump_seg_interval_s
                 if vx != 0.0 or vy != 0.0:
                     z_sum += chassis_z()
                     z_n += 1
@@ -855,6 +1124,35 @@ def main() -> int:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(json.dumps(results, indent=1))
         print(f"wrote {args.out}")
+    if args.dump_rise_qpos is not None and rise_qpos_dump:
+        kinds = np.array([r["start_kind"] for r in rise_qpos_dump])
+        q_deg = np.array([r["q_deg"] for r in rise_qpos_dump])
+        h_err = np.array([r["entry_height_err_mm"] for r in
+                          rise_qpos_dump])
+        args.dump_rise_qpos.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(args.dump_rise_qpos, start_kind=kinds, q_deg=q_deg,
+                 entry_height_err_mm=h_err)
+        print(f"wrote {args.dump_rise_qpos} ({len(rise_qpos_dump)} "
+              "rise-entry poses)")
+    if args.dump_seg_qpos is not None and seg_qpos_dump:
+        def _col(key, fill=np.nan):
+            return np.array([
+                r[key] if r[key] is not None else fill
+                for r in seg_qpos_dump])
+        args.dump_seg_qpos.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(
+            args.dump_seg_qpos,
+            seg=np.array([r["seg"] for r in seg_qpos_dump]),
+            ep=np.array([r["ep"] for r in seg_qpos_dump]),
+            t_s=np.array([r["t_s"] for r in seg_qpos_dump]),
+            q_deg=np.array([r["q_deg"] for r in seg_qpos_dump]),
+            qvel_rad_s=np.array([r["qvel_rad_s"]
+                                 for r in seg_qpos_dump]),
+            height_err_mm=_col("height_err_mm"),
+            roll_deg=_col("roll_deg"),
+            pitch_deg=_col("pitch_deg"))
+        print(f"wrote {args.dump_seg_qpos} ({len(seg_qpos_dump)} "
+              "walk/lower seg-state samples)")
     return 0 if pass_ else 1
 
 

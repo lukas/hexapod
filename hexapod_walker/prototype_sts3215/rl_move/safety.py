@@ -121,6 +121,35 @@ class SafetyLayer:
         self._health_sample_hz = hz
         self._over_current_trip_ticks = max(1, int(round(trip_s * hz)))
         self._over_current_ticks = 0
+        # RAIL_MOVING vs CORROBORATED_STALL over-current grace (2026-09-23,
+        # standwalk track — audit_over_current.py's own classifier
+        # distinguishes a hot joint that is genuinely moving/making
+        # whole-body progress (RAIL_MOVING: high torque during real,
+        # useful work — e.g. a bridge-start rise pressing hard against
+        # gravity) from one that is stalled/static under load
+        # (CORROBORATED_STALL — the real burn/jam risk this trip exists
+        # to catch). The base ``over_current_trip_ticks`` bound above is
+        # UNCHANGED and still the only bound that applies to a static
+        # joint, on hardware or in sim — this only ever ADDS extra grace
+        # ticks, one per tick, and only while the specific joint that is
+        # currently over threshold is itself moving faster than a small
+        # floor (``joint_velocity``, identical semantics/units on
+        # hardware and sim, so this generalizes cleanly). Default
+        # ``over_current_moving_grace_s=0.0`` = OFF: grace_ticks == 0, the
+        # trip fires at EXACTLY the pre-existing tick bound, bit-exact
+        # legacy behavior. Enabling this is a training/sim-side research
+        # lever first; deploying it with a nonzero grace on the real
+        # robot's guarded runner is a SEPARATE, later hardware-safety
+        # decision for Robot Lab, not implied by building it here.
+        # Tests: rl_move/tests/test_safety_overcurrent_moving_grace.py.
+        self._over_current_moving_grace_s = float(cfg_get(
+            cfg, "safety", "over_current_moving_grace_s", default=0.0))
+        self._over_current_moving_qvel_floor = float(cfg_get(
+            cfg, "safety", "over_current_moving_qvel_floor_rad_s",
+            default=0.05))
+        self._over_current_moving_grace_ticks = max(
+            0, int(round(self._over_current_moving_grace_s * hz)))
+        self._over_current_moving_grace_used = 0
         # Over-temp needs consecutive FRESH feedback reads (not control
         # ticks): a corrupted byte on the shared half-duplex bus
         # occasionally reads 70-90 C on a servo that is actually ~33 C
@@ -148,6 +177,7 @@ class SafetyLayer:
     def set_nominal(self, q_rad: np.ndarray) -> None:
         self._last_safe = np.asarray(q_rad, dtype=float).reshape(N_JOINTS).copy()
         self._over_current_ticks = 0
+        self._over_current_moving_grace_used = 0
         self._over_temp_ticks = 0
         self._over_load_ticks = 0
         self._incomplete_feedback_ticks = 0
@@ -199,6 +229,8 @@ class SafetyLayer:
         self._health_sample_hz = sample_hz
         self._over_current_trip_ticks = max(
             1, int(round(self._over_current_trip_s * sample_hz)))
+        self._over_current_moving_grace_ticks = max(
+            0, int(round(self._over_current_moving_grace_s * sample_hz)))
         return self._over_current_trip_ticks
 
     def estop(self) -> None:
@@ -324,12 +356,36 @@ class SafetyLayer:
             if float(cur[j]) > self.max_current:
                 self._over_current_ticks += 1
                 if self._over_current_ticks >= self._over_current_trip_ticks:
-                    return SafetyStatus(
-                        ok=False, terminate=True, reason="over_current",
-                        detail=f"{_joint_name(j)} {float(cur[j]):.2f}A",
-                        held=True)
+                    moving = False
+                    if self._over_current_moving_grace_ticks > 0:
+                        qvel = getattr(state, "joint_velocity", None)
+                        if qvel is not None:
+                            try:
+                                qv = np.asarray(
+                                    qvel, dtype=float).reshape(N_JOINTS)
+                                moving = bool(
+                                    abs(float(qv[j]))
+                                    > self._over_current_moving_qvel_floor)
+                            except (TypeError, ValueError, IndexError):
+                                moving = False
+                    if (moving and self._over_current_moving_grace_used
+                            < self._over_current_moving_grace_ticks):
+                        # RAIL_MOVING: the hot joint is still doing real
+                        # work, not stalled — spend one grace tick instead
+                        # of terminating. A joint that stops moving before
+                        # the grace budget runs out trips immediately on
+                        # its next over-threshold tick (the `else` branch
+                        # below), so a genuine stall is never protected by
+                        # unused grace.
+                        self._over_current_moving_grace_used += 1
+                    else:
+                        return SafetyStatus(
+                            ok=False, terminate=True, reason="over_current",
+                            detail=f"{_joint_name(j)} {float(cur[j]):.2f}A",
+                            held=True)
             elif complete:
                 self._over_current_ticks = 0
+                self._over_current_moving_grace_used = 0
 
         load, load_ids = selected("servo_load")
         if consume_health_sample and load is not None and load_ids:

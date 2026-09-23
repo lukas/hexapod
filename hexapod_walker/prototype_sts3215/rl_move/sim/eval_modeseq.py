@@ -293,6 +293,18 @@ def resolve_episode_seconds(episode_seconds_arg: float | None) -> float:
     return episode_seconds_arg if episode_seconds_arg is not None else 20.0
 
 
+def resolve_randomize(dr_scale: float) -> bool:
+    """--dr-scale resolver, factored out so it's unit-testable without
+    a full main() invocation (checkpoints/MuJoCo). This harness always
+    ran DR-0 only until 09-23 (`randomize=False` hardcoded); the
+    Stage-2 milestone gate needs both a DR-0 AND an own-DR pass, same
+    `randomize=dr_scale>0` convention every other eval harness in this
+    repo already uses (eval_checkpoint.py, eval_cmd_suite.py,
+    eval_drive.py, ...). Default 0.0 -> randomize=False, bit-exact
+    legacy behavior."""
+    return dr_scale > 0.0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--stand", type=Path,
@@ -404,6 +416,16 @@ def main() -> int:
                          "to run the actual 60s randomized-joystick "
                          "Stage-2 milestone through this tool for the "
                          "first time. Bit-exact when omitted.")
+    ap.add_argument("--dr-scale", type=float, default=0.0,
+                    help="domain-randomization scale for the harness "
+                         "env (0.0 = legacy DR-0, bit-exact default). "
+                         "This tool always ran DR-0 only until 09-23; "
+                         "the Stage-2 milestone gate needs both a DR-0 "
+                         "AND an own-DR pass, and every other eval "
+                         "harness in this repo (eval_checkpoint, "
+                         "eval_cmd_suite, eval_drive, ...) already "
+                         "exposes this flag the same way "
+                         "(randomize=dr_scale>0, dr_scale=dr_scale).")
     args = ap.parse_args()
 
     import mujoco
@@ -460,7 +482,9 @@ def main() -> int:
     def make_env():
         return SimHexapodJointWalkEnv(
             params=SimServoParams.from_cfg(cfg), cfg=cfg,
-            randomize=False, episode_seconds=episode_seconds,
+            randomize=resolve_randomize(args.dr_scale),
+            dr_scale=args.dr_scale,
+            episode_seconds=episode_seconds,
             seed=args.seed,
             render_mode="rgb_array" if args.strips else None)
 

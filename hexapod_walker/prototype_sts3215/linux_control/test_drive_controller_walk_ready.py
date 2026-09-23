@@ -370,8 +370,15 @@ def test_scripted_write_rides_the_snapshot_round_trip_and_counts_it():
     drive.armed = True
     drive._live_ids_cache = set(range(2, 20)); drive._live_ids_t = 1e18  # noqa: SLF001
     pose = walk_start_pose_degrees()
+    drive._loop_ticks = 2  # noqa: SLF001 -- an even tick: snapshot round trip
     drive._write_pose(pose, speed=2000, acc=80)  # noqa: SLF001
     assert bus.step_calls == [(pose, 2000, 80)]
+    drive._loop_ticks = 3  # noqa: SLF001 -- an odd tick stays a bare SyncWrite (no pkt on this fake -> error is the proof)
+    import pytest as _pt
+    with _pt.raises(AttributeError):
+        drive._write_pose(pose, speed=2000, acc=80)  # noqa: SLF001
+    assert len(bus.step_calls) == 1
+    drive._loop_ticks = 4  # noqa: SLF001
     st = drive.scripted_contract_state()
     assert st["snapshot_writes"] == 1 and st["snapshot_misses"] == 0
     bus.step_all = lambda *a, **k: None

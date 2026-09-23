@@ -111,6 +111,10 @@ DT = SCRIPTED_WALK_DT_S
 # restores bare SyncWrites.  In a static hold the loop reads a snapshot every HOLD_SNAPSHOT_EVERY ticks (50 Hz).
 SCRIPTED_SNAPSHOT_WRITES = os.environ.get("HEXAPOD_SCRIPTED_SNAPSHOT", "1") != "0"
 HOLD_SNAPSHOT_EVERY = 2
+# Walk ticks: only every SNAPSHOT_EVERY-th write asks for the snapshot (50 Hz IMU at the 100 Hz loop);
+# the others stay bare SyncWrites.  Measured 2026-09-23: the 'T' round trip costs a median 3.5 ms of the
+# 10 ms period and every-tick snapshots raised deadline overruns to ~7 % of ticks.
+SNAPSHOT_EVERY = int(os.environ.get("HEXAPOD_SCRIPTED_SNAPSHOT_EVERY", "2"))
 LIVE_SCAN_PERIOD_S = 2.0
 WALK_START_TOL_DEG = 30.0
 DEMO_TRIPOD_PERIOD_S = DEFAULT_DEMO_TRIPOD.period_s
@@ -387,7 +391,8 @@ class DriveController:
         live = self._live_ids(allow_stale=self.mode == "walk")
         step_all = getattr(self.bus, "step_all", None)
         if (SCRIPTED_SNAPSHOT_WRITES and callable(step_all) and len(degrees) == 18
-                and (not live or len(live) == 18)):
+                and (not live or len(live) == 18)
+                and (self._loop_ticks % max(1, SNAPSHOT_EVERY)) == 0):
             # ONE round trip: SyncWrite the goals and get positions + IMU back (the RL tick's
             # transaction).  The servos see the command at the same moment as a bare SyncWrite; the
             # host merely reads the ~130-byte reply before its next 10 ms deadline.  None = one

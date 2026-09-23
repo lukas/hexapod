@@ -282,6 +282,17 @@ class TwoSpecialistDriver:
         return a
 
 
+def resolve_episode_seconds(episode_seconds_arg: float | None) -> float:
+    """--episode-seconds resolver, factored out so it's unit-testable
+    without a full main() invocation (checkpoints/MuJoCo). Default
+    None -> legacy hardcoded 20.0s (bit-exact); any explicit value
+    overrides it verbatim. See --episode-seconds help for why this
+    exists (09-23: the tool silently truncated any grammar/--drive-
+    seconds total exceeding 20s, marking the cut segment FAIL with
+    fall='episode_end' instead of erroring or warning)."""
+    return episode_seconds_arg if episode_seconds_arg is not None else 20.0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--stand", type=Path,
@@ -382,6 +393,17 @@ def main() -> int:
                     help="dir for 1 fps frame-strip PNGs (episode 0 only)")
     ap.add_argument("--cfg-set", action="append", default=None,
                     metavar="K=V")
+    ap.add_argument("--episode-seconds", type=float, default=None,
+                    help="override the harness env's internal "
+                         "episode time-limit (seconds). Default None "
+                         "= legacy hardcoded 20.0s, which silently "
+                         "truncates (segment marked FAIL, "
+                         "fall='episode_end') any grammar/--drive-"
+                         "seconds combination whose real total "
+                         "duration exceeds 20s -- found 09-23 trying "
+                         "to run the actual 60s randomized-joystick "
+                         "Stage-2 milestone through this tool for the "
+                         "first time. Bit-exact when omitted.")
     args = ap.parse_args()
 
     import mujoco
@@ -433,10 +455,13 @@ def main() -> int:
     drive_rng = (np.random.default_rng(args.seed)
                  if args.drive_random else None)
 
+    episode_seconds = resolve_episode_seconds(args.episode_seconds)
+
     def make_env():
         return SimHexapodJointWalkEnv(
             params=SimServoParams.from_cfg(cfg), cfg=cfg,
-            randomize=False, episode_seconds=20.0, seed=args.seed,
+            randomize=False, episode_seconds=episode_seconds,
+            seed=args.seed,
             render_mode="rgb_array" if args.strips else None)
 
     if args.single is not None:

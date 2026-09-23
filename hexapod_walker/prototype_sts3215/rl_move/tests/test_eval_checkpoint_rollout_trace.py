@@ -114,3 +114,56 @@ def test_save_rollout_trace_empty_sink_does_not_crash(tmp_path):
     out = tmp_path / "empty.npz"
     _save_rollout_trace([], out, {"mode": "rise"})
     assert not out.exists()
+
+
+def test_trace_sink_records_over_current_signal_under_power_model(tmp_path):
+    """2026-09-23 fix: the trip-signal channel (see sim_env.py's
+    over_current_signal / audit_over_current.py) must round-trip
+    through the trace sink under the default bus.current_model="power"
+    -- previously this field was never captured, so the over_current
+    audit tool silently classified the wrong (near-zero
+    mechanical-power) column."""
+    env = _rise_only_env(episode_seconds=8.0)
+    assert env.cfg.get("bus", {}).get(
+        "current_model", "power") == "power" or "bus" not in env.cfg
+    env.reset(seed=0)
+    sink: list = []
+    ep, _ = run_episode(env, _ZeroModel(), deterministic=True,
+                        video=False, annotate=None, trace_sink=sink)
+    env.close()
+    assert "over_current_signal" in sink[0]
+    out = tmp_path / "trace_ocs.npz"
+    _save_rollout_trace(sink, out, ep)
+    d = np.load(out, allow_pickle=True)
+    assert "over_current_signal" in d.files
+    assert d["over_current_signal"].shape == d["servo_current"].shape
+    # power model: the two channels are genuinely different estimators
+    # (not the same array copied twice under a new name).
+    assert not np.allclose(d["over_current_signal"], d["servo_current"])
+
+
+def test_trace_sink_over_current_signal_none_under_torque_proxy(tmp_path):
+    """Legacy bus.current_model="torque_proxy": no separate trip
+    signal -- over_current_signal must stay None in the trace_sink
+    (servo_current IS the trip signal, bit-exact with pre-09-19
+    behavior), and _save_rollout_trace must not choke on the all-None
+    column."""
+    cfg = load_config()
+    cfg.setdefault("bus", {})["current_model"] = "torque_proxy"
+    env = SimHexapodJointWalkEnv(cfg, seed=0, episode_seconds=8.0)
+    gen = env._goal_gen
+    for m in ("hold", "lean", "track", "unload", "raise", "walk", "lower"):
+        if hasattr(gen, f"p_{m}"):
+            setattr(gen, f"p_{m}", 0.0)
+    gen.p_rise = 1.0
+    env.reset(seed=0)
+    sink: list = []
+    ep, _ = run_episode(env, _ZeroModel(), deterministic=True,
+                        video=False, annotate=None, trace_sink=sink)
+    env.close()
+    assert sink[0]["over_current_signal"] is None
+    out = tmp_path / "trace_legacy.npz"
+    _save_rollout_trace(sink, out, ep)
+    d = np.load(out, allow_pickle=True)
+    # None-valued column -> not written at all (existing _col contract)
+    assert "over_current_signal" not in d.files

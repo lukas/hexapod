@@ -2056,6 +2056,43 @@ def main(argv: list[str] | None = None) -> int:
                   f">= --steps ({args.steps:,}) — the policy will "
                   "NEVER train at the target allowance in this run")
 
+    # Action-BOX RAMP (09-23, standwalk extplant82-actionbox PARTIAL
+    # triage — see joint_task.py's __init__ block for the mechanism/
+    # why). Same cfg-armed / trainer-driven / default-OFF contract as
+    # the ramps above; not mirrored into the walkcurr cert env (this
+    # lineage is joint_walk-task, non-walkcurr) so periodic
+    # eval_checkpoint/C-env evals stay at the TARGET box by
+    # construction (armed-but-unbroadcast = target, see joint_task.py).
+    _box_ramp_steps = 0
+    if env_kw.get("cfg") is not None:
+        from rl_move.config import cfg_get as _cfg_get_box
+        _box_ramp_steps = int(float(_cfg_get_box(
+            env_kw["cfg"], "goal", "joint_action_box_ramp_steps",
+            default=0) or 0))
+
+    def _box_ramp_frac_at(step: int) -> float:
+        return min(1.0, float(step) / float(_box_ramp_steps))
+
+    def _box_ramp_apply(target_venv, step: int) -> dict | None:
+        """Broadcast the frac for ``step`` to a vec env; returns the
+        applied box widths. No-op when the ramp is off."""
+        if _box_ramp_steps <= 0:
+            return None
+        f = _box_ramp_frac_at(step)
+        return target_venv.env_method("apply_action_box_ramp_frac", f)[0]
+
+    if _box_ramp_steps > 0:
+        b0 = _box_ramp_apply(venv, 0)
+        print(f"[action-box-ramp] armed: {_box_ramp_steps:,} global "
+              "env steps from a wide start box to the cfg target; "
+              f"step-0 box hip={b0['box_hip_deg']:.1f} "
+              f"knee={b0['box_knee_deg']:.1f} deg")
+        if _box_ramp_steps >= args.steps:
+            print("[action-box-ramp] WARNING: "
+                  f"joint_action_box_ramp_steps ({_box_ramp_steps:,}) "
+                  f">= --steps ({args.steps:,}) — the policy will "
+                  "NEVER train at the target box in this run")
+
     # DR-STAGE RAMP (09-08, staged-DR-breadth fresh-acquisition design
     # — see sim_env.__init__'s env.dr_stage_ramp_steps block for the
     # mechanism/why: explicit --cfg-set dr.* overrides are ABSOLUTE, so
@@ -3244,6 +3281,40 @@ def main(argv: list[str] | None = None) -> int:
                         "drag_allow_ramp/allow_mm": vals["allow_mm"]})
 
         callbacks.append(_DragAllowRampCb())
+    if _box_ramp_steps > 0:
+        class _ActionBoxRampCb(BaseCallback):
+            """Advance the action-box ramp once per rollout (see the
+            arming block after venv construction). Broadcasts stay on
+            after frac hits 1.0 for one extra round (idempotent), then
+            stop; W&B gets the live box under action_box_ramp/*."""
+
+            def __init__(self):
+                super().__init__()
+                self._finished = False
+
+            def _on_step(self) -> bool:
+                return True
+
+            def _on_rollout_end(self) -> None:
+                if self._finished:
+                    return
+                vals = _box_ramp_apply(venv, self.num_timesteps)
+                if vals["frac"] >= 1.0:
+                    self._finished = True
+                    print("[action-box-ramp] ramp complete @ "
+                          f"{self.num_timesteps:,} steps — training "
+                          "at the target box from here on")
+                if run is not None:
+                    import wandb
+                    wandb.log({
+                        "global_step": self.num_timesteps,
+                        "action_box_ramp/frac": vals["frac"],
+                        "action_box_ramp/box_hip_deg":
+                            vals["box_hip_deg"],
+                        "action_box_ramp/box_knee_deg":
+                            vals["box_knee_deg"]})
+
+        callbacks.append(_ActionBoxRampCb())
     if _drs_ramp_steps > 0:
         class _DrStageRampCb(BaseCallback):
             """Advance the staged-DR ramp once per rollout (see the

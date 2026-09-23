@@ -153,6 +153,64 @@ class SimHexapodJointGoalEnv(SimHexapodGoalEnv):
                 self._joint_action_bias)
             self._joint_action_box_axis_lo = _CENTER_RAD - _HALF_RAD
             self._joint_action_box_axis_hi = _CENTER_RAD + _HALF_RAD
+        # Action-box RAMP-IN (2026-09-23, standwalk extplant82-actionbox
+        # PARTIAL triage: the fixed box DOES extend the settled stance
+        # (172mm tucked -> 201mm, real engagement) but walk quality
+        # regresses hard and every stochastic walk episode now trips
+        # over_current -- reads as fighting a too-tight band at max
+        # effort while still learning the gait, not a saturated box.
+        # The gate's own PARTIAL branch names the next lever: "widen
+        # the box gradually (curriculum) rather than the fixed band".
+        # Mirrors the existing bus.profile_ramp_steps / env.dr_stage_
+        # ramp_steps trainer-driven pattern exactly: when armed, the
+        # TRAINER anneals the box HALF-WIDTH from a wide (default =
+        # the full hardware half-range per axis, i.e. box is a no-op
+        # at frac=0 -- axis_lo/hi already clip to center +- that same
+        # _HALF_RAD) start down to the cfg TARGET box_{yaw,hip,knee}_
+        # deg over goal.joint_action_box_ramp_steps GLOBAL env steps,
+        # via apply_action_box_ramp_frac (train_ppo_mjx: frac 0 right
+        # after construction, then once per rollout).
+        #   - Default (key absent/0) = OFF: no state, no new code
+        #     path, bit-exact legacy behavior (identical fixed box).
+        #   - Armed but never broadcast = TARGET box (construction
+        #     never moves the width, so eval_checkpoint / play / the
+        #     periodic C-env evals judge checkpoints at the full
+        #     target band even when the training cfg carries ramp
+        #     keys -- same contract as the profile ramp).
+        #   - The CENTER never ramps, only the width -- narrowing
+        #     never moves the target stance, only how hard the box
+        #     constrains the search early on.
+        self._joint_action_box_ramp: dict | None = None
+        _box_ramp_steps = int(float(cfg_get(
+            self.cfg, "goal", "joint_action_box_ramp_steps",
+            default=0) or 0))
+        if _box_ramp_steps > 0:
+            if not self._joint_action_box_active:
+                raise ValueError(
+                    "goal.joint_action_box_ramp_steps > 0 needs an "
+                    "active action box (goal.joint_action_box_"
+                    "{yaw,hip,knee}_deg > 0) -- there is no target "
+                    "width to ramp toward")
+            _half_deg = _HALF_RAD / DEG2RAD
+            start_deg = np.array([
+                float(cfg_get(
+                    self.cfg, "goal",
+                    "joint_action_box_ramp_start_yaw_deg",
+                    default=float(_half_deg[0]))),
+                float(cfg_get(
+                    self.cfg, "goal",
+                    "joint_action_box_ramp_start_hip_deg",
+                    default=float(_half_deg[1]))),
+                float(cfg_get(
+                    self.cfg, "goal",
+                    "joint_action_box_ramp_start_knee_deg",
+                    default=float(_half_deg[2]))),
+            ] * 6)
+            self._joint_action_box_ramp = {
+                "steps": _box_ramp_steps, "frac": 1.0,
+                "start_rad": np.maximum(start_deg, 0.0) * DEG2RAD,
+                "target_rad": self._joint_action_box_rad.copy(),
+            }
         # Cartesian FOOT-PLACEMENT action decode (2026-09-08, walkcurr
         # foot-placement mechanism — operator focus note 20260908T0403;
         # the named remaining structural lever after the slip-pricing
@@ -199,3 +257,27 @@ class SimHexapodJointGoalEnv(SimHexapodGoalEnv):
                                    -1.0, 1.0)
             q = action_to_q_rad(clipped)
         return q, True, ""
+
+    def apply_action_box_ramp_frac(self, frac: float) -> dict:
+        """Move the action box's HALF-WIDTH to ``frac`` of the armed
+        ramp (0 = wide/no-op start, 1 = this run's target box); see the
+        ``goal.joint_action_box_ramp_steps`` block in ``__init__``.
+        Trainer-driven (env_method broadcast), same contract as
+        ``apply_profile_ramp_frac``/``apply_dr_stage_frac``: raises
+        when the ramp is not armed rather than silently no-op'ing. The
+        box CENTER is untouched -- only the width moves."""
+        if self._joint_action_box_ramp is None:
+            raise RuntimeError(
+                "apply_action_box_ramp_frac called but goal."
+                "joint_action_box_ramp_steps is not set (>0) in this "
+                "env's cfg — the action-box ramp is not armed")
+        f = min(max(float(frac), 0.0), 1.0)
+        ramp = self._joint_action_box_ramp
+        self._joint_action_box_rad = (
+            ramp["start_rad"] + f * (ramp["target_rad"]
+                                      - ramp["start_rad"]))
+        ramp["frac"] = f
+        box_deg = self._joint_action_box_rad / DEG2RAD
+        return {"frac": f, "box_yaw_deg": float(box_deg[0]),
+                "box_hip_deg": float(box_deg[1]),
+                "box_knee_deg": float(box_deg[2])}

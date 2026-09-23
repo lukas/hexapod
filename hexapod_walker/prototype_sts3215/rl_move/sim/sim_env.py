@@ -1534,7 +1534,24 @@ class SimHexapodBalanceEnv(_GymBase):
     # settled roll ≈ 0.36 × fold, near-linear over 6-18° targets; see
     # the dr.tipped_start_* axis in domain_rand.py). The inverse maps
     # the sampled target roll to the fold the pattern commands.
+    # SHARED by rise_rock/walk_kick, whose doses were replay-calibrated
+    # against hardware tapes THROUGH this mapping — do not retune it
+    # for them (their targets are trip-crossing by design).
     TIP_ROLL_PER_FOLD = 0.36
+    # Tipped-START-only recalibration (dig-in 2026-09-23, hardstartcorr
+    # plateau root cause): at the current plant stance the 0.36 gain
+    # overshoots — achieved settle roll ≈ 1.33 × target on BOTH model
+    # families (measured med ratios 1.26–1.40 mesh, 1.31–1.37
+    # primitive over 3–7° targets, /tmp probe recorded in the 09-23
+    # standwalk STATUS entry), so a capped 7° target settled at
+    # 9.0–11.0° and spawned INSIDE the 10° tilt_roll trip band —
+    # violating this method's own "spawn with recovery headroom, never
+    # mid-trip" invariant and making ~30–40 % of max-dose tipped plant
+    # spawns unwinnable regardless of policy (terminated 0.76–1.0 s
+    # after reset under an idealized instant level command). The
+    # tipped path therefore uses its own measured gain so achieved
+    # roll ≈ sampled target; rise_rock/walk_kick keep 0.36 untouched.
+    TIPPED_START_ROLL_PER_FOLD = 0.48
 
     def _apply_tipped_start(self, q_start: np.ndarray) -> np.ndarray:
         """Add the tipped-start (roll recovery) pattern, if this episode
@@ -1557,7 +1574,7 @@ class SimHexapodBalanceEnv(_GymBase):
             return q_start
         cap = 0.7 * self.safety.max_roll * RAD2DEG
         roll = float(np.clip(er.tipped_roll_deg, -cap, cap))
-        fold = abs(roll) / self.TIP_ROLL_PER_FOLD * DEG2RAD
+        fold = abs(roll) / self.TIPPED_START_ROLL_PER_FOLD * DEG2RAD
         # Legs 0-2 mount on the +y (left) side (azimuths 30/90/150°),
         # legs 3-5 on the right; positive roll leans the body right
         # (IMU convention: roll = atan2(ay, az), +y side up).

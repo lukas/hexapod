@@ -1764,9 +1764,23 @@ def main() -> None:
     if args.cfg_set:
         from rl_move.config import load_config
         cfg = load_config()
+        # Dot-less key tolerance (2026-09-23, cw-stand50hz-mlp-dr06-
+        # fromdr05-hardstartcorr): must match _build_env/_resolved_cfg
+        # in train_ppo_sim.py exactly, INCLUDING their tolerance of a
+        # dot-less key (e.g. a stray `--cfg-set dr_scale=0.6`, which
+        # should have been the separate `--dr-scale` CLI flag) — that
+        # sets a harmless top-level cfg entry instead of a
+        # section.name pair rather than crashing. A plain
+        # `key.split(".", 1)` raised ValueError here on that exact
+        # replayed --cfg-set list, blocking gate-eval of a run that
+        # had already trained fine (train tolerated it as a no-op;
+        # eval must replay the SAME resolved cfg, not a stricter one).
         for key, parsed in _parse_cfg_set(args.cfg_set).items():
-            sect, name = key.split(".", 1)
-            cfg.setdefault(sect, {})[name] = parsed
+            node = cfg
+            *path, leaf = key.split(".")
+            for k in path:
+                node = node.setdefault(k, {})
+            node[leaf] = parsed
         cfg_kw["cfg"] = cfg
     # dr.<field> cfg overrides need the randomizer alive even at
     # --dr-scale 0 (payload/latency-axis arms: scale 0 = nominal sim +

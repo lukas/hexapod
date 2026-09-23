@@ -319,6 +319,29 @@ class RandRanges:
     # the run's safety envelope; see HexapodSimEnv._tipped_offset_rad.
     tipped_start_prob: float = 0.30
     tipped_start_deg: tuple[float, float] = (6.0, 18.0)  # target body roll
+    # Correlated hard-start (2026-09-23, standwalk track): bad_start_joints
+    # and tipped_start are drawn INDEPENDENTLY above, so the compound
+    # "already tipped over AND a joint is way off" corner is rare (product
+    # of two small probabilities). Root-caused this exact compound draw
+    # (tipped_roll_deg~12.7, bad_start_joints hitting a knee-axis joint) as
+    # the fixed eval-seed case behind the dr=0.4 rise/hold/lower lower-phase
+    # "severe-tip" outlier that reproduced BIT-IDENTICALLY (height_err_end
+    # 25.4mm, same joint indices) across 3 independently-trained checkpoints
+    # (b23k12-s2-cont2m2, its lowerstagegate child, and the unrelated
+    # mlshort10-cont2m lineage) after two prior reward-side levers
+    # (k_tilt_guard, goal.lower_stage_gate) both failed to fix it — i.e. a
+    # genuinely under-sampled compound INITIAL CONDITION, not a
+    # reward-shape or contact-mechanism defect. 0.0 (default) = OFF,
+    # bit-exact (the guarded check below short-circuits before touching
+    # rng when frac<=0, same convention as every other guarded axis in
+    # this file). >0: whenever exactly one of {bad_start_joints,
+    # tipped_start} already triggered this episode, upgrade this fraction
+    # of THOSE episodes to force the other one too — deliberately raising
+    # training exposure to the compound corner without inventing a new
+    # magnitude menu. Probability follows the curriculum (like
+    # tipped_start_prob); the forced dose reuses bad_start_deg/
+    # tipped_start_deg unscaled, same convention as every other axis here.
+    hard_start_correlate_frac: float = 0.0
     # Rise rocking (hardware 08-11, bench_blast camera sessions; dose
     # + shape recalibrated 08-12 from open-loop replay of all 10
     # recorded stand failures — see sim_env._rise_rock_offset and
@@ -777,6 +800,8 @@ class RandRanges:
             # hardware actually fails in.
             tipped_start_prob=self.tipped_start_prob * s,
             tipped_start_deg=self.tipped_start_deg,
+            # Same convention: probability follows the curriculum.
+            hard_start_correlate_frac=self.hard_start_correlate_frac * s,
             # Same convention as tipped: probability follows the
             # curriculum, the dose does not.
             rise_rock_prob=self.rise_rock_prob * s,
@@ -1609,6 +1634,29 @@ class DomainRandomizer:
             tipped_roll = float(u(*r.tipped_start_deg))
             if rng.random() < 0.5:
                 tipped_roll = -tipped_roll
+
+        # Correlated hard-start (2026-09-23): only touches rng when
+        # (a) the axis is armed (frac>0) AND (b) exactly one of
+        # {bad_joints, tipped_roll} already triggered above — so the
+        # default (frac=0.0) AND the dr_scale=0 case (both base
+        # triggers impossible, xor always False) never consume the
+        # extra rng.random() below, keeping every existing golden
+        # bit-exact.
+        if r.hard_start_correlate_frac > 0.0 and (bool(bad_joints)
+                                                   != (tipped_roll != 0.0)):
+            if rng.random() < r.hard_start_correlate_frac:
+                if not bad_joints:
+                    n_bad = int(rng.integers(1, r.bad_start_max_joints + 1))
+                    bad_joints = list(rng.choice(N_JOINTS, size=n_bad,
+                                                 replace=False))
+                    for j in bad_joints:
+                        mag = u(*r.bad_start_deg) * DEG2RAD
+                        start_offset[j] = mag * (1 if rng.random() < 0.5
+                                                  else -1)
+                else:
+                    tipped_roll = float(u(*r.tipped_start_deg))
+                    if rng.random() < 0.5:
+                        tipped_roll = -tipped_roll
 
         # Rise rock: same guarded-draw convention (axis off = legacy
         # rng stream, bit-exact).

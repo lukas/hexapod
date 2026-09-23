@@ -69,7 +69,7 @@ from .balance_reset import (
 )
 from .balance_reward_hold import (
     hold_minload_shortfall_reward, hold_still_gate_reward,
-    tilt_guard_reward, transition_foot_drag_metric,
+    transition_foot_drag_metric,
 )
 from .balance_terminations import (
     collapse_terminations, hold_minload_termination,
@@ -3678,7 +3678,6 @@ class SimHexapodBalanceEnv(_GymBase):
         reward = hold_still_gate_reward(self, goal, parts, ref_quiet, reward)
         reward = hold_minload_shortfall_reward(self, minload_floor_n,
             minload_in_hold, minload_short_k, parts, reward)
-        reward = tilt_guard_reward(self, parts, reward)
         transition_foot_drag_metric(self, parts)
         lower_score_mode, depth_frac, reward = rise_scored_steps_reward(self,
             goal, h_err, h_rel, parts, reward)

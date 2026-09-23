@@ -3255,6 +3255,36 @@ class SimHexapodBalanceEnv(_GymBase):
         -- see ``_default_plant_deg`` for the full derivation of this
         literal (100 = the historical mujoco-relative 80 + hip 20).
 
+        2026-09-23 (extplant82-actionbox-yaw11 dig-in follow-up): the
+        stance synced here used to be the LITERAL 20.0/100.0 pair above
+        regardless of ``self._plant_deg`` -- fine while every bc_anchor_
+        walk run trained under the legacy tucked plant (hip=20/knee=100
+        robot_abs, ``_default_plant_deg``'s own value, so the literal
+        WAS correct there), but the entire extplant82 extended-plant
+        family (``plant.hip_deg``/``plant.knee_deg`` cfg overrides,
+        2026-09-22 lukas-ef spec, e.g. hip=20/knee=82) sets
+        ``bc_anchor_coef=3.0`` too -- discovered live in the yaw11-
+        ramp5m-s0 FAIL triage: this teacher was STILL syncing to the
+        old knee=100 target, which is physically UNREACHABLE inside
+        that lineage's own action box (bias+box center 82, max reach
+        ~97) by DESIGN (the box exists specifically to make knee=100
+        unreachable, per the actionbox-s0 hypothesis). Every extplant82-
+        actionbox arm (s0/ramp/ramp5m/ramp5m-logstdcomp/yaw11-ramp5m)
+        therefore trained under a constant, unwinnable MSE-vs-
+        unreachable-target supervisory pull toward one edge the whole
+        run -- a plausible full explanation for the "policy never uses
+        the room it has" oscillation-suppression signature the
+        logstdcomp dig-in measured (3-10 deg peak-to-peak knee swing vs
+        the box's own ~24 deg width) that log-std compensation (which
+        doesn't touch this pull at all) could not fix. Fixed to read
+        the run's OWN resolved plant target (``self._plant_deg``, robot_
+        abs [yaw,hip,knee]x6, same array ``_default_plant_deg``/
+        ``plant_deg=`` populate) instead of the hardcoded literal --
+        bit-exact for every run that never overrides plant.hip_deg/
+        knee_deg (self._plant_deg defaults to exactly 20.0/100.0), only
+        a behavior change for the plant-overridden family that has
+        never had a verdicted PASS under the old hardcoded literal.
+
         ``train.bc_anchor_teacher_yaw_arm_scale`` (standwalk Next item
         2, candidate (i)-v2, 09-03 -- see tripod_gait.py's
         ``combined_yaw_arm_scale`` docstring for the full derivation):
@@ -3324,7 +3354,8 @@ class SimHexapodBalanceEnv(_GymBase):
             combined_selective_omega_boost=float(cfg_get(
                 self.cfg, "train", "bc_anchor_teacher_selective_omega_boost",
                 default=1.0)))
-        _g.sync_plant_stance(20.0, 100.0)
+        _g.sync_plant_stance(float(self._plant_deg[1]),
+                             float(self._plant_deg[2]))
         _g.reset_phase()
         return _g
 

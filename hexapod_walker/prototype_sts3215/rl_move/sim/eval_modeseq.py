@@ -487,7 +487,25 @@ def main() -> int:
         walk = load_checkpoint_auto(args.walk, device="cpu")
         n_stand = int(stand.observation_space.shape[0])
         n_env = int(env.observation_space.shape[0])
-        assert walk.observation_space.shape[0] == n_env, (
+        n_walk = int(walk.observation_space.shape[0])
+        if n_walk != n_env:
+            # Same dual-core mode-onehot convention the --single path
+            # already handled (`obs.mode_onehot`): a walk checkpoint
+            # trained with the extra N_MODE_OBS mode-onehot inputs
+            # needs the env rebuilt with that obs feature enabled.
+            # Found while baselining this tool for the first time
+            # against the dr=1.0 GRU walk champion (`dr10_lsc_pinrobust2`),
+            # which was trained with obs.mode_onehot=1.
+            from .walk_task import N_MODE_OBS
+            if n_walk == n_env + N_MODE_OBS:
+                print(f"[modeseq] walk checkpoint obs {n_walk} = env "
+                      f"{n_env} + {N_MODE_OBS}: enabling "
+                      f"obs.mode_onehot")
+                env.close()
+                cfg.setdefault("obs", {})["mode_onehot"] = 1.0
+                env = make_env()
+                n_env = int(env.observation_space.shape[0])
+        assert n_walk == n_env, (
             f"walk policy obs {walk.observation_space.shape} != env "
             f"{n_env}")
         assert n_stand < n_env, (

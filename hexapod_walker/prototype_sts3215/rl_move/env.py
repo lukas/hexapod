@@ -106,8 +106,6 @@ def start_kind_of(traj: Any) -> str:
         return "quadstance"
     if start_at == "rise_bank":
         return "post_lower"
-    if start_at == "walk_entry_bank":
-        return "post_rise_walk"
     if start_at == "lower_bank":
         return "post_walk_lower"
     if getattr(traj, "start_curl", 0.0) > 0:

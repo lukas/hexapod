@@ -1781,26 +1781,6 @@ class SimHexapodBalanceEnv(_GymBase):
         self._rise_bank_cache = bank
         return bank
 
-    def _walk_entry_bank(self) -> np.ndarray | None:
-        """Harvested composed-session walk-entry poses (2026-09-23,
-        goal.walk_entry_bank/walk_entry_bank_frac; same lazy-cache
-        contract as _rise_start_bank)."""
-        if hasattr(self, "_walk_entry_bank_cache"):
-            return self._walk_entry_bank_cache
-        path = cfg_get(self.cfg, "goal", "walk_entry_bank", default=None)
-        bank = None
-        if path:
-            arr, npz = _load_robot_abs_q_npz(
-                str(path), source="walk_entry_bank")
-            if arr.ndim != 2 or arr.shape[1] != N_JOINTS or len(arr) == 0:
-                raise ValueError(
-                    f"walk_entry_bank {path}: expected (K,{N_JOINTS}) "
-                    f"q_rad, got {arr.shape}")
-            bank = arr
-            npz.close()
-        self._walk_entry_bank_cache = bank
-        return bank
-
     def _lower_start_bank(self) -> np.ndarray | None:
         """Harvested composed-session lower-entry poses (2026-09-23,
         goal.lower_start_bank/lower_start_bank_frac; same lazy-cache

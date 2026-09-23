@@ -76,20 +76,6 @@ def spawn_pose_q_start(env, start_at):
         if env._ep_rand is not None:
             q_start = q_start + env._ep_rand.start_offset_rad
         q_start = env._clip_to_joint_limits(q_start)
-    elif start_at == "walk_entry_bank":
-        # Composed-session WALK entry start (2026-09-23, goal.
-        # walk_entry_bank — walk_task._sample_walk analogue of the
-        # rise_bank branch above, same harvested-pose/jitter contract).
-        bank = env._walk_entry_bank()
-        if bank is None:
-            raise RuntimeError(
-                "start_at='walk_entry_bank' requires goal.walk_entry_bank")
-        bi = int(env.rng.integers(len(bank)))
-        q_start = bank[bi].copy()
-        q_start += env.rng.uniform(-2.0, 2.0, N_JOINTS) * DEG2RAD
-        if env._ep_rand is not None:
-            q_start = q_start + env._ep_rand.start_offset_rad
-        q_start = env._clip_to_joint_limits(q_start)
     elif start_at == "lower_bank":
         # Composed-session LOWER entry start (2026-09-23, goal.
         # lower_start_bank — goal_task.sample()'s "lower" branch

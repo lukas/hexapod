@@ -466,7 +466,7 @@ class MeasureApi:
                 with self._lock:
                     self._demo_status = "quad pitch: acquiring tuck stand"
                     self._cal_progress = {"msg": self._demo_status}
-                res_a = self._acquire_start("stand_tuck", gen=gen)
+                res_a = self._acquire_start("stand", gen=gen)
                 if gen != self._demo_gen:
                     return
                 if not res_a.get("ok"):
@@ -2128,7 +2128,7 @@ class MeasureApi:
                         }
                     else:
                         progress("touchdown zero: safe zero")
-                        zero_start = self._safe_zero_sync(
+                        zero_start = self._zero_sync(
                             abort_check=self._demo_abort.is_set,
                             on_progress=lambda p: progress(
                                 "touchdown zero safe-zero: "
@@ -2790,7 +2790,7 @@ class MeasureApi:
                     else:
                         rec["expected"] = expected_angles()
                         progress("axis geometry: safe zero")
-                        zero_start = self._safe_zero_sync(
+                        zero_start = self._zero_sync(
                             abort_check=self._demo_abort.is_set,
                             on_progress=lambda p: progress(
                                 "axis geometry zero: "
@@ -2890,7 +2890,7 @@ class MeasureApi:
                                 {"ok": False, "skipped": True,
                                  "error": "operator aborted"}
                                 if self._demo_abort.is_set() else
-                                self._safe_zero_sync(
+                                self._zero_sync(
                                     abort_check=self._demo_abort.is_set,
                                     on_progress=lambda p: progress(
                                         "axis geometry return zero: "

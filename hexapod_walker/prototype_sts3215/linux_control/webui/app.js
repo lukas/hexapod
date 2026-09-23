@@ -2404,8 +2404,8 @@ function paintImuInfo(imu){
   }
 }
 const CHECKUP_STEPS = [
-  {id:'safe_zero', name:'Safe zero start pose',
-   detail:'Move through the collision-aware zero path before calibration.'},
+  {id:'safe_zero', name:'Zero start pose',
+   detail:'Settle and glide to the zero pose before calibration.'},
   {id:'imu_rest', name:'IMU rest/bias',
    detail:'Hold still while gyro and accel rest offsets are saved.'},
   {id:'geometry_plant', name:'Ground contact geometry',
@@ -2942,7 +2942,7 @@ function drvResetLocalInput(){
 }
 function rlButtons(disabled){
   rlMoveControlsLocked = !!disabled;
-  for(const id of ['rlstand','rllower','rltuckstand','rltucklower',
+  for(const id of ['rlstand','rllower',
                    'rlstandrl','rllowerrl','rlwalkfwd',
                    'rlwalkleft','rlwalkright','rlwalkback',
                    'rlwalkfl','rlwalkfr','rlwalkbl','rlwalkbr',
@@ -3008,37 +3008,8 @@ async function rlMove(mode, body){
     rlButtons(false);
   }
 }
-async function rlScriptedStand(mode, label, direction='up'){
-  const lower = direction === 'down';
-  if(!(await rlEnsureNoDriveSession(
-      lower ? 'lowering' : 'stand/lower', lower))) return;
-  $('rlstatus').textContent = label+' request sent…';
-  rlButtons(true);
-  try{
-    const r = await fetch('/api/standup', {method:'POST',
-      body: JSON.stringify({mode, speed:10, direction})});
-    const d = await r.json();
-    if(!d.ok){
-      $('rlstatus').textContent = requestReceiptLine(d, label)
-        + '; refused: '+(d.error || 'unknown');
-      showErr(label+': '+requestReceiptLine(d, '')+'; '
-        +(d.error || 'refused'));
-      rlButtons(false);
-      return;
-    }
-    $('rlstatus').textContent = requestReceiptLine(d, label)+'; moving…';
-    startRlPoll();
-  }catch(e){
-    $('rlstatus').textContent = 'Start failed (link?)';
-    rlButtons(false);
-  }
-}
 $('rlstand').onclick = ()=> rlMove('stand');
 $('rllower').onclick = ()=> rlMove('lower');
-if($('rltuckstand')) $('rltuckstand').onclick =
-  ()=> rlScriptedStand('tuck', 'Tuck stand', 'up');
-if($('rltucklower')) $('rltucklower').onclick =
-  ()=> rlScriptedStand('tuck', 'Tuck lower', 'down');
 // Learned stance-policy episodes (opt-in; the plain buttons stay STEP).
 $('rlstandrl').onclick = ()=> rlMove('stand', {learned:true});
 $('rllowerrl').onclick = ()=> rlMove('lower', {learned:true});
@@ -3082,7 +3053,7 @@ let drvGamepadNextStartT = 0;
 let drvInputAllowed = false;
 const DRV_TAP_PULSE_MS = 650;
 const DRV_GAMEPAD_DEADZONE = 0.14;
-const RL_DRIVE_LOCKED_BUTTONS = ['rlstand','rltuckstand','rlstandrl',
+const RL_DRIVE_LOCKED_BUTTONS = ['rlstand','rlstandrl',
                                  'rlwalkfwd','rlwalkleft','rlwalkright',
                                  'rlwalkback','rlwalkfl','rlwalkfr',
                                  'rlwalkbl','rlwalkbr'];
@@ -3735,7 +3706,7 @@ async function suLoadModes(){
       box.appendChild(b);
     }
     if(suModes.length)
-      suSelect(suModes.some(m=>m.name==='tuck') ? 'tuck' : suModes[0].name);
+      suSelect(suModes.some(m=>m.name==='step') ? 'step' : suModes[0].name);
   }catch(e){ $('sulab-desc').textContent = 'modes unavailable (link?)'; }
 }
 function suSelect(name){
@@ -4776,59 +4747,11 @@ $('mwiggle').onclick = async ()=>{
   }catch(e){ showSent('wiggle failed'); }
 };
 $('mzero').onclick = async ()=>{
-  // safe_zero arms itself; plans a collision-aware path and limps on stall.
-  await goPoseZero('sit', 'go zero (safe)');
+  // go zero: STEP sit-down from a stance, else settle + guarded glide to zero.
+  await goPoseZero('sit', 'go zero');
 };
 $('msetzero').onclick = ()=> setZeroHere(true);
 $('mlimp').onclick = ()=>{ cmd('X'); setArmed(false); };
-$('mpinned').onclick = async ()=>{
-  // Read-only detector: tipped >=12° over a folded knee? (~1.5s when
-  // tipped — it re-reads after a short pause so a rock doesn't classify.)
-  const el = $('mpinnedout');
-  el.textContent = 'checking…';
-  el.style.color = '';
-  showSent('pinned-tip check…');
-  try{
-    const d = await (await fetch('/api/pinned_tip')).json();
-    const s = d.pinned ? 'PINNED' : (d.tipped ? 'tipped (not pinned)' : 'level');
-    el.textContent = s + (d.tilt_deg != null ? ` · tilt ${d.tilt_deg}°` : '')
-      + (d.why ? ` — ${d.why}` : (d.error ? ` — ${d.error}` : ''));
-    if(d.pinned) el.style.color = '#f66';
-    showSent('pinned-tip: ' + s);
-  }catch(e){
-    el.textContent = 'check failed';
-    showSent('pinned-tip check failed');
-  }
-};
-$('muntrap').onclick = async ()=>{
-  // Motion: low-torque (20%) fold. The server re-runs the detector and
-  // refuses when not pinned; offer force=true only then, for bench tests.
-  dancePaused = true;
-  showSent('untrap…');
-  const post = (force)=> fetch('/api/untrap',{method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify(force ? {force:true} : {})});
-  try{
-    let j = await (await post(false)).json();
-    if(!j.ok && /nothing to untrap/.test(j.error||'')){
-      if(!confirm('Detector says: '+(j.error||'not pinned')+'\n\n'
-                  +'Run the low-torque fold ANYWAY (bench test)? '
-                  +'It will limp first, then fold hips+knees at 20% '
-                  +'torque. Watch the robot.')){
-        showSent('untrap: skipped (not pinned)');
-        $('mpinnedout').textContent = j.error || 'not pinned';
-        return;
-      }
-      j = await (await post(true)).json();
-    }
-    if(j.ok){
-      showSent('untrap running — watch the fold');
-    }else{
-      showSent('untrap refused: '+(j.error||'unknown'));
-      $('mpinnedout').textContent = j.error || 'untrap refused';
-    }
-  }catch(e){ showSent('untrap failed'); }
-};
 
 // --- Demos tab + global robot activity --------------------------------------
 function demoSpeed(){ return Math.max(0.25, Math.min(3.0, (+$('dspeed').value)/100)); }

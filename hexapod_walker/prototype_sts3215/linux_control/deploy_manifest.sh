@@ -22,7 +22,7 @@ LC_FILES=(
   event_log.py telemetry_recorder.py async_bus_guard.py
   command_journal.py deploy_record.py
   status_display.py deploy_status_display.py servo_watch.py
-  mpu_probe.py rl_policy.py safe_zero.py pinned_tip.py
+  mpu_probe.py rl_policy.py
   sysid_protocol.py sysid_runner.py
   bus_bench.py touchdown_zero.py rl_walk_start.py
   standup_modes.json

@@ -466,6 +466,127 @@ class CurrentPeakTracker:
 MOTION_CMD_LOG_HZ = 2.0
 
 
+
+# Torque limit every scripted motion holds at after a STOP (guard trip or abort):
+# enough to keep the pose against gravity for the operator, not enough to sustain
+# a stall fight.  The servo watch releases anything that still strains at rest.
+STOP_HOLD_TORQUE = int(os.environ.get("HEXAPOD_STOP_HOLD_TORQUE", "400"))
+
+
+class MotionGuard:
+    """The ONE current guard for scripted motion loops (2026-09-22).
+
+    Feed it a :class:`CurrentPeakTracker` that the loop samples; call
+    :meth:`check` after every sample.  It trips (latched) on:
+
+    * ``telemetry``: a joint returned IMPLAUSIBLE_FAULT_READS impossible
+      readings in a row (bus fault, not an over-current);
+    * ``total``: summed servo current over ``total_cap_a`` two sweeps running
+      while NOTHING is moving -- eighteen servos pushing against a target none
+      of them reaches (the fight that folded the bench supply, hexapod1 tuck
+      2026-09-21).  The servos report motor phase current, whose sum during an
+      honest loaded push (all six hips lifting the body) is legitimately 8-9 A
+      on hexapod2 with no servo above 1.9 A, so a moving robot is only capped
+      at ``TOTAL_HARD_CAP_A``;
+    * ``cap``: one servo over ``HARD_CAP_A`` two sweeps running (a single
+      corrupt reading cannot fire it);
+    * ``stall``: one joint over ``stall_a`` while NOT moving, two sweeps
+      running -- stall-fight, not honest acceleration work.
+
+    "Moving" is judged from POSITION progress between sweeps (any joint by
+    >= MOVE_DEG), not from the servo's speed register: a slow loaded push
+    (30 deg/s) reads under 8 deg/s on that register and looked "still"
+    (hexapod2 STEP push, 2026-09-22), while a knee jammed on its stop is
+    exactly still.
+
+    Stopping is ``stop_hold``: re-command the MEASURED pose and drop the
+    torque limit to STOP_HOLD_TORQUE.  Never leave a loop's last target in
+    place (a streamer's carrot pulls 18 servos at 2-4 A forever) and never
+    limp a robot that may be standing.
+    """
+
+    HARD_CAP_A = 4.0
+    TOTAL_CAP_A = float(os.environ.get("HEXAPOD_STANDUP_TOTAL_CAP_A", "6.0"))       # summed, while still
+    TOTAL_HARD_CAP_A = float(os.environ.get("HEXAPOD_STANDUP_TOTAL_HARD_CAP_A", "14.0"))  # summed, moving or not
+    STILL_DPS = 8.0
+    MOVE_DEG = 2.0
+
+    def __init__(self, tracker: "CurrentPeakTracker", *, stall_a: float = 3.0,
+                 total_cap_a: float | None = None):
+        self.tracker = tracker
+        self.stall_a = float(stall_a)
+        self.total_cap_a = float(self.TOTAL_CAP_A if total_cap_a is None else total_cap_a)
+        self.trip_kind = ""
+        self._stall_prev: set[int] = set()
+        self._cap_prev = False
+        self._total_prev = False
+        self._pos_prev: dict[int, float] = {}
+        self.moving_joints: set[int] = set()
+
+    def _progress(self) -> set[int]:
+        """Joints that moved >= MOVE_DEG since the previous sweep (position based)."""
+        now = {int(fb["joint"]): float(fb.get("deg") or 0.0) for fb in self.tracker.last_fb}
+        moved = {j for j, d in now.items() if j in self._pos_prev and abs(d - self._pos_prev[j]) >= self.MOVE_DEG}
+        self._pos_prev = now
+        self.moving_joints = moved
+        return moved
+
+    def check(self) -> bool:
+        """True once tripped (stays True).  Call after tracker.sample()."""
+        if self.trip_kind:
+            return True
+        t = self.tracker
+        if t.telemetry_fault_joint is not None:
+            self.trip_kind = "telemetry"
+            return True
+        total = t.sweep_total_a()
+        moved = self._progress()
+        moving = bool(moved) or any(abs(float(fb.get("speed_deg_s") or 0.0)) >= self.STILL_DPS
+                                    for fb in t.last_fb)
+        over_total = total > self.TOTAL_HARD_CAP_A or (total > self.total_cap_a and not moving)
+        if over_total and self._total_prev:
+            self.trip_kind = "total"
+            return True
+        self._total_prev = over_total
+        sweep_peak, _j = t.sweep_peak_a()
+        over_cap = sweep_peak > self.HARD_CAP_A
+        if over_cap and self._cap_prev:
+            self.trip_kind = "cap"
+            return True
+        self._cap_prev = over_cap
+        now = {int(fb["joint"]) for fb in t.last_fb
+               if int(fb["joint"]) not in t.implausible_joints
+               and abs(float(fb["current_a"])) > self.stall_a
+               and int(fb["joint"]) not in moved
+               and abs(float(fb.get("speed_deg_s") or 0.0)) < self.STILL_DPS}
+        hit = bool(now & self._stall_prev)
+        self._stall_prev = now
+        if hit:
+            self.trip_kind = "stall"
+        return hit
+
+    def message(self) -> str:
+        t = self.tracker
+        if self.trip_kind == "total":
+            return (f"stopped: {t.sweep_total_a():.1f} A summed servo current two sweeps running "
+                    f"(> {self.total_cap_a:.1f} A with nothing moving, or > {self.TOTAL_HARD_CAP_A:.1f} A) — "
+                    "every servo pushing at once against a target it cannot reach")
+        if self.trip_kind == "telemetry":
+            return (f"stopped: joint {t.telemetry_fault_joint} returned {IMPLAUSIBLE_FAULT_READS} impossible current "
+                    f"readings in a row (peak {t.discarded_peak_a:.1f} A) — bus telemetry fault, not an over-current")
+        if self.trip_kind == "cap":
+            return f"stopped: {t.sweep_peak_a()[0]:.2f} A on joint {t.sweep_peak_a()[1]} (> {self.HARD_CAP_A:.1f} A hard cap) two sweeps running"
+        return (f"stopped: {t.peak_a:.2f} A peak on joint {t.peak_joint} (> {self.stall_a:.1f} A) while not moving — "
+                "stall-fight, not grinding on it")
+
+    @staticmethod
+    def stop_hold(bus: FeetechBus, live: set[int], *, torque: int | None = None) -> list[float]:
+        """STOP MEANS STOP WHERE YOU ARE: hold the measured pose at a low torque limit."""
+        pose = _read_pose(bus, live)
+        _write_pose(bus, pose, live, speed=300, acc=40)
+        _set_torque_limit(bus, live, int(STOP_HOLD_TORQUE if torque is None else torque))
+        return pose
+
 def _motion_cmd_period_s() -> float:
     """Low-rate command telemetry period; 0 disables via environment."""
     try:

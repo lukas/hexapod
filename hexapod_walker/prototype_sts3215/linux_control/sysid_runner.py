@@ -69,7 +69,7 @@ MAX_TEMP_C = 55.0
 TEMP_TRIP_POLLS = 3
 DEFAULT_CURRENT_TRIP_POLLS = 1
 DEFAULT_HARD_CURRENT_A = 3.0
-# Above this a reading is not a measurement — same line safe_zero.py draws
+# Above this a reading is not a measurement — the same line the standup guard draws
 # (IMPLAUSIBLE_CURRENT_A), same failure mode: a corrupted current byte on the
 # shared bus. On 2026-09-10 the L2 ground radial shear ladder died on "joint 0
 # overcurrent 126.46 A" while the same poll cycle's segment snapshots read
@@ -117,15 +117,15 @@ GLIDE_SETTLE_S = 1.0
 # a wrong logical zero shows up as 20-30+ deg (MAX_TRACK_ERR_DEG is 30).
 # Then 8.0 -> 15.0 later the same day: a KNEE carrying body weight belly-down
 # holds a much bigger residual than a hip at the stand pose (11 deg measured
-# in the l4_vertical_ground_load_ladder_v1 pre-roll), and safe_zero's own
+# in the l4_vertical_ground_load_ladder_v1 pre-roll), and the zero glide's own
 # arrival tolerance moved to GROUND_DROOP_TOL_DEG = 15 for it. A start pose
-# safe_zero accepts must not then fail here one step downstream. Still under
+# the zero glide accepts must not then fail here one step downstream. Still under
 # the 20-30 deg a real jam shows. Confirmed by the l4 re-run at 00:06 UTC
 # 09-11 (430/430 ticks): its glide came down from knees at 80-93 deg and
 # ARRIVED 0.8 deg short (worst joint, L5 hip) — the number this gate
 # actually reads — peaking at 3.6 deg in transit, so it now passes on
 # real margin, not on the widening. Keep it equal to
-# safe_zero.GROUND_DROOP_TOL_DEG; move both together or not at all.
+# the zero glide's droop tolerance; move both together or not at all.
 GLIDE_TOL_DEG = 15.0
 DEFAULT_MIN_VOLTAGE_V = 10.8
 DEFAULT_MAX_VOLTAGE_V = 13.0

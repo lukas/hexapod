@@ -3085,21 +3085,9 @@ def preflight(bus, mode: str, *, allow_step_stand: bool = False,
     }
     if mode in ("stand", "walk") and (abs(roll) > PREFLIGHT_MAX_TILT_DEG
                                       or abs(pitch) > PREFLIGHT_MAX_TILT_DEG):
-        # Name the 08-11 failure mode when it is the likely cause: a
-        # tipped body over a folded knee. safe_zero knows how to untrap
-        # (low-torque fold) — pointing there beats a bare refusal that
-        # scripts answer by retrying stand/walk against the pin.
-        hint = ""
-        try:
-            from pinned_tip import classify_pinned_tip
-            v = classify_pinned_tip([float(x) for x in q_deg], roll, pitch)
-            details["pinned_tip"] = v
-            if v.get("pinned"):
-                hint = (" — pinned-leg tip suspected "
-                        f"({', '.join(c['name'] for c in v['candidates'])});"
-                        " run safe_zero, it untraps first")
-        except Exception:
-            pass
+        # A tipped body usually means a leg is folded under it: point at
+        # go-zero (settle + guarded glide), which lays the robot flat.
+        hint = " — run go-zero (settle + glide) before standing or walking"
         return False, (f"tilt too high for start "
                        f"(roll {roll:+.1f} pitch {pitch:+.1f}){hint}"
                        ), details

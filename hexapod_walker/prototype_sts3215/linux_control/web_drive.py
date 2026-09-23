@@ -308,7 +308,6 @@ BUS_REQUIRED_GET = frozenset({
     "/api/rl/state",
     "/api/rl",
     "/api/feedback",
-    "/api/pinned_tip",
 })
 BUS_REQUIRED_POST = frozenset({
     "/api/tft/ready",
@@ -321,8 +320,6 @@ BUS_REQUIRED_POST = frozenset({
     "/api/zero",
     "/api/set_zero",
     "/api/touchdown_zero/straight",
-    "/api/safe_zero",
-    "/api/untrap",
     "/api/calibrate",
     "/api/rl/find_plant",
     "/api/rl/capture_plant",
@@ -768,6 +765,17 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/rl/state" or path == "/api/rl":
             self._json(200, BENCH.rl_state() if BENCH
                        else {"ok": False, "error": "no bench"})
+        elif path == "/api/mcu/dbg":
+            self._json(200, BENCH.mcu_dbg() if BENCH else {"ok": False, "error": "no bench"})
+        elif path == "/api/servo/regs":
+            # read-only servo register dump: ?addr=65&size=1&ids=2,3
+            q = parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
+            try:
+                addr = int(q.get("addr", ["65"])[0]); size = int(q.get("size", ["1"])[0])
+                ids = [int(x) for x in q.get("ids", [""])[0].split(",") if x.strip()] or None
+            except ValueError:
+                self._json(400, {"ok": False, "error": "addr/size/ids must be integers"}); return
+            self._json(200, BENCH.servo_regs(addr, size, ids) if BENCH else {"ok": False, "error": "no bench"})
         elif path == "/api/standup/modes":
             self._json(200, BENCH.standup_modes() if BENCH
                        else {"ok": False, "error": "no bench"})
@@ -775,11 +783,6 @@ class Handler(BaseHTTPRequestHandler):
             # Fast read-only bulk telemetry (one MCU round-trip + IMU) for
             # external loggers — /api/status's full scan takes seconds.
             self._json(200, BENCH.rl_feedback() if BENCH
-                       else {"ok": False, "error": "no bench"})
-        elif path == "/api/pinned_tip":
-            # Read-only pinned-leg-tip verdict (tipped over a folded
-            # knee?). Never moves the robot.
-            self._json(200, BENCH.pinned_tip_state() if BENCH
                        else {"ok": False, "error": "no bench"})
         else:
             self._send(404, "not found")
@@ -1141,33 +1144,6 @@ class Handler(BaseHTTPRequestHandler):
                     torque=data.get("torque"),
                     seconds=data.get("seconds"),
                     force=bool(data.get("force", False))))
-        elif path == "/api/safe_zero":
-            try:
-                data = json.loads(body or "{}") if body else {}
-            except ValueError:
-                data = {}
-            if not isinstance(data, dict):
-                data = {}
-            if not BENCH:
-                self._json(400, {"ok": False, "error": "no bench"})
-            else:
-                self._json(200, BENCH.safe_zero(
-                    dry_run=bool(data.get("dry_run", False)),
-                    force=bool(data.get("force", False))))
-        elif path == "/api/untrap":
-            # Low-torque untrap fold; refuses unless the detector
-            # confirms a pinned-leg tip (force=true for bench tests).
-            try:
-                data = json.loads(body or "{}") if body else {}
-            except ValueError:
-                data = {}
-            if not isinstance(data, dict):
-                data = {}
-            if not BENCH:
-                self._json(400, {"ok": False, "error": "no bench"})
-            else:
-                self._json(200, BENCH.untrap(
-                    force=bool(data.get("force", False))))
         elif path == "/api/calibrate":
             try:
                 data = json.loads(body or "{}")
@@ -1410,6 +1386,7 @@ class Handler(BaseHTTPRequestHandler):
                     speed=float(data.get("speed", 1.0)),
                     direction=str(data.get("direction", "up")),
                     force=bool(data.get("force", False)),
+                    start_keyframe=int(data.get("start_keyframe", 0)),
                     torque=int(data.get("torque", 700))))
         elif path == "/api/standup/stop":
             self._json(200, BENCH.stop_demo() if BENCH

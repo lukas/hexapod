@@ -372,8 +372,127 @@ class CoreApi:
             lambda: self.drive.bus,
             lambda: bool(self._demo_thread and self._demo_thread.is_alive()),
             lambda j: joint_label(j, self.names),
-            on_trip=self.thermal_panic)
+            on_trip=self.thermal_panic,
+            is_armed=lambda: bool(self.drive.armed),
+            on_strain=self.static_strain_release,
+            on_torque_lost=self.torque_lost)
         self._servo_watch.start()
+
+    def torque_lost(self, reason: str, info: dict) -> None:
+        """Servos dropped torque on their own (voltage unload, MCU host-lost
+        auto-limp, ...).  The host's armed flag is a lie now: record it,
+        mark the robot limp so nothing assumes it can stand, never re-arm."""
+        d = self.drive
+        try:
+            from event_log import emit
+            emit("torque_lost", f"TORQUE LOST: {reason}", src="servo_watch", data=info, level="error")
+        except Exception:
+            print(f"[torque_lost] {reason}", flush=True)
+        with d._lock:
+            d.mode = "idle"
+            try:
+                d.gait.stop()
+            except Exception:
+                pass
+            d.armed = False
+            d.status = "limp: servos dropped torque on their own (see torque_lost event)"
+
+    def mcu_dbg(self) -> dict:
+        """The MCU bridge's DBG counters (auto_limps, desync, checksum, ...)."""
+        bus = self.drive.bus
+        if bus is None or not hasattr(bus, "_transact"):
+            return {"ok": False, "error": "no MCU bus"}
+        blocked = self._bus_admission_error()
+        if blocked:
+            return blocked
+        line = bus._transact("DBG", timeout=1.5)
+        if not line or not line.startswith("OK"):
+            return {"ok": False, "error": f"DBG answered {line!r}"}
+        out = {}
+        for tok in line.split()[1:]:
+            if "=" in tok:
+                k, v = tok.split("=", 1)
+                try:
+                    out[k] = int(v)
+                except ValueError:
+                    out[k] = v
+        return {"ok": True, "dbg": out}
+
+    def servo_regs(self, addr: int, size: int = 1, ids=None) -> dict:
+        """Read-only: one register from each servo (STS3215 memory table).
+
+        2026-09-22: four legs went limp after a clean STEP stand with no
+        software release and no heat; answering "did the servo's own
+        overload protection unload it?" needs the status byte (65) and the
+        protection settings (26-28, 34-36) -- there was no way to read a
+        register through the running service."""
+        bus = self.drive.bus
+        if bus is None:
+            return {"ok": False, "error": "no bus"}
+        blocked = self._bus_admission_error()
+        if blocked:
+            return blocked
+        addr = int(addr)
+        size = 2 if int(size) == 2 else 1
+        want = sorted(set(int(i) for i in ids)) if ids else sorted(SERVO_IDS)
+        fn = bus.pkt.read2ByteTxRx if size == 2 else bus.pkt.read1ByteTxRx
+        out: dict = {}
+        for sid in want:
+            try:
+                value, comm, err = fn(sid, addr)
+                out[str(sid)] = {"value": (int(value) if comm == 0 else None), "comm": int(comm), "err": int(err)}
+            except Exception as e:  # noqa: BLE001
+                out[str(sid)] = {"value": None, "error": str(e)[:80]}
+        return {"ok": True, "addr": addr, "size": size, "servos": out}
+
+    def static_strain_release(self, reason: str, info: dict) -> None:
+        """The watchdog found the robot armed, idle, still and drawing
+        current (2026-09-22): 18 servos pulling toward an unreachable target
+        after a stopped lower.  A static hold must be ~free; this one is a
+        fight.  Release GENTLY: step the torque limit down so the robot
+        settles under its own weight over a few seconds, then torque off.
+        Runs on the watchdog thread; never raises.  No job is running by
+        definition, so nothing else is driving the servos."""
+        d = self.drive
+        bus = d.bus
+        try:
+            from event_log import emit
+            emit("static_strain_release", f"STATIC STRAIN: {reason} — stepping torque down, then off",
+                 src="servo_watch", data=info, level="warn")
+        except Exception:
+            print(f"[static_strain] {reason}", flush=True)
+        if bus is None:
+            return
+        try:
+            from inplace_demos import _live_robot_ids, _set_torque_limit
+            live = _live_robot_ids(bus)
+            for limit in (500, 300, 180, 100):
+                _set_torque_limit(bus, live, limit)
+                time.sleep(1.0)
+        except Exception as e:
+            print(f"[static_strain] torque ramp failed: {e}", flush=True)
+        with d._lock:
+            d.mode = "idle"
+            try:
+                d.gait.stop()
+            except Exception:
+                pass
+            try:
+                d._torque_all(False)
+            except Exception as e:
+                print(f"[static_strain] torque off failed: {e}", flush=True)
+            d.armed = False
+            d.status = "limp: released after static strain"
+        try:
+            from inplace_demos import _live_robot_ids, _set_torque_limit
+            _set_torque_limit(bus, _live_robot_ids(bus), 1000)   # leave the limit as the next job expects
+        except Exception:
+            pass
+        try:
+            from event_log import emit
+            emit("static_strain_release", "released: torque off, robot limp", src="servo_watch", data=info)
+        except Exception:
+            pass
 
     def thermal_panic(self, reason: str) -> None:
         """Kill ALL motion and limp the robot — the watchdog's overtemp

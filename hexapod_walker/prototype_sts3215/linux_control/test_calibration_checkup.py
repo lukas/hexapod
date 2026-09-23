@@ -199,7 +199,7 @@ def _run_checkup(*, sweep_res: dict,
                 "actuators": {},
             }
 
-        api._safe_zero_sync = safe_zero
+        api._zero_sync = safe_zero
         api._calibrate_quad_body_frame = body_frame
         api._run_traction_probe = traction
         api._run_leg_slip_probe = traction

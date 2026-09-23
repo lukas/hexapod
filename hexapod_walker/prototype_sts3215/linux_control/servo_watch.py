@@ -41,6 +41,19 @@ CLEAR_C = 50            # un-latch "tripped" once cooled below this
 STALE_S = 30.0          # snapshot older than this counts as unknown
 TEMP_TRIP_READS = 3     # same joint; rejects consecutive corrupt bus bytes
 
+# Static strain (2026-09-22): a robot that is ARMED, has NO job running and is
+# NOT MOVING must draw almost nothing -- a whole standing hold reads ~0.3 A
+# total.  Sustained current at rest means the servos are fighting geometry or
+# friction toward a target they cannot reach (hexapod2: 18 servos at 2-4 A for
+# minutes after a stopped lower, hips at 60-70 % load, L5 hip to 56 C).  Two
+# consecutive reads over either threshold -> on_strain(reason, info): the owner
+# releases the robot gently (torque limit stepped down, then torque off).
+STRAIN_TOTAL_A = 1.0    # sum over all servos (plausible readings only)
+STRAIN_SERVO_A = 0.6    # or any single servo
+STRAIN_STILL_DPS = 5.0  # every joint slower than this = static
+STRAIN_READS = 2
+IMPLAUSIBLE_A = 10.0    # STS3215 stalls at ~2.7 A; higher = corrupt byte
+
 
 class ServoWatch:
     """Liveness + temperature monitor with a per-servo thermal cutoff."""
@@ -48,10 +61,20 @@ class ServoWatch:
     def __init__(self, get_bus: Callable[[], Any],
                  is_busy: Callable[[], bool],
                  label: Callable[[int], str],
-                 on_trip: Callable[[str], None] | None = None):
+                 on_trip: Callable[[str], None] | None = None,
+                 *, is_armed: Callable[[], bool] | None = None,
+                 on_strain: Callable[[str, dict], None] | None = None,
+                 on_torque_lost: Callable[[str, dict], None] | None = None):
         self._get_bus = get_bus
         self._is_busy = is_busy
         self._label = label  # joint index -> human name ("L5 knee")
+        self._is_armed = is_armed
+        self._on_strain = on_strain
+        self._on_torque_lost = on_torque_lost
+        self._torque_lost_latched = False
+        self._strain_reads = 0
+        self._strain_released = False   # latched until the robot reads calm again
+        self._strain: dict = {}
         # Motion killer (08-11): cutting torque on ONE hot servo while a
         # job keeps driving the other 17 is a fall, not a save. The owner
         # passes a callback that stops the whole robot (abort demo/RL
@@ -150,6 +173,9 @@ class ServoWatch:
                 hot.append({"joint": j, "name": self._label(j), "temp_c": t,
                             "tripped": j in self._tripped})
 
+        self._check_static_strain(fb)
+        self._check_torque_lost(bus, fb)
+
         with self._lock:
             # raw per-joint feedback for /api/feedback while a job owns the bus (no extra bus traffic)
             self._last_fb = ({j: dict(f) for j, f in fb.items()}, now)
@@ -170,7 +196,92 @@ class ServoWatch:
                 "shutoff_c": SHUTOFF_C,
                 "temp_trip_reads": TEMP_TRIP_READS,
                 "imu_ok": imu_ok,
+                "strain": dict(self._strain),
+                "torque_off": list(getattr(self, "_snap_torque_off", [])),
             }
+
+    def _check_torque_lost(self, bus: Any, fb: dict) -> None:
+        """Armed on the host but torque OFF in the servos = something the host
+        did not do turned them off (2026-09-22, hexapod2: twice, 30-150 s
+        after a clean stand, all 18 at once, no software path, alarm bytes
+        clear afterwards).  Read torque-enable (reg 40) while armed and not
+        busy; if any dropped, capture that servo's alarm byte (65) and
+        voltage (62) NOW and tell the owner.  One report per episode."""
+        armed = bool(self._is_armed()) if self._is_armed is not None else False
+        if not armed or bool(self._is_busy()) or self._on_torque_lost is None:
+            self._torque_lost_latched = False
+            return
+        pkt = getattr(bus, "pkt", None)
+        if pkt is None or not hasattr(pkt, "read1ByteTxRx"):
+            return
+        off: dict[int, dict] = {}
+        for j in sorted(fb):
+            sid = joint_to_servo_id(j)
+            try:
+                v, comm, _err = pkt.read1ByteTxRx(sid, 40)
+            except Exception:
+                continue
+            if comm == 0 and int(v) == 0:
+                info = {"joint": j, "name": self._label(j), "servo_id": sid}
+                for addr, key in ((65, "status_bits"), (62, "volt_0v1")):
+                    try:
+                        vv, c2, _e2 = pkt.read1ByteTxRx(sid, addr)
+                        info[key] = int(vv) if c2 == 0 else None
+                    except Exception:
+                        info[key] = None
+                off[j] = info
+        with self._lock:
+            self._snap_torque_off = sorted(off)
+        if not off:
+            self._torque_lost_latched = False
+            return
+        if self._torque_lost_latched:
+            return
+        self._torque_lost_latched = True
+        names = ", ".join(v["name"] for v in off.values())
+        reason = (f"torque OFF in {len(off)}/{len(fb)} servos while the host thinks it is armed: {names}; "
+                  f"alarm bits {[v.get('status_bits') for v in off.values()]}, "
+                  f"volt(0.1V) {[v.get('volt_0v1') for v in off.values()]}")
+        self._emit("torque_lost", reason, {"servos": list(off.values())}, level="warn")
+        try:
+            self._on_torque_lost(reason, {"servos": list(off.values())})
+        except Exception as e:
+            self._emit("torque_lost", f"owner callback failed: {e}", {}, level="warn")
+
+    def _check_static_strain(self, fb: dict) -> None:
+        """Armed + idle + still + drawing current = fighting.  Two reads -> release."""
+        cur = {j: abs(float(f.get("current_a") or 0.0)) for j, f in fb.items()}
+        cur = {j: a for j, a in cur.items() if a < IMPLAUSIBLE_A}
+        total = sum(cur.values())
+        worst_j = max(cur, key=cur.get) if cur else None
+        worst = cur[worst_j] if worst_j is not None else 0.0
+        speeds = [abs(float(f.get("speed_deg_s") or 0.0)) for f in fb.values()]
+        still = bool(speeds) and max(speeds) < STRAIN_STILL_DPS
+        armed = bool(self._is_armed()) if self._is_armed is not None else False
+        busy = bool(self._is_busy())
+        strained = armed and not busy and still and (total > STRAIN_TOTAL_A or worst > STRAIN_SERVO_A)
+        self._strain = {"total_a": round(total, 3), "worst_a": round(worst, 3),
+                        "worst": self._label(worst_j) if worst_j is not None else None,
+                        "still": still, "armed": armed, "busy": busy,
+                        "reads": self._strain_reads, "released": self._strain_released}
+        if not strained:
+            self._strain_reads = 0
+            if total < STRAIN_TOTAL_A * 0.5:
+                self._strain_released = False
+            self._strain.update(reads=0, released=self._strain_released)
+            return
+        self._strain_reads += 1
+        self._strain["reads"] = self._strain_reads
+        if self._strain_reads < STRAIN_READS or self._strain_released or self._on_strain is None:
+            return
+        self._strain_released = True
+        reason = (f"static strain: {total:.2f} A total, worst {self._label(worst_j)} {worst:.2f} A "
+                  f"while armed, idle and still for {self._strain_reads} reads")
+        self._emit("static_strain", reason + " — releasing", dict(self._strain), level="warn")
+        try:
+            self._on_strain(reason, dict(self._strain))
+        except Exception as e:
+            self._emit("static_strain", f"release FAILED: {e}", dict(self._strain), level="warn")
 
     def _trip(self, bus: Any, joint: int, temp_c: int) -> None:
         """Cut torque on one over-temperature servo (never re-enables)."""

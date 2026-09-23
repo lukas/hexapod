@@ -107,6 +107,14 @@ except Exception:  # pragma: no cover - deploy bundle always ships it
 # Scripted gait and MuJoCo share this 100 Hz contract.  The MCU stream bridge
 # reduced a full SyncWrite to ~1-2 ms, leaving margin inside the 10 ms budget.
 DT = SCRIPTED_WALK_DT_S
+# Scripted ticks as write+snapshot round trips (IMU at the loop rate in telemetry); HEXAPOD_SCRIPTED_SNAPSHOT=0
+# restores bare SyncWrites.  In a static hold the loop reads a snapshot every HOLD_SNAPSHOT_EVERY ticks (50 Hz).
+SCRIPTED_SNAPSHOT_WRITES = os.environ.get("HEXAPOD_SCRIPTED_SNAPSHOT", "1") != "0"
+HOLD_SNAPSHOT_EVERY = 2
+# Walk ticks: only every SNAPSHOT_EVERY-th write asks for the snapshot (50 Hz IMU at the 100 Hz loop);
+# the others stay bare SyncWrites.  Measured 2026-09-23: the 'T' round trip costs a median 3.5 ms of the
+# 10 ms period and every-tick snapshots raised deadline overruns to ~7 % of ticks.
+SNAPSHOT_EVERY = int(os.environ.get("HEXAPOD_SCRIPTED_SNAPSHOT_EVERY", "2"))
 LIVE_SCAN_PERIOD_S = 2.0
 WALK_START_TOL_DEG = 30.0
 DEMO_TRIPOD_PERIOD_S = DEFAULT_DEMO_TRIPOD.period_s
@@ -150,6 +158,13 @@ class DriveController:
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._loop_overruns = 0
+        # 2026-09-23: scripted ticks go out as write+snapshot round trips (bus.step_all) so the
+        # MCU's IMU/position snapshot rides back on the SAME transaction and the passive telemetry
+        # logs it at the loop rate -- no extra bus traffic in the 100 Hz path.  Counters for /api.
+        self._loop_ticks = 0
+        self._snapshot_writes = 0
+        self._snapshot_misses = 0
+        self._hold_snapshots = 0
         self._vx = self._vy = self._omega = 0.0
         self._gait_id = 0            # 0 = tripod (drag), 1 = no-slip
         self._noslip_alpha = 0.0     # body-motion overlap (no-slip only)
@@ -374,6 +389,24 @@ class DriveController:
         # the independent feedback guard continues to enforce missing-ID
         # safety during the run.
         live = self._live_ids(allow_stale=self.mode == "walk")
+        step_all = getattr(self.bus, "step_all", None)
+        if (SCRIPTED_SNAPSHOT_WRITES and callable(step_all) and len(degrees) == 18
+                and (not live or len(live) == 18)
+                and (self._loop_ticks % max(1, SNAPSHOT_EVERY)) == 0):
+            # ONE round trip: SyncWrite the goals and get positions + IMU back (the RL tick's
+            # transaction).  The servos see the command at the same moment as a bare SyncWrite; the
+            # host merely reads the ~130-byte reply before its next 10 ms deadline.  None = one
+            # missing sample (framing/timeout), never a re-send through another path.
+            try:
+                snap = step_all(degrees, speed=speed, acc=acc)
+            except Exception as e:  # noqa: BLE001 -- quarantine / port error: fall back below
+                snap = None
+                print(f"[drive] step_all failed ({e}); bare SyncWrite", flush=True)
+            else:
+                self._snapshot_writes += 1
+                if snap is None:
+                    self._snapshot_misses += 1
+                return
         for joint, deg in enumerate(degrees):
             sid = joint_to_servo_id(joint)
             if live and sid not in live:
@@ -382,6 +415,22 @@ class DriveController:
             self.bus.pkt.SyncWritePosEx(sid, count, speed, acc)
         self.bus.pkt.groupSyncWrite.txPacket()
         self.bus.pkt.groupSyncWrite.clearParam()
+
+    def _sample_hold_snapshot(self) -> None:
+        """Static hold: read the MCU snapshot (positions + IMU) so telemetry has the noise floor at
+        HOLD_SNAPSHOT_HZ.  Only while passive telemetry is active; the read is the same 'S' round trip
+        the servo watch makes, on the same lock, with nothing else on the bus in stand mode."""
+        bus = self.bus
+        if bus is None or getattr(bus, "_telemetry_sink", None) is None:
+            return
+        read = getattr(bus, "read_snapshot", None)
+        if not callable(read):
+            return
+        try:
+            read()
+            self._hold_snapshots += 1
+        except Exception:  # noqa: BLE001
+            pass
 
     def _hold_here(self) -> None:
         if not self.bus or not self.armed:
@@ -501,6 +550,9 @@ class DriveController:
             "servo_speed_counts_s": SCRIPTED_WALK_SPEED_COUNTS_S,
             "servo_acc_units": SCRIPTED_WALK_ACC_UNITS,
             "deadline_overruns": self._loop_overruns,
+            "snapshot_writes": self._snapshot_writes,
+            "snapshot_misses": self._snapshot_misses,
+            "hold_snapshots": self._hold_snapshots,
         }
 
     def _apply_demo_tripod_tune(self, updates: dict[str, float]) -> str:
@@ -918,6 +970,7 @@ class DriveController:
         stand_hold_t = t0
         while not self._stop.is_set():
             tick = time.monotonic()
+            self._loop_ticks += 1
             with self._lock:
                 mode = self.mode
                 armed = self.armed
@@ -940,8 +993,15 @@ class DriveController:
                                 else walk_start_pose_degrees())
                         self._write_pose(hold, speed=300, acc=20)
                         stand_hold_t = tick
+                    elif SCRIPTED_SNAPSHOT_WRITES and (self._loop_ticks % HOLD_SNAPSHOT_EVERY) == 0:
+                        self._sample_hold_snapshot()
                 else:
                     stand_hold_t = tick
+                    # armed + idle (the lab's STEP stand leaves the drive here): same 50 Hz snapshot
+                    # sampling as a stand hold, so a static planted hold has its IMU noise floor logged
+                    if (armed and mode == "idle" and SCRIPTED_SNAPSHOT_WRITES
+                            and (self._loop_ticks % HOLD_SNAPSHOT_EVERY) == 0):
+                        self._sample_hold_snapshot()
             deadline, skipped = _advance_periodic_deadline(
                 deadline, time.monotonic())
             self._loop_overruns += skipped

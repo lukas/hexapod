@@ -198,6 +198,57 @@ def hold_minload_shortfall_reward(env, minload_floor_n, minload_in_hold, minload
     return reward
 
 
+def tilt_guard_reward(env, parts, reward):
+    """Dense tilt guard-band price (2026-09-23, standwalk
+    s1-cont2m2 dig-in — the priced twin of the tilt_roll/tilt_pitch
+    termination, same "termination WITH a price" pattern as
+    hold_minload_shortfall_reward above).
+
+    ROOT CAUSE it fixes: the hold/track income kernel's tilt width
+    is reward.track_sigma_deg (1.5 deg), which saturates to ~0 by
+    ~4 deg, while the tilt_roll cliff sits at safety.max_roll_deg
+    (10 deg on the stand recipes) — so between kernel saturation
+    and the cliff the policy is GRADIENT-BLIND on tilt. The
+    s1-cont2m2 FAIL's hold/sto/2 episode is exactly that: a
+    quasi-static roll drift (low swing counts, no dithering) from
+    ~4 deg to the 10.4 deg trip with no dense signal anywhere on
+    the path. This charge is that signal: every non-walk tick pays
+      -k * dt * clip((frac - start) / (1 - start), 0, 1)
+    where frac = max(|roll-ref|/max_roll, |pitch-ref|/max_pitch)
+    reads the SAME tilt measure, reference and envelope the
+    termination reads (reward optimum == gate behavior, 08-21
+    alignment rule), and start = reward.tilt_guard_start_frac
+    (default 0.6) leaves the commanded-lean band (goal.max_ref_deg
+    4 deg < 0.6 x 10 deg) charge-free. Walk ticks are exempt (the
+    accelerometer misreads walk surge as ~3x body tilt, config.yaml
+    walk note). reward.k_tilt_guard default 0.0 = off, bit-exact.
+    """
+    k_tg = float(cfg_get(env.cfg, "reward", "k_tilt_guard",
+                         default=0.0))
+    if k_tg <= 0.0:
+        return reward
+    mode_tg = (getattr(env._goal_traj, "mode", "")
+               if env._goal_traj is not None else "")
+    if mode_tg == "walk":
+        return reward
+    start_tg = float(cfg_get(env.cfg, "reward",
+                             "tilt_guard_start_frac", default=0.6))
+    start_tg = min(max(start_tg, 0.0), 0.99)
+    frac_tg = max(
+        abs(env._state.imu_roll - env._tilt_ref0[0])
+        / max(float(env.safety.max_roll), 1e-6),
+        abs(env._state.imu_pitch - env._tilt_ref0[1])
+        / max(float(env.safety.max_pitch), 1e-6))
+    short_tg = min(max((frac_tg - start_tg) / (1.0 - start_tg),
+                       0.0), 1.0)
+    if short_tg > 0.0:
+        pen_tg = k_tg * short_tg * env.dt
+        reward -= pen_tg
+        parts["reward_tilt_guard"] = parts.get(
+            "reward_tilt_guard", 0.0) - pen_tg
+    return reward
+
+
 def transition_foot_drag_metric(env, parts):
     """Transition foot-drag metric (parts trans_drag_mm); moved verbatim
     from SimHexapodBalanceEnv._step_finish.

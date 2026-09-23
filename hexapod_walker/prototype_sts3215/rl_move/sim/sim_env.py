@@ -82,6 +82,7 @@ from .balance_reward_posture import (
 from .balance_reward_current import (
     current_penalties,
 )
+from .walk_reward_bankentry import walk_bank_entry_debt_reward
 from .balance_reward_rise import (
     rise_curl_only_pretrain_reward, rise_curl_reward, rise_ref_track_reward,
     rise_scored_steps_reward,
@@ -3913,6 +3914,8 @@ class SimHexapodBalanceEnv(_GymBase):
         reward = terminal_settlement_reward(self, depth_frac,
             lower_score_mode, parts, pen, reward, terminated)
         reward = rise_curl_only_pretrain_reward(self, parts, reward)
+        reward = walk_bank_entry_debt_reward(self, goal, h_err, parts,
+            reward)
         truncated = self._step_i >= self._active_episode_steps()
         self._prev_prev_action = self._prev_action
         self._prev_action = clipped.copy()

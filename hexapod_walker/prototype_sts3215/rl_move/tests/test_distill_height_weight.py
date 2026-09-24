@@ -21,6 +21,23 @@ Locks:
    emit/accept the 5-tuple ``(mode, obs, act, val, height_err_mm)`` —
    covered for collect/collect_dagger by a fake-env smoke check (no
    real MuJoCo stepping, mechanics only).
+
+Follow-up (2026-09-24, hgain3 gate FAIL/NULL: gain=3.0 EPISODE-scalar
+weighting left rise success flat -- 5-7/30 vs the unweighted parent's
+6/30, same overshoot failure signature): ``--height-weight-mode
+timestep`` weights each TICK by its own instantaneous height error
+instead of the episode's terminal one.
+5. ``_bc_step_weights``: dispatches to ``_bc_episode_weight`` unchanged
+   for a scalar/None 5th field (bit-exact with the pre-existing
+   lever); for an array, returns a same-length per-tick weight array,
+   still an exact no-op whenever gain<=0 or mode!="rise".
+6. ``collect``/``collect_dagger`` with ``height_err_series=True``
+   capture a per-tick trace (not just the terminal value) for rise/
+   lower episodes only, unaffected for every other mode.
+7. ``train_student`` end to end with an array 5th field: measurably
+   different loss trajectory than gain=0.0, and than the old episode-
+   scalar shape given the SAME terminal error (proves the per-tick
+   weight distribution, not just its mean, matters).
 """
 from __future__ import annotations
 
@@ -33,7 +50,7 @@ import torch as th
 from gymnasium import spaces
 
 from rl_move.sim.distill_gru import (
-    _bc_episode_weight, _height_err_mm, train_student,
+    _bc_episode_weight, _bc_step_weights, _height_err_mm, train_student,
 )
 
 
@@ -209,3 +226,192 @@ def test_train_student_runs_on_mixed_none_and_real_height_err():
     loss = train_student(_fake_student(policy), eps, epochs=1,
                          batch_eps=8, height_weight_gain=1.0)
     assert np.isfinite(loss)
+
+
+# ---------------------------------------------------------------- (5)
+
+def test_bc_step_weights_dispatches_scalar_unchanged():
+    for mode, herr, gain in [("rise", 40.0, 0.0), ("walk", 40.0, 2.0),
+                             ("lower", 40.0, 2.0), ("rise", None, 2.0),
+                             ("rise", 60.0, 1.0), ("rise", -60.0, 1.0)]:
+        assert (_bc_step_weights(mode, herr, gain)
+                == _bc_episode_weight(mode, herr, gain))
+
+
+def test_bc_step_weights_array_is_noop_when_gain_off_or_not_rise():
+    series = np.array([5.0, 60.0, 0.0, 90.0], dtype=np.float32)
+    for mode, gain in [("rise", 0.0), ("walk", 2.0), ("lower", 2.0),
+                       ("hold", 5.0)]:
+        w = _bc_step_weights(mode, series, gain)
+        assert isinstance(w, np.ndarray) and w.shape == series.shape
+        assert np.allclose(w, 1.0)
+
+
+def test_bc_step_weights_array_matches_per_tick_formula():
+    series = np.array([5.0, 60.0, -60.0], dtype=np.float32)
+    w = _bc_step_weights("rise", series, gain=1.0)
+    assert w == pytest.approx(1.0 + np.abs(series) / 50.0, abs=1e-6)
+    # a series with the SAME terminal value but a different early
+    # trace must NOT collapse to the same weight vector -- proves the
+    # per-tick shape is actually used, not just the last element.
+    series2 = np.array([500.0, 500.0, -60.0], dtype=np.float32)
+    w2 = _bc_step_weights("rise", series2, gain=1.0)
+    assert w2[0] != pytest.approx(w[0])
+    assert w2[-1] == pytest.approx(w[-1])  # same terminal error
+
+
+# ---------------------------------------------------------------- (6)
+
+class _FakePolicy:
+    def predict_values(self, _obs_tensor):
+        return th.zeros(1, 1)
+
+
+class _FakeTeacher:
+    """Deterministic zero-action teacher/value pair for collect/
+    collect_dagger smoke tests -- no real policy, just the two calls
+    ``_teacher_act_value``/``student.predict`` need to succeed."""
+
+    def __init__(self):
+        self.policy = _FakePolicy()
+
+    def predict(self, obs, deterministic=True, state=None,
+               episode_start=None):
+        act = np.zeros(4, dtype=np.float32)
+        return act, state
+
+
+class _FakeCollectEnv:
+    """Minimal env stand-in for collect()/collect_dagger()'s own
+    stepping loop: fixed-length rise episode, chassis height ramping
+    linearly toward the target so consecutive ticks have DIFFERENT
+    height errors (the property height_err_series is supposed to
+    capture)."""
+
+    def __init__(self, mode="rise", n_steps=5, obs_dim=10, act_dim=4):
+        self.mode, self.n_steps, self._t = mode, n_steps, 0
+        self.obs_dim, self.act_dim = obs_dim, act_dim
+        self._z0, self._h_target, self._chassis_bid = 0.05, 0.083, 0
+
+        class _D:
+            pass
+        self.data = _D()
+        self.data.xpos = np.zeros((1, 3))
+        self.data.xpos[0, 2] = self._z0
+
+    def reset(self, *_a, **_kw):
+        self._t = 0
+        self.data.xpos[0, 2] = self._z0
+        return np.zeros(self.obs_dim, dtype=np.float32), \
+            {"goal_mode": self.mode}
+
+    def step(self, _act):
+        self._t += 1
+        # chassis height climbs a different amount each tick -> a
+        # non-constant per-tick height-error trace.
+        self.data.xpos[0, 2] = self._z0 + 0.01 * self._t
+        done = self._t >= self.n_steps
+        return (np.zeros(self.obs_dim, dtype=np.float32), 0.0, done,
+                False, {})
+
+    def set_goal_mix(self, _mix):
+        pass
+
+
+def test_collect_height_err_series_captures_per_tick_trace():
+    from rl_move.sim.distill_gru import collect
+    env = _FakeCollectEnv(mode="rise", n_steps=5)
+    teacher = _FakeTeacher()
+    rng = np.random.default_rng(0)
+    eps = collect({"rise": env}, {"stance": (teacher, env.obs_dim),
+                                  "walk": (teacher, env.obs_dim)},
+                 {"rise": 1}, stochastic_frac=0.0, rng=rng,
+                 height_err_series=True)
+    assert len(eps) == 1
+    mode, obs, act, val, h_err = eps[0]
+    assert mode == "rise"
+    assert isinstance(h_err, np.ndarray)
+    assert h_err.shape[0] == obs.shape[0] == 5
+    # strictly increasing height (climbing toward target) -> strictly
+    # increasing (less negative / more overshot) height error trace.
+    assert np.all(np.diff(h_err) > 0)
+
+
+def test_collect_height_err_series_off_keeps_scalar():
+    from rl_move.sim.distill_gru import collect
+    env = _FakeCollectEnv(mode="rise", n_steps=5)
+    teacher = _FakeTeacher()
+    rng = np.random.default_rng(0)
+    eps = collect({"rise": env}, {"stance": (teacher, env.obs_dim),
+                                  "walk": (teacher, env.obs_dim)},
+                 {"rise": 1}, stochastic_frac=0.0, rng=rng,
+                 height_err_series=False)
+    mode, obs, act, val, h_err = eps[0]
+    assert h_err is None or np.ndim(h_err) == 0
+
+
+def test_collect_dagger_height_err_series_captures_per_tick_trace():
+    from rl_move.sim.distill_gru import collect_dagger
+    env = _FakeCollectEnv(mode="rise", n_steps=4)
+    teacher = _FakeTeacher()
+    student = types.SimpleNamespace(predict=teacher.predict)
+    eps = collect_dagger({"rise": env},
+                         student,
+                         {"stance": (teacher, env.obs_dim),
+                          "walk": (teacher, env.obs_dim)},
+                         {"rise": 1}, height_err_series=True)
+    mode, obs, act, val, h_err = eps[0]
+    assert mode == "rise"
+    assert isinstance(h_err, np.ndarray) and h_err.shape[0] == 4
+    assert np.all(np.diff(h_err) > 0)
+
+
+# ---------------------------------------------------------------- (7)
+
+def test_train_student_timestep_weight_differs_from_episode_weight():
+    """Two rise episodes with the SAME terminal height_err_mm (so the
+    old episode-scalar weight is identical either way) but different
+    early-trace shapes must train DIFFERENTLY when given as a
+    per-tick array vs collapsed to that one terminal scalar -- proves
+    the per-tick distribution (not just its endpoint) reaches the
+    gradient."""
+    obs_dim, act_dim = 10, 4
+    terminal = 80.0
+    ep_a_series = np.array([80.0, 80.0, 80.0, 80.0, 80.0, 80.0],
+                           dtype=np.float32)
+    ep_b_series = np.array([1.0, 2.0, 3.0, 5.0, 40.0, 80.0],
+                           dtype=np.float32)
+
+    def _mk(series):
+        rng = np.random.default_rng(9)
+        obs = rng.normal(size=(6, obs_dim)).astype(np.float32)
+        act = rng.uniform(-1, 1, size=(6, act_dim)).astype(np.float32)
+        val = rng.normal(size=(6,)).astype(np.float32)
+        return ("rise", obs, act, val, series)
+
+    eps_flat = [_mk(ep_a_series)]
+    eps_ramped = [_mk(ep_b_series)]
+    eps_scalar = [("rise", eps_flat[0][1], eps_flat[0][2], eps_flat[0][3],
+                  terminal)]
+
+    def _train(eps):
+        th.manual_seed(0)
+        policy = _gru_policy(obs_dim, act_dim)
+        np.random.seed(3)
+        train_student(_fake_student(policy), eps, epochs=3, batch_eps=8,
+                      height_weight_gain=1.0)
+        return policy
+
+    p_flat = _train(eps_flat)
+    p_ramped = _train(eps_ramped)
+    p_scalar = _train(eps_scalar)
+
+    # flat-constant-80 series must reproduce the old scalar-80 result
+    # exactly (both are a uniform weight of 1+80/50 every tick).
+    for p1, p2 in zip(p_flat.parameters(), p_scalar.parameters()):
+        assert th.allclose(p1, p2, atol=1e-7)
+    # a ramped trace (same terminal 80, different early shape) must
+    # diverge from the flat/scalar result.
+    diffs = [float((p1 - p2).detach().abs().max())
+            for p1, p2 in zip(p_flat.parameters(), p_ramped.parameters())]
+    assert max(diffs) > 1e-6

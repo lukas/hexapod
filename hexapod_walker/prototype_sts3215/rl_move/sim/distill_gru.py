@@ -360,14 +360,53 @@ def _bc_episode_weight(mode: str, height_err_mm: float | None,
     return 1.0 + gain * abs(height_err_mm) / scale_mm
 
 
+def _bc_step_weights(mode: str, height_err_mm, gain: float,
+                     scale_mm: float = 50.0) -> np.ndarray | float:
+    """Per-TIMESTEP analogue of ``_bc_episode_weight`` (standwalk
+    STATUS 2026-09-24 hgain3 FAIL/NULL follow-up: gain=3.0 EPISODE-
+    scalar weighting left rise success flat, 5-7/30 vs the unweighted
+    parent's 6/30, with the SAME overshoot failure signature unmoved
+    -- broadcasting one terminal-error scalar across the whole
+    episode gives the early ramp-up ticks (where a large height error
+    is EXPECTED, not a mistake) the same amplified gradient as the
+    actual out-of-band settling tail, diluting/misdirecting exactly
+    the signal the lever was meant to sharpen).
+
+    ``height_err_mm`` here is a per-step ARRAY (this episode's own
+    ``_height_err_mm`` value captured at every tick, not just the
+    terminal one) when ``--height-weight-mode=timestep`` requested
+    per-tick capture, else the old scalar/None. Dispatches to
+    ``_bc_episode_weight`` unchanged for the scalar/None case (bit-
+    exact with the pre-existing lever); for an array, weights EACH
+    tick by ITS OWN instantaneous ``|height_err_mm|`` so the amplified
+    gradient concentrates on ticks that are actually out of band right
+    now, wherever in the episode they fall. gain<=0 or mode!="rise"
+    still collapses to all-ones either way (same no-op contract).
+    """
+    if not isinstance(height_err_mm, np.ndarray):
+        return _bc_episode_weight(mode, height_err_mm, gain, scale_mm)
+    if gain <= 0.0 or mode != "rise":
+        return np.ones(len(height_err_mm), dtype=np.float32)
+    return (1.0 + gain * np.abs(height_err_mm) / scale_mm).astype(
+        np.float32)
+
+
 def collect(envs: dict, teachers: dict, episodes_by_mode: dict[str, int],
-            stochastic_frac: float, rng: np.random.Generator):
+            stochastic_frac: float, rng: np.random.Generator,
+            height_err_series: bool = False):
     """Teacher rollouts -> list of per-episode (obs, act, val) arrays.
 
     ``envs`` maps mode -> env (stance modes may use the teacher's
     native episode length). Prints per-mode teacher episode returns —
     if the TEACHER scores badly in this env context, BC on more of its
     demos cannot help and the context is what needs fixing.
+
+    ``height_err_series`` (default False, bit-exact with the pre-
+    existing behavior when off): for rise/lower episodes, capture
+    ``_height_err_mm`` at EVERY tick (not just the terminal one) and
+    store that array as the 5th tuple field instead of the scalar --
+    ``--height-weight-mode=timestep``'s own per-tick BC-loss weighting
+    (``_bc_step_weights``) needs the whole trace.
     """
     episodes = []
     t0 = time.monotonic()
@@ -381,7 +420,8 @@ def collect(envs: dict, teachers: dict, episodes_by_mode: dict[str, int],
             obs, info = env.reset()
             _teacher_reset(teacher)
             got = info.get("goal_mode", mode)
-            obs_l, act_l, val_l = [], [], []
+            track_series = height_err_series and got in ("rise", "lower")
+            obs_l, act_l, val_l, herr_l = [], [], [], []
             done, ep_ret = False, 0.0
             while not done:
                 t_obs = obs[:n_t_obs]
@@ -392,12 +432,16 @@ def collect(envs: dict, teachers: dict, episodes_by_mode: dict[str, int],
                 obs, r, term, trunc, _ = env.step(act)
                 ep_ret += r
                 done = term or trunc
+                if track_series:
+                    herr_l.append(_height_err_mm(env, got))
             returns.append(ep_ret)
+            h_err = (np.asarray(herr_l, dtype=np.float32) if track_series
+                     else _height_err_mm(env, got))
             episodes.append((got,
                              np.asarray(obs_l, dtype=np.float32),
                              np.asarray(act_l, dtype=np.float32),
                              np.asarray(val_l, dtype=np.float32),
-                             _height_err_mm(env, got)))
+                             h_err))
         print(f"[distill-gru] {mode}: {n_ep} eps, teacher return "
               f"med {np.median(returns):.0f} min {min(returns):.0f} "
               f"({time.monotonic() - t0:.0f}s elapsed)")
@@ -616,10 +660,15 @@ def collect_dagger_transitions(env, student, teachers: dict, n_ep: int):
 
 
 def collect_dagger(envs: dict, student, teachers: dict,
-                   episodes_by_mode: dict[str, int]):
+                   episodes_by_mode: dict[str, int],
+                   height_err_series: bool = False):
     """DAgger round: STUDENT drives (stateful, deterministic), TEACHER
     labels every visited state. Fixes BC compounding error — the
-    student learns recoveries on its own trajectory distribution."""
+    student learns recoveries on its own trajectory distribution.
+
+    ``height_err_series``: see ``collect``'s own docstring — same
+    per-tick capture for ``--height-weight-mode=timestep``.
+    """
     episodes = []
     t0 = time.monotonic()
     for mode, n_ep in episodes_by_mode.items():
@@ -630,8 +679,9 @@ def collect_dagger(envs: dict, student, teachers: dict,
             obs, info = env.reset()
             _teacher_reset(teacher)
             got = info.get("goal_mode", mode)
+            track_series = height_err_series and got in ("rise", "lower")
             state, ep_start = None, np.ones((1,), dtype=bool)
-            obs_l, act_l, val_l = [], [], []
+            obs_l, act_l, val_l, herr_l = [], [], [], []
             done = False
             while not done:
                 t_obs = obs[:n_t_obs]
@@ -645,11 +695,15 @@ def collect_dagger(envs: dict, student, teachers: dict,
                 ep_start = np.zeros((1,), dtype=bool)
                 obs, _, term, trunc, _ = env.step(act)
                 done = term or trunc
+                if track_series:
+                    herr_l.append(_height_err_mm(env, got))
+            h_err = (np.asarray(herr_l, dtype=np.float32) if track_series
+                     else _height_err_mm(env, got))
             episodes.append((got,
                              np.asarray(obs_l, dtype=np.float32),
                              np.asarray(act_l, dtype=np.float32),
                              np.asarray(val_l, dtype=np.float32),
-                             _height_err_mm(env, got)))
+                             h_err))
         print(f"[distill-gru] dagger {mode}: {n_ep} eps "
               f"({time.monotonic() - t0:.0f}s elapsed)")
     return episodes
@@ -662,16 +716,22 @@ def train_student(student, episodes, epochs: int, batch_eps: int = 8,
 
     ``height_weight_gain`` (standwalk STATUS 2026-09-24 ~06:0x named
     lever, default 0.0): scales each rise episode's ACTION-loss
-    contribution by ``_bc_episode_weight`` (1.0 + gain * |height_err_mm|
-    / 50mm) so an episode that badly missed the rise height target
-    contributes a proportionally larger gradient than one that landed
-    close -- addressing the dagger2_riseextra finding that flat
-    per-timestep action-MSE gives a mis-terminated-height episode no
-    stronger a signal than a near-perfect one. 0.0 (default) makes
-    every weight exactly 1.0, reproducing the original uniform-mask
-    loss bit-for-bit (see ``_bc_episode_weight``). The critic loss is
-    left unweighted (only the action term is targeted, per the named
-    lever's own wording)."""
+    contribution by ``_bc_episode_weight``/``_bc_step_weights``
+    (1.0 + gain * |height_err_mm| / 50mm) so ticks that missed the
+    rise height target contribute a proportionally larger gradient
+    than ones that landed close -- addressing the dagger2_riseextra
+    finding that flat per-timestep action-MSE gives a mis-terminated-
+    height episode no stronger a signal than a near-perfect one.
+    0.0 (default) makes every weight exactly 1.0, reproducing the
+    original uniform-mask loss bit-for-bit. Whether the weight is one
+    scalar per EPISODE (the original hgain shape, FAIL/NULL at
+    gain=3.0 -- flat 5-7/30 rise success) or per-TIMESTEP (the
+    ``--height-weight-mode=timestep`` follow-up, keyed to each
+    episode's own instantaneous height-error trace rather than its
+    terminal value) is decided entirely by whether ``episodes``'
+    5th field is a scalar/None or an array -- see ``_bc_step_weights``.
+    The critic loss is left unweighted (only the action term is
+    targeted, per the named lever's own wording)."""
     import torch
     import torch.nn.functional as F
 
@@ -680,7 +740,7 @@ def train_student(student, episodes, epochs: int, batch_eps: int = 8,
     opt = torch.optim.Adam(policy.parameters(), lr=lr)
 
     seqs = [(torch.as_tensor(o), torch.as_tensor(a), torch.as_tensor(v),
-             _bc_episode_weight(mode, h_err_mm, height_weight_gain))
+             _bc_step_weights(mode, h_err_mm, height_weight_gain))
             for mode, o, a, v, h_err_mm in episodes]
     all_vals = np.concatenate([v for _, _, _, v, _ in episodes])
     v_scale = 1.0 / max(float(np.var(all_vals)), 1.0)
@@ -698,14 +758,22 @@ def train_student(student, episodes, epochs: int, batch_eps: int = 8,
             act_p = torch.zeros(t_max, b, batch[0][1].shape[1])
             val_p = torch.zeros(t_max, b, 1)
             mask = torch.zeros(t_max, b, 1)
-            weight = torch.ones(1, b, 1)
+            # weight is per-(t,episode): a scalar w broadcasts to every
+            # tick of that episode (old episode-level shape, bit-exact
+            # with the pre-timestep lever); an array w is this
+            # episode's own per-tick weight trace (new timestep shape).
+            weight = torch.ones(t_max, b, 1)
             for k, (o, a, v, w) in enumerate(batch):
                 t = o.shape[0]
                 obs_p[:t, k] = o
                 act_p[:t, k] = a
                 val_p[:t, k, 0] = v
                 mask[:t, k, 0] = 1.0
-                weight[0, k, 0] = w
+                if np.ndim(w) == 0:
+                    weight[:t, k, 0] = float(w)
+                else:
+                    weight[:t, k, 0] = torch.as_tensor(
+                        np.asarray(w)[:t], dtype=torch.float32)
 
             feats = policy.extract_features(
                 obs_p.reshape(t_max * b, -1)).reshape(t_max, b, -1)
@@ -722,7 +790,7 @@ def train_student(student, episodes, epochs: int, batch_eps: int = 8,
                 v_pred = policy.value_net(
                     policy.mlp_extractor.forward_critic(lat_vf))
             m_sum = mask.sum()
-            wmask = mask * weight  # weight broadcasts over T (dim 0)
+            wmask = mask * weight  # weight is already full (t_max, b, 1)
             wm_sum = wmask.sum()
             loss_a = (F.mse_loss(mu, act_p, reduction="none")
                       * wmask).sum() / (wm_sum * mu.shape[-1])
@@ -1038,6 +1106,27 @@ def main(argv: list[str] | None = None) -> int:
                          "BC pass and every DAgger round's train_student "
                          "call. 0.0 (default) = every weight is exactly "
                          "1.0, bit-exact original uniform-mask loss.")
+    ap.add_argument("--height-weight-mode", type=str, default="episode",
+                    choices=["episode", "timestep"],
+                    help="standwalk STATUS 2026-09-24 hgain3 FAIL/NULL "
+                         "follow-up: hgain3 (--height-weight-gain=3.0, "
+                         "'episode' mode) left rise success flat "
+                         "(5-7/30 vs the unweighted parent's 6/30) with "
+                         "the SAME overshoot failure signature unmoved "
+                         "-- one terminal-error scalar broadcast across "
+                         "the WHOLE episode gives the early ramp-up "
+                         "ticks (large height error EXPECTED, not a "
+                         "mistake) the same amplified gradient as the "
+                         "actual out-of-band settling tail. 'timestep' "
+                         "captures each rise/lower episode's own "
+                         "_height_err_mm at EVERY tick (collect/"
+                         "collect_dagger's height_err_series=True) and "
+                         "weights each tick by ITS OWN instantaneous "
+                         "error (_bc_step_weights) instead of the "
+                         "episode's terminal one. 'episode' (default) "
+                         "reproduces the pre-existing hgain lever "
+                         "bit-for-bit. Only takes effect when "
+                         "--height-weight-gain > 0.")
     ap.add_argument("--mirror-augment", action="store_true",
                     help="double every collected episode batch (BC "
                          "initial pass + every DAgger round) with a "
@@ -1250,8 +1339,11 @@ def main(argv: list[str] | None = None) -> int:
             seq_eps = mirror_augment_episodes(seq_eps, cfg, n_env_obs)
         episodes.extend(seq_eps)
 
+    _herr_series = (args.height_weight_mode == "timestep"
+                    and args.height_weight_gain > 0.0)
     initial_eps = collect(envs, teachers, episodes_by_mode,
-                          args.stochastic_frac, rng)
+                          args.stochastic_frac, rng,
+                          height_err_series=_herr_series)
     if args.mirror_augment:
         initial_eps = mirror_augment_episodes(initial_eps, cfg, n_env_obs)
     episodes.extend(initial_eps)
@@ -1294,7 +1386,8 @@ def main(argv: list[str] | None = None) -> int:
                 seq_env, student, teachers, args.dagger_episodes)
         else:
             new_eps = collect_dagger(envs, student, teachers,
-                                     dagger_by_mode)
+                                     dagger_by_mode,
+                                     height_err_series=_herr_series)
         if args.mirror_augment:
             new_eps = mirror_augment_episodes(new_eps, cfg, n_env_obs)
         episodes.extend(new_eps)
@@ -1304,7 +1397,8 @@ def main(argv: list[str] | None = None) -> int:
             # pass under-visits/under-corrects, independent of whether
             # they trigger hard falls.
             extra_eps = collect_dagger(envs, student, teachers,
-                                       extra_by_mode)
+                                       extra_by_mode,
+                                       height_err_series=_herr_series)
             if args.mirror_augment:
                 extra_eps = mirror_augment_episodes(
                     extra_eps, cfg, n_env_obs)

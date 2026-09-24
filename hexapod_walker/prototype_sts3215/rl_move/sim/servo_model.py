@@ -409,6 +409,47 @@ def _populate_terrain(model, flat_terrain: bool, terrain_amp: float,
     MP._populate_hfield(model, heights)
 
 
+def _apply_mjx_twin_hfield(xml: str, xml_name: str) -> str:
+    """Swap the mesh-mjx twin's flat terrain plane for an hfield.
+
+    The checked-in primitive-collision twin (``hexapod_mesh_mjx.xml``)
+    ships a plane floor only — cheapest ground contact for the default
+    flat-terrain GPU training path. Rough-terrain runs
+    (``env.terrain_amp > 0``, 2026-09-24 adaptive-walker campaign,
+    RL_GOALS 74fbe31 Track A/B) need the same ``terrain`` hfield the
+    primitive model carries, which MuJoCo-Warp collides with (verified
+    on H200 — see ``build_model``'s docstring). Called ONLY when
+    ``flat_terrain=False``: the default path never touches the XML, so
+    flat-terrain models stay bit-exact. Same fail-loud contract as
+    ``_apply_leg_chassis_rewrites``: raise if the expected floor geom /
+    asset block is not found exactly once. Geometry constants mirror
+    ``mujoco_prototype`` (HFIELD_*), so ``_populate_terrain`` and
+    ``sample_terrain_height`` apply unchanged.
+    """
+    import mujoco_prototype as MP
+    old_geom = ('<geom name="terrain" type="plane" size="8 8 0.05" '
+                'material="terrain_mat" friction="1.5 0.05 0.0001" '
+                'condim="4" conaffinity="5"/>')
+    if xml.count(old_geom) != 1:
+        raise RuntimeError(
+            f"mjx-twin terrain-plane rewrite failed on {xml_name!r} — "
+            "floor geom XML changed?")
+    new_geom = ('<geom name="terrain" type="hfield" hfield="terrain" '
+                'material="terrain_mat" friction="1.5 0.05 0.0001" '
+                'condim="4" conaffinity="5"/>')
+    xml = xml.replace(old_geom, new_geom)
+    old_asset = "<asset>"
+    if xml.count(old_asset) != 1:
+        raise RuntimeError(
+            f"mjx-twin hfield-asset insert failed on {xml_name!r} — "
+            "expected exactly one <asset> block")
+    hfield = (f'<asset>\n    <hfield name="terrain" '
+              f'nrow="{MP.HFIELD_NROW}" ncol="{MP.HFIELD_NCOL}" '
+              f'size="{MP.HFIELD_SIZE} {MP.HFIELD_SIZE} '
+              f'{MP.HFIELD_MAX_Z} {MP.HFIELD_BASE}"/>')
+    return xml.replace(old_asset, hfield)
+
+
 def _make_fixed_base_xml(xml: str) -> str:
     """Remove free-base state whose dimensions no longer fit the model."""
     xml = xml.replace('<freejoint name="root"/>', '')
@@ -504,10 +545,10 @@ def _build_mesh_model(*, source: str, fixed_base: bool, flat_terrain: bool,
     xml, path, assets = _mesh_xml_text(want_full)
     is_full = path == MESH_XML
     if not flat_terrain and not is_full:
-        raise RuntimeError(
-            "rough terrain (env.terrain_amp > 0) needs the hfield: use the "
-            "full mesh model on CPU or env.model_source=primitive — the "
-            "mesh_mjx twin ships a flat plane only")
+        # The twin ships a flat plane only; swap it for the primitive
+        # model's terrain hfield (Warp collides with hfields — see
+        # build_model's docstring). Default flat path: XML untouched.
+        xml = _apply_mjx_twin_hfield(xml, path.name)
     if fixed_base:
         xml = _make_fixed_base_xml(xml)
     if leg_chassis_collision:

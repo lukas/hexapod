@@ -2268,6 +2268,38 @@ def main(argv: list[str] | None = None) -> int:
                   f"--steps ({args.steps:,}) — the policy will NEVER "
                   "train on the full target start mix in this run")
 
+    # LOWER-BANK REPLAY-BUFFER DELAY (2026-09-24, walkcurr entrybank020
+    # SAC regression, ramp follow-up — see goal_task.py's GoalGenerator.
+    # __init__ block for the mechanism/why: the gradual ramp closed
+    # 2026-09-24 ~19:2x only partially helped one seed and did nothing
+    # for the other; this is the STATUS entry's own named next lever, a
+    # HARD cutoff instead of a probability ramp). Same cfg-armed /
+    # trainer-driven / default-OFF contract as the ramps above.
+    _lbd_delay_steps = 0
+    if env_kw.get("cfg") is not None:
+        from rl_move.config import cfg_get as _cfg_get_lbd
+        _lbd_delay_steps = int(float(_cfg_get_lbd(
+            env_kw["cfg"], "goal", "lower_start_bank_delay_steps",
+            default=0) or 0))
+
+    def _lower_bank_gate_apply(target_venv, open_: bool) -> dict | None:
+        if _lbd_delay_steps <= 0:
+            return None
+        return target_venv.env_method(
+            "apply_lower_start_bank_gate", open_)[0]
+
+    if _lbd_delay_steps > 0:
+        _lbd0 = _lower_bank_gate_apply(venv, False)
+        print(f"[lower-bank-delay] armed: bank draws held at ZERO for "
+              f"{_lbd_delay_steps:,} global env steps, then jump "
+              f"directly to the cfg target frac; step-0 "
+              f"lower_start_bank_frac={_lbd0['lower_start_bank_frac']:.3f}")
+        if _lbd_delay_steps >= args.steps:
+            print("[lower-bank-delay] WARNING: goal."
+                  f"lower_start_bank_delay_steps ({_lbd_delay_steps:,}) "
+                  f">= --steps ({args.steps:,}) — the policy will NEVER "
+                  "see bank draws in this run")
+
     # Dense walk-charge RAMP (08-23, walkcurr fwd1/fwd2 dig-in — see
     # walk_task.py's __init__ block for the mechanism). Same cfg-armed
     # / trainer-driven / default-OFF contract as the two ramps above.
@@ -3506,6 +3538,40 @@ def main(argv: list[str] | None = None) -> int:
                             vals["partial_frac"]})
 
         callbacks.append(_RiseStartRampCb())
+    if _lbd_delay_steps > 0:
+        class _LowerBankDelayCb(BaseCallback):
+            """Flip the lower-bank hard-cutoff gate open once global
+            step crosses goal.lower_start_bank_delay_steps (see the
+            arming block after venv construction). W&B gets the
+            open/closed state and live frac under lower_bank_delay/*."""
+
+            def __init__(self):
+                super().__init__()
+                self._opened = False
+
+            def _on_step(self) -> bool:
+                return True
+
+            def _on_rollout_end(self) -> None:
+                if self._opened:
+                    return
+                if self.num_timesteps < _lbd_delay_steps:
+                    return
+                vals = _lower_bank_gate_apply(venv, True)
+                self._opened = True
+                print("[lower-bank-delay] gate OPEN @ "
+                      f"{self.num_timesteps:,} steps — "
+                      "lower_start_bank_frac="
+                      f"{vals['lower_start_bank_frac']:.3f} from here on")
+                if run is not None:
+                    import wandb
+                    wandb.log({
+                        "global_step": self.num_timesteps,
+                        "lower_bank_delay/open": 1.0,
+                        "lower_bank_delay/lower_start_bank_frac":
+                            vals["lower_start_bank_frac"]})
+
+        callbacks.append(_LowerBankDelayCb())
     if _wc_ramp_steps > 0:
         class _WalkChargeRampCb(BaseCallback):
             """Advance the dense walk-charge ramp once per rollout

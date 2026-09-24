@@ -394,6 +394,23 @@ def _populate_terrain(model, flat_terrain: bool, terrain_amp: float,
         model.hfield_data[:] = 0.0
         return
     heights = MP.make_terrain_heightmap(seed=int(terrain_seed))
+    # Resample to the model's own hfield resolution when it differs from
+    # the generator's native 128x128 (the mesh-mjx twin ships a coarser
+    # 64x64 grid — see _apply_mjx_twin_hfield: MuJoCo-Warp's hfield
+    # midphase drops contacts beyond a ~50-collision buffer, and the
+    # twin's large fitted chassis/battery boxes overflow it at 39 mm
+    # cells; verified live 2026-09-24, 1.4M+ overflow warnings). Nearest
+    # index sampling keeps the [0, 1] range and the flat spawn disc.
+    hf_id = mujoco.mj_name2id(
+        model, mujoco.mjtObj.mjOBJ_HFIELD, "terrain")
+    _nrow = int(model.hfield_nrow[hf_id])
+    _ncol = int(model.hfield_ncol[hf_id])
+    if heights.shape != (_nrow, _ncol):
+        r = np.round(np.linspace(0, heights.shape[0] - 1,
+                                 _nrow)).astype(int)
+        c = np.round(np.linspace(0, heights.shape[1] - 1,
+                                 _ncol)).astype(int)
+        heights = heights[np.ix_(r, c)]
     # hfield data must stay normalized to [0, 1]; physical bump height
     # is data * hfield_size[2] (HFIELD_MAX_Z, 36 mm at amp 1.0). Amps
     # <=1 scale the data; amps >1 scale the z-extent instead — the old
@@ -427,6 +444,15 @@ def _apply_mjx_twin_hfield(xml: str, xml_name: str) -> str:
     ``sample_terrain_height`` apply unchanged.
     """
     import mujoco_prototype as MP
+    # Coarser grid than the primitive model's 128x128: MuJoCo-Warp's
+    # hfield midphase has a ~50-collision buffer per pair and DROPS the
+    # overflow — at 39 mm cells the twin's fitted chassis/battery boxes
+    # overflow it (1.4M+ "height field collision overflow" warnings and
+    # ~2x fps loss, live 2026-09-24). 78 mm cells keep every twin geom
+    # comfortably under the cap (chassis box <= ~12 cells) and still
+    # resolve the indoor bump map (feature wavelength >= ~1.6 m).
+    # _populate_terrain resamples the 128x128 heightmap down to match.
+    nrow = ncol = 64
     old_geom = ('<geom name="terrain" type="plane" size="8 8 0.05" '
                 'material="terrain_mat" friction="1.5 0.05 0.0001" '
                 'condim="4" conaffinity="5"/>')
@@ -444,7 +470,7 @@ def _apply_mjx_twin_hfield(xml: str, xml_name: str) -> str:
             f"mjx-twin hfield-asset insert failed on {xml_name!r} — "
             "expected exactly one <asset> block")
     hfield = (f'<asset>\n    <hfield name="terrain" '
-              f'nrow="{MP.HFIELD_NROW}" ncol="{MP.HFIELD_NCOL}" '
+              f'nrow="{nrow}" ncol="{ncol}" '
               f'size="{MP.HFIELD_SIZE} {MP.HFIELD_SIZE} '
               f'{MP.HFIELD_MAX_Z} {MP.HFIELD_BASE}"/>')
     return xml.replace(old_asset, hfield)

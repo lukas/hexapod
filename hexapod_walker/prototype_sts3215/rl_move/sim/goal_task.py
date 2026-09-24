@@ -249,36 +249,6 @@ class GoalGenerator:
         self.lower_start_bank = str(g.get("lower_start_bank", "") or "")
         self.lower_start_bank_frac = float(
             g.get("lower_start_bank_frac", 0.0))
-        # LOWER-BANK REPLAY-BUFFER DELAY (2026-09-24, walkcurr
-        # entrybank020 SAC regression, ramp follow-up). CURRENT_TRUTHS/
-        # walkcurr STATUS.md 2026-09-24 ~19:2x: a GRADUAL linear ramp of
-        # lower_start_bank_frac (goal.lower_start_bank_frac_ramp_steps,
-        # closed+removed this same day) only partially helped one seed
-        # and did nothing for the other -- any nonzero bank-draw
-        # probability from step 0 already lets SAC's off-policy replay
-        # buffer accumulate some hard bank-qvel transitions before the
-        # actor has learned the plain lower task, and a slow ramp still
-        # does exactly that (just fewer of them). The STATUS entry's own
-        # "next untried lever" is a HARD cutoff instead of a probability
-        # ramp: bank draws are held at EXACTLY ZERO (not "small") for
-        # goal.lower_start_bank_delay_steps global training steps, then
-        # jump directly to the configured target frac in one step (no
-        # further ramping) -- so the replay buffer holds ZERO bank-
-        # origin transitions during the delay window instead of merely
-        # FEW of them. Default OFF (goal.lower_start_bank_delay_steps
-        # unset/0): lower_start_bank_frac equals the legacy cfg value
-        # unconditionally, bit-exact, no new rng draws or state. This is
-        # curriculum/replay-buffer-composition plumbing (WHEN an
-        # already-legal start kind may be drawn), not a demonstration or
-        # motion prior -- no reference trajectory or teacher action is
-        # read.
-        # Tests: rl_move/tests/test_lower_bank_delay.py.
-        self._lower_start_bank_frac_target = self.lower_start_bank_frac
-        self.lower_start_bank_delay_steps = int(float(
-            g.get("lower_start_bank_delay_steps", 0) or 0))
-        self.lower_start_bank_gate_open = self.lower_start_bank_delay_steps <= 0
-        if self.lower_start_bank_delay_steps > 0:
-            self.lower_start_bank_frac = 0.0
         # Slow on purpose: "gently, without banging" is the task. The
         # tracking kernel penalizes running ahead of the ramp, so a
         # 5 s descent IS the gentleness constraint.
@@ -399,28 +369,6 @@ class GoalGenerator:
         self.rise_start_ramp_frac = f
         return {"frac": f, "flat_frac": self.rise_flat_frac,
                 "partial_frac": self.rise_partial_frac}
-
-    def set_lower_start_bank_gate_open(self, open_: bool) -> dict:
-        """Hard cutoff for `goal.lower_start_bank_delay_steps`: while
-        closed, `lower_start_bank_frac` is pinned at 0.0 (no bank draws
-        at all, so SAC's replay buffer sees zero bank-origin
-        transitions); opening jumps DIRECTLY to the configured target
-        frac (no ramp). VecEnv `env_method` hook via
-        `SimHexapodGoalEnv.apply_lower_start_bank_gate` — sharded MJX
-        workers can't be poked in-process. Raises if the delay is not
-        armed, so a broadcast that silently no-ops is never a hidden
-        failure mode (mirrors `set_rise_start_frac`)."""
-        if self.lower_start_bank_delay_steps <= 0:
-            raise RuntimeError(
-                "set_lower_start_bank_gate_open called but goal."
-                "lower_start_bank_delay_steps is not set (>0) — the "
-                "lower-bank delay is not armed")
-        self.lower_start_bank_gate_open = bool(open_)
-        self.lower_start_bank_frac = (
-            self._lower_start_bank_frac_target
-            if self.lower_start_bank_gate_open else 0.0)
-        return {"open": self.lower_start_bank_gate_open,
-                "lower_start_bank_frac": self.lower_start_bank_frac}
 
     @staticmethod
     def _jittered_s(rng: np.random.Generator, base_s: float,
@@ -980,12 +928,6 @@ class SimHexapodGoalEnv(SimHexapodBalanceEnv):
         rise start-pose ramp (`goal.rise_start_ramp_steps`); see
         `GoalGenerator.set_rise_start_frac`."""
         return self._goal_gen.set_rise_start_frac(frac)
-
-    def apply_lower_start_bank_gate(self, open_: bool) -> dict:
-        """VecEnv `env_method` hook forwarding to the goal generator's
-        lower-bank hard-cutoff delay (`goal.lower_start_bank_delay_
-        steps`); see `GoalGenerator.set_lower_start_bank_gate_open`."""
-        return self._goal_gen.set_lower_start_bank_gate_open(open_)
 
     def set_goal_mix(self, mix: dict) -> None:
         """Set p_<mode> sampling probabilities on the goal generator.

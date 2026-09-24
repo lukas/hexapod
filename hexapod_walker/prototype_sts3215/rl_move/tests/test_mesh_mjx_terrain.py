@@ -36,9 +36,13 @@ def test_terrain_builds_hfield_populated():
     # friction / conaffinity contract preserved from the plane
     assert m.geom_friction[gid][0] == pytest.approx(1.5)
     assert m.geom_conaffinity[gid] == 5
+    # 64x64 twin grid (78 mm cells) — keeps every fitted-primitive geom
+    # under MuJoCo-Warp's ~50-collision hfield midphase buffer.
     data = m.hfield_data
-    assert data.size == 128 * 128
-    assert float(data.max()) == pytest.approx(1.0, abs=1e-6)
+    assert data.size == 64 * 64
+    # downsampled from the native 128x128 map: near-full range kept,
+    # exact 1.0 peak cell may fall between coarse samples
+    assert 0.5 < float(data.max()) <= 1.0
     # spawn region stays flat (heightmap fades in from ~0.32 m)
     nrow = int(m.hfield_nrow[hf]); ncol = int(m.hfield_ncol[hf])
     grid = np.asarray(data[:nrow * ncol]).reshape(nrow, ncol)

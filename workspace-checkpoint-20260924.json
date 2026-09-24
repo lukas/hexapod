@@ -1,0 +1,49 @@
+{
+  "purpose": "Workspace checkpoint for preservation; not an integrated or deployed change.",
+  "source_workspace": "/Users/lbiewald/Documents/Codex/2026-09-02/can-x20-3/work/hexapod-current",
+  "source_commit": "9e6b4ef7325c8acd7e4c87ab78642df6652c9a20",
+  "source_parent": "2b8894bafca6113e62a8287a22c2c4f785c12398",
+  "github_base": "140d1bc67944b8a2e9315ab8ac355f3ca3a6b4fb",
+  "files": [
+    {
+      "path": "experiment_lab/.env.example",
+      "blob": "ad9a1fb0a4db64c318bde1f659e00dcc6763e6b4",
+      "mode": "100644"
+    },
+    {
+      "path": "experiment_lab/README.md",
+      "blob": "f3a7c93f7a1656355f5420f4b06f098750329b47",
+      "mode": "100644"
+    },
+    {
+      "path": "experiment_lab/hexapod_lab/config.py",
+      "blob": "537faa4fdbf34b0b6af1c3e72242af603b599057",
+      "mode": "100644"
+    },
+    {
+      "path": "experiment_lab/hexapod_lab/main.py",
+      "blob": "7ce6216146936e3b6898e072f1585e6c28d3d2f1",
+      "mode": "100644"
+    },
+    {
+      "path": "experiment_lab/pyproject.toml",
+      "blob": "65770ebb9421858fbca4b62f8ce7a35f880bf2b5",
+      "mode": "100644"
+    },
+    {
+      "path": "experiment_lab/scripts/run-hexapod-lab.sh",
+      "blob": "eec78c05fa466fbb0d388bb8c45311e4b9450733",
+      "mode": "100755"
+    },
+    {
+      "path": "experiment_lab/tests/test_lab.py",
+      "blob": "28fccd65715245515de26bf9cff499488627061d",
+      "mode": "100644"
+    },
+    {
+      "path": "experiment_lab/uv.lock",
+      "blob": "81574d9cca01c8afd276101d6eb467c998782210",
+      "mode": "100644"
+    }
+  ]
+}

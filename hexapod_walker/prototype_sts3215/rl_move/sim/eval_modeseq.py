@@ -517,10 +517,25 @@ def main() -> int:
     for spec in (args.cfg_set or []):
         key, val = spec.split("=", 1)
         sect, name = key.split(".", 1)
-        try:
-            parsed: float | str = float(val)
-        except ValueError:
-            parsed = val.strip()
+        val = val.strip()
+        # '[..]' parses as a JSON list (e.g. goal.rise_height_mm=[lo,hi],
+        # goal.walk_heading_set=[...]) -- matches the shared
+        # cfg_set.parse_cfg_set semantics used by every other --cfg-set
+        # consumer (drive_video/hybrid_demo/mjx_train_setup). Before this
+        # fix this tool's own local parser had no bracket handling: a
+        # bracketed value failed float() and silently fell through as
+        # the RAW STRING, so downstream float(rise[0]) read the string's
+        # first character ('[') -- crashed any composed-session gate
+        # whose byte-identical training --cfg-set stack includes a list-
+        # valued key (found 2026-09-24 running the riseexperts-acq1
+        # gate). Non-bracket values are unaffected (float, else string).
+        if val.startswith("["):
+            parsed: float | str | list = json.loads(val)
+        else:
+            try:
+                parsed = float(val)
+            except ValueError:
+                parsed = val
         cfg.setdefault(sect, {})[name] = parsed
 
     det = not args.stochastic

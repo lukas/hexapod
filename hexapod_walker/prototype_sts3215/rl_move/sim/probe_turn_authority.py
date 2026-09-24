@@ -650,6 +650,29 @@ def make_env(cfg_set: list[str] | None, seed: int,
     return env
 
 
+RECORD_STRIP_FRAMES = 10
+
+
+def _save_record_frames(frames: list, path_stem: Path, fps: float) -> None:
+    """Write ``<stem>.mp4`` + a 10-frame film strip ``<stem>.png``.
+
+    Mirrors eval_checkpoint.py's `_save_video` conventions (plain string
+    extension append — never Path.with_suffix, see its 09-11 bug note —
+    imageio mimsave with macro_block_size=1 so odd frame sizes work).
+    Local copy rather than an import so the probe stays independent of
+    eval_checkpoint's much heavier module. No-op on an empty list.
+    """
+    if not frames:
+        return
+    import imageio
+    path_stem.parent.mkdir(parents=True, exist_ok=True)
+    imageio.mimsave(path_stem.parent / f"{path_stem.name}.mp4", frames,
+                    fps=fps, macro_block_size=1)
+    idx = np.linspace(0, len(frames) - 1, RECORD_STRIP_FRAMES).astype(int)
+    strip = np.concatenate([frames[i] for i in idx], axis=1)
+    imageio.imwrite(path_stem.parent / f"{path_stem.name}.png", strip)
+
+
 def _load_model(checkpoint: Path):
     from .gru_policy import load_checkpoint_auto, RecurrentPredictor
     model = load_checkpoint_auto(checkpoint, device="cpu")
@@ -671,7 +694,9 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
             scripted_stance_radius_scale: float = 1.0,
             contact_audit: bool = False,
             phase_offset: float = 0.0,
-            late_start_s: float = 3.0) -> dict:
+            late_start_s: float = 3.0,
+            record_path: Path | None = None,
+            record_every: int = 2) -> dict:
     """``late_start_s`` (09-17, wzinit initial-state-curriculum canary
     gate: "late-episode wz_med" is a NAMED required instrument — a
     curriculum that seeds nonzero body wz at reset could otherwise pass
@@ -745,10 +770,25 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
     (see ``TripodGait.__init__``/``_foot_target_in_body`` docstrings
     for the derivation and the safe-by-construction argument). Default
     0.0 is bit-exact.
+
+    ``record_path``/``record_every`` (09-24, walkyaw drramp-s1 dig-in:
+    the amended-gate delta metric proved sign-ambiguous — a zero-command
+    drift bias that flips sign vs the family's prior reads mechanically
+    inflates ``wz_med(+)-wz_med(0)`` without proving better control, and
+    no video path existed in this tool to disambiguate). When
+    ``record_path`` is set the env is built with
+    ``render_mode="rgb_array"`` and every ``record_every``-th control
+    tick's frame is captured, then saved as ``<record_path>.mp4`` plus a
+    10-frame film-strip ``<record_path>.png``. Default ``None`` is
+    bit-exact legacy (env still built with ``render_mode=None``, zero
+    render calls). Adds a ``video`` field (str path or None) to the
+    returned dict; purely additive.
     """
     mode_onehot = False
+    _render_mode = "rgb_array" if record_path is not None else None
     env = make_env(env_cls_kwargs["cfg_set"], seed, episode_seconds,
-                   mode_onehot=env_cls_kwargs.get("mode_onehot", False))
+                   mode_onehot=env_cls_kwargs.get("mode_onehot", False),
+                   render_mode=_render_mode)
     if model_obs_width is not None:
         n_env = int(env.observation_space.shape[0])
         if model_obs_width != n_env:
@@ -756,7 +796,8 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
             if model_obs_width == n_env + N_MODE_OBS:
                 env.close()
                 env = make_env(env_cls_kwargs["cfg_set"], seed,
-                               episode_seconds, mode_onehot=True)
+                               episode_seconds, mode_onehot=True,
+                               render_mode=_render_mode)
             else:
                 raise SystemExit(
                     f"checkpoint obs width {model_obs_width} does not "
@@ -821,6 +862,7 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
     vx_list: list[float] = []
     tick_steps: list[int] = []
     modes_seen: list[str] = []
+    frames: list = []
     fell = False
     try:
         while True:
@@ -853,6 +895,10 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
                         q_safe=env.safety._last_safe.copy(),
                         q_act=(env._state.joint_position.copy()
                                if env._state is not None else None))
+            if record_path is not None and step % max(1, record_every) == 0:
+                frame = env.render()
+                if frame is not None:
+                    frames.append(frame)
             step += 1
             if term:
                 fell = True
@@ -862,6 +908,12 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
         if audit is not None:
             env._mujoco = audit.mj
         env.close()
+    video_path = None
+    if record_path is not None and frames:
+        _save_record_frames(frames, Path(record_path),
+                            fps=1.0 / (env.dt * max(1, record_every)))
+        video_path = str(Path(record_path).parent
+                         / f"{Path(record_path).name}.mp4")
     wz_arr = np.array(wz_list)
     wz_err = np.abs(wz_arr - wz_cmd)
     vx_arr = np.array(vx_list)
@@ -899,6 +951,7 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
                         if len(late_wz_arr) else None),
         "late_wz_err_med": (float(np.median(late_wz_err))
                              if len(late_wz_arr) else None),
+        "video": video_path,
     }
 
 
@@ -990,6 +1043,18 @@ def main() -> int:
                     help="PASS if median wz_err <= this fraction of "
                          "the frozen-body prediction |wz_cmd|")
     ap.add_argument("--out", type=Path, default=None)
+    ap.add_argument("--record-dir", type=Path, default=None,
+                    help="if set, save one mp4 + 10-frame film strip per "
+                         "rollout into this directory (names encode "
+                         "vx/wz/phase/seed); default off is bit-exact "
+                         "legacy — no render_mode, no render calls "
+                         "(09-24 walkyaw drramp-s1 dig-in: video-"
+                         "confirmed read of the sign-ambiguous "
+                         "command-delta metric)")
+    ap.add_argument("--record-every", type=int, default=2,
+                    help="capture every Nth control tick when "
+                         "--record-dir is set (default 2 -> 25 fps at "
+                         "50 Hz control)")
     ap.add_argument("--scripted-omega-boost", type=float, default=1.0,
                     help="--policy scripted only: multiply omega by "
                          "this factor on combined ticks only (mirrors "
@@ -1055,6 +1120,12 @@ def main() -> int:
     for vx_cmd, wz_cmd in cells:
         for phase_offset in phase_offsets:
             for seed in seeds:
+                record_path = None
+                if args.record_dir is not None:
+                    record_path = args.record_dir / (
+                        f"wz{wz_cmd:+.2f}_vx{vx_cmd:+.2f}"
+                        f"_ph{phase_offset:.2f}_s{seed}").replace("+", "p"
+                        ).replace("-", "m").replace(".", "_")
                 res = rollout(model=model, env_cls_kwargs=env_kwargs,
                               wz_cmd=wz_cmd, vx_cmd=vx_cmd, seed=seed,
                               episode_seconds=args.episode_seconds,
@@ -1062,6 +1133,8 @@ def main() -> int:
                               model_obs_width=model_obs_width,
                               contact_audit=args.contact_audit,
                               phase_offset=phase_offset,
+                              record_path=record_path,
+                              record_every=args.record_every,
                               scripted_omega_boost=(
                                   args.scripted_omega_boost),
                               scripted_yaw_arm_scale=(

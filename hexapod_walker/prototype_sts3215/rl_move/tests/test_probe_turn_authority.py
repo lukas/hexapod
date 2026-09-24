@@ -647,3 +647,37 @@ def test_resolved_scripted_radius_is_reported_and_doses_remain_distinct():
             for scale in (1.10, 1.15)]
     assert [r["scripted_stance_radius_scale"] for r in rows] == [1.10, 1.15]
     assert rows[1]["scripted_foot_radius_m"] > rows[0]["scripted_foot_radius_m"]
+
+
+def test_record_off_is_bitexact_default():
+    """--record-dir default None must leave the env render-free (09-24
+    walkyaw drramp-s1 dig-in video extension): make_env's render_mode
+    default stays None and rollout's record_path default stays None, so
+    every existing caller gets zero render calls and an unchanged env
+    construction path."""
+    import inspect
+    from rl_move.sim.probe_turn_authority import make_env
+    assert inspect.signature(make_env).parameters["render_mode"].default is None
+    sig = inspect.signature(rollout)
+    assert sig.parameters["record_path"].default is None
+    assert sig.parameters["record_every"].default == 2
+
+
+def test_save_record_frames_writes_mp4_and_strip(tmp_path):
+    """Mechanics of the local frame sink: synthetic frames in, one .mp4
+    plus one 10-frame film-strip .png out (string-append extensions per
+    eval_checkpoint's 09-11 with_suffix bug note), and an empty frame
+    list is a no-op that creates nothing."""
+    from rl_move.sim.probe_turn_authority import _save_record_frames
+    frames = [np.full((8, 8, 3), i * 16, dtype=np.uint8) for i in range(12)]
+    stem = tmp_path / "sub" / "wzp0_25_s0"
+    _save_record_frames(frames, stem, fps=25.0)
+    assert (tmp_path / "sub" / "wzp0_25_s0.mp4").exists()
+    strip = tmp_path / "sub" / "wzp0_25_s0.png"
+    assert strip.exists()
+    import imageio.v2 as iio
+    img = iio.imread(strip)
+    assert img.shape[1] == 8 * 10  # 10-frame strip, width concatenated
+    empty_stem = tmp_path / "none" / "empty"
+    _save_record_frames([], empty_stem, fps=25.0)
+    assert not (tmp_path / "none").exists()

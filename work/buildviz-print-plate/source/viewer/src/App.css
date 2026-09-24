@@ -1,0 +1,2674 @@
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100svh;
+  min-height: 100svh;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.workspace {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 286px minmax(0, 1fr);
+  min-height: 0;
+}
+
+.controls-panel {
+  background: color-mix(in srgb, var(--bg), var(--code-bg) 36%);
+  border-right: 1px solid var(--border);
+  max-height: 100svh;
+  overflow-y: auto;
+  padding: 24px;
+  scrollbar-gutter: stable;
+  text-align: left;
+}
+
+.control-group {
+  display: grid;
+  gap: 12px;
+  /* minmax(0, 1fr), not the default auto track: WebKit sizes auto tracks by
+     the intrinsic width of horizontally-scrollable children (the focus chip
+     row), blowing the card out sideways on phones. */
+  grid-template-columns: minmax(0, 1fr);
+  margin-bottom: 28px;
+}
+
+.control-group summary {
+  align-items: baseline;
+  color: var(--text-h);
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  list-style: none;
+}
+
+.control-group summary::-webkit-details-marker {
+  display: none;
+}
+
+.control-group summary span {
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.control-group summary small {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 500;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.control-content {
+  display: grid;
+  gap: 12px;
+}
+
+.control-content.tool-grid {
+  display: flex;
+}
+
+/* Wiring control group: show/hide toggle + a legend of the scene's wires. */
+.wiring-options {
+  gap: 8px;
+}
+
+.wiring-toggle {
+  align-items: center;
+  display: flex;
+  font-size: 13px;
+  gap: 8px;
+}
+
+.wiring-list {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.wiring-list li {
+  align-items: center;
+  display: flex;
+  font-size: 12.5px;
+  gap: 8px;
+  min-width: 0;
+}
+
+.wiring-list .wiring-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wiring-list small {
+  color: #94a3b8;
+  margin-left: auto;
+}
+
+.wiring-swatch {
+  border-radius: 3px;
+  flex: none;
+  height: 10px;
+  width: 18px;
+}
+
+.part-type-list {
+  display: grid;
+  gap: 8px;
+}
+
+/* Search/filter box at the top of the part-type list. Matches the native
+   <select> control styling and spans the full list width. */
+.part-type-search {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  /* Span every column when the list becomes a grid on compact layouts. */
+  grid-column: 1 / -1;
+  position: relative;
+}
+
+.part-type-search-input {
+  background: var(--social-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-h);
+  flex: 1;
+  font: inherit;
+  font-size: 13px;
+  min-width: 0;
+  padding: 6px 8px;
+}
+
+.part-type-search-input::placeholder {
+  color: var(--text);
+}
+
+.part-type-search-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.part-type-search-clear {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  flex: 0 0 auto;
+  height: 30px;
+  justify-content: center;
+  padding: 0;
+  width: 30px;
+}
+
+.part-type-search-clear:hover {
+  border-color: var(--accent);
+  color: var(--text-h);
+}
+
+.part-type-search-clear svg {
+  fill: none;
+  height: 16px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 2;
+  width: 16px;
+}
+
+.part-type-empty {
+  color: var(--text);
+  font-size: 12px;
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+/* Each part type pairs a visibility checkbox with a click-to-highlight name
+   button. The checkbox toggles scene visibility; the name button drives the
+   shared viewer highlight (single-select) and shows an active state. */
+.part-type-row {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  line-height: 1.2;
+}
+
+.part-type-visibility {
+  accent-color: var(--accent);
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.part-type-highlight {
+  flex: 1;
+  font-size: 13px;
+  min-width: 0;
+  overflow: hidden;
+  padding: 6px 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The type of the part currently selected in the 3D view. Declared before
+   .highlighted so the explicit type-highlight (orange) wins when both apply. */
+.part-type-row.selected .part-type-highlight {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  color: var(--text-h);
+}
+
+.part-type-row.highlighted .part-type-highlight {
+  background: rgba(249, 115, 22, 0.18);
+  border-color: rgba(249, 115, 22, 0.85);
+  box-shadow: var(--shadow);
+  color: var(--text-h);
+}
+
+/* Bulk visibility controls for the part-type list. */
+.part-type-bulk {
+  display: flex;
+  gap: 6px;
+  /* Span every column when the list becomes a grid on compact layouts. */
+  grid-column: 1 / -1;
+}
+
+.part-type-bulk button {
+  background: transparent;
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 8px;
+}
+
+.part-type-bulk button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+/* Hover-revealed "only" isolate button (same reveal pattern as the color
+   control below); stays visible while engaged so it can be toggled back. */
+.part-type-only {
+  border-radius: 999px;
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0;
+  padding: 3px 8px;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+
+.part-type-row:hover .part-type-only,
+.part-type-row:focus-within .part-type-only,
+.part-type-only.engaged {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.part-type-only.engaged {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+/* Hover-revealed color control. Hidden (but kept in flow via opacity) until the
+   row is hovered or focused — or until a custom color is set — so the list stays
+   uncluttered while remaining keyboard- and screen-reader-reachable. */
+.part-type-color {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+
+.part-type-row:hover .part-type-color,
+.part-type-row:focus-within .part-type-color,
+.part-type-row.has-custom-color .part-type-color {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.part-type-color-swatch {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  display: inline-block;
+  height: 22px;
+  position: relative;
+  width: 22px;
+}
+
+.part-type-row.has-custom-color .part-type-color-swatch {
+  border-color: var(--accent);
+}
+
+/* The native color input sits invisibly over the swatch so the swatch's
+   background is the visible color while the input still drives the OS picker. */
+.part-type-color-input {
+  cursor: pointer;
+  height: 100%;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  padding: 0;
+  position: absolute;
+  width: 100%;
+}
+
+.part-type-color-reset {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 22px;
+  justify-content: center;
+  padding: 0;
+  width: 22px;
+}
+
+.part-type-color-reset svg {
+  fill: none;
+  height: 14px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  width: 14px;
+}
+
+.visually-hidden {
+  border: 0;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+/* Generic validation checks panel: a status badge in the summary plus a
+   scrollable, clickable list that drives the viewer highlight API. */
+.checks-controls summary small.has-fail {
+  color: #ff3b30;
+  font-weight: 650;
+}
+
+.checks-controls summary small.has-warn {
+  color: #d97706;
+  font-weight: 650;
+}
+
+.checks-content {
+  gap: 10px;
+}
+
+.checks-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.checks-actions button {
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+/* Drawings: sidebar launcher + full-screen modal with the schematic sheet. */
+.drawings-content {
+  gap: 10px;
+}
+
+.drawings-hint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text);
+}
+
+.drawings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.drawings-actions button {
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+.drawings-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.drawings-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(1200px, 94vw);
+  max-height: 92vh;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  color: var(--text-h);
+}
+
+.drawings-modal-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+}
+
+.drawings-modal-toolbar .drawings-part select {
+  min-width: 180px;
+}
+
+.drawings-views {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.drawings-modal-buttons {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+  align-items: center;
+}
+
+.drawings-modal-buttons button {
+  font-size: 12px;
+  padding: 6px 12px;
+}
+
+/* Drawings regenerate automatically on part/option changes; this inline label
+   is the only "working" indicator in the toolbar. */
+.drawings-modal-buttons .drawings-running {
+  font-size: 12px;
+  color: #2563eb;
+  white-space: nowrap;
+}
+
+.drawings-modal-buttons .drawings-close {
+  padding: 6px 9px;
+}
+
+/* The sheet SVG carries its own white background; let it fill the modal. */
+.drawings-modal-sheet {
+  flex: 1;
+  min-height: 240px;
+  overflow: auto;
+  border-radius: 8px;
+  background: #fff;
+  display: flex;
+}
+
+.drawings-sheet {
+  width: 100%;
+  position: relative;
+  /* Don't flex-stretch to the modal sheet's height: the scribble overlay is
+     inset:0 of this box, so it must hug the rendered SVG exactly or ink
+     lands offset from the cursor. */
+  align-self: flex-start;
+}
+
+.drawings-sheet svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Freehand annotation layer, same viewBox as the sheet so ink sticks to the
+   drawing at any zoom. pointer-events only while the pen is active. */
+.drawings-scribble {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100% !important;
+  pointer-events: none;
+}
+
+.drawings-scribble.active {
+  pointer-events: auto;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.drawings-scribble-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.drawings-scribble-tools button {
+  font-size: 12px;
+  padding: 5px 9px;
+}
+
+.drawings-scribble-tools .drawings-pen.active {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+}
+
+.drawings-scribble-tools .drawings-ink {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+}
+
+.drawings-scribble-tools .drawings-ink.active {
+  border-color: var(--bg);
+  box-shadow: 0 0 0 2px var(--text-h);
+}
+
+.drawings-empty {
+  margin: auto;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.drawings-error {
+  margin: 0;
+  color: #ff3b30;
+  font-size: 12px;
+}
+
+.drawings-meta {
+  color: var(--text);
+  font-size: 11px;
+}
+
+/* Mass panel: weight estimate + distribution breakdown. */
+.mass-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mass-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.mass-actions button.active {
+  border-color: #a855f7;
+  color: #a855f7;
+}
+
+.mass-summary {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.mass-note {
+  margin: 0;
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.mass-error {
+  margin: 0;
+  color: #ff3b30;
+  font-size: 12px;
+}
+
+.mass-breakdown {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.mass-breakdown li {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.mass-bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: rgba(168, 85, 247, 0.16);
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+.mass-part {
+  position: relative;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mass-grams {
+  position: relative;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.mass-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  border-top: 1px solid var(--border);
+  padding-top: 6px;
+}
+
+.mass-groups div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* Analysis pages: banner shown while viewing a named analysis attached to a
+   build (e.g. an FEA stress field), with the way back to the build scene. */
+.analysis-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--accent-border);
+  border-radius: 8px;
+  background: var(--accent-bg);
+}
+
+.analysis-banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.analysis-banner-text strong {
+  color: var(--text-h);
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analysis-banner-text small {
+  color: var(--text);
+  font-size: 0.7rem;
+}
+
+.analysis-banner button {
+  align-self: flex-start;
+  padding: 4px 8px;
+  font-size: 0.72rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text-h);
+  cursor: pointer;
+}
+
+.analyses-controls .focus-options button small {
+  opacity: 0.7;
+  margin-left: 4px;
+}
+
+/* "Panels" picker: choose which sidebar panels are shown at all. */
+.panel-manager {
+  position: relative;
+}
+
+.panel-manager-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  font-size: 12px;
+  padding: 6px 10px;
+  color: var(--text);
+}
+
+.panel-manager-trigger:hover {
+  color: var(--text-h);
+}
+
+.panel-manager-trigger svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.panel-manager-trigger small {
+  margin-left: auto;
+  color: var(--text);
+  opacity: 0.7;
+  font-size: 11px;
+}
+
+.panel-manager-menu {
+  position: absolute;
+  /* The picker sits at the bottom of the sidebar, so its menu opens upward. */
+  bottom: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 10px;
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  color: var(--text-h);
+}
+
+.panel-manager-menu .checkbox-control {
+  font-size: 12px;
+}
+
+/* Right-click context menu on a part in the 3D viewer. */
+.part-context-menu {
+  position: fixed;
+  z-index: 40;
+  min-width: 180px;
+  padding: 6px;
+  border-radius: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.part-context-menu-header {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 8px 6px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
+.part-context-menu-header strong {
+  font-size: 12px;
+  color: var(--text-h);
+}
+
+.part-context-menu-header small {
+  font-size: 11px;
+  color: var(--text);
+}
+
+.part-context-menu button {
+  text-align: left;
+  font-size: 12px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-h);
+  cursor: pointer;
+}
+
+.part-context-menu button:hover:not(:disabled) {
+  background: var(--accent-bg);
+}
+
+.part-context-menu button:disabled {
+  color: var(--text);
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Phase 3 motion / pose scrubber panel. */
+.motion-content {
+  gap: 10px;
+}
+
+.motion-actions,
+.motion-poses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.motion-actions button,
+.motion-poses button {
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+/* Time-based clip transport (play/pause + loop + speed + scrubber). */
+.motion-clips {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.motion-clip-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.motion-clip-tabs button {
+  font-size: 12px;
+  padding: 5px 10px;
+}
+
+.motion-clip-tabs button.active {
+  outline: 2px solid currentColor;
+  font-weight: 600;
+}
+
+.motion-transport {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.motion-transport .motion-play {
+  font-size: 12px;
+  padding: 6px 12px;
+  min-width: 88px;
+}
+
+.motion-loop,
+.motion-speed {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.motion-scrubber {
+  display: grid;
+  gap: 4px;
+}
+
+.motion-scrubber input[type='range'] {
+  width: 100%;
+}
+
+.motion-scrubber small {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+
+/* Plate export panel ("Export plates" button + path readout). */
+.export-content {
+  gap: 10px;
+}
+
+.export-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.export-options .select-control {
+  flex: 1 1 120px;
+}
+
+.export-scope {
+  font-size: 12px;
+  color: var(--text);
+  margin: 0;
+}
+
+.export-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.export-actions button {
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+.export-note {
+  font-size: 12px;
+  color: var(--text);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.export-error {
+  font-size: 12px;
+  color: #ff3b30;
+  margin: 0;
+  word-break: break-word;
+}
+
+.export-result {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.export-result-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-h);
+}
+
+.export-copy {
+  font-size: 11px;
+  padding: 3px 8px;
+}
+
+.export-path {
+  display: block;
+  font-family: var(--mono);
+  font-size: 11px;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 6px;
+  user-select: all;
+  word-break: break-all;
+  color: var(--text-h);
+}
+
+.export-dir {
+  border-color: var(--accent-border);
+}
+
+.export-head-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.export-dir-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.export-dir-row .export-dir {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.export-open {
+  flex: 0 0 auto;
+  font-size: 11px;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
+.export-files {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.export-files li {
+  display: grid;
+  gap: 2px;
+}
+
+.export-files small {
+  color: var(--text);
+  opacity: 0.75;
+}
+
+.motion-sliders {
+  display: grid;
+  gap: 10px;
+}
+
+.motion-slider {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.motion-slider-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.motion-slider-label small {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+
+.motion-slider input[type='range'] {
+  width: 100%;
+}
+
+.checks-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.checks-filter {
+  font-size: 12px;
+}
+
+.checks-kind-filter {
+  font-size: 12px;
+}
+
+.checks-kind-filter select {
+  font-size: 12px;
+  max-width: 160px;
+}
+
+.checks-error {
+  color: #ff3b30;
+  font-size: 12px;
+  margin: 0;
+}
+
+.checks-empty {
+  color: var(--text);
+  font-size: 12px;
+  margin: 0;
+}
+
+.checks-list {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.check-row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  padding: 7px 9px;
+  text-align: left;
+  width: 100%;
+}
+
+.check-row.selected {
+  border-color: var(--accent-border);
+  box-shadow: var(--shadow);
+}
+
+.check-status-dot {
+  border-radius: 50%;
+  flex: 0 0 auto;
+  height: 9px;
+  width: 9px;
+}
+
+.check-kind {
+  color: var(--text);
+  flex: 0 0 auto;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  opacity: 0.85;
+}
+
+.check-label {
+  color: var(--text-h);
+  flex: 1;
+  font-size: 12px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.checks-source {
+  color: var(--text);
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+/* Compact build picker: a collapsed-by-default trigger plus an anchored
+   popover that holds the hierarchical tree, so the tree no longer
+   permanently consumes the sidebar. */
+.build-dropdown {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 28px;
+  position: relative;
+}
+
+.build-dropdown-trigger {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.build-dropdown-trigger.open {
+  border-color: var(--accent-border);
+  box-shadow: var(--shadow);
+}
+
+.build-dropdown-meta {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.build-dropdown-label {
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.build-dropdown-name {
+  color: var(--text-h);
+  font-size: 14px;
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.build-dropdown-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.build-dropdown-tags small {
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.build-dropdown-updated {
+  color: var(--text);
+  cursor: default;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  margin: -4px 2px 0;
+}
+
+/* Revision descriptions remain readable without a hover or tooltip. */
+.build-dropdown-message {
+  color: var(--text-h);
+  cursor: default;
+  font-size: 11px;
+  line-height: 1.4;
+  margin: 2px 2px 0;
+  overflow-wrap: anywhere;
+}
+
+/* "Open STL folder": a compact row under the build dropdown that reveals the
+   assembly's STL directory in the OS file manager (Finder / Explorer /
+   xdg-open). Rendered only when the hub resolved a directory on this machine,
+   so its absence needs no styling. Negative top margin tucks it up against the
+   dropdown, inside the dropdown's own bottom gap. */
+.stl-folder {
+  display: grid;
+  gap: 4px;
+  margin: -20px 0 24px;
+}
+
+.stl-folder-link {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  font-size: 11px;
+  padding: 4px 9px;
+  width: fit-content;
+}
+
+.stl-folder-link svg {
+  fill: none;
+  height: 13px;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  width: 13px;
+}
+
+.stl-folder-link small {
+  color: var(--text);
+  opacity: 0.75;
+}
+
+.stl-folder-error {
+  color: #ff3b30;
+  font-size: 11px;
+  margin: 0;
+  word-break: break-word;
+}
+
+/* Design-spec health badge under the version dropdown: shown whenever the
+   viewed build's design_spec.yaml is missing or has drifted from the scene
+   (the same coverage rule the hub warns on at push/register). Clicking the
+   pill expands the individual warnings. */
+.build-dropdown-spec {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: -2px 0 0;
+}
+
+.build-dropdown-spec-toggle {
+  align-items: center;
+  background: rgba(217, 119, 6, 0.1);
+  border: 1px solid rgba(217, 119, 6, 0.35);
+  border-radius: 9px;
+  color: #d97706;
+  cursor: pointer;
+  display: flex;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 650;
+  gap: 6px;
+  letter-spacing: 0.02em;
+  padding: 4px 8px;
+  text-align: left;
+}
+
+.build-dropdown-spec-toggle:hover {
+  background: rgba(217, 119, 6, 0.16);
+}
+
+.build-dropdown-spec-list {
+  border-left: 2px solid rgba(217, 119, 6, 0.45);
+  color: var(--text-h);
+  display: flex;
+  flex-direction: column;
+  font-size: 11px;
+  gap: 5px;
+  line-height: 1.45;
+  list-style: none;
+  margin: 0 0 2px;
+  overflow-wrap: anywhere;
+  padding: 0 0 0 8px;
+}
+
+.build-dropdown-spec-hint {
+  color: var(--text);
+  font-size: 10.5px;
+  font-style: italic;
+}
+
+/* Subtle, dismissible "new version available" affordance shown next to the
+   version dropdown when the live index poll spots a newly published version (or
+   an in-place re-push of the viewed version). Opt-in only: clicking the label
+   loads the new version; the x dismisses it until something newer arrives. */
+.build-dropdown-update {
+  align-items: stretch;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: 9px;
+  display: flex;
+  gap: 4px;
+  margin: -2px 0 0;
+  overflow: hidden;
+}
+
+.build-dropdown-update-apply {
+  align-items: center;
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  display: flex;
+  flex: 1;
+  font-size: 11px;
+  font-weight: 650;
+  gap: 7px;
+  min-width: 0;
+  padding: 7px 10px;
+  text-align: left;
+}
+
+.build-dropdown-update-apply:hover {
+  background: color-mix(in srgb, var(--accent-bg), var(--accent) 12%);
+}
+
+/* Stacks the "… available" label over the optional changelog note inside the
+   pill, keeping the leading status dot vertically centered against the label. */
+.build-dropdown-update-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  text-align: left;
+}
+
+.build-dropdown-update-message {
+  color: var(--text);
+  font-weight: 500;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.build-dropdown-update-dot {
+  background: var(--accent);
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px var(--accent-bg);
+  flex: 0 0 auto;
+  height: 7px;
+  width: 7px;
+}
+
+.build-dropdown-update-dismiss {
+  align-items: center;
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: center;
+  opacity: 0.7;
+  padding: 0 8px;
+}
+
+.build-dropdown-update-dismiss:hover {
+  opacity: 1;
+}
+
+.build-dropdown-update-dismiss svg {
+  fill: none;
+  height: 13px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 2.2;
+  width: 13px;
+}
+
+.build-dropdown-chevron {
+  fill: none;
+  flex: 0 0 auto;
+  height: 18px;
+  stroke: var(--text);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  transition: transform 120ms ease;
+  width: 18px;
+}
+
+.build-dropdown-trigger.open .build-dropdown-chevron {
+  transform: rotate(180deg);
+}
+
+.build-publish-help {
+  font-size: 12px;
+  line-height: 1.5;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.build-publish-help summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.build-publish-help textarea {
+  box-sizing: border-box;
+  width: 100%;
+  resize: vertical;
+  font-family: monospace;
+  font-size: 11px;
+}
+
+.build-publish-help button {
+  cursor: pointer;
+  padding: 6px 10px;
+}
+
+.build-publish-help [role='status'] {
+  display: block;
+}
+
+.build-dropdown-panel {
+  background: color-mix(in srgb, var(--bg), var(--code-bg) 60%);
+  border: 1px solid var(--accent-border);
+  border-radius: 12px;
+  box-shadow: var(--shadow), 0 16px 40px rgba(15, 23, 42, 0.28);
+  display: grid;
+  gap: 12px;
+  left: 0;
+  max-height: min(58svh, 460px);
+  overflow-y: auto;
+  padding: 12px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 20;
+}
+
+.build-dropdown-versions {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 10px;
+  padding-top: 10px;
+}
+
+.build-dropdown-selects {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+.build-dropdown-selects .select-control {
+  gap: 12px;
+}
+
+.build-dropdown-selects .select-control span {
+  color: var(--text);
+  flex: 0 0 64px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.build-dropdown-selects .select-control select {
+  max-width: none;
+  min-width: 0;
+  width: 0;
+}
+
+.build-tree button {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.build-version-count {
+  color: var(--text);
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.build-tree {
+  display: grid;
+  gap: 8px;
+}
+
+.build-group {
+  display: grid;
+  gap: 8px;
+}
+
+.build-group > summary {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text-h);
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  list-style: none;
+  padding: 5px 6px;
+}
+
+.build-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.build-group > summary::before {
+  color: var(--text);
+  content: '▸';
+  flex: 0 0 auto;
+  font-size: 10px;
+  transition: transform 120ms ease;
+}
+
+.build-group[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.build-group > summary:hover {
+  border-color: var(--accent-border);
+}
+
+.build-group > summary span {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.build-group > summary.has-selected span {
+  color: var(--accent, #2563eb);
+}
+
+.build-group > summary small {
+  color: var(--text);
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.build-group-children {
+  border-left: 1px solid var(--border);
+  display: grid;
+  gap: 8px;
+  margin-left: 9px;
+  padding-left: 9px;
+}
+
+.build-menu-note {
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.select-control {
+  align-items: center;
+  display: flex;
+  font-size: 13px;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.select-control select {
+  background: var(--social-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-h);
+  flex: 1;
+  font: inherit;
+  font-size: 13px;
+  max-width: 150px;
+  padding: 6px 8px;
+}
+
+.diff-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.diff-chip {
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 650;
+  padding: 3px 9px;
+  white-space: nowrap;
+}
+
+.diff-chip.diff-added {
+  border-color: rgba(34, 197, 94, 0.6);
+  background: rgba(34, 197, 94, 0.14);
+  color: #15803d;
+}
+
+.diff-chip.diff-removed {
+  border-color: rgba(239, 68, 68, 0.6);
+  background: rgba(239, 68, 68, 0.14);
+  color: #b91c1c;
+}
+
+.diff-chip.diff-changed {
+  border-color: rgba(245, 158, 11, 0.6);
+  background: rgba(245, 158, 11, 0.16);
+  color: #b45309;
+}
+
+.control-group h2 {
+  color: var(--text-h);
+  font-size: 15px;
+  font-weight: 650;
+  margin: 0;
+}
+
+/* Sidebar section picker: the panel stack is grouped into View / Diff /
+   Motion / Checks / Export; this dropdown selects which group is visible. */
+.sidebar-section-select {
+  display: block;
+  margin-bottom: 20px;
+}
+
+.sidebar-section-select select {
+  background: var(--social-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-h);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 8px 11px;
+  width: 100%;
+}
+
+.sidebar-section-select select:hover {
+  border-color: var(--accent-border);
+}
+
+/* Mobile-only handle that minimizes the bottom sheet; desktop hides it. */
+.sheet-toggle {
+  display: none;
+}
+
+/* Tab containers: hidden ones must not render (the [hidden] attribute), and a
+   container whose panels are all conditionally absent must not leave a gap. */
+.tab-panel[hidden],
+.tab-panel:empty {
+  display: none;
+}
+
+button {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--social-bg);
+  color: var(--text-h);
+  cursor: pointer;
+  font: inherit;
+  padding: 9px 11px;
+  text-align: left;
+}
+
+button:hover:not(:disabled),
+button.active {
+  border-color: var(--accent-border);
+  box-shadow: var(--shadow);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.checkbox-control {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  line-height: 1.2;
+}
+
+.checkbox-control input {
+  accent-color: var(--accent);
+}
+
+.tool-grid {
+  display: flex;
+  gap: 10px;
+}
+
+.icon-button {
+  align-items: center;
+  display: inline-flex;
+  height: 42px;
+  justify-content: center;
+  padding: 0;
+  position: relative;
+  text-align: center;
+  width: 42px;
+}
+
+.icon-button svg {
+  fill: none;
+  height: 22px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  width: 22px;
+}
+
+.icon-button::after {
+  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 8px;
+  bottom: calc(100% + 8px);
+  color: #f8fafc;
+  content: attr(data-tooltip);
+  font-size: 12px;
+  left: 0;
+  line-height: 1.25;
+  max-width: 220px;
+  opacity: 0;
+  padding: 7px 8px;
+  pointer-events: none;
+  position: absolute;
+  text-align: left;
+  transform: translateY(4px);
+  transition: opacity 120ms ease, transform 120ms ease;
+  width: max-content;
+  z-index: 5;
+}
+
+.icon-button:hover::after,
+.icon-button:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.tool-button.active {
+  background: rgba(251, 191, 36, 0.18);
+  border-color: rgba(251, 191, 36, 0.85);
+  color: #92400e;
+}
+
+.viewer-shell {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.viewer-canvas {
+  height: 100%;
+  min-height: 660px;
+  width: 100%;
+}
+
+.viewer-canvas canvas {
+  display: block;
+}
+
+/* Floating info chip over the 3D view: hugs its content instead of spanning
+   the full viewer width, so it stays out of the model's way. */
+.viewer-overlay {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.76);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 14px;
+  color: #cbd5e1;
+  display: flex;
+  gap: 12px;
+  left: 18px;
+  max-width: min(520px, calc(100% - 36px));
+  position: absolute;
+  top: 18px;
+  z-index: 1;
+  padding: 10px 12px;
+}
+
+.viewer-overlay div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.viewer-overlay strong {
+  color: #f8fafc;
+}
+
+.viewer-overlay span {
+  font-size: 14px;
+}
+
+.feature-overlay {
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 1;
+}
+
+.dimension-overlay {
+  height: 100%;
+  inset: 0;
+  overflow: visible;
+  position: absolute;
+  width: 100%;
+}
+
+.dimension-overlay line {
+  stroke: #fbbf24;
+  stroke-dasharray: 5 4;
+  stroke-width: 2;
+}
+
+.dimension-overlay circle {
+  fill: #fbbf24;
+  stroke: #111827;
+  stroke-width: 1.5;
+}
+
+.dimension-overlay text {
+  fill: #fef3c7;
+  font-family: var(--mono);
+  font-size: 12px;
+  paint-order: stroke;
+  stroke: #111827;
+  stroke-width: 4px;
+  text-anchor: middle;
+}
+
+.ruler-measurement line {
+  stroke: #22d3ee;
+  stroke-dasharray: none;
+  stroke-linecap: round;
+  stroke-width: 4;
+}
+
+.ruler-measurement circle {
+  fill: #67e8f9;
+  stroke: #083344;
+  stroke-width: 2;
+}
+
+.ruler-measurement text {
+  fill: #cffafe;
+  font-size: 13px;
+  font-weight: 750;
+  stroke: #083344;
+  stroke-width: 5px;
+}
+
+/* Pinned ruler start point: hollow ring + center dot, amber so it reads apart
+   from the cyan measurement endpoints. */
+.ruler-anchor circle {
+  fill: none;
+  stroke: #fbbf24;
+  stroke-width: 2.5;
+}
+
+.ruler-anchor .ruler-anchor-dot {
+  fill: #fbbf24;
+  stroke: none;
+}
+
+.picker-readout {
+  background: rgba(8, 47, 73, 0.94);
+  border: 2px solid #67e8f9;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.32);
+  color: #ecfeff;
+  display: grid;
+  font-family: var(--mono);
+  font-size: 12px;
+  gap: 2px;
+  left: 0;
+  line-height: 1.25;
+  padding: 7px 9px;
+  position: absolute;
+  top: 0;
+  translate: 12px -50%;
+}
+
+.picker-readout strong {
+  color: #ffffff;
+  font-family: inherit;
+}
+
+.picker-point-marker {
+  background: #22d3ee;
+  border: 3px solid #ecfeff;
+  border-radius: 999px;
+  box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.24), 0 0 22px rgba(34, 211, 238, 0.9);
+  height: 14px;
+  left: 0;
+  position: absolute;
+  top: 0;
+  translate: -50% -50%;
+  width: 14px;
+}
+
+.feature-marker {
+  align-items: center;
+  background: #38bdf8;
+  border: 2px solid #082f49;
+  border-radius: 999px;
+  box-shadow: 0 0 0 2px rgba(224, 242, 254, 0.35);
+  color: #082f49;
+  display: flex;
+  font-size: 11px;
+  font-weight: 800;
+  height: 22px;
+  justify-content: center;
+  left: 0;
+  position: absolute;
+  top: 0;
+  translate: -50% -50%;
+  width: 22px;
+}
+
+.agent-annotation {
+  background: rgba(15, 23, 42, 0.92);
+  border: 2px solid #f97316;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.32);
+  color: #f8fafc;
+  font-size: 13px;
+  font-weight: 750;
+  left: 0;
+  line-height: 1.25;
+  max-width: 260px;
+  padding: 7px 9px;
+  position: absolute;
+  top: 0;
+  translate: 10px -50%;
+}
+
+.part-yaml-panel {
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 14px;
+  bottom: 18px;
+  color: #cbd5e1;
+  max-height: min(520px, calc(100% - 140px));
+  overflow: hidden;
+  position: absolute;
+  right: 18px;
+  width: min(430px, calc(100% - 36px));
+  z-index: 1;
+}
+
+.part-yaml-panel.collapsed {
+  width: min(430px, calc(100% - 36px));
+}
+
+.part-yaml-header {
+  align-items: center;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 12px 14px;
+}
+
+.part-yaml-header div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.part-yaml-header strong {
+  color: #f8fafc;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.part-yaml-header span {
+  color: #94a3b8;
+  font-family: var(--mono);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.part-yaml-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.part-yaml-actions button {
+  background: rgba(15, 23, 42, 0.72);
+  color: #f8fafc;
+}
+
+.part-yaml-toggle {
+  align-items: center;
+  border-radius: 8px;
+  display: inline-flex;
+  font-size: 16px;
+  font-weight: 800;
+  height: 28px;
+  justify-content: center;
+  min-width: 28px;
+  padding: 0;
+}
+
+.part-yaml-panel pre {
+  color: #dbeafe;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+  max-height: calc(min(520px, calc(100vh - 140px)) - 66px);
+  overflow: auto;
+  padding: 14px;
+  text-align: left;
+  white-space: pre-wrap;
+}
+
+.viewer-error {
+  background: #7f1d1d;
+  border-radius: 10px;
+  bottom: 18px;
+  color: #fecaca;
+  left: 18px;
+  padding: 12px;
+  position: absolute;
+  right: 18px;
+}
+
+.empty-viewer {
+  align-items: center;
+  background: #0f172a;
+  color: #cbd5e1;
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+  text-align: center;
+}
+
+.empty-viewer h2 {
+  color: #f8fafc;
+}
+
+/* Compact bottom-sheet layout. Keep this query in sync with
+   viewer/src/compactLayout.ts: portrait phones by width, landscape phones by
+   short-height + touch. */
+@media (max-width: 720px), ((max-height: 500px) and (pointer: coarse)) {
+  .workspace {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  .viewer-shell {
+    grid-row: 1;
+  }
+
+  .controls-panel {
+    border-bottom: 0;
+    border-right: 0;
+    border-top: 1px solid var(--border);
+    display: grid;
+    gap: 8px;
+    grid-row: 2;
+    /* minmax(0, 1fr) + overflow-x hidden: WebKit sizes tracks by the
+       intrinsic width of horizontally-scrollable rows (focus chips), which
+       blew the sheet out sideways on iPhones. Tracks must never exceed the
+       sheet, and the sheet itself must never pan horizontally. */
+    grid-template-columns: minmax(0, 1fr);
+    max-height: min(38svh, 300px);
+    overflow-x: hidden;
+    padding: 8px 10px max(10px, env(safe-area-inset-bottom));
+    scrollbar-gutter: auto;
+  }
+
+  .control-group {
+    background: color-mix(in srgb, var(--bg), var(--code-bg) 28%);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    gap: 0;
+    margin-bottom: 0;
+    overflow: hidden;
+  }
+
+  .build-dropdown {
+    gap: 6px;
+    margin-bottom: 0;
+  }
+
+  /* One-line dropdown trigger: the sheet is short, so the project label row
+     goes and name + branch share a line, leaving room for the tab strip. */
+  .build-dropdown-trigger {
+    padding: 8px 11px;
+  }
+
+  .build-dropdown-label,
+  .build-dropdown-updated {
+    display: none;
+  }
+
+  .build-dropdown-meta {
+    align-items: baseline;
+    display: flex;
+    gap: 7px;
+    min-width: 0;
+  }
+
+  .build-dropdown-name {
+    font-size: 13.5px;
+  }
+
+  .build-dropdown-tags {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+  }
+
+  .build-dropdown-panel {
+    max-height: min(46svh, 320px);
+  }
+
+  .control-group summary {
+    align-items: center;
+    min-height: 38px;
+    padding: 8px 11px;
+  }
+
+  .control-group summary::after {
+    color: var(--text);
+    content: '+';
+    flex: 0 0 auto;
+    font-weight: 750;
+    margin-left: 4px;
+  }
+
+  .control-group[open] summary {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .control-group[open] summary::after {
+    content: '-';
+  }
+
+  .control-group summary span {
+    font-size: 13px;
+  }
+
+  .control-group summary small {
+    font-size: 11px;
+    margin-left: auto;
+  }
+
+  .control-content {
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .focus-options {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: thin;
+  }
+
+  .part-type-list {
+    gap: 9px;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    max-height: 150px;
+    overflow-y: auto;
+    padding-bottom: 2px;
+  }
+
+  /* Touch devices have no hover, so always show the color control (tap-to-open
+     the native picker) and the "only" isolate button rather than gating them
+     behind a hover that never fires. */
+  .part-type-color,
+  .part-type-only {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Keep the pill compact in the tight two-column list (the generic
+     .controls-panel button touch padding below would swallow name width). */
+  .controls-panel .part-type-only {
+    font-size: 10.5px;
+    padding: 4px 7px;
+  }
+
+  .controls-panel button {
+    padding: 7px 9px;
+  }
+
+  .controls-panel .focus-controls button {
+    border-radius: 999px;
+    flex: 0 0 auto;
+    font-size: 13px;
+    padding: 6px 10px;
+    white-space: nowrap;
+  }
+
+  .controls-panel .icon-button {
+    height: 34px;
+    padding: 0;
+    width: 34px;
+  }
+
+  .checkbox-control {
+    font-size: 13px;
+    gap: 7px;
+  }
+
+  .viewer-canvas {
+    min-height: 0;
+  }
+
+  .sidebar-section-select {
+    margin-bottom: 0;
+  }
+
+  /* Slim grab-handle row that minimizes the sheet down to itself. */
+  .sheet-toggle {
+    align-items: center;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    box-shadow: none;
+    color: var(--text);
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    margin: -2px 0;
+    min-height: 26px;
+    padding: 0;
+  }
+
+  .sheet-toggle:hover:not(:disabled) {
+    border: none;
+    box-shadow: none;
+    color: var(--text-h);
+  }
+
+  .sheet-toggle svg {
+    fill: none;
+    height: 18px;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2;
+    width: 18px;
+  }
+
+  .sheet-toggle span {
+    font-size: 12.5px;
+    font-weight: 600;
+  }
+
+  .controls-panel.sheet-collapsed {
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  /* Hide everything but the handle — except the drawings modal, which is a
+     fixed overlay parented here and must still work while collapsed. */
+  .controls-panel.sheet-collapsed > :not(.sheet-toggle):not(.drawings-modal-backdrop) {
+    display: none;
+  }
+
+  .sheet-collapsed .sheet-toggle svg {
+    transform: rotate(180deg);
+  }
+
+  /* The sheet is a grid with an 8px gap; the visible tab container becomes a
+     nested grid so its panels pick up the same rhythm. minmax(0, 1fr): see
+     the .controls-panel note (WebKit intrinsic-width overflow). */
+  .tab-panel {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* WebKit also floors grid items at their intrinsic width (min-width: auto),
+     so cards holding horizontally-scrollable rows must be allowed to shrink. */
+  .controls-panel > *,
+  .tab-panel > * {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .tab-panel[hidden],
+  .tab-panel:empty {
+    display: none;
+  }
+
+  /* Small screens: the overlay floats over the 3D view, so it must stay a
+     slim strip instead of eating half the viewer. */
+  .viewer-overlay {
+    align-items: center;
+    border-radius: 10px;
+    gap: 8px;
+    left: 10px;
+    max-width: calc(100% - 20px);
+    padding: 7px 9px;
+    top: 10px;
+  }
+
+  .viewer-overlay strong {
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .viewer-overlay span {
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    display: -webkit-box;
+    font-size: 11px;
+    line-clamp: 2;
+    line-height: 1.35;
+    overflow: hidden;
+  }
+
+  .review-share-panel {
+    left: 10px;
+    right: 10px;
+    top: 10px;
+    width: auto;
+  }
+
+  .review-question-banner {
+    left: 10px;
+    max-width: calc(100% - 20px);
+    top: 64px;
+  }
+
+  /* Comfortable touch targets in the part context menu (opened by long-press). */
+  .part-context-menu button {
+    font-size: 13px;
+    padding: 10px;
+  }
+
+  .checkbox-control input,
+  .part-type-visibility {
+    height: 18px;
+    width: 18px;
+  }
+
+  .part-yaml-panel,
+  .part-yaml-panel.collapsed {
+    bottom: 10px;
+    left: 10px;
+    max-height: min(46%, 320px);
+    right: 10px;
+    width: auto;
+  }
+
+  .part-yaml-header {
+    padding: 10px 12px;
+  }
+
+  .part-yaml-panel pre {
+    font-size: 11px;
+    max-height: min(46svh, 250px);
+    padding: 10px 12px;
+  }
+
+  /* The drawings sheet needs every pixel on a phone: go edge-to-edge. */
+  .drawings-modal-backdrop {
+    padding: 0;
+  }
+
+  .drawings-modal {
+    border-radius: 0;
+    height: 100%;
+    max-height: none;
+    padding: 10px max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom))
+      max(10px, env(safe-area-inset-left));
+    width: 100%;
+  }
+
+  .drawings-modal-toolbar .drawings-part select {
+    min-width: 0;
+  }
+}
+
+/* --- Annotated review links ----------------------------------------------
+   The composer opens from the part context menu ("Share review link…") and
+   floats over the top-right corner of the viewer. */
+.review-share-panel {
+  background: rgba(15, 23, 42, 0.97);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 12px;
+  box-shadow: 0 18px 40px rgba(2, 6, 23, 0.55);
+  display: grid;
+  gap: 7px;
+  padding: 12px;
+  position: absolute;
+  right: 18px;
+  top: 18px;
+  width: 320px;
+  max-width: calc(100% - 36px);
+  z-index: 6;
+}
+
+.review-share-head {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.review-share-close {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  display: flex;
+  flex: 0 0 auto;
+  padding: 2px;
+}
+
+.review-share-close:hover {
+  box-shadow: none;
+  color: #f8fafc;
+}
+
+.review-share-close svg {
+  fill: none;
+  height: 15px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 2;
+  width: 15px;
+}
+
+.review-share-panel label {
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.review-share-question {
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 8px;
+  color: #f8fafc;
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 9px;
+  resize: vertical;
+}
+
+.review-share-question:focus {
+  border-color: #38bdf8;
+  outline: none;
+}
+
+.review-share-hint {
+  color: #94a3b8;
+  font-size: 11px;
+  margin: 0;
+}
+
+.review-share-url {
+  background: rgba(2, 6, 23, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 8px;
+  color: #cbd5e1;
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 6px 8px;
+}
+
+.review-share-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.review-share-copy {
+  background: #38bdf8;
+  border: none;
+  border-radius: 8px;
+  color: #082f49;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 14px;
+}
+
+.review-share-copy:hover {
+  background: #7dd3fc;
+}
+
+.review-question-banner {
+  align-items: flex-start;
+  background: rgba(56, 189, 248, 0.16);
+  border: 1px solid rgba(56, 189, 248, 0.6);
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(2, 6, 23, 0.4);
+  color: #e0f2fe;
+  display: flex;
+  gap: 10px;
+  left: 18px;
+  max-width: min(520px, calc(100% - 36px));
+  padding: 10px 12px;
+  position: absolute;
+  top: 86px;
+  z-index: 3;
+}
+
+.review-question-label {
+  color: #7dd3fc;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.review-question-banner p {
+  color: #f8fafc;
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.review-question-dismiss {
+  background: transparent;
+  border: none;
+  color: #bae6fd;
+  cursor: pointer;
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 0;
+}
+
+.review-question-dismiss svg {
+  fill: none;
+  height: 16px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 2;
+  width: 16px;
+}
+
+/* --- Diff summary panel (compare mode) ---------------------------------- */
+.diff-panel-content {
+  display: grid;
+  gap: 8px;
+}
+
+.diff-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* The "to" version's changelog note at the top of the diff panel. Wraps freely;
+   the full text is also in the title tooltip. */
+.diff-message {
+  color: var(--text-h);
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.diff-message strong {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.diff-meshes-note {
+  color: var(--text);
+  font-size: 12px;
+  margin: 0;
+}
+
+.diff-empty {
+  color: var(--text);
+  font-size: 13px;
+  margin: 0;
+}
+
+.diff-list {
+  display: grid;
+  gap: 4px;
+  list-style: none;
+  margin: 0;
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.diff-row {
+  background: var(--social-bg);
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  border-radius: 8px;
+  color: var(--text-h);
+  cursor: pointer;
+  display: grid;
+  font: inherit;
+  gap: 1px;
+  padding: 6px 9px;
+  text-align: left;
+  width: 100%;
+}
+
+button.diff-row:hover {
+  border-color: var(--accent);
+}
+
+.diff-row-static {
+  cursor: default;
+}
+
+.diff-row.diff-added {
+  border-left-color: #22c55e;
+}
+
+.diff-row.diff-removed {
+  border-left-color: #ef4444;
+}
+
+.diff-row.diff-changed {
+  border-left-color: #f59e0b;
+}
+
+.diff-row-id {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.diff-row-note {
+  color: var(--text);
+  font-size: 11px;
+}
+/* Version rationale and append-only learning history, independent of geometry. */
+.version-feedback { margin: 10px 0; font-size: 12px; overflow-wrap: anywhere; }
+.version-feedback > summary { cursor: pointer; font-weight: 600; }
+.version-feedback p { white-space: pre-wrap; margin: 8px 0; }
+.version-feedback-entries { max-height: 320px; overflow-y: auto; padding-left: 20px; }
+.version-feedback-entries li { padding: 10px 0; border-bottom: 1px solid #52627a55; }
+.version-feedback-entries small { display: block; opacity: 0.75; margin-top: 4px; }

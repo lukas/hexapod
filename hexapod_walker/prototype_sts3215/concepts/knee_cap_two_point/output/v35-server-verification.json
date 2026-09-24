@@ -1,0 +1,401 @@
+{
+  "publishedVersion": "v35",
+  "changedMeshIds": [
+    "stl:femur_ovh_body",
+    "stl:knee_clamp_cap_ovh"
+  ],
+  "movedOriginalInstances": [],
+  "newHardwareInstances": 24,
+  "overallBuildPassed": false,
+  "summary": "Found 0 unexpected colliding pair(s) (+ 18 intentional), 96 floating part(s).",
+  "components": {
+    "count": 13,
+    "mainComponentSize": 86,
+    "floatingComponentCount": 12
+  },
+  "kneeFasteningChecks": [
+    {
+      "id": "fastening-L0-knee-cap-0",
+      "kind": "thread_engagement",
+      "instances": [
+        "018-L0 knee cap OVH (NEW)",
+        "L0-knee-cap-0-nut"
+      ],
+      "status": "pass",
+      "point": [
+        170.95108200926092,
+        75.77784752947642,
+        75.1631115607131
+      ],
+      "line": {
+        "from": [
+          170.95108200926092,
+          75.77784752947642,
+          75.1631115607131
+        ],
+        "to": [
+          173.87906721542626,
+          77.46832057643921,
+          67.91264926441991
+        ]
+      },
+      "label": "L0-knee-cap-0: 018-L0 knee cap OVH (NEW) → L0-knee-cap-0-nut; 2.50 mm continuous engagement / 2 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L0-knee-cap-1",
+      "kind": "thread_engagement",
+      "instances": [
+        "018-L0 knee cap OVH (NEW)",
+        "L0-knee-cap-1-nut"
+      ],
+      "status": "pass",
+      "point": [
+        209.81107872321036,
+        119.40243197224235,
+        101.0273491792439
+      ],
+      "line": {
+        "from": [
+          209.81107872321036,
+          119.40243197224235,
+          101.0273491792439
+        ],
+        "to": [
+          212.7390639293757,
+          121.09290501920515,
+          93.7768868829507
+        ]
+      },
+      "label": "L0-knee-cap-1: 018-L0 knee cap OVH (NEW) → L0-knee-cap-1-nut; 2.50 mm continuous engagement / 2 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L1-knee-cap-0",
+      "kind": "thread_engagement",
+      "instances": [
+        "033-L1 knee cap OVH (NEW)",
+        "L1-knee-cap-0-nut"
+      ],
+      "status": "pass",
+      "point": [
+        19.850000000000016,
+        185.93690358919505,
+        75.1631115607131
+      ],
+      "line": {
+        "from": [
+          19.850000000000016,
+          185.93690358919505,
+          75.1631115607131
+        ],
+        "to": [
+          19.850000000000016,
+          189.31784968312064,
+          67.91264926441991
+        ]
+      },
+      "label": "L1-knee-cap-0: 033-L1 knee cap OVH (NEW) → L1-knee-cap-0-nut; 2.50 mm continuous engagement / 2 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L1-knee-cap-1",
+      "kind": "thread_engagement",
+      "instances": [
+        "033-L1 knee cap OVH (NEW)",
+        "L1-knee-cap-1-nut"
+      ],
+      "status": "pass",
+      "point": [
+        1.5000000000000142,
+        241.40294015583805,
+        101.0273491792439
+      ],
+      "line": {
+        "from": [
+          1.5000000000000142,
+          241.40294015583805,
+          101.0273491792439
+        ],
+        "to": [
+          1.5000000000000144,
+          244.78388624976364,
+          93.7768868829507
+        ]
+      },
+      "label": "L1-knee-cap-1: 033-L1 knee cap OVH (NEW) → L1-knee-cap-1-nut; 2.50 mm continuous engagement / 2 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L2-knee-cap-0",
+      "kind": "thread_engagement",
+      "instances": [
+        "048-L2 knee cap OVH (NEW)",
+        "L2-knee-cap-0-nut"
+      ],
+      "status": "pass",
+      "point": [
+        -151.1010820092609,
+        110.15905605971862,
+        75.1631115607131
+      ],
+      "line": {
+        "from": [
+          -151.1010820092609,
+          110.15905605971862,
+          75.1631115607131
+        ],
+        "to": [
+          -154.02906721542624,
+          111.84952910668142,
+          67.91264926441991
+        ]
+      },
+      "label": "L2-knee-cap-0: 048-L2 knee cap OVH (NEW) → L2-knee-cap-0-nut; 2.50 mm continuous engagement / 2 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L2-knee-cap-1",
+      "kind": "thread_engagement",
+      "instances": [
+        "048-L2 knee cap OVH (NEW)",
+        "L2-knee-cap-1-nut"
+      ],
+      "status": "pass",
+      "point": [
+        -208.31107872321033,
+        122.00050818359566,
+        101.0273491792439
+      ],
+      "line": {
+        "from": [
+          -208.31107872321033,
+          122.00050818359566,
+          101.0273491792439
+        ],
+        "to": [
+          -211.23906392937567,
+          123.69098123055845,
+          93.7768868829507
+        ]
+      },
+      "label": "L2-knee-cap-1: 048-L2 knee cap OVH (NEW) → L2-knee-cap-1-nut; 2.50 mm continuous engagement / 2 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L3-knee-cap-0",
+      "kind": "thread_engagement",
+      "instances": [
+        "063-L3 knee cap OVH (NEW)",
+        "L3-knee-cap-0-nut"
+      ],
+      "status": "pass",
+      "point": [
+        -170.95108200926092,
+        -75.77784752947636,
+        75.1631115607131
+      ],
+      "line": {
+        "from": [
+          -170.95108200926092,
+          -75.77784752947636,
+          75.1631115607131
+        ],
+        "to": [
+          -173.87906721542626,
+          -77.46832057643915,
+          67.91264926441991
+        ]
+      },
+      "label": "L3-knee-cap-0: 063-L3 knee cap OVH (NEW) → L3-knee-cap-0-nut; 2.50 mm continuous engagement / 2 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L3-knee-cap-1",
+      "kind": "thread_engagement",
+      "instances": [
+        "063-L3 knee cap OVH (NEW)",
+        "L3-knee-cap-1-nut"
+      ],
+      "status": "pass",
+      "point": [
+        -209.81107872321036,
+        -119.4024319722423,
+        101.0273491792439
+      ],
+      "line": {
+        "from": [
+          -209.81107872321036,
+          -119.4024319722423,
+          101.0273491792439
+        ],
+        "to": [
+          -212.7390639293757,
+          -121.09290501920509,
+          93.7768868829507
+        ]
+      },
+      "label": "L3-knee-cap-1: 063-L3 knee cap OVH (NEW) → L3-knee-cap-1-nut; 2.50 mm continuous engagement / 2 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L4-knee-cap-0",
+      "kind": "thread_engagement",
+      "instances": [
+        "078-L4 knee cap OVH (NEW)",
+        "L4-knee-cap-0-nut"
+      ],
+      "status": "pass",
+      "point": [
+        -19.850000000000037,
+        -185.93690358919505,
+        75.1631115607131
+      ],
+      "line": {
+        "from": [
+          -19.850000000000037,
+          -185.93690358919505,
+          75.1631115607131
+        ],
+        "to": [
+          -19.850000000000037,
+          -189.31784968312064,
+          67.91264926441991
+        ]
+      },
+      "label": "L4-knee-cap-0: 078-L4 knee cap OVH (NEW) → L4-knee-cap-0-nut; 2.50 mm continuous engagement / 2 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L4-knee-cap-1",
+      "kind": "thread_engagement",
+      "instances": [
+        "078-L4 knee cap OVH (NEW)",
+        "L4-knee-cap-1-nut"
+      ],
+      "status": "pass",
+      "point": [
+        -1.5000000000000444,
+        -241.40294015583802,
+        101.0273491792439
+      ],
+      "line": {
+        "from": [
+          -1.5000000000000444,
+          -241.40294015583802,
+          101.0273491792439
+        ],
+        "to": [
+          -1.500000000000045,
+          -244.7838862497636,
+          93.7768868829507
+        ]
+      },
+      "label": "L4-knee-cap-1: 078-L4 knee cap OVH (NEW) → L4-knee-cap-1-nut; 2.50 mm continuous engagement / 2 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L5-knee-cap-0",
+      "kind": "thread_engagement",
+      "instances": [
+        "093-L5 knee cap OVH (NEW)",
+        "L5-knee-cap-0-nut"
+      ],
+      "status": "pass",
+      "point": [
+        151.1010820092608,
+        -110.15905605971872,
+        75.1631115607131
+      ],
+      "line": {
+        "from": [
+          151.1010820092608,
+          -110.15905605971872,
+          75.1631115607131
+        ],
+        "to": [
+          154.02906721542615,
+          -111.84952910668152,
+          67.91264926441991
+        ]
+      },
+      "label": "L5-knee-cap-0: 093-L5 knee cap OVH (NEW) → L5-knee-cap-0-nut; 2.50 mm continuous engagement / 2 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L5-knee-cap-1",
+      "kind": "thread_engagement",
+      "instances": [
+        "093-L5 knee cap OVH (NEW)",
+        "L5-knee-cap-1-nut"
+      ],
+      "status": "pass",
+      "point": [
+        208.31107872321024,
+        -122.00050818359578,
+        101.0273491792439
+      ],
+      "line": {
+        "from": [
+          208.31107872321024,
+          -122.00050818359578,
+          101.0273491792439
+        ],
+        "to": [
+          211.2390639293756,
+          -123.69098123055858,
+          93.7768868829507
+        ]
+      },
+      "label": "L5-knee-cap-1: 093-L5 knee cap OVH (NEW) → L5-knee-cap-1-nut; 2.50 mm continuous engagement / 2 mm required; 8 mm screw; sampled seat and clearance pass"
+    }
+  ],
+  "printability": [
+    {
+      "meshId": "stl:femur_ovh_body",
+      "meshName": "femur_ovh_body.stl",
+      "instanceIds": [
+        "016-L0 femur body OVH (NEW)",
+        "031-L1 femur body OVH (NEW)",
+        "046-L2 femur body OVH (NEW)",
+        "061-L3 femur body OVH (NEW)",
+        "076-L4 femur body OVH (NEW)",
+        "091-L5 femur body OVH (NEW)"
+      ],
+      "triangleCount": 13980,
+      "openEdges": 0,
+      "nonManifoldEdges": 0,
+      "inconsistentWinding": false,
+      "degenerateTriangles": 0,
+      "selfIntersections": 0,
+      "selfIntersectionPoint": null,
+      "componentCount": 1,
+      "smallestComponent": null,
+      "volumeMm3": 30774.536,
+      "minWallMm": 0.343,
+      "thinPoint": [
+        165.58642110477552,
+        115.01957885273328,
+        73.82373703984413
+      ]
+    },
+    {
+      "meshId": "stl:knee_clamp_cap_ovh",
+      "meshName": "knee_clamp_cap_ovh.stl",
+      "instanceIds": [
+        "018-L0 knee cap OVH (NEW)",
+        "033-L1 knee cap OVH (NEW)",
+        "048-L2 knee cap OVH (NEW)",
+        "063-L3 knee cap OVH (NEW)",
+        "078-L4 knee cap OVH (NEW)",
+        "093-L5 knee cap OVH (NEW)"
+      ],
+      "triangleCount": 2170,
+      "openEdges": 0,
+      "nonManifoldEdges": 0,
+      "inconsistentWinding": false,
+      "degenerateTriangles": 0,
+      "selfIntersections": 0,
+      "selfIntersectionPoint": null,
+      "componentCount": 1,
+      "smallestComponent": null,
+      "volumeMm3": 19723.566,
+      "minWallMm": 1.669,
+      "thinPoint": [
+        210.95619185882606,
+        120.97377994640733,
+        104.062906329536
+      ]
+    }
+  ],
+  "note": "Overall build not passing: inherited floating articulated groups and inherited printability annotations. The 24 added screw/nut instances join those pre-existing groups; component count unchanged."
+}

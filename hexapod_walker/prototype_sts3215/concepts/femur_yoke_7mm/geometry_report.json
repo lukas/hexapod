@@ -1,0 +1,22 @@
+{
+  "pass": true,
+  "sourceVersion": "v25",
+  "armThicknessBeforeMm": 4,
+  "armThicknessAfterMm": 7,
+  "addedVolumeMm3": 5872.86,
+  "spacer": "4.5 OD x 10 mm",
+  "spacerBoreMm": 4.7,
+  "washerRecessDiameterMm": 7.3,
+  "armOutwardGrowthMm": 3,
+  "yokeExtensionMm": 2,
+  "checks": [
+    "single watertight solid",
+    "all original geometry retained",
+    "servo gap unchanged",
+    "outward growth limited to 3 mm per arm; knee holder unchanged",
+    "washer access clear",
+    "spacer paths clear",
+    "central screw seats unchanged",
+    "print transform and 3MF round trip"
+  ]
+}

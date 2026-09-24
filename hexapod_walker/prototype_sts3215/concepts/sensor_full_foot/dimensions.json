@@ -1,0 +1,23 @@
+{
+  "cylinder_od_mm": 16,
+  "cylinder_bore_mm": 8.2,
+  "cylinder_height_mm": 20,
+  "nominal_rod_od_mm": 8,
+  "rod_socket_depth_mm": 17.200000000000003,
+  "foot_od_mm": 19,
+  "return_collar_od_mm": 22.8,
+  "max_rigid_travel_mm": 0.6,
+  "pad_diameter_mm": 6.5,
+  "pad_thickness_mm": 1.0,
+  "assumed_sensor_plus_adhesive_thickness_mm": 0.2,
+  "nominal_initial_pad_gap_mm": 0.19999999999999973,
+  "nominal_pad_compression_at_stop_mm": 0.40000000000000024,
+  "guide_diametral_clearance_mm": 0.4,
+  "pin_end_gap_at_stop_mm": 0.1,
+  "sensor_to_guide_clearance_mm": 0.8,
+  "watertight": true,
+  "rigid_travel_checks_passed": true,
+  "rod_stop_check_passed": true,
+  "trigger_force": "unmeasured; bench calibration required",
+  "flexible_deformation": "not simulated; collar and pad shown unloaded"
+}

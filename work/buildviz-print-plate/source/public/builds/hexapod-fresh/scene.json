@@ -1,0 +1,6592 @@
+{
+  "name": "Hexapod Fresh",
+  "description": "Fresh 25 kg-servo hexapod using new printable CAD while preserving validation, MuJoCo, and BuildViz workflows.",
+  "source": "/Users/lbiewald/hexapod_fresh",
+  "designSpec": "/Users/lbiewald/hexapod_fresh/design_spec.yaml",
+  "units": "mm",
+  "center": [
+    0.0,
+    0.0,
+    35.0
+  ],
+  "meshes": [
+    {
+      "id": "spider_chassis",
+      "name": "spider_chassis.stl",
+      "url": "/builds/hexapod-fresh/stl/spider_chassis.stl"
+    },
+    {
+      "id": "top_saddle",
+      "name": "top_saddle.stl",
+      "url": "/builds/hexapod-fresh/stl/top_saddle.stl"
+    },
+    {
+      "id": "yaw_pod",
+      "name": "yaw_pod.stl",
+      "url": "/builds/hexapod-fresh/stl/yaw_pod.stl"
+    },
+    {
+      "id": "coxa_blade",
+      "name": "coxa_blade.stl",
+      "url": "/builds/hexapod-fresh/stl/coxa_blade.stl"
+    },
+    {
+      "id": "femur_blade",
+      "name": "femur_blade.stl",
+      "url": "/builds/hexapod-fresh/stl/femur_blade.stl"
+    },
+    {
+      "id": "tibia_blade",
+      "name": "tibia_blade.stl",
+      "url": "/builds/hexapod-fresh/stl/tibia_blade.stl"
+    },
+    {
+      "id": "oval_foot",
+      "name": "oval_foot.stl",
+      "url": "/builds/hexapod-fresh/stl/oval_foot.stl"
+    },
+    {
+      "id": "servo_body",
+      "name": "servo_body.stl",
+      "url": "/builds/hexapod-fresh/assets/servos/servo_body.stl"
+    },
+    {
+      "id": "servo_horn",
+      "name": "servo_horn.stl",
+      "url": "/builds/hexapod-fresh/assets/servos/servo_horn.stl"
+    }
+  ],
+  "instances": [
+    {
+      "id": "000-spider_chassis",
+      "meshId": "spider_chassis",
+      "name": "Open Spider Chassis",
+      "partType": "spider_chassis",
+      "role": "Fresh lower frame: central rounded spine plus six local yaw-pod pads, with open bays instead of a solid hex plate.",
+      "leg": null,
+      "joint": null,
+      "color": "#0ea5e9",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        0.04114483542768048,
+        1.4231237382882786e-08,
+        8.913839754521908e-10
+      ],
+      "focusGroup": "chassis",
+      "aliases": [
+        "lower chassis",
+        "spider frame",
+        "open base",
+        "ring spine"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "overall size",
+            "bounding box"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for the generated STL size.",
+          "llm_context": "Changing pod reach or centre-spine size changes this envelope and may affect bed fit and novelty.",
+          "render": {
+            "anchor_mm": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              12.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "X envelope",
+              "value": 219.3,
+              "axis": "x",
+              "from_mm": [
+                -109.65,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                109.65,
+                0.0,
+                0.0
+              ],
+              "code_name": "computed STL extent",
+              "description": "Overall generated X size.",
+              "llm_hint": "Keep under printer and avoid becoming reference-like."
+            },
+            "width_y": {
+              "label": "Y envelope",
+              "value": 232.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -116.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                116.0,
+                0.0
+              ],
+              "code_name": "computed STL extent",
+              "description": "Overall generated Y size.",
+              "llm_hint": "Driven by six pod pads."
+            },
+            "thickness_z": {
+              "label": "Plate thickness",
+              "value": 4.0,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                -2.0
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                2.0
+              ],
+              "code_name": "CHASSIS_T",
+              "derived_from": "CHASSIS_T",
+              "description": "Printed lower chassis thickness.",
+              "llm_hint": "Changing this affects bolt length and mass."
+            }
+          }
+        },
+        "centre_standoff_pattern": {
+          "label": "Centre standoff pattern",
+          "aliases": [
+            "electronics standoffs",
+            "top saddle holes"
+          ],
+          "kind": "bolt_pattern",
+          "purpose": "Four M3 holes tie the top saddle and electronics stack to the lower chassis.",
+          "llm_context": "Keep aligned with top_saddle centre_standoff_pattern.",
+          "render": {
+            "anchor_mm": [
+              22.63,
+              22.63,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              10.0
+            ],
+            "label_priority": "medium"
+          },
+          "validation": {
+            "axis": "z"
+          },
+          "dimensions": {
+            "hole_diameter": {
+              "label": "M3 clearance diameter",
+              "value": 3.4,
+              "axis": "z",
+              "from_mm": [
+                22.63,
+                22.63,
+                -2.0
+              ],
+              "to_mm": [
+                22.63,
+                22.63,
+                2.0
+              ],
+              "code_name": "BOLT_D",
+              "description": "Clearance for M3 hardware.",
+              "llm_hint": "Do not shrink below M3 clearance."
+            }
+          }
+        },
+        "leg0_pod_bolt_outboard_n": {
+          "label": "Leg 0 pod bolt sample",
+          "aliases": [
+            "yaw pod bolt",
+            "leg pod fastener"
+          ],
+          "kind": "bolt_pattern",
+          "purpose": "Representative bolt in the repeated yaw-pod mounting pattern.",
+          "llm_context": "The six legs repeat this local pattern around the chassis.",
+          "render": {
+            "anchor_mm": [
+              71.9,
+              96.6,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              10.0
+            ],
+            "label_priority": "medium"
+          },
+          "validation": {
+            "axis": "z"
+          },
+          "dimensions": {
+            "hole_diameter": {
+              "label": "Pod M3 clearance diameter",
+              "value": 3.4,
+              "axis": "z",
+              "from_mm": [
+                71.9,
+                96.6,
+                -2.0
+              ],
+              "to_mm": [
+                71.9,
+                96.6,
+                2.0
+              ],
+              "code_name": "BOLT_D",
+              "description": "Clearance through chassis pad for yaw-pod mounting.",
+              "llm_hint": "Moving this requires moving yaw_pod chassis holes."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "001-top_saddle",
+      "meshId": "top_saddle",
+      "name": "Top Electronics Saddle",
+      "partType": "top_saddle",
+      "role": "Compact rounded upper deck for electronics and chassis standoffs.",
+      "leg": null,
+      "joint": null,
+      "color": "#38bdf8",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        34.0,
+        1.0
+      ],
+      "centroid": [
+        -7.010299699870398e-16,
+        0.0,
+        34.0
+      ],
+      "focusGroup": "chassis",
+      "aliases": [
+        "top deck",
+        "upper saddle",
+        "electronics cover"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "overall size"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for top saddle dimensions.",
+          "llm_context": "The saddle must remain inside leg sweep and align with centre standoffs.",
+          "render": {
+            "anchor_mm": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              12.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "X envelope",
+              "value": 108.0,
+              "axis": "x",
+              "from_mm": [
+                -54.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                54.0,
+                0.0,
+                0.0
+              ],
+              "code_name": "TOP_DECK_W",
+              "description": "Rounded saddle length.",
+              "llm_hint": "Increasing may collide with leg sweep."
+            },
+            "width_y": {
+              "label": "Y envelope",
+              "value": 76.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -38.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                38.0,
+                0.0
+              ],
+              "code_name": "TOP_DECK_D",
+              "description": "Rounded saddle width.",
+              "llm_hint": "Must fit electronics but stay compact."
+            },
+            "thickness_z": {
+              "label": "Plate thickness",
+              "value": 4.0,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                -2.0
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                2.0
+              ],
+              "code_name": "CHASSIS_T",
+              "description": "Printed saddle thickness.",
+              "llm_hint": "Changing affects standoff stack."
+            }
+          }
+        },
+        "centre_standoff_pattern": {
+          "label": "Centre standoff pattern",
+          "aliases": [
+            "electronics standoffs",
+            "mounting square"
+          ],
+          "kind": "bolt_pattern",
+          "purpose": "Four M3 holes align with the lower chassis standoff pattern.",
+          "llm_context": "Must stay aligned to spider_chassis centre_standoff_pattern.",
+          "render": {
+            "anchor_mm": [
+              22.63,
+              22.63,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              10.0
+            ],
+            "label_priority": "medium"
+          },
+          "validation": {
+            "axis": "z"
+          },
+          "dimensions": {
+            "hole_diameter": {
+              "label": "M3 clearance diameter",
+              "value": 3.4,
+              "axis": "z",
+              "from_mm": [
+                22.63,
+                22.63,
+                -2.0
+              ],
+              "to_mm": [
+                22.63,
+                22.63,
+                2.0
+              ],
+              "code_name": "BOLT_D",
+              "description": "Clearance for M3 standoff hardware.",
+              "llm_hint": "Keep consistent with lower chassis."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "002-yaw_pod-L0",
+      "meshId": "yaw_pod",
+      "name": "Canted Yaw Servo Pod L0",
+      "partType": "yaw_pod",
+      "role": "Separate canted pod that bolts to one chassis pad and holds a 25 kg yaw servo.",
+      "leg": "L0",
+      "joint": null,
+      "color": "#f97316",
+      "transform": [
+        0.8660254037844387,
+        0.49999999999999994,
+        0.0,
+        0.0,
+        -0.49999999999999994,
+        0.8660254037844387,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        79.67433714816836,
+        45.99999999999999,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        71.88965451255464,
+        41.50551138434169,
+        12.302616711603385
+      ],
+      "focusGroup": "L0",
+      "aliases": [
+        "yaw pod",
+        "hip yaw bracket",
+        "servo pod"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "pod size"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for pod dimensions.",
+          "llm_context": "Changing servo wall thickness or pod base affects this size.",
+          "render": {
+            "anchor_mm": [
+              0.0,
+              0.0,
+              20.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              18.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "X envelope",
+              "value": 68.5,
+              "axis": "x",
+              "from_mm": [
+                -34.25,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                34.25,
+                0.0,
+                0.0
+              ],
+              "code_name": "computed STL extent",
+              "description": "Generated pod X size.",
+              "llm_hint": "Affects chassis pod pad coverage."
+            },
+            "width_y": {
+              "label": "Y envelope",
+              "value": 72.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -36.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                36.0,
+                0.0
+              ],
+              "code_name": "computed STL extent",
+              "description": "Generated pod Y size.",
+              "llm_hint": "Affects leg-to-leg spacing."
+            },
+            "height_z": {
+              "label": "Pod height",
+              "value": 48.5,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                48.5
+              ],
+              "code_name": "SERVO_H + pod walls",
+              "description": "Overall yaw pod height.",
+              "llm_hint": "Must clear horn sweep and servo body."
+            }
+          }
+        },
+        "chassis_bolt_pattern": {
+          "label": "Pod-to-chassis bolt pattern",
+          "aliases": [
+            "pod bolts",
+            "base fasteners"
+          ],
+          "kind": "bolt_pattern",
+          "purpose": "Four M3 bolts fasten the pod to a local chassis pad.",
+          "llm_context": "Keep matched to spider_chassis leg pad holes.",
+          "render": {
+            "anchor_mm": [
+              -7.0,
+              17.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              10.0
+            ],
+            "label_priority": "medium"
+          },
+          "validation": {
+            "axis": "z"
+          },
+          "dimensions": {
+            "hole_diameter": {
+              "label": "M3 clearance diameter",
+              "value": 3.4,
+              "axis": "z",
+              "from_mm": [
+                -7.0,
+                17.0,
+                -3.0
+              ],
+              "to_mm": [
+                -7.0,
+                17.0,
+                3.0
+              ],
+              "code_name": "BOLT_D",
+              "description": "Clearance for pod base bolts.",
+              "llm_hint": "Do not shrink below M3 clearance."
+            }
+          }
+        },
+        "yaw_servo_pocket": {
+          "label": "Yaw servo body pocket",
+          "aliases": [
+            "servo cavity",
+            "25 kg servo pocket"
+          ],
+          "kind": "pocket",
+          "purpose": "Void for the purchased 25 kg hobby servo body.",
+          "llm_context": "Changing this must preserve servo insertion and horn axis.",
+          "render": {
+            "anchor_mm": [
+              -10.0,
+              0.0,
+              22.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              18.0,
+              0.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "pocket_width_x": {
+              "label": "Servo tab span clearance",
+              "value": 56.0,
+              "axis": "x",
+              "from_mm": [
+                -38.0,
+                0.0,
+                22.0
+              ],
+              "to_mm": [
+                18.0,
+                0.0,
+                22.0
+              ],
+              "code_name": "SERVO_TAB_SPAN + 2",
+              "description": "X clearance around servo tabs.",
+              "llm_hint": "Must remain larger than physical servo tabs."
+            },
+            "pocket_depth_y": {
+              "label": "Servo depth clearance",
+              "value": 22.0,
+              "axis": "y",
+              "from_mm": [
+                -10.0,
+                -11.0,
+                22.0
+              ],
+              "to_mm": [
+                -10.0,
+                11.0,
+                22.0
+              ],
+              "code_name": "SERVO_D + 2",
+              "description": "Y clearance around servo body.",
+              "llm_hint": "Controls sidewall thickness."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "003-coxa_blade-L0",
+      "meshId": "coxa_blade",
+      "name": "Coxa Blade L0",
+      "partType": "coxa_blade",
+      "role": "Short yaw-to-hip blade with integrated hip servo pocket.",
+      "leg": "L0",
+      "joint": null,
+      "color": "#22c55e",
+      "transform": [
+        0.8660254037844387,
+        0.49999999999999994,
+        0.0,
+        0.0,
+        -0.49999999999999994,
+        0.8660254037844387,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        79.67433714816836,
+        45.99999999999999,
+        51.5,
+        1.0
+      ],
+      "centroid": [
+        94.82870777765245,
+        54.7493799623319,
+        60.193898965238915
+      ],
+      "focusGroup": "L0",
+      "aliases": [
+        "short hip link",
+        "yaw-to-hip link",
+        "coxa link"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "coxa size"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for coxa blade.",
+          "llm_context": "This is intentionally a blade, not the reference coxa bracket/link layout.",
+          "render": {
+            "anchor_mm": [
+              20.0,
+              0.0,
+              10.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              18.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "X envelope",
+              "value": 65.0,
+              "axis": "x",
+              "from_mm": [
+                -18.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                47.0,
+                0.0,
+                0.0
+              ],
+              "code_name": "COXA_LEN + hub/block",
+              "description": "Overall coxa blade X size.",
+              "llm_hint": "Changing affects hip radius."
+            },
+            "width_y": {
+              "label": "Y envelope",
+              "value": 36.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -18.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                18.0,
+                0.0
+              ],
+              "code_name": "hub/pocket geometry",
+              "description": "Overall coxa blade Y size.",
+              "llm_hint": "Affects side clearance."
+            },
+            "height_z": {
+              "label": "Z envelope",
+              "value": 30.0,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                30.0
+              ],
+              "code_name": "hip block height",
+              "description": "Overall coxa blade height.",
+              "llm_hint": "Must clear servo pocket."
+            }
+          }
+        },
+        "yaw_horn_pattern": {
+          "label": "Yaw horn bolt pattern",
+          "aliases": [
+            "horn holes",
+            "M2 horn bolts"
+          ],
+          "kind": "bolt_pattern",
+          "purpose": "M2 holes attach the blade to the purchased servo horn.",
+          "llm_context": "Must match the 20.8 mm horn PCD.",
+          "render": {
+            "anchor_mm": [
+              10.4,
+              0.0,
+              3.5
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              10.0
+            ],
+            "label_priority": "high"
+          },
+          "validation": {
+            "axis": "z"
+          },
+          "dimensions": {
+            "hole_diameter": {
+              "label": "M2 horn clearance",
+              "value": 2.2,
+              "axis": "z",
+              "from_mm": [
+                10.4,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                10.4,
+                0.0,
+                7.0
+              ],
+              "code_name": "M2_D",
+              "description": "Clearance for M2 horn screws.",
+              "llm_hint": "Do not change without changing horn fasteners."
+            },
+            "pcd_radius": {
+              "label": "Horn PCD radius",
+              "value": 10.4,
+              "axis": "x",
+              "from_mm": [
+                0.0,
+                0.0,
+                3.5
+              ],
+              "to_mm": [
+                10.4,
+                0.0,
+                3.5
+              ],
+              "code_name": "HORN_BOLT_R",
+              "derived_from": "HORN_PCD",
+              "description": "Bolt radius for purchased horn.",
+              "llm_hint": "Must stay aligned with servo horn."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "004-femur_blade-L0",
+      "meshId": "femur_blade",
+      "name": "Femur Blade L0",
+      "partType": "femur_blade",
+      "role": "Tapered hip-to-knee blade with integrated knee servo block.",
+      "leg": "L0",
+      "joint": null,
+      "color": "#ef4444",
+      "transform": [
+        0.7500000000000001,
+        0.4330127018922193,
+        0.49999999999999994,
+        0.0,
+        -0.49999999999999994,
+        0.8660254037844387,
+        0.0,
+        0.0,
+        -0.4330127018922193,
+        -0.24999999999999994,
+        0.8660254037844387,
+        0.0,
+        109.11920087683927,
+        62.999999999999986,
+        59.5,
+        1.0
+      ],
+      "centroid": [
+        138.57957634196782,
+        81.239337001301,
+        80.45220683382524
+      ],
+      "focusGroup": "L0",
+      "aliases": [
+        "thigh blade",
+        "hip-to-knee link",
+        "femur link"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "thigh size"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for femur blade.",
+          "llm_context": "Affects stride and knee servo placement.",
+          "render": {
+            "anchor_mm": [
+              58.0,
+              0.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              18.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "X envelope",
+              "value": 116.0,
+              "axis": "x",
+              "from_mm": [
+                -20.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                96.0,
+                0.0,
+                0.0
+              ],
+              "code_name": "FEMUR_LEN + end block",
+              "description": "Overall femur blade length.",
+              "llm_hint": "Changing affects gait and novelty."
+            },
+            "width_y": {
+              "label": "Y envelope",
+              "value": 34.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -17.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                17.0,
+                0.0
+              ],
+              "code_name": "knee block width",
+              "description": "Overall femur blade width.",
+              "llm_hint": "Affects servo pocket clearance."
+            },
+            "height_z": {
+              "label": "Z envelope",
+              "value": 40.5,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                -20.25
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                20.25
+              ],
+              "code_name": "SERVO_H",
+              "description": "Overall femur blade height.",
+              "llm_hint": "Must fit knee servo block."
+            }
+          }
+        },
+        "hip_horn_pattern": {
+          "label": "Hip horn bolt pattern",
+          "aliases": [
+            "hip horn holes",
+            "M2 hip bolts"
+          ],
+          "kind": "bolt_pattern",
+          "purpose": "M2 holes attach femur blade to hip servo horn.",
+          "llm_context": "Must match purchased horn PCD.",
+          "render": {
+            "anchor_mm": [
+              10.4,
+              4.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              12.0,
+              0.0
+            ],
+            "label_priority": "high"
+          },
+          "validation": {
+            "axis": "y"
+          },
+          "dimensions": {
+            "hole_diameter": {
+              "label": "M2 horn clearance",
+              "value": 2.2,
+              "axis": "y",
+              "from_mm": [
+                10.4,
+                -7.0,
+                0.0
+              ],
+              "to_mm": [
+                10.4,
+                7.0,
+                0.0
+              ],
+              "code_name": "M2_D",
+              "description": "Clearance through horn mount face.",
+              "llm_hint": "Keep aligned with horn hardware."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "005-tibia_blade-L0",
+      "meshId": "tibia_blade",
+      "name": "Tibia Blade L0",
+      "partType": "tibia_blade",
+      "role": "Long blade shin with passive foot clevis.",
+      "leg": "L0",
+      "joint": null,
+      "color": "#a855f7",
+      "transform": [
+        0.7179675985244509,
+        0.4145187862775208,
+        -0.5591929034707468,
+        0.0,
+        -0.49999999999999994,
+        0.8660254037844387,
+        0.0,
+        0.0,
+        0.4842752600216462,
+        0.27959645173537334,
+        0.8290375725550416,
+        0.0,
+        170.61920087683927,
+        98.50704155516198,
+        100.5,
+        1.0
+      ],
+      "centroid": [
+        223.2547453106633,
+        129.69829060567088,
+        60.593773597128994
+      ],
+      "focusGroup": "L0",
+      "aliases": [
+        "shin blade",
+        "knee-to-foot link",
+        "tibia link"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "shin size"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for tibia blade.",
+          "llm_context": "Affects foot radius, gait reach, and novelty.",
+          "render": {
+            "anchor_mm": [
+              76.0,
+              0.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              18.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "X envelope",
+              "value": 152.0,
+              "axis": "x",
+              "from_mm": [
+                -20.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                132.0,
+                0.0,
+                0.0
+              ],
+              "code_name": "TIBIA_LEN + clevis",
+              "description": "Overall tibia blade length.",
+              "llm_hint": "Changing affects foot circle and MuJoCo model."
+            },
+            "width_y": {
+              "label": "Y envelope",
+              "value": 34.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -17.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                17.0,
+                0.0
+              ],
+              "code_name": "clevis width",
+              "description": "Overall tibia blade width.",
+              "llm_hint": "Affects foot clevis."
+            },
+            "height_z": {
+              "label": "Z envelope",
+              "value": 40.0,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                -20.0
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                20.0
+              ],
+              "code_name": "tibia end geometry",
+              "description": "Overall tibia blade height.",
+              "llm_hint": "Must clear ankle gap."
+            }
+          }
+        },
+        "knee_horn_pattern": {
+          "label": "Knee horn bolt pattern",
+          "aliases": [
+            "knee horn holes",
+            "M2 knee bolts"
+          ],
+          "kind": "bolt_pattern",
+          "purpose": "M2 holes attach tibia blade to knee servo horn.",
+          "llm_context": "Must match purchased horn PCD.",
+          "render": {
+            "anchor_mm": [
+              10.4,
+              4.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              12.0,
+              0.0
+            ],
+            "label_priority": "high"
+          },
+          "validation": {
+            "axis": "y"
+          },
+          "dimensions": {
+            "hole_diameter": {
+              "label": "M2 horn clearance",
+              "value": 2.2,
+              "axis": "y",
+              "from_mm": [
+                10.4,
+                -7.0,
+                0.0
+              ],
+              "to_mm": [
+                10.4,
+                7.0,
+                0.0
+              ],
+              "code_name": "M2_D",
+              "description": "Clearance through knee horn face.",
+              "llm_hint": "Keep aligned with horn hardware."
+            }
+          }
+        },
+        "ankle_clevis": {
+          "label": "Passive ankle clevis",
+          "aliases": [
+            "foot hinge",
+            "ankle fork",
+            "clevis"
+          ],
+          "kind": "clevis",
+          "purpose": "Captures the oval foot tongue on an M3 hinge pin.",
+          "llm_context": "Changing this must preserve foot insertion and pin access.",
+          "render": {
+            "anchor_mm": [
+              118.0,
+              0.0,
+              -2.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              14.0,
+              0.0
+            ],
+            "label_priority": "high"
+          },
+          "validation": {
+            "axis": "y"
+          },
+          "dimensions": {
+            "pin_diameter": {
+              "label": "M3 hinge clearance",
+              "value": 3.4,
+              "axis": "y",
+              "from_mm": [
+                118.0,
+                -17.0,
+                -2.0
+              ],
+              "to_mm": [
+                118.0,
+                17.0,
+                -2.0
+              ],
+              "code_name": "BOLT_D",
+              "description": "Ankle hinge pin clearance.",
+              "llm_hint": "Keep compatible with oval_foot hinge pin."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "006-oval_foot-L0",
+      "meshId": "oval_foot",
+      "name": "Oval Foot L0",
+      "partType": "oval_foot",
+      "role": "Oval ground pad with vertical tongue and passive hinge pin.",
+      "leg": "L0",
+      "joint": null,
+      "color": "#78350f",
+      "transform": [
+        0.8660254037844388,
+        0.49999999999999994,
+        1.2226847858097619e-17,
+        0.0,
+        -0.49999999999999994,
+        0.8660254037844387,
+        0.0,
+        0.0,
+        -1.1796857761520592e-17,
+        -5.488679437193601e-17,
+        1.0,
+        0.0,
+        247.59097334237813,
+        142.94671510814345,
+        21.2506362295712,
+        1.0
+      ],
+      "centroid": [
+        247.5909733423782,
+        142.94671510814342,
+        26.997773776263102
+      ],
+      "focusGroup": "L0",
+      "aliases": [
+        "foot pad",
+        "passive foot",
+        "oval ground pad"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "foot size"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for foot dimensions.",
+          "llm_context": "Foot shape intentionally differs from the reference round pad.",
+          "render": {
+            "anchor_mm": [
+              0.0,
+              0.0,
+              6.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              16.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "Oval foot length",
+              "value": 42.0,
+              "axis": "x",
+              "from_mm": [
+                -21.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                21.0,
+                0.0,
+                0.0
+              ],
+              "code_name": "make_oval_foot pad capsule",
+              "description": "Long axis of foot pad.",
+              "llm_hint": "Changing affects ground contact and novelty."
+            },
+            "width_y": {
+              "label": "Oval foot width",
+              "value": 30.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -15.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                15.0,
+                0.0
+              ],
+              "code_name": "make_oval_foot pad capsule",
+              "description": "Short axis of foot pad.",
+              "llm_hint": "Affects stability and clevis clearance."
+            },
+            "height_z": {
+              "label": "Foot height",
+              "value": 24.0,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                24.0
+              ],
+              "code_name": "tongue + pad stack",
+              "description": "Total foot and hinge tongue height.",
+              "llm_hint": "Must align with tibia clevis pin."
+            }
+          }
+        },
+        "hinge_pin": {
+          "label": "Foot hinge pin",
+          "aliases": [
+            "ankle pin",
+            "M3 foot pin"
+          ],
+          "kind": "joint",
+          "purpose": "Passive pitch hinge captured by tibia clevis.",
+          "llm_context": "Must remain coaxial with tibia_blade ankle_clevis.",
+          "render": {
+            "anchor_mm": [
+              0.0,
+              0.0,
+              14.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              14.0,
+              0.0
+            ],
+            "label_priority": "high"
+          },
+          "validation": {
+            "axis": "y"
+          },
+          "dimensions": {
+            "pin_diameter": {
+              "label": "M3 hinge clearance",
+              "value": 3.4,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -12.0,
+                14.0
+              ],
+              "to_mm": [
+                0.0,
+                12.0,
+                14.0
+              ],
+              "code_name": "BOLT_D",
+              "description": "Foot hinge hole clearance.",
+              "llm_hint": "Keep compatible with tibia clevis."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "007-yaw_pod-L1",
+      "meshId": "yaw_pod",
+      "name": "Canted Yaw Servo Pod L1",
+      "partType": "yaw_pod",
+      "role": "Separate canted pod that bolts to one chassis pad and holds a 25 kg yaw servo.",
+      "leg": "L1",
+      "joint": null,
+      "color": "#f97316",
+      "transform": [
+        6.123233995736766e-17,
+        1.0,
+        0.0,
+        0.0,
+        -1.0,
+        6.123233995736766e-17,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        5.633375276077825e-15,
+        92.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        3.7318688964442957e-10,
+        83.01102276932974,
+        12.302616711603385
+      ],
+      "focusGroup": "L1",
+      "aliases": [
+        "yaw pod",
+        "hip yaw bracket",
+        "servo pod"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "pod size"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for pod dimensions.",
+          "llm_context": "Changing servo wall thickness or pod base affects this size.",
+          "render": {
+            "anchor_mm": [
+              0.0,
+              0.0,
+              20.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              18.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "X envelope",
+              "value": 68.5,
+              "axis": "x",
+              "from_mm": [
+                -34.25,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                34.25,
+                0.0,
+                0.0
+              ],
+              "code_name": "computed STL extent",
+              "description": "Generated pod X size.",
+              "llm_hint": "Affects chassis pod pad coverage."
+            },
+            "width_y": {
+              "label": "Y envelope",
+              "value": 72.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -36.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                36.0,
+                0.0
+              ],
+              "code_name": "computed STL extent",
+              "description": "Generated pod Y size.",
+              "llm_hint": "Affects leg-to-leg spacing."
+            },
+            "height_z": {
+              "label": "Pod height",
+              "value": 48.5,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                48.5
+              ],
+              "code_name": "SERVO_H + pod walls",
+              "description": "Overall yaw pod height.",
+              "llm_hint": "Must clear horn sweep and servo body."
+            }
+          }
+        },
+        "chassis_bolt_pattern": {
+          "label": "Pod-to-chassis bolt pattern",
+          "aliases": [
+            "pod bolts",
+            "base fasteners"
+          ],
+          "kind": "bolt_pattern",
+          "purpose": "Four M3 bolts fasten the pod to a local chassis pad.",
+          "llm_context": "Keep matched to spider_chassis leg pad holes.",
+          "render": {
+            "anchor_mm": [
+              -7.0,
+              17.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              10.0
+            ],
+            "label_priority": "medium"
+          },
+          "validation": {
+            "axis": "z"
+          },
+          "dimensions": {
+            "hole_diameter": {
+              "label": "M3 clearance diameter",
+              "value": 3.4,
+              "axis": "z",
+              "from_mm": [
+                -7.0,
+                17.0,
+                -3.0
+              ],
+              "to_mm": [
+                -7.0,
+                17.0,
+                3.0
+              ],
+              "code_name": "BOLT_D",
+              "description": "Clearance for pod base bolts.",
+              "llm_hint": "Do not shrink below M3 clearance."
+            }
+          }
+        },
+        "yaw_servo_pocket": {
+          "label": "Yaw servo body pocket",
+          "aliases": [
+            "servo cavity",
+            "25 kg servo pocket"
+          ],
+          "kind": "pocket",
+          "purpose": "Void for the purchased 25 kg hobby servo body.",
+          "llm_context": "Changing this must preserve servo insertion and horn axis.",
+          "render": {
+            "anchor_mm": [
+              -10.0,
+              0.0,
+              22.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              18.0,
+              0.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "pocket_width_x": {
+              "label": "Servo tab span clearance",
+              "value": 56.0,
+              "axis": "x",
+              "from_mm": [
+                -38.0,
+                0.0,
+                22.0
+              ],
+              "to_mm": [
+                18.0,
+                0.0,
+                22.0
+              ],
+              "code_name": "SERVO_TAB_SPAN + 2",
+              "description": "X clearance around servo tabs.",
+              "llm_hint": "Must remain larger than physical servo tabs."
+            },
+            "pocket_depth_y": {
+              "label": "Servo depth clearance",
+              "value": 22.0,
+              "axis": "y",
+              "from_mm": [
+                -10.0,
+                -11.0,
+                22.0
+              ],
+              "to_mm": [
+                -10.0,
+                11.0,
+                22.0
+              ],
+              "code_name": "SERVO_D + 2",
+              "description": "Y clearance around servo body.",
+              "llm_hint": "Controls sidewall thickness."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "008-coxa_blade-L1",
+      "meshId": "coxa_blade",
+      "name": "Coxa Blade L1",
+      "partType": "coxa_blade",
+      "role": "Short yaw-to-hip blade with integrated hip servo pocket.",
+      "leg": "L1",
+      "joint": null,
+      "color": "#22c55e",
+      "transform": [
+        6.123233995736766e-17,
+        1.0,
+        0.0,
+        0.0,
+        -1.0,
+        6.123233995736766e-17,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        5.633375276077825e-15,
+        92.0,
+        51.5,
+        1.0
+      ],
+      "centroid": [
+        9.339355140058706e-15,
+        109.498759924664,
+        60.19389896523897
+      ],
+      "focusGroup": "L1",
+      "aliases": [
+        "short hip link",
+        "yaw-to-hip link",
+        "coxa link"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "coxa size"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for coxa blade.",
+          "llm_context": "This is intentionally a blade, not the reference coxa bracket/link layout.",
+          "render": {
+            "anchor_mm": [
+              20.0,
+              0.0,
+              10.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              18.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "X envelope",
+              "value": 65.0,
+              "axis": "x",
+              "from_mm": [
+                -18.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                47.0,
+                0.0,
+                0.0
+              ],
+              "code_name": "COXA_LEN + hub/block",
+              "description": "Overall coxa blade X size.",
+              "llm_hint": "Changing affects hip radius."
+            },
+            "width_y": {
+              "label": "Y envelope",
+              "value": 36.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -18.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                18.0,
+                0.0
+              ],
+              "code_name": "hub/pocket geometry",
+              "description": "Overall coxa blade Y size.",
+              "llm_hint": "Affects side clearance."
+            },
+            "height_z": {
+              "label": "Z envelope",
+              "value": 30.0,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                30.0
+              ],
+              "code_name": "hip block height",
+              "description": "Overall coxa blade height.",
+              "llm_hint": "Must clear servo pocket."
+            }
+          }
+        },
+        "yaw_horn_pattern": {
+          "label": "Yaw horn bolt pattern",
+          "aliases": [
+            "horn holes",
+            "M2 horn bolts"
+          ],
+          "kind": "bolt_pattern",
+          "purpose": "M2 holes attach the blade to the purchased servo horn.",
+          "llm_context": "Must match the 20.8 mm horn PCD.",
+          "render": {
+            "anchor_mm": [
+              10.4,
+              0.0,
+              3.5
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              10.0
+            ],
+            "label_priority": "high"
+          },
+          "validation": {
+            "axis": "z"
+          },
+          "dimensions": {
+            "hole_diameter": {
+              "label": "M2 horn clearance",
+              "value": 2.2,
+              "axis": "z",
+              "from_mm": [
+                10.4,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                10.4,
+                0.0,
+                7.0
+              ],
+              "code_name": "M2_D",
+              "description": "Clearance for M2 horn screws.",
+              "llm_hint": "Do not change without changing horn fasteners."
+            },
+            "pcd_radius": {
+              "label": "Horn PCD radius",
+              "value": 10.4,
+              "axis": "x",
+              "from_mm": [
+                0.0,
+                0.0,
+                3.5
+              ],
+              "to_mm": [
+                10.4,
+                0.0,
+                3.5
+              ],
+              "code_name": "HORN_BOLT_R",
+              "derived_from": "HORN_PCD",
+              "description": "Bolt radius for purchased horn.",
+              "llm_hint": "Must stay aligned with servo horn."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "009-femur_blade-L1",
+      "meshId": "femur_blade",
+      "name": "Femur Blade L1",
+      "partType": "femur_blade",
+      "role": "Tapered hip-to-knee blade with integrated knee servo block.",
+      "leg": "L1",
+      "joint": null,
+      "color": "#ef4444",
+      "transform": [
+        5.3028761936245346e-17,
+        0.8660254037844387,
+        0.49999999999999994,
+        0.0,
+        -1.0,
+        6.123233995736766e-17,
+        0.0,
+        0.0,
+        -3.0616169978683824e-17,
+        -0.49999999999999994,
+        0.8660254037844387,
+        0.0,
+        7.715274834628325e-15,
+        126.0,
+        59.5,
+        1.0
+      ],
+      "centroid": [
+        -1.0655414587478385,
+        160.6331020584799,
+        80.45220683382533
+      ],
+      "focusGroup": "L1",
+      "aliases": [
+        "thigh blade",
+        "hip-to-knee link",
+        "femur link"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "thigh size"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for femur blade.",
+          "llm_context": "Affects stride and knee servo placement.",
+          "render": {
+            "anchor_mm": [
+              58.0,
+              0.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              18.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "X envelope",
+              "value": 116.0,
+              "axis": "x",
+              "from_mm": [
+                -20.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                96.0,
+                0.0,
+                0.0
+              ],
+              "code_name": "FEMUR_LEN + end block",
+              "description": "Overall femur blade length.",
+              "llm_hint": "Changing affects gait and novelty."
+            },
+            "width_y": {
+              "label": "Y envelope",
+              "value": 34.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -17.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                17.0,
+                0.0
+              ],
+              "code_name": "knee block width",
+              "description": "Overall femur blade width.",
+              "llm_hint": "Affects servo pocket clearance."
+            },
+            "height_z": {
+              "label": "Z envelope",
+              "value": 40.5,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                -20.25
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                20.25
+              ],
+              "code_name": "SERVO_H",
+              "description": "Overall femur blade height.",
+              "llm_hint": "Must fit knee servo block."
+            }
+          }
+        },
+        "hip_horn_pattern": {
+          "label": "Hip horn bolt pattern",
+          "aliases": [
+            "hip horn holes",
+            "M2 hip bolts"
+          ],
+          "kind": "bolt_pattern",
+          "purpose": "M2 holes attach femur blade to hip servo horn.",
+          "llm_context": "Must match purchased horn PCD.",
+          "render": {
+            "anchor_mm": [
+              10.4,
+              4.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              12.0,
+              0.0
+            ],
+            "label_priority": "high"
+          },
+          "validation": {
+            "axis": "y"
+          },
+          "dimensions": {
+            "hole_diameter": {
+              "label": "M2 horn clearance",
+              "value": 2.2,
+              "axis": "y",
+              "from_mm": [
+                10.4,
+                -7.0,
+                0.0
+              ],
+              "to_mm": [
+                10.4,
+                7.0,
+                0.0
+              ],
+              "code_name": "M2_D",
+              "description": "Clearance through horn mount face.",
+              "llm_hint": "Keep aligned with horn hardware."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "010-tibia_blade-L1",
+      "meshId": "tibia_blade",
+      "name": "Tibia Blade L1",
+      "partType": "tibia_blade",
+      "role": "Long blade shin with passive foot clevis.",
+      "leg": "L1",
+      "joint": null,
+      "color": "#a855f7",
+      "transform": [
+        5.076391048012116e-17,
+        0.8290375725550417,
+        -0.5591929034707468,
+        0.0,
+        -1.0,
+        6.123233995736766e-17,
+        0.0,
+        0.0,
+        3.4240689967068245e-17,
+        0.5591929034707468,
+        0.8290375725550416,
+        0.0,
+        1.2063633313400443e-14,
+        197.01408311032398,
+        100.5,
+        1.0
+      ],
+      "centroid": [
+        -0.6946418365959742,
+        258.1934262572952,
+        60.59377359712903
+      ],
+      "focusGroup": "L1",
+      "aliases": [
+        "shin blade",
+        "knee-to-foot link",
+        "tibia link"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "shin size"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for tibia blade.",
+          "llm_context": "Affects foot radius, gait reach, and novelty.",
+          "render": {
+            "anchor_mm": [
+              76.0,
+              0.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              18.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "X envelope",
+              "value": 152.0,
+              "axis": "x",
+              "from_mm": [
+                -20.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                132.0,
+                0.0,
+                0.0
+              ],
+              "code_name": "TIBIA_LEN + clevis",
+              "description": "Overall tibia blade length.",
+              "llm_hint": "Changing affects foot circle and MuJoCo model."
+            },
+            "width_y": {
+              "label": "Y envelope",
+              "value": 34.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -17.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                17.0,
+                0.0
+              ],
+              "code_name": "clevis width",
+              "description": "Overall tibia blade width.",
+              "llm_hint": "Affects foot clevis."
+            },
+            "height_z": {
+              "label": "Z envelope",
+              "value": 40.0,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                -20.0
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                20.0
+              ],
+              "code_name": "tibia end geometry",
+              "description": "Overall tibia blade height.",
+              "llm_hint": "Must clear ankle gap."
+            }
+          }
+        },
+        "knee_horn_pattern": {
+          "label": "Knee horn bolt pattern",
+          "aliases": [
+            "knee horn holes",
+            "M2 knee bolts"
+          ],
+          "kind": "bolt_pattern",
+          "purpose": "M2 holes attach tibia blade to knee servo horn.",
+          "llm_context": "Must match purchased horn PCD.",
+          "render": {
+            "anchor_mm": [
+              10.4,
+              4.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              12.0,
+              0.0
+            ],
+            "label_priority": "high"
+          },
+          "validation": {
+            "axis": "y"
+          },
+          "dimensions": {
+            "hole_diameter": {
+              "label": "M2 horn clearance",
+              "value": 2.2,
+              "axis": "y",
+              "from_mm": [
+                10.4,
+                -7.0,
+                0.0
+              ],
+              "to_mm": [
+                10.4,
+                7.0,
+                0.0
+              ],
+              "code_name": "M2_D",
+              "description": "Clearance through knee horn face.",
+              "llm_hint": "Keep aligned with horn hardware."
+            }
+          }
+        },
+        "ankle_clevis": {
+          "label": "Passive ankle clevis",
+          "aliases": [
+            "foot hinge",
+            "ankle fork",
+            "clevis"
+          ],
+          "kind": "clevis",
+          "purpose": "Captures the oval foot tongue on an M3 hinge pin.",
+          "llm_context": "Changing this must preserve foot insertion and pin access.",
+          "render": {
+            "anchor_mm": [
+              118.0,
+              0.0,
+              -2.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              14.0,
+              0.0
+            ],
+            "label_priority": "high"
+          },
+          "validation": {
+            "axis": "y"
+          },
+          "dimensions": {
+            "pin_diameter": {
+              "label": "M3 hinge clearance",
+              "value": 3.4,
+              "axis": "y",
+              "from_mm": [
+                118.0,
+                -17.0,
+                -2.0
+              ],
+              "to_mm": [
+                118.0,
+                17.0,
+                -2.0
+              ],
+              "code_name": "BOLT_D",
+              "description": "Ankle hinge pin clearance.",
+              "llm_hint": "Keep compatible with oval_foot hinge pin."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "011-oval_foot-L1",
+      "meshId": "oval_foot",
+      "name": "Oval Foot L1",
+      "partType": "oval_foot",
+      "role": "Oval ground pad with vertical tongue and passive hinge pin.",
+      "leg": "L1",
+      "joint": null,
+      "color": "#78350f",
+      "transform": [
+        6.123233995736766e-17,
+        1.0,
+        1.2226847858097619e-17,
+        0.0,
+        -1.0,
+        6.123233995736766e-17,
+        0.0,
+        0.0,
+        1.9034436641095982e-33,
+        -7.324307984213424e-17,
+        1.0,
+        0.0,
+        1.750592371058165e-14,
+        285.89343021628696,
+        21.2506362295712,
+        1.0
+      ],
+      "centroid": [
+        1.795368441772591e-14,
+        285.8934302162868,
+        26.997773776263106
+      ],
+      "focusGroup": "L1",
+      "aliases": [
+        "foot pad",
+        "passive foot",
+        "oval ground pad"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "foot size"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for foot dimensions.",
+          "llm_context": "Foot shape intentionally differs from the reference round pad.",
+          "render": {
+            "anchor_mm": [
+              0.0,
+              0.0,
+              6.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              16.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "Oval foot length",
+              "value": 42.0,
+              "axis": "x",
+              "from_mm": [
+                -21.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                21.0,
+                0.0,
+                0.0
+              ],
+              "code_name": "make_oval_foot pad capsule",
+              "description": "Long axis of foot pad.",
+              "llm_hint": "Changing affects ground contact and novelty."
+            },
+            "width_y": {
+              "label": "Oval foot width",
+              "value": 30.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -15.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                15.0,
+                0.0
+              ],
+              "code_name": "make_oval_foot pad capsule",
+              "description": "Short axis of foot pad.",
+              "llm_hint": "Affects stability and clevis clearance."
+            },
+            "height_z": {
+              "label": "Foot height",
+              "value": 24.0,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                24.0
+              ],
+              "code_name": "tongue + pad stack",
+              "description": "Total foot and hinge tongue height.",
+              "llm_hint": "Must align with tibia clevis pin."
+            }
+          }
+        },
+        "hinge_pin": {
+          "label": "Foot hinge pin",
+          "aliases": [
+            "ankle pin",
+            "M3 foot pin"
+          ],
+          "kind": "joint",
+          "purpose": "Passive pitch hinge captured by tibia clevis.",
+          "llm_context": "Must remain coaxial with tibia_blade ankle_clevis.",
+          "render": {
+            "anchor_mm": [
+              0.0,
+              0.0,
+              14.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              14.0,
+              0.0
+            ],
+            "label_priority": "high"
+          },
+          "validation": {
+            "axis": "y"
+          },
+          "dimensions": {
+            "pin_diameter": {
+              "label": "M3 hinge clearance",
+              "value": 3.4,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -12.0,
+                14.0
+              ],
+              "to_mm": [
+                0.0,
+                12.0,
+                14.0
+              ],
+              "code_name": "BOLT_D",
+              "description": "Foot hinge hole clearance.",
+              "llm_hint": "Keep compatible with tibia clevis."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "012-yaw_pod-L2",
+      "meshId": "yaw_pod",
+      "name": "Canted Yaw Servo Pod L2",
+      "partType": "yaw_pod",
+      "role": "Separate canted pod that bolts to one chassis pad and holds a 25 kg yaw servo.",
+      "leg": "L2",
+      "joint": null,
+      "color": "#f97316",
+      "transform": [
+        -0.8660254037844387,
+        0.49999999999999994,
+        0.0,
+        0.0,
+        -0.49999999999999994,
+        -0.8660254037844387,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -79.67433714816836,
+        45.99999999999999,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -71.88965451218154,
+        41.50551138498808,
+        12.302616711603395
+      ],
+      "focusGroup": "L2",
+      "aliases": [
+        "yaw pod",
+        "hip yaw bracket",
+        "servo pod"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "pod size"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for pod dimensions.",
+          "llm_context": "Changing servo wall thickness or pod base affects this size.",
+          "render": {
+            "anchor_mm": [
+              0.0,
+              0.0,
+              20.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              18.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "X envelope",
+              "value": 68.5,
+              "axis": "x",
+              "from_mm": [
+                -34.25,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                34.25,
+                0.0,
+                0.0
+              ],
+              "code_name": "computed STL extent",
+              "description": "Generated pod X size.",
+              "llm_hint": "Affects chassis pod pad coverage."
+            },
+            "width_y": {
+              "label": "Y envelope",
+              "value": 72.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -36.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                36.0,
+                0.0
+              ],
+              "code_name": "computed STL extent",
+              "description": "Generated pod Y size.",
+              "llm_hint": "Affects leg-to-leg spacing."
+            },
+            "height_z": {
+              "label": "Pod height",
+              "value": 48.5,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                48.5
+              ],
+              "code_name": "SERVO_H + pod walls",
+              "description": "Overall yaw pod height.",
+              "llm_hint": "Must clear horn sweep and servo body."
+            }
+          }
+        },
+        "chassis_bolt_pattern": {
+          "label": "Pod-to-chassis bolt pattern",
+          "aliases": [
+            "pod bolts",
+            "base fasteners"
+          ],
+          "kind": "bolt_pattern",
+          "purpose": "Four M3 bolts fasten the pod to a local chassis pad.",
+          "llm_context": "Keep matched to spider_chassis leg pad holes.",
+          "render": {
+            "anchor_mm": [
+              -7.0,
+              17.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              10.0
+            ],
+            "label_priority": "medium"
+          },
+          "validation": {
+            "axis": "z"
+          },
+          "dimensions": {
+            "hole_diameter": {
+              "label": "M3 clearance diameter",
+              "value": 3.4,
+              "axis": "z",
+              "from_mm": [
+                -7.0,
+                17.0,
+                -3.0
+              ],
+              "to_mm": [
+                -7.0,
+                17.0,
+                3.0
+              ],
+              "code_name": "BOLT_D",
+              "description": "Clearance for pod base bolts.",
+              "llm_hint": "Do not shrink below M3 clearance."
+            }
+          }
+        },
+        "yaw_servo_pocket": {
+          "label": "Yaw servo body pocket",
+          "aliases": [
+            "servo cavity",
+            "25 kg servo pocket"
+          ],
+          "kind": "pocket",
+          "purpose": "Void for the purchased 25 kg hobby servo body.",
+          "llm_context": "Changing this must preserve servo insertion and horn axis.",
+          "render": {
+            "anchor_mm": [
+              -10.0,
+              0.0,
+              22.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              18.0,
+              0.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "pocket_width_x": {
+              "label": "Servo tab span clearance",
+              "value": 56.0,
+              "axis": "x",
+              "from_mm": [
+                -38.0,
+                0.0,
+                22.0
+              ],
+              "to_mm": [
+                18.0,
+                0.0,
+                22.0
+              ],
+              "code_name": "SERVO_TAB_SPAN + 2",
+              "description": "X clearance around servo tabs.",
+              "llm_hint": "Must remain larger than physical servo tabs."
+            },
+            "pocket_depth_y": {
+              "label": "Servo depth clearance",
+              "value": 22.0,
+              "axis": "y",
+              "from_mm": [
+                -10.0,
+                -11.0,
+                22.0
+              ],
+              "to_mm": [
+                -10.0,
+                11.0,
+                22.0
+              ],
+              "code_name": "SERVO_D + 2",
+              "description": "Y clearance around servo body.",
+              "llm_hint": "Controls sidewall thickness."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "013-coxa_blade-L2",
+      "meshId": "coxa_blade",
+      "name": "Coxa Blade L2",
+      "partType": "coxa_blade",
+      "role": "Short yaw-to-hip blade with integrated hip servo pocket.",
+      "leg": "L2",
+      "joint": null,
+      "color": "#22c55e",
+      "transform": [
+        -0.8660254037844387,
+        0.49999999999999994,
+        0.0,
+        0.0,
+        -0.49999999999999994,
+        -0.8660254037844387,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -79.67433714816836,
+        45.99999999999999,
+        51.5,
+        1.0
+      ],
+      "centroid": [
+        -94.82870777765241,
+        54.749379962331965,
+        60.19389896523895
+      ],
+      "focusGroup": "L2",
+      "aliases": [
+        "short hip link",
+        "yaw-to-hip link",
+        "coxa link"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "coxa size"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for coxa blade.",
+          "llm_context": "This is intentionally a blade, not the reference coxa bracket/link layout.",
+          "render": {
+            "anchor_mm": [
+              20.0,
+              0.0,
+              10.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              18.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "X envelope",
+              "value": 65.0,
+              "axis": "x",
+              "from_mm": [
+                -18.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                47.0,
+                0.0,
+                0.0
+              ],
+              "code_name": "COXA_LEN + hub/block",
+              "description": "Overall coxa blade X size.",
+              "llm_hint": "Changing affects hip radius."
+            },
+            "width_y": {
+              "label": "Y envelope",
+              "value": 36.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -18.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                18.0,
+                0.0
+              ],
+              "code_name": "hub/pocket geometry",
+              "description": "Overall coxa blade Y size.",
+              "llm_hint": "Affects side clearance."
+            },
+            "height_z": {
+              "label": "Z envelope",
+              "value": 30.0,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                30.0
+              ],
+              "code_name": "hip block height",
+              "description": "Overall coxa blade height.",
+              "llm_hint": "Must clear servo pocket."
+            }
+          }
+        },
+        "yaw_horn_pattern": {
+          "label": "Yaw horn bolt pattern",
+          "aliases": [
+            "horn holes",
+            "M2 horn bolts"
+          ],
+          "kind": "bolt_pattern",
+          "purpose": "M2 holes attach the blade to the purchased servo horn.",
+          "llm_context": "Must match the 20.8 mm horn PCD.",
+          "render": {
+            "anchor_mm": [
+              10.4,
+              0.0,
+              3.5
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              10.0
+            ],
+            "label_priority": "high"
+          },
+          "validation": {
+            "axis": "z"
+          },
+          "dimensions": {
+            "hole_diameter": {
+              "label": "M2 horn clearance",
+              "value": 2.2,
+              "axis": "z",
+              "from_mm": [
+                10.4,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                10.4,
+                0.0,
+                7.0
+              ],
+              "code_name": "M2_D",
+              "description": "Clearance for M2 horn screws.",
+              "llm_hint": "Do not change without changing horn fasteners."
+            },
+            "pcd_radius": {
+              "label": "Horn PCD radius",
+              "value": 10.4,
+              "axis": "x",
+              "from_mm": [
+                0.0,
+                0.0,
+                3.5
+              ],
+              "to_mm": [
+                10.4,
+                0.0,
+                3.5
+              ],
+              "code_name": "HORN_BOLT_R",
+              "derived_from": "HORN_PCD",
+              "description": "Bolt radius for purchased horn.",
+              "llm_hint": "Must stay aligned with servo horn."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "014-femur_blade-L2",
+      "meshId": "femur_blade",
+      "name": "Femur Blade L2",
+      "partType": "femur_blade",
+      "role": "Tapered hip-to-knee blade with integrated knee servo block.",
+      "leg": "L2",
+      "joint": null,
+      "color": "#ef4444",
+      "transform": [
+        -0.7500000000000001,
+        0.4330127018922193,
+        0.49999999999999994,
+        0.0,
+        -0.49999999999999994,
+        -0.8660254037844387,
+        0.0,
+        0.0,
+        0.4330127018922193,
+        -0.24999999999999994,
+        0.8660254037844387,
+        0.0,
+        -109.11920087683927,
+        62.999999999999986,
+        59.5,
+        1.0
+      ],
+      "centroid": [
+        -139.64511780071604,
+        79.39376505717885,
+        80.45220683382546
+      ],
+      "focusGroup": "L2",
+      "aliases": [
+        "thigh blade",
+        "hip-to-knee link",
+        "femur link"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "thigh size"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for femur blade.",
+          "llm_context": "Affects stride and knee servo placement.",
+          "render": {
+            "anchor_mm": [
+              58.0,
+              0.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              18.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "X envelope",
+              "value": 116.0,
+              "axis": "x",
+              "from_mm": [
+                -20.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                96.0,
+                0.0,
+                0.0
+              ],
+              "code_name": "FEMUR_LEN + end block",
+              "description": "Overall femur blade length.",
+              "llm_hint": "Changing affects gait and novelty."
+            },
+            "width_y": {
+              "label": "Y envelope",
+              "value": 34.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -17.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                17.0,
+                0.0
+              ],
+              "code_name": "knee block width",
+              "description": "Overall femur blade width.",
+              "llm_hint": "Affects servo pocket clearance."
+            },
+            "height_z": {
+              "label": "Z envelope",
+              "value": 40.5,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                -20.25
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                20.25
+              ],
+              "code_name": "SERVO_H",
+              "description": "Overall femur blade height.",
+              "llm_hint": "Must fit knee servo block."
+            }
+          }
+        },
+        "hip_horn_pattern": {
+          "label": "Hip horn bolt pattern",
+          "aliases": [
+            "hip horn holes",
+            "M2 hip bolts"
+          ],
+          "kind": "bolt_pattern",
+          "purpose": "M2 holes attach femur blade to hip servo horn.",
+          "llm_context": "Must match purchased horn PCD.",
+          "render": {
+            "anchor_mm": [
+              10.4,
+              4.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              12.0,
+              0.0
+            ],
+            "label_priority": "high"
+          },
+          "validation": {
+            "axis": "y"
+          },
+          "dimensions": {
+            "hole_diameter": {
+              "label": "M2 horn clearance",
+              "value": 2.2,
+              "axis": "y",
+              "from_mm": [
+                10.4,
+                -7.0,
+                0.0
+              ],
+              "to_mm": [
+                10.4,
+                7.0,
+                0.0
+              ],
+              "code_name": "M2_D",
+              "description": "Clearance through horn mount face.",
+              "llm_hint": "Keep aligned with horn hardware."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "015-tibia_blade-L2",
+      "meshId": "tibia_blade",
+      "name": "Tibia Blade L2",
+      "partType": "tibia_blade",
+      "role": "Long blade shin with passive foot clevis.",
+      "leg": "L2",
+      "joint": null,
+      "color": "#a855f7",
+      "transform": [
+        -0.7179675985244509,
+        0.4145187862775208,
+        -0.5591929034707468,
+        0.0,
+        -0.49999999999999994,
+        -0.8660254037844387,
+        0.0,
+        0.0,
+        -0.4842752600216462,
+        0.27959645173537334,
+        0.8290375725550416,
+        0.0,
+        -170.61920087683927,
+        98.50704155516198,
+        100.5,
+        1.0
+      ],
+      "centroid": [
+        -223.94938714725905,
+        128.49513565162354,
+        60.593773597128816
+      ],
+      "focusGroup": "L2",
+      "aliases": [
+        "shin blade",
+        "knee-to-foot link",
+        "tibia link"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "shin size"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for tibia blade.",
+          "llm_context": "Affects foot radius, gait reach, and novelty.",
+          "render": {
+            "anchor_mm": [
+              76.0,
+              0.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              18.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "X envelope",
+              "value": 152.0,
+              "axis": "x",
+              "from_mm": [
+                -20.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                132.0,
+                0.0,
+                0.0
+              ],
+              "code_name": "TIBIA_LEN + clevis",
+              "description": "Overall tibia blade length.",
+              "llm_hint": "Changing affects foot circle and MuJoCo model."
+            },
+            "width_y": {
+              "label": "Y envelope",
+              "value": 34.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -17.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                17.0,
+                0.0
+              ],
+              "code_name": "clevis width",
+              "description": "Overall tibia blade width.",
+              "llm_hint": "Affects foot clevis."
+            },
+            "height_z": {
+              "label": "Z envelope",
+              "value": 40.0,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                -20.0
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                20.0
+              ],
+              "code_name": "tibia end geometry",
+              "description": "Overall tibia blade height.",
+              "llm_hint": "Must clear ankle gap."
+            }
+          }
+        },
+        "knee_horn_pattern": {
+          "label": "Knee horn bolt pattern",
+          "aliases": [
+            "knee horn holes",
+            "M2 knee bolts"
+          ],
+          "kind": "bolt_pattern",
+          "purpose": "M2 holes attach tibia blade to knee servo horn.",
+          "llm_context": "Must match purchased horn PCD.",
+          "render": {
+            "anchor_mm": [
+              10.4,
+              4.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              12.0,
+              0.0
+            ],
+            "label_priority": "high"
+          },
+          "validation": {
+            "axis": "y"
+          },
+          "dimensions": {
+            "hole_diameter": {
+              "label": "M2 horn clearance",
+              "value": 2.2,
+              "axis": "y",
+              "from_mm": [
+                10.4,
+                -7.0,
+                0.0
+              ],
+              "to_mm": [
+                10.4,
+                7.0,
+                0.0
+              ],
+              "code_name": "M2_D",
+              "description": "Clearance through knee horn face.",
+              "llm_hint": "Keep aligned with horn hardware."
+            }
+          }
+        },
+        "ankle_clevis": {
+          "label": "Passive ankle clevis",
+          "aliases": [
+            "foot hinge",
+            "ankle fork",
+            "clevis"
+          ],
+          "kind": "clevis",
+          "purpose": "Captures the oval foot tongue on an M3 hinge pin.",
+          "llm_context": "Changing this must preserve foot insertion and pin access.",
+          "render": {
+            "anchor_mm": [
+              118.0,
+              0.0,
+              -2.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              14.0,
+              0.0
+            ],
+            "label_priority": "high"
+          },
+          "validation": {
+            "axis": "y"
+          },
+          "dimensions": {
+            "pin_diameter": {
+              "label": "M3 hinge clearance",
+              "value": 3.4,
+              "axis": "y",
+              "from_mm": [
+                118.0,
+                -17.0,
+                -2.0
+              ],
+              "to_mm": [
+                118.0,
+                17.0,
+                -2.0
+              ],
+              "code_name": "BOLT_D",
+              "description": "Ankle hinge pin clearance.",
+              "llm_hint": "Keep compatible with oval_foot hinge pin."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "016-oval_foot-L2",
+      "meshId": "oval_foot",
+      "name": "Oval Foot L2",
+      "partType": "oval_foot",
+      "role": "Oval ground pad with vertical tongue and passive hinge pin.",
+      "leg": "L2",
+      "joint": null,
+      "color": "#78350f",
+      "transform": [
+        -0.8660254037844388,
+        0.49999999999999994,
+        1.2226847858097619e-17,
+        0.0,
+        -0.49999999999999994,
+        -0.8660254037844387,
+        0.0,
+        0.0,
+        1.1796857761520592e-17,
+        -5.488679437193601e-17,
+        1.0,
+        0.0,
+        -247.59097334237813,
+        142.94671510814345,
+        21.2506362295712,
+        1.0
+      ],
+      "centroid": [
+        -247.5909733423785,
+        142.94671510814362,
+        26.997773776263124
+      ],
+      "focusGroup": "L2",
+      "aliases": [
+        "foot pad",
+        "passive foot",
+        "oval ground pad"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "foot size"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for foot dimensions.",
+          "llm_context": "Foot shape intentionally differs from the reference round pad.",
+          "render": {
+            "anchor_mm": [
+              0.0,
+              0.0,
+              6.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              16.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "Oval foot length",
+              "value": 42.0,
+              "axis": "x",
+              "from_mm": [
+                -21.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                21.0,
+                0.0,
+                0.0
+              ],
+              "code_name": "make_oval_foot pad capsule",
+              "description": "Long axis of foot pad.",
+              "llm_hint": "Changing affects ground contact and novelty."
+            },
+            "width_y": {
+              "label": "Oval foot width",
+              "value": 30.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -15.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                15.0,
+                0.0
+              ],
+              "code_name": "make_oval_foot pad capsule",
+              "description": "Short axis of foot pad.",
+              "llm_hint": "Affects stability and clevis clearance."
+            },
+            "height_z": {
+              "label": "Foot height",
+              "value": 24.0,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                24.0
+              ],
+              "code_name": "tongue + pad stack",
+              "description": "Total foot and hinge tongue height.",
+              "llm_hint": "Must align with tibia clevis pin."
+            }
+          }
+        },
+        "hinge_pin": {
+          "label": "Foot hinge pin",
+          "aliases": [
+            "ankle pin",
+            "M3 foot pin"
+          ],
+          "kind": "joint",
+          "purpose": "Passive pitch hinge captured by tibia clevis.",
+          "llm_context": "Must remain coaxial with tibia_blade ankle_clevis.",
+          "render": {
+            "anchor_mm": [
+              0.0,
+              0.0,
+              14.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              14.0,
+              0.0
+            ],
+            "label_priority": "high"
+          },
+          "validation": {
+            "axis": "y"
+          },
+          "dimensions": {
+            "pin_diameter": {
+              "label": "M3 hinge clearance",
+              "value": 3.4,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -12.0,
+                14.0
+              ],
+              "to_mm": [
+                0.0,
+                12.0,
+                14.0
+              ],
+              "code_name": "BOLT_D",
+              "description": "Foot hinge hole clearance.",
+              "llm_hint": "Keep compatible with tibia clevis."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "017-yaw_pod-L3",
+      "meshId": "yaw_pod",
+      "name": "Canted Yaw Servo Pod L3",
+      "partType": "yaw_pod",
+      "role": "Separate canted pod that bolts to one chassis pad and holds a 25 kg yaw servo.",
+      "leg": "L3",
+      "joint": null,
+      "color": "#f97316",
+      "transform": [
+        -0.8660254037844388,
+        -0.4999999999999998,
+        0.0,
+        0.0,
+        0.4999999999999998,
+        -0.8660254037844388,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -79.67433714816838,
+        -45.99999999999998,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -71.88965451255464,
+        -41.50551138434165,
+        12.302616711603383
+      ],
+      "focusGroup": "L3",
+      "aliases": [
+        "yaw pod",
+        "hip yaw bracket",
+        "servo pod"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "pod size"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for pod dimensions.",
+          "llm_context": "Changing servo wall thickness or pod base affects this size.",
+          "render": {
+            "anchor_mm": [
+              0.0,
+              0.0,
+              20.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              18.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "X envelope",
+              "value": 68.5,
+              "axis": "x",
+              "from_mm": [
+                -34.25,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                34.25,
+                0.0,
+                0.0
+              ],
+              "code_name": "computed STL extent",
+              "description": "Generated pod X size.",
+              "llm_hint": "Affects chassis pod pad coverage."
+            },
+            "width_y": {
+              "label": "Y envelope",
+              "value": 72.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -36.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                36.0,
+                0.0
+              ],
+              "code_name": "computed STL extent",
+              "description": "Generated pod Y size.",
+              "llm_hint": "Affects leg-to-leg spacing."
+            },
+            "height_z": {
+              "label": "Pod height",
+              "value": 48.5,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                48.5
+              ],
+              "code_name": "SERVO_H + pod walls",
+              "description": "Overall yaw pod height.",
+              "llm_hint": "Must clear horn sweep and servo body."
+            }
+          }
+        },
+        "chassis_bolt_pattern": {
+          "label": "Pod-to-chassis bolt pattern",
+          "aliases": [
+            "pod bolts",
+            "base fasteners"
+          ],
+          "kind": "bolt_pattern",
+          "purpose": "Four M3 bolts fasten the pod to a local chassis pad.",
+          "llm_context": "Keep matched to spider_chassis leg pad holes.",
+          "render": {
+            "anchor_mm": [
+              -7.0,
+              17.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              10.0
+            ],
+            "label_priority": "medium"
+          },
+          "validation": {
+            "axis": "z"
+          },
+          "dimensions": {
+            "hole_diameter": {
+              "label": "M3 clearance diameter",
+              "value": 3.4,
+              "axis": "z",
+              "from_mm": [
+                -7.0,
+                17.0,
+                -3.0
+              ],
+              "to_mm": [
+                -7.0,
+                17.0,
+                3.0
+              ],
+              "code_name": "BOLT_D",
+              "description": "Clearance for pod base bolts.",
+              "llm_hint": "Do not shrink below M3 clearance."
+            }
+          }
+        },
+        "yaw_servo_pocket": {
+          "label": "Yaw servo body pocket",
+          "aliases": [
+            "servo cavity",
+            "25 kg servo pocket"
+          ],
+          "kind": "pocket",
+          "purpose": "Void for the purchased 25 kg hobby servo body.",
+          "llm_context": "Changing this must preserve servo insertion and horn axis.",
+          "render": {
+            "anchor_mm": [
+              -10.0,
+              0.0,
+              22.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              18.0,
+              0.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "pocket_width_x": {
+              "label": "Servo tab span clearance",
+              "value": 56.0,
+              "axis": "x",
+              "from_mm": [
+                -38.0,
+                0.0,
+                22.0
+              ],
+              "to_mm": [
+                18.0,
+                0.0,
+                22.0
+              ],
+              "code_name": "SERVO_TAB_SPAN + 2",
+              "description": "X clearance around servo tabs.",
+              "llm_hint": "Must remain larger than physical servo tabs."
+            },
+            "pocket_depth_y": {
+              "label": "Servo depth clearance",
+              "value": 22.0,
+              "axis": "y",
+              "from_mm": [
+                -10.0,
+                -11.0,
+                22.0
+              ],
+              "to_mm": [
+                -10.0,
+                11.0,
+                22.0
+              ],
+              "code_name": "SERVO_D + 2",
+              "description": "Y clearance around servo body.",
+              "llm_hint": "Controls sidewall thickness."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "018-coxa_blade-L3",
+      "meshId": "coxa_blade",
+      "name": "Coxa Blade L3",
+      "partType": "coxa_blade",
+      "role": "Short yaw-to-hip blade with integrated hip servo pocket.",
+      "leg": "L3",
+      "joint": null,
+      "color": "#22c55e",
+      "transform": [
+        -0.8660254037844388,
+        -0.4999999999999998,
+        0.0,
+        0.0,
+        0.4999999999999998,
+        -0.8660254037844388,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -79.67433714816838,
+        -45.99999999999998,
+        51.5,
+        1.0
+      ],
+      "centroid": [
+        -94.82870777765257,
+        -54.74937996233202,
+        60.19389896523901
+      ],
+      "focusGroup": "L3",
+      "aliases": [
+        "short hip link",
+        "yaw-to-hip link",
+        "coxa link"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "coxa size"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for coxa blade.",
+          "llm_context": "This is intentionally a blade, not the reference coxa bracket/link layout.",
+          "render": {
+            "anchor_mm": [
+              20.0,
+              0.0,
+              10.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              18.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "X envelope",
+              "value": 65.0,
+              "axis": "x",
+              "from_mm": [
+                -18.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                47.0,
+                0.0,
+                0.0
+              ],
+              "code_name": "COXA_LEN + hub/block",
+              "description": "Overall coxa blade X size.",
+              "llm_hint": "Changing affects hip radius."
+            },
+            "width_y": {
+              "label": "Y envelope",
+              "value": 36.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -18.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                18.0,
+                0.0
+              ],
+              "code_name": "hub/pocket geometry",
+              "description": "Overall coxa blade Y size.",
+              "llm_hint": "Affects side clearance."
+            },
+            "height_z": {
+              "label": "Z envelope",
+              "value": 30.0,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                30.0
+              ],
+              "code_name": "hip block height",
+              "description": "Overall coxa blade height.",
+              "llm_hint": "Must clear servo pocket."
+            }
+          }
+        },
+        "yaw_horn_pattern": {
+          "label": "Yaw horn bolt pattern",
+          "aliases": [
+            "horn holes",
+            "M2 horn bolts"
+          ],
+          "kind": "bolt_pattern",
+          "purpose": "M2 holes attach the blade to the purchased servo horn.",
+          "llm_context": "Must match the 20.8 mm horn PCD.",
+          "render": {
+            "anchor_mm": [
+              10.4,
+              0.0,
+              3.5
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              10.0
+            ],
+            "label_priority": "high"
+          },
+          "validation": {
+            "axis": "z"
+          },
+          "dimensions": {
+            "hole_diameter": {
+              "label": "M2 horn clearance",
+              "value": 2.2,
+              "axis": "z",
+              "from_mm": [
+                10.4,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                10.4,
+                0.0,
+                7.0
+              ],
+              "code_name": "M2_D",
+              "description": "Clearance for M2 horn screws.",
+              "llm_hint": "Do not change without changing horn fasteners."
+            },
+            "pcd_radius": {
+              "label": "Horn PCD radius",
+              "value": 10.4,
+              "axis": "x",
+              "from_mm": [
+                0.0,
+                0.0,
+                3.5
+              ],
+              "to_mm": [
+                10.4,
+                0.0,
+                3.5
+              ],
+              "code_name": "HORN_BOLT_R",
+              "derived_from": "HORN_PCD",
+              "description": "Bolt radius for purchased horn.",
+              "llm_hint": "Must stay aligned with servo horn."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "019-femur_blade-L3",
+      "meshId": "femur_blade",
+      "name": "Femur Blade L3",
+      "partType": "femur_blade",
+      "role": "Tapered hip-to-knee blade with integrated knee servo block.",
+      "leg": "L3",
+      "joint": null,
+      "color": "#ef4444",
+      "transform": [
+        -0.7500000000000002,
+        -0.4330127018922192,
+        0.49999999999999994,
+        0.0,
+        0.4999999999999998,
+        -0.8660254037844388,
+        0.0,
+        0.0,
+        0.43301270189221935,
+        0.24999999999999986,
+        0.8660254037844387,
+        0.0,
+        -109.1192008768393,
+        -62.99999999999997,
+        59.5,
+        1.0
+      ],
+      "centroid": [
+        -138.57957634196802,
+        -81.23933700130102,
+        80.45220683382533
+      ],
+      "focusGroup": "L3",
+      "aliases": [
+        "thigh blade",
+        "hip-to-knee link",
+        "femur link"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "thigh size"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for femur blade.",
+          "llm_context": "Affects stride and knee servo placement.",
+          "render": {
+            "anchor_mm": [
+              58.0,
+              0.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              18.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "X envelope",
+              "value": 116.0,
+              "axis": "x",
+              "from_mm": [
+                -20.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                96.0,
+                0.0,
+                0.0
+              ],
+              "code_name": "FEMUR_LEN + end block",
+              "description": "Overall femur blade length.",
+              "llm_hint": "Changing affects gait and novelty."
+            },
+            "width_y": {
+              "label": "Y envelope",
+              "value": 34.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -17.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                17.0,
+                0.0
+              ],
+              "code_name": "knee block width",
+              "description": "Overall femur blade width.",
+              "llm_hint": "Affects servo pocket clearance."
+            },
+            "height_z": {
+              "label": "Z envelope",
+              "value": 40.5,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                -20.25
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                20.25
+              ],
+              "code_name": "SERVO_H",
+              "description": "Overall femur blade height.",
+              "llm_hint": "Must fit knee servo block."
+            }
+          }
+        },
+        "hip_horn_pattern": {
+          "label": "Hip horn bolt pattern",
+          "aliases": [
+            "hip horn holes",
+            "M2 hip bolts"
+          ],
+          "kind": "bolt_pattern",
+          "purpose": "M2 holes attach femur blade to hip servo horn.",
+          "llm_context": "Must match purchased horn PCD.",
+          "render": {
+            "anchor_mm": [
+              10.4,
+              4.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              12.0,
+              0.0
+            ],
+            "label_priority": "high"
+          },
+          "validation": {
+            "axis": "y"
+          },
+          "dimensions": {
+            "hole_diameter": {
+              "label": "M2 horn clearance",
+              "value": 2.2,
+              "axis": "y",
+              "from_mm": [
+                10.4,
+                -7.0,
+                0.0
+              ],
+              "to_mm": [
+                10.4,
+                7.0,
+                0.0
+              ],
+              "code_name": "M2_D",
+              "description": "Clearance through horn mount face.",
+              "llm_hint": "Keep aligned with horn hardware."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "020-tibia_blade-L3",
+      "meshId": "tibia_blade",
+      "name": "Tibia Blade L3",
+      "partType": "tibia_blade",
+      "role": "Long blade shin with passive foot clevis.",
+      "leg": "L3",
+      "joint": null,
+      "color": "#a855f7",
+      "transform": [
+        -0.717967598524451,
+        -0.41451878627752065,
+        -0.5591929034707468,
+        0.0,
+        0.4999999999999998,
+        -0.8660254037844388,
+        0.0,
+        0.0,
+        -0.48427526002164634,
+        -0.27959645173537334,
+        0.8290375725550416,
+        0.0,
+        -170.61920087683933,
+        -98.50704155516195,
+        100.5,
+        1.0
+      ],
+      "centroid": [
+        -223.2547453106637,
+        -129.69829060567108,
+        60.59377359712901
+      ],
+      "focusGroup": "L3",
+      "aliases": [
+        "shin blade",
+        "knee-to-foot link",
+        "tibia link"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "shin size"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for tibia blade.",
+          "llm_context": "Affects foot radius, gait reach, and novelty.",
+          "render": {
+            "anchor_mm": [
+              76.0,
+              0.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              18.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "X envelope",
+              "value": 152.0,
+              "axis": "x",
+              "from_mm": [
+                -20.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                132.0,
+                0.0,
+                0.0
+              ],
+              "code_name": "TIBIA_LEN + clevis",
+              "description": "Overall tibia blade length.",
+              "llm_hint": "Changing affects foot circle and MuJoCo model."
+            },
+            "width_y": {
+              "label": "Y envelope",
+              "value": 34.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -17.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                17.0,
+                0.0
+              ],
+              "code_name": "clevis width",
+              "description": "Overall tibia blade width.",
+              "llm_hint": "Affects foot clevis."
+            },
+            "height_z": {
+              "label": "Z envelope",
+              "value": 40.0,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                -20.0
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                20.0
+              ],
+              "code_name": "tibia end geometry",
+              "description": "Overall tibia blade height.",
+              "llm_hint": "Must clear ankle gap."
+            }
+          }
+        },
+        "knee_horn_pattern": {
+          "label": "Knee horn bolt pattern",
+          "aliases": [
+            "knee horn holes",
+            "M2 knee bolts"
+          ],
+          "kind": "bolt_pattern",
+          "purpose": "M2 holes attach tibia blade to knee servo horn.",
+          "llm_context": "Must match purchased horn PCD.",
+          "render": {
+            "anchor_mm": [
+              10.4,
+              4.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              12.0,
+              0.0
+            ],
+            "label_priority": "high"
+          },
+          "validation": {
+            "axis": "y"
+          },
+          "dimensions": {
+            "hole_diameter": {
+              "label": "M2 horn clearance",
+              "value": 2.2,
+              "axis": "y",
+              "from_mm": [
+                10.4,
+                -7.0,
+                0.0
+              ],
+              "to_mm": [
+                10.4,
+                7.0,
+                0.0
+              ],
+              "code_name": "M2_D",
+              "description": "Clearance through knee horn face.",
+              "llm_hint": "Keep aligned with horn hardware."
+            }
+          }
+        },
+        "ankle_clevis": {
+          "label": "Passive ankle clevis",
+          "aliases": [
+            "foot hinge",
+            "ankle fork",
+            "clevis"
+          ],
+          "kind": "clevis",
+          "purpose": "Captures the oval foot tongue on an M3 hinge pin.",
+          "llm_context": "Changing this must preserve foot insertion and pin access.",
+          "render": {
+            "anchor_mm": [
+              118.0,
+              0.0,
+              -2.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              14.0,
+              0.0
+            ],
+            "label_priority": "high"
+          },
+          "validation": {
+            "axis": "y"
+          },
+          "dimensions": {
+            "pin_diameter": {
+              "label": "M3 hinge clearance",
+              "value": 3.4,
+              "axis": "y",
+              "from_mm": [
+                118.0,
+                -17.0,
+                -2.0
+              ],
+              "to_mm": [
+                118.0,
+                17.0,
+                -2.0
+              ],
+              "code_name": "BOLT_D",
+              "description": "Ankle hinge pin clearance.",
+              "llm_hint": "Keep compatible with oval_foot hinge pin."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "021-oval_foot-L3",
+      "meshId": "oval_foot",
+      "name": "Oval Foot L3",
+      "partType": "oval_foot",
+      "role": "Oval ground pad with vertical tongue and passive hinge pin.",
+      "leg": "L3",
+      "joint": null,
+      "color": "#78350f",
+      "transform": [
+        -0.866025403784439,
+        -0.49999999999999983,
+        1.2226847858097619e-17,
+        0.0,
+        0.4999999999999998,
+        -0.8660254037844388,
+        0.0,
+        0.0,
+        -2.473365114021719e-17,
+        -2.837993247495073e-17,
+        1.0,
+        0.0,
+        -247.59097334237822,
+        -142.9467151081434,
+        21.2506362295712,
+        1.0
+      ],
+      "centroid": [
+        -247.5909733423782,
+        -142.94671510814348,
+        26.997773776263106
+      ],
+      "focusGroup": "L3",
+      "aliases": [
+        "foot pad",
+        "passive foot",
+        "oval ground pad"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "foot size"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for foot dimensions.",
+          "llm_context": "Foot shape intentionally differs from the reference round pad.",
+          "render": {
+            "anchor_mm": [
+              0.0,
+              0.0,
+              6.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              16.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "Oval foot length",
+              "value": 42.0,
+              "axis": "x",
+              "from_mm": [
+                -21.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                21.0,
+                0.0,
+                0.0
+              ],
+              "code_name": "make_oval_foot pad capsule",
+              "description": "Long axis of foot pad.",
+              "llm_hint": "Changing affects ground contact and novelty."
+            },
+            "width_y": {
+              "label": "Oval foot width",
+              "value": 30.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -15.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                15.0,
+                0.0
+              ],
+              "code_name": "make_oval_foot pad capsule",
+              "description": "Short axis of foot pad.",
+              "llm_hint": "Affects stability and clevis clearance."
+            },
+            "height_z": {
+              "label": "Foot height",
+              "value": 24.0,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                24.0
+              ],
+              "code_name": "tongue + pad stack",
+              "description": "Total foot and hinge tongue height.",
+              "llm_hint": "Must align with tibia clevis pin."
+            }
+          }
+        },
+        "hinge_pin": {
+          "label": "Foot hinge pin",
+          "aliases": [
+            "ankle pin",
+            "M3 foot pin"
+          ],
+          "kind": "joint",
+          "purpose": "Passive pitch hinge captured by tibia clevis.",
+          "llm_context": "Must remain coaxial with tibia_blade ankle_clevis.",
+          "render": {
+            "anchor_mm": [
+              0.0,
+              0.0,
+              14.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              14.0,
+              0.0
+            ],
+            "label_priority": "high"
+          },
+          "validation": {
+            "axis": "y"
+          },
+          "dimensions": {
+            "pin_diameter": {
+              "label": "M3 hinge clearance",
+              "value": 3.4,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -12.0,
+                14.0
+              ],
+              "to_mm": [
+                0.0,
+                12.0,
+                14.0
+              ],
+              "code_name": "BOLT_D",
+              "description": "Foot hinge hole clearance.",
+              "llm_hint": "Keep compatible with tibia clevis."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "022-yaw_pod-L4",
+      "meshId": "yaw_pod",
+      "name": "Canted Yaw Servo Pod L4",
+      "partType": "yaw_pod",
+      "role": "Separate canted pod that bolts to one chassis pad and holds a 25 kg yaw servo.",
+      "leg": "L4",
+      "joint": null,
+      "color": "#f97316",
+      "transform": [
+        -1.8369701987210297e-16,
+        -1.0,
+        0.0,
+        0.0,
+        1.0,
+        -1.8369701987210297e-16,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -1.6900125828233473e-14,
+        -92.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        -3.7319529511214656e-10,
+        -83.01102276932971,
+        12.302616711603381
+      ],
+      "focusGroup": "L4",
+      "aliases": [
+        "yaw pod",
+        "hip yaw bracket",
+        "servo pod"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "pod size"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for pod dimensions.",
+          "llm_context": "Changing servo wall thickness or pod base affects this size.",
+          "render": {
+            "anchor_mm": [
+              0.0,
+              0.0,
+              20.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              18.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "X envelope",
+              "value": 68.5,
+              "axis": "x",
+              "from_mm": [
+                -34.25,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                34.25,
+                0.0,
+                0.0
+              ],
+              "code_name": "computed STL extent",
+              "description": "Generated pod X size.",
+              "llm_hint": "Affects chassis pod pad coverage."
+            },
+            "width_y": {
+              "label": "Y envelope",
+              "value": 72.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -36.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                36.0,
+                0.0
+              ],
+              "code_name": "computed STL extent",
+              "description": "Generated pod Y size.",
+              "llm_hint": "Affects leg-to-leg spacing."
+            },
+            "height_z": {
+              "label": "Pod height",
+              "value": 48.5,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                48.5
+              ],
+              "code_name": "SERVO_H + pod walls",
+              "description": "Overall yaw pod height.",
+              "llm_hint": "Must clear horn sweep and servo body."
+            }
+          }
+        },
+        "chassis_bolt_pattern": {
+          "label": "Pod-to-chassis bolt pattern",
+          "aliases": [
+            "pod bolts",
+            "base fasteners"
+          ],
+          "kind": "bolt_pattern",
+          "purpose": "Four M3 bolts fasten the pod to a local chassis pad.",
+          "llm_context": "Keep matched to spider_chassis leg pad holes.",
+          "render": {
+            "anchor_mm": [
+              -7.0,
+              17.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              10.0
+            ],
+            "label_priority": "medium"
+          },
+          "validation": {
+            "axis": "z"
+          },
+          "dimensions": {
+            "hole_diameter": {
+              "label": "M3 clearance diameter",
+              "value": 3.4,
+              "axis": "z",
+              "from_mm": [
+                -7.0,
+                17.0,
+                -3.0
+              ],
+              "to_mm": [
+                -7.0,
+                17.0,
+                3.0
+              ],
+              "code_name": "BOLT_D",
+              "description": "Clearance for pod base bolts.",
+              "llm_hint": "Do not shrink below M3 clearance."
+            }
+          }
+        },
+        "yaw_servo_pocket": {
+          "label": "Yaw servo body pocket",
+          "aliases": [
+            "servo cavity",
+            "25 kg servo pocket"
+          ],
+          "kind": "pocket",
+          "purpose": "Void for the purchased 25 kg hobby servo body.",
+          "llm_context": "Changing this must preserve servo insertion and horn axis.",
+          "render": {
+            "anchor_mm": [
+              -10.0,
+              0.0,
+              22.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              18.0,
+              0.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "pocket_width_x": {
+              "label": "Servo tab span clearance",
+              "value": 56.0,
+              "axis": "x",
+              "from_mm": [
+                -38.0,
+                0.0,
+                22.0
+              ],
+              "to_mm": [
+                18.0,
+                0.0,
+                22.0
+              ],
+              "code_name": "SERVO_TAB_SPAN + 2",
+              "description": "X clearance around servo tabs.",
+              "llm_hint": "Must remain larger than physical servo tabs."
+            },
+            "pocket_depth_y": {
+              "label": "Servo depth clearance",
+              "value": 22.0,
+              "axis": "y",
+              "from_mm": [
+                -10.0,
+                -11.0,
+                22.0
+              ],
+              "to_mm": [
+                -10.0,
+                11.0,
+                22.0
+              ],
+              "code_name": "SERVO_D + 2",
+              "description": "Y clearance around servo body.",
+              "llm_hint": "Controls sidewall thickness."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "023-coxa_blade-L4",
+      "meshId": "coxa_blade",
+      "name": "Coxa Blade L4",
+      "partType": "coxa_blade",
+      "role": "Short yaw-to-hip blade with integrated hip servo pocket.",
+      "leg": "L4",
+      "joint": null,
+      "color": "#22c55e",
+      "transform": [
+        -1.8369701987210297e-16,
+        -1.0,
+        0.0,
+        0.0,
+        1.0,
+        -1.8369701987210297e-16,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -1.6900125828233473e-14,
+        -92.0,
+        51.5,
+        1.0
+      ],
+      "centroid": [
+        -2.0317193638022448e-14,
+        -109.49875992466396,
+        60.193898965238965
+      ],
+      "focusGroup": "L4",
+      "aliases": [
+        "short hip link",
+        "yaw-to-hip link",
+        "coxa link"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "coxa size"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for coxa blade.",
+          "llm_context": "This is intentionally a blade, not the reference coxa bracket/link layout.",
+          "render": {
+            "anchor_mm": [
+              20.0,
+              0.0,
+              10.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              18.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "X envelope",
+              "value": 65.0,
+              "axis": "x",
+              "from_mm": [
+                -18.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                47.0,
+                0.0,
+                0.0
+              ],
+              "code_name": "COXA_LEN + hub/block",
+              "description": "Overall coxa blade X size.",
+              "llm_hint": "Changing affects hip radius."
+            },
+            "width_y": {
+              "label": "Y envelope",
+              "value": 36.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -18.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                18.0,
+                0.0
+              ],
+              "code_name": "hub/pocket geometry",
+              "description": "Overall coxa blade Y size.",
+              "llm_hint": "Affects side clearance."
+            },
+            "height_z": {
+              "label": "Z envelope",
+              "value": 30.0,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                30.0
+              ],
+              "code_name": "hip block height",
+              "description": "Overall coxa blade height.",
+              "llm_hint": "Must clear servo pocket."
+            }
+          }
+        },
+        "yaw_horn_pattern": {
+          "label": "Yaw horn bolt pattern",
+          "aliases": [
+            "horn holes",
+            "M2 horn bolts"
+          ],
+          "kind": "bolt_pattern",
+          "purpose": "M2 holes attach the blade to the purchased servo horn.",
+          "llm_context": "Must match the 20.8 mm horn PCD.",
+          "render": {
+            "anchor_mm": [
+              10.4,
+              0.0,
+              3.5
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              10.0
+            ],
+            "label_priority": "high"
+          },
+          "validation": {
+            "axis": "z"
+          },
+          "dimensions": {
+            "hole_diameter": {
+              "label": "M2 horn clearance",
+              "value": 2.2,
+              "axis": "z",
+              "from_mm": [
+                10.4,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                10.4,
+                0.0,
+                7.0
+              ],
+              "code_name": "M2_D",
+              "description": "Clearance for M2 horn screws.",
+              "llm_hint": "Do not change without changing horn fasteners."
+            },
+            "pcd_radius": {
+              "label": "Horn PCD radius",
+              "value": 10.4,
+              "axis": "x",
+              "from_mm": [
+                0.0,
+                0.0,
+                3.5
+              ],
+              "to_mm": [
+                10.4,
+                0.0,
+                3.5
+              ],
+              "code_name": "HORN_BOLT_R",
+              "derived_from": "HORN_PCD",
+              "description": "Bolt radius for purchased horn.",
+              "llm_hint": "Must stay aligned with servo horn."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "024-femur_blade-L4",
+      "meshId": "femur_blade",
+      "name": "Femur Blade L4",
+      "partType": "femur_blade",
+      "role": "Tapered hip-to-knee blade with integrated knee servo block.",
+      "leg": "L4",
+      "joint": null,
+      "color": "#ef4444",
+      "transform": [
+        -1.5908628580873602e-16,
+        -0.8660254037844387,
+        0.49999999999999994,
+        0.0,
+        1.0,
+        -1.8369701987210297e-16,
+        0.0,
+        0.0,
+        9.184850993605147e-17,
+        0.49999999999999994,
+        0.8660254037844387,
+        0.0,
+        -2.3145824503884975e-14,
+        -126.0,
+        59.5,
+        1.0
+      ],
+      "centroid": [
+        1.065541458747816,
+        -160.63310205847992,
+        80.45220683382533
+      ],
+      "focusGroup": "L4",
+      "aliases": [
+        "thigh blade",
+        "hip-to-knee link",
+        "femur link"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "thigh size"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for femur blade.",
+          "llm_context": "Affects stride and knee servo placement.",
+          "render": {
+            "anchor_mm": [
+              58.0,
+              0.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              18.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "X envelope",
+              "value": 116.0,
+              "axis": "x",
+              "from_mm": [
+                -20.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                96.0,
+                0.0,
+                0.0
+              ],
+              "code_name": "FEMUR_LEN + end block",
+              "description": "Overall femur blade length.",
+              "llm_hint": "Changing affects gait and novelty."
+            },
+            "width_y": {
+              "label": "Y envelope",
+              "value": 34.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -17.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                17.0,
+                0.0
+              ],
+              "code_name": "knee block width",
+              "description": "Overall femur blade width.",
+              "llm_hint": "Affects servo pocket clearance."
+            },
+            "height_z": {
+              "label": "Z envelope",
+              "value": 40.5,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                -20.25
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                20.25
+              ],
+              "code_name": "SERVO_H",
+              "description": "Overall femur blade height.",
+              "llm_hint": "Must fit knee servo block."
+            }
+          }
+        },
+        "hip_horn_pattern": {
+          "label": "Hip horn bolt pattern",
+          "aliases": [
+            "hip horn holes",
+            "M2 hip bolts"
+          ],
+          "kind": "bolt_pattern",
+          "purpose": "M2 holes attach femur blade to hip servo horn.",
+          "llm_context": "Must match purchased horn PCD.",
+          "render": {
+            "anchor_mm": [
+              10.4,
+              4.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              12.0,
+              0.0
+            ],
+            "label_priority": "high"
+          },
+          "validation": {
+            "axis": "y"
+          },
+          "dimensions": {
+            "hole_diameter": {
+              "label": "M2 horn clearance",
+              "value": 2.2,
+              "axis": "y",
+              "from_mm": [
+                10.4,
+                -7.0,
+                0.0
+              ],
+              "to_mm": [
+                10.4,
+                7.0,
+                0.0
+              ],
+              "code_name": "M2_D",
+              "description": "Clearance through horn mount face.",
+              "llm_hint": "Keep aligned with horn hardware."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "025-tibia_blade-L4",
+      "meshId": "tibia_blade",
+      "name": "Tibia Blade L4",
+      "partType": "tibia_blade",
+      "role": "Long blade shin with passive foot clevis.",
+      "leg": "L4",
+      "joint": null,
+      "color": "#a855f7",
+      "transform": [
+        -1.522917314403635e-16,
+        -0.8290375725550417,
+        -0.5591929034707468,
+        0.0,
+        1.0,
+        -1.8369701987210297e-16,
+        0.0,
+        0.0,
+        -1.0272206990120472e-16,
+        -0.5591929034707468,
+        0.8290375725550416,
+        0.0,
+        -3.619089994020133e-14,
+        -197.01408311032398,
+        100.5,
+        1.0
+      ],
+      "centroid": [
+        0.6946418365959418,
+        -258.1934262572951,
+        60.59377359712902
+      ],
+      "focusGroup": "L4",
+      "aliases": [
+        "shin blade",
+        "knee-to-foot link",
+        "tibia link"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "shin size"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for tibia blade.",
+          "llm_context": "Affects foot radius, gait reach, and novelty.",
+          "render": {
+            "anchor_mm": [
+              76.0,
+              0.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              18.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "X envelope",
+              "value": 152.0,
+              "axis": "x",
+              "from_mm": [
+                -20.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                132.0,
+                0.0,
+                0.0
+              ],
+              "code_name": "TIBIA_LEN + clevis",
+              "description": "Overall tibia blade length.",
+              "llm_hint": "Changing affects foot circle and MuJoCo model."
+            },
+            "width_y": {
+              "label": "Y envelope",
+              "value": 34.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -17.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                17.0,
+                0.0
+              ],
+              "code_name": "clevis width",
+              "description": "Overall tibia blade width.",
+              "llm_hint": "Affects foot clevis."
+            },
+            "height_z": {
+              "label": "Z envelope",
+              "value": 40.0,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                -20.0
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                20.0
+              ],
+              "code_name": "tibia end geometry",
+              "description": "Overall tibia blade height.",
+              "llm_hint": "Must clear ankle gap."
+            }
+          }
+        },
+        "knee_horn_pattern": {
+          "label": "Knee horn bolt pattern",
+          "aliases": [
+            "knee horn holes",
+            "M2 knee bolts"
+          ],
+          "kind": "bolt_pattern",
+          "purpose": "M2 holes attach tibia blade to knee servo horn.",
+          "llm_context": "Must match purchased horn PCD.",
+          "render": {
+            "anchor_mm": [
+              10.4,
+              4.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              12.0,
+              0.0
+            ],
+            "label_priority": "high"
+          },
+          "validation": {
+            "axis": "y"
+          },
+          "dimensions": {
+            "hole_diameter": {
+              "label": "M2 horn clearance",
+              "value": 2.2,
+              "axis": "y",
+              "from_mm": [
+                10.4,
+                -7.0,
+                0.0
+              ],
+              "to_mm": [
+                10.4,
+                7.0,
+                0.0
+              ],
+              "code_name": "M2_D",
+              "description": "Clearance through knee horn face.",
+              "llm_hint": "Keep aligned with horn hardware."
+            }
+          }
+        },
+        "ankle_clevis": {
+          "label": "Passive ankle clevis",
+          "aliases": [
+            "foot hinge",
+            "ankle fork",
+            "clevis"
+          ],
+          "kind": "clevis",
+          "purpose": "Captures the oval foot tongue on an M3 hinge pin.",
+          "llm_context": "Changing this must preserve foot insertion and pin access.",
+          "render": {
+            "anchor_mm": [
+              118.0,
+              0.0,
+              -2.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              14.0,
+              0.0
+            ],
+            "label_priority": "high"
+          },
+          "validation": {
+            "axis": "y"
+          },
+          "dimensions": {
+            "pin_diameter": {
+              "label": "M3 hinge clearance",
+              "value": 3.4,
+              "axis": "y",
+              "from_mm": [
+                118.0,
+                -17.0,
+                -2.0
+              ],
+              "to_mm": [
+                118.0,
+                17.0,
+                -2.0
+              ],
+              "code_name": "BOLT_D",
+              "description": "Ankle hinge pin clearance.",
+              "llm_hint": "Keep compatible with oval_foot hinge pin."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "026-oval_foot-L4",
+      "meshId": "oval_foot",
+      "name": "Oval Foot L4",
+      "partType": "oval_foot",
+      "role": "Oval ground pad with vertical tongue and passive hinge pin.",
+      "leg": "L4",
+      "joint": null,
+      "color": "#78350f",
+      "transform": [
+        -1.8369701987210297e-16,
+        -1.0,
+        1.2226847858097619e-17,
+        0.0,
+        1.0,
+        -1.8369701987210297e-16,
+        0.0,
+        0.0,
+        1.578066037536662e-32,
+        7.324307984213424e-17,
+        1.0,
+        0.0,
+        -5.251777113174495e-14,
+        -285.89343021628696,
+        21.2506362295712,
+        1.0
+      ],
+      "centroid": [
+        -5.286362634108186e-14,
+        -285.8934302162868,
+        26.997773776263106
+      ],
+      "focusGroup": "L4",
+      "aliases": [
+        "foot pad",
+        "passive foot",
+        "oval ground pad"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "foot size"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for foot dimensions.",
+          "llm_context": "Foot shape intentionally differs from the reference round pad.",
+          "render": {
+            "anchor_mm": [
+              0.0,
+              0.0,
+              6.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              16.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "Oval foot length",
+              "value": 42.0,
+              "axis": "x",
+              "from_mm": [
+                -21.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                21.0,
+                0.0,
+                0.0
+              ],
+              "code_name": "make_oval_foot pad capsule",
+              "description": "Long axis of foot pad.",
+              "llm_hint": "Changing affects ground contact and novelty."
+            },
+            "width_y": {
+              "label": "Oval foot width",
+              "value": 30.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -15.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                15.0,
+                0.0
+              ],
+              "code_name": "make_oval_foot pad capsule",
+              "description": "Short axis of foot pad.",
+              "llm_hint": "Affects stability and clevis clearance."
+            },
+            "height_z": {
+              "label": "Foot height",
+              "value": 24.0,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                24.0
+              ],
+              "code_name": "tongue + pad stack",
+              "description": "Total foot and hinge tongue height.",
+              "llm_hint": "Must align with tibia clevis pin."
+            }
+          }
+        },
+        "hinge_pin": {
+          "label": "Foot hinge pin",
+          "aliases": [
+            "ankle pin",
+            "M3 foot pin"
+          ],
+          "kind": "joint",
+          "purpose": "Passive pitch hinge captured by tibia clevis.",
+          "llm_context": "Must remain coaxial with tibia_blade ankle_clevis.",
+          "render": {
+            "anchor_mm": [
+              0.0,
+              0.0,
+              14.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              14.0,
+              0.0
+            ],
+            "label_priority": "high"
+          },
+          "validation": {
+            "axis": "y"
+          },
+          "dimensions": {
+            "pin_diameter": {
+              "label": "M3 hinge clearance",
+              "value": 3.4,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -12.0,
+                14.0
+              ],
+              "to_mm": [
+                0.0,
+                12.0,
+                14.0
+              ],
+              "code_name": "BOLT_D",
+              "description": "Foot hinge hole clearance.",
+              "llm_hint": "Keep compatible with tibia clevis."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "027-yaw_pod-L5",
+      "meshId": "yaw_pod",
+      "name": "Canted Yaw Servo Pod L5",
+      "partType": "yaw_pod",
+      "role": "Separate canted pod that bolts to one chassis pad and holds a 25 kg yaw servo.",
+      "leg": "L5",
+      "joint": null,
+      "color": "#f97316",
+      "transform": [
+        0.8660254037844384,
+        -0.5000000000000004,
+        0.0,
+        0.0,
+        0.5000000000000004,
+        0.8660254037844384,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        79.67433714816833,
+        -46.00000000000004,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        71.88965451218142,
+        -41.50551138498811,
+        12.302616711603385
+      ],
+      "focusGroup": "L5",
+      "aliases": [
+        "yaw pod",
+        "hip yaw bracket",
+        "servo pod"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "pod size"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for pod dimensions.",
+          "llm_context": "Changing servo wall thickness or pod base affects this size.",
+          "render": {
+            "anchor_mm": [
+              0.0,
+              0.0,
+              20.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              18.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "X envelope",
+              "value": 68.5,
+              "axis": "x",
+              "from_mm": [
+                -34.25,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                34.25,
+                0.0,
+                0.0
+              ],
+              "code_name": "computed STL extent",
+              "description": "Generated pod X size.",
+              "llm_hint": "Affects chassis pod pad coverage."
+            },
+            "width_y": {
+              "label": "Y envelope",
+              "value": 72.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -36.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                36.0,
+                0.0
+              ],
+              "code_name": "computed STL extent",
+              "description": "Generated pod Y size.",
+              "llm_hint": "Affects leg-to-leg spacing."
+            },
+            "height_z": {
+              "label": "Pod height",
+              "value": 48.5,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                48.5
+              ],
+              "code_name": "SERVO_H + pod walls",
+              "description": "Overall yaw pod height.",
+              "llm_hint": "Must clear horn sweep and servo body."
+            }
+          }
+        },
+        "chassis_bolt_pattern": {
+          "label": "Pod-to-chassis bolt pattern",
+          "aliases": [
+            "pod bolts",
+            "base fasteners"
+          ],
+          "kind": "bolt_pattern",
+          "purpose": "Four M3 bolts fasten the pod to a local chassis pad.",
+          "llm_context": "Keep matched to spider_chassis leg pad holes.",
+          "render": {
+            "anchor_mm": [
+              -7.0,
+              17.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              10.0
+            ],
+            "label_priority": "medium"
+          },
+          "validation": {
+            "axis": "z"
+          },
+          "dimensions": {
+            "hole_diameter": {
+              "label": "M3 clearance diameter",
+              "value": 3.4,
+              "axis": "z",
+              "from_mm": [
+                -7.0,
+                17.0,
+                -3.0
+              ],
+              "to_mm": [
+                -7.0,
+                17.0,
+                3.0
+              ],
+              "code_name": "BOLT_D",
+              "description": "Clearance for pod base bolts.",
+              "llm_hint": "Do not shrink below M3 clearance."
+            }
+          }
+        },
+        "yaw_servo_pocket": {
+          "label": "Yaw servo body pocket",
+          "aliases": [
+            "servo cavity",
+            "25 kg servo pocket"
+          ],
+          "kind": "pocket",
+          "purpose": "Void for the purchased 25 kg hobby servo body.",
+          "llm_context": "Changing this must preserve servo insertion and horn axis.",
+          "render": {
+            "anchor_mm": [
+              -10.0,
+              0.0,
+              22.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              18.0,
+              0.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "pocket_width_x": {
+              "label": "Servo tab span clearance",
+              "value": 56.0,
+              "axis": "x",
+              "from_mm": [
+                -38.0,
+                0.0,
+                22.0
+              ],
+              "to_mm": [
+                18.0,
+                0.0,
+                22.0
+              ],
+              "code_name": "SERVO_TAB_SPAN + 2",
+              "description": "X clearance around servo tabs.",
+              "llm_hint": "Must remain larger than physical servo tabs."
+            },
+            "pocket_depth_y": {
+              "label": "Servo depth clearance",
+              "value": 22.0,
+              "axis": "y",
+              "from_mm": [
+                -10.0,
+                -11.0,
+                22.0
+              ],
+              "to_mm": [
+                -10.0,
+                11.0,
+                22.0
+              ],
+              "code_name": "SERVO_D + 2",
+              "description": "Y clearance around servo body.",
+              "llm_hint": "Controls sidewall thickness."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "028-coxa_blade-L5",
+      "meshId": "coxa_blade",
+      "name": "Coxa Blade L5",
+      "partType": "coxa_blade",
+      "role": "Short yaw-to-hip blade with integrated hip servo pocket.",
+      "leg": "L5",
+      "joint": null,
+      "color": "#22c55e",
+      "transform": [
+        0.8660254037844384,
+        -0.5000000000000004,
+        0.0,
+        0.0,
+        0.5000000000000004,
+        0.8660254037844384,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        79.67433714816833,
+        -46.00000000000004,
+        51.5,
+        1.0
+      ],
+      "centroid": [
+        94.8287077776524,
+        -54.7493799623321,
+        60.193898965238944
+      ],
+      "focusGroup": "L5",
+      "aliases": [
+        "short hip link",
+        "yaw-to-hip link",
+        "coxa link"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "coxa size"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for coxa blade.",
+          "llm_context": "This is intentionally a blade, not the reference coxa bracket/link layout.",
+          "render": {
+            "anchor_mm": [
+              20.0,
+              0.0,
+              10.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              18.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "X envelope",
+              "value": 65.0,
+              "axis": "x",
+              "from_mm": [
+                -18.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                47.0,
+                0.0,
+                0.0
+              ],
+              "code_name": "COXA_LEN + hub/block",
+              "description": "Overall coxa blade X size.",
+              "llm_hint": "Changing affects hip radius."
+            },
+            "width_y": {
+              "label": "Y envelope",
+              "value": 36.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -18.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                18.0,
+                0.0
+              ],
+              "code_name": "hub/pocket geometry",
+              "description": "Overall coxa blade Y size.",
+              "llm_hint": "Affects side clearance."
+            },
+            "height_z": {
+              "label": "Z envelope",
+              "value": 30.0,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                30.0
+              ],
+              "code_name": "hip block height",
+              "description": "Overall coxa blade height.",
+              "llm_hint": "Must clear servo pocket."
+            }
+          }
+        },
+        "yaw_horn_pattern": {
+          "label": "Yaw horn bolt pattern",
+          "aliases": [
+            "horn holes",
+            "M2 horn bolts"
+          ],
+          "kind": "bolt_pattern",
+          "purpose": "M2 holes attach the blade to the purchased servo horn.",
+          "llm_context": "Must match the 20.8 mm horn PCD.",
+          "render": {
+            "anchor_mm": [
+              10.4,
+              0.0,
+              3.5
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              10.0
+            ],
+            "label_priority": "high"
+          },
+          "validation": {
+            "axis": "z"
+          },
+          "dimensions": {
+            "hole_diameter": {
+              "label": "M2 horn clearance",
+              "value": 2.2,
+              "axis": "z",
+              "from_mm": [
+                10.4,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                10.4,
+                0.0,
+                7.0
+              ],
+              "code_name": "M2_D",
+              "description": "Clearance for M2 horn screws.",
+              "llm_hint": "Do not change without changing horn fasteners."
+            },
+            "pcd_radius": {
+              "label": "Horn PCD radius",
+              "value": 10.4,
+              "axis": "x",
+              "from_mm": [
+                0.0,
+                0.0,
+                3.5
+              ],
+              "to_mm": [
+                10.4,
+                0.0,
+                3.5
+              ],
+              "code_name": "HORN_BOLT_R",
+              "derived_from": "HORN_PCD",
+              "description": "Bolt radius for purchased horn.",
+              "llm_hint": "Must stay aligned with servo horn."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "029-femur_blade-L5",
+      "meshId": "femur_blade",
+      "name": "Femur Blade L5",
+      "partType": "femur_blade",
+      "role": "Tapered hip-to-knee blade with integrated knee servo block.",
+      "leg": "L5",
+      "joint": null,
+      "color": "#ef4444",
+      "transform": [
+        0.7499999999999998,
+        -0.43301270189221974,
+        0.49999999999999994,
+        0.0,
+        0.5000000000000004,
+        0.8660254037844384,
+        0.0,
+        0.0,
+        -0.43301270189221913,
+        0.25000000000000017,
+        0.8660254037844387,
+        0.0,
+        109.11920087683924,
+        -63.00000000000006,
+        59.5,
+        1.0
+      ],
+      "centroid": [
+        139.64511780071598,
+        -79.39376505717891,
+        80.4522068338254
+      ],
+      "focusGroup": "L5",
+      "aliases": [
+        "thigh blade",
+        "hip-to-knee link",
+        "femur link"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "thigh size"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for femur blade.",
+          "llm_context": "Affects stride and knee servo placement.",
+          "render": {
+            "anchor_mm": [
+              58.0,
+              0.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              18.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "X envelope",
+              "value": 116.0,
+              "axis": "x",
+              "from_mm": [
+                -20.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                96.0,
+                0.0,
+                0.0
+              ],
+              "code_name": "FEMUR_LEN + end block",
+              "description": "Overall femur blade length.",
+              "llm_hint": "Changing affects gait and novelty."
+            },
+            "width_y": {
+              "label": "Y envelope",
+              "value": 34.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -17.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                17.0,
+                0.0
+              ],
+              "code_name": "knee block width",
+              "description": "Overall femur blade width.",
+              "llm_hint": "Affects servo pocket clearance."
+            },
+            "height_z": {
+              "label": "Z envelope",
+              "value": 40.5,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                -20.25
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                20.25
+              ],
+              "code_name": "SERVO_H",
+              "description": "Overall femur blade height.",
+              "llm_hint": "Must fit knee servo block."
+            }
+          }
+        },
+        "hip_horn_pattern": {
+          "label": "Hip horn bolt pattern",
+          "aliases": [
+            "hip horn holes",
+            "M2 hip bolts"
+          ],
+          "kind": "bolt_pattern",
+          "purpose": "M2 holes attach femur blade to hip servo horn.",
+          "llm_context": "Must match purchased horn PCD.",
+          "render": {
+            "anchor_mm": [
+              10.4,
+              4.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              12.0,
+              0.0
+            ],
+            "label_priority": "high"
+          },
+          "validation": {
+            "axis": "y"
+          },
+          "dimensions": {
+            "hole_diameter": {
+              "label": "M2 horn clearance",
+              "value": 2.2,
+              "axis": "y",
+              "from_mm": [
+                10.4,
+                -7.0,
+                0.0
+              ],
+              "to_mm": [
+                10.4,
+                7.0,
+                0.0
+              ],
+              "code_name": "M2_D",
+              "description": "Clearance through horn mount face.",
+              "llm_hint": "Keep aligned with horn hardware."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "030-tibia_blade-L5",
+      "meshId": "tibia_blade",
+      "name": "Tibia Blade L5",
+      "partType": "tibia_blade",
+      "role": "Long blade shin with passive foot clevis.",
+      "leg": "L5",
+      "joint": null,
+      "color": "#a855f7",
+      "transform": [
+        0.7179675985244506,
+        -0.4145187862775212,
+        -0.5591929034707468,
+        0.0,
+        0.5000000000000004,
+        0.8660254037844384,
+        0.0,
+        0.0,
+        0.48427526002164595,
+        -0.2795964517353737,
+        0.8290375725550416,
+        0.0,
+        170.61920087683922,
+        -98.50704155516208,
+        100.5,
+        1.0
+      ],
+      "centroid": [
+        223.9493871472596,
+        -128.49513565162408,
+        60.593773597129044
+      ],
+      "focusGroup": "L5",
+      "aliases": [
+        "shin blade",
+        "knee-to-foot link",
+        "tibia link"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "shin size"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for tibia blade.",
+          "llm_context": "Affects foot radius, gait reach, and novelty.",
+          "render": {
+            "anchor_mm": [
+              76.0,
+              0.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              18.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "X envelope",
+              "value": 152.0,
+              "axis": "x",
+              "from_mm": [
+                -20.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                132.0,
+                0.0,
+                0.0
+              ],
+              "code_name": "TIBIA_LEN + clevis",
+              "description": "Overall tibia blade length.",
+              "llm_hint": "Changing affects foot circle and MuJoCo model."
+            },
+            "width_y": {
+              "label": "Y envelope",
+              "value": 34.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -17.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                17.0,
+                0.0
+              ],
+              "code_name": "clevis width",
+              "description": "Overall tibia blade width.",
+              "llm_hint": "Affects foot clevis."
+            },
+            "height_z": {
+              "label": "Z envelope",
+              "value": 40.0,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                -20.0
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                20.0
+              ],
+              "code_name": "tibia end geometry",
+              "description": "Overall tibia blade height.",
+              "llm_hint": "Must clear ankle gap."
+            }
+          }
+        },
+        "knee_horn_pattern": {
+          "label": "Knee horn bolt pattern",
+          "aliases": [
+            "knee horn holes",
+            "M2 knee bolts"
+          ],
+          "kind": "bolt_pattern",
+          "purpose": "M2 holes attach tibia blade to knee servo horn.",
+          "llm_context": "Must match purchased horn PCD.",
+          "render": {
+            "anchor_mm": [
+              10.4,
+              4.0,
+              0.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              12.0,
+              0.0
+            ],
+            "label_priority": "high"
+          },
+          "validation": {
+            "axis": "y"
+          },
+          "dimensions": {
+            "hole_diameter": {
+              "label": "M2 horn clearance",
+              "value": 2.2,
+              "axis": "y",
+              "from_mm": [
+                10.4,
+                -7.0,
+                0.0
+              ],
+              "to_mm": [
+                10.4,
+                7.0,
+                0.0
+              ],
+              "code_name": "M2_D",
+              "description": "Clearance through knee horn face.",
+              "llm_hint": "Keep aligned with horn hardware."
+            }
+          }
+        },
+        "ankle_clevis": {
+          "label": "Passive ankle clevis",
+          "aliases": [
+            "foot hinge",
+            "ankle fork",
+            "clevis"
+          ],
+          "kind": "clevis",
+          "purpose": "Captures the oval foot tongue on an M3 hinge pin.",
+          "llm_context": "Changing this must preserve foot insertion and pin access.",
+          "render": {
+            "anchor_mm": [
+              118.0,
+              0.0,
+              -2.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              14.0,
+              0.0
+            ],
+            "label_priority": "high"
+          },
+          "validation": {
+            "axis": "y"
+          },
+          "dimensions": {
+            "pin_diameter": {
+              "label": "M3 hinge clearance",
+              "value": 3.4,
+              "axis": "y",
+              "from_mm": [
+                118.0,
+                -17.0,
+                -2.0
+              ],
+              "to_mm": [
+                118.0,
+                17.0,
+                -2.0
+              ],
+              "code_name": "BOLT_D",
+              "description": "Ankle hinge pin clearance.",
+              "llm_hint": "Keep compatible with oval_foot hinge pin."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "031-oval_foot-L5",
+      "meshId": "oval_foot",
+      "name": "Oval Foot L5",
+      "partType": "oval_foot",
+      "role": "Oval ground pad with vertical tongue and passive hinge pin.",
+      "leg": "L5",
+      "joint": null,
+      "color": "#78350f",
+      "transform": [
+        0.8660254037844384,
+        -0.5000000000000004,
+        1.2226847858097619e-17,
+        0.0,
+        0.5000000000000004,
+        0.8660254037844384,
+        0.0,
+        0.0,
+        -7.536755440023613e-17,
+        8.064188979804869e-19,
+        1.0,
+        0.0,
+        247.59097334237805,
+        -142.9467151081436,
+        21.2506362295712,
+        1.0
+      ],
+      "centroid": [
+        247.59097334237833,
+        -142.9467151081438,
+        26.99777377626314
+      ],
+      "focusGroup": "L5",
+      "aliases": [
+        "foot pad",
+        "passive foot",
+        "oval ground pad"
+      ],
+      "features": {
+        "envelope": {
+          "label": "Generated part envelope",
+          "aliases": [
+            "bounds",
+            "foot size"
+          ],
+          "kind": "envelope",
+          "purpose": "Regression contract for foot dimensions.",
+          "llm_context": "Foot shape intentionally differs from the reference round pad.",
+          "render": {
+            "anchor_mm": [
+              0.0,
+              0.0,
+              6.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              0.0,
+              16.0
+            ],
+            "label_priority": "high"
+          },
+          "dimensions": {
+            "length_x": {
+              "label": "Oval foot length",
+              "value": 42.0,
+              "axis": "x",
+              "from_mm": [
+                -21.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                21.0,
+                0.0,
+                0.0
+              ],
+              "code_name": "make_oval_foot pad capsule",
+              "description": "Long axis of foot pad.",
+              "llm_hint": "Changing affects ground contact and novelty."
+            },
+            "width_y": {
+              "label": "Oval foot width",
+              "value": 30.0,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -15.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                15.0,
+                0.0
+              ],
+              "code_name": "make_oval_foot pad capsule",
+              "description": "Short axis of foot pad.",
+              "llm_hint": "Affects stability and clevis clearance."
+            },
+            "height_z": {
+              "label": "Foot height",
+              "value": 24.0,
+              "axis": "z",
+              "from_mm": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "to_mm": [
+                0.0,
+                0.0,
+                24.0
+              ],
+              "code_name": "tongue + pad stack",
+              "description": "Total foot and hinge tongue height.",
+              "llm_hint": "Must align with tibia clevis pin."
+            }
+          }
+        },
+        "hinge_pin": {
+          "label": "Foot hinge pin",
+          "aliases": [
+            "ankle pin",
+            "M3 foot pin"
+          ],
+          "kind": "joint",
+          "purpose": "Passive pitch hinge captured by tibia clevis.",
+          "llm_context": "Must remain coaxial with tibia_blade ankle_clevis.",
+          "render": {
+            "anchor_mm": [
+              0.0,
+              0.0,
+              14.0
+            ],
+            "label_offset_mm": [
+              0.0,
+              14.0,
+              0.0
+            ],
+            "label_priority": "high"
+          },
+          "validation": {
+            "axis": "y"
+          },
+          "dimensions": {
+            "pin_diameter": {
+              "label": "M3 hinge clearance",
+              "value": 3.4,
+              "axis": "y",
+              "from_mm": [
+                0.0,
+                -12.0,
+                14.0
+              ],
+              "to_mm": [
+                0.0,
+                12.0,
+                14.0
+              ],
+              "code_name": "BOLT_D",
+              "description": "Foot hinge hole clearance.",
+              "llm_hint": "Keep compatible with tibia clevis."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "032-servo_body-L0",
+      "meshId": "servo_body",
+      "name": "servo_body L0",
+      "partType": "servo_body",
+      "role": "25 kg yaw servo body",
+      "leg": "L0",
+      "joint": "yaw",
+      "color": "#30343b",
+      "transform": [
+        0.8660254037844387,
+        0.49999999999999994,
+        0.0,
+        0.0,
+        -0.49999999999999994,
+        0.8660254037844387,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        71.01408311032398,
+        40.99999999999999,
+        22.0,
+        1.0
+      ],
+      "centroid": [
+        71.26600868842128,
+        41.14544930033023,
+        41.46331695220224
+      ],
+      "focusGroup": "L0"
+    },
+    {
+      "id": "033-servo_horn-L0",
+      "meshId": "servo_horn",
+      "name": "servo_horn L0",
+      "partType": "servo_horn",
+      "role": "plastic yaw horn",
+      "leg": "L0",
+      "joint": "yaw",
+      "color": "#71717a",
+      "transform": [
+        0.8660254037844387,
+        0.49999999999999994,
+        0.0,
+        0.0,
+        -0.49999999999999994,
+        0.8660254037844387,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        79.67433714816836,
+        45.99999999999999,
+        46.5,
+        1.0
+      ],
+      "centroid": [
+        79.67433714816833,
+        45.999999999999986,
+        49.349899938502915
+      ],
+      "focusGroup": "L0"
+    },
+    {
+      "id": "034-servo_body-L1",
+      "meshId": "servo_body",
+      "name": "servo_body L1",
+      "partType": "servo_body",
+      "role": "25 kg yaw servo body",
+      "leg": "L1",
+      "joint": "yaw",
+      "color": "#30343b",
+      "transform": [
+        6.123233995736766e-17,
+        1.0,
+        0.0,
+        0.0,
+        -1.0,
+        6.123233995736766e-17,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        5.021051876504148e-15,
+        82.0,
+        22.0,
+        1.0
+      ],
+      "centroid": [
+        4.944724973202219e-15,
+        82.2908986006605,
+        41.463316952202256
+      ],
+      "focusGroup": "L1"
+    },
+    {
+      "id": "035-servo_horn-L1",
+      "meshId": "servo_horn",
+      "name": "servo_horn L1",
+      "partType": "servo_horn",
+      "role": "plastic yaw horn",
+      "leg": "L1",
+      "joint": "yaw",
+      "color": "#71717a",
+      "transform": [
+        6.123233995736766e-17,
+        1.0,
+        0.0,
+        0.0,
+        -1.0,
+        6.123233995736766e-17,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        5.633375276077825e-15,
+        92.0,
+        46.5,
+        1.0
+      ],
+      "centroid": [
+        5.644233072761398e-15,
+        91.99999999999997,
+        49.349899938502965
+      ],
+      "focusGroup": "L1"
+    },
+    {
+      "id": "036-servo_body-L2",
+      "meshId": "servo_body",
+      "name": "servo_body L2",
+      "partType": "servo_body",
+      "role": "25 kg yaw servo body",
+      "leg": "L2",
+      "joint": "yaw",
+      "color": "#30343b",
+      "transform": [
+        -0.8660254037844387,
+        0.49999999999999994,
+        0.0,
+        0.0,
+        -0.49999999999999994,
+        -0.8660254037844387,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -71.01408311032398,
+        40.99999999999999,
+        22.0,
+        1.0
+      ],
+      "centroid": [
+        -71.2660086884213,
+        41.14544930033022,
+        41.46331695220223
+      ],
+      "focusGroup": "L2"
+    },
+    {
+      "id": "037-servo_horn-L2",
+      "meshId": "servo_horn",
+      "name": "servo_horn L2",
+      "partType": "servo_horn",
+      "role": "plastic yaw horn",
+      "leg": "L2",
+      "joint": "yaw",
+      "color": "#71717a",
+      "transform": [
+        -0.8660254037844387,
+        0.49999999999999994,
+        0.0,
+        0.0,
+        -0.49999999999999994,
+        -0.8660254037844387,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -79.67433714816836,
+        45.99999999999999,
+        46.5,
+        1.0
+      ],
+      "centroid": [
+        -79.6743371481683,
+        45.999999999999964,
+        49.349899938502915
+      ],
+      "focusGroup": "L2"
+    },
+    {
+      "id": "038-servo_body-L3",
+      "meshId": "servo_body",
+      "name": "servo_body L3",
+      "partType": "servo_body",
+      "role": "25 kg yaw servo body",
+      "leg": "L3",
+      "joint": "yaw",
+      "color": "#30343b",
+      "transform": [
+        -0.8660254037844388,
+        -0.4999999999999998,
+        0.0,
+        0.0,
+        0.4999999999999998,
+        -0.8660254037844388,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -71.01408311032398,
+        -40.99999999999998,
+        22.0,
+        1.0
+      ],
+      "centroid": [
+        -71.26600868842128,
+        -41.1454493003302,
+        41.46331695220223
+      ],
+      "focusGroup": "L3"
+    },
+    {
+      "id": "039-servo_horn-L3",
+      "meshId": "servo_horn",
+      "name": "servo_horn L3",
+      "partType": "servo_horn",
+      "role": "plastic yaw horn",
+      "leg": "L3",
+      "joint": "yaw",
+      "color": "#71717a",
+      "transform": [
+        -0.8660254037844388,
+        -0.4999999999999998,
+        0.0,
+        0.0,
+        0.4999999999999998,
+        -0.8660254037844388,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -79.67433714816838,
+        -45.99999999999998,
+        46.5,
+        1.0
+      ],
+      "centroid": [
+        -79.67433714816836,
+        -45.999999999999964,
+        49.3498999385029
+      ],
+      "focusGroup": "L3"
+    },
+    {
+      "id": "040-servo_body-L4",
+      "meshId": "servo_body",
+      "name": "servo_body L4",
+      "partType": "servo_body",
+      "role": "25 kg yaw servo body",
+      "leg": "L4",
+      "joint": "yaw",
+      "color": "#30343b",
+      "transform": [
+        -1.8369701987210297e-16,
+        -1.0,
+        0.0,
+        0.0,
+        1.0,
+        -1.8369701987210297e-16,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -1.5063155629512442e-14,
+        -82.0,
+        22.0,
+        1.0
+      ],
+      "centroid": [
+        -1.400925937441477e-14,
+        -82.29089860066048,
+        41.46331695220225
+      ],
+      "focusGroup": "L4"
+    },
+    {
+      "id": "041-servo_horn-L4",
+      "meshId": "servo_horn",
+      "name": "servo_horn L4",
+      "partType": "servo_horn",
+      "role": "plastic yaw horn",
+      "leg": "L4",
+      "joint": "yaw",
+      "color": "#71717a",
+      "transform": [
+        -1.8369701987210297e-16,
+        -1.0,
+        0.0,
+        0.0,
+        1.0,
+        -1.8369701987210297e-16,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -1.6900125828233473e-14,
+        -92.0,
+        46.5,
+        1.0
+      ],
+      "centroid": [
+        -1.717287934904e-14,
+        -92.0,
+        49.34989993850295
+      ],
+      "focusGroup": "L4"
+    },
+    {
+      "id": "042-servo_body-L5",
+      "meshId": "servo_body",
+      "name": "servo_body L5",
+      "partType": "servo_body",
+      "role": "25 kg yaw servo body",
+      "leg": "L5",
+      "joint": "yaw",
+      "color": "#30343b",
+      "transform": [
+        0.8660254037844384,
+        -0.5000000000000004,
+        0.0,
+        0.0,
+        0.5000000000000004,
+        0.8660254037844384,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        71.01408311032395,
+        -41.000000000000036,
+        22.0,
+        1.0
+      ],
+      "centroid": [
+        71.26600868842128,
+        -41.1454493003303,
+        41.46331695220226
+      ],
+      "focusGroup": "L5"
+    },
+    {
+      "id": "043-servo_horn-L5",
+      "meshId": "servo_horn",
+      "name": "servo_horn L5",
+      "partType": "servo_horn",
+      "role": "plastic yaw horn",
+      "leg": "L5",
+      "joint": "yaw",
+      "color": "#71717a",
+      "transform": [
+        0.8660254037844384,
+        -0.5000000000000004,
+        0.0,
+        0.0,
+        0.5000000000000004,
+        0.8660254037844384,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        79.67433714816833,
+        -46.00000000000004,
+        46.5,
+        1.0
+      ],
+      "centroid": [
+        79.6743371481684,
+        -46.00000000000005,
+        49.349899938502936
+      ],
+      "focusGroup": "L5"
+    }
+  ]
+}

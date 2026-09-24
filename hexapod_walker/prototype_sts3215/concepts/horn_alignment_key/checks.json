@@ -1,0 +1,106 @@
+{
+  "key_premade_spacer_9p1": {
+    "watertight": true,
+    "volume_mm3": 1315.6141542812436,
+    "bounds_mm": [
+      [
+        -33.5,
+        -4.5,
+        0.0
+      ],
+      [
+        10.5,
+        4.5,
+        14.600000381469727
+      ]
+    ]
+  },
+  "key_cnc_drive_7p0": {
+    "watertight": true,
+    "volume_mm3": 1283.927051415996,
+    "bounds_mm": [
+      [
+        -33.5,
+        -4.5,
+        0.0
+      ],
+      [
+        10.5,
+        4.5,
+        12.5
+      ]
+    ]
+  },
+  "key_cnc_passive_7p5": {
+    "watertight": true,
+    "volume_mm3": 1291.4716001452352,
+    "bounds_mm": [
+      [
+        -33.5,
+        -4.5,
+        0.0
+      ],
+      [
+        10.5,
+        4.5,
+        13.0
+      ]
+    ]
+  },
+  "key_bare_plate_2p1": {
+    "watertight": true,
+    "volume_mm3": 1209.990473172562,
+    "bounds_mm": [
+      [
+        -33.5,
+        -4.5,
+        0.0
+      ],
+      [
+        10.5,
+        4.5,
+        7.599999904632568
+      ]
+    ]
+  },
+  "reference_bracket_spacer_DO_NOT_PRINT": {
+    "watertight": true,
+    "volume_mm3": 2670.2019929056346,
+    "bounds_mm": [
+      [
+        -11.0,
+        -10.996581077575684,
+        4.0
+      ],
+      [
+        11.0,
+        10.996581077575684,
+        13.100000381469727
+      ]
+    ]
+  },
+  "reference_horn_DO_NOT_PRINT": {
+    "watertight": true,
+    "volume_mm3": 860.5966919314427,
+    "bounds_mm": [
+      [
+        -10.0,
+        -9.996891975402832,
+        13.100000381469727
+      ],
+      [
+        10.0,
+        9.996891975402832,
+        16.100000381469727
+      ]
+    ]
+  },
+  "assembly": {
+    "nominal_stack_mm": 9.1,
+    "thread_clear_envelope_assumption_mm": 2.4,
+    "driver_clearance_diameter_mm": 6,
+    "withdrawal_sample_count": 7,
+    "physical_fit_tested": false,
+    "holding": "Hand-held axial pressure; not a latch or clamp"
+  }
+}

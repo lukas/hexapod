@@ -1,0 +1,1117 @@
+{
+  "generatedAt": "2026-09-01T14:13:21.040Z",
+  "build": {
+    "id": "hexapod-collision-chassis",
+    "name": "Collision @ chassis (coxa_link flat bottom vs chassis_top)"
+  },
+  "checksConfig": {},
+  "summary": {
+    "total": 39,
+    "pass": 17,
+    "warn": 14,
+    "fail": 8,
+    "byKind": {
+      "scene_meta": {
+        "pass": 3,
+        "warn": 0,
+        "fail": 0
+      },
+      "placement": {
+        "pass": 1,
+        "warn": 0,
+        "fail": 0
+      },
+      "mesh_overlap": {
+        "pass": 0,
+        "warn": 0,
+        "fail": 4
+      },
+      "clearance": {
+        "pass": 0,
+        "warn": 3,
+        "fail": 0
+      },
+      "connectivity": {
+        "pass": 0,
+        "warn": 5,
+        "fail": 0
+      },
+      "watertight": {
+        "pass": 4,
+        "warn": 0,
+        "fail": 2
+      },
+      "disconnected_components": {
+        "pass": 6,
+        "warn": 0,
+        "fail": 0
+      },
+      "wall_thickness": {
+        "pass": 3,
+        "warn": 3,
+        "fail": 0
+      },
+      "degenerate_geometry": {
+        "pass": 0,
+        "warn": 3,
+        "fail": 0
+      },
+      "self_intersection": {
+        "pass": 0,
+        "warn": 0,
+        "fail": 2
+      }
+    }
+  },
+  "checks": [
+    {
+      "id": "scene_meta-units",
+      "kind": "scene_meta",
+      "status": "pass",
+      "label": "units = mm"
+    },
+    {
+      "id": "scene_meta-mesh-refs",
+      "kind": "scene_meta",
+      "status": "pass",
+      "label": "all 6 instances resolve to a mesh"
+    },
+    {
+      "id": "scene_meta-unique-ids",
+      "kind": "scene_meta",
+      "status": "pass",
+      "label": "instance ids are unique"
+    },
+    {
+      "id": "placement-transforms",
+      "kind": "placement",
+      "status": "pass",
+      "label": "all transforms are well-formed"
+    },
+    {
+      "id": "mesh_overlap-0",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "femur_link ∩ coxa_link = 2.095mm penetration",
+      "instances": [
+        "femur_link",
+        "coxa_link"
+      ],
+      "point": [
+        131.663,
+        -11.743,
+        34.144
+      ],
+      "region": {
+        "min": [
+          117.532,
+          -17.52,
+          34.144
+        ],
+        "max": [
+          140.141,
+          -3.077,
+          36.921
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-1",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "overlap ∩ chassis_top = 2mm penetration",
+      "instances": [
+        "overlap",
+        "chassis_top"
+      ],
+      "point": [
+        64.281,
+        -28.857,
+        36
+      ],
+      "region": {
+        "min": [
+          60.469,
+          -36.37,
+          34.667
+        ],
+        "max": [
+          70,
+          -13.206,
+          38
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-2",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "overlap ∩ coxa_link = 2mm penetration",
+      "instances": [
+        "overlap",
+        "coxa_link"
+      ],
+      "point": [
+        64.281,
+        -28.857,
+        36
+      ],
+      "region": {
+        "min": [
+          60.469,
+          -36.37,
+          34
+        ],
+        "max": [
+          70,
+          -13.832,
+          38
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-3",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "coxa_link ∩ chassis_top = 1.667mm penetration",
+      "instances": [
+        "coxa_link",
+        "chassis_top"
+      ],
+      "point": [
+        64.917,
+        -30.437,
+        36.333
+      ],
+      "region": {
+        "min": [
+          61.104,
+          -35.987,
+          35.167
+        ],
+        "max": [
+          70,
+          -13.787,
+          37.5
+        ]
+      }
+    },
+    {
+      "id": "clearance-0",
+      "kind": "clearance",
+      "status": "warn",
+      "label": "femur_link ↔ coxa_link gap 0mm",
+      "instances": [
+        "femur_link",
+        "coxa_link"
+      ]
+    },
+    {
+      "id": "clearance-1",
+      "kind": "clearance",
+      "status": "warn",
+      "label": "chassis_top ↔ coxa_link gap 0mm",
+      "instances": [
+        "chassis_top",
+        "coxa_link"
+      ]
+    },
+    {
+      "id": "clearance-2",
+      "kind": "clearance",
+      "status": "warn",
+      "label": "overlap ↔ coxa_link gap 0mm",
+      "instances": [
+        "overlap",
+        "coxa_link"
+      ]
+    },
+    {
+      "id": "connectivity-0",
+      "kind": "connectivity",
+      "status": "warn",
+      "label": "femur_link floating / not connected to main assembly, nearest 0mm",
+      "instances": [
+        "femur_link"
+      ]
+    },
+    {
+      "id": "connectivity-1",
+      "kind": "connectivity",
+      "status": "warn",
+      "label": "tibia_link floating / not connected to main assembly",
+      "instances": [
+        "tibia_link"
+      ]
+    },
+    {
+      "id": "connectivity-2",
+      "kind": "connectivity",
+      "status": "warn",
+      "label": "chassis_top floating / not connected to main assembly, nearest 0mm",
+      "instances": [
+        "chassis_top"
+      ]
+    },
+    {
+      "id": "connectivity-3",
+      "kind": "connectivity",
+      "status": "warn",
+      "label": "chassis_bottom floating / not connected to main assembly, nearest 16.75mm",
+      "instances": [
+        "chassis_bottom"
+      ]
+    },
+    {
+      "id": "connectivity-4",
+      "kind": "connectivity",
+      "status": "warn",
+      "label": "overlap floating / not connected to main assembly, nearest 0mm",
+      "instances": [
+        "overlap"
+      ]
+    },
+    {
+      "id": "watertight-0",
+      "kind": "watertight",
+      "status": "pass",
+      "label": "coxa_link.stl: watertight & manifold",
+      "instances": [
+        "coxa_link"
+      ],
+      "point": [
+        118.65811665852864,
+        -41.6510264078776,
+        44.35663731892903
+      ]
+    },
+    {
+      "id": "disconnected_components-0",
+      "kind": "disconnected_components",
+      "status": "pass",
+      "label": "coxa_link.stl: single connected body",
+      "instances": [
+        "coxa_link"
+      ]
+    },
+    {
+      "id": "wall_thickness-0",
+      "kind": "wall_thickness",
+      "status": "warn",
+      "label": "coxa_link.stl: min wall ≈ 0.439mm (< 0.8mm, est.)",
+      "instances": [
+        "coxa_link"
+      ],
+      "point": [
+        118.65811665852864,
+        -41.6510264078776,
+        44.35663731892903
+      ]
+    },
+    {
+      "id": "watertight-1",
+      "kind": "watertight",
+      "status": "pass",
+      "label": "femur_link.stl: watertight & manifold",
+      "instances": [
+        "femur_link"
+      ],
+      "point": [
+        195.02044677734375,
+        -91.05125935872395,
+        56.67170333862305
+      ]
+    },
+    {
+      "id": "degenerate_geometry-1",
+      "kind": "degenerate_geometry",
+      "status": "warn",
+      "label": "femur_link.stl: 4 degenerate (zero-area) triangle(s)",
+      "instances": [
+        "femur_link"
+      ]
+    },
+    {
+      "id": "self_intersection-1",
+      "kind": "self_intersection",
+      "status": "fail",
+      "label": "femur_link.stl: 54 self-intersecting triangle pair(s)",
+      "instances": [
+        "femur_link"
+      ],
+      "point": [
+        122.67601404514707,
+        -9.774042876051048,
+        45.541661859470125
+      ]
+    },
+    {
+      "id": "disconnected_components-1",
+      "kind": "disconnected_components",
+      "status": "pass",
+      "label": "femur_link.stl: single connected body",
+      "instances": [
+        "femur_link"
+      ]
+    },
+    {
+      "id": "wall_thickness-1",
+      "kind": "wall_thickness",
+      "status": "warn",
+      "label": "femur_link.stl: min wall ≈ 0.439mm (< 0.8mm, est.)",
+      "instances": [
+        "femur_link"
+      ],
+      "point": [
+        195.02044677734375,
+        -91.05125935872395,
+        56.67170333862305
+      ]
+    },
+    {
+      "id": "watertight-2",
+      "kind": "watertight",
+      "status": "fail",
+      "label": "tibia_link.stl: 0 open + 3 non-manifold edge(s)",
+      "instances": [
+        "tibia_link"
+      ],
+      "point": [
+        195.6258799235026,
+        -59.653657277425125,
+        53.739437103271484
+      ]
+    },
+    {
+      "id": "degenerate_geometry-2",
+      "kind": "degenerate_geometry",
+      "status": "warn",
+      "label": "tibia_link.stl: 10 degenerate (zero-area) triangle(s)",
+      "instances": [
+        "tibia_link"
+      ]
+    },
+    {
+      "id": "self_intersection-2",
+      "kind": "self_intersection",
+      "status": "fail",
+      "label": "tibia_link.stl: 71 self-intersecting triangle pair(s)",
+      "instances": [
+        "tibia_link"
+      ],
+      "point": [
+        193.54569208471685,
+        -59.39752447609978,
+        56.184789076545556
+      ]
+    },
+    {
+      "id": "disconnected_components-2",
+      "kind": "disconnected_components",
+      "status": "pass",
+      "label": "tibia_link.stl: single connected body",
+      "instances": [
+        "tibia_link"
+      ]
+    },
+    {
+      "id": "wall_thickness-2",
+      "kind": "wall_thickness",
+      "status": "pass",
+      "label": "tibia_link.stl: min wall ≈ 0.876mm (est.)",
+      "instances": [
+        "tibia_link"
+      ]
+    },
+    {
+      "id": "watertight-3",
+      "kind": "watertight",
+      "status": "pass",
+      "label": "chassis_top.stl: watertight & manifold",
+      "instances": [
+        "chassis_top"
+      ],
+      "point": [
+        42.25986989339192,
+        -5.427668412526448,
+        34.79999923706055
+      ]
+    },
+    {
+      "id": "disconnected_components-3",
+      "kind": "disconnected_components",
+      "status": "pass",
+      "label": "chassis_top.stl: single connected body",
+      "instances": [
+        "chassis_top"
+      ]
+    },
+    {
+      "id": "wall_thickness-3",
+      "kind": "wall_thickness",
+      "status": "pass",
+      "label": "chassis_top.stl: min wall ≈ 0.8mm (est.)",
+      "instances": [
+        "chassis_top"
+      ]
+    },
+    {
+      "id": "watertight-4",
+      "kind": "watertight",
+      "status": "fail",
+      "label": "chassis_bottom.stl: 6 open + 0 non-manifold edge(s)",
+      "instances": [
+        "chassis_bottom"
+      ],
+      "point": [
+        3.8101119995117188,
+        -114.37486521402994,
+        8
+      ]
+    },
+    {
+      "id": "degenerate_geometry-4",
+      "kind": "degenerate_geometry",
+      "status": "warn",
+      "label": "chassis_bottom.stl: 34 degenerate (zero-area) triangle(s)",
+      "instances": [
+        "chassis_bottom"
+      ]
+    },
+    {
+      "id": "disconnected_components-4",
+      "kind": "disconnected_components",
+      "status": "pass",
+      "label": "chassis_bottom.stl: single connected body",
+      "instances": [
+        "chassis_bottom"
+      ]
+    },
+    {
+      "id": "wall_thickness-4",
+      "kind": "wall_thickness",
+      "status": "warn",
+      "label": "chassis_bottom.stl: min wall ≈ 0.327mm (< 0.8mm, est.)",
+      "instances": [
+        "chassis_bottom"
+      ],
+      "point": [
+        3.8101119995117188,
+        -114.37486521402994,
+        8
+      ]
+    },
+    {
+      "id": "watertight-5",
+      "kind": "watertight",
+      "status": "pass",
+      "label": "overlap.stl: watertight & manifold",
+      "instances": [
+        "overlap"
+      ],
+      "point": [
+        69.39314270019531,
+        -34.41928482055664,
+        37.68333307902018
+      ]
+    },
+    {
+      "id": "disconnected_components-5",
+      "kind": "disconnected_components",
+      "status": "pass",
+      "label": "overlap.stl: single connected body",
+      "instances": [
+        "overlap"
+      ]
+    },
+    {
+      "id": "wall_thickness-5",
+      "kind": "wall_thickness",
+      "status": "pass",
+      "label": "overlap.stl: min wall ≈ 1.058mm (est.)",
+      "instances": [
+        "overlap"
+      ]
+    }
+  ],
+  "highlights": {
+    "parts": [
+      {
+        "instanceId": "femur_link",
+        "color": "#ff3b30",
+        "annotation": "femur_link ∩ coxa_link = 2.095mm penetration"
+      },
+      {
+        "instanceId": "coxa_link",
+        "color": "#ff3b30",
+        "annotation": "femur_link ∩ coxa_link = 2.095mm penetration"
+      },
+      {
+        "instanceId": "overlap",
+        "color": "#ff3b30",
+        "annotation": "overlap ∩ chassis_top = 2mm penetration"
+      },
+      {
+        "instanceId": "chassis_top",
+        "color": "#ff3b30",
+        "annotation": "overlap ∩ chassis_top = 2mm penetration"
+      },
+      {
+        "instanceId": "tibia_link",
+        "color": "#ff3b30",
+        "annotation": "tibia_link.stl: 0 open + 3 non-manifold edge(s)"
+      },
+      {
+        "instanceId": "chassis_bottom",
+        "color": "#ff3b30",
+        "annotation": "chassis_bottom.stl: 6 open + 0 non-manifold edge(s)"
+      }
+    ],
+    "points": [
+      {
+        "point": [
+          131.663,
+          -11.743,
+          34.144
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link ∩ coxa_link = 2.095mm penetration"
+      },
+      {
+        "point": [
+          64.281,
+          -28.857,
+          36
+        ],
+        "color": "#ff3b30",
+        "annotation": "overlap ∩ chassis_top = 2mm penetration"
+      },
+      {
+        "point": [
+          64.281,
+          -28.857,
+          36
+        ],
+        "color": "#ff3b30",
+        "annotation": "overlap ∩ coxa_link = 2mm penetration"
+      },
+      {
+        "point": [
+          64.917,
+          -30.437,
+          36.333
+        ],
+        "color": "#ff3b30",
+        "annotation": "coxa_link ∩ chassis_top = 1.667mm penetration"
+      },
+      {
+        "point": [
+          118.65811665852864,
+          -41.6510264078776,
+          44.35663731892903
+        ],
+        "instanceId": "coxa_link",
+        "color": "#f59e0b",
+        "annotation": "coxa_link.stl: min wall ≈ 0.439mm (< 0.8mm, est.)"
+      },
+      {
+        "point": [
+          122.67601404514707,
+          -9.774042876051048,
+          45.541661859470125
+        ],
+        "instanceId": "femur_link",
+        "color": "#ff3b30",
+        "annotation": "femur_link.stl: 54 self-intersecting triangle pair(s)"
+      },
+      {
+        "point": [
+          195.02044677734375,
+          -91.05125935872395,
+          56.67170333862305
+        ],
+        "instanceId": "femur_link",
+        "color": "#f59e0b",
+        "annotation": "femur_link.stl: min wall ≈ 0.439mm (< 0.8mm, est.)"
+      },
+      {
+        "point": [
+          195.6258799235026,
+          -59.653657277425125,
+          53.739437103271484
+        ],
+        "instanceId": "tibia_link",
+        "color": "#ff3b30",
+        "annotation": "tibia_link.stl: 0 open + 3 non-manifold edge(s)"
+      },
+      {
+        "point": [
+          193.54569208471685,
+          -59.39752447609978,
+          56.184789076545556
+        ],
+        "instanceId": "tibia_link",
+        "color": "#ff3b30",
+        "annotation": "tibia_link.stl: 71 self-intersecting triangle pair(s)"
+      },
+      {
+        "point": [
+          3.8101119995117188,
+          -114.37486521402994,
+          8
+        ],
+        "instanceId": "chassis_bottom",
+        "color": "#ff3b30",
+        "annotation": "chassis_bottom.stl: 6 open + 0 non-manifold edge(s)"
+      },
+      {
+        "point": [
+          3.8101119995117188,
+          -114.37486521402994,
+          8
+        ],
+        "instanceId": "chassis_bottom",
+        "color": "#f59e0b",
+        "annotation": "chassis_bottom.stl: min wall ≈ 0.327mm (< 0.8mm, est.)"
+      }
+    ],
+    "regions": [
+      {
+        "min": [
+          117.532,
+          -17.52,
+          34.144
+        ],
+        "max": [
+          140.141,
+          -3.077,
+          36.921
+        ],
+        "color": "#ff3b30",
+        "annotation": "femur_link ∩ coxa_link = 2.095mm penetration"
+      },
+      {
+        "min": [
+          60.469,
+          -36.37,
+          34.667
+        ],
+        "max": [
+          70,
+          -13.206,
+          38
+        ],
+        "color": "#ff3b30",
+        "annotation": "overlap ∩ chassis_top = 2mm penetration"
+      },
+      {
+        "min": [
+          60.469,
+          -36.37,
+          34
+        ],
+        "max": [
+          70,
+          -13.832,
+          38
+        ],
+        "color": "#ff3b30",
+        "annotation": "overlap ∩ coxa_link = 2mm penetration"
+      },
+      {
+        "min": [
+          61.104,
+          -35.987,
+          35.167
+        ],
+        "max": [
+          70,
+          -13.787,
+          37.5
+        ],
+        "color": "#ff3b30",
+        "annotation": "coxa_link ∩ chassis_top = 1.667mm penetration"
+      }
+    ]
+  },
+  "report": {
+    "passed": false,
+    "problemCount": 9,
+    "toleranceMm": 0.5,
+    "minPenetrationMm": 1,
+    "instanceCount": 6,
+    "meshCount": 6,
+    "missingMeshes": [],
+    "fastenersExcluded": 0,
+    "fastenersIncluded": false,
+    "broadPhasePairs": 5,
+    "narrowPhasePairs": 5,
+    "capped": false,
+    "collisions": [
+      {
+        "a": {
+          "instanceId": "femur_link",
+          "partType": "femur_link",
+          "name": "femur_link"
+        },
+        "b": {
+          "instanceId": "coxa_link",
+          "partType": "coxa_link",
+          "name": "coxa_link"
+        },
+        "penetrationMm": 2.095,
+        "point": [
+          131.663,
+          -11.743,
+          34.144
+        ],
+        "region": {
+          "min": [
+            117.532,
+            -17.52,
+            34.144
+          ],
+          "max": [
+            140.141,
+            -3.077,
+            36.921
+          ]
+        }
+      },
+      {
+        "a": {
+          "instanceId": "overlap",
+          "partType": "overlap",
+          "name": "INTERFERENCE 476 mm^3"
+        },
+        "b": {
+          "instanceId": "chassis_top",
+          "partType": "chassis_top",
+          "name": "chassis_top"
+        },
+        "penetrationMm": 2,
+        "point": [
+          64.281,
+          -28.857,
+          36
+        ],
+        "region": {
+          "min": [
+            60.469,
+            -36.37,
+            34.667
+          ],
+          "max": [
+            70,
+            -13.206,
+            38
+          ]
+        }
+      },
+      {
+        "a": {
+          "instanceId": "overlap",
+          "partType": "overlap",
+          "name": "INTERFERENCE 476 mm^3"
+        },
+        "b": {
+          "instanceId": "coxa_link",
+          "partType": "coxa_link",
+          "name": "coxa_link"
+        },
+        "penetrationMm": 2,
+        "point": [
+          64.281,
+          -28.857,
+          36
+        ],
+        "region": {
+          "min": [
+            60.469,
+            -36.37,
+            34
+          ],
+          "max": [
+            70,
+            -13.832,
+            38
+          ]
+        }
+      },
+      {
+        "a": {
+          "instanceId": "coxa_link",
+          "partType": "coxa_link",
+          "name": "coxa_link"
+        },
+        "b": {
+          "instanceId": "chassis_top",
+          "partType": "chassis_top",
+          "name": "chassis_top"
+        },
+        "penetrationMm": 1.667,
+        "point": [
+          64.917,
+          -30.437,
+          36.333
+        ],
+        "region": {
+          "min": [
+            61.104,
+            -35.987,
+            35.167
+          ],
+          "max": [
+            70,
+            -13.787,
+            37.5
+          ]
+        }
+      }
+    ],
+    "floating": [
+      {
+        "instanceId": "femur_link",
+        "partType": "femur_link",
+        "name": "femur_link",
+        "componentId": 1,
+        "componentSize": 1,
+        "nearestGapMm": 0,
+        "nearestInstanceId": "coxa_link"
+      },
+      {
+        "instanceId": "tibia_link",
+        "partType": "tibia_link",
+        "name": "tibia_link",
+        "componentId": 2,
+        "componentSize": 1,
+        "nearestGapMm": null,
+        "nearestInstanceId": null
+      },
+      {
+        "instanceId": "chassis_top",
+        "partType": "chassis_top",
+        "name": "chassis_top",
+        "componentId": 3,
+        "componentSize": 1,
+        "nearestGapMm": 0,
+        "nearestInstanceId": "coxa_link"
+      },
+      {
+        "instanceId": "chassis_bottom",
+        "partType": "chassis_bottom",
+        "name": "chassis_bottom",
+        "componentId": 4,
+        "componentSize": 1,
+        "nearestGapMm": 16.75,
+        "nearestInstanceId": "coxa_link"
+      },
+      {
+        "instanceId": "overlap",
+        "partType": "overlap",
+        "name": "INTERFERENCE 476 mm^3",
+        "componentId": 5,
+        "componentSize": 1,
+        "nearestGapMm": 0,
+        "nearestInstanceId": "coxa_link"
+      }
+    ],
+    "gaps": [
+      {
+        "instanceId": "femur_link",
+        "partType": "femur_link",
+        "name": "femur_link",
+        "gapMm": 0,
+        "nearestInstanceId": "coxa_link"
+      },
+      {
+        "instanceId": "chassis_top",
+        "partType": "chassis_top",
+        "name": "chassis_top",
+        "gapMm": 0,
+        "nearestInstanceId": "coxa_link"
+      },
+      {
+        "instanceId": "overlap",
+        "partType": "overlap",
+        "name": "INTERFERENCE 476 mm^3",
+        "gapMm": 0,
+        "nearestInstanceId": "coxa_link"
+      }
+    ],
+    "declaredInterferences": [],
+    "printability": [
+      {
+        "meshId": "coxa_link",
+        "meshName": "coxa_link.stl",
+        "instanceIds": [
+          "coxa_link"
+        ],
+        "triangleCount": 3408,
+        "openEdges": 0,
+        "nonManifoldEdges": 0,
+        "inconsistentWinding": false,
+        "degenerateTriangles": 0,
+        "selfIntersections": 0,
+        "selfIntersectionPoint": null,
+        "componentCount": 1,
+        "smallestComponent": null,
+        "volumeMm3": 58790.768,
+        "minWallMm": 0.439,
+        "thinPoint": [
+          118.65811665852864,
+          -41.6510264078776,
+          44.35663731892903
+        ]
+      },
+      {
+        "meshId": "femur_link",
+        "meshName": "femur_link.stl",
+        "instanceIds": [
+          "femur_link"
+        ],
+        "triangleCount": 3404,
+        "openEdges": 0,
+        "nonManifoldEdges": 0,
+        "inconsistentWinding": false,
+        "degenerateTriangles": 4,
+        "selfIntersections": 54,
+        "selfIntersectionPoint": [
+          122.67601404514707,
+          -9.774042876051048,
+          45.541661859470125
+        ],
+        "componentCount": 1,
+        "smallestComponent": null,
+        "volumeMm3": 50599.175,
+        "minWallMm": 0.439,
+        "thinPoint": [
+          195.02044677734375,
+          -91.05125935872395,
+          56.67170333862305
+        ]
+      },
+      {
+        "meshId": "tibia_link",
+        "meshName": "tibia_link.stl",
+        "instanceIds": [
+          "tibia_link"
+        ],
+        "triangleCount": 4116,
+        "openEdges": 0,
+        "nonManifoldEdges": 3,
+        "inconsistentWinding": false,
+        "degenerateTriangles": 10,
+        "selfIntersections": 71,
+        "selfIntersectionPoint": [
+          193.54569208471685,
+          -59.39752447609978,
+          56.184789076545556
+        ],
+        "componentCount": 1,
+        "smallestComponent": null,
+        "volumeMm3": 14272.179,
+        "minWallMm": 0.876,
+        "thinPoint": [
+          195.6258799235026,
+          -59.653657277425125,
+          53.739437103271484
+        ]
+      },
+      {
+        "meshId": "chassis_top",
+        "meshName": "chassis_top.stl",
+        "instanceIds": [
+          "chassis_top"
+        ],
+        "triangleCount": 3148,
+        "openEdges": 0,
+        "nonManifoldEdges": 0,
+        "inconsistentWinding": false,
+        "degenerateTriangles": 0,
+        "selfIntersections": 0,
+        "selfIntersectionPoint": null,
+        "componentCount": 1,
+        "smallestComponent": null,
+        "volumeMm3": 67607.19,
+        "minWallMm": 0.8,
+        "thinPoint": [
+          42.25986989339192,
+          -5.427668412526448,
+          34.79999923706055
+        ]
+      },
+      {
+        "meshId": "chassis_bottom",
+        "meshName": "chassis_bottom.stl",
+        "instanceIds": [
+          "chassis_bottom"
+        ],
+        "triangleCount": 9770,
+        "openEdges": 6,
+        "nonManifoldEdges": 0,
+        "inconsistentWinding": false,
+        "degenerateTriangles": 34,
+        "selfIntersections": 0,
+        "selfIntersectionPoint": null,
+        "componentCount": 1,
+        "smallestComponent": null,
+        "volumeMm3": 193389.56,
+        "minWallMm": 0.327,
+        "thinPoint": [
+          3.8101119995117188,
+          -114.37486521402994,
+          8
+        ]
+      },
+      {
+        "meshId": "overlap",
+        "meshName": "overlap.stl",
+        "instanceIds": [
+          "overlap"
+        ],
+        "triangleCount": 38,
+        "openEdges": 0,
+        "nonManifoldEdges": 0,
+        "inconsistentWinding": false,
+        "degenerateTriangles": 0,
+        "selfIntersections": 0,
+        "selfIntersectionPoint": null,
+        "componentCount": 1,
+        "smallestComponent": null,
+        "volumeMm3": 476.447,
+        "minWallMm": 1.058,
+        "thinPoint": [
+          69.39314270019531,
+          -34.41928482055664,
+          37.68333307902018
+        ]
+      }
+    ],
+    "fasteners": [],
+    "access": [],
+    "mating": [],
+    "routing": [],
+    "minWallMm": 0.8,
+    "minThreadEngagementMm": 2,
+    "matingToleranceMm": 0.2,
+    "components": {
+      "count": 6,
+      "mainComponentSize": 1,
+      "floatingComponentCount": 5
+    },
+    "timings": {
+      "loadMs": 17,
+      "bvhMs": 0,
+      "broadMs": 0,
+      "narrowMs": 107,
+      "connectivityMs": 220,
+      "printabilityMs": 353,
+      "threadMs": 0,
+      "accessMs": 0,
+      "matingMs": 85,
+      "routingMs": 0,
+      "totalMs": 783
+    }
+  }
+}

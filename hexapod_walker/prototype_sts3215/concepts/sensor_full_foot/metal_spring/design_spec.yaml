@@ -1,0 +1,6 @@
+build:
+  id: prototype_sts3215/sensor-full-foot
+  name: PETG foot with metal return springs
+  units: mm
+  status: geometric prototype; spring selection and physical validation pending
+intent: Ground-contact detection with two PETG prints, metal guides and springs, silicone pressure pad.

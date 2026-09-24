@@ -1,0 +1,67 @@
+{
+  "fork_snug": {
+    "watertight": true,
+    "volume_mm3": 1425.0779637495018,
+    "bounds_mm": [
+      [
+        -11.5,
+        -34.0,
+        0.0
+      ],
+      [
+        11.5,
+        8.0,
+        3.200000047683716
+      ]
+    ]
+  },
+  "fork_loose": {
+    "watertight": true,
+    "volume_mm3": 1420.9373229837229,
+    "bounds_mm": [
+      [
+        -11.5,
+        -34.0,
+        0.0
+      ],
+      [
+        11.5,
+        8.0,
+        3.200000047683716
+      ]
+    ]
+  },
+  "reference_plate_DO_NOT_PRINT": {
+    "watertight": true,
+    "volume_mm3": 702.6557473296306,
+    "bounds_mm": [
+      [
+        -11.0,
+        -10.996581077575684,
+        -2.0999999046325684
+      ],
+      [
+        11.0,
+        10.996581077575684,
+        0.0
+      ]
+    ]
+  },
+  "reference_screw_DO_NOT_PRINT": {
+    "watertight": true,
+    "volume_mm3": 113.63927156843566,
+    "bounds_mm": [
+      [
+        -2.75,
+        -2.749145269393921,
+        -5.199999809265137
+      ],
+      [
+        2.75,
+        2.749145269393921,
+        3.799999952316284
+      ]
+    ]
+  },
+  "release_check": "Loose fork clears both nominal M3 screw envelopes at 9 withdrawal positions; snug fork requires flex and is untested."
+}

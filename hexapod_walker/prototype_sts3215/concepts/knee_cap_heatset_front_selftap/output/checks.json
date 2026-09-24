@@ -1,0 +1,58 @@
+{
+  "baseline": "v36",
+  "changed_printed_meshes": [
+    "femur_ovh_body"
+  ],
+  "cap_mesh_unchanged": true,
+  "hip_to_knee_mm": 96,
+  "insert_assumption": {
+    "thread": "M3",
+    "length_mm": 5.7,
+    "knurled_od_mm": 4.6
+  },
+  "cap_joint": {
+    "per_knee": 2,
+    "screw": "M3x8 machine",
+    "pilot_diameter_mm": 4.0,
+    "pilot_depth_mm": 6.7,
+    "nominal_thread_engagement_mm": 5.7,
+    "blind_tip_clearance_mm": 0.7
+  },
+  "front_joint": {
+    "per_knee": 6,
+    "screw": "3x8 self-tapping for plastic",
+    "metal_thickness_mm": 2.1,
+    "pilot_diameter_mm": 2.5,
+    "pilot_depth_mm": 7.0,
+    "plastic_entry_mm": 5.9,
+    "full_diameter_engagement_excluding_tip_mm": 4.9,
+    "blind_tip_clearance_mm": 1.1,
+    "plastic_remaining_behind_pilot_mm": 2.6
+  },
+  "hardware_intersections": [],
+  "cap_box_mm3": 0.0,
+  "servo_box_mm3": 0.0,
+  "cap_metal_mm3": 0.0,
+  "box_metal_mm3": -4.850638409455617e-12,
+  "cap_removal": "clear at +Y 0.1,1,2,5,15,35mm with front screws and inserts installed",
+  "tool_access": "\u00d85 heat-set tip and \u00d85.5x50 screwdrivers clear on detached subassembly; fasten C web before mounting C to hip servo",
+  "motion": {
+    "hip_deg": [
+      -110,
+      30
+    ],
+    "knee_deg": [
+      -30,
+      20
+    ],
+    "step_deg": 2.5,
+    "yaw_samples_deg": [
+      -35,
+      -20,
+      0,
+      20,
+      35
+    ],
+    "horn_on_extraction": "clear with 1.5mm radial margin"
+  }
+}

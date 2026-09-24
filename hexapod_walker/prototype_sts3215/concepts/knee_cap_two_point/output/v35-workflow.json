@@ -1,0 +1,198 @@
+{
+  "schema": 1,
+  "parts": {
+    "bearing_6805": {
+      "kind": "purchased",
+      "label": "Bearing 6805",
+      "notes": "upper plate-seated 6805 bearing reference",
+      "evidence": "Exact saved spec printable=false plus explicit commodity/material description: upper plate-seated 6805 bearing reference"
+    },
+    "centre_wago_block": {
+      "kind": "printed",
+      "label": "Centre wago block",
+      "material": "PETG",
+      "notes": "inherited center power splice block",
+      "evidence": "Exact saved spec identifies PETG custom geometry; concept README lists corresponding printed parts."
+    },
+    "chassis_bottom": {
+      "kind": "printed",
+      "label": "Chassis bottom",
+      "material": "PETG",
+      "notes": "inherited rigid-hip lower chassis and lower bearing towers",
+      "evidence": "Exact saved spec identifies PETG custom geometry; concept README lists corresponding printed parts."
+    },
+    "chassis_top_rigid": {
+      "kind": "printed",
+      "label": "Chassis top rigid",
+      "material": "PETG",
+      "notes": "inherited rigid upper chassis frame capturing upper bearings",
+      "evidence": "Exact saved spec identifies PETG custom geometry; concept README lists corresponding printed parts."
+    },
+    "chorn_clamp_cnc": {
+      "kind": "purchased",
+      "label": "Chorn clamp cnc",
+      "material": "aluminum",
+      "notes": "purchased premade 56 mm aluminum C bracket reference",
+      "evidence": "Exact saved spec printable=false plus explicit commodity/material description: purchased premade 56 mm aluminum C bracket reference"
+    },
+    "coxa_link_ovh": {
+      "kind": "printed",
+      "label": "Coxa link ovh",
+      "material": "PETG",
+      "notes": "flat-bottomed outboard coxa/hip-holder body above Z 8 with four blind self-tapping pilots receiving screws from the transferred lower foot, plus a contour-matched integral rear tower; two negative-Y contour arms and one solid positive-Y rectangular block wrap into the R19 lower contour, with the block stopping at the servo rear-retention tab and carrying two 6.8 mm driver openings; no reinforcement continues across the servo and there is no perforated central bridge; its two clamp-cap screws use face-loaded captive M3 nuts, its low foot remains centered within 0.20 mm of the seated servo, and the 24 mm horn opening continues through the open face",
+      "evidence": "Exact saved spec identifies PETG custom geometry; concept README lists corresponding printed parts."
+    },
+    "coxa_yaw_hub_carrier_ovh": {
+      "kind": "printed",
+      "label": "Coxa yaw hub carrier ovh",
+      "material": "PETG",
+      "notes": "lower yaw carrier preserving original bearing and horn interfaces and including the entire coxa foot below Z 8; flat mating plane and four upward screw clearance holes with underside pan-head seats",
+      "evidence": "Exact saved spec identifies PETG custom geometry; concept README lists corresponding printed parts."
+    },
+    "driven_spacer": {
+      "kind": "other",
+      "label": "Driven spacer",
+      "material": "6061_aluminum_final",
+      "notes": "7 mm four-hole puck with blind center-screw head relief STL is usable for fit prototypes. Final intended part is machined aluminum; excluded from the default print queue.",
+      "evidence": "Exact saved spec material=6061_aluminum_final; concept README describes printed fit prototypes and final aluminum pucks."
+    },
+    "femur_ovh_body": {
+      "kind": "printed",
+      "label": "Femur ovh body",
+      "material": "PETG",
+      "notes": "v35: matched two-screw knee cradle with end-loaded ordinary M3 nuts under 3 mm retaining roofs. Six front short-insert pockets unchanged; 5.7 mm inserts do not fit their 3.1 mm depth.",
+      "evidence": "Exact v35 SHA-verified geometry and design_spec; local nut fit/pull-direction/driver/motion checks."
+    },
+    "foot_boot": {
+      "kind": "printed",
+      "label": "Foot boot",
+      "material": "TPU",
+      "notes": "inherited foot boot",
+      "evidence": "Exact saved spec identifies TPU custom geometry; concept README lists corresponding printed parts."
+    },
+    "hip_bearing_carrier_ovh": {
+      "kind": "printed",
+      "label": "Hip bearing carrier ovh",
+      "material": "PETG",
+      "notes": "separate flat-backed cartridge containing the upper 6805 press seat, puller notches, three cap-mount captive-nut pockets, and two top-entry coxa-tower screw paths",
+      "evidence": "Exact saved spec identifies PETG custom geometry; concept README lists corresponding printed parts."
+    },
+    "hip_clamp_cap_ovh": {
+      "kind": "printed",
+      "label": "Hip clamp cap ovh",
+      "material": "PETG",
+      "notes": "flat-printing outboard hip cap with the former upper bearing pedestal removed, a flat R19 cartridge pad, and three countersunk mounting holes; its clamp ledge is cleared while retaining servo-tongue preload",
+      "evidence": "Exact saved spec identifies PETG custom geometry; concept README lists corresponding printed parts."
+    },
+    "knee_clamp_cap_ovh": {
+      "kind": "printed",
+      "label": "Knee clamp cap ovh",
+      "material": "PETG",
+      "notes": "v35: two recessed M3x8 face screws, original outboard station and compact upper-inboard corner. Reprint together with matching v35 femur.",
+      "evidence": "Exact v35 CAD and all 12 BuildViz declared knee fastening checks pass."
+    },
+    "lower_coxa_screw": {
+      "kind": "purchased",
+      "label": "Lower coxa screw",
+      "material": "steel",
+      "notes": "3x6 mm self-tapping pan-head screw envelope joining lower carrier to coxa",
+      "evidence": "Exact saved spec printable=false plus explicit commodity/material description: 3x6 mm self-tapping pan-head screw envelope joining lower carrier to coxa"
+    },
+    "passive_spacer": {
+      "kind": "other",
+      "label": "Passive spacer",
+      "material": "6061_aluminum_final",
+      "notes": "7 mm four-hole puck with complete center-screw through hole STL is usable for fit prototypes. Final intended part is machined aluminum; excluded from the default print queue.",
+      "evidence": "Exact saved spec material=6061_aluminum_final; concept README describes printed fit prototypes and final aluminum pucks."
+    },
+    "servo_body": {
+      "kind": "purchased",
+      "label": "Servo body",
+      "notes": "STS3215 servo reference",
+      "evidence": "Exact saved spec printable=false plus explicit commodity/material description: STS3215 servo reference"
+    },
+    "tibia_ovh_socket": {
+      "kind": "printed",
+      "label": "Tibia ovh socket",
+      "material": "PETG",
+      "notes": "six-hole front receiver and 30 mm-deep carbon-tube socket with four radial nut-access cutouts and a long complete support collar",
+      "evidence": "Exact saved spec identifies PETG custom geometry; concept README lists corresponding printed parts."
+    },
+    "tibia_tube_ovh": {
+      "kind": "purchased",
+      "label": "Tibia tube ovh",
+      "material": "carbon_fiber",
+      "notes": "shortened carbon-fiber tibia tube reference",
+      "evidence": "Exact saved spec printable=false plus explicit commodity/material description: shortened carbon-fiber tibia tube reference"
+    },
+    "top_hatch_rigid": {
+      "kind": "printed",
+      "label": "Top hatch rigid",
+      "material": "PETG",
+      "notes": "inherited removable electronics hatch",
+      "evidence": "Exact saved spec identifies PETG custom geometry; concept README lists corresponding printed parts."
+    },
+    "wago5": {
+      "kind": "purchased",
+      "label": "Wago5",
+      "notes": "Wago 221-415 reference",
+      "evidence": "Exact saved spec printable=false plus explicit commodity/material description: Wago 221-415 reference"
+    },
+    "yaw_bearing_upper": {
+      "kind": "purchased",
+      "label": "Yaw bearing upper",
+      "notes": "lower tower-seated 6805 bearing reference",
+      "evidence": "Exact saved spec printable=false plus explicit commodity/material description: lower tower-seated 6805 bearing reference"
+    },
+    "yaw_servo_retainer": {
+      "kind": "printed",
+      "label": "Yaw servo retainer",
+      "material": "PETG",
+      "notes": "inherited yaw servo retainer",
+      "evidence": "Exact saved spec identifies PETG custom geometry; concept README lists corresponding printed parts."
+    },
+    "knee_cap_screw": {
+      "kind": "purchased",
+      "label": "M3×8 socket-head screw",
+      "material": "steel",
+      "notes": "Two per knee cap; buy hardware, do not print.",
+      "evidence": "Exact v35 design_spec, cots instances and modeled 8 mm under-head length."
+    },
+    "knee_cap_nut": {
+      "kind": "purchased",
+      "label": "M3 ordinary hex nut",
+      "material": "steel",
+      "notes": "5.5 mm AF × 2.4 mm nominal thickness; two per knee. Side-loaded into the femur beneath solid retaining roofs.",
+      "evidence": "Exact v35 design_spec and nut model dimensions."
+    }
+  },
+  "bom": {
+    "notes": "Quantities below count components modeled in this exact scene, not a complete shopping list. Wires, glue, spare parts and unmodeled fasteners may be missing; linked authored documents supply additional requirements. Saved design inventory records 16 brackets owned, 12 required in the design and 4 spare; this is not a claim of physical installation. Final spacer machining and exact front-receiver fastener lengths remain to be settled.",
+    "items": []
+  },
+  "instructions": [
+    {
+      "id": "metal-assembly",
+      "title": "56 mm metal C-bracket assembly and fit guide",
+      "text": "Authored design-family guide. Current v5 carrier/fastener edits are newer than this repository copy; use the saved v5 design specification for those changes.",
+      "url": "https://github.com/lukas/hexapod/blob/ee3d62b7d9b91f20f63fd5094be5aa24f622e2cb/hexapod_walker/prototype_sts3215/concepts/premade_chorn_56/README.md"
+    },
+    {
+      "id": "metal-fit-hardware",
+      "title": "Disc-screw fit and thread engagement",
+      "text": "Saved v5 design specification: {\"disc_screw_candidate\":\"M3x12 with measured washer stack\",\"required_thread_engagement_mm\":[1.5,2],\"warning\":\"dry-measure screw projection; do not bottom against the servo case\",\"front_receiver_screws\":\"choose after measuring web, receiver, washer, and nyloc stack; use low-profile or countersunk heads if the inner face sweeps\"}"
+    },
+    {
+      "id": "v35-knee-cap-two-point",
+      "title": "v35 knee cap — matched pair assembly",
+      "partTypes": [
+        "femur_ovh_body",
+        "knee_clamp_cap_ovh",
+        "knee_cap_screw",
+        "knee_cap_nut"
+      ],
+      "text": "Print the v35 cap and femur together as a matched pair. Slide ordinary M3 hex nuts into the femur end slots, seat the cap, and insert two M3x8 socket-head screws from the cap face. Nuts bear against 3 mm femur roofs under screw tension. To service, remove both screws and withdraw the cap/servo through the open face. Test one printed pair; physical fit and loaded strength/fatigue are unverified. Femur-to-hip C web interface remains six screws into short M3 insert pockets only 3.1 mm deep; the user's 5.7 mm inserts will not fit."
+    }
+  ],
+  "runs": []
+}

@@ -1,0 +1,96 @@
+{
+    "error_string": "Success.",
+    "export_time": 390,
+    "layer_height": 0.20000000298023224,
+    "plate_index": 0,
+    "prepare_time": 69,
+    "return_code": 0,
+    "sliced_plates": [
+        {
+            "feature_type_times": {
+                "Bottom surface": 208.00770568847656,
+                "Bridge": 218.58291625976563,
+                "Custom": 34.651947021484375,
+                "Gap infill": 292.9548034667969,
+                "Inner wall": 2959.770263671875,
+                "Internal solid infill": 1116.89697265625,
+                "Outer wall": 880.7857666015625,
+                "Overhang wall": 87.62828826904297,
+                "Sparse infill": 1915.2689208984375,
+                "Support": 29.016645431518555,
+                "Support interface": 5.117772102355957,
+                "Support transition": 3.443352699279785,
+                "Top surface": 207.41607666015625,
+                "Travel": 1897.3394775390625,
+                "Undefined": 1881.9532470703125
+            },
+            "filament_change_times": 0,
+            "filaments": [
+                {
+                    "filament_id": "GFG00",
+                    "id": 1,
+                    "main_used_g": 76.00283813476563,
+                    "total_used_g": 76.25030517578125
+                }
+            ],
+            "generate_support_material_time": 36,
+            "id": 1,
+            "infill_time": 191,
+            "layer_filament_change": 0,
+            "main_predication": 9823.880859375,
+            "make_perimeters_time": 230,
+            "obj_cached_cnt": 0,
+            "objects": [
+                {
+                    "bbox": {
+                        "depth": 52.40000915527344,
+                        "height": 33.0,
+                        "width": 65.40000915527344,
+                        "x": 170.19998168945313,
+                        "y": 162.19998168945313,
+                        "z": 0.0
+                    },
+                    "id": 5,
+                    "name": "Yaw hub — thick 6805 bearings",
+                    "triangle_count": 12466
+                },
+                {
+                    "bbox": {
+                        "depth": 44.79999542236328,
+                        "height": 31.299999237060547,
+                        "width": 65.40000915527344,
+                        "x": 170.19998168945313,
+                        "y": 105.39999389648438,
+                        "z": -1.8530274203953923e-08
+                    },
+                    "id": 9,
+                    "name": "Hip bracket — obsolete holes filled",
+                    "triangle_count": 7086
+                },
+                {
+                    "bbox": {
+                        "depth": 63.40000534057617,
+                        "height": 16.899999618530273,
+                        "width": 43.79999923706055,
+                        "x": 114.4000015258789,
+                        "y": 128.30105590820313,
+                        "z": 7.34862837248329e-10
+                    },
+                    "id": 13,
+                    "name": "servo clamp cap",
+                    "triangle_count": 944
+                }
+            ],
+            "sliced_time": 1271,
+            "sliced_time_with_cache": 681,
+            "total_predication": 9843.1162109375,
+            "triangle_count": 20496,
+            "warning_message": ""
+        }
+    ],
+    "sparse_infill_density": 40.0,
+    "upward_compatible_machine": [
+        "Bambu Lab H2D Pro 0.4 nozzle"
+    ],
+    "wall_loops": 6
+}

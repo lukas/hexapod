@@ -1,0 +1,192 @@
+# BuildViz hub on CoreWeave.
+#
+# Deploy with deploy/coreweave/deploy.sh (it applies this file, then ships the
+# source tarball into the pod).
+#
+# Architecture:
+#   - "hub" container (node:22-slim): waits for /work/src.tgz, npm-installs,
+#     runs the BuildViz hub bound to loopback :5183 (loopback keeps full
+#     read/write functionality: push/register/pack-export). It then watches
+#     src.tgz and restarts the hub in place when deploy.sh ships new source —
+#     the pod is never deleted on redeploy. Hub state and TLS certs live on
+#     the buildviz-data PVC (shared-vast), so they survive pod recreation too.
+#   - "caddy" sidecar: terminates HTTPS on :443 with an automatic Let's
+#     Encrypt certificate (same pattern as the hexapod-status pod) and
+#     reverse-proxies to the hub over the pod-local loopback.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: buildviz-bootstrap
+  namespace: default
+data:
+  bootstrap.sh: |
+    #!/bin/sh
+    set -u
+    mkdir -p /work
+    # Keep the hub's state (~/.buildviz: registry, pushed-build cache, logs) on
+    # the /work volume so pushed builds survive container restarts.
+    export HOME=/work/home
+    mkdir -p /work/home
+    export BUILDVIZ_ALLOWED_HOSTS="${BUILDVIZ_ALLOWED_HOSTS:-buildviz.cwd1f0-new-cluster.coreweave.app}"
+    export NPM_CONFIG_CACHE=/work/.npm
+    while true; do
+      while [ ! -f /work/src.tgz ]; do
+        echo "[bootstrap] waiting for /work/src.tgz (ship it with deploy.sh)"
+        sleep 2
+      done
+      STAMP=$(stat -c %Y /work/src.tgz)
+      echo "[bootstrap] extracting source (mtime $STAMP)"
+      rm -rf /work/app
+      mkdir -p /work/app
+      tar -xzf /work/src.tgz -C /work/app || { echo "[bootstrap] bad tarball"; sleep 5; continue; }
+      cd /work/app
+      echo "[bootstrap] npm install"
+      npm install --no-audit --no-fund || { echo "[bootstrap] npm install failed"; sleep 10; continue; }
+      echo "[bootstrap] starting hub on loopback :5183"
+      node bin/buildviz.mjs hub stop >/dev/null 2>&1 || true
+      node bin/buildviz.mjs hub --detach --port 5183
+      echo "[bootstrap] registering bundled builds"
+      for dir in public/builds/*/; do
+        [ -f "$dir/scene.json" ] || continue
+        node bin/buildviz.mjs register "$dir" --project buildviz --build "$(basename "$dir")" || true
+      done
+      echo "[bootstrap] hub running; watching /work/src.tgz for redeploys"
+      while [ -f /work/src.tgz ] && [ "$(stat -c %Y /work/src.tgz)" = "$STAMP" ]; do
+        sleep 5
+      done
+      echo "[bootstrap] new source detected; restarting hub"
+    done
+  Caddyfile: |
+    {
+        storage file_system /data
+    }
+
+    buildviz.cwd1f0-new-cluster.coreweave.app {
+        reverse_proxy 127.0.0.1:5183
+    }
+---
+# Persistent storage: hub state (~/.buildviz registry + pushed-build cache,
+# npm cache, shipped source) and Caddy's TLS certificates live here, so they
+# survive pod deletion/recreation — not just container restarts. shared-vast
+# has reclaimPolicy Retain, so even deleting the PVC keeps the data around.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: buildviz-data
+  namespace: default
+spec:
+  storageClassName: shared-vast
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: buildviz-hub
+  namespace: default
+  labels:
+    app: buildviz-hub
+spec:
+  restartPolicy: Always
+  containers:
+    - name: hub
+      image: node:22-slim
+      command: ["/bin/sh", "/bootstrap/bootstrap.sh"]
+      env:
+        # Requires the key for mutation endpoints (push/register/pack-export/
+        # open-path) and the /mcp MCP endpoint. Viewing stays open.
+        - name: BUILDVIZ_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: buildviz-api-key
+              key: key
+      resources:
+        requests:
+          cpu: 250m
+          memory: 512Mi
+        limits:
+          cpu: "2"
+          memory: 2Gi
+      # The container waits for the source tarball before it can serve, so give
+      # startup a long grace period before liveness kicks in. The hub binds
+      # loopback only, so probe with an exec check rather than httpGet.
+      # IMPORTANT: probe via bash /dev/tcp, NOT `node -e fetch(...)` — spawning
+      # a Node process costs hundreds of ms and blew through the default 1s
+      # exec timeout under node CPU pressure, kill-looping a healthy hub (and
+      # an un-ready hub container pulls the pod out of the LB → connection
+      # refused from outside).
+      startupProbe:
+        exec:
+          command:
+            - bash
+            - -c
+            - exec 3<>/dev/tcp/127.0.0.1/5183 && printf 'GET /__buildviz/status HTTP/1.0\r\n\r\n' >&3 && head -c 32 <&3 | grep -q ' 200 '
+        timeoutSeconds: 5
+        periodSeconds: 10
+        failureThreshold: 90
+      livenessProbe:
+        exec:
+          command:
+            - bash
+            - -c
+            - exec 3<>/dev/tcp/127.0.0.1/5183 && printf 'GET /__buildviz/status HTTP/1.0\r\n\r\n' >&3 && head -c 32 <&3 | grep -q ' 200 '
+        timeoutSeconds: 5
+        periodSeconds: 30
+        failureThreshold: 4
+      volumeMounts:
+        - name: data
+          mountPath: /work
+          subPath: work
+        - name: bootstrap
+          mountPath: /bootstrap
+    - name: caddy
+      image: caddy:2
+      ports:
+        - containerPort: 80
+          name: http
+        - containerPort: 443
+          name: https
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: "1"
+          memory: 512Mi
+      volumeMounts:
+        - name: bootstrap
+          mountPath: /etc/caddy/Caddyfile
+          subPath: Caddyfile
+        - name: data
+          mountPath: /data
+          subPath: caddy
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: buildviz-data
+    - name: bootstrap
+      configMap:
+        name: buildviz-bootstrap
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: buildviz
+  namespace: default
+  annotations:
+    service.beta.kubernetes.io/coreweave-load-balancer-type: public
+    service.beta.kubernetes.io/external-hostname: buildviz
+spec:
+  type: LoadBalancer
+  selector:
+    app: buildviz-hub
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+    - name: https
+      port: 443
+      targetPort: 443

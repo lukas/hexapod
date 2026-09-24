@@ -1,0 +1,1375 @@
+{
+  "build": {
+    "id": "prototype_sts3215/premade-chorn-56",
+    "buildId": "prototype_sts3215/premade-chorn-56",
+    "version": "v37",
+    "name": "Premade C-horns — cap heat-sets, front self-tappers",
+    "units": "mm",
+    "path": "../home/.buildviz/cache/prototype_sts3215/premade-chorn-56/versions/v37"
+  },
+  "summary": "Found 0 unexpected colliding pair(s) (+ 18 intentional), 132 floating part(s).",
+  "passed": false,
+  "unexpectedCollisions": 18,
+  "declaredInterferences": 96,
+  "floatingCount": 132,
+  "fastenersIncluded": true,
+  "fastenersExcluded": 0,
+  "fasteningChecks": [
+    {
+      "id": "fastening-L0-knee-heatset-screw-0",
+      "kind": "thread_engagement",
+      "instances": [
+        "018-L0 knee cap OVH (NEW)",
+        "L0-knee-heatset-insert-0"
+      ],
+      "status": "pass",
+      "point": [
+        171.82261726969477,
+        97.46978352595542,
+        80.57262531099406
+      ],
+      "line": {
+        "from": [
+          171.82261726969477,
+          97.46978352595542,
+          80.57262531099406
+        ],
+        "to": [
+          174.75060247586012,
+          99.16025657291821,
+          73.32216301470086
+        ]
+      },
+      "label": "L0-knee-heatset-screw-0: 018-L0 knee cap OVH (NEW) → L0-knee-heatset-insert-0; 5.70 mm continuous engagement / 5.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L0-knee-heatset-screw-1",
+      "kind": "thread_engagement",
+      "instances": [
+        "018-L0 knee cap OVH (NEW)",
+        "L0-knee-heatset-insert-1"
+      ],
+      "status": "pass",
+      "point": [
+        214.5203921265387,
+        122.1213553333523,
+        103.5630587496881
+      ],
+      "line": {
+        "from": [
+          214.5203921265387,
+          122.1213553333523,
+          103.5630587496881
+        ],
+        "to": [
+          217.44837733270404,
+          123.81182838031509,
+          96.3125964533949
+        ]
+      },
+      "label": "L0-knee-heatset-screw-1: 018-L0 knee cap OVH (NEW) → L0-knee-heatset-insert-1; 5.70 mm continuous engagement / 5.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L0-hip-C-front-selftap-0",
+      "kind": "thread_engagement",
+      "instances": [
+        "015-L0 hip C-clamp (CNC 6061, NEW)",
+        "016-L0 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        170.3698420664274,
+        96.63102337127698,
+        66.66018750837675
+      ],
+      "line": {
+        "from": [
+          170.3698420664274,
+          96.63102337127698,
+          66.66018750837675
+        ],
+        "to": [
+          176.64892660419855,
+          100.25625451942358,
+          70.04113360230235
+        ]
+      },
+      "label": "L0-hip-C-front-selftap-0: 015-L0 hip C-clamp (CNC 6061, NEW) → 016-L0 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L0-hip-C-front-selftap-1",
+      "kind": "thread_engagement",
+      "instances": [
+        "015-L0 hip C-clamp (CNC 6061, NEW)",
+        "016-L0 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        176.43182912182203,
+        92.04800946087836,
+        60.316032999120196
+      ],
+      "line": {
+        "from": [
+          176.43182912182203,
+          92.04800946087836,
+          60.316032999120196
+        ],
+        "to": [
+          182.7109136595932,
+          95.67324060902496,
+          63.69697909304579
+        ]
+      },
+      "label": "L0-hip-C-front-selftap-1: 015-L0 hip C-clamp (CNC 6061, NEW) → 016-L0 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L0-hip-C-front-selftap-2",
+      "kind": "thread_engagement",
+      "instances": [
+        "015-L0 hip C-clamp (CNC 6061, NEW)",
+        "016-L0 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        175.49381617721673,
+        99.58935120346187,
+        53.97187848986365
+      ],
+      "line": {
+        "from": [
+          175.49381617721673,
+          99.58935120346187,
+          53.97187848986365
+        ],
+        "to": [
+          181.77290071498788,
+          103.21458235160847,
+          57.35282458378924
+        ]
+      },
+      "label": "L0-hip-C-front-selftap-2: 015-L0 hip C-clamp (CNC 6061, NEW) → 016-L0 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L0-hip-C-front-selftap-3",
+      "kind": "thread_engagement",
+      "instances": [
+        "015-L0 hip C-clamp (CNC 6061, NEW)",
+        "016-L0 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        169.43182912182203,
+        104.17236511386051,
+        60.316032999120196
+      ],
+      "line": {
+        "from": [
+          169.43182912182203,
+          104.17236511386051,
+          60.316032999120196
+        ],
+        "to": [
+          175.7109136595932,
+          107.7975962620071,
+          63.69697909304579
+        ]
+      },
+      "label": "L0-hip-C-front-selftap-3: 015-L0 hip C-clamp (CNC 6061, NEW) → 016-L0 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L0-hip-C-front-selftap-4",
+      "kind": "thread_engagement",
+      "instances": [
+        "015-L0 hip C-clamp (CNC 6061, NEW)",
+        "016-L0 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        163.68182912182206,
+        114.13165725738155,
+        60.316032999120196
+      ],
+      "line": {
+        "from": [
+          163.68182912182206,
+          114.13165725738155,
+          60.316032999120196
+        ],
+        "to": [
+          169.96091365959322,
+          117.75688840552814,
+          63.69697909304579
+        ]
+      },
+      "label": "L0-hip-C-front-selftap-4: 015-L0 hip C-clamp (CNC 6061, NEW) → 016-L0 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L0-hip-C-front-selftap-5",
+      "kind": "thread_engagement",
+      "instances": [
+        "015-L0 hip C-clamp (CNC 6061, NEW)",
+        "016-L0 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        182.18182912182203,
+        82.08871731735731,
+        60.316032999120196
+      ],
+      "line": {
+        "from": [
+          182.18182912182203,
+          82.08871731735731,
+          60.316032999120196
+        ],
+        "to": [
+          188.4609136595932,
+          85.7139484655039,
+          63.69697909304579
+        ]
+      },
+      "label": "L0-hip-C-front-selftap-5: 015-L0 hip C-clamp (CNC 6061, NEW) → 016-L0 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L1-knee-heatset-screw-0",
+      "kind": "thread_engagement",
+      "instances": [
+        "033-L1 knee cap OVH (NEW)",
+        "L1-knee-heatset-insert-0"
+      ],
+      "status": "pass",
+      "point": [
+        1.5000000000000107,
+        197.53764326326416,
+        80.57262531099406
+      ],
+      "line": {
+        "from": [
+          1.5000000000000107,
+          197.53764326326416,
+          80.57262531099406
+        ],
+        "to": [
+          1.5000000000000109,
+          200.91858935718975,
+          73.32216301470086
+        ]
+      },
+      "label": "L1-knee-heatset-screw-0: 033-L1 knee cap OVH (NEW) → L1-knee-heatset-insert-0; 5.70 mm continuous engagement / 5.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L1-knee-heatset-screw-1",
+      "kind": "thread_engagement",
+      "instances": [
+        "033-L1 knee cap OVH (NEW)",
+        "L1-knee-heatset-insert-1"
+      ],
+      "status": "pass",
+      "point": [
+        1.5000000000000142,
+        246.84078687805794,
+        103.5630587496881
+      ],
+      "line": {
+        "from": [
+          1.5000000000000142,
+          246.84078687805794,
+          103.5630587496881
+        ],
+        "to": [
+          1.5000000000000144,
+          250.22173297198353,
+          96.3125964533949
+        ]
+      },
+      "label": "L1-knee-heatset-screw-1: 033-L1 knee cap OVH (NEW) → L1-knee-heatset-insert-1; 5.70 mm continuous engagement / 5.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L1-hip-C-front-selftap-0",
+      "kind": "thread_engagement",
+      "instances": [
+        "030-L1 hip C-clamp (CNC 6061, NEW)",
+        "031-L1 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        1.5000000000000142,
+        195.8601229539073,
+        66.66018750837675
+      ],
+      "line": {
+        "from": [
+          1.5000000000000142,
+          195.8601229539073,
+          66.66018750837675
+        ],
+        "to": [
+          1.5000000000000147,
+          203.1105852502005,
+          70.04113360230235
+        ]
+      },
+      "label": "L1-hip-C-front-selftap-0: 030-L1 hip C-clamp (CNC 6061, NEW) → 031-L1 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L1-hip-C-front-selftap-1",
+      "kind": "thread_engagement",
+      "instances": [
+        "030-L1 hip C-clamp (CNC 6061, NEW)",
+        "031-L1 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        8.500000000000014,
+        198.8184507860922,
+        60.316032999120196
+      ],
+      "line": {
+        "from": [
+          8.500000000000014,
+          198.8184507860922,
+          60.316032999120196
+        ],
+        "to": [
+          8.500000000000014,
+          206.0689130823854,
+          63.69697909304579
+        ]
+      },
+      "label": "L1-hip-C-front-selftap-1: 030-L1 hip C-clamp (CNC 6061, NEW) → 031-L1 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L1-hip-C-front-selftap-2",
+      "kind": "thread_engagement",
+      "instances": [
+        "030-L1 hip C-clamp (CNC 6061, NEW)",
+        "031-L1 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        1.5000000000000142,
+        201.7767786182771,
+        53.97187848986365
+      ],
+      "line": {
+        "from": [
+          1.5000000000000142,
+          201.7767786182771,
+          53.97187848986365
+        ],
+        "to": [
+          1.5000000000000147,
+          209.02724091457029,
+          57.35282458378924
+        ]
+      },
+      "label": "L1-hip-C-front-selftap-2: 030-L1 hip C-clamp (CNC 6061, NEW) → 031-L1 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L1-hip-C-front-selftap-3",
+      "kind": "thread_engagement",
+      "instances": [
+        "030-L1 hip C-clamp (CNC 6061, NEW)",
+        "031-L1 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -5.499999999999986,
+        198.8184507860922,
+        60.316032999120196
+      ],
+      "line": {
+        "from": [
+          -5.499999999999986,
+          198.8184507860922,
+          60.316032999120196
+        ],
+        "to": [
+          -5.499999999999986,
+          206.0689130823854,
+          63.69697909304579
+        ]
+      },
+      "label": "L1-hip-C-front-selftap-3: 030-L1 hip C-clamp (CNC 6061, NEW) → 031-L1 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L1-hip-C-front-selftap-4",
+      "kind": "thread_engagement",
+      "instances": [
+        "030-L1 hip C-clamp (CNC 6061, NEW)",
+        "031-L1 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -16.999999999999986,
+        198.8184507860922,
+        60.316032999120196
+      ],
+      "line": {
+        "from": [
+          -16.999999999999986,
+          198.8184507860922,
+          60.316032999120196
+        ],
+        "to": [
+          -16.999999999999986,
+          206.0689130823854,
+          63.69697909304579
+        ]
+      },
+      "label": "L1-hip-C-front-selftap-4: 030-L1 hip C-clamp (CNC 6061, NEW) → 031-L1 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L1-hip-C-front-selftap-5",
+      "kind": "thread_engagement",
+      "instances": [
+        "030-L1 hip C-clamp (CNC 6061, NEW)",
+        "031-L1 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        20.00000000000001,
+        198.8184507860922,
+        60.316032999120196
+      ],
+      "line": {
+        "from": [
+          20.00000000000001,
+          198.8184507860922,
+          60.316032999120196
+        ],
+        "to": [
+          20.00000000000001,
+          206.0689130823854,
+          63.69697909304579
+        ]
+      },
+      "label": "L1-hip-C-front-selftap-5: 030-L1 hip C-clamp (CNC 6061, NEW) → 031-L1 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L2-knee-heatset-screw-0",
+      "kind": "thread_engagement",
+      "instances": [
+        "048-L2 knee cap OVH (NEW)",
+        "L2-knee-heatset-insert-0"
+      ],
+      "status": "pass",
+      "point": [
+        -170.32261726969477,
+        100.06785973730872,
+        80.57262531099406
+      ],
+      "line": {
+        "from": [
+          -170.32261726969477,
+          100.06785973730872,
+          80.57262531099406
+        ],
+        "to": [
+          -173.25060247586012,
+          101.75833278427152,
+          73.32216301470086
+        ]
+      },
+      "label": "L2-knee-heatset-screw-0: 048-L2 knee cap OVH (NEW) → L2-knee-heatset-insert-0; 5.70 mm continuous engagement / 5.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L2-knee-heatset-screw-1",
+      "kind": "thread_engagement",
+      "instances": [
+        "048-L2 knee cap OVH (NEW)",
+        "L2-knee-heatset-insert-1"
+      ],
+      "status": "pass",
+      "point": [
+        -213.0203921265387,
+        124.7194315447056,
+        103.5630587496881
+      ],
+      "line": {
+        "from": [
+          -213.0203921265387,
+          124.7194315447056,
+          103.5630587496881
+        ],
+        "to": [
+          -215.94837733270404,
+          126.4099045916684,
+          96.3125964533949
+        ]
+      },
+      "label": "L2-knee-heatset-screw-1: 048-L2 knee cap OVH (NEW) → L2-knee-heatset-insert-1; 5.70 mm continuous engagement / 5.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L2-hip-C-front-selftap-0",
+      "kind": "thread_engagement",
+      "instances": [
+        "045-L2 hip C-clamp (CNC 6061, NEW)",
+        "046-L2 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -168.8698420664274,
+        99.22909958263028,
+        66.66018750837675
+      ],
+      "line": {
+        "from": [
+          -168.8698420664274,
+          99.22909958263028,
+          66.66018750837675
+        ],
+        "to": [
+          -175.14892660419855,
+          102.85433073077688,
+          70.04113360230235
+        ]
+      },
+      "label": "L2-hip-C-front-selftap-0: 045-L2 hip C-clamp (CNC 6061, NEW) → 046-L2 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L2-hip-C-front-selftap-1",
+      "kind": "thread_engagement",
+      "instances": [
+        "045-L2 hip C-clamp (CNC 6061, NEW)",
+        "046-L2 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -167.93182912182206,
+        106.7704413252138,
+        60.316032999120196
+      ],
+      "line": {
+        "from": [
+          -167.93182912182206,
+          106.7704413252138,
+          60.316032999120196
+        ],
+        "to": [
+          -174.21091365959322,
+          110.39567247336039,
+          63.69697909304579
+        ]
+      },
+      "label": "L2-hip-C-front-selftap-1: 045-L2 hip C-clamp (CNC 6061, NEW) → 046-L2 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L2-hip-C-front-selftap-2",
+      "kind": "thread_engagement",
+      "instances": [
+        "045-L2 hip C-clamp (CNC 6061, NEW)",
+        "046-L2 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -173.99381617721673,
+        102.18742741481518,
+        53.97187848986365
+      ],
+      "line": {
+        "from": [
+          -173.99381617721673,
+          102.18742741481518,
+          53.97187848986365
+        ],
+        "to": [
+          -180.27290071498788,
+          105.81265856296177,
+          57.35282458378924
+        ]
+      },
+      "label": "L2-hip-C-front-selftap-2: 045-L2 hip C-clamp (CNC 6061, NEW) → 046-L2 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L2-hip-C-front-selftap-3",
+      "kind": "thread_engagement",
+      "instances": [
+        "045-L2 hip C-clamp (CNC 6061, NEW)",
+        "046-L2 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -174.93182912182206,
+        94.64608567223166,
+        60.316032999120196
+      ],
+      "line": {
+        "from": [
+          -174.93182912182206,
+          94.64608567223166,
+          60.316032999120196
+        ],
+        "to": [
+          -181.21091365959322,
+          98.27131682037826,
+          63.69697909304579
+        ]
+      },
+      "label": "L2-hip-C-front-selftap-3: 045-L2 hip C-clamp (CNC 6061, NEW) → 046-L2 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L2-hip-C-front-selftap-4",
+      "kind": "thread_engagement",
+      "instances": [
+        "045-L2 hip C-clamp (CNC 6061, NEW)",
+        "046-L2 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -180.68182912182206,
+        84.68679352871062,
+        60.316032999120196
+      ],
+      "line": {
+        "from": [
+          -180.68182912182206,
+          84.68679352871062,
+          60.316032999120196
+        ],
+        "to": [
+          -186.96091365959322,
+          88.31202467685722,
+          63.69697909304579
+        ]
+      },
+      "label": "L2-hip-C-front-selftap-4: 045-L2 hip C-clamp (CNC 6061, NEW) → 046-L2 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L2-hip-C-front-selftap-5",
+      "kind": "thread_engagement",
+      "instances": [
+        "045-L2 hip C-clamp (CNC 6061, NEW)",
+        "046-L2 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -162.18182912182206,
+        116.72973346873485,
+        60.316032999120196
+      ],
+      "line": {
+        "from": [
+          -162.18182912182206,
+          116.72973346873485,
+          60.316032999120196
+        ],
+        "to": [
+          -168.46091365959322,
+          120.35496461688145,
+          63.69697909304579
+        ]
+      },
+      "label": "L2-hip-C-front-selftap-5: 045-L2 hip C-clamp (CNC 6061, NEW) → 046-L2 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L3-knee-heatset-screw-0",
+      "kind": "thread_engagement",
+      "instances": [
+        "063-L3 knee cap OVH (NEW)",
+        "L3-knee-heatset-insert-0"
+      ],
+      "status": "pass",
+      "point": [
+        -171.82261726969477,
+        -97.46978352595536,
+        80.57262531099406
+      ],
+      "line": {
+        "from": [
+          -171.82261726969477,
+          -97.46978352595536,
+          80.57262531099406
+        ],
+        "to": [
+          -174.75060247586012,
+          -99.16025657291816,
+          73.32216301470086
+        ]
+      },
+      "label": "L3-knee-heatset-screw-0: 063-L3 knee cap OVH (NEW) → L3-knee-heatset-insert-0; 5.70 mm continuous engagement / 5.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L3-knee-heatset-screw-1",
+      "kind": "thread_engagement",
+      "instances": [
+        "063-L3 knee cap OVH (NEW)",
+        "L3-knee-heatset-insert-1"
+      ],
+      "status": "pass",
+      "point": [
+        -214.5203921265387,
+        -122.12135533335224,
+        103.5630587496881
+      ],
+      "line": {
+        "from": [
+          -214.5203921265387,
+          -122.12135533335224,
+          103.5630587496881
+        ],
+        "to": [
+          -217.44837733270404,
+          -123.81182838031503,
+          96.3125964533949
+        ]
+      },
+      "label": "L3-knee-heatset-screw-1: 063-L3 knee cap OVH (NEW) → L3-knee-heatset-insert-1; 5.70 mm continuous engagement / 5.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L3-hip-C-front-selftap-0",
+      "kind": "thread_engagement",
+      "instances": [
+        "060-L3 hip C-clamp (CNC 6061, NEW)",
+        "061-L3 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -170.3698420664274,
+        -96.63102337127694,
+        66.66018750837675
+      ],
+      "line": {
+        "from": [
+          -170.3698420664274,
+          -96.63102337127694,
+          66.66018750837675
+        ],
+        "to": [
+          -176.64892660419855,
+          -100.25625451942354,
+          70.04113360230235
+        ]
+      },
+      "label": "L3-hip-C-front-selftap-0: 060-L3 hip C-clamp (CNC 6061, NEW) → 061-L3 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L3-hip-C-front-selftap-1",
+      "kind": "thread_engagement",
+      "instances": [
+        "060-L3 hip C-clamp (CNC 6061, NEW)",
+        "061-L3 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -176.43182912182206,
+        -92.04800946087832,
+        60.316032999120196
+      ],
+      "line": {
+        "from": [
+          -176.43182912182206,
+          -92.04800946087832,
+          60.316032999120196
+        ],
+        "to": [
+          -182.71091365959322,
+          -95.67324060902492,
+          63.69697909304579
+        ]
+      },
+      "label": "L3-hip-C-front-selftap-1: 060-L3 hip C-clamp (CNC 6061, NEW) → 061-L3 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L3-hip-C-front-selftap-2",
+      "kind": "thread_engagement",
+      "instances": [
+        "060-L3 hip C-clamp (CNC 6061, NEW)",
+        "061-L3 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -175.49381617721673,
+        -99.58935120346183,
+        53.97187848986365
+      ],
+      "line": {
+        "from": [
+          -175.49381617721673,
+          -99.58935120346183,
+          53.97187848986365
+        ],
+        "to": [
+          -181.77290071498788,
+          -103.21458235160843,
+          57.35282458378924
+        ]
+      },
+      "label": "L3-hip-C-front-selftap-2: 060-L3 hip C-clamp (CNC 6061, NEW) → 061-L3 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L3-hip-C-front-selftap-3",
+      "kind": "thread_engagement",
+      "instances": [
+        "060-L3 hip C-clamp (CNC 6061, NEW)",
+        "061-L3 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -169.43182912182206,
+        -104.17236511386047,
+        60.316032999120196
+      ],
+      "line": {
+        "from": [
+          -169.43182912182206,
+          -104.17236511386047,
+          60.316032999120196
+        ],
+        "to": [
+          -175.71091365959322,
+          -107.79759626200706,
+          63.69697909304579
+        ]
+      },
+      "label": "L3-hip-C-front-selftap-3: 060-L3 hip C-clamp (CNC 6061, NEW) → 061-L3 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L3-hip-C-front-selftap-4",
+      "kind": "thread_engagement",
+      "instances": [
+        "060-L3 hip C-clamp (CNC 6061, NEW)",
+        "061-L3 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -163.68182912182206,
+        -114.1316572573815,
+        60.316032999120196
+      ],
+      "line": {
+        "from": [
+          -163.68182912182206,
+          -114.1316572573815,
+          60.316032999120196
+        ],
+        "to": [
+          -169.96091365959322,
+          -117.7568884055281,
+          63.69697909304579
+        ]
+      },
+      "label": "L3-hip-C-front-selftap-4: 060-L3 hip C-clamp (CNC 6061, NEW) → 061-L3 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L3-hip-C-front-selftap-5",
+      "kind": "thread_engagement",
+      "instances": [
+        "060-L3 hip C-clamp (CNC 6061, NEW)",
+        "061-L3 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -182.18182912182203,
+        -82.08871731735726,
+        60.316032999120196
+      ],
+      "line": {
+        "from": [
+          -182.18182912182203,
+          -82.08871731735726,
+          60.316032999120196
+        ],
+        "to": [
+          -188.4609136595932,
+          -85.71394846550386,
+          63.69697909304579
+        ]
+      },
+      "label": "L3-hip-C-front-selftap-5: 060-L3 hip C-clamp (CNC 6061, NEW) → 061-L3 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L4-knee-heatset-screw-0",
+      "kind": "thread_engagement",
+      "instances": [
+        "078-L4 knee cap OVH (NEW)",
+        "L4-knee-heatset-insert-0"
+      ],
+      "status": "pass",
+      "point": [
+        -1.5000000000000355,
+        -197.53764326326416,
+        80.57262531099406
+      ],
+      "line": {
+        "from": [
+          -1.5000000000000355,
+          -197.53764326326416,
+          80.57262531099406
+        ],
+        "to": [
+          -1.5000000000000362,
+          -200.91858935718975,
+          73.32216301470086
+        ]
+      },
+      "label": "L4-knee-heatset-screw-0: 078-L4 knee cap OVH (NEW) → L4-knee-heatset-insert-0; 5.70 mm continuous engagement / 5.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L4-knee-heatset-screw-1",
+      "kind": "thread_engagement",
+      "instances": [
+        "078-L4 knee cap OVH (NEW)",
+        "L4-knee-heatset-insert-1"
+      ],
+      "status": "pass",
+      "point": [
+        -1.5000000000000462,
+        -246.8407868780579,
+        103.5630587496881
+      ],
+      "line": {
+        "from": [
+          -1.5000000000000462,
+          -246.8407868780579,
+          103.5630587496881
+        ],
+        "to": [
+          -1.5000000000000469,
+          -250.2217329719835,
+          96.3125964533949
+        ]
+      },
+      "label": "L4-knee-heatset-screw-1: 078-L4 knee cap OVH (NEW) → L4-knee-heatset-insert-1; 5.70 mm continuous engagement / 5.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L4-hip-C-front-selftap-0",
+      "kind": "thread_engagement",
+      "instances": [
+        "075-L4 hip C-clamp (CNC 6061, NEW)",
+        "076-L4 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -1.5000000000000373,
+        -195.8601229539073,
+        66.66018750837675
+      ],
+      "line": {
+        "from": [
+          -1.5000000000000373,
+          -195.8601229539073,
+          66.66018750837675
+        ],
+        "to": [
+          -1.5000000000000386,
+          -203.1105852502005,
+          70.04113360230235
+        ]
+      },
+      "label": "L4-hip-C-front-selftap-0: 075-L4 hip C-clamp (CNC 6061, NEW) → 076-L4 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L4-hip-C-front-selftap-1",
+      "kind": "thread_engagement",
+      "instances": [
+        "075-L4 hip C-clamp (CNC 6061, NEW)",
+        "076-L4 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -8.500000000000037,
+        -198.81845078609217,
+        60.316032999120196
+      ],
+      "line": {
+        "from": [
+          -8.500000000000037,
+          -198.81845078609217,
+          60.316032999120196
+        ],
+        "to": [
+          -8.500000000000039,
+          -206.06891308238536,
+          63.69697909304579
+        ]
+      },
+      "label": "L4-hip-C-front-selftap-1: 075-L4 hip C-clamp (CNC 6061, NEW) → 076-L4 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L4-hip-C-front-selftap-2",
+      "kind": "thread_engagement",
+      "instances": [
+        "075-L4 hip C-clamp (CNC 6061, NEW)",
+        "076-L4 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -1.5000000000000373,
+        -201.7767786182771,
+        53.97187848986365
+      ],
+      "line": {
+        "from": [
+          -1.5000000000000373,
+          -201.7767786182771,
+          53.97187848986365
+        ],
+        "to": [
+          -1.5000000000000386,
+          -209.02724091457029,
+          57.35282458378924
+        ]
+      },
+      "label": "L4-hip-C-front-selftap-2: 075-L4 hip C-clamp (CNC 6061, NEW) → 076-L4 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L4-hip-C-front-selftap-3",
+      "kind": "thread_engagement",
+      "instances": [
+        "075-L4 hip C-clamp (CNC 6061, NEW)",
+        "076-L4 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        5.499999999999963,
+        -198.8184507860922,
+        60.316032999120196
+      ],
+      "line": {
+        "from": [
+          5.499999999999963,
+          -198.8184507860922,
+          60.316032999120196
+        ],
+        "to": [
+          5.499999999999962,
+          -206.0689130823854,
+          63.69697909304579
+        ]
+      },
+      "label": "L4-hip-C-front-selftap-3: 075-L4 hip C-clamp (CNC 6061, NEW) → 076-L4 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L4-hip-C-front-selftap-4",
+      "kind": "thread_engagement",
+      "instances": [
+        "075-L4 hip C-clamp (CNC 6061, NEW)",
+        "076-L4 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        16.999999999999964,
+        -198.8184507860922,
+        60.316032999120196
+      ],
+      "line": {
+        "from": [
+          16.999999999999964,
+          -198.8184507860922,
+          60.316032999120196
+        ],
+        "to": [
+          16.999999999999964,
+          -206.0689130823854,
+          63.69697909304579
+        ]
+      },
+      "label": "L4-hip-C-front-selftap-4: 075-L4 hip C-clamp (CNC 6061, NEW) → 076-L4 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L4-hip-C-front-selftap-5",
+      "kind": "thread_engagement",
+      "instances": [
+        "075-L4 hip C-clamp (CNC 6061, NEW)",
+        "076-L4 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -20.000000000000036,
+        -198.81845078609217,
+        60.316032999120196
+      ],
+      "line": {
+        "from": [
+          -20.000000000000036,
+          -198.81845078609217,
+          60.316032999120196
+        ],
+        "to": [
+          -20.000000000000036,
+          -206.06891308238536,
+          63.69697909304579
+        ]
+      },
+      "label": "L4-hip-C-front-selftap-5: 075-L4 hip C-clamp (CNC 6061, NEW) → 076-L4 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L5-knee-heatset-screw-0",
+      "kind": "thread_engagement",
+      "instances": [
+        "093-L5 knee cap OVH (NEW)",
+        "L5-knee-heatset-insert-0"
+      ],
+      "status": "pass",
+      "point": [
+        170.32261726969466,
+        -100.06785973730885,
+        80.57262531099406
+      ],
+      "line": {
+        "from": [
+          170.32261726969466,
+          -100.06785973730885,
+          80.57262531099406
+        ],
+        "to": [
+          173.25060247586,
+          -101.75833278427164,
+          73.32216301470086
+        ]
+      },
+      "label": "L5-knee-heatset-screw-0: 093-L5 knee cap OVH (NEW) → L5-knee-heatset-insert-0; 5.70 mm continuous engagement / 5.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L5-knee-heatset-screw-1",
+      "kind": "thread_engagement",
+      "instances": [
+        "093-L5 knee cap OVH (NEW)",
+        "L5-knee-heatset-insert-1"
+      ],
+      "status": "pass",
+      "point": [
+        213.02039212653858,
+        -124.71943154470574,
+        103.5630587496881
+      ],
+      "line": {
+        "from": [
+          213.02039212653858,
+          -124.71943154470574,
+          103.5630587496881
+        ],
+        "to": [
+          215.94837733270393,
+          -126.40990459166854,
+          96.3125964533949
+        ]
+      },
+      "label": "L5-knee-heatset-screw-1: 093-L5 knee cap OVH (NEW) → L5-knee-heatset-insert-1; 5.70 mm continuous engagement / 5.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L5-hip-C-front-selftap-0",
+      "kind": "thread_engagement",
+      "instances": [
+        "090-L5 hip C-clamp (CNC 6061, NEW)",
+        "091-L5 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        168.8698420664273,
+        -99.22909958263038,
+        66.66018750837675
+      ],
+      "line": {
+        "from": [
+          168.8698420664273,
+          -99.22909958263038,
+          66.66018750837675
+        ],
+        "to": [
+          175.14892660419846,
+          -102.85433073077698,
+          70.04113360230235
+        ]
+      },
+      "label": "L5-hip-C-front-selftap-0: 090-L5 hip C-clamp (CNC 6061, NEW) → 091-L5 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L5-hip-C-front-selftap-1",
+      "kind": "thread_engagement",
+      "instances": [
+        "090-L5 hip C-clamp (CNC 6061, NEW)",
+        "091-L5 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        167.93182912182198,
+        -106.77044132521391,
+        60.316032999120196
+      ],
+      "line": {
+        "from": [
+          167.93182912182198,
+          -106.77044132521391,
+          60.316032999120196
+        ],
+        "to": [
+          174.21091365959313,
+          -110.3956724733605,
+          63.69697909304579
+        ]
+      },
+      "label": "L5-hip-C-front-selftap-1: 090-L5 hip C-clamp (CNC 6061, NEW) → 091-L5 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L5-hip-C-front-selftap-2",
+      "kind": "thread_engagement",
+      "instances": [
+        "090-L5 hip C-clamp (CNC 6061, NEW)",
+        "091-L5 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        173.99381617721664,
+        -102.18742741481529,
+        53.97187848986365
+      ],
+      "line": {
+        "from": [
+          173.99381617721664,
+          -102.18742741481529,
+          53.97187848986365
+        ],
+        "to": [
+          180.2729007149878,
+          -105.81265856296189,
+          57.35282458378924
+        ]
+      },
+      "label": "L5-hip-C-front-selftap-2: 090-L5 hip C-clamp (CNC 6061, NEW) → 091-L5 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L5-hip-C-front-selftap-3",
+      "kind": "thread_engagement",
+      "instances": [
+        "090-L5 hip C-clamp (CNC 6061, NEW)",
+        "091-L5 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        174.93182912182198,
+        -94.64608567223178,
+        60.316032999120196
+      ],
+      "line": {
+        "from": [
+          174.93182912182198,
+          -94.64608567223178,
+          60.316032999120196
+        ],
+        "to": [
+          181.21091365959313,
+          -98.27131682037837,
+          63.69697909304579
+        ]
+      },
+      "label": "L5-hip-C-front-selftap-3: 090-L5 hip C-clamp (CNC 6061, NEW) → 091-L5 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L5-hip-C-front-selftap-4",
+      "kind": "thread_engagement",
+      "instances": [
+        "090-L5 hip C-clamp (CNC 6061, NEW)",
+        "091-L5 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        180.68182912182198,
+        -84.68679352871072,
+        60.316032999120196
+      ],
+      "line": {
+        "from": [
+          180.68182912182198,
+          -84.68679352871072,
+          60.316032999120196
+        ],
+        "to": [
+          186.96091365959313,
+          -88.31202467685732,
+          63.69697909304579
+        ]
+      },
+      "label": "L5-hip-C-front-selftap-4: 090-L5 hip C-clamp (CNC 6061, NEW) → 091-L5 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L5-hip-C-front-selftap-5",
+      "kind": "thread_engagement",
+      "instances": [
+        "090-L5 hip C-clamp (CNC 6061, NEW)",
+        "091-L5 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        162.18182912182198,
+        -116.72973346873495,
+        60.316032999120196
+      ],
+      "line": {
+        "from": [
+          162.18182912182198,
+          -116.72973346873495,
+          60.316032999120196
+        ],
+        "to": [
+          168.46091365959313,
+          -120.35496461688155,
+          63.69697909304579
+        ]
+      },
+      "label": "L5-hip-C-front-selftap-5: 090-L5 hip C-clamp (CNC 6061, NEW) → 091-L5 femur body OVH (NEW); 4.90 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    }
+  ],
+  "printability": [
+    {
+      "meshId": "stl:femur_ovh_body",
+      "meshName": "femur_ovh_body.stl",
+      "instanceIds": [
+        "016-L0 femur body OVH (NEW)",
+        "031-L1 femur body OVH (NEW)",
+        "046-L2 femur body OVH (NEW)",
+        "061-L3 femur body OVH (NEW)",
+        "076-L4 femur body OVH (NEW)",
+        "091-L5 femur body OVH (NEW)"
+      ],
+      "triangleCount": 9272,
+      "openEdges": 0,
+      "nonManifoldEdges": 0,
+      "inconsistentWinding": false,
+      "degenerateTriangles": 0,
+      "selfIntersections": 0,
+      "selfIntersectionPoint": null,
+      "componentCount": 1,
+      "smallestComponent": null,
+      "volumeMm3": 40235.666,
+      "minWallMm": 0.294,
+      "thinPoint": [
+        191.90683007182946,
+        86.33705506490901,
+        79.35921337000778
+      ]
+    },
+    {
+      "meshId": "stl:knee_clamp_cap_ovh",
+      "meshName": "knee_clamp_cap_ovh.stl",
+      "instanceIds": [
+        "018-L0 knee cap OVH (NEW)",
+        "033-L1 knee cap OVH (NEW)",
+        "048-L2 knee cap OVH (NEW)",
+        "063-L3 knee cap OVH (NEW)",
+        "078-L4 knee cap OVH (NEW)",
+        "093-L5 knee cap OVH (NEW)"
+      ],
+      "triangleCount": 910,
+      "openEdges": 0,
+      "nonManifoldEdges": 0,
+      "inconsistentWinding": false,
+      "degenerateTriangles": 0,
+      "selfIntersections": 0,
+      "selfIntersectionPoint": null,
+      "componentCount": 1,
+      "smallestComponent": null,
+      "volumeMm3": 20479.036,
+      "minWallMm": 1.582,
+      "thinPoint": [
+        168.5162017664962,
+        96.16111986396874,
+        81.13901686693835
+      ]
+    }
+  ],
+  "warnings": [],
+  "errors": []
+}

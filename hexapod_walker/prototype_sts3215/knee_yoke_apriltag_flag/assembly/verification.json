@@ -1,0 +1,7 @@
+{
+  "tagCount": 37,
+  "uniqueIds": 37,
+  "jointHierarchyPass": true,
+  "staticRigidOverlapsExcludingScrewsAndMountParent": [],
+  "limitations": "Not a cable-clearance or full articulated collision certification."
+}

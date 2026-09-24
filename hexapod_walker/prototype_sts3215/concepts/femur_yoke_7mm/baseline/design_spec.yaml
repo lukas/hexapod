@@ -1,0 +1,342 @@
+build:
+  id: prototype_sts3215/horn-compression-limiters
+  name: STS3215 horn compression-limiter experiment
+  status: side-screw experiment
+parts:
+  femur_link_compression_limiter_test:
+    description: "extended femur yoke \u2014 connecting wall 2mm farther out"
+    manufacturing: fdm
+    output_stl: stl/femur_yoke_2mm_outward.stl
+  tibia_knee_yoke_compression_limiter_test:
+    description: "Tibia yoke \u2014 closed-back carbon tube socket"
+    manufacturing: fdm
+    arm_thickness_mm: 7
+    output_stl: stl/tibia_yoke_tube_stop.stl
+  compression_limiter_fit_coupon:
+    description: "horizontal fit coupon: \xD84.65 to \xD84.85; selected \xD84.70"
+  metal_compression_limiter:
+    description: knee-passive metal limiter 4
+  coxa_hub_screw:
+    description: "Yaw hub \u2014 M3x12 without washers, 5.8 mm head recesses"
+    manufacturing: fdm
+    output_stl: stl/yaw_hub_direct_head_seats.stl
+  coxa_leg_screw:
+    description: "Part B \u2014 hip bracket with flat print face"
+  m3_self_tapper:
+    description: Four self-tapping screws entering upward through the yaw hub into
+      Part B; 10 mm measured under the head
+    label: "3 \xD7 10 mm self-tapping screw"
+    manufacturing: purchased
+    nominal_diameter_mm: 3
+    under_head_length_mm: 10
+  yaw_compression_spacer:
+    description: 'Yaw compression spacer 4: 4.5 OD x 10 mm'
+  servo_clamp_cap:
+    description: "Coxa top \u2014 hip servo clamp cap"
+  heat_set_insert:
+    description: M3 heat-set insert, 5 mm long
+    printable: false
+  m3_top_screw:
+    description: M3x8 socket-head screw through lid
+    printable: false
+  insert_reference:
+    description: Separate insert reference, not extra assembly hardware
+    printable: false
+side_cap:
+  lidTranslationMm:
+  - 0
+  - 0
+  - 0
+  tabSocketSideClearanceMm: 0.15
+  sites:
+  - side: -1
+    screw: M3x8 SHCS
+    nut: M3 AF5.5 x 2.4
+    headSeatXmm: -31.700000000000003
+    tipXmm: -23.700000000000003
+    nutSweepOverlapMm3: 0.0
+    bearingFacesVerified: true
+  - side: 1
+    screw: M3x8 SHCS
+    nut: M3 AF5.5 x 2.4
+    headSeatXmm: 32.2
+    tipXmm: 24.200000000000003
+    nutSweepOverlapMm3: 0.0
+    bearingFacesVerified: true
+  capCradleOverlapMm3: 0
+  openNutPockets: true
+  driverAccess: true
+  servoContactGeometryPreserved: true
+  pass: true
+assembly:
+- Print the socket and lid coupons first.
+- Slide M3 nuts into open tab-tip pockets.
+- Press the lid fully onto its original seat and start two M3x8 side screws.
+- Side screws retain the seated lid; they do not draw it down.
+print: Use printMeshId downloads; cap flange-down makes nut pockets open upward.
+coxa_horn_service:
+  pass: true
+  hornSlotWidthMm: 24.0
+  hornExtractionObstructionBeforeMm3: 0.0
+  hornExtractionObstructionAfterMm3: 0.0
+  removedBridgeMm3: 0.0
+  spacerODmm: 4.5
+  spacerIDmm: 3.2
+  spacerLengthMm: 10.0
+  printedBoreMm: 4.7
+  washerSeatsAndFiveDriverPaths: verified in both halves
+  assembly: Remove lid and moving yoke attachment before sliding servo with fitted
+    horn out of the holder.
+femur_top_inserts:
+  pass: true
+  insertLengthMm: 5
+  insertPilotDiameterMm: 4
+  insertPocketDepthMm: 6.5
+  screws: 2 M3x8 SHCS through top
+  lidSeating: original position
+  pocketWallsAndFloors: verified
+  note: 'Insert reference envelopes overlap pilot plastic intentionally: installation
+    displaces plastic.'
+thicker_knee_yoke:
+  pass: true
+  sourceVersion: v16
+  armThicknessBeforeMm: 4
+  armThicknessAfterMm: 7
+  addedVolumeMm3: 5584.86
+  spacer: 4.5 OD x 10 mm
+  spacerBoreMm: 4.7
+  washerRecessDiameterMm: 7.3
+  outerGrowthPerSideVsV17Mm: 1.9
+  checks:
+  - single watertight solid
+  - all original geometry retained
+  - servo gap unchanged
+  - outward growth limited to 3 mm per arm from v16
+  - washer access clear
+  - spacer paths clear
+  - central screw seats unchanged
+  - print transform and 3MF round trip
+yaw_direct_head_seats:
+  pass: true
+  sourceVersion: v18
+  headRecessDiameterMm: 5.8
+  nominalSocketHeadDiameterMm: 5.5
+  headGuideDepthMm: 3.5
+  spacerLengthMm: 10
+  screw: M3x12 socket head
+  yawPerimeterWashers: false
+  nominalThreadProtrusionMm: 2
+  checks:
+  - single watertight solid
+  - original material retained
+  - outer envelope unchanged
+  - spacer paths clear
+  - head and driver paths clear
+  - direct head seats supported
+  - central access unchanged
+  - 3MF round trip
+tibia_tag_clearance:
+  pass: true
+  sourceVersion: v19
+  armThicknessMm: 7
+  tagSideRecessDiameterMm: 8.8
+  snapCupOuterDiameterMm: 8.2
+  radialClearanceMm: 0.3
+  beforeHolderOverlapMm3: 48.195
+  afterHolderOverlapMm3: 0.0
+  checks:
+  - watertight single solid
+  - outer dimensions unchanged
+  - washer seats preserved
+  - installed tag clear
+  - 21-position straight insertion clear
+  - 3MF round trip
+knee_cap_clearance:
+  pass: true
+  sourceVersion: v20
+  outwardExtensionMm: 2.0
+  armThicknessMm: 7
+  spineAndSocketTranslationMm:
+  - 2
+  - 0
+  - 0
+  hornAndSpacerInterfaces: unchanged
+  tagCupRecesses: unchanged 8.8mm
+  checks:
+  - closed single solid and exported STL
+  - unchanged horn-side geometry
+  - connecting wall and socket translated exactly 2mm
+  - 3MF round trip
+  capSweep:
+  - angleDeg: -25
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: -20
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: -15
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: -10
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: -5
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 0
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 5
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 10
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 15
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 20
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 25
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 30
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 35
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 40
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 45
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 50
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 55
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 60
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 65
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 70
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 75
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 80
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 85
+    beforeMm3: 0.0
+    afterMm3: 0.0
+femur_cap_clearance:
+  pass: true
+  sourceVersion: v21
+  outwardExtensionMm: 2.0
+  armThicknessMm: 4
+  spineAndKneeHolderTranslationMm:
+  - 2
+  - 0
+  - 0
+  hornAndSpacerInterfaces: unchanged
+  checks:
+  - closed single solid and exported STL
+  - unchanged horn-side geometry
+  - connecting wall and knee holder translated exactly 2mm
+  - 3MF round trip
+  - shifted knee cap clear
+  capSweep:
+  - angleDeg: -25
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: -20
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: -15
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: -10
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: -5
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 0
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 5
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 10
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 15
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 20
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 25
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 30
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 35
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 40
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 45
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 50
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 55
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 60
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 65
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 70
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 75
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 80
+    beforeMm3: 0.0
+    afterMm3: 0.0
+  - angleDeg: 85
+    beforeMm3: 0.0
+    afterMm3: 0.0
+tibia_socket_stop:
+  pass: true
+  sourceVersion: v24
+  stopThicknessMm: 2
+  stopXRangeMm:
+  - 44.0
+  - 46.0
+  tubeODmm: 8
+  remainingInsertionDepthMm: 18.0
+  checks:
+  - closed single solid and exported STL
+  - all original geometry retained
+  - outer dimensions unchanged
+  - socket entry clear
+  - tube blocked by full wall
+  - new material confined to socket bore
+  - 3MF round trip

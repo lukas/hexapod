@@ -1,0 +1,484 @@
+concept: premade_chorn_56
+base: cnc_chorn_overhead
+build_id: prototype_sts3215/premade-chorn-56
+status: experimental_non_production
+inventory:
+  premade_brackets_owned: 16
+  premade_brackets_installed: 12
+  premade_brackets_spare: 4
+purchased_bracket:
+  outside_span_mm: 56.0
+  plate_thickness_mm: 2.1
+  inside_span_mm: 51.8
+  axis_to_front_outer_mm: 51.0
+  center_hole_mm: 8.0
+  blade_front_width_mm: 25.0
+  blade_front_width_status: assumed_from_matching_commodity_long_u
+  side_pattern: 4x_M3_clearance_on_14mm_PCD_plus_8mm_center
+  front_pattern: 4x_M3_clearance_on_14mm_PCD_plus_8mm_center_plus_2x_M3
+  front_extra_pair_measurement:
+    inner_edge_gap_mm: 34.0
+    outer_edge_span_mm: 40.0
+    inferred_physical_hole_diameter_mm: 3.0
+    inferred_center_to_center_mm: 37.0
+    center_inset_from_56mm_outside_edge_mm: 9.5
+  printed_m3_clearance_diameter_mm: 3.4
+spacers_per_joint:
+  thickness_mm: 7.0
+  outside_diameter_mm: 21.0
+  m3_pattern: 4x_3.4mm_on_14mm_PCD
+  driven:
+    center_treatment: blind_head_relief_with_tool_access
+    head_relief_mm:
+      diameter: 8.8
+      depth: 2.8
+    tool_access_diameter_mm: 4.2
+  passive:
+    center_treatment: complete_through_hole
+    center_diameter_mm: 8.6
+  final_material: 6061_aluminum_or_other_non_creeping_rigid_material
+  printed_use: fit_prototype_only
+stack_fit:
+  horn_face_span_mm: 38.04
+  assembled_inside_span_mm: 52.04
+  nominal_bracket_inside_span_mm: 51.8
+  nominal_total_bracket_spread_mm: 0.24
+  nominal_spread_per_arm_mm: 0.12
+  bench_target_total_spread_mm:
+  - 0.0
+  - 0.25
+  note: dimensions are approximate; edit hardware_config.toml after calipers
+front_receiver:
+  tibia_thickness_mm: 8.0
+  tibia_attachment: 6x M3 through the metal web into captive M3 nylocs
+  femur_thickness_mm: 9.6
+  femur_attachment: 6x 3x8 self-tapping screws through metal web into Ø2.5x7mm plastic
+    pilots
+  femur_servo_side_skin_mm: 2.6
+  femur_servo_overlap_mm3: 0.0
+  central_8mm_hole_role: clearance_only
+  anti_twist: measured outer pair gives a 37 mm top-bottom bolt couple
+  tibia_tube_stop_mm: 0.3
+  femur_pilot_depth_mm: 7.0
+hardware_guidance:
+  disc_screw_candidate: M3x12 with measured washer stack
+  required_thread_engagement_mm:
+  - 1.5
+  - 2.0
+  warning: dry-measure screw projection; do not bottom against the servo case
+  front_receiver_screws: 'Femur: six 3x8 self-tappers, 2.1mm metal web, 5.9mm plastic
+    entry / 4.9mm excluding point; no inserts. Tibia attachment remains unchanged
+    M3/nyloc and needs measured stack.'
+workspace:
+  knee_checked_deg:
+  - -30.0
+  - 20.0
+  hip_safe_up_deg: -110.0
+  outboard_hip_extension_mm: 42.0
+  hip_to_knee_length_mm: 96.0
+  validation_scope: Exact new cap/box and hardware sampled through hip -110..30 and
+    knee -30..20; do not reuse source-version first-contact estimates. Kinematic pivot
+    and all downstream placements move 6mm outward.
+tibia:
+  tube_stop_outboard_vs_cnc_overhead_mm: 5.2
+  socket_mouth_outboard_vs_cnc_overhead_mm: 21.2
+  tube_engagement_depth_mm: 30.0
+  previous_tube_engagement_depth_mm: 14.0
+  unsupported_tube_span_reduction_mm: 16.0
+  tube_shorter_vs_production_mm: 21.8
+  foot_frame: unchanged
+  tube_cut_length_note: the longer socket grows along the existing tube; it reduces
+    unsupported span without requiring another 16 mm tube-length cut
+  front_screw_access:
+    accessible_sites: 6
+    central_pattern: 4 rounded radial U-windows into the captive nyloc pockets
+    measured_outer_pair: naturally outside the tube ring
+    window_width_mm: 6.8
+    complete_ring_retained_at_tube_mouth_mm: 21.5
+    assembly_order: install all six bracket screws and nylocs before inserting the
+      carbon tube
+inherited:
+  rigid_top_bottom_6805_bearings: true
+  chassis_bottom_rigid: unchanged
+  chassis_top_rigid: unchanged
+  top_hatch_rigid: unchanged
+  outboard_coxa_and_top_bearing_cap: derived_from_cnc_chorn_overhead_then_split
+servo_serviceability:
+  applies_to:
+  - hip_motor_holder
+  - knee_motor_holder
+  change: remove the former rounded top bridge by continuing the horn bore straight
+    through the open +Y clamp face
+  horn_opening_and_slot_width_mm: 24.0
+  removal_sequence: remove the two clamp-cap bolts, then slide the servo, fitted disc
+    horn, and clamp cap out together through the open face
+  retained_front_case_screw_sites: 3
+  removed_front_case_screw_site: one site swept by the service slot
+  validation: fitted 20 mm horn swept through both final derived holders with 1.5
+    mm radial running clearance
+coxa_support_tower:
+  description: rear circular segment fused into the coxa and extruded straight up;
+    its outer contour matches the lower yaw-hub contour
+  quantity_per_robot: 6
+  coordinate_frame: coxa_local
+  outer_envelope_radius_mm: 19.0
+  front_chord_x_mm: -10.5
+  z_range_mm:
+  - 4.0
+  - 46.25
+  carrier_flange_z_range_mm:
+  - 46.3
+  - 50.4
+  integration: boolean-fused into the coxa link and tied to its outboard holder by
+    a solid positive-Y tab block plus two negative-Y contour arms; no separate tower
+    print
+  upper_attachment: 2x top-entry M3x8 SHCS at X -14 mm and Y +/-6 mm through the screw-on
+    bearing-carrier flange into captive M3 nuts in top-open hex pockets in the coxa
+    tower
+  assembly: rotate assembly for direct top-screw access
+  driver_access: existing under-plate hip-cap path is outside the R19 tower; rear
+    yaw-horn shaft has a 2 mm extra radial-clearance scallop
+  chassis_clearance: checked against lower chassis, upper chassis, and hatch at all
+    six yaw stations
+  tower_nut_pocket_mm: 5.8 across flats x 2.7 deep
+  tower_nut_loading: drop nuts into the tower top before seating the carrier; the
+    carrier closes and captures both pockets
+coxa_reinforcement:
+  intent: connect the rear yaw tower to the outboard servo holder along the red-line
+    load paths without a perforated full-width bottom rail
+  reinforcement_body_count_per_coxa: 3
+  layout: separate lower and upper contour arms remain on negative Y; the positive-Y
+    pair is replaced by one full-height rectangular block whose root follows the same
+    lower R19 circle and whose front end stops at the existing servo rear-retention
+    tab
+  xy_geometry_mm:
+    x_range:
+    - -13.0
+    - 42.0
+    curved_root_radii:
+    - 17.0
+    - 25.1
+    negative_arm_center_y: -21.9
+    straight_width: 4.0
+  lower_arm_z_range_mm:
+  - 4.0
+  - 10.0
+  upper_arm_z_range_mm:
+  - 27.5
+  - 35.8
+  positive_tab_block_mm:
+    x_range:
+    - -0.5
+    - 23.8
+    y_range:
+    - 15.65
+    - 23.9
+    z_range:
+    - 4.0
+    - 36.7
+    termination: front edge coincides with the existing servo retention tab; no support
+      material continues across the servo beyond X 23.8
+    screw_access: two 6.8 mm through-driver bores at X 21.7 and Z 14.2/34.6
+  upper_case_screw_access: one 6.5 mm through-axis crosses the remaining negative-Y
+    upper arm at coxa-local X 25.5 / Z 34.65; the positive side is open because its
+    block stops at X 23.8
+  centre_relief: the ancestor's perforated circular bridge is removed from the coxa
+    body; the five horn-driver paths remain open inside the new annular socket, which
+    carries the deep bearing cartridge without tabs
+  centre_relief_radius_mm: 20.0
+  service_clearance: fitted hip servo and horn can still slide out through the open
+    face
+coxa_servo_holder_centering:
+  intent: center the low servo-holder footprint in the top view without moving the
+    servo, horn, cap, or hip-axis datums
+  seated_servo_center_y_mm: 0.5
+  previous_foot_y_range_mm:
+  - -23.65
+  - 16.65
+  centered_foot_y_range_mm:
+  - -23.65
+  - 24.25
+  resulting_foot_center_y_mm: 0.3
+  centerline_error_mm: 0.2
+  positive_edge_note: exact centering is trimmed by 0.40 mm to retain 0.15 mm model
+    clearance to the moving aluminum C bracket at Y 24.40
+  z_range_mm:
+  - 4.0
+  - 12.0
+  serviceability: extension remains below the seated servo and does not close the
+    positive-Y horn-on extraction opening
+  arm_outline: the positive-Y reinforcement is a single rectangular tab block ending
+    at X 23.8; the former rail continuing across the top of the servo is removed
+servo_clamp_cap_captive_nuts:
+  scope: Existing hip clamp nuts only; knee uses heat-set inserts
+  hip: two face-loaded captive M3 nuts in each coxa cradle
+  knee: Two M3x8 machine screws into M3x5.7 cap-face heat-set inserts; no knee nuts
+    or slots
+  quantity_per_robot: Hip unchanged. Knee:12 M3x8 screws+12 M3x5.7 heat-sets. Hip
+    C-to-femur:36 3x8 self-tapping screws.
+  pocket: 5.8 mm across flats x 2.7 mm deep, opening at the clamp mating face and
+    closed by the removable cap
+  wall_shell: hex flats face the 9 mm wall sides, leaving 1.6 mm printed shell on
+    the cavity and outside faces
+  screw_stack: the existing recessed head seat leaves the M3x8 screw 3.3 mm beyond
+    the conservative back plane of the nut pocket, with a full 3.4 mm clearance tunnel
+    so the tip cannot bottom in the former self-tap pilot
+  upper_bearing_interaction: the nearest carrier screw moves from 0 to 35 degrees
+    on the same 15.5 mm radius, leaving at least 4.3 mm between its countersink and
+    the fixed hip clamp screw counterbore
+coxa_yaw_hub_split:
+  interface: flat coxa-local Z 8 mm plane; entire lower foot transfers to carrier
+  carrier: original horn drive and bearing seat plus original lower coxa foot
+  attachment: four upward 3x6 mm self-tapping screws into remaining coxa foot
+  screw_centres_xy_mm:
+  - - 20
+    - -16
+  - - 20
+    - 16
+  - - 68
+    - -16
+  - - 68
+    - 16
+  head_seat_z_mm: 5
+  screw_tip_z_mm: 11
+  pilot_end_z_mm: 11.5
+  useful_engagement_mm: 2
+  tip_allowance_mm: 1
+  pilot_diameter_mm: 2.4
+  head_envelope_mm:
+    diameter: 5.4
+    height: 2.4
+  validation: declared receiving wall and seat checks; all 24 screw envelopes clear
+    non-receiving parts
+  limitation: geometric fit only; screw-specific pilot and pull-out strength require
+    physical testing
+  assembly: join the two prints before mounting the leg to the chassis
+  print_orientation:
+    coxa_link_ovh: flat Z 8 underside on plate
+    coxa_yaw_hub_carrier_ovh: inverted with flat Z 8 face on plate
+hip_bearing_split:
+  cap: upper 6805 pedestal removed; replacement circular mounting pad ends in a flat
+    face at hip-cap-local Y 21.9 mm
+  carrier: separate flat-backed R19 cartridge carrying the original upper 6805 press
+    seat and puller notches
+  cap_to_carrier_attachment: 3x M3x8 countersunk screws from the cap underside into
+    captive M3 nuts in 5.8 mm AF x 2.7 mm-deep hex pockets in the carrier mounting
+    face
+  tower_to_carrier_attachment: 2x top-entry M3x8 SHCS into the integral coxa tower's
+    captive M3 nuts, retaining the requested rotate-and-screw assembly sequence
+  nut_loading: load three nuts into the carrier face and two into the tower top; the
+    mating flat parts close the pockets before the screws are driven
+  print_orientation:
+    hip_clamp_cap_ovh: flat bearing-pad face on the build plate
+    hip_bearing_carrier_ovh: flat cartridge back on the build plate
+parts:
+  chorn_clamp_cnc:
+    description: purchased premade 56 mm aluminum C bracket reference
+    material: aluminum
+    qty_per_robot: 12
+    printable: false
+  driven_spacer:
+    description: 7 mm four-hole puck with blind center-screw head relief
+    material: 6061_aluminum_final
+    qty_per_robot: 12
+  passive_spacer:
+    description: 7 mm four-hole puck with complete center-screw through hole
+    material: 6061_aluminum_final
+    qty_per_robot: 12
+  femur_ovh_body:
+    description: Unchanged 96mm v36 box envelope; two cap-facing Ø4x6.7mm heat-set
+      pilots and six bracket-facing Ø2.5x7mm self-tapping pilots. No front insert
+      pockets.
+    material: PETG
+    qty_per_robot: 6
+    printable: true
+  tibia_ovh_socket:
+    description: six-hole front receiver and 30 mm-deep carbon-tube socket with four
+      radial nut-access cutouts and a long complete support collar
+    material: PETG
+    qty_per_robot: 6
+  tibia_tube_ovh:
+    description: shortened carbon-fiber tibia tube reference
+    material: carbon_fiber
+    qty_per_robot: 6
+    printable: false
+  coxa_link_ovh:
+    description: flat-bottomed outboard coxa/hip-holder body above Z 8 with four blind
+      self-tapping pilots receiving screws from the transferred lower foot, plus a
+      contour-matched integral rear tower; two negative-Y contour arms and one solid
+      positive-Y rectangular block wrap into the R19 lower contour, with the block
+      stopping at the servo rear-retention tab and carrying two 6.8 mm driver openings;
+      no reinforcement continues across the servo and there is no perforated central
+      bridge; its two clamp-cap screws use face-loaded captive M3 nuts, its low foot
+      remains centered within 0.20 mm of the seated servo, and the 24 mm horn opening
+      continues through the open face
+    material: PETG
+    qty_per_robot: 6
+  coxa_yaw_hub_carrier_ovh:
+    description: lower yaw carrier preserving original bearing and horn interfaces
+      and including the entire coxa foot below Z 8; flat mating plane and four upward
+      screw clearance holes with underside pan-head seats
+    material: PETG
+    qty_per_robot: 6
+  lower_coxa_screw:
+    description: 3x6 mm self-tapping pan-head screw envelope joining lower carrier
+      to coxa
+    material: steel
+    qty_per_robot: 24
+    printable: false
+  hip_clamp_cap_ovh:
+    description: flat-printing outboard hip cap with the former upper bearing pedestal
+      removed, a flat R19 cartridge pad, and three countersunk mounting holes; its
+      clamp ledge is cleared while retaining servo-tongue preload
+    material: PETG
+    qty_per_robot: 6
+  hip_bearing_carrier_ovh:
+    description: separate flat-backed cartridge containing the upper 6805 press seat,
+      puller notches, three cap-mount captive-nut pockets, and two top-entry coxa-tower
+      screw paths
+    material: PETG
+    qty_per_robot: 6
+  knee_clamp_cap_ovh:
+    description: Unchanged v36 symmetric cap, two recessed M3x8 machine screws into
+      box heat-set inserts.
+    material: PETG
+    qty_per_robot: 6
+    printable: true
+  chassis_bottom:
+    description: inherited rigid-hip lower chassis and lower bearing towers
+    material: PETG
+    qty_per_robot: 1
+  chassis_top_rigid:
+    description: inherited rigid upper chassis frame capturing upper bearings
+    material: PETG
+    qty_per_robot: 1
+  top_hatch_rigid:
+    description: inherited removable electronics hatch
+    material: PETG
+    qty_per_robot: 1
+  centre_wago_block:
+    description: inherited center power splice block
+    material: PETG
+    qty_per_robot: 1
+  yaw_servo_retainer:
+    description: inherited yaw servo retainer
+    material: PETG
+    qty_per_robot: 6
+  foot_boot:
+    description: inherited foot boot
+    material: TPU
+    qty_per_robot: 6
+  servo_body:
+    description: STS3215 servo reference
+    qty_per_robot: 18
+    printable: false
+  yaw_bearing_upper:
+    description: lower tower-seated 6805 bearing reference
+    qty_per_robot: 6
+    printable: false
+  bearing_6805:
+    description: upper plate-seated 6805 bearing reference
+    qty_per_robot: 6
+    printable: false
+  wago5:
+    description: Wago 221-415 reference
+    qty_per_robot: 4
+    printable: false
+  knee_cap_m3x8:
+    description: M3x8 cap machine screw
+    material: steel
+    printable: false
+    cots: true
+    qty_per_robot: 12
+  knee_cap_heatset_m3x5p7:
+    description: M3x5.7 heat-set insert, assumed 4.6mm knurled OD
+    material: brass
+    printable: false
+    cots: true
+    qty_per_robot: 12
+  hip_c_front_selftap_3x8:
+    description: 3x8 self-tapping plastic screw through metal C web into printed femur
+    material: steel
+    printable: false
+    cots: true
+    qty_per_robot: 36
+validation:
+  generator: make_premade_chorn_56_variant.py
+  generated_report: geometry_report.json
+  buildviz_scene: scene.json
+  buildviz_checker: current BVH penetration checker with typed, audited, per-instance
+    allowedInterferences and no legacy part-type overlap ignores
+  required_first_physical_test: front_6hole_fit_coupon.stl
+revision_note: 'Two M3x5.7 heat-set cap inserts and M3x8 machine screws; six 3x8 self-tappers
+  through the metal hip C into the printed femur. Exterior, cap STL and 96mm knee
+  datum unchanged. User requests swapping v36''s fastening types: reusable metal threads
+  at the two removable cap screws, and self-tapping plastic pilots at the six metal-C-to-femur
+  screws. This removes the incompatible 3.1mm front insert pockets. Retain the longer
+  v36 box, cap, all transforms and motion datums. Assume M3 inserts are 5.7mm long
+  with 4.6mm knurled OD, as in the prior roof; verify the actual stock. Front plastic
+  threads need dry-fit/torque testing and will wear with repeated disassembly.'
+knee_fastening_swap:
+  baseline: v36
+  reason: 'User requests swapping v36''s fastening types: reusable metal threads at
+    the two removable cap screws, and self-tapping plastic pilots at the six metal-C-to-femur
+    screws. This removes the incompatible 3.1mm front insert pockets. Retain the longer
+    v36 box, cap, all transforms and motion datums. Assume M3 inserts are 5.7mm long
+    with 4.6mm knurled OD, as in the prior roof; verify the actual stock. Front plastic
+    threads need dry-fit/torque testing and will wear with repeated disassembly.'
+  checks:
+    baseline: v36
+    changed_printed_meshes:
+    - femur_ovh_body
+    cap_mesh_unchanged: true
+    hip_to_knee_mm: 96
+    insert_assumption:
+      thread: M3
+      length_mm: 5.7
+      knurled_od_mm: 4.6
+    cap_joint:
+      per_knee: 2
+      screw: M3x8 machine
+      pilot_diameter_mm: 4.0
+      pilot_depth_mm: 6.7
+      nominal_thread_engagement_mm: 5.7
+      blind_tip_clearance_mm: 0.7
+    front_joint:
+      per_knee: 6
+      screw: 3x8 self-tapping for plastic
+      metal_thickness_mm: 2.1
+      pilot_diameter_mm: 2.5
+      pilot_depth_mm: 7.0
+      plastic_entry_mm: 5.9
+      full_diameter_engagement_excluding_tip_mm: 4.9
+      blind_tip_clearance_mm: 1.1
+      plastic_remaining_behind_pilot_mm: 2.6
+    hardware_intersections: []
+    cap_box_mm3: 0.0
+    servo_box_mm3: 0.0
+    cap_metal_mm3: 0.0
+    box_metal_mm3: -4.850638409455617e-12
+    cap_removal: clear at +Y 0.1,1,2,5,15,35mm with front screws and inserts installed
+    tool_access: Ø5 heat-set tip and Ø5.5x50 screwdrivers clear on detached subassembly;
+      fasten C web before mounting C to hip servo
+    motion:
+      hip_deg:
+      - -110
+      - 30
+      knee_deg:
+      - -30
+      - 20
+      step_deg: 2.5
+      yaw_samples_deg:
+      - -35
+      - -20
+      - 0
+      - 20
+      - 35
+      horn_on_extraction: clear with 1.5mm radial margin
+  assembly: Heat-set two inserts from the cap mating face of the empty detached femur
+    box. Attach metal C web with six 3x8 plastic self-tappers before mounting C on
+    servo. Install knee servo and unchanged cap with two M3x8 machine screws. No front
+    heat-set inserts; no cap self-tappers.
+  physical_validation: Not performed. Confirm 4.6mm insert OD; dry-test actual screws/printed
+    pilots. No strength or torque qualification.
+  insert_reference: https://www.ruthex.de/en/collections/gewindeeinsatze/products/ruthex-gewindeeinsatz-m3-100-stuck-rx-m3x5-7-messing-gewindebuchsen

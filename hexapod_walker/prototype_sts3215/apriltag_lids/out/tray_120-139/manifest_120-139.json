@@ -1,0 +1,423 @@
+{
+  "schema_version": 1,
+  "family": "tag36h11",
+  "ids": [
+    120,
+    121,
+    122,
+    123,
+    124,
+    125,
+    126,
+    127,
+    128,
+    129,
+    130,
+    131,
+    132,
+    133,
+    134,
+    135,
+    136,
+    137,
+    138,
+    139
+  ],
+  "dimensions_mm": {
+    "plate": [
+      61.8,
+      34.3,
+      1.4
+    ],
+    "tag_outer_with_quiet_zone": 34.0,
+    "black_square": 27.2,
+    "cell": 3.4,
+    "portrait_centre_v": 0.0,
+    "white_base": 0.6,
+    "coplanar_colour_skin": 0.8,
+    "id_label_digit_height": 3.48,
+    "id_label_portrait_centre_v": -20.5
+  },
+  "fasteners": {
+    "centres_mm": [
+      [
+        -27.2,
+        0.0
+      ],
+      [
+        27.2,
+        0.0
+      ]
+    ],
+    "through_diameter_mm": 3.4,
+    "countersink_top_diameter_mm": 6.0,
+    "countersink_angle_deg": 90,
+    "replacement": "2 x M3x10 90-degree flat-head/countersunk screws per lid"
+  },
+  "set_3mf": "tag36h11_motor_lids_120-139.3mf",
+  "bambu_studio_3mf": "tag36h11_motor_lids_120-139_BambuStudio.3mf",
+  "preview": "preview_tag36h11_120-139.png",
+  "clearance_reference": "motor_lid_accessory_reference.stl",
+  "parts": [
+    {
+      "tag_id": 120,
+      "white_stl": "individual/tag36h11_120_motor_lid_WHITE.stl",
+      "black_stl": "individual/tag36h11_120_motor_lid_BLACK.stl",
+      "combined_colorless_stl": "individual/tag36h11_120_motor_lid_combined_colorless.stl",
+      "three_mf": "individual/tag36h11_120_motor_lid.3mf",
+      "svg": "individual/tag36h11_120_34mm.svg",
+      "white_triangles": 3678,
+      "black_triangles": 972,
+      "combined_triangles": 2526,
+      "combined_volume_mm3": 2838.776,
+      "bbox_mm": [
+        61.8,
+        34.3,
+        1.4
+      ],
+      "colour_partition_error_mm3": 5.44e-05
+    },
+    {
+      "tag_id": 121,
+      "white_stl": "individual/tag36h11_121_motor_lid_WHITE.stl",
+      "black_stl": "individual/tag36h11_121_motor_lid_BLACK.stl",
+      "combined_colorless_stl": "individual/tag36h11_121_motor_lid_combined_colorless.stl",
+      "three_mf": "individual/tag36h11_121_motor_lid.3mf",
+      "svg": "individual/tag36h11_121_34mm.svg",
+      "white_triangles": 3686,
+      "black_triangles": 852,
+      "combined_triangles": 2526,
+      "combined_volume_mm3": 2838.776,
+      "bbox_mm": [
+        61.8,
+        34.3,
+        1.4
+      ],
+      "colour_partition_error_mm3": 5.425e-05
+    },
+    {
+      "tag_id": 122,
+      "white_stl": "individual/tag36h11_122_motor_lid_WHITE.stl",
+      "black_stl": "individual/tag36h11_122_motor_lid_BLACK.stl",
+      "combined_colorless_stl": "individual/tag36h11_122_motor_lid_combined_colorless.stl",
+      "three_mf": "individual/tag36h11_122_motor_lid.3mf",
+      "svg": "individual/tag36h11_122_34mm.svg",
+      "white_triangles": 3746,
+      "black_triangles": 876,
+      "combined_triangles": 2526,
+      "combined_volume_mm3": 2838.776,
+      "bbox_mm": [
+        61.8,
+        34.3,
+        1.4
+      ],
+      "colour_partition_error_mm3": 5.549e-05
+    },
+    {
+      "tag_id": 123,
+      "white_stl": "individual/tag36h11_123_motor_lid_WHITE.stl",
+      "black_stl": "individual/tag36h11_123_motor_lid_BLACK.stl",
+      "combined_colorless_stl": "individual/tag36h11_123_motor_lid_combined_colorless.stl",
+      "three_mf": "individual/tag36h11_123_motor_lid.3mf",
+      "svg": "individual/tag36h11_123_34mm.svg",
+      "white_triangles": 3698,
+      "black_triangles": 924,
+      "combined_triangles": 2526,
+      "combined_volume_mm3": 2838.776,
+      "bbox_mm": [
+        61.8,
+        34.3,
+        1.4
+      ],
+      "colour_partition_error_mm3": 5.543e-05
+    },
+    {
+      "tag_id": 124,
+      "white_stl": "individual/tag36h11_124_motor_lid_WHITE.stl",
+      "black_stl": "individual/tag36h11_124_motor_lid_BLACK.stl",
+      "combined_colorless_stl": "individual/tag36h11_124_motor_lid_combined_colorless.stl",
+      "three_mf": "individual/tag36h11_124_motor_lid.3mf",
+      "svg": "individual/tag36h11_124_34mm.svg",
+      "white_triangles": 3690,
+      "black_triangles": 876,
+      "combined_triangles": 2526,
+      "combined_volume_mm3": 2838.776,
+      "bbox_mm": [
+        61.8,
+        34.3,
+        1.4
+      ],
+      "colour_partition_error_mm3": 5.59e-05
+    },
+    {
+      "tag_id": 125,
+      "white_stl": "individual/tag36h11_125_motor_lid_WHITE.stl",
+      "black_stl": "individual/tag36h11_125_motor_lid_BLACK.stl",
+      "combined_colorless_stl": "individual/tag36h11_125_motor_lid_combined_colorless.stl",
+      "three_mf": "individual/tag36h11_125_motor_lid.3mf",
+      "svg": "individual/tag36h11_125_34mm.svg",
+      "white_triangles": 3662,
+      "black_triangles": 960,
+      "combined_triangles": 2526,
+      "combined_volume_mm3": 2838.776,
+      "bbox_mm": [
+        61.8,
+        34.3,
+        1.4
+      ],
+      "colour_partition_error_mm3": 5.549e-05
+    },
+    {
+      "tag_id": 126,
+      "white_stl": "individual/tag36h11_126_motor_lid_WHITE.stl",
+      "black_stl": "individual/tag36h11_126_motor_lid_BLACK.stl",
+      "combined_colorless_stl": "individual/tag36h11_126_motor_lid_combined_colorless.stl",
+      "three_mf": "individual/tag36h11_126_motor_lid.3mf",
+      "svg": "individual/tag36h11_126_34mm.svg",
+      "white_triangles": 3690,
+      "black_triangles": 960,
+      "combined_triangles": 2526,
+      "combined_volume_mm3": 2838.776,
+      "bbox_mm": [
+        61.8,
+        34.3,
+        1.4
+      ],
+      "colour_partition_error_mm3": 5.531e-05
+    },
+    {
+      "tag_id": 127,
+      "white_stl": "individual/tag36h11_127_motor_lid_WHITE.stl",
+      "black_stl": "individual/tag36h11_127_motor_lid_BLACK.stl",
+      "combined_colorless_stl": "individual/tag36h11_127_motor_lid_combined_colorless.stl",
+      "three_mf": "individual/tag36h11_127_motor_lid.3mf",
+      "svg": "individual/tag36h11_127_34mm.svg",
+      "white_triangles": 3670,
+      "black_triangles": 840,
+      "combined_triangles": 2526,
+      "combined_volume_mm3": 2838.776,
+      "bbox_mm": [
+        61.8,
+        34.3,
+        1.4
+      ],
+      "colour_partition_error_mm3": 5.442e-05
+    },
+    {
+      "tag_id": 128,
+      "white_stl": "individual/tag36h11_128_motor_lid_WHITE.stl",
+      "black_stl": "individual/tag36h11_128_motor_lid_BLACK.stl",
+      "combined_colorless_stl": "individual/tag36h11_128_motor_lid_combined_colorless.stl",
+      "three_mf": "individual/tag36h11_128_motor_lid.3mf",
+      "svg": "individual/tag36h11_128_34mm.svg",
+      "white_triangles": 3730,
+      "black_triangles": 948,
+      "combined_triangles": 2526,
+      "combined_volume_mm3": 2838.776,
+      "bbox_mm": [
+        61.8,
+        34.3,
+        1.4
+      ],
+      "colour_partition_error_mm3": 5.508e-05
+    },
+    {
+      "tag_id": 129,
+      "white_stl": "individual/tag36h11_129_motor_lid_WHITE.stl",
+      "black_stl": "individual/tag36h11_129_motor_lid_BLACK.stl",
+      "combined_colorless_stl": "individual/tag36h11_129_motor_lid_combined_colorless.stl",
+      "three_mf": "individual/tag36h11_129_motor_lid.3mf",
+      "svg": "individual/tag36h11_129_34mm.svg",
+      "white_triangles": 3678,
+      "black_triangles": 972,
+      "combined_triangles": 2526,
+      "combined_volume_mm3": 2838.776,
+      "bbox_mm": [
+        61.8,
+        34.3,
+        1.4
+      ],
+      "colour_partition_error_mm3": 5.525e-05
+    },
+    {
+      "tag_id": 130,
+      "white_stl": "individual/tag36h11_130_motor_lid_WHITE.stl",
+      "black_stl": "individual/tag36h11_130_motor_lid_BLACK.stl",
+      "combined_colorless_stl": "individual/tag36h11_130_motor_lid_combined_colorless.stl",
+      "three_mf": "individual/tag36h11_130_motor_lid.3mf",
+      "svg": "individual/tag36h11_130_34mm.svg",
+      "white_triangles": 3702,
+      "black_triangles": 948,
+      "combined_triangles": 2526,
+      "combined_volume_mm3": 2838.776,
+      "bbox_mm": [
+        61.8,
+        34.3,
+        1.4
+      ],
+      "colour_partition_error_mm3": 5.44e-05
+    },
+    {
+      "tag_id": 131,
+      "white_stl": "individual/tag36h11_131_motor_lid_WHITE.stl",
+      "black_stl": "individual/tag36h11_131_motor_lid_BLACK.stl",
+      "combined_colorless_stl": "individual/tag36h11_131_motor_lid_combined_colorless.stl",
+      "three_mf": "individual/tag36h11_131_motor_lid.3mf",
+      "svg": "individual/tag36h11_131_34mm.svg",
+      "white_triangles": 3638,
+      "black_triangles": 900,
+      "combined_triangles": 2526,
+      "combined_volume_mm3": 2838.776,
+      "bbox_mm": [
+        61.8,
+        34.3,
+        1.4
+      ],
+      "colour_partition_error_mm3": 5.425e-05
+    },
+    {
+      "tag_id": 132,
+      "white_stl": "individual/tag36h11_132_motor_lid_WHITE.stl",
+      "black_stl": "individual/tag36h11_132_motor_lid_BLACK.stl",
+      "combined_colorless_stl": "individual/tag36h11_132_motor_lid_combined_colorless.stl",
+      "three_mf": "individual/tag36h11_132_motor_lid.3mf",
+      "svg": "individual/tag36h11_132_34mm.svg",
+      "white_triangles": 3698,
+      "black_triangles": 924,
+      "combined_triangles": 2526,
+      "combined_volume_mm3": 2838.776,
+      "bbox_mm": [
+        61.8,
+        34.3,
+        1.4
+      ],
+      "colour_partition_error_mm3": 5.549e-05
+    },
+    {
+      "tag_id": 133,
+      "white_stl": "individual/tag36h11_133_motor_lid_WHITE.stl",
+      "black_stl": "individual/tag36h11_133_motor_lid_BLACK.stl",
+      "combined_colorless_stl": "individual/tag36h11_133_motor_lid_combined_colorless.stl",
+      "three_mf": "individual/tag36h11_133_motor_lid.3mf",
+      "svg": "individual/tag36h11_133_34mm.svg",
+      "white_triangles": 3698,
+      "black_triangles": 924,
+      "combined_triangles": 2526,
+      "combined_volume_mm3": 2838.776,
+      "bbox_mm": [
+        61.8,
+        34.3,
+        1.4
+      ],
+      "colour_partition_error_mm3": 5.543e-05
+    },
+    {
+      "tag_id": 134,
+      "white_stl": "individual/tag36h11_134_motor_lid_WHITE.stl",
+      "black_stl": "individual/tag36h11_134_motor_lid_BLACK.stl",
+      "combined_colorless_stl": "individual/tag36h11_134_motor_lid_combined_colorless.stl",
+      "three_mf": "individual/tag36h11_134_motor_lid.3mf",
+      "svg": "individual/tag36h11_134_34mm.svg",
+      "white_triangles": 3678,
+      "black_triangles": 888,
+      "combined_triangles": 2526,
+      "combined_volume_mm3": 2838.776,
+      "bbox_mm": [
+        61.8,
+        34.3,
+        1.4
+      ],
+      "colour_partition_error_mm3": 5.59e-05
+    },
+    {
+      "tag_id": 135,
+      "white_stl": "individual/tag36h11_135_motor_lid_WHITE.stl",
+      "black_stl": "individual/tag36h11_135_motor_lid_BLACK.stl",
+      "combined_colorless_stl": "individual/tag36h11_135_motor_lid_combined_colorless.stl",
+      "three_mf": "individual/tag36h11_135_motor_lid.3mf",
+      "svg": "individual/tag36h11_135_34mm.svg",
+      "white_triangles": 3710,
+      "black_triangles": 912,
+      "combined_triangles": 2526,
+      "combined_volume_mm3": 2838.776,
+      "bbox_mm": [
+        61.8,
+        34.3,
+        1.4
+      ],
+      "colour_partition_error_mm3": 5.549e-05
+    },
+    {
+      "tag_id": 136,
+      "white_stl": "individual/tag36h11_136_motor_lid_WHITE.stl",
+      "black_stl": "individual/tag36h11_136_motor_lid_BLACK.stl",
+      "combined_colorless_stl": "individual/tag36h11_136_motor_lid_combined_colorless.stl",
+      "three_mf": "individual/tag36h11_136_motor_lid.3mf",
+      "svg": "individual/tag36h11_136_34mm.svg",
+      "white_triangles": 3726,
+      "black_triangles": 924,
+      "combined_triangles": 2526,
+      "combined_volume_mm3": 2838.776,
+      "bbox_mm": [
+        61.8,
+        34.3,
+        1.4
+      ],
+      "colour_partition_error_mm3": 5.531e-05
+    },
+    {
+      "tag_id": 137,
+      "white_stl": "individual/tag36h11_137_motor_lid_WHITE.stl",
+      "black_stl": "individual/tag36h11_137_motor_lid_BLACK.stl",
+      "combined_colorless_stl": "individual/tag36h11_137_motor_lid_combined_colorless.stl",
+      "three_mf": "individual/tag36h11_137_motor_lid.3mf",
+      "svg": "individual/tag36h11_137_34mm.svg",
+      "white_triangles": 3646,
+      "black_triangles": 864,
+      "combined_triangles": 2526,
+      "combined_volume_mm3": 2838.776,
+      "bbox_mm": [
+        61.8,
+        34.3,
+        1.4
+      ],
+      "colour_partition_error_mm3": 5.442e-05
+    },
+    {
+      "tag_id": 138,
+      "white_stl": "individual/tag36h11_138_motor_lid_WHITE.stl",
+      "black_stl": "individual/tag36h11_138_motor_lid_BLACK.stl",
+      "combined_colorless_stl": "individual/tag36h11_138_motor_lid_combined_colorless.stl",
+      "three_mf": "individual/tag36h11_138_motor_lid.3mf",
+      "svg": "individual/tag36h11_138_34mm.svg",
+      "white_triangles": 3718,
+      "black_triangles": 960,
+      "combined_triangles": 2526,
+      "combined_volume_mm3": 2838.776,
+      "bbox_mm": [
+        61.8,
+        34.3,
+        1.4
+      ],
+      "colour_partition_error_mm3": 5.508e-05
+    },
+    {
+      "tag_id": 139,
+      "white_stl": "individual/tag36h11_139_motor_lid_WHITE.stl",
+      "black_stl": "individual/tag36h11_139_motor_lid_BLACK.stl",
+      "combined_colorless_stl": "individual/tag36h11_139_motor_lid_combined_colorless.stl",
+      "three_mf": "individual/tag36h11_139_motor_lid.3mf",
+      "svg": "individual/tag36h11_139_34mm.svg",
+      "white_triangles": 3762,
+      "black_triangles": 888,
+      "combined_triangles": 2526,
+      "combined_volume_mm3": 2838.776,
+      "bbox_mm": [
+        61.8,
+        34.3,
+        1.4
+      ],
+      "colour_partition_error_mm3": 5.525e-05
+    }
+  ]
+}

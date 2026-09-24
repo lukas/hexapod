@@ -1,0 +1,17 @@
+{
+  "schema": 2,
+  "buildId": "hexapod-fresh",
+  "project": "hexapod-fresh",
+  "build": "hexapod-fresh",
+  "name": "Hexapod Fresh",
+  "createdAt": "2026-06-19T18:10:09.320Z",
+  "updatedAt": "2026-06-19T18:10:09.320Z",
+  "defaultVersion": "main",
+  "latestVersion": "main",
+  "versions": [
+    {
+      "name": "main",
+      "pushedAt": "2026-06-19T18:10:09.320Z"
+    }
+  ]
+}

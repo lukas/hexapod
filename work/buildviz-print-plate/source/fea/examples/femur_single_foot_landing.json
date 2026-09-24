@@ -1,0 +1,10 @@
+{
+  "name": "femur: single-foot 3g landing (~100 N), hip end clamped",
+  "material": { "name": "PLA", "youngMPa": 3500, "poisson": 0.36, "yieldMPa": 50 },
+  "fixtures": [
+    { "type": "plane", "axis": "x", "side": "min", "depthMm": 10 }
+  ],
+  "loads": [
+    { "type": "force", "at": [122, 0, 17], "radiusMm": 8, "forceN": [0, 0, -100] }
+  ]
+}

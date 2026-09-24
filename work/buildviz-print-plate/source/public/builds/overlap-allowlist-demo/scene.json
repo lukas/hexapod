@@ -1,0 +1,108 @@
+{
+  "name": "Overlap allowlist demo (typed allowedInterferences vs legacy ignoreOverlapPairs)",
+  "source": "synthetic fixture — demonstrates the typed interference allowlist",
+  "schemaVersion": 1,
+  "units": "mm",
+  "center": [0, 0, 5],
+  "meshes": [
+    {
+      "id": "base_frame",
+      "name": "base_frame.stl",
+      "url": "/builds/overlap-allowlist-demo/stl/base_frame.stl"
+    },
+    {
+      "id": "rocker_link",
+      "name": "rocker_link.stl",
+      "url": "/builds/overlap-allowlist-demo/stl/rocker_link.stl"
+    },
+    {
+      "id": "decor_cap",
+      "name": "decor_cap.stl",
+      "url": "/builds/overlap-allowlist-demo/stl/decor_cap.stl"
+    },
+    {
+      "id": "bearing_sleeve",
+      "name": "bearing_sleeve.stl",
+      "url": "/builds/overlap-allowlist-demo/stl/bearing_sleeve.stl"
+    },
+    {
+      "id": "m2_screw",
+      "name": "M2 self-tapping screw",
+      "url": "/builds/overlap-allowlist-demo/stl/fasteners/m2_screw.stl"
+    }
+  ],
+  "instances": [
+    {
+      "id": "base-frame",
+      "meshId": "base_frame",
+      "name": "Base frame",
+      "partType": "base_frame",
+      "role": "static printed frame",
+      "color": "#9ca3af",
+      "transform": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+    },
+    {
+      "id": "rocker-link",
+      "meshId": "rocker_link",
+      "name": "Rocker link",
+      "partType": "rocker_link",
+      "role": "moving printed linkage body — overlaps the base frame (the bug the typed allowlist catches)",
+      "color": "#f97316",
+      "transform": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+    },
+    {
+      "id": "decor-cap",
+      "meshId": "decor_cap",
+      "name": "Decor cap",
+      "partType": "decor_cap",
+      "role": "static cosmetic part sunk into the base (legacy ignoreOverlapPairs still tolerates this)",
+      "color": "#22c55e",
+      "transform": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+    },
+    {
+      "id": "bearing-sleeve",
+      "meshId": "bearing_sleeve",
+      "name": "Bearing sleeve",
+      "partType": "bearing_sleeve",
+      "role": "sleeve pressed into its bore — allowed by a typed press_fit allowedInterferences entry",
+      "color": "#2563eb",
+      "transform": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+    },
+    {
+      "id": "m2-screw-rocker",
+      "meshId": "m2_screw",
+      "name": "M2 self-tapping screw (rocker anchor)",
+      "partType": "m2_screw",
+      "role": "fastener joining the rocker link to the base frame — carries connectivity",
+      "color": "#111827",
+      "transform": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+    }
+  ],
+  "joints": [
+    {
+      "id": "rocker-pivot",
+      "type": "revolute",
+      "axis": [0, 0, 1],
+      "origin": [10, 0, 5],
+      "instances": ["rocker-link"],
+      "limits": { "min": -25, "max": 25 },
+      "home": 0,
+      "label": "Rocker pivot"
+    }
+  ],
+  "checksConfig": {
+    "ignoreOverlapPairs": [
+      ["base_frame", "rocker_link"],
+      ["decor_cap", "base_frame"]
+    ],
+    "allowedInterferences": [
+      {
+        "kind": "press_fit",
+        "instances": ["bearing-sleeve", "base-frame"],
+        "feature": "sleeve bore press fit",
+        "maxPenetrationMm": 4.0,
+        "reason": "bearing sleeve is pressed 3mm into its bore in the base frame"
+      }
+    ]
+  }
+}

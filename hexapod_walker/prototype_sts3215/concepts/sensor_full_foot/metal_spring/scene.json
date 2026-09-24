@@ -1,0 +1,494 @@
+{
+  "name": "PETG contact foot with metal springs and screw retention",
+  "buildId": "prototype_sts3215/sensor-full-foot",
+  "units": "mm",
+  "center": [
+    0,
+    0,
+    5
+  ],
+  "meshes": [
+    {
+      "id": "petg_foot",
+      "url": "petg_foot.stl"
+    },
+    {
+      "id": "petg_socket",
+      "url": "petg_socket.stl"
+    },
+    {
+      "id": "silicone_pad",
+      "url": "silicone_pad.stl"
+    },
+    {
+      "id": "sensor_reference",
+      "url": "sensor_reference.stl"
+    },
+    {
+      "id": "spring_1",
+      "url": "spring_1.stl"
+    },
+    {
+      "id": "sleeve_1",
+      "url": "sleeve_1.stl"
+    },
+    {
+      "id": "washer_1",
+      "url": "washer_1.stl"
+    },
+    {
+      "id": "screw_1",
+      "url": "screw_1.stl"
+    },
+    {
+      "id": "spring_2",
+      "url": "spring_2.stl"
+    },
+    {
+      "id": "sleeve_2",
+      "url": "sleeve_2.stl"
+    },
+    {
+      "id": "washer_2",
+      "url": "washer_2.stl"
+    },
+    {
+      "id": "screw_2",
+      "url": "screw_2.stl"
+    },
+    {
+      "id": "spring_3",
+      "url": "spring_3.stl"
+    },
+    {
+      "id": "sleeve_3",
+      "url": "sleeve_3.stl"
+    },
+    {
+      "id": "washer_3",
+      "url": "washer_3.stl"
+    },
+    {
+      "id": "screw_3",
+      "url": "screw_3.stl"
+    }
+  ],
+  "instances": [
+    {
+      "id": "petg_foot",
+      "meshId": "petg_foot",
+      "partType": "petg_foot",
+      "name": "petg foot",
+      "color": "#e9a13d",
+      "cots": false,
+      "transform": [
+        1.0,
+        -0.0,
+        -0.0,
+        0.0,
+        0.0,
+        -1.0,
+        -1.2246467991473532e-16,
+        0.0,
+        0.0,
+        1.2246467991473532e-16,
+        -1.0,
+        0.0,
+        0.0,
+        -2.4492935982947084e-16,
+        2.0000000000000018,
+        1.0
+      ]
+    },
+    {
+      "id": "petg_socket",
+      "meshId": "petg_socket",
+      "partType": "petg_socket",
+      "name": "petg socket",
+      "color": "#97aac3",
+      "cots": false,
+      "transform": [
+        1.0,
+        -0.0,
+        -0.0,
+        0.0,
+        0.0,
+        -1.0,
+        -1.2246467991473532e-16,
+        0.0,
+        0.0,
+        1.2246467991473532e-16,
+        -1.0,
+        0.0,
+        0.0,
+        -2.767701812789586e-15,
+        22.600000381469727,
+        1.0
+      ]
+    },
+    {
+      "id": "silicone_pad",
+      "meshId": "silicone_pad",
+      "partType": "silicone_pad",
+      "name": "silicone pad",
+      "color": "#dd617c",
+      "cots": true,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "id": "sensor_reference",
+      "meshId": "sensor_reference",
+      "partType": "sensor_reference",
+      "name": "sensor reference",
+      "color": "#249796",
+      "cots": true,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "id": "spring_1",
+      "meshId": "spring_1",
+      "partType": "spring_1",
+      "name": "spring 1",
+      "color": "#d9dcdf",
+      "cots": true,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "id": "sleeve_1",
+      "meshId": "sleeve_1",
+      "partType": "sleeve_1",
+      "name": "sleeve 1",
+      "color": "#d9dcdf",
+      "cots": true,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "id": "washer_1",
+      "meshId": "washer_1",
+      "partType": "washer_1",
+      "name": "washer 1",
+      "color": "#d9dcdf",
+      "cots": true,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "id": "screw_1",
+      "meshId": "screw_1",
+      "partType": "screw_1",
+      "name": "screw 1",
+      "color": "#d9dcdf",
+      "cots": true,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "id": "spring_2",
+      "meshId": "spring_2",
+      "partType": "spring_2",
+      "name": "spring 2",
+      "color": "#d9dcdf",
+      "cots": true,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "id": "sleeve_2",
+      "meshId": "sleeve_2",
+      "partType": "sleeve_2",
+      "name": "sleeve 2",
+      "color": "#d9dcdf",
+      "cots": true,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "id": "washer_2",
+      "meshId": "washer_2",
+      "partType": "washer_2",
+      "name": "washer 2",
+      "color": "#d9dcdf",
+      "cots": true,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "id": "screw_2",
+      "meshId": "screw_2",
+      "partType": "screw_2",
+      "name": "screw 2",
+      "color": "#d9dcdf",
+      "cots": true,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "id": "spring_3",
+      "meshId": "spring_3",
+      "partType": "spring_3",
+      "name": "spring 3",
+      "color": "#d9dcdf",
+      "cots": true,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "id": "sleeve_3",
+      "meshId": "sleeve_3",
+      "partType": "sleeve_3",
+      "name": "sleeve 3",
+      "color": "#d9dcdf",
+      "cots": true,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "id": "washer_3",
+      "meshId": "washer_3",
+      "partType": "washer_3",
+      "name": "washer 3",
+      "color": "#d9dcdf",
+      "cots": true,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "id": "screw_3",
+      "meshId": "screw_3",
+      "partType": "screw_3",
+      "name": "screw 3",
+      "color": "#d9dcdf",
+      "cots": true,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  ]
+}

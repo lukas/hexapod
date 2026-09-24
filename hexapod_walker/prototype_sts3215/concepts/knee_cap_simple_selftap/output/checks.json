@@ -1,0 +1,52 @@
+{
+  "extension_mm": 6.0,
+  "hip_to_knee_before_after_mm": [
+    90,
+    96
+  ],
+  "cap_fasteners_per_leg": 2,
+  "nut_pockets": 0,
+  "pilots_mm": {
+    "diameter": 2.5,
+    "depth": 8.0
+  },
+  "screw_envelope_mm": {
+    "diameter": 3,
+    "length": 8,
+    "head_diameter": 5.5,
+    "head_height": 3,
+    "point_length": 1
+  },
+  "nominal_plastic_engagement_mm": 6,
+  "full_diameter_engagement_excluding_tip_mm": 5,
+  "tip_clearance_mm": 2,
+  "hip_c_front_insert_pockets": "unchanged: six diameter4.6 x depth3.1 mm; NOT for 5.7 mm inserts",
+  "cap_box_overlap_mm3": 0.0,
+  "servo_box_overlap_mm3": 0.0,
+  "cap_hip_C_overlap_mm3": 0.0,
+  "box_hip_C_overlap_mm3": 0.0,
+  "intentional_cap_servo_press_mm3": 793.1893060281291,
+  "driver_access": "12/12 clear with diameter5.5 x 50 mm shaft at authored pose",
+  "cap_removal": "+Y clear at 0.1,1,2,5,15,35 mm",
+  "motion": {
+    "hip_deg": [
+      -110,
+      30
+    ],
+    "knee_deg": [
+      -30,
+      20
+    ],
+    "step_deg": 2.5,
+    "yaw_samples_deg": [
+      -35,
+      -20,
+      0,
+      20,
+      35
+    ],
+    "horn_on_extraction": "clear with 1.5mm radial margin"
+  },
+  "femur_ovh_body_bed_contact_mm2": 765.1191805286144,
+  "knee_clamp_cap_ovh_bed_contact_mm2": 2120.59279349584
+}

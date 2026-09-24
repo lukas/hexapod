@@ -1,0 +1,21 @@
+{
+  "schema": 2,
+  "buildId": "hexapod-prototype",
+  "project": "hexapod-prototype",
+  "build": "hexapod-prototype",
+  "name": "Prototype hexapod (prototype_v1)",
+  "createdAt": "2026-06-19T18:10:09.320Z",
+  "updatedAt": "2026-06-19T18:10:09.320Z",
+  "defaultVersion": "main",
+  "latestVersion": "main",
+  "versions": [
+    {
+      "name": "main",
+      "pushedAt": "2026-06-19T18:10:09.320Z"
+    },
+    {
+      "name": "v2",
+      "pushedAt": "2026-06-19T18:10:09.320Z"
+    }
+  ]
+}

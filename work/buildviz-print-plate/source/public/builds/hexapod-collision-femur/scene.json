@@ -1,0 +1,248 @@
+{
+  "name": "Collision @ femur (coxa_link flat bottom vs femur_link)",
+  "source": "/Users/lbiewald/weird_objects/hexapod_walker/prototype_v1",
+  "units": "mm",
+  "center": [
+    101.16619732676173,
+    -4.7,
+    11.376658129529291
+  ],
+  "meshes": [
+    {
+      "id": "coxa_link",
+      "name": "coxa_link.stl",
+      "url": "/builds/hexapod-collision-femur/stl/coxa_link.stl"
+    },
+    {
+      "id": "femur_link",
+      "name": "femur_link.stl",
+      "url": "/builds/hexapod-collision-femur/stl/femur_link.stl"
+    },
+    {
+      "id": "tibia_link",
+      "name": "tibia_link.stl",
+      "url": "/builds/hexapod-collision-femur/stl/tibia_link.stl"
+    },
+    {
+      "id": "chassis_top",
+      "name": "chassis_top.stl",
+      "url": "/builds/hexapod-collision-femur/stl/chassis_top.stl"
+    },
+    {
+      "id": "chassis_bottom",
+      "name": "chassis_bottom.stl",
+      "url": "/builds/hexapod-collision-femur/stl/chassis_bottom.stl"
+    },
+    {
+      "id": "overlap",
+      "name": "overlap.stl",
+      "url": "/builds/hexapod-collision-femur/stl/overlap.stl"
+    }
+  ],
+  "instances": [
+    {
+      "id": "coxa_link",
+      "meshId": "coxa_link",
+      "name": "coxa_link",
+      "partType": "coxa_link",
+      "role": "leg",
+      "leg": "L0",
+      "joint": null,
+      "color": "#4f9dde",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        114.5,
+        -15.0,
+        50.0
+      ],
+      "focusGroup": "collision"
+    },
+    {
+      "id": "femur_link",
+      "meshId": "femur_link",
+      "name": "femur_link",
+      "partType": "femur_link",
+      "role": "leg",
+      "leg": "L0",
+      "joint": null,
+      "color": "#7bc86c",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        168.82338465209926,
+        -16.5,
+        22.082531754730553
+      ],
+      "focusGroup": "collision"
+    },
+    {
+      "id": "tibia_link",
+      "meshId": "tibia_link",
+      "name": "tibia_link",
+      "partType": "tibia_link",
+      "role": "leg",
+      "leg": "L0",
+      "joint": null,
+      "color": "#c9a14a",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        222.5076019817094,
+        8.0,
+        -58.1992411070841
+      ],
+      "focusGroup": "collision"
+    },
+    {
+      "id": "chassis_top",
+      "meshId": "chassis_top",
+      "name": "chassis_top",
+      "partType": "chassis_top",
+      "role": "chassis",
+      "leg": null,
+      "joint": null,
+      "color": "#9aa0a6",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        0.0,
+        0.0,
+        37.5
+      ],
+      "focusGroup": "collision"
+    },
+    {
+      "id": "chassis_bottom",
+      "meshId": "chassis_bottom",
+      "name": "chassis_bottom",
+      "partType": "chassis_bottom",
+      "role": "chassis",
+      "leg": null,
+      "joint": null,
+      "color": "#6b7075",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        0.0,
+        0.0,
+        5.5
+      ],
+      "focusGroup": "collision"
+    },
+    {
+      "id": "overlap",
+      "meshId": "overlap",
+      "name": "INTERFERENCE 1231 mm^3",
+      "partType": "overlap",
+      "role": "collision",
+      "leg": null,
+      "joint": null,
+      "color": "#ff2020",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "centroid": [
+        129.8926239013672,
+        8.0,
+        33.75
+      ],
+      "focusGroup": "collision"
+    }
+  ]
+}

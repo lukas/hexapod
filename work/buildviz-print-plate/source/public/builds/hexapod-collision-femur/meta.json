@@ -1,0 +1,17 @@
+{
+  "schema": 2,
+  "buildId": "hexapod-collision-femur",
+  "project": "hexapod-collision-femur",
+  "build": "hexapod-collision-femur",
+  "name": "Collision @ femur (coxa_link flat bottom vs femur_link)",
+  "createdAt": "2026-06-19T18:10:09.320Z",
+  "updatedAt": "2026-06-19T18:10:09.320Z",
+  "defaultVersion": "main",
+  "latestVersion": "main",
+  "versions": [
+    {
+      "name": "main",
+      "pushedAt": "2026-06-19T18:10:09.320Z"
+    }
+  ]
+}

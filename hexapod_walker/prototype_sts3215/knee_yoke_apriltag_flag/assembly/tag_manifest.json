@@ -1,0 +1,490 @@
+{
+  "tags": [
+    {
+      "tagId": 0,
+      "kind": "chassis_tag",
+      "leg": null,
+      "joint": null,
+      "mountSide": null,
+      "parentInstance": "027-screen",
+      "centerWorldMm": [
+        0.0,
+        0.0,
+        137.3710631110178
+      ]
+    },
+    {
+      "tagId": 1,
+      "kind": "servo_lid",
+      "leg": 0,
+      "joint": "hip",
+      "mountSide": null,
+      "parentInstance": "059-hip_clamp_cap",
+      "centerWorldMm": [
+        87.35254037844388,
+        48.700961894323335,
+        122.42106311101779
+      ]
+    },
+    {
+      "tagId": 7,
+      "kind": "servo_lid",
+      "leg": 0,
+      "joint": "knee",
+      "mountSide": null,
+      "parentInstance": "060-knee_clamp_cap",
+      "centerWorldMm": [
+        150.99112988352994,
+        85.44271867593287,
+        153.12211893202465
+      ]
+    },
+    {
+      "tagId": 42,
+      "kind": "yoke_face",
+      "leg": 0,
+      "joint": "hip",
+      "mountSide": "+y",
+      "parentInstance": "052-femur_link",
+      "centerWorldMm": [
+        80.67785792574938,
+        85.2618510267787,
+        100.5210631110178
+      ]
+    },
+    {
+      "tagId": 59,
+      "kind": "yoke_face",
+      "leg": 0,
+      "joint": "hip",
+      "mountSide": "-y",
+      "parentInstance": "052-femur_link",
+      "centerWorldMm": [
+        115.67785792574938,
+        24.64007276186799,
+        100.5210631110178
+      ]
+    },
+    {
+      "tagId": 62,
+      "kind": "yoke_face",
+      "leg": 0,
+      "joint": "knee",
+      "mountSide": "+y",
+      "parentInstance": "053-tibia_knee_yoke",
+      "centerWorldMm": [
+        151.31755897567498,
+        126.04570144342793,
+        138.55670666768074
+      ]
+    },
+    {
+      "tagId": 52,
+      "kind": "yoke_face",
+      "leg": 0,
+      "joint": "knee",
+      "mountSide": "-y",
+      "parentInstance": "053-tibia_knee_yoke",
+      "centerWorldMm": [
+        186.31755897567498,
+        65.42392317851721,
+        138.55670666768074
+      ]
+    },
+    {
+      "tagId": 4,
+      "kind": "servo_lid",
+      "leg": 1,
+      "joint": "hip",
+      "mountSide": null,
+      "parentInstance": "078-hip_clamp_cap",
+      "centerWorldMm": [
+        1.5000000000000213,
+        100.0,
+        122.42106311101779
+      ]
+    },
+    {
+      "tagId": 14,
+      "kind": "servo_lid",
+      "leg": 1,
+      "joint": "knee",
+      "mountSide": null,
+      "parentInstance": "079-knee_clamp_cap",
+      "centerWorldMm": [
+        1.5000000000000338,
+        173.4835135632191,
+        153.12211893202465
+      ]
+    },
+    {
+      "tagId": 20,
+      "kind": "yoke_face",
+      "leg": 1,
+      "joint": "hip",
+      "mountSide": "+y",
+      "parentInstance": "071-femur_link",
+      "centerWorldMm": [
+        -33.49999999999997,
+        112.50000000000001,
+        100.5210631110178
+      ]
+    },
+    {
+      "tagId": 53,
+      "kind": "yoke_face",
+      "leg": 1,
+      "joint": "hip",
+      "mountSide": "-y",
+      "parentInstance": "071-femur_link",
+      "centerWorldMm": [
+        36.50000000000002,
+        112.5,
+        100.5210631110178
+      ]
+    },
+    {
+      "tagId": 21,
+      "kind": "yoke_face",
+      "leg": 1,
+      "joint": "knee",
+      "mountSide": "+y",
+      "parentInstance": "072-tibia_knee_yoke",
+      "centerWorldMm": [
+        -33.49999999999996,
+        194.06770083329852,
+        138.55670666768074
+      ]
+    },
+    {
+      "tagId": 17,
+      "kind": "yoke_face",
+      "leg": 1,
+      "joint": "knee",
+      "mountSide": "-y",
+      "parentInstance": "072-tibia_knee_yoke",
+      "centerWorldMm": [
+        36.500000000000036,
+        194.0677008332985,
+        138.55670666768074
+      ]
+    },
+    {
+      "tagId": 6,
+      "kind": "servo_lid",
+      "leg": 2,
+      "joint": "hip",
+      "mountSide": null,
+      "parentInstance": "097-hip_clamp_cap",
+      "centerWorldMm": [
+        -85.85254037844385,
+        51.299038105676686,
+        122.42106311101779
+      ]
+    },
+    {
+      "tagId": 11,
+      "kind": "servo_lid",
+      "leg": 2,
+      "joint": "knee",
+      "mountSide": null,
+      "parentInstance": "098-knee_clamp_cap",
+      "centerWorldMm": [
+        -149.49112988352988,
+        88.04079488728624,
+        153.12211893202465
+      ]
+    },
+    {
+      "tagId": 18,
+      "kind": "yoke_face",
+      "leg": 2,
+      "joint": "hip",
+      "mountSide": "+y",
+      "parentInstance": "090-femur_link",
+      "centerWorldMm": [
+        -114.17785792574935,
+        27.23814897322135,
+        100.5210631110178
+      ]
+    },
+    {
+      "tagId": 31,
+      "kind": "yoke_face",
+      "leg": 2,
+      "joint": "hip",
+      "mountSide": "-y",
+      "parentInstance": "090-femur_link",
+      "centerWorldMm": [
+        -79.17785792574934,
+        87.85992723813204,
+        100.5210631110178
+      ]
+    },
+    {
+      "tagId": 25,
+      "kind": "yoke_face",
+      "leg": 2,
+      "joint": "knee",
+      "mountSide": "+y",
+      "parentInstance": "091-tibia_knee_yoke",
+      "centerWorldMm": [
+        -184.81755897567496,
+        68.02199938987059,
+        138.55670666768074
+      ]
+    },
+    {
+      "tagId": 16,
+      "kind": "yoke_face",
+      "leg": 2,
+      "joint": "knee",
+      "mountSide": "-y",
+      "parentInstance": "091-tibia_knee_yoke",
+      "centerWorldMm": [
+        -149.81755897567496,
+        128.64377765478127,
+        138.55670666768074
+      ]
+    },
+    {
+      "tagId": 5,
+      "kind": "servo_lid",
+      "leg": 3,
+      "joint": "hip",
+      "mountSide": null,
+      "parentInstance": "116-hip_clamp_cap",
+      "centerWorldMm": [
+        -87.35254037844388,
+        -48.70096189432333,
+        122.42106311101779
+      ]
+    },
+    {
+      "tagId": 9,
+      "kind": "servo_lid",
+      "leg": 3,
+      "joint": "knee",
+      "mountSide": null,
+      "parentInstance": "117-knee_clamp_cap",
+      "centerWorldMm": [
+        -150.99112988352994,
+        -85.44271867593287,
+        153.12211893202465
+      ]
+    },
+    {
+      "tagId": 33,
+      "kind": "yoke_face",
+      "leg": 3,
+      "joint": "hip",
+      "mountSide": "+y",
+      "parentInstance": "109-femur_link",
+      "centerWorldMm": [
+        -80.6778579257494,
+        -85.26185102677869,
+        100.5210631110178
+      ]
+    },
+    {
+      "tagId": 19,
+      "kind": "yoke_face",
+      "leg": 3,
+      "joint": "hip",
+      "mountSide": "-y",
+      "parentInstance": "109-femur_link",
+      "centerWorldMm": [
+        -115.67785792574938,
+        -24.64007276186797,
+        100.5210631110178
+      ]
+    },
+    {
+      "tagId": 44,
+      "kind": "yoke_face",
+      "leg": 3,
+      "joint": "knee",
+      "mountSide": "+y",
+      "parentInstance": "110-tibia_knee_yoke",
+      "centerWorldMm": [
+        -151.31755897567498,
+        -126.04570144342792,
+        138.55670666768074
+      ]
+    },
+    {
+      "tagId": 27,
+      "kind": "yoke_face",
+      "leg": 3,
+      "joint": "knee",
+      "mountSide": "-y",
+      "parentInstance": "110-tibia_knee_yoke",
+      "centerWorldMm": [
+        -186.31755897567496,
+        -65.42392317851719,
+        138.55670666768074
+      ]
+    },
+    {
+      "tagId": 3,
+      "kind": "servo_lid",
+      "leg": 4,
+      "joint": "hip",
+      "mountSide": null,
+      "parentInstance": "135-hip_clamp_cap",
+      "centerWorldMm": [
+        -1.500000000000064,
+        -100.0,
+        122.42106311101779
+      ]
+    },
+    {
+      "tagId": 10,
+      "kind": "servo_lid",
+      "leg": 4,
+      "joint": "knee",
+      "mountSide": null,
+      "parentInstance": "136-knee_clamp_cap",
+      "centerWorldMm": [
+        -1.5000000000001155,
+        -173.4835135632191,
+        153.12211893202465
+      ]
+    },
+    {
+      "tagId": 39,
+      "kind": "yoke_face",
+      "leg": 4,
+      "joint": "hip",
+      "mountSide": "+y",
+      "parentInstance": "128-femur_link",
+      "centerWorldMm": [
+        33.49999999999993,
+        -112.50000000000004,
+        100.5210631110178
+      ]
+    },
+    {
+      "tagId": 51,
+      "kind": "yoke_face",
+      "leg": 4,
+      "joint": "hip",
+      "mountSide": "-y",
+      "parentInstance": "128-femur_link",
+      "centerWorldMm": [
+        -36.50000000000007,
+        -112.5,
+        100.5210631110178
+      ]
+    },
+    {
+      "tagId": 60,
+      "kind": "yoke_face",
+      "leg": 4,
+      "joint": "knee",
+      "mountSide": "+y",
+      "parentInstance": "129-tibia_knee_yoke",
+      "centerWorldMm": [
+        33.49999999999987,
+        -194.06770083329852,
+        138.55670666768074
+      ]
+    },
+    {
+      "tagId": 61,
+      "kind": "yoke_face",
+      "leg": 4,
+      "joint": "knee",
+      "mountSide": "-y",
+      "parentInstance": "129-tibia_knee_yoke",
+      "centerWorldMm": [
+        -36.50000000000013,
+        -194.06770083329846,
+        138.55670666768074
+      ]
+    },
+    {
+      "tagId": 2,
+      "kind": "servo_lid",
+      "leg": 5,
+      "joint": "hip",
+      "mountSide": null,
+      "parentInstance": "154-hip_clamp_cap",
+      "centerWorldMm": [
+        85.85254037844386,
+        -51.29903810567666,
+        122.42106311101779
+      ]
+    },
+    {
+      "tagId": 8,
+      "kind": "servo_lid",
+      "leg": 5,
+      "joint": "knee",
+      "mountSide": null,
+      "parentInstance": "155-knee_clamp_cap",
+      "centerWorldMm": [
+        149.49112988352996,
+        -88.04079488728618,
+        153.12211893202465
+      ]
+    },
+    {
+      "tagId": 63,
+      "kind": "yoke_face",
+      "leg": 5,
+      "joint": "hip",
+      "mountSide": "+y",
+      "parentInstance": "147-femur_link",
+      "centerWorldMm": [
+        114.17785792574936,
+        -27.238148973221307,
+        100.5210631110178
+      ]
+    },
+    {
+      "tagId": 48,
+      "kind": "yoke_face",
+      "leg": 5,
+      "joint": "hip",
+      "mountSide": "-y",
+      "parentInstance": "147-femur_link",
+      "centerWorldMm": [
+        79.17785792574936,
+        -87.85992723813202,
+        100.5210631110178
+      ]
+    },
+    {
+      "tagId": 58,
+      "kind": "yoke_face",
+      "leg": 5,
+      "joint": "knee",
+      "mountSide": "+y",
+      "parentInstance": "148-tibia_knee_yoke",
+      "centerWorldMm": [
+        184.81755897567496,
+        -68.02199938987053,
+        138.55670666768074
+      ]
+    },
+    {
+      "tagId": 64,
+      "kind": "yoke_face",
+      "leg": 5,
+      "joint": "knee",
+      "mountSide": "-y",
+      "parentInstance": "148-tibia_knee_yoke",
+      "centerWorldMm": [
+        149.81755897567496,
+        -128.64377765478125,
+        138.55670666768074
+      ]
+    }
+  ],
+  "limitations": [
+    "Cable routing and printed fit require physical verification.",
+    "Servo-lid artwork uses the generator orientation; tag centers are CAD-derived.",
+    "Base robot is full_robot_viz; standalone mechanical concept variants are not merged."
+  ]
+}

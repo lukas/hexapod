@@ -1,0 +1,46 @@
+{
+  "name": "buildviz",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "bin": {
+    "buildviz": "./bin/buildviz.mjs"
+  },
+  "scripts": {
+    "dev": "vite viewer",
+    "hexapod": "vite viewer --host 127.0.0.1 --open '/?build=hexapod-prototype&designSpec=/builds/hexapod-prototype/design_spec.yaml'",
+    "build": "tsc -b && vite build viewer",
+    "buildviz": "tsx cli/buildviz.ts",
+    "export:hexapod": "WEIRD_OBJECTS_ROOT=${WEIRD_OBJECTS_ROOT:-../weird_objects} uv run scripts/export_hexapod_prototype.py",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "@types/three": "^0.184.1",
+    "@vitejs/plugin-react": "^6.0.1",
+    "js-yaml": "^4.1.1",
+    "occt-import-js": "^0.0.23",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "three": "^0.184.0",
+    "three-mesh-bvh": "^0.9.10",
+    "tsx": "^4.22.3",
+    "vite": "^8.0.12"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^24.12.3",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^10.3.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.6.0",
+    "playwright": "^1.60.0",
+    "prettier": "^3.8.3",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "^8.59.2"
+  }
+}

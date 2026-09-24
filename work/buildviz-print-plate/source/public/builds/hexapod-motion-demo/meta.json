@@ -1,0 +1,17 @@
+{
+  "schema": 2,
+  "buildId": "hexapod-motion-demo",
+  "project": "hexapod-motion-demo",
+  "build": "hexapod-motion-demo",
+  "name": "Hexapod Motion Demo",
+  "createdAt": "2026-06-19T18:10:09.320Z",
+  "updatedAt": "2026-06-19T18:10:09.320Z",
+  "defaultVersion": "main",
+  "latestVersion": "main",
+  "versions": [
+    {
+      "name": "main",
+      "pushedAt": "2026-06-19T18:10:09.320Z"
+    }
+  ]
+}

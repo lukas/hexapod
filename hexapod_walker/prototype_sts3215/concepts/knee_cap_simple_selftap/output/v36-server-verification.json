@@ -1,0 +1,451 @@
+{
+  "version": "v36",
+  "changedMeshIds": [
+    "stl:femur_ovh_body",
+    "stl:knee_clamp_cap_ovh"
+  ],
+  "removedNutAndOldBoltInstances": 24,
+  "movedKneeDownstreamInstances": [
+    "017-L0 knee servo",
+    "018-L0 knee cap OVH (NEW)",
+    "019-L0 knee C-clamp (CNC 6061, NEW)",
+    "020-L0 tibia socket OVH (NEW)",
+    "021-L0 tibia tube (shortened)",
+    "022-L0 foot boot",
+    "032-L1 knee servo",
+    "033-L1 knee cap OVH (NEW)",
+    "034-L1 knee C-clamp (CNC 6061, NEW)",
+    "035-L1 tibia socket OVH (NEW)",
+    "036-L1 tibia tube (shortened)",
+    "037-L1 foot boot",
+    "047-L2 knee servo",
+    "048-L2 knee cap OVH (NEW)",
+    "049-L2 knee C-clamp (CNC 6061, NEW)",
+    "050-L2 tibia socket OVH (NEW)",
+    "051-L2 tibia tube (shortened)",
+    "052-L2 foot boot",
+    "062-L3 knee servo",
+    "063-L3 knee cap OVH (NEW)",
+    "064-L3 knee C-clamp (CNC 6061, NEW)",
+    "065-L3 tibia socket OVH (NEW)",
+    "066-L3 tibia tube (shortened)",
+    "067-L3 foot boot",
+    "077-L4 knee servo",
+    "078-L4 knee cap OVH (NEW)",
+    "079-L4 knee C-clamp (CNC 6061, NEW)",
+    "080-L4 tibia socket OVH (NEW)",
+    "081-L4 tibia tube (shortened)",
+    "082-L4 foot boot",
+    "092-L5 knee servo",
+    "093-L5 knee cap OVH (NEW)",
+    "094-L5 knee C-clamp (CNC 6061, NEW)",
+    "095-L5 tibia socket OVH (NEW)",
+    "096-L5 tibia tube (shortened)",
+    "097-L5 foot boot",
+    "102-L0 knee driven 7 mm spacer",
+    "103-L0 knee passive 7 mm spacer",
+    "108-L1 knee driven 7 mm spacer",
+    "109-L1 knee passive 7 mm spacer",
+    "114-L2 knee driven 7 mm spacer",
+    "115-L2 knee passive 7 mm spacer",
+    "120-L3 knee driven 7 mm spacer",
+    "121-L3 knee passive 7 mm spacer",
+    "126-L4 knee driven 7 mm spacer",
+    "127-L4 knee passive 7 mm spacer",
+    "132-L5 knee driven 7 mm spacer",
+    "133-L5 knee passive 7 mm spacer"
+  ],
+  "addedSelfTappingScrews": 12,
+  "sceneInstanceCount": 170,
+  "overallBuildPassed": false,
+  "summary": "Found 0 unexpected colliding pair(s) (+ 18 intentional), 84 floating part(s).",
+  "components": {
+    "count": 13,
+    "mainComponentSize": 86,
+    "floatingComponentCount": 12
+  },
+  "kneeFasteningChecks": [
+    {
+      "id": "fastening-L0-knee-middle-selftap-0",
+      "kind": "thread_engagement",
+      "instances": [
+        "018-L0 knee cap OVH (NEW)",
+        "016-L0 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        171.82261726969477,
+        97.46978352595542,
+        80.57262531099406
+      ],
+      "line": {
+        "from": [
+          171.82261726969477,
+          97.46978352595542,
+          80.57262531099406
+        ],
+        "to": [
+          174.75060247586012,
+          99.16025657291821,
+          73.32216301470086
+        ]
+      },
+      "label": "L0-knee-middle-selftap-0: 018-L0 knee cap OVH (NEW) → 016-L0 femur body OVH (NEW); 5.00 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L0-knee-middle-selftap-1",
+      "kind": "thread_engagement",
+      "instances": [
+        "018-L0 knee cap OVH (NEW)",
+        "016-L0 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        214.5203921265387,
+        122.1213553333523,
+        103.5630587496881
+      ],
+      "line": {
+        "from": [
+          214.5203921265387,
+          122.1213553333523,
+          103.5630587496881
+        ],
+        "to": [
+          217.44837733270404,
+          123.81182838031509,
+          96.3125964533949
+        ]
+      },
+      "label": "L0-knee-middle-selftap-1: 018-L0 knee cap OVH (NEW) → 016-L0 femur body OVH (NEW); 5.00 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L1-knee-middle-selftap-0",
+      "kind": "thread_engagement",
+      "instances": [
+        "033-L1 knee cap OVH (NEW)",
+        "031-L1 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        1.5000000000000107,
+        197.53764326326416,
+        80.57262531099406
+      ],
+      "line": {
+        "from": [
+          1.5000000000000107,
+          197.53764326326416,
+          80.57262531099406
+        ],
+        "to": [
+          1.5000000000000109,
+          200.91858935718975,
+          73.32216301470086
+        ]
+      },
+      "label": "L1-knee-middle-selftap-0: 033-L1 knee cap OVH (NEW) → 031-L1 femur body OVH (NEW); 5.00 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L1-knee-middle-selftap-1",
+      "kind": "thread_engagement",
+      "instances": [
+        "033-L1 knee cap OVH (NEW)",
+        "031-L1 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        1.5000000000000142,
+        246.84078687805794,
+        103.5630587496881
+      ],
+      "line": {
+        "from": [
+          1.5000000000000142,
+          246.84078687805794,
+          103.5630587496881
+        ],
+        "to": [
+          1.5000000000000144,
+          250.22173297198353,
+          96.3125964533949
+        ]
+      },
+      "label": "L1-knee-middle-selftap-1: 033-L1 knee cap OVH (NEW) → 031-L1 femur body OVH (NEW); 5.00 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L2-knee-middle-selftap-0",
+      "kind": "thread_engagement",
+      "instances": [
+        "048-L2 knee cap OVH (NEW)",
+        "046-L2 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -170.32261726969477,
+        100.06785973730872,
+        80.57262531099406
+      ],
+      "line": {
+        "from": [
+          -170.32261726969477,
+          100.06785973730872,
+          80.57262531099406
+        ],
+        "to": [
+          -173.25060247586012,
+          101.75833278427152,
+          73.32216301470086
+        ]
+      },
+      "label": "L2-knee-middle-selftap-0: 048-L2 knee cap OVH (NEW) → 046-L2 femur body OVH (NEW); 5.00 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L2-knee-middle-selftap-1",
+      "kind": "thread_engagement",
+      "instances": [
+        "048-L2 knee cap OVH (NEW)",
+        "046-L2 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -213.0203921265387,
+        124.7194315447056,
+        103.5630587496881
+      ],
+      "line": {
+        "from": [
+          -213.0203921265387,
+          124.7194315447056,
+          103.5630587496881
+        ],
+        "to": [
+          -215.94837733270404,
+          126.4099045916684,
+          96.3125964533949
+        ]
+      },
+      "label": "L2-knee-middle-selftap-1: 048-L2 knee cap OVH (NEW) → 046-L2 femur body OVH (NEW); 5.00 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L3-knee-middle-selftap-0",
+      "kind": "thread_engagement",
+      "instances": [
+        "063-L3 knee cap OVH (NEW)",
+        "061-L3 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -171.82261726969477,
+        -97.46978352595536,
+        80.57262531099406
+      ],
+      "line": {
+        "from": [
+          -171.82261726969477,
+          -97.46978352595536,
+          80.57262531099406
+        ],
+        "to": [
+          -174.75060247586012,
+          -99.16025657291816,
+          73.32216301470086
+        ]
+      },
+      "label": "L3-knee-middle-selftap-0: 063-L3 knee cap OVH (NEW) → 061-L3 femur body OVH (NEW); 5.00 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L3-knee-middle-selftap-1",
+      "kind": "thread_engagement",
+      "instances": [
+        "063-L3 knee cap OVH (NEW)",
+        "061-L3 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -214.5203921265387,
+        -122.12135533335224,
+        103.5630587496881
+      ],
+      "line": {
+        "from": [
+          -214.5203921265387,
+          -122.12135533335224,
+          103.5630587496881
+        ],
+        "to": [
+          -217.44837733270404,
+          -123.81182838031503,
+          96.3125964533949
+        ]
+      },
+      "label": "L3-knee-middle-selftap-1: 063-L3 knee cap OVH (NEW) → 061-L3 femur body OVH (NEW); 5.00 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L4-knee-middle-selftap-0",
+      "kind": "thread_engagement",
+      "instances": [
+        "078-L4 knee cap OVH (NEW)",
+        "076-L4 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -1.5000000000000355,
+        -197.53764326326416,
+        80.57262531099406
+      ],
+      "line": {
+        "from": [
+          -1.5000000000000355,
+          -197.53764326326416,
+          80.57262531099406
+        ],
+        "to": [
+          -1.5000000000000362,
+          -200.91858935718975,
+          73.32216301470086
+        ]
+      },
+      "label": "L4-knee-middle-selftap-0: 078-L4 knee cap OVH (NEW) → 076-L4 femur body OVH (NEW); 5.00 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L4-knee-middle-selftap-1",
+      "kind": "thread_engagement",
+      "instances": [
+        "078-L4 knee cap OVH (NEW)",
+        "076-L4 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        -1.5000000000000462,
+        -246.8407868780579,
+        103.5630587496881
+      ],
+      "line": {
+        "from": [
+          -1.5000000000000462,
+          -246.8407868780579,
+          103.5630587496881
+        ],
+        "to": [
+          -1.5000000000000469,
+          -250.2217329719835,
+          96.3125964533949
+        ]
+      },
+      "label": "L4-knee-middle-selftap-1: 078-L4 knee cap OVH (NEW) → 076-L4 femur body OVH (NEW); 5.00 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L5-knee-middle-selftap-0",
+      "kind": "thread_engagement",
+      "instances": [
+        "093-L5 knee cap OVH (NEW)",
+        "091-L5 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        170.32261726969466,
+        -100.06785973730885,
+        80.57262531099406
+      ],
+      "line": {
+        "from": [
+          170.32261726969466,
+          -100.06785973730885,
+          80.57262531099406
+        ],
+        "to": [
+          173.25060247586,
+          -101.75833278427164,
+          73.32216301470086
+        ]
+      },
+      "label": "L5-knee-middle-selftap-0: 093-L5 knee cap OVH (NEW) → 091-L5 femur body OVH (NEW); 5.00 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    },
+    {
+      "id": "fastening-L5-knee-middle-selftap-1",
+      "kind": "thread_engagement",
+      "instances": [
+        "093-L5 knee cap OVH (NEW)",
+        "091-L5 femur body OVH (NEW)"
+      ],
+      "status": "pass",
+      "point": [
+        213.02039212653858,
+        -124.71943154470574,
+        103.5630587496881
+      ],
+      "line": {
+        "from": [
+          213.02039212653858,
+          -124.71943154470574,
+          103.5630587496881
+        ],
+        "to": [
+          215.94837733270393,
+          -126.40990459166854,
+          96.3125964533949
+        ]
+      },
+      "label": "L5-knee-middle-selftap-1: 093-L5 knee cap OVH (NEW) → 091-L5 femur body OVH (NEW); 5.00 mm continuous engagement / 4.5 mm required; 8 mm screw; sampled seat and clearance pass"
+    }
+  ],
+  "printability": [
+    {
+      "meshId": "stl:femur_ovh_body",
+      "meshName": "femur_ovh_body.stl",
+      "instanceIds": [
+        "016-L0 femur body OVH (NEW)",
+        "031-L1 femur body OVH (NEW)",
+        "046-L2 femur body OVH (NEW)",
+        "061-L3 femur body OVH (NEW)",
+        "076-L4 femur body OVH (NEW)",
+        "091-L5 femur body OVH (NEW)"
+      ],
+      "triangleCount": 10792,
+      "openEdges": 0,
+      "nonManifoldEdges": 0,
+      "inconsistentWinding": false,
+      "degenerateTriangles": 0,
+      "selfIntersections": 0,
+      "selfIntersectionPoint": null,
+      "componentCount": 1,
+      "smallestComponent": null,
+      "volumeMm3": 40209.93,
+      "minWallMm": 0.253,
+      "thinPoint": [
+        192.46149917010513,
+        85.81051272964265,
+        79.50070374630604
+      ]
+    },
+    {
+      "meshId": "stl:knee_clamp_cap_ovh",
+      "meshName": "knee_clamp_cap_ovh.stl",
+      "instanceIds": [
+        "018-L0 knee cap OVH (NEW)",
+        "033-L1 knee cap OVH (NEW)",
+        "048-L2 knee cap OVH (NEW)",
+        "063-L3 knee cap OVH (NEW)",
+        "078-L4 knee cap OVH (NEW)",
+        "093-L5 knee cap OVH (NEW)"
+      ],
+      "triangleCount": 910,
+      "openEdges": 0,
+      "nonManifoldEdges": 0,
+      "inconsistentWinding": false,
+      "degenerateTriangles": 0,
+      "selfIntersections": 0,
+      "selfIntersectionPoint": null,
+      "componentCount": 1,
+      "smallestComponent": null,
+      "volumeMm3": 20479.036,
+      "minWallMm": 1.582,
+      "thinPoint": [
+        168.5162017664962,
+        96.16111986396874,
+        81.13901686693835
+      ]
+    }
+  ]
+}

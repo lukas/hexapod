@@ -1,0 +1,289 @@
+[2026-09-21 17:01:08.144397] [0x00000001fbbfa1c0] [trace]   Initializing StaticPrintConfigs
+[2026-09-21 17:01:08.151529] [0x00000001fbbfa1c0] [warning] cli mode, Current BambuStudio Version 02.08.02.61
+[2026-09-21 17:01:08.151561] [0x00000001fbbfa1c0] [info]    Will start to read model file now, file count :1
+
+[2026-09-21 17:01:08.151576] [0x00000001fbbfa1c0] [info]    allow_multicolor_oneplate 1, allow_rotations 1 skip_modified_gcodes 0 avoid_extrusion_cali_region 0 loaded_filament_ids size 0, clone_objects size 0, skip_useless_pick 0, allow_newer_file 0, allow_mix_temp 0
+[2026-09-21 17:01:08.151585] [0x00000001fbbfa1c0] [info]    plate_to_slice=0, normative_check=1, use_first_fila_as_default=0
+[2026-09-21 17:01:08.151597] [0x00000001fbbfa1c0] [info]    read model file:work/coxa-bambu-config/blocked.3mf
+
+[2026-09-21 17:01:08.151695] [0x00000001fbbfa1c0] [info]    model 0x16fbdff98, id 3, backup_path empty, set to 17_01_08#14154#3
+[2026-09-21 17:01:08.151804] [0x00000001fbbfa1c0] [info]    create /3D/Objects in 17_01_08#14154#3
+[2026-09-21 17:01:08.152363] [0x00000001fbbfa1c0] [info]    create /Metadata in 17_01_08#14154#3
+[2026-09-21 17:01:08.152554] [0x00000001fbbfa1c0] [info]    create /lock.txt in 17_01_08#14154#3
+[2026-09-21 17:01:08.152814] [0x00000001fbbfa1c0] [info]    _load_model_from_file:1799import 3mf IMPORT_STAGE_OPEN, m_load_restore=0
+
+[2026-09-21 17:01:08.152908] [0x00000001fbbfa1c0] [info]    _load_model_from_file:1835import 3mf IMPORT_STAGE_READ_FILES
+
+[2026-09-21 17:01:08.153108] [0x00000001fbbfa1c0] [info]    _load_model_from_file:1991extract 1th file [Content_Types].xml, total=18
+[2026-09-21 17:01:08.153116] [0x00000001fbbfa1c0] [info]    _load_model_from_file:2102, [Content_Types].xml skipped, already parsed or a directory or not supported
+
+[2026-09-21 17:01:08.153124] [0x00000001fbbfa1c0] [info]    _load_model_from_file:1991extract 2th file plate_1.png, total=18
+[2026-09-21 17:01:08.153471] [0x00000001fbbfa1c0] [info]    _extract_file_from_archive, extract  plate_1.png from 3mf Metadata/plate_1.png, ret 1
+
+[2026-09-21 17:01:08.153480] [0x00000001fbbfa1c0] [info]    _load_model_from_file:1991extract 3th file plate_1_small.png, total=18
+[2026-09-21 17:01:08.153754] [0x00000001fbbfa1c0] [info]    _extract_file_from_archive, extract  plate_1_small.png from 3mf Metadata/plate_1_small.png, ret 1
+
+[2026-09-21 17:01:08.153763] [0x00000001fbbfa1c0] [info]    _load_model_from_file:1991extract 4th file plate_no_light_1.png, total=18
+[2026-09-21 17:01:08.154063] [0x00000001fbbfa1c0] [info]    _extract_file_from_archive, extract  plate_no_light_1.png from 3mf Metadata/plate_no_light_1.png, ret 1
+
+[2026-09-21 17:01:08.154071] [0x00000001fbbfa1c0] [info]    _load_model_from_file:1991extract 5th file top_1.png, total=18
+[2026-09-21 17:01:08.154344] [0x00000001fbbfa1c0] [info]    _extract_file_from_archive, extract  top_1.png from 3mf Metadata/top_1.png, ret 1
+
+[2026-09-21 17:01:08.154352] [0x00000001fbbfa1c0] [info]    _load_model_from_file:1991extract 6th file pick_1.png, total=18
+[2026-09-21 17:01:08.154624] [0x00000001fbbfa1c0] [info]    _extract_file_from_archive, extract  pick_1.png from 3mf Metadata/pick_1.png, ret 1
+
+[2026-09-21 17:01:08.154639] [0x00000001fbbfa1c0] [info]    _load_model_from_file:1991extract 7th file 3dmodel.model, total=18
+[2026-09-21 17:01:08.154645] [0x00000001fbbfa1c0] [info]    _load_model_from_file:2102, 3D/3dmodel.model skipped, already parsed or a directory or not supported
+
+[2026-09-21 17:01:08.154653] [0x00000001fbbfa1c0] [info]    _load_model_from_file:1991extract 8th file 3dmodel.model.rels, total=18
+[2026-09-21 17:01:08.154657] [0x00000001fbbfa1c0] [info]    _load_model_from_file:2102, 3D/_rels/3dmodel.model.rels skipped, already parsed or a directory or not supported
+
+[2026-09-21 17:01:08.154664] [0x00000001fbbfa1c0] [info]    _load_model_from_file:1991extract 9th file object_3.model, total=18
+[2026-09-21 17:01:08.154667] [0x00000001fbbfa1c0] [info]    _load_model_from_file:2102, 3D/Objects/object_3.model skipped, already parsed or a directory or not supported
+
+[2026-09-21 17:01:08.154673] [0x00000001fbbfa1c0] [info]    _load_model_from_file:1991extract 10th file object_2.model, total=18
+[2026-09-21 17:01:08.154687] [0x00000001fbbfa1c0] [info]    _load_model_from_file:2102, 3D/Objects/object_2.model skipped, already parsed or a directory or not supported
+
+[2026-09-21 17:01:08.154693] [0x00000001fbbfa1c0] [info]    _load_model_from_file:1991extract 11th file object_1.model, total=18
+[2026-09-21 17:01:08.154696] [0x00000001fbbfa1c0] [info]    _load_model_from_file:2102, 3D/Objects/object_1.model skipped, already parsed or a directory or not supported
+
+[2026-09-21 17:01:08.154701] [0x00000001fbbfa1c0] [info]    _load_model_from_file:1991extract 12th file project_settings.config, total=18
+[2026-09-21 17:01:08.155144] [0x00000001fbbfa1c0] [info]    _extract_project_config_from_archive, extract  _temp_3.config from 3mf Metadata/project_settings.config, ret 1
+
+[2026-09-21 17:01:08.156365] [0x00000001fbbfa1c0] [info]    _extract_project_config_from_archive, load project config file successfully from _temp_3.config
+
+[2026-09-21 17:01:08.156376] [0x00000001fbbfa1c0] [info]    _load_model_from_file:1991extract 13th file model_settings.config, total=18
+[2026-09-21 17:01:08.156471] [0x00000001fbbfa1c0] [info]    _load_model_from_file:1991extract 14th file cut_information.xml, total=18
+[2026-09-21 17:01:08.156510] [0x00000001fbbfa1c0] [info]    _load_model_from_file:1991extract 15th file slice_info.config, total=18
+[2026-09-21 17:01:08.156527] [0x00000001fbbfa1c0] [info]    _load_model_from_file:1991extract 16th file filament_sequence.json, total=18
+[2026-09-21 17:01:08.156544] [0x00000001fbbfa1c0] [info]    _load_model_from_file:1991extract 17th file .rels, total=18
+[2026-09-21 17:01:08.156547] [0x00000001fbbfa1c0] [info]    _load_model_from_file:2102, _rels/.rels skipped, already parsed or a directory or not supported
+
+[2026-09-21 17:01:08.156552] [0x00000001fbbfa1c0] [info]    _load_model_from_file:1991extract 18th file blockers.model, total=18
+[2026-09-21 17:01:08.156555] [0x00000001fbbfa1c0] [info]    _load_model_from_file:2102, 3D/Objects/blockers.model skipped, already parsed or a directory or not supported
+
+[2026-09-21 17:01:08.156564] [0x00000001fbbfa1c0] [info]    _load_model_from_file:2154, process group colors, size 0
+
+[2026-09-21 17:01:08.156567] [0x00000001fbbfa1c0] [info]    _load_model_from_file:2176, begin to assemble objects, size 3
+
+[2026-09-21 17:01:08.156577] [0x00000001fbbfa1c0] [info]    _load_model_from_file:2395import 3mf IMPORT_STAGE_LOADING_PLATES, m_plater_data size 1, m_backup_path 17_01_08#14154#3
+
+[2026-09-21 17:01:08.156586] [0x00000001fbbfa1c0] [info]    _load_model_from_file:2448, plate 1, thumbnail_file=plate_1.png, no_light_thumbnail_file=plate_no_light_1.png
+[2026-09-21 17:01:08.156589] [0x00000001fbbfa1c0] [info]    _load_model_from_file:2452, top_thumbnail_file=top_1.png, pick_thumbnail_file=pick_1.png
+[2026-09-21 17:01:08.156592] [0x00000001fbbfa1c0] [info]    _load_model_from_file:2510import 3mf IMPORT_STAGE_FINISH
+
+[2026-09-21 17:01:08.156825] [0x00000001fbbfa1c0] [info]    the first file is a 3mf, version 2.8.2.61, got plate count 1
+[2026-09-21 17:01:08.156839] [0x00000001fbbfa1c0] [info]    current_printer_name Bambu Lab H2D 0.4 nozzle, current_process_name Coxa PETG - accessible support
+[2026-09-21 17:01:08.156843] [0x00000001fbbfa1c0] [info]    inherits of printer is null, should be system preset
+[2026-09-21 17:01:08.156846] [0x00000001fbbfa1c0] [info]    inherits of process is null, should be system preset
+[2026-09-21 17:01:08.157046] [0x00000001fbbfa1c0] [info]    old printable size from 3mf: {350, 320, 325}
+[2026-09-21 17:01:08.157054] [0x00000001fbbfa1c0] [info]    old extruder_clearance_height_to_rod 47.4, extruder_clearance_height_to_lid 201, extruder_clearance_max_radius 96 extruder_clearance_dist_to_rod 50}
+[2026-09-21 17:01:08.157063] [0x00000001fbbfa1c0] [info]    run:before load settings, file count=0
+
+[2026-09-21 17:01:08.157071] [0x00000001fbbfa1c0] [warning] run:2873, can not find system preset file: /Applications/BambuStudio.app/Contents/Resources/profiles/BBL/machine_full/Bambu Lab H2D 0.4 nozzle.json 
+[2026-09-21 17:01:08.157080] [0x00000001fbbfa1c0] [warning] run:2895, can not find system preset file: /Applications/BambuStudio.app/Contents/Resources/profiles/BBL/process_full/Coxa PETG - accessible support.json 
+[2026-09-21 17:01:08.157083] [0x00000001fbbfa1c0] [info]    current printer Bambu Lab H2D 0.4 nozzle, new printer , current process Coxa PETG - accessible support, new process 
+[2026-09-21 17:01:08.157086] [0x00000001fbbfa1c0] [info]    current printer inherits Bambu Lab H2D 0.4 nozzle, new printer inherits , current process inherits Coxa PETG - accessible support, new process inherits 
+[2026-09-21 17:01:08.157089] [0x00000001fbbfa1c0] [info]    index 0, current print compatible printer Bambu Lab H2D 0.4 nozzle
+[2026-09-21 17:01:08.157091] [0x00000001fbbfa1c0] [info]    index 0, upward_compatible_printers Bambu Lab H2D Pro 0.4 nozzle
+[2026-09-21 17:01:08.157095] [0x00000001fbbfa1c0] [info]    old printer Bambu Lab H2D 0.4 nozzle, inherited from Bambu Lab H2D 0.4 nozzle, old process Coxa PETG - accessible support, inherited from Coxa PETG - accessible support ,compatible 1
+[2026-09-21 17:01:08.157108] [0x00000001fbbfa1c0] [warning] no filament colors found in projects
+[2026-09-21 17:01:08.157112] [0x00000001fbbfa1c0] [info]    total 1 models, 0 objects
+
+[2026-09-21 17:01:08.157705] [0x00000001fbbfa1c0] [info]    4160, remove_wrapping_detect 0, old value 0
+[2026-09-21 17:01:08.157743] [0x00000001fbbfa1c0] [debug]   set_index: plate_id update from 0 to 0
+[2026-09-21 17:01:08.157746] [0x00000001fbbfa1c0] [debug]   set_index: plate_id update from 0 to 1
+[2026-09-21 17:01:08.157753] [0x00000001fbbfa1c0] [info]    Line 4274: shared_printable_size {300, 320, 320}, shared_center {175, 160}
+[2026-09-21 17:01:08.157756] [0x00000001fbbfa1c0] [info]    old printable size {350, 320, 325}, new printable size {350, 320, 325}, extract the same, no need shrink
+[2026-09-21 17:01:08.157760] [0x00000001fbbfa1c0] [info]    translate_old 0, shrink_to_new_bed 0, old bed size {350, 320, 325}
+[2026-09-21 17:01:08.157764] [0x00000001fbbfa1c0] [info]    reset_size:before size: plate_width 0, plate_depth 0, plate_height 0
+[2026-09-21 17:01:08.157767] [0x00000001fbbfa1c0] [info]    reset_size:after size: plate_width 350, plate_depth 320, plate_height 325
+[2026-09-21 17:01:08.157772] [0x00000001fbbfa1c0] [info]    set_pos_and_size: plate_id 0, before, origin {0,0,0}, plate_width 0, plate_depth 0, plate_height 0
+[2026-09-21 17:01:08.157775] [0x00000001fbbfa1c0] [info]    set_pos_and_size: with_instance_move 0, after, origin {0,0,0}, plate_width 350, plate_depth 320, plate_height 325
+[2026-09-21 17:01:08.157778] [0x00000001fbbfa1c0] [info]    update_slice_result_valid_state: plate 0 , update slice result from 0 to 0
+[2026-09-21 17:01:08.157782] [0x00000001fbbfa1c0] [info]    set_pos_and_size: plate_id 1, before, origin {0,0,0}, plate_width 0, plate_depth 0, plate_height 0
+[2026-09-21 17:01:08.157786] [0x00000001fbbfa1c0] [info]    set_pos_and_size: with_instance_move 0, after, origin {420,0,0}, plate_width 350, plate_depth 320, plate_height 325
+[2026-09-21 17:01:08.157789] [0x00000001fbbfa1c0] [info]    update_slice_result_valid_state: plate 0 , update slice result from 0 to 0
+[2026-09-21 17:01:08.157804] [0x00000001fbbfa1c0] [info]    update_slice_result_valid_state: plate 0 , update slice result from 0 to 0
+[2026-09-21 17:01:08.157807] [0x00000001fbbfa1c0] [info]    update_slice_result_valid_state: plate 0 , update slice result from 0 to 0
+[2026-09-21 17:01:08.157822] [0x00000001fbbfa1c0] [info]    update_slice_result_valid_state: plate 1 , update slice result from 0 to 0
+[2026-09-21 17:01:08.157826] [0x00000001fbbfa1c0] [info]    set_filament_count: filament_count=1
+[2026-09-21 17:01:08.157838] [0x00000001fbbfa1c0] [debug]   set_index: plate_id update from 0 to 0
+[2026-09-21 17:01:08.157843] [0x00000001fbbfa1c0] [info]    update_plate_cols:m_plate_count 1, m_plate_cols change to 1
+[2026-09-21 17:01:08.157846] [0x00000001fbbfa1c0] [debug]   create_plate:old_cols 0 -> new_cols 1
+[2026-09-21 17:01:08.157849] [0x00000001fbbfa1c0] [info]    set_pos_and_size: plate_id 0, before, origin {0,0,0}, plate_width 350, plate_depth 320, plate_height 325
+[2026-09-21 17:01:08.157854] [0x00000001fbbfa1c0] [info]    set_pos_and_size: with_instance_move 0, after, origin {0,0,0}, plate_width 350, plate_depth 320, plate_height 325
+[2026-09-21 17:01:08.157858] [0x00000001fbbfa1c0] [info]    set_pos_and_size: plate_id 1, before, origin {420,0,0}, plate_width 350, plate_depth 320, plate_height 325
+[2026-09-21 17:01:08.157861] [0x00000001fbbfa1c0] [info]    set_pos_and_size: with_instance_move 0, after, origin {420,0,0}, plate_width 350, plate_depth 320, plate_height 325
+[2026-09-21 17:01:08.157863] [0x00000001fbbfa1c0] [info]    PartPlate same shape, skip directly
+[2026-09-21 17:01:08.157865] [0x00000001fbbfa1c0] [debug]   set_index: plate_id update from 1 to 1
+[2026-09-21 17:01:08.157867] [0x00000001fbbfa1c0] [debug]   create_plate:created a new plate 0
+[2026-09-21 17:01:08.157872] [0x00000001fbbfa1c0] [info]    load_from_3mf_structure: plate 0, gcode_file , is_sliced_valid 0, toolpath_outside 0, is_support_used 0 is_label_object_enabled 0
+[2026-09-21 17:01:08.157878] [0x00000001fbbfa1c0] [warning] load_nozzle_infos_with_compatibility: building nozzle list from filament map and volume types
+[2026-09-21 17:01:08.157885] [0x00000001fbbfa1c0] [info]    update_slice_result_valid_state: plate 0 , update slice result from 0 to 0
+[2026-09-21 17:01:08.157887] [0x00000001fbbfa1c0] [debug]   reload_all_objects: m_model->objects.size() is 3
+[2026-09-21 17:01:08.157893] [0x00000001fbbfa1c0] [debug]   add_instance: plate_id 0, add instance obj_id 0, instance_id 0, move_position 0
+[2026-09-21 17:01:08.157898] [0x00000001fbbfa1c0] [info]    add_instance: plate 0 , m_ready_for_slice changes to 1
+[2026-09-21 17:01:08.157901] [0x00000001fbbfa1c0] [debug]   reload_all_objects: found plate_id 0, for obj_id 0, instance_id 0
+[2026-09-21 17:01:08.157903] [0x00000001fbbfa1c0] [debug]   add_instance: plate_id 0, add instance obj_id 1, instance_id 0, move_position 0
+[2026-09-21 17:01:08.157906] [0x00000001fbbfa1c0] [info]    add_instance: plate 0 , m_ready_for_slice changes to 1
+[2026-09-21 17:01:08.157908] [0x00000001fbbfa1c0] [debug]   reload_all_objects: found plate_id 0, for obj_id 1, instance_id 0
+[2026-09-21 17:01:08.157911] [0x00000001fbbfa1c0] [debug]   add_instance: plate_id 0, add instance obj_id 2, instance_id 0, move_position 0
+[2026-09-21 17:01:08.157913] [0x00000001fbbfa1c0] [info]    add_instance: plate 0 , m_ready_for_slice changes to 1
+[2026-09-21 17:01:08.157915] [0x00000001fbbfa1c0] [debug]   reload_all_objects: found plate_id 0, for obj_id 2, instance_id 0
+[2026-09-21 17:01:08.157922] [0x00000001fbbfa1c0] [info]    plate 1, object bbox: min {0, 0, 0} - max {0, 0, 0}
+[2026-09-21 17:01:08.157932] [0x00000001fbbfa1c0] [info]    filaments_cnt=0, set to no wipe tower
+[2026-09-21 17:01:08.157935] [0x00000001fbbfa1c0] [info]    plate 1,  has_wipe_tower 0, wipe_x 0, wipe_y 0, width 0, depth 0
+[2026-09-21 17:01:08.157954] [0x00000001fbbfa1c0] [info]    will start transforms, commands count 2
+
+[2026-09-21 17:01:08.157956] [0x00000001fbbfa1c0] [info]    process transform arrange
+
+[2026-09-21 17:01:08.157959] [0x00000001fbbfa1c0] [info]    process transform orient
+
+[2026-09-21 17:01:08.157962] [0x00000001fbbfa1c0] [info]    object Yaw hub — thick 6805 bearings, id :5, no need to orient when setting orient to 0
+
+[2026-09-21 17:01:08.157964] [0x00000001fbbfa1c0] [info]    object Hip bracket — obsolete holes filled, id :9, no need to orient when setting orient to 0
+
+[2026-09-21 17:01:08.157966] [0x00000001fbbfa1c0] [info]    object servo clamp cap, id :13, no need to orient when setting orient to 0
+
+[2026-09-21 17:01:08.157968] [0x00000001fbbfa1c0] [info]    orient_option 0
+[2026-09-21 17:01:08.157970] [0x00000001fbbfa1c0] [info]    finished model pre-process commands
+
+[2026-09-21 17:01:08.157972] [0x00000001fbbfa1c0] [debug]   Before process command, no need to orient, object id :5
+
+[2026-09-21 17:01:08.157974] [0x00000001fbbfa1c0] [debug]   Before process command, no need to orient, object id :9
+
+[2026-09-21 17:01:08.157979] [0x00000001fbbfa1c0] [debug]   Before process command, no need to orient, object id :13
+
+[2026-09-21 17:01:08.157983] [0x00000001fbbfa1c0] [info]    before arrange, need_arrange=1, duplicate_count 0, filament_color_changed 0
+[2026-09-21 17:01:08.157985] [0x00000001fbbfa1c0] [debug]   filament_count: 1
+[2026-09-21 17:01:08.157989] [0x00000001fbbfa1c0] [info]    Plate 1: clear loaded thumbnail /var/folders/m5/40_1d83934s03t4hvx1643ww0000gp/T/bamboo_model/Mon_Sep_21/17_01_08#14154#3/Metadata/plate_1.png.
+[2026-09-21 17:01:08.157991] [0x00000001fbbfa1c0] [info]    Plate 1: clear loaded no_light_thumbnail /var/folders/m5/40_1d83934s03t4hvx1643ww0000gp/T/bamboo_model/Mon_Sep_21/17_01_08#14154#3/Metadata/plate_no_light_1.png.
+[2026-09-21 17:01:08.157995] [0x00000001fbbfa1c0] [info]    Plate 1: clear loaded top_thumbnail /var/folders/m5/40_1d83934s03t4hvx1643ww0000gp/T/bamboo_model/Mon_Sep_21/17_01_08#14154#3/Metadata/top_1.png.
+[2026-09-21 17:01:08.157997] [0x00000001fbbfa1c0] [info]    Plate 1: clear loaded pick_thumbnail /var/folders/m5/40_1d83934s03t4hvx1643ww0000gp/T/bamboo_model/Mon_Sep_21/17_01_08#14154#3/Metadata/pick_1.png.
+[2026-09-21 17:01:08.158109] [0x00000001fbbfa1c0] [debug]   preprocess_arrange_polygon: obj_id 0 name Yaw hub — thick 6805 bearings instance_id 0 already in plate 0, locked 0, row 0, col 0
+
+[2026-09-21 17:01:08.158116] [0x00000001fbbfa1c0] [debug]   preprocess_arrange_polygon: obj_id 1 name Hip bracket — obsolete holes filled instance_id 0 already in plate 0, locked 0, row 0, col 0
+
+[2026-09-21 17:01:08.158122] [0x00000001fbbfa1c0] [debug]   preprocess_arrange_polygon: obj_id 2 name servo clamp cap instance_id 0 already in plate 0, locked 0, row 0, col 0
+
+[2026-09-21 17:01:08.158128] [0x00000001fbbfa1c0] [info]    prime_tower_width 60 wipe_tower_rotation_angle 0 prime_volume 30
+[2026-09-21 17:01:08.158136] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158140] [0x00000001fbbfa1c0] [info]    5715, after estimate_wipe_tower_polygon,  pos {165, 250}, size {0, 0}, plate 0
+[2026-09-21 17:01:08.158144] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158148] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158153] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158156] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158160] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158164] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158167] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158170] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158175] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158178] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158181] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158185] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158188] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158191] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158194] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158198] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158205] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158209] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158212] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158215] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158219] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158222] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158225] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158228] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158232] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158235] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158238] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158242] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158245] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158248] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158251] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158255] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158260] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158264] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158267] [0x00000001fbbfa1c0] [info]    estimate_wipe_tower_polygonarrange wipe_tower: wp_brim_width 0
+[2026-09-21 17:01:08.158281] [0x00000001fbbfa1c0] [debug]   arrange bedpts:32199999 31699999,  2800000 31699999, 2800000  300000, 32199999   300000
+[2026-09-21 17:01:08.158288] [0x00000001fbbfa1c0] [info]    Arrange full params: {"min_obj_distance":0,"accuracy":1.000000,"parallel":1,"allow_rotations":1,"do_final_align":1,"allow_multi_materials_on_same_plate":1,"avoid_extrusion_cali_region":0,"is_seq_print":0,"bed_shrink_x":0.000000,"bed_shrink_y":0.000000,"brim_skirt_distance":6.000000,"clearance_height_to_rod":47.400002,"clearance_height_to_lid":201.000000,"cleareance_radius":96.000000,"printable_height":325.000000,
+[2026-09-21 17:01:08.158291] [0x00000001fbbfa1c0] [info]    arrange: items selected before arranging: 3
+[2026-09-21 17:01:08.158293] [0x00000001fbbfa1c0] [info]    arrange: items unselected before arranging: 36
+[2026-09-21 17:01:08.158300] [0x00000001fbbfa1c0] [info]    start 1 th arranging...
+[2026-09-21 17:01:08.158405] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 0: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158409] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 1: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158411] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 2: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158414] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 3: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158416] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 4: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158420] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 5: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158423] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 6: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158426] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 7: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158428] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 8: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158430] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 9: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158433] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 10: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158435] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 11: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158438] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 12: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158440] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 13: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158442] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 14: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158444] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 15: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158447] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 16: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158449] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 17: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158452] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 18: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158454] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 19: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158456] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 20: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158459] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 21: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158461] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 22: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158463] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 23: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158466] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 24: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158468] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 25: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158470] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 26: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158472] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 27: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158475] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 28: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158479] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 29: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158482] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 30: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158484] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 31: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158487] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 32: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158489] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 33: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158491] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 34: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158495] [0x00000001fbbfa1c0] [debug]   arrange progress: fixed bin 35: WipeTower, p=0, bed_temp=0, height=0, area=-0, allowed_rotations=<0,0>, ;   
+[2026-09-21 17:01:08.158504] [0x00000001fbbfa1c0] [info]    finished 1 th arranging...
+[2026-09-21 17:01:08.158508] [0x00000001fbbfa1c0] [info]    update_slice_result_valid_state: plate 0 , update slice result from 0 to 0
+[2026-09-21 17:01:08.158513] [0x00000001fbbfa1c0] [debug]   postprocess_bed_index_for_selected: bed_idx 0, locked_plate -1, translation(x) 202.9, (y) 188.4
+[2026-09-21 17:01:08.158516] [0x00000001fbbfa1c0] [debug]   postprocess_bed_index_for_selected:found in plate_index 0, bed_idx 0
+[2026-09-21 17:01:08.158519] [0x00000001fbbfa1c0] [debug]   postprocess_bed_index_for_selected: bed_idx 0, locked_plate -1, translation(x) 202.9, (y) 127.8
+[2026-09-21 17:01:08.158522] [0x00000001fbbfa1c0] [debug]   postprocess_bed_index_for_selected:found in plate_index 0, bed_idx 0
+[2026-09-21 17:01:08.158525] [0x00000001fbbfa1c0] [debug]   postprocess_bed_index_for_selected: bed_idx 0, locked_plate -1, translation(x) 136.3, (y) 160.001
+[2026-09-21 17:01:08.158527] [0x00000001fbbfa1c0] [debug]   postprocess_bed_index_for_selected:found in plate_index 0, bed_idx 0
+[2026-09-21 17:01:08.158530] [0x00000001fbbfa1c0] [debug]   postprocess_arrange_polygon: bed_idx 0, selected 1, translation(x) 202.9, (y) 188.4
+[2026-09-21 17:01:08.158533] [0x00000001fbbfa1c0] [debug]   postprocess_arrange_polygon: bed_idx 0, selected 1, translation(x) 202.9, (y) 127.8
+[2026-09-21 17:01:08.158536] [0x00000001fbbfa1c0] [debug]   postprocess_arrange_polygon: bed_idx 0, selected 1, translation(x) 136.3, (y) 160.001
+[2026-09-21 17:01:08.158540] [0x00000001fbbfa1c0] [info]    rebuild_plates_after_arrangement:before rebuild, plates count 1, recycle_plates 1
+[2026-09-21 17:01:08.158544] [0x00000001fbbfa1c0] [info]    update_slice_result_valid_state: plate 0 , update slice result from 0 to 0
+[2026-09-21 17:01:08.158546] [0x00000001fbbfa1c0] [debug]   reload_all_objects: m_model->objects.size() is 3
+[2026-09-21 17:01:08.158549] [0x00000001fbbfa1c0] [debug]   add_instance: plate_id 0, add instance obj_id 0, instance_id 0, move_position 0
+[2026-09-21 17:01:08.158552] [0x00000001fbbfa1c0] [info]    add_instance: plate 0 , m_ready_for_slice changes to 1
+[2026-09-21 17:01:08.158555] [0x00000001fbbfa1c0] [debug]   reload_all_objects: found plate_id 0, for obj_id 0, instance_id 0
+[2026-09-21 17:01:08.158558] [0x00000001fbbfa1c0] [debug]   add_instance: plate_id 0, add instance obj_id 1, instance_id 0, move_position 0
+[2026-09-21 17:01:08.158561] [0x00000001fbbfa1c0] [info]    add_instance: plate 0 , m_ready_for_slice changes to 1
+[2026-09-21 17:01:08.158564] [0x00000001fbbfa1c0] [debug]   reload_all_objects: found plate_id 0, for obj_id 1, instance_id 0
+[2026-09-21 17:01:08.158567] [0x00000001fbbfa1c0] [debug]   add_instance: plate_id 0, add instance obj_id 2, instance_id 0, move_position 0
+[2026-09-21 17:01:08.158569] [0x00000001fbbfa1c0] [info]    add_instance: plate 0 , m_ready_for_slice changes to 1
+[2026-09-21 17:01:08.158574] [0x00000001fbbfa1c0] [debug]   reload_all_objects: found plate_id 0, for obj_id 2, instance_id 0
+[2026-09-21 17:01:08.158577] [0x00000001fbbfa1c0] [info]    rebuild_plates_after_arrangement:after rebuild, plates count 1
+[2026-09-21 17:01:08.158584] [0x00000001fbbfa1c0] [info]    Need to slice for plate 0, total plate count 1 partplates!
+
+[2026-09-21 17:01:08.158587] [0x00000001fbbfa1c0] [info]    Plate 1: pre_check 1, start
+[2026-09-21 17:01:08.158595] [0x00000001fbbfa1c0] [debug]   BuildVolume printable_area clasified as: Rectangle
+[2026-09-21 17:01:08.158602] [0x00000001fbbfa1c0] [info]    update_print_volume_state, print_volume {0, 0, 0} to {350, 320, 325}, got 0 printable istances
+[2026-09-21 17:01:08.158606] [0x00000001fbbfa1c0] [error]   plate 1: Nothing to be sliced, Either the print is empty or no object is fully inside the print volume before apply.
+
+[2026-09-21 17:01:08.158611] [0x00000001fbbfa1c0] [info]    record_exit_reson:512 Slicer_Info_Report: plate_id=1, return_code=-50, error_message=One of the plate is empty or has no object fully inside it. Please check that the 3mf contains no empty plate in Bambu Studio before uploading.
+
+[2026-09-21 17:01:08.158628] [0x00000001fbbfa1c0] [info]    record_exit_reson:604, saved config to /Users/lbiewald/Documents/Codex/2026-09-02/can-x20/hexapod/work/coxa-bambu-config/debug-blocked/result.json
+
+run found error, exit
+[2026-09-21 17:01:08.158680] [0x00000001fbbfa1c0] [info]    remove_backup_path_if_existmodel 0x1080523e0, id 3 remove backup_path 17_01_08#14154#3
+[2026-09-21 17:01:08.161697] [0x00000001fbbfa1c0] [info]    update_slice_result_valid_state: plate 0 , update slice result from 0 to 0
+[2026-09-21 17:01:08.161715] [0x00000001fbbfa1c0] [info]    update_slice_result_valid_state: plate 0 , update slice result from 0 to 0
+[2026-09-21 17:01:08.161732] [0x00000001fbbfa1c0] [info]    update_slice_result_valid_state: plate 1 , update slice result from 0 to 0
+[2026-09-21 17:01:08.161738] [0x00000001fbbfa1c0] [info]    update_slice_result_valid_state: plate 1 , update slice result from 0 to 0

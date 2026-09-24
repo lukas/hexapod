@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "parts": {
+    "sensor_full_foot": {
+      "kind": "printed",
+      "material": "PETG",
+      "label": "Rounded moving foot with guide bores"
+    },
+    "mating_cylinder": {
+      "kind": "printed",
+      "material": "PETG",
+      "label": "Rod socket, pressure web, guide pins and stop"
+    },
+    "return_collar_tpu": {
+      "kind": "printed",
+      "material": "TPU",
+      "label": "TPU snap-on return collar (unloaded)"
+    },
+    "contact_pad_tpu": {
+      "kind": "printed",
+      "material": "TPU",
+      "label": "TPU pressure pad, 6.5 mm diameter"
+    },
+    "sensor_reference": {
+      "kind": "purchased",
+      "label": "10 mm film sensor reference"
+    }
+  },
+  "instructions": [
+    {
+      "id": "assembly",
+      "title": "Contact-sensing assembly",
+      "text": "Use all v9 parts. Stick sensor to foot without covering active area or vent. Attach TPU pad to cylinder web. Guides must slide freely; do not glue them. Stretch collar cuffs into both grooves with wire window aligned. Rod seats against closed web. Measure film plus adhesive and set pad gap with thin shims. Bench-test release, touch threshold, tilted contact and hard stop."
+    }
+  ]
+}

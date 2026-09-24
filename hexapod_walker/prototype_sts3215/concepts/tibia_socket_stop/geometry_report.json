@@ -1,0 +1,20 @@
+{
+  "pass": true,
+  "sourceVersion": "v24",
+  "stopThicknessMm": 2,
+  "stopXRangeMm": [
+    44.0,
+    46.0
+  ],
+  "tubeODmm": 8,
+  "remainingInsertionDepthMm": 18.0,
+  "checks": [
+    "closed single solid and exported STL",
+    "all original geometry retained",
+    "outer dimensions unchanged",
+    "socket entry clear",
+    "tube blocked by full wall",
+    "new material confined to socket bore",
+    "3MF round trip"
+  ]
+}

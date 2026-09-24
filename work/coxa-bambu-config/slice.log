@@ -1,0 +1,5 @@
+[2026-09-21 17:02:58.857297] [0x00000001fbbfa1c0] [trace]   Initializing StaticPrintConfigs
+[2026-09-21 17:02:58.864134] [0x00000001fbbfa1c0] [warning] cli mode, Current BambuStudio Version 02.08.02.61
+[2026-09-21 17:02:58.931522] [0x00000001fbbfa1c0] [warning] run:2873, can not find system preset file: /Applications/BambuStudio.app/Contents/Resources/profiles/BBL/machine_full/Bambu Lab H2D 0.4 nozzle.json 
+[2026-09-21 17:02:58.931538] [0x00000001fbbfa1c0] [warning] run:2895, can not find system preset file: /Applications/BambuStudio.app/Contents/Resources/profiles/BBL/process_full/Coxa PETG - accessible support.json 
+[2026-09-21 17:02:58.931552] [0x00000001fbbfa1c0] [warning] no filament colors found in projects

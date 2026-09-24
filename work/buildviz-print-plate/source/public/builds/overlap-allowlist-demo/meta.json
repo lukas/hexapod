@@ -1,0 +1,17 @@
+{
+  "schema": 2,
+  "buildId": "overlap-allowlist-demo",
+  "project": "overlap-allowlist-demo",
+  "build": "overlap-allowlist-demo",
+  "name": "Overlap allowlist demo (typed allowedInterferences vs legacy ignoreOverlapPairs)",
+  "createdAt": "2026-09-01T00:00:00.000Z",
+  "updatedAt": "2026-09-01T00:00:00.000Z",
+  "defaultVersion": "main",
+  "latestVersion": "main",
+  "versions": [
+    {
+      "name": "main",
+      "pushedAt": "2026-09-01T00:00:00.000Z"
+    }
+  ]
+}

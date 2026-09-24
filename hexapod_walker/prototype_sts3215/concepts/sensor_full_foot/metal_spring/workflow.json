@@ -1,0 +1,78 @@
+{
+  "schema": 1,
+  "parts": {
+    "petg_foot": {
+      "kind": "printed",
+      "label": "petg foot",
+      "material": "PETG"
+    },
+    "petg_socket": {
+      "kind": "printed",
+      "label": "petg socket",
+      "material": "PETG"
+    },
+    "silicone_pad": {
+      "kind": "purchased",
+      "label": "silicone pad"
+    },
+    "sensor_reference": {
+      "kind": "purchased",
+      "label": "sensor reference"
+    },
+    "spring_1": {
+      "kind": "purchased",
+      "label": "spring 1"
+    },
+    "sleeve_1": {
+      "kind": "purchased",
+      "label": "sleeve 1"
+    },
+    "washer_1": {
+      "kind": "purchased",
+      "label": "washer 1"
+    },
+    "screw_1": {
+      "kind": "purchased",
+      "label": "screw 1"
+    },
+    "spring_2": {
+      "kind": "purchased",
+      "label": "spring 2"
+    },
+    "sleeve_2": {
+      "kind": "purchased",
+      "label": "sleeve 2"
+    },
+    "washer_2": {
+      "kind": "purchased",
+      "label": "washer 2"
+    },
+    "screw_2": {
+      "kind": "purchased",
+      "label": "screw 2"
+    },
+    "spring_3": {
+      "kind": "purchased",
+      "label": "spring 3"
+    },
+    "sleeve_3": {
+      "kind": "purchased",
+      "label": "sleeve 3"
+    },
+    "washer_3": {
+      "kind": "purchased",
+      "label": "washer 3"
+    },
+    "screw_3": {
+      "kind": "purchased",
+      "label": "screw 3"
+    }
+  },
+  "instructions": [
+    {
+      "id": "assembly",
+      "title": "Metal spring prototype",
+      "text": "Print two PETG parts. Fit sensor and 6.5 x 1 mm silicone pad. Place three 7 mm metal spacer sleeves and compression springs on the foot, slide socket ears over sleeves, fit washers and M2 x 12 screws into foot pilots. Screws clamp sleeves, never moving ears. Spring geometry is illustrative: select low-rate springs and bench-test contact/release. See README for dimensions and limitations."
+    }
+  ]
+}

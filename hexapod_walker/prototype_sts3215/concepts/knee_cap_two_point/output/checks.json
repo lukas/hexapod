@@ -1,0 +1,97 @@
+{
+  "fit": {
+    "servo_receiver_overlap_mm3": 0.0,
+    "cap_receiver_overlap_mm3": 0.0006,
+    "cap_bracket_overlap_mm3": 0.0,
+    "cap_servo_intentional_press_mm3": 775.67,
+    "receiver_thickness_mm": 3.6,
+    "retention": "6x short front-loaded M3 heat-set inserts",
+    "insert_depth_mm": 3.1,
+    "servo_side_skin_mm": 0.5
+  },
+  "horn_on_extraction": {
+    "holder_slot_width_mm": 24.0,
+    "fitted_horn_diameter_mm": 20.0,
+    "checked_radial_clearance_mm": 1.5,
+    "extraction_direction": "+Y through open clamp mouth",
+    "obstruction_volume_mm3": {
+      "hip": 0.0,
+      "knee": 0.0
+    },
+    "stations_checked": [
+      "hip",
+      "knee"
+    ]
+  },
+  "fasteners": [
+    {
+      "cap_local_xz_mm": [
+        -34.0,
+        35.5
+      ],
+      "screw": "M3x8 socket head",
+      "nut": "ordinary M3, 5.5 AF x 2.4 thick",
+      "nut_pocket_mm": [
+        5.8,
+        2.7
+      ],
+      "nut_retaining_roof_mm": 3.0,
+      "nominal_thread_engagement_mm": 2.4,
+      "tip_clearance_mm": 0.2,
+      "head_flush": true,
+      "side_loading_and_anti_rotation": "pass",
+      "nut_pullout_blocked_by_body": "pass"
+    },
+    {
+      "cap_local_xz_mm": [
+        27.2,
+        17.15
+      ],
+      "screw": "M3x8 socket head",
+      "nut": "ordinary M3, 5.5 AF x 2.4 thick",
+      "nut_pocket_mm": [
+        5.8,
+        2.7
+      ],
+      "nut_retaining_roof_mm": 3.0,
+      "nominal_thread_engagement_mm": 2.4,
+      "tip_clearance_mm": "inherited through clearance",
+      "head_flush": true,
+      "side_loading_and_anti_rotation": "pass",
+      "nut_pullout_blocked_by_body": "pass"
+    }
+  ],
+  "release": {
+    "cap_positive_y": "clear at 0.1, 1, 2, 5, 15, 35 mm"
+  },
+  "front_receiver": {
+    "unchanged": true,
+    "metal_web_thickness_mm": 2.1,
+    "six_insert_bores_mm": {
+      "diameter": 4.6,
+      "depth": 3.1
+    },
+    "user_5_7mm_inserts_fit": false
+  },
+  "driver_access": "both stations on all 6 knees: 5.5 mm diameter x 50 mm shaft clear at authored pose",
+  "authored_pose_regressions": [],
+  "motion": {
+    "hip_deg": [
+      -110,
+      30
+    ],
+    "knee_deg": [
+      -30,
+      20
+    ],
+    "step_deg": 2.5,
+    "chassis_yaw_samples_deg": [
+      -35,
+      -20,
+      0,
+      20,
+      35
+    ],
+    "scope": "modified cap, femur and cap hardware against own hip stack, knee moving bracket/socket and chassis; unchanged adjacent legs not revalidated"
+  }
+}

@@ -1,0 +1,117 @@
+{
+  "schema": 1,
+  "components": {
+    "count": 13,
+    "mainComponentSize": 86,
+    "floatingComponentCount": 12
+  },
+  "checkSummary": {
+    "total": 705,
+    "pass": 563,
+    "warn": 140,
+    "fail": 2,
+    "byKind": {
+      "scene_meta": {
+        "pass": 3,
+        "warn": 0,
+        "fail": 0
+      },
+      "placement": {
+        "pass": 1,
+        "warn": 0,
+        "fail": 0
+      },
+      "mesh_overlap": {
+        "pass": 18,
+        "warn": 0,
+        "fail": 0
+      },
+      "declared_interference": {
+        "pass": 96,
+        "warn": 0,
+        "fail": 0
+      },
+      "connectivity": {
+        "pass": 0,
+        "warn": 132,
+        "fail": 0
+      },
+      "watertight": {
+        "pass": 24,
+        "warn": 0,
+        "fail": 1
+      },
+      "disconnected_components": {
+        "pass": 25,
+        "warn": 0,
+        "fail": 0
+      },
+      "wall_thickness": {
+        "pass": 18,
+        "warn": 7,
+        "fail": 0
+      },
+      "self_intersection": {
+        "pass": 0,
+        "warn": 0,
+        "fail": 1
+      },
+      "degenerate_geometry": {
+        "pass": 0,
+        "warn": 1,
+        "fail": 0
+      },
+      "thread_engagement": {
+        "pass": 72,
+        "warn": 0,
+        "fail": 0
+      },
+      "mating_contact": {
+        "pass": 306,
+        "warn": 0,
+        "fail": 0
+      }
+    }
+  },
+  "failedChecks": [
+    {
+      "id": "self_intersection-8",
+      "kind": "self_intersection",
+      "status": "fail",
+      "label": "coxa_link_ovh.stl: 2 self-intersecting triangle pair(s)",
+      "instances": [
+        "008-L0 coxa OVH outboard arm (NEW)",
+        "023-L1 coxa OVH outboard arm (NEW)",
+        "038-L2 coxa OVH outboard arm (NEW)",
+        "053-L3 coxa OVH outboard arm (NEW)",
+        "068-L4 coxa OVH outboard arm (NEW)",
+        "083-L5 coxa OVH outboard arm (NEW)"
+      ],
+      "point": [
+        95.71173965461014,
+        77.62240556328942,
+        52.45000076293945
+      ]
+    },
+    {
+      "id": "watertight-10",
+      "kind": "watertight",
+      "status": "fail",
+      "label": "hip_clamp_cap_ovh.stl: 12 open + 0 non-manifold edge(s)",
+      "instances": [
+        "011-L0 hip cap OVH + yaw pedestal (NEW)",
+        "026-L1 hip cap OVH + yaw pedestal (NEW)",
+        "041-L2 hip cap OVH + yaw pedestal (NEW)",
+        "056-L3 hip cap OVH + yaw pedestal (NEW)",
+        "071-L4 hip cap OVH + yaw pedestal (NEW)",
+        "086-L5 hip cap OVH + yaw pedestal (NEW)"
+      ],
+      "point": [
+        150.06977154665117,
+        84.40728921017443,
+        59.54999961853027
+      ]
+    }
+  ],
+  "inheritedFailureComparison": "Both unchanged failure IDs/labels also occur in v36: coxa_link_ovh self_intersection-8 (2 triangle pairs); hip_clamp_cap_ovh watertight-10 (12 open edges)."
+}

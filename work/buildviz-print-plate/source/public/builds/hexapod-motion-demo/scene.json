@@ -1,0 +1,3107 @@
+{
+  "name": "Hexapod Motion Demo",
+  "source": "synthesized from hexapod-prototype by scripts/synthMotionDemo.ts (additive joints/poses)",
+  "units": "mm",
+  "center": [
+    0,
+    0,
+    48.253608748848876
+  ],
+  "meshes": [
+    {
+      "id": "stl_prototype:chassis_bottom",
+      "name": "chassis_bottom.stl",
+      "url": "/builds/hexapod-motion-demo/stl_prototype/chassis_bottom.stl"
+    },
+    {
+      "id": "stl_prototype:chassis_top",
+      "name": "chassis_top.stl",
+      "url": "/builds/hexapod-motion-demo/stl_prototype/chassis_top.stl"
+    },
+    {
+      "id": "stl_prototype:battery_holder",
+      "name": "battery_holder.stl",
+      "url": "/builds/hexapod-motion-demo/stl_prototype/battery_holder.stl"
+    },
+    {
+      "id": "stl_prototype:electronics_tray",
+      "name": "electronics_tray.stl",
+      "url": "/builds/hexapod-motion-demo/stl_prototype/electronics_tray.stl"
+    },
+    {
+      "id": "stl_prototype:bec_cradle",
+      "name": "bec_cradle.stl",
+      "url": "/builds/hexapod-motion-demo/stl_prototype/bec_cradle.stl"
+    },
+    {
+      "id": "stl_prototype:switch_holster",
+      "name": "switch_holster.stl",
+      "url": "/builds/hexapod-motion-demo/stl_prototype/switch_holster.stl"
+    },
+    {
+      "id": "stl_prototype:imu_pad",
+      "name": "imu_pad.stl",
+      "url": "/builds/hexapod-motion-demo/stl_prototype/imu_pad.stl"
+    },
+    {
+      "id": "stl_prototype:mpu6050",
+      "name": "mpu6050.stl",
+      "url": "/builds/hexapod-motion-demo/stl_prototype/mpu6050.stl"
+    },
+    {
+      "id": "stl_prototype:arduino_mega",
+      "name": "arduino_mega.stl",
+      "url": "/builds/hexapod-motion-demo/stl_prototype/arduino_mega.stl"
+    },
+    {
+      "id": "stl_prototype:raspberry_pi",
+      "name": "raspberry_pi.stl",
+      "url": "/builds/hexapod-motion-demo/stl_prototype/raspberry_pi.stl"
+    },
+    {
+      "id": "stl_prototype:pca9685",
+      "name": "pca9685.stl",
+      "url": "/builds/hexapod-motion-demo/stl_prototype/pca9685.stl"
+    },
+    {
+      "id": "stl_prototype:bec_visual",
+      "name": "bec_visual.stl",
+      "url": "/builds/hexapod-motion-demo/stl_prototype/bec_visual.stl"
+    },
+    {
+      "id": "stl_prototype:antispark_switch_body",
+      "name": "antispark_switch_body.stl",
+      "url": "/builds/hexapod-motion-demo/stl_prototype/antispark_switch_body.stl"
+    },
+    {
+      "id": "stl_prototype:antispark_switch_toggle",
+      "name": "antispark_switch_toggle.stl",
+      "url": "/builds/hexapod-motion-demo/stl_prototype/antispark_switch_toggle.stl"
+    },
+    {
+      "id": "stl_prototype:lipo_battery_body",
+      "name": "lipo_battery_body.stl",
+      "url": "/builds/hexapod-motion-demo/stl_prototype/lipo_battery_body.stl"
+    },
+    {
+      "id": "stl_prototype:lipo_xt60",
+      "name": "lipo_xt60.stl",
+      "url": "/builds/hexapod-motion-demo/stl_prototype/lipo_xt60.stl"
+    },
+    {
+      "id": "stl_prototype:servo_body",
+      "name": "servo_body.stl",
+      "url": "/builds/hexapod-motion-demo/stl_prototype/servo_body.stl"
+    },
+    {
+      "id": "stl_prototype:servo_horn",
+      "name": "servo_horn.stl",
+      "url": "/builds/hexapod-motion-demo/stl_prototype/servo_horn.stl"
+    },
+    {
+      "id": "stl_prototype:coxa_link",
+      "name": "coxa_link.stl",
+      "url": "/builds/hexapod-motion-demo/stl_prototype/coxa_link.stl"
+    },
+    {
+      "id": "stl_prototype:femur_link",
+      "name": "femur_link.stl",
+      "url": "/builds/hexapod-motion-demo/stl_prototype/femur_link.stl"
+    },
+    {
+      "id": "stl_prototype:tibia_link",
+      "name": "tibia_link.stl",
+      "url": "/builds/hexapod-motion-demo/stl_prototype/tibia_link.stl"
+    }
+  ],
+  "instances": [
+    {
+      "id": "000-chassis_bottom",
+      "meshId": "stl_prototype:chassis_bottom",
+      "name": "chassis_bottom  chassis",
+      "partType": "chassis_bottom",
+      "role": "chassis",
+      "leg": null,
+      "joint": null,
+      "color": "#79b0e1",
+      "transform": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        26.753608748848876,
+        1
+      ],
+      "centroid": [
+        0,
+        0,
+        32.253608748848876
+      ],
+      "focusGroup": "chassis"
+    },
+    {
+      "id": "001-chassis_top",
+      "meshId": "stl_prototype:chassis_top",
+      "name": "chassis_top  chassis",
+      "partType": "chassis_top",
+      "role": "chassis",
+      "leg": null,
+      "joint": null,
+      "color": "#1f77b4",
+      "transform": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        62.753608748848876,
+        1
+      ],
+      "centroid": [
+        0,
+        0,
+        64.25360874884888
+      ],
+      "focusGroup": "chassis"
+    },
+    {
+      "id": "002-battery_holder",
+      "meshId": "stl_prototype:battery_holder",
+      "name": "battery_holder  chassis",
+      "partType": "battery_holder",
+      "role": "chassis",
+      "leg": null,
+      "joint": null,
+      "color": "#9467bd",
+      "transform": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -25,
+        0,
+        28.753608748848876,
+        1
+      ],
+      "centroid": [
+        -25,
+        0,
+        42.753608748848876
+      ],
+      "focusGroup": "chassis"
+    },
+    {
+      "id": "003-electronics_tray",
+      "meshId": "stl_prototype:electronics_tray",
+      "name": "electronics_tray  chassis",
+      "partType": "electronics_tray",
+      "role": "chassis",
+      "leg": null,
+      "joint": null,
+      "color": "#bcbd22",
+      "transform": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        -2.5,
+        31.753608748848876,
+        1
+      ],
+      "centroid": [
+        0,
+        -3.5,
+        35.753608748848876
+      ],
+      "focusGroup": "chassis"
+    },
+    {
+      "id": "004-bec_cradle",
+      "meshId": "stl_prototype:bec_cradle",
+      "name": "bec_cradle",
+      "partType": "bec_cradle",
+      "role": "",
+      "leg": null,
+      "joint": null,
+      "color": "#cccccc",
+      "transform": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        37,
+        20,
+        34.753608748848876,
+        1
+      ],
+      "centroid": [
+        37,
+        20,
+        40.753608748848876
+      ],
+      "focusGroup": "chassis"
+    },
+    {
+      "id": "005-switch_holster",
+      "meshId": "stl_prototype:switch_holster",
+      "name": "switch_holster",
+      "partType": "switch_holster",
+      "role": "",
+      "leg": null,
+      "joint": null,
+      "color": "#cccccc",
+      "transform": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        59.5,
+        0,
+        67.75360874884888,
+        1
+      ],
+      "centroid": [
+        59.5,
+        0,
+        78.50360874884888
+      ],
+      "focusGroup": "chassis"
+    },
+    {
+      "id": "006-imu_pad",
+      "meshId": "stl_prototype:imu_pad",
+      "name": "imu_pad",
+      "partType": "imu_pad",
+      "role": "",
+      "leg": null,
+      "joint": null,
+      "color": "#cccccc",
+      "transform": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        67.75360874884888,
+        1
+      ],
+      "centroid": [
+        0,
+        0,
+        71.35360865348144
+      ],
+      "focusGroup": "chassis"
+    },
+    {
+      "id": "007-mpu6050",
+      "meshId": "stl_prototype:mpu6050",
+      "name": "mpu6050",
+      "partType": "mpu6050",
+      "role": "",
+      "leg": null,
+      "joint": null,
+      "color": "#cccccc",
+      "transform": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        75.55360874884887,
+        1
+      ],
+      "centroid": [
+        0,
+        0,
+        75.55360874884887
+      ],
+      "focusGroup": "chassis"
+    },
+    {
+      "id": "008-arduino_mega",
+      "meshId": "stl_prototype:arduino_mega",
+      "name": "arduino_mega",
+      "partType": "arduino_mega",
+      "role": "",
+      "leg": null,
+      "joint": null,
+      "color": "#cccccc",
+      "transform": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -28,
+        28,
+        40.55360874884887,
+        1
+      ],
+      "centroid": [
+        -28.25,
+        28,
+        48.55360836141868
+      ],
+      "focusGroup": "chassis"
+    },
+    {
+      "id": "009-raspberry_pi",
+      "meshId": "stl_prototype:raspberry_pi",
+      "name": "raspberry_pi",
+      "partType": "raspberry_pi",
+      "role": "",
+      "leg": null,
+      "joint": null,
+      "color": "#cccccc",
+      "transform": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -20,
+        -44.5,
+        40.55360874884887,
+        1
+      ],
+      "centroid": [
+        -24,
+        -52.5,
+        49.05360836141868
+      ],
+      "focusGroup": "chassis"
+    },
+    {
+      "id": "010-pca9685_primary",
+      "meshId": "stl_prototype:pca9685",
+      "name": "pca9685_primary",
+      "partType": "pca9685_primary",
+      "role": "",
+      "leg": null,
+      "joint": null,
+      "color": "#cccccc",
+      "transform": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        64,
+        20,
+        40.55360874884887,
+        1
+      ],
+      "centroid": [
+        68,
+        20,
+        44.55360883825584
+      ],
+      "focusGroup": "chassis"
+    },
+    {
+      "id": "011-pca9685_secondary",
+      "meshId": "stl_prototype:pca9685",
+      "name": "pca9685_secondary",
+      "partType": "pca9685_secondary",
+      "role": "",
+      "leg": null,
+      "joint": null,
+      "color": "#cccccc",
+      "transform": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        64,
+        -20,
+        40.55360874884887,
+        1
+      ],
+      "centroid": [
+        68,
+        -20,
+        44.55360883825584
+      ],
+      "focusGroup": "chassis"
+    },
+    {
+      "id": "012-bec_a",
+      "meshId": "stl_prototype:bec_visual",
+      "name": "bec_a",
+      "partType": "bec_a",
+      "role": "",
+      "leg": null,
+      "joint": null,
+      "color": "#cccccc",
+      "transform": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        37,
+        27.4,
+        40.753608748848876,
+        1
+      ],
+      "centroid": [
+        37,
+        27.4,
+        40.753608748848876
+      ],
+      "focusGroup": "chassis"
+    },
+    {
+      "id": "013-bec_b",
+      "meshId": "stl_prototype:bec_visual",
+      "name": "bec_b",
+      "partType": "bec_b",
+      "role": "",
+      "leg": null,
+      "joint": null,
+      "color": "#cccccc",
+      "transform": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        37,
+        12.6,
+        40.753608748848876,
+        1
+      ],
+      "centroid": [
+        37,
+        12.600000000000001,
+        40.753608748848876
+      ],
+      "focusGroup": "chassis"
+    },
+    {
+      "id": "014-antispark_switch",
+      "meshId": "stl_prototype:antispark_switch_body",
+      "name": "antispark_switch",
+      "partType": "antispark_switch",
+      "role": "",
+      "leg": null,
+      "joint": null,
+      "color": "#cccccc",
+      "transform": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        66.5,
+        0,
+        80.25360874884888,
+        1
+      ],
+      "centroid": [
+        66.5,
+        0,
+        80.25360874884888
+      ],
+      "focusGroup": "chassis"
+    },
+    {
+      "id": "015-antispark_switch_toggle",
+      "meshId": "stl_prototype:antispark_switch_toggle",
+      "name": "antispark_switch_toggle",
+      "partType": "antispark_switch_toggle",
+      "role": "",
+      "leg": null,
+      "joint": null,
+      "color": "#cccccc",
+      "transform": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        86.5,
+        0,
+        80.25360874884888,
+        1
+      ],
+      "centroid": [
+        86.5,
+        0,
+        80.25360874884888
+      ],
+      "focusGroup": "chassis"
+    },
+    {
+      "id": "016-lipo_battery",
+      "meshId": "stl_prototype:lipo_battery_body",
+      "name": "lipo_battery",
+      "partType": "lipo_battery",
+      "role": "",
+      "leg": null,
+      "joint": null,
+      "color": "#cccccc",
+      "transform": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -25,
+        0,
+        42.85360874884888,
+        1
+      ],
+      "centroid": [
+        -25,
+        0,
+        42.85360874884888
+      ],
+      "focusGroup": "chassis"
+    },
+    {
+      "id": "017-lipo_xt60",
+      "meshId": "stl_prototype:lipo_xt60",
+      "name": "lipo_xt60",
+      "partType": "lipo_xt60",
+      "role": "",
+      "leg": null,
+      "joint": null,
+      "color": "#cccccc",
+      "transform": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        34.5,
+        0,
+        42.85360874884888,
+        1
+      ],
+      "centroid": [
+        34.5,
+        4.25,
+        42.85360874884888
+      ],
+      "focusGroup": "chassis"
+    },
+    {
+      "id": "018-servo_body-L0-yaw",
+      "meshId": "stl_prototype:servo_body",
+      "name": "servo_body L0  hip-yaw servo",
+      "partType": "servo_body",
+      "role": "hip-yaw servo",
+      "leg": "L0",
+      "joint": "yaw",
+      "color": "#2e2e33",
+      "transform": [
+        0.8660254037844387,
+        0.49999999999999994,
+        0,
+        0,
+        -0.49999999999999994,
+        0.8660254037844387,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        77.9422863405995,
+        44.99999999999999,
+        7.503608748848876,
+        1
+      ],
+      "centroid": [
+        77.9422863405995,
+        44.99999999999999,
+        30.253608748848876
+      ],
+      "focusGroup": "L0"
+    },
+    {
+      "id": "019-servo_horn-L0-yaw",
+      "meshId": "stl_prototype:servo_horn",
+      "name": "servo_horn L0  hip-yaw horn",
+      "partType": "servo_horn",
+      "role": "hip-yaw horn",
+      "leg": "L0",
+      "joint": "yaw",
+      "color": "#808085",
+      "transform": [
+        0.8660254037844387,
+        0.49999999999999994,
+        0,
+        0,
+        -0.49999999999999994,
+        0.8660254037844387,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        86.60254037844388,
+        49.99999999999999,
+        51.503608748848876,
+        1
+      ],
+      "centroid": [
+        86.60254037844388,
+        49.99999999999999,
+        54.003608748848876
+      ],
+      "focusGroup": "L0"
+    },
+    {
+      "id": "020-coxa_link-L0",
+      "meshId": "stl_prototype:coxa_link",
+      "name": "coxa_link L0  hip-yaw -> hip-pitch",
+      "partType": "coxa_link",
+      "role": "hip-yaw -> hip-pitch",
+      "leg": "L0",
+      "joint": null,
+      "color": "#2ca02c",
+      "transform": [
+        0.8660254037844387,
+        0.49999999999999994,
+        0,
+        0,
+        -0.49999999999999994,
+        0.8660254037844387,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        86.60254037844388,
+        49.99999999999999,
+        56.503608748848876,
+        1
+      ],
+      "centroid": [
+        105.7938833295338,
+        37.366812326091846,
+        76.75360874884888
+      ],
+      "focusGroup": "L0"
+    },
+    {
+      "id": "021-servo_body-L0-hip",
+      "meshId": "stl_prototype:servo_body",
+      "name": "servo_body L0  hip-pitch servo",
+      "partType": "servo_body",
+      "role": "hip-pitch servo",
+      "leg": "L0",
+      "joint": "hip",
+      "color": "#2e2e33",
+      "transform": [
+        0.8660254037844387,
+        0.49999999999999994,
+        0,
+        0,
+        -3.0616169978683824e-17,
+        5.3028761936245346e-17,
+        -1,
+        0,
+        -0.49999999999999994,
+        0.8660254037844387,
+        6.123233995736766e-17,
+        0,
+        121.59292143521046,
+        19.394882233484687,
+        75.00360874884888,
+        1
+      ],
+      "centroid": [
+        113.28891510810621,
+        37.346960169580676,
+        75.00360874884888
+      ],
+      "focusGroup": "L0"
+    },
+    {
+      "id": "022-servo_horn-L0-hip",
+      "meshId": "stl_prototype:servo_horn",
+      "name": "servo_horn L0  hip-pitch horn",
+      "partType": "servo_horn",
+      "role": "hip-pitch horn",
+      "leg": "L0",
+      "joint": "hip",
+      "color": "#808085",
+      "transform": [
+        0.8660254037844387,
+        0.49999999999999994,
+        0,
+        0,
+        -3.0616169978683824e-17,
+        5.3028761936245346e-17,
+        -1,
+        0,
+        -0.49999999999999994,
+        0.8660254037844387,
+        6.123233995736766e-17,
+        0,
+        108.25317547305485,
+        62.49999999999999,
+        75.00360874884888,
+        1
+      ],
+      "centroid": [
+        107.00317547305485,
+        64.66506350946109,
+        75.00360874884888
+      ],
+      "focusGroup": "L0"
+    },
+    {
+      "id": "023-femur_link-L0",
+      "meshId": "stl_prototype:femur_link",
+      "name": "femur_link L0  hip-pitch -> knee",
+      "partType": "femur_link",
+      "role": "hip-pitch -> knee",
+      "leg": "L0",
+      "joint": null,
+      "color": "#d62728",
+      "transform": [
+        0.7848855672213958,
+        0.4531538935183249,
+        0.42261826174069944,
+        0,
+        -0.49999999999999994,
+        0.8660254037844387,
+        0,
+        0,
+        -0.36599815077066683,
+        -0.2113091308703497,
+        0.9063077870366499,
+        0,
+        105.75317547305485,
+        66.83012701892218,
+        75.00360874884888,
+        1
+      ],
+      "centroid": [
+        148.48987558531513,
+        76.17703110509859,
+        93.73378231686594
+      ],
+      "focusGroup": "L0"
+    },
+    {
+      "id": "024-servo_body-L0-knee",
+      "meshId": "stl_prototype:servo_body",
+      "name": "servo_body L0  knee servo",
+      "partType": "servo_body",
+      "role": "knee servo",
+      "leg": "L0",
+      "joint": "knee",
+      "color": "#2e2e33",
+      "transform": [
+        0.7848855672213958,
+        0.4531538935183249,
+        0.42261826174069944,
+        0,
+        0.3659981507706668,
+        0.21130913087034975,
+        -0.9063077870366499,
+        0,
+        -0.49999999999999994,
+        0.8660254037844387,
+        5.549534652183772e-17,
+        0,
+        181.27073734244559,
+        53.84988531217581,
+        102.47379576199434,
+        1
+      ],
+      "centroid": [
+        171.79752198447744,
+        70.97893435547974,
+        102.47379576199434
+      ],
+      "focusGroup": "L0"
+    },
+    {
+      "id": "025-servo_horn-L0-knee",
+      "meshId": "stl_prototype:servo_horn",
+      "name": "servo_horn L0  knee horn",
+      "partType": "servo_horn",
+      "role": "knee horn",
+      "leg": "L0",
+      "joint": "knee",
+      "color": "#808085",
+      "transform": [
+        0.7848855672213958,
+        0.4531538935183249,
+        0.42261826174069944,
+        0,
+        0.3659981507706668,
+        0.21130913087034975,
+        -0.9063077870366499,
+        0,
+        -0.49999999999999994,
+        0.8660254037844387,
+        5.549534652183772e-17,
+        0,
+        167.11959301465953,
+        96.48654201387436,
+        106.69997837940133,
+        1
+      ],
+      "centroid": [
+        165.86959301465953,
+        98.65160552333546,
+        106.69997837940133
+      ],
+      "focusGroup": "L0"
+    },
+    {
+      "id": "026-tibia_link-L0",
+      "meshId": "stl_prototype:tibia_link",
+      "name": "tibia_link L0  knee -> foot",
+      "partType": "tibia_link",
+      "role": "knee -> foot",
+      "leg": "L0",
+      "joint": null,
+      "color": "#e377c2",
+      "transform": [
+        0.7094064799162225,
+        0.40957602214449584,
+        -0.573576436351046,
+        0,
+        -0.49999999999999994,
+        0.8660254037844387,
+        0,
+        0,
+        0.49673176489215404,
+        0.28678821817552297,
+        0.8191520442889918,
+        0,
+        164.61959301465953,
+        100.81666903279654,
+        106.69997837940133,
+        1
+      ],
+      "centroid": [
+        202.0321286543877,
+        125.46142711563974,
+        63.340471100199494
+      ],
+      "focusGroup": "L0"
+    },
+    {
+      "id": "027-servo_body-L1-yaw",
+      "meshId": "stl_prototype:servo_body",
+      "name": "servo_body L1  hip-yaw servo",
+      "partType": "servo_body",
+      "role": "hip-yaw servo",
+      "leg": "L1",
+      "joint": "yaw",
+      "color": "#2e2e33",
+      "transform": [
+        6.123233995736766e-17,
+        1,
+        0,
+        0,
+        -1,
+        6.123233995736766e-17,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        5.5109105961630896e-15,
+        90,
+        7.503608748848876,
+        1
+      ],
+      "centroid": [
+        5.329070518200751e-15,
+        90,
+        30.253608748848876
+      ],
+      "focusGroup": "L1"
+    },
+    {
+      "id": "028-servo_horn-L1-yaw",
+      "meshId": "stl_prototype:servo_horn",
+      "name": "servo_horn L1  hip-yaw horn",
+      "partType": "servo_horn",
+      "role": "hip-yaw horn",
+      "leg": "L1",
+      "joint": "yaw",
+      "color": "#808085",
+      "transform": [
+        6.123233995736766e-17,
+        1,
+        0,
+        0,
+        -1,
+        6.123233995736766e-17,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        6.123233995736766e-15,
+        100,
+        51.503608748848876,
+        1
+      ],
+      "centroid": [
+        5.329070518200751e-15,
+        100,
+        54.003608748848876
+      ],
+      "focusGroup": "L1"
+    },
+    {
+      "id": "029-coxa_link-L1",
+      "meshId": "stl_prototype:coxa_link",
+      "name": "coxa_link L1  hip-yaw -> hip-pitch",
+      "partType": "coxa_link",
+      "role": "hip-yaw -> hip-pitch",
+      "leg": "L1",
+      "joint": null,
+      "color": "#2ca02c",
+      "transform": [
+        6.123233995736766e-17,
+        1,
+        0,
+        0,
+        -1,
+        6.123233995736766e-17,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        6.123233995736766e-15,
+        100,
+        56.503608748848876,
+        1
+      ],
+      "centroid": [
+        15.000000000000007,
+        114.5,
+        76.75360874884888
+      ],
+      "focusGroup": "L1"
+    },
+    {
+      "id": "030-servo_body-L1-hip",
+      "meshId": "stl_prototype:servo_body",
+      "name": "servo_body L1  hip-pitch servo",
+      "partType": "servo_body",
+      "role": "hip-pitch servo",
+      "leg": "L1",
+      "joint": "hip",
+      "color": "#2e2e33",
+      "transform": [
+        6.123233995736766e-17,
+        1,
+        0,
+        0,
+        -6.123233995736766e-17,
+        3.749399456654644e-33,
+        -1,
+        0,
+        -1,
+        6.123233995736766e-17,
+        6.123233995736766e-17,
+        0,
+        44.00000000000001,
+        115,
+        75.00360874884888,
+        1
+      ],
+      "centroid": [
+        21.250000000000007,
+        115,
+        75.00360874884888
+      ],
+      "focusGroup": "L1"
+    },
+    {
+      "id": "031-servo_horn-L1-hip",
+      "meshId": "stl_prototype:servo_horn",
+      "name": "servo_horn L1  hip-pitch horn",
+      "partType": "servo_horn",
+      "role": "hip-pitch horn",
+      "leg": "L1",
+      "joint": "hip",
+      "color": "#808085",
+      "transform": [
+        6.123233995736766e-17,
+        1,
+        0,
+        0,
+        -6.123233995736766e-17,
+        3.749399456654644e-33,
+        -1,
+        0,
+        -1,
+        6.123233995736766e-17,
+        6.123233995736766e-17,
+        0,
+        7.654042494670958e-15,
+        125,
+        75.00360874884888,
+        1
+      ],
+      "centroid": [
+        -2.499999999999992,
+        125,
+        75.00360874884888
+      ],
+      "focusGroup": "L1"
+    },
+    {
+      "id": "032-femur_link-L1",
+      "meshId": "stl_prototype:femur_link",
+      "name": "femur_link L1  hip-pitch -> knee",
+      "partType": "femur_link",
+      "role": "hip-pitch -> knee",
+      "leg": "L1",
+      "joint": null,
+      "color": "#d62728",
+      "transform": [
+        5.549534652183772e-17,
+        0.9063077870366499,
+        0.42261826174069944,
+        0,
+        -1,
+        6.123233995736766e-17,
+        0,
+        0,
+        -2.5877905075098294e-17,
+        -0.42261826174069944,
+        0.9063077870366499,
+        0,
+        -4.999999999999992,
+        125,
+        75.00360874884888,
+        1
+      ],
+      "centroid": [
+        13.50000000000001,
+        163.66711064817147,
+        93.73378231686594
+      ],
+      "focusGroup": "L1"
+    },
+    {
+      "id": "033-servo_body-L1-knee",
+      "meshId": "stl_prototype:servo_body",
+      "name": "servo_body L1  knee servo",
+      "partType": "servo_body",
+      "role": "knee servo",
+      "leg": "L1",
+      "joint": "knee",
+      "color": "#2e2e33",
+      "transform": [
+        5.549534652183772e-17,
+        0.9063077870366499,
+        0.42261826174069944,
+        0,
+        -3.5354434882269363e-17,
+        0.42261826174069944,
+        -0.9063077870366499,
+        0,
+        -1,
+        3.5354434882269363e-17,
+        5.549534652183772e-17,
+        0,
+        44.000000000000014,
+        183.91000615738224,
+        102.47379576199434,
+        1
+      ],
+      "centroid": [
+        21.250000000000014,
+        183.91000615738224,
+        102.47379576199434
+      ],
+      "focusGroup": "L1"
+    },
+    {
+      "id": "034-servo_horn-L1-knee",
+      "meshId": "stl_prototype:servo_horn",
+      "name": "servo_horn L1  knee horn",
+      "partType": "servo_horn",
+      "role": "knee horn",
+      "leg": "L1",
+      "joint": "knee",
+      "color": "#808085",
+      "transform": [
+        5.549534652183772e-17,
+        0.9063077870366499,
+        0.42261826174069944,
+        0,
+        -3.5354434882269363e-17,
+        0.42261826174069944,
+        -0.9063077870366499,
+        0,
+        -1,
+        3.5354434882269363e-17,
+        5.549534652183772e-17,
+        0,
+        1.2155756766438956e-14,
+        192.97308402774874,
+        106.69997837940133,
+        1
+      ],
+      "centroid": [
+        -2.499999999999988,
+        192.97308402774874,
+        106.69997837940133
+      ],
+      "focusGroup": "L1"
+    },
+    {
+      "id": "035-tibia_link-L1",
+      "meshId": "stl_prototype:tibia_link",
+      "name": "tibia_link L1  knee -> foot",
+      "partType": "tibia_link",
+      "role": "knee -> foot",
+      "leg": "L1",
+      "joint": null,
+      "color": "#e377c2",
+      "transform": [
+        5.015859645267624e-17,
+        0.8191520442889918,
+        -0.573576436351046,
+        0,
+        -1,
+        6.123233995736766e-17,
+        0,
+        0,
+        3.5121427342182706e-17,
+        0.573576436351046,
+        0.8191520442889918,
+        0,
+        -4.9999999999999885,
+        192.97308402774874,
+        106.69997837940133,
+        1
+      ],
+      "centroid": [
+        -7.999999999999986,
+        238.3248909356028,
+        63.340471100199494
+      ],
+      "focusGroup": "L1"
+    },
+    {
+      "id": "036-servo_body-L2-yaw",
+      "meshId": "stl_prototype:servo_body",
+      "name": "servo_body L2  hip-yaw servo",
+      "partType": "servo_body",
+      "role": "hip-yaw servo",
+      "leg": "L2",
+      "joint": "yaw",
+      "color": "#2e2e33",
+      "transform": [
+        -0.8660254037844387,
+        0.49999999999999994,
+        0,
+        0,
+        -0.49999999999999994,
+        -0.8660254037844387,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -77.9422863405995,
+        44.99999999999999,
+        7.503608748848876,
+        1
+      ],
+      "centroid": [
+        -77.9422863405995,
+        44.99999999999999,
+        30.253608748848876
+      ],
+      "focusGroup": "L2"
+    },
+    {
+      "id": "037-servo_horn-L2-yaw",
+      "meshId": "stl_prototype:servo_horn",
+      "name": "servo_horn L2  hip-yaw horn",
+      "partType": "servo_horn",
+      "role": "hip-yaw horn",
+      "leg": "L2",
+      "joint": "yaw",
+      "color": "#808085",
+      "transform": [
+        -0.8660254037844387,
+        0.49999999999999994,
+        0,
+        0,
+        -0.49999999999999994,
+        -0.8660254037844387,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -86.60254037844388,
+        49.99999999999999,
+        51.503608748848876,
+        1
+      ],
+      "centroid": [
+        -86.60254037844388,
+        49.99999999999999,
+        54.003608748848876
+      ],
+      "focusGroup": "L2"
+    },
+    {
+      "id": "038-coxa_link-L2",
+      "meshId": "stl_prototype:coxa_link",
+      "name": "coxa_link L2  hip-yaw -> hip-pitch",
+      "partType": "coxa_link",
+      "role": "hip-yaw -> hip-pitch",
+      "leg": "L2",
+      "joint": null,
+      "color": "#2ca02c",
+      "transform": [
+        -0.8660254037844387,
+        0.49999999999999994,
+        0,
+        0,
+        -0.49999999999999994,
+        -0.8660254037844387,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -86.60254037844388,
+        49.99999999999999,
+        56.503608748848876,
+        1
+      ],
+      "centroid": [
+        -84.2313833295338,
+        69.74038105676658,
+        76.75360874884888
+      ],
+      "focusGroup": "L2"
+    },
+    {
+      "id": "039-servo_body-L2-hip",
+      "meshId": "stl_prototype:servo_body",
+      "name": "servo_body L2  hip-pitch servo",
+      "partType": "servo_body",
+      "role": "hip-pitch servo",
+      "leg": "L2",
+      "joint": "hip",
+      "color": "#2e2e33",
+      "transform": [
+        -0.8660254037844387,
+        0.49999999999999994,
+        0,
+        0,
+        -3.0616169978683824e-17,
+        -5.3028761936245346e-17,
+        -1,
+        0,
+        -0.49999999999999994,
+        -0.8660254037844387,
+        6.123233995736766e-17,
+        0,
+        -77.59292143521046,
+        95.60511776651529,
+        75.00360874884888,
+        1
+      ],
+      "centroid": [
+        -87.68651034845598,
+        79.15063509461095,
+        75.00360874884888
+      ],
+      "focusGroup": "L2"
+    },
+    {
+      "id": "040-servo_horn-L2-hip",
+      "meshId": "stl_prototype:servo_horn",
+      "name": "servo_horn L2  hip-pitch horn",
+      "partType": "servo_horn",
+      "role": "hip-pitch horn",
+      "leg": "L2",
+      "joint": "hip",
+      "color": "#808085",
+      "transform": [
+        -0.8660254037844387,
+        0.49999999999999994,
+        0,
+        0,
+        -3.0616169978683824e-17,
+        -5.3028761936245346e-17,
+        -1,
+        0,
+        -0.49999999999999994,
+        -0.8660254037844387,
+        6.123233995736766e-17,
+        0,
+        -108.25317547305485,
+        62.49999999999999,
+        75.00360874884888,
+        1
+      ],
+      "centroid": [
+        -109.50317547305485,
+        60.334936490538894,
+        75.00360874884888
+      ],
+      "focusGroup": "L2"
+    },
+    {
+      "id": "041-femur_link-L2",
+      "meshId": "stl_prototype:femur_link",
+      "name": "femur_link L2  hip-pitch -> knee",
+      "partType": "femur_link",
+      "role": "hip-pitch -> knee",
+      "leg": "L2",
+      "joint": null,
+      "color": "#d62728",
+      "transform": [
+        -0.7848855672213958,
+        0.4531538935183249,
+        0.42261826174069944,
+        0,
+        -0.49999999999999994,
+        -0.8660254037844387,
+        0,
+        0,
+        0.36599815077066683,
+        -0.2113091308703497,
+        0.9063077870366499,
+        0,
+        -110.75317547305485,
+        58.1698729810778,
+        75.00360874884888,
+        1
+      ],
+      "centroid": [
+        -140.1616264866551,
+        93.52489827517564,
+        93.73378231686594
+      ],
+      "focusGroup": "L2"
+    },
+    {
+      "id": "042-servo_body-L2-knee",
+      "meshId": "stl_prototype:servo_body",
+      "name": "servo_body L2  knee servo",
+      "partType": "servo_body",
+      "role": "knee servo",
+      "leg": "L2",
+      "joint": "knee",
+      "color": "#2e2e33",
+      "transform": [
+        -0.7848855672213958,
+        0.4531538935183249,
+        0.42261826174069944,
+        0,
+        -0.3659981507706669,
+        0.21130913087034964,
+        -0.9063077870366499,
+        0,
+        -0.49999999999999994,
+        -0.8660254037844387,
+        5.549534652183772e-17,
+        0,
+        -137.27073734244559,
+        130.06012084520643,
+        102.47379576199434,
+        1
+      ],
+      "centroid": [
+        -147.08033682772046,
+        113.6056381733021,
+        102.47379576199434
+      ],
+      "focusGroup": "L2"
+    },
+    {
+      "id": "043-servo_horn-L2-knee",
+      "meshId": "stl_prototype:servo_horn",
+      "name": "servo_horn L2  knee horn",
+      "partType": "servo_horn",
+      "role": "knee horn",
+      "leg": "L2",
+      "joint": "knee",
+      "color": "#808085",
+      "transform": [
+        -0.7848855672213958,
+        0.4531538935183249,
+        0.42261826174069944,
+        0,
+        -0.3659981507706669,
+        0.21130913087034964,
+        -0.9063077870366499,
+        0,
+        -0.49999999999999994,
+        -0.8660254037844387,
+        5.549534652183772e-17,
+        0,
+        -167.11959301465953,
+        96.48654201387436,
+        106.69997837940133,
+        1
+      ],
+      "centroid": [
+        -168.36959301465953,
+        94.32147850441326,
+        106.69997837940133
+      ],
+      "focusGroup": "L2"
+    },
+    {
+      "id": "044-tibia_link-L2",
+      "meshId": "stl_prototype:tibia_link",
+      "name": "tibia_link L2  knee -> foot",
+      "partType": "tibia_link",
+      "role": "knee -> foot",
+      "leg": "L2",
+      "joint": null,
+      "color": "#e377c2",
+      "transform": [
+        -0.7094064799162225,
+        0.40957602214449584,
+        -0.573576436351046,
+        0,
+        -0.49999999999999994,
+        -0.8660254037844387,
+        0,
+        0,
+        -0.49673176489215404,
+        0.28678821817552297,
+        0.8191520442889918,
+        0,
+        -169.61959301465953,
+        92.15641499495217,
+        106.69997837940133,
+        1
+      ],
+      "centroid": [
+        -210.0321286543877,
+        111.60502065508874,
+        63.340471100199494
+      ],
+      "focusGroup": "L2"
+    },
+    {
+      "id": "045-servo_body-L3-yaw",
+      "meshId": "stl_prototype:servo_body",
+      "name": "servo_body L3  hip-yaw servo",
+      "partType": "servo_body",
+      "role": "hip-yaw servo",
+      "leg": "L3",
+      "joint": "yaw",
+      "color": "#2e2e33",
+      "transform": [
+        -0.8660254037844388,
+        -0.4999999999999998,
+        0,
+        0,
+        0.4999999999999998,
+        -0.8660254037844388,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -77.94228634059948,
+        -44.99999999999998,
+        7.503608748848876,
+        1
+      ],
+      "centroid": [
+        -77.94228634059948,
+        -44.999999999999986,
+        30.253608748848876
+      ],
+      "focusGroup": "L3"
+    },
+    {
+      "id": "046-servo_horn-L3-yaw",
+      "meshId": "stl_prototype:servo_horn",
+      "name": "servo_horn L3  hip-yaw horn",
+      "partType": "servo_horn",
+      "role": "hip-yaw horn",
+      "leg": "L3",
+      "joint": "yaw",
+      "color": "#808085",
+      "transform": [
+        -0.8660254037844388,
+        -0.4999999999999998,
+        0,
+        0,
+        0.4999999999999998,
+        -0.8660254037844388,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -86.60254037844388,
+        -49.99999999999998,
+        51.503608748848876,
+        1
+      ],
+      "centroid": [
+        -86.60254037844388,
+        -49.99999999999998,
+        54.003608748848876
+      ],
+      "focusGroup": "L3"
+    },
+    {
+      "id": "047-coxa_link-L3",
+      "meshId": "stl_prototype:coxa_link",
+      "name": "coxa_link L3  hip-yaw -> hip-pitch",
+      "partType": "coxa_link",
+      "role": "hip-yaw -> hip-pitch",
+      "leg": "L3",
+      "joint": null,
+      "color": "#2ca02c",
+      "transform": [
+        -0.8660254037844388,
+        -0.4999999999999998,
+        0,
+        0,
+        0.4999999999999998,
+        -0.8660254037844388,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -86.60254037844388,
+        -49.99999999999998,
+        56.503608748848876,
+        1
+      ],
+      "centroid": [
+        -105.7938833295338,
+        -37.36681232609183,
+        76.75360874884888
+      ],
+      "focusGroup": "L3"
+    },
+    {
+      "id": "048-servo_body-L3-hip",
+      "meshId": "stl_prototype:servo_body",
+      "name": "servo_body L3  hip-pitch servo",
+      "partType": "servo_body",
+      "role": "hip-pitch servo",
+      "leg": "L3",
+      "joint": "hip",
+      "color": "#2e2e33",
+      "transform": [
+        -0.8660254037844388,
+        -0.4999999999999998,
+        0,
+        0,
+        3.061616997868382e-17,
+        -5.302876193624536e-17,
+        -1,
+        0,
+        0.4999999999999998,
+        -0.8660254037844388,
+        6.123233995736766e-17,
+        0,
+        -121.59292143521044,
+        -19.39488223348467,
+        75.00360874884888,
+        1
+      ],
+      "centroid": [
+        -113.28891510810618,
+        -37.346960169580655,
+        75.00360874884888
+      ],
+      "focusGroup": "L3"
+    },
+    {
+      "id": "049-servo_horn-L3-hip",
+      "meshId": "stl_prototype:servo_horn",
+      "name": "servo_horn L3  hip-pitch horn",
+      "partType": "servo_horn",
+      "role": "hip-pitch horn",
+      "leg": "L3",
+      "joint": "hip",
+      "color": "#808085",
+      "transform": [
+        -0.8660254037844388,
+        -0.4999999999999998,
+        0,
+        0,
+        3.061616997868382e-17,
+        -5.302876193624536e-17,
+        -1,
+        0,
+        0.4999999999999998,
+        -0.8660254037844388,
+        6.123233995736766e-17,
+        0,
+        -108.25317547305485,
+        -62.49999999999997,
+        75.00360874884888,
+        1
+      ],
+      "centroid": [
+        -107.00317547305485,
+        -64.66506350946108,
+        75.00360874884888
+      ],
+      "focusGroup": "L3"
+    },
+    {
+      "id": "050-femur_link-L3",
+      "meshId": "stl_prototype:femur_link",
+      "name": "femur_link L3  hip-pitch -> knee",
+      "partType": "femur_link",
+      "role": "hip-pitch -> knee",
+      "leg": "L3",
+      "joint": null,
+      "color": "#d62728",
+      "transform": [
+        -0.7848855672213959,
+        -0.45315389351832475,
+        0.42261826174069944,
+        0,
+        0.4999999999999998,
+        -0.8660254037844388,
+        0,
+        0,
+        0.3659981507706669,
+        0.21130913087034964,
+        0.9063077870366499,
+        0,
+        -105.75317547305485,
+        -66.83012701892217,
+        75.00360874884888,
+        1
+      ],
+      "centroid": [
+        -148.48987558531513,
+        -76.17703110509856,
+        93.73378231686594
+      ],
+      "focusGroup": "L3"
+    },
+    {
+      "id": "051-servo_body-L3-knee",
+      "meshId": "stl_prototype:servo_body",
+      "name": "servo_body L3  knee servo",
+      "partType": "servo_body",
+      "role": "knee servo",
+      "leg": "L3",
+      "joint": "knee",
+      "color": "#2e2e33",
+      "transform": [
+        -0.7848855672213959,
+        -0.45315389351832475,
+        0.42261826174069944,
+        0,
+        -0.36599815077066683,
+        -0.2113091308703497,
+        -0.9063077870366499,
+        0,
+        0.4999999999999998,
+        -0.8660254037844388,
+        5.549534652183772e-17,
+        0,
+        -181.27073734244559,
+        -53.84988531217577,
+        102.47379576199434,
+        1
+      ],
+      "centroid": [
+        -171.79752198447744,
+        -70.97893435547971,
+        102.47379576199434
+      ],
+      "focusGroup": "L3"
+    },
+    {
+      "id": "052-servo_horn-L3-knee",
+      "meshId": "stl_prototype:servo_horn",
+      "name": "servo_horn L3  knee horn",
+      "partType": "servo_horn",
+      "role": "knee horn",
+      "leg": "L3",
+      "joint": "knee",
+      "color": "#808085",
+      "transform": [
+        -0.7848855672213959,
+        -0.45315389351832475,
+        0.42261826174069944,
+        0,
+        -0.36599815077066683,
+        -0.2113091308703497,
+        -0.9063077870366499,
+        0,
+        0.4999999999999998,
+        -0.8660254037844388,
+        5.549534652183772e-17,
+        0,
+        -167.11959301465953,
+        -96.48654201387433,
+        106.69997837940133,
+        1
+      ],
+      "centroid": [
+        -165.86959301465953,
+        -98.65160552333542,
+        106.69997837940133
+      ],
+      "focusGroup": "L3"
+    },
+    {
+      "id": "053-tibia_link-L3",
+      "meshId": "stl_prototype:tibia_link",
+      "name": "tibia_link L3  knee -> foot",
+      "partType": "tibia_link",
+      "role": "knee -> foot",
+      "leg": "L3",
+      "joint": null,
+      "color": "#e377c2",
+      "transform": [
+        -0.7094064799162226,
+        -0.40957602214449573,
+        -0.573576436351046,
+        0,
+        0.4999999999999998,
+        -0.8660254037844388,
+        0,
+        0,
+        -0.49673176489215415,
+        -0.2867882181755229,
+        0.8191520442889918,
+        0,
+        -164.61959301465953,
+        -100.81666903279651,
+        106.69997837940133,
+        1
+      ],
+      "centroid": [
+        -202.0321286543877,
+        -125.46142711563971,
+        63.340471100199494
+      ],
+      "focusGroup": "L3"
+    },
+    {
+      "id": "054-servo_body-L4-yaw",
+      "meshId": "stl_prototype:servo_body",
+      "name": "servo_body L4  hip-yaw servo",
+      "partType": "servo_body",
+      "role": "hip-yaw servo",
+      "leg": "L4",
+      "joint": "yaw",
+      "color": "#2e2e33",
+      "transform": [
+        -1.8369701987210297e-16,
+        -1,
+        0,
+        0,
+        1,
+        -1.8369701987210297e-16,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -1.6532731788489267e-14,
+        -90,
+        7.503608748848876,
+        1
+      ],
+      "centroid": [
+        -1.5987211554602254e-14,
+        -90,
+        30.253608748848876
+      ],
+      "focusGroup": "L4"
+    },
+    {
+      "id": "055-servo_horn-L4-yaw",
+      "meshId": "stl_prototype:servo_horn",
+      "name": "servo_horn L4  hip-yaw horn",
+      "partType": "servo_horn",
+      "role": "hip-yaw horn",
+      "leg": "L4",
+      "joint": "yaw",
+      "color": "#808085",
+      "transform": [
+        -1.8369701987210297e-16,
+        -1,
+        0,
+        0,
+        1,
+        -1.8369701987210297e-16,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -1.8369701987210297e-14,
+        -100,
+        51.503608748848876,
+        1
+      ],
+      "centroid": [
+        -1.7763568394002505e-14,
+        -100,
+        54.003608748848876
+      ],
+      "focusGroup": "L4"
+    },
+    {
+      "id": "056-coxa_link-L4",
+      "meshId": "stl_prototype:coxa_link",
+      "name": "coxa_link L4  hip-yaw -> hip-pitch",
+      "partType": "coxa_link",
+      "role": "hip-yaw -> hip-pitch",
+      "leg": "L4",
+      "joint": null,
+      "color": "#2ca02c",
+      "transform": [
+        -1.8369701987210297e-16,
+        -1,
+        0,
+        0,
+        1,
+        -1.8369701987210297e-16,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -1.8369701987210297e-14,
+        -100,
+        56.503608748848876,
+        1
+      ],
+      "centroid": [
+        -15.000000000000021,
+        -114.5,
+        76.75360874884888
+      ],
+      "focusGroup": "L4"
+    },
+    {
+      "id": "057-servo_body-L4-hip",
+      "meshId": "stl_prototype:servo_body",
+      "name": "servo_body L4  hip-pitch servo",
+      "partType": "servo_body",
+      "role": "hip-pitch servo",
+      "leg": "L4",
+      "joint": "hip",
+      "color": "#2e2e33",
+      "transform": [
+        -1.8369701987210297e-16,
+        -1,
+        0,
+        0,
+        6.123233995736766e-17,
+        -1.1248198369963932e-32,
+        -1,
+        0,
+        1,
+        -1.8369701987210297e-16,
+        6.123233995736766e-17,
+        0,
+        -44.00000000000002,
+        -114.99999999999999,
+        75.00360874884888,
+        1
+      ],
+      "centroid": [
+        -21.250000000000025,
+        -115,
+        75.00360874884888
+      ],
+      "focusGroup": "L4"
+    },
+    {
+      "id": "058-servo_horn-L4-hip",
+      "meshId": "stl_prototype:servo_horn",
+      "name": "servo_horn L4  hip-pitch horn",
+      "partType": "servo_horn",
+      "role": "hip-pitch horn",
+      "leg": "L4",
+      "joint": "hip",
+      "color": "#808085",
+      "transform": [
+        -1.8369701987210297e-16,
+        -1,
+        0,
+        0,
+        6.123233995736766e-17,
+        -1.1248198369963932e-32,
+        -1,
+        0,
+        1,
+        -1.8369701987210297e-16,
+        6.123233995736766e-17,
+        0,
+        -2.2962127484012872e-14,
+        -125,
+        75.00360874884888,
+        1
+      ],
+      "centroid": [
+        2.499999999999977,
+        -125,
+        75.00360874884888
+      ],
+      "focusGroup": "L4"
+    },
+    {
+      "id": "059-femur_link-L4",
+      "meshId": "stl_prototype:femur_link",
+      "name": "femur_link L4  hip-pitch -> knee",
+      "partType": "femur_link",
+      "role": "hip-pitch -> knee",
+      "leg": "L4",
+      "joint": null,
+      "color": "#d62728",
+      "transform": [
+        -1.6648603956551316e-16,
+        -0.9063077870366499,
+        0.42261826174069944,
+        0,
+        1,
+        -1.8369701987210297e-16,
+        0,
+        0,
+        7.763371522529488e-17,
+        0.42261826174069944,
+        0.9063077870366499,
+        0,
+        4.999999999999977,
+        -125,
+        75.00360874884888,
+        1
+      ],
+      "centroid": [
+        -13.500000000000028,
+        -163.66711064817147,
+        93.73378231686594
+      ],
+      "focusGroup": "L4"
+    },
+    {
+      "id": "060-servo_body-L4-knee",
+      "meshId": "stl_prototype:servo_body",
+      "name": "servo_body L4  knee servo",
+      "partType": "servo_body",
+      "role": "knee servo",
+      "leg": "L4",
+      "joint": "knee",
+      "color": "#2e2e33",
+      "transform": [
+        -1.6648603956551316e-16,
+        -0.9063077870366499,
+        0.42261826174069944,
+        0,
+        -1.6401375267927218e-17,
+        -0.42261826174069944,
+        -0.9063077870366499,
+        0,
+        1,
+        -1.5781911479700467e-16,
+        5.549534652183772e-17,
+        0,
+        -44.000000000000036,
+        -183.91000615738224,
+        102.47379576199434,
+        1
+      ],
+      "centroid": [
+        -21.250000000000036,
+        -183.91000615738227,
+        102.47379576199434
+      ],
+      "focusGroup": "L4"
+    },
+    {
+      "id": "061-servo_horn-L4-knee",
+      "meshId": "stl_prototype:servo_horn",
+      "name": "servo_horn L4  knee horn",
+      "partType": "servo_horn",
+      "role": "knee horn",
+      "leg": "L4",
+      "joint": "knee",
+      "color": "#808085",
+      "transform": [
+        -1.6648603956551316e-16,
+        -0.9063077870366499,
+        0.42261826174069944,
+        0,
+        -1.6401375267927218e-17,
+        -0.42261826174069944,
+        -0.9063077870366499,
+        0,
+        1,
+        -1.5781911479700467e-16,
+        5.549534652183772e-17,
+        0,
+        -3.5579091879616744e-14,
+        -192.97308402774874,
+        106.69997837940133,
+        1
+      ],
+      "centroid": [
+        2.4999999999999645,
+        -192.97308402774874,
+        106.69997837940133
+      ],
+      "focusGroup": "L4"
+    },
+    {
+      "id": "062-tibia_link-L4",
+      "meshId": "stl_prototype:tibia_link",
+      "name": "tibia_link L4  knee -> foot",
+      "partType": "tibia_link",
+      "role": "knee -> foot",
+      "leg": "L4",
+      "joint": null,
+      "color": "#e377c2",
+      "transform": [
+        -1.504757893580287e-16,
+        -0.8191520442889918,
+        -0.573576436351046,
+        0,
+        1,
+        -1.8369701987210297e-16,
+        0,
+        0,
+        -1.0536428202654811e-16,
+        -0.573576436351046,
+        0.8191520442889918,
+        0,
+        4.9999999999999645,
+        -192.97308402774874,
+        106.69997837940133,
+        1
+      ],
+      "centroid": [
+        7.999999999999957,
+        -238.3248909356028,
+        63.340471100199494
+      ],
+      "focusGroup": "L4"
+    },
+    {
+      "id": "063-servo_body-L5-yaw",
+      "meshId": "stl_prototype:servo_body",
+      "name": "servo_body L5  hip-yaw servo",
+      "partType": "servo_body",
+      "role": "hip-yaw servo",
+      "leg": "L5",
+      "joint": "yaw",
+      "color": "#2e2e33",
+      "transform": [
+        0.8660254037844384,
+        -0.5000000000000004,
+        0,
+        0,
+        0.5000000000000004,
+        0.8660254037844384,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        77.94228634059945,
+        -45.000000000000036,
+        7.503608748848876,
+        1
+      ],
+      "centroid": [
+        77.94228634059945,
+        -45.00000000000003,
+        30.253608748848876
+      ],
+      "focusGroup": "L5"
+    },
+    {
+      "id": "064-servo_horn-L5-yaw",
+      "meshId": "stl_prototype:servo_horn",
+      "name": "servo_horn L5  hip-yaw horn",
+      "partType": "servo_horn",
+      "role": "hip-yaw horn",
+      "leg": "L5",
+      "joint": "yaw",
+      "color": "#808085",
+      "transform": [
+        0.8660254037844384,
+        -0.5000000000000004,
+        0,
+        0,
+        0.5000000000000004,
+        0.8660254037844384,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        86.60254037844383,
+        -50.00000000000004,
+        51.503608748848876,
+        1
+      ],
+      "centroid": [
+        86.60254037844383,
+        -50.00000000000004,
+        54.003608748848876
+      ],
+      "focusGroup": "L5"
+    },
+    {
+      "id": "065-coxa_link-L5",
+      "meshId": "stl_prototype:coxa_link",
+      "name": "coxa_link L5  hip-yaw -> hip-pitch",
+      "partType": "coxa_link",
+      "role": "hip-yaw -> hip-pitch",
+      "leg": "L5",
+      "joint": null,
+      "color": "#2ca02c",
+      "transform": [
+        0.8660254037844384,
+        -0.5000000000000004,
+        0,
+        0,
+        0.5000000000000004,
+        0.8660254037844384,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        86.60254037844383,
+        -50.00000000000004,
+        56.503608748848876,
+        1
+      ],
+      "centroid": [
+        84.23138332953374,
+        -69.74038105676662,
+        76.75360874884888
+      ],
+      "focusGroup": "L5"
+    },
+    {
+      "id": "066-servo_body-L5-hip",
+      "meshId": "stl_prototype:servo_body",
+      "name": "servo_body L5  hip-pitch servo",
+      "partType": "servo_body",
+      "role": "hip-pitch servo",
+      "leg": "L5",
+      "joint": "hip",
+      "color": "#2e2e33",
+      "transform": [
+        0.8660254037844384,
+        -0.5000000000000004,
+        0,
+        0,
+        3.0616169978683855e-17,
+        5.302876193624533e-17,
+        -1,
+        0,
+        0.5000000000000004,
+        0.8660254037844384,
+        6.123233995736766e-17,
+        0,
+        77.5929214352104,
+        -95.60511776651535,
+        75.00360874884888,
+        1
+      ],
+      "centroid": [
+        87.68651034845594,
+        -79.15063509461102,
+        75.00360874884888
+      ],
+      "focusGroup": "L5"
+    },
+    {
+      "id": "067-servo_horn-L5-hip",
+      "meshId": "stl_prototype:servo_horn",
+      "name": "servo_horn L5  hip-pitch horn",
+      "partType": "servo_horn",
+      "role": "hip-pitch horn",
+      "leg": "L5",
+      "joint": "hip",
+      "color": "#808085",
+      "transform": [
+        0.8660254037844384,
+        -0.5000000000000004,
+        0,
+        0,
+        3.0616169978683855e-17,
+        5.302876193624533e-17,
+        -1,
+        0,
+        0.5000000000000004,
+        0.8660254037844384,
+        6.123233995736766e-17,
+        0,
+        108.2531754730548,
+        -62.50000000000006,
+        75.00360874884888,
+        1
+      ],
+      "centroid": [
+        109.5031754730548,
+        -60.33493649053896,
+        75.00360874884888
+      ],
+      "focusGroup": "L5"
+    },
+    {
+      "id": "068-femur_link-L5",
+      "meshId": "stl_prototype:femur_link",
+      "name": "femur_link L5  hip-pitch -> knee",
+      "partType": "femur_link",
+      "role": "hip-pitch -> knee",
+      "leg": "L5",
+      "joint": null,
+      "color": "#d62728",
+      "transform": [
+        0.7848855672213956,
+        -0.45315389351832536,
+        0.42261826174069944,
+        0,
+        0.5000000000000004,
+        0.8660254037844384,
+        0,
+        0,
+        -0.3659981507706667,
+        0.21130913087034991,
+        0.9063077870366499,
+        0,
+        110.7531754730548,
+        -58.16987298107786,
+        75.00360874884888,
+        1
+      ],
+      "centroid": [
+        140.16162648665505,
+        -93.52489827517572,
+        93.73378231686594
+      ],
+      "focusGroup": "L5"
+    },
+    {
+      "id": "069-servo_body-L5-knee",
+      "meshId": "stl_prototype:servo_body",
+      "name": "servo_body L5  knee servo",
+      "partType": "servo_body",
+      "role": "knee servo",
+      "leg": "L5",
+      "joint": "knee",
+      "color": "#2e2e33",
+      "transform": [
+        0.7848855672213956,
+        -0.45315389351832536,
+        0.42261826174069944,
+        0,
+        0.3659981507706668,
+        -0.21130913087034986,
+        -0.9063077870366499,
+        0,
+        0.5000000000000004,
+        0.8660254037844384,
+        5.549534652183772e-17,
+        0,
+        137.27073734244547,
+        -130.06012084520648,
+        102.47379576199434,
+        1
+      ],
+      "centroid": [
+        147.08033682772037,
+        -113.60563817330215,
+        102.47379576199434
+      ],
+      "focusGroup": "L5"
+    },
+    {
+      "id": "070-servo_horn-L5-knee",
+      "meshId": "stl_prototype:servo_horn",
+      "name": "servo_horn L5  knee horn",
+      "partType": "servo_horn",
+      "role": "knee horn",
+      "leg": "L5",
+      "joint": "knee",
+      "color": "#808085",
+      "transform": [
+        0.7848855672213956,
+        -0.45315389351832536,
+        0.42261826174069944,
+        0,
+        0.3659981507706668,
+        -0.21130913087034986,
+        -0.9063077870366499,
+        0,
+        0.5000000000000004,
+        0.8660254037844384,
+        5.549534652183772e-17,
+        0,
+        167.11959301465947,
+        -96.48654201387444,
+        106.69997837940133,
+        1
+      ],
+      "centroid": [
+        168.36959301465947,
+        -94.32147850441334,
+        106.69997837940133
+      ],
+      "focusGroup": "L5"
+    },
+    {
+      "id": "071-tibia_link-L5",
+      "meshId": "stl_prototype:tibia_link",
+      "name": "tibia_link L5  knee -> foot",
+      "partType": "tibia_link",
+      "role": "knee -> foot",
+      "leg": "L5",
+      "joint": null,
+      "color": "#e377c2",
+      "transform": [
+        0.7094064799162223,
+        -0.4095760221444963,
+        -0.573576436351046,
+        0,
+        0.5000000000000004,
+        0.8660254037844384,
+        0,
+        0,
+        0.49673176489215387,
+        -0.2867882181755233,
+        0.8191520442889918,
+        0,
+        169.61959301465947,
+        -92.15641499495226,
+        106.69997837940133,
+        1
+      ],
+      "centroid": [
+        210.03212865438763,
+        -111.60502065508885,
+        63.340471100199494
+      ],
+      "focusGroup": "L5"
+    }
+  ],
+  "joints": [
+    {
+      "id": "L0-yaw",
+      "type": "revolute",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "origin": [
+        86.60254037844388,
+        49.99999999999999,
+        54.003608748848876
+      ],
+      "instances": [
+        "019-servo_horn-L0-yaw",
+        "020-coxa_link-L0",
+        "021-servo_body-L0-hip"
+      ],
+      "limits": {
+        "min": -55,
+        "max": 55
+      },
+      "home": 0,
+      "label": "L0 yaw"
+    },
+    {
+      "id": "L0-hip",
+      "type": "revolute",
+      "axis": [
+        -0.49999999999999983,
+        0.8660254037844387,
+        0
+      ],
+      "origin": [
+        107.00317547305485,
+        64.66506350946109,
+        75.00360874884888
+      ],
+      "parent": "L0-yaw",
+      "instances": [
+        "022-servo_horn-L0-hip",
+        "023-femur_link-L0",
+        "024-servo_body-L0-knee"
+      ],
+      "limits": {
+        "min": -70,
+        "max": 35
+      },
+      "home": 0,
+      "label": "L0 hip"
+    },
+    {
+      "id": "L0-knee",
+      "type": "revolute",
+      "axis": [
+        -0.49999999999999983,
+        0.8660254037844387,
+        0
+      ],
+      "origin": [
+        165.86959301465953,
+        98.65160552333546,
+        106.69997837940133
+      ],
+      "parent": "L0-hip",
+      "instances": [
+        "025-servo_horn-L0-knee",
+        "026-tibia_link-L0"
+      ],
+      "limits": {
+        "min": -20,
+        "max": 90
+      },
+      "home": 0,
+      "label": "L0 knee"
+    },
+    {
+      "id": "L1-yaw",
+      "type": "revolute",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "origin": [
+        5.329070518200751e-15,
+        100,
+        54.003608748848876
+      ],
+      "instances": [
+        "028-servo_horn-L1-yaw",
+        "029-coxa_link-L1",
+        "030-servo_body-L1-hip"
+      ],
+      "limits": {
+        "min": -55,
+        "max": 55
+      },
+      "home": 0,
+      "label": "L1 yaw"
+    },
+    {
+      "id": "L1-hip",
+      "type": "revolute",
+      "axis": [
+        -1,
+        5.921189464667501e-17,
+        0
+      ],
+      "origin": [
+        -2.499999999999992,
+        125,
+        75.00360874884888
+      ],
+      "parent": "L1-yaw",
+      "instances": [
+        "031-servo_horn-L1-hip",
+        "032-femur_link-L1",
+        "033-servo_body-L1-knee"
+      ],
+      "limits": {
+        "min": -70,
+        "max": 35
+      },
+      "home": 0,
+      "label": "L1 hip"
+    },
+    {
+      "id": "L1-knee",
+      "type": "revolute",
+      "axis": [
+        -1,
+        5.921189464667501e-17,
+        0
+      ],
+      "origin": [
+        -2.499999999999988,
+        192.97308402774874,
+        106.69997837940133
+      ],
+      "parent": "L1-hip",
+      "instances": [
+        "034-servo_horn-L1-knee",
+        "035-tibia_link-L1"
+      ],
+      "limits": {
+        "min": -20,
+        "max": 90
+      },
+      "home": 0,
+      "label": "L1 knee"
+    },
+    {
+      "id": "L2-yaw",
+      "type": "revolute",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "origin": [
+        -86.60254037844388,
+        49.99999999999999,
+        54.003608748848876
+      ],
+      "instances": [
+        "037-servo_horn-L2-yaw",
+        "038-coxa_link-L2",
+        "039-servo_body-L2-hip"
+      ],
+      "limits": {
+        "min": -55,
+        "max": 55
+      },
+      "home": 0,
+      "label": "L2 yaw"
+    },
+    {
+      "id": "L2-hip",
+      "type": "revolute",
+      "axis": [
+        -0.49999999999999983,
+        -0.8660254037844387,
+        0
+      ],
+      "origin": [
+        -109.50317547305485,
+        60.334936490538894,
+        75.00360874884888
+      ],
+      "parent": "L2-yaw",
+      "instances": [
+        "040-servo_horn-L2-hip",
+        "041-femur_link-L2",
+        "042-servo_body-L2-knee"
+      ],
+      "limits": {
+        "min": -70,
+        "max": 35
+      },
+      "home": 0,
+      "label": "L2 hip"
+    },
+    {
+      "id": "L2-knee",
+      "type": "revolute",
+      "axis": [
+        -0.49999999999999983,
+        -0.8660254037844387,
+        0
+      ],
+      "origin": [
+        -168.36959301465953,
+        94.32147850441326,
+        106.69997837940133
+      ],
+      "parent": "L2-hip",
+      "instances": [
+        "043-servo_horn-L2-knee",
+        "044-tibia_link-L2"
+      ],
+      "limits": {
+        "min": -20,
+        "max": 90
+      },
+      "home": 0,
+      "label": "L2 knee"
+    },
+    {
+      "id": "L3-yaw",
+      "type": "revolute",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "origin": [
+        -86.60254037844388,
+        -49.99999999999998,
+        54.003608748848876
+      ],
+      "instances": [
+        "046-servo_horn-L3-yaw",
+        "047-coxa_link-L3",
+        "048-servo_body-L3-hip"
+      ],
+      "limits": {
+        "min": -55,
+        "max": 55
+      },
+      "home": 0,
+      "label": "L3 yaw"
+    },
+    {
+      "id": "L3-hip",
+      "type": "revolute",
+      "axis": [
+        0.49999999999999983,
+        -0.8660254037844387,
+        0
+      ],
+      "origin": [
+        -107.00317547305485,
+        -64.66506350946108,
+        75.00360874884888
+      ],
+      "parent": "L3-yaw",
+      "instances": [
+        "049-servo_horn-L3-hip",
+        "050-femur_link-L3",
+        "051-servo_body-L3-knee"
+      ],
+      "limits": {
+        "min": -70,
+        "max": 35
+      },
+      "home": 0,
+      "label": "L3 hip"
+    },
+    {
+      "id": "L3-knee",
+      "type": "revolute",
+      "axis": [
+        0.49999999999999983,
+        -0.8660254037844387,
+        0
+      ],
+      "origin": [
+        -165.86959301465953,
+        -98.65160552333542,
+        106.69997837940133
+      ],
+      "parent": "L3-hip",
+      "instances": [
+        "052-servo_horn-L3-knee",
+        "053-tibia_link-L3"
+      ],
+      "limits": {
+        "min": -20,
+        "max": 90
+      },
+      "home": 0,
+      "label": "L3 knee"
+    },
+    {
+      "id": "L4-yaw",
+      "type": "revolute",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "origin": [
+        -1.7763568394002505e-14,
+        -100,
+        54.003608748848876
+      ],
+      "instances": [
+        "055-servo_horn-L4-yaw",
+        "056-coxa_link-L4",
+        "057-servo_body-L4-hip"
+      ],
+      "limits": {
+        "min": -55,
+        "max": 55
+      },
+      "home": 0,
+      "label": "L4 yaw"
+    },
+    {
+      "id": "L4-hip",
+      "type": "revolute",
+      "axis": [
+        1,
+        -1.7763568394002506e-16,
+        0
+      ],
+      "origin": [
+        2.499999999999977,
+        -125,
+        75.00360874884888
+      ],
+      "parent": "L4-yaw",
+      "instances": [
+        "058-servo_horn-L4-hip",
+        "059-femur_link-L4",
+        "060-servo_body-L4-knee"
+      ],
+      "limits": {
+        "min": -70,
+        "max": 35
+      },
+      "home": 0,
+      "label": "L4 hip"
+    },
+    {
+      "id": "L4-knee",
+      "type": "revolute",
+      "axis": [
+        1,
+        -1.7763568394002506e-16,
+        0
+      ],
+      "origin": [
+        2.4999999999999645,
+        -192.97308402774874,
+        106.69997837940133
+      ],
+      "parent": "L4-hip",
+      "instances": [
+        "061-servo_horn-L4-knee",
+        "062-tibia_link-L4"
+      ],
+      "limits": {
+        "min": -20,
+        "max": 90
+      },
+      "home": 0,
+      "label": "L4 knee"
+    },
+    {
+      "id": "L5-yaw",
+      "type": "revolute",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "origin": [
+        86.60254037844383,
+        -50.00000000000004,
+        54.003608748848876
+      ],
+      "instances": [
+        "064-servo_horn-L5-yaw",
+        "065-coxa_link-L5",
+        "066-servo_body-L5-hip"
+      ],
+      "limits": {
+        "min": -55,
+        "max": 55
+      },
+      "home": 0,
+      "label": "L5 yaw"
+    },
+    {
+      "id": "L5-hip",
+      "type": "revolute",
+      "axis": [
+        0.5000000000000004,
+        0.8660254037844385,
+        0
+      ],
+      "origin": [
+        109.5031754730548,
+        -60.33493649053896,
+        75.00360874884888
+      ],
+      "parent": "L5-yaw",
+      "instances": [
+        "067-servo_horn-L5-hip",
+        "068-femur_link-L5",
+        "069-servo_body-L5-knee"
+      ],
+      "limits": {
+        "min": -70,
+        "max": 35
+      },
+      "home": 0,
+      "label": "L5 hip"
+    },
+    {
+      "id": "L5-knee",
+      "type": "revolute",
+      "axis": [
+        0.5000000000000004,
+        0.8660254037844385,
+        0
+      ],
+      "origin": [
+        168.36959301465947,
+        -94.32147850441334,
+        106.69997837940133
+      ],
+      "parent": "L5-hip",
+      "instances": [
+        "070-servo_horn-L5-knee",
+        "071-tibia_link-L5"
+      ],
+      "limits": {
+        "min": -20,
+        "max": 90
+      },
+      "home": 0,
+      "label": "L5 knee"
+    }
+  ],
+  "poses": [
+    {
+      "id": "home",
+      "name": "Home",
+      "jointValues": {}
+    },
+    {
+      "id": "stand",
+      "name": "Stand",
+      "jointValues": {
+        "L0-yaw": 0,
+        "L0-hip": -25,
+        "L0-knee": 35,
+        "L1-yaw": 0,
+        "L1-hip": -25,
+        "L1-knee": 35,
+        "L2-yaw": 0,
+        "L2-hip": -25,
+        "L2-knee": 35,
+        "L3-yaw": 0,
+        "L3-hip": -25,
+        "L3-knee": 35,
+        "L4-yaw": 0,
+        "L4-hip": -25,
+        "L4-knee": 35,
+        "L5-yaw": 0,
+        "L5-hip": -25,
+        "L5-knee": 35
+      }
+    },
+    {
+      "id": "crouch",
+      "name": "Crouch",
+      "jointValues": {
+        "L0-yaw": 0,
+        "L0-hip": 25,
+        "L0-knee": 80,
+        "L1-yaw": 0,
+        "L1-hip": 25,
+        "L1-knee": 80,
+        "L2-yaw": 0,
+        "L2-hip": 25,
+        "L2-knee": 80,
+        "L3-yaw": 0,
+        "L3-hip": 25,
+        "L3-knee": 80,
+        "L4-yaw": 0,
+        "L4-hip": 25,
+        "L4-knee": 80,
+        "L5-yaw": 0,
+        "L5-hip": 25,
+        "L5-knee": 80
+      }
+    },
+    {
+      "id": "splay",
+      "name": "Splay (yaw out)",
+      "jointValues": {
+        "L0-yaw": 45,
+        "L0-hip": -10,
+        "L0-knee": 30,
+        "L1-yaw": 45,
+        "L1-hip": -10,
+        "L1-knee": 30,
+        "L2-yaw": 45,
+        "L2-hip": -10,
+        "L2-knee": 30,
+        "L3-yaw": 45,
+        "L3-hip": -10,
+        "L3-knee": 30,
+        "L4-yaw": 45,
+        "L4-hip": -10,
+        "L4-knee": 30,
+        "L5-yaw": 45,
+        "L5-hip": -10,
+        "L5-knee": 30
+      }
+    }
+  ],
+  "checksConfig": {
+    "clearanceMm": 2
+  }
+}

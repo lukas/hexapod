@@ -1,0 +1,49 @@
+{
+  "source": "artifacts/strength/onshape/mujoco_onshape_study_manifest.json",
+  "available": true,
+  "standing_peak_single_foot_normal_N": 39.481,
+  "walking_peak_single_foot_normal_N": 44.6966,
+  "walking_peak_force_vector_N": [
+    -5.1222,
+    -1.5464,
+    44.6966
+  ],
+  "servo_torque_envelope_Nm": 2.2,
+  "top_scenarios": [
+    {
+      "id": "rise_ref_rise_ref_belly2plant__max_single_foot_normal",
+      "time_s": 10.24,
+      "max_single_foot_normal_N": 50.7152,
+      "total_foot_normal_N": 50.7152,
+      "max_joint_abs_torque_Nm": 2.2
+    },
+    {
+      "id": "lower_ref_rise_ref_belly2plant__max_single_foot_normal",
+      "time_s": 2.32,
+      "max_single_foot_normal_N": 49.9985,
+      "total_foot_normal_N": 71.8142,
+      "max_joint_abs_torque_Nm": 2.2
+    },
+    {
+      "id": "scripted_tripod_walk_0.030mps__max_single_foot_normal",
+      "time_s": 1.28,
+      "max_single_foot_normal_N": 44.6966,
+      "total_foot_normal_N": 70.6897,
+      "max_joint_abs_torque_Nm": 2.2
+    },
+    {
+      "id": "lower_ref_rise_ref_belly2plant__max_total_foot_normal",
+      "time_s": 2.28,
+      "max_single_foot_normal_N": 43.0761,
+      "total_foot_normal_N": 84.0311,
+      "max_joint_abs_torque_Nm": 2.2
+    },
+    {
+      "id": "rise_ref_rise_ref_belly2plant__max_total_foot_normal",
+      "time_s": 11.48,
+      "max_single_foot_normal_N": 42.0387,
+      "total_foot_normal_N": 66.2252,
+      "max_joint_abs_torque_Nm": 2.2
+    }
+  ]
+}

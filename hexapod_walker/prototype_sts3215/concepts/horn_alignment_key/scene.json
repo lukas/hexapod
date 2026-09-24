@@ -1,0 +1,217 @@
+{
+  "name": "Horn alignment key \u2014 two temporary pins \u2014 v1",
+  "units": "mm",
+  "center": [
+    0,
+    0,
+    8
+  ],
+  "meshes": [
+    {
+      "id": "key_premade_spacer_9p1",
+      "name": "key_premade_spacer_9p1",
+      "url": "stl/key_premade_spacer_9p1.stl"
+    },
+    {
+      "id": "reference_bracket_spacer_DO_NOT_PRINT",
+      "name": "reference_bracket_spacer_DO_NOT_PRINT",
+      "url": "stl/reference_bracket_spacer_DO_NOT_PRINT.stl"
+    },
+    {
+      "id": "reference_horn_DO_NOT_PRINT",
+      "name": "reference_horn_DO_NOT_PRINT",
+      "url": "stl/reference_horn_DO_NOT_PRINT.stl"
+    }
+  ],
+  "instances": [
+    {
+      "id": "1 \u2014 Tool alone: long pin enters first",
+      "name": "1 \u2014 Tool alone: long pin enters first",
+      "meshId": "key_premade_spacer_9p1",
+      "partType": "key_premade_spacer_9p1",
+      "color": "#34b7cf",
+      "role": "printed",
+      "cots": false,
+      "transform": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -55,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "2 \u2014 Exploded: tool / clamp stack / horn",
+      "name": "2 \u2014 Exploded: tool / clamp stack / horn",
+      "meshId": "key_premade_spacer_9p1",
+      "partType": "key_premade_spacer_9p1",
+      "color": "#34b7cf",
+      "role": "printed",
+      "cots": false,
+      "transform": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "Exploded bracket and spacer",
+      "name": "Exploded bracket and spacer",
+      "meshId": "reference_bracket_spacer_DO_NOT_PRINT",
+      "partType": "reference_bracket_spacer_DO_NOT_PRINT",
+      "color": "#9ba7b3",
+      "role": "reference",
+      "cots": true,
+      "transform": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        12,
+        1
+      ]
+    },
+    {
+      "id": "Exploded horn (holes schematic)",
+      "name": "Exploded horn (holes schematic)",
+      "meshId": "reference_horn_DO_NOT_PRINT",
+      "partType": "reference_horn_DO_NOT_PRINT",
+      "color": "#e9b45e",
+      "role": "reference",
+      "cots": true,
+      "transform": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        19,
+        1
+      ]
+    },
+    {
+      "id": "3 \u2014 Hold key against face; start other two screws",
+      "name": "3 \u2014 Hold key against face; start other two screws",
+      "meshId": "key_premade_spacer_9p1",
+      "partType": "key_premade_spacer_9p1",
+      "color": "#34b7cf",
+      "role": "printed",
+      "cots": false,
+      "transform": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        55,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "Aligned bracket and spacer",
+      "name": "Aligned bracket and spacer",
+      "meshId": "reference_bracket_spacer_DO_NOT_PRINT",
+      "partType": "reference_bracket_spacer_DO_NOT_PRINT",
+      "color": "#9ba7b3",
+      "role": "reference",
+      "cots": true,
+      "transform": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        55,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "Aligned horn",
+      "name": "Aligned horn",
+      "meshId": "reference_horn_DO_NOT_PRINT",
+      "partType": "reference_horn_DO_NOT_PRINT",
+      "color": "#e9b45e",
+      "role": "reference",
+      "cots": true,
+      "transform": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        55,
+        0,
+        0,
+        1
+      ]
+    }
+  ]
+}

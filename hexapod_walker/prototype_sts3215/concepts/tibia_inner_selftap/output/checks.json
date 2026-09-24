@@ -1,0 +1,70 @@
+{
+  "baseline": "v37",
+  "viewed_socket_identical_to_v5": true,
+  "only_changed_printed_part": "tibia_ovh_socket",
+  "inner_joint": {
+    "count_per_socket": 4,
+    "screw": "3x8 self-tapping for plastic",
+    "head_envelope_mm": [
+      5.5,
+      3
+    ],
+    "pilot_diameter_mm": 2.5,
+    "pilot_depth_mm": 7.0,
+    "metal_web_mm": 2.1,
+    "plastic_entry_mm": 5.9,
+    "full_diameter_engagement_excluding_tip_mm": 4.9,
+    "tip_clearance_mm": 1.1,
+    "pilot_to_tube_bore_ligament_mm": 1.7000000000000002,
+    "thread_envelope_to_tube_bore_mm": 1.4500000000000002,
+    "blind_pilot_back_skin_min_mm": 1.0
+  },
+  "outer_pair": "Unchanged \u00d83.4 through holes and5.7AF x4mm-deep M3 nyloc pockets on37mm span",
+  "tube_engagement_mm": 30.0,
+  "nut_windows_removed": 4,
+  "kinematic_changes": false,
+  "physical_validation": "None; actual screw profile, printed fit, torque, pullout and wear need testing",
+  "motion": {
+    "hip_deg": [
+      -110,
+      30
+    ],
+    "knee_deg": [
+      -30,
+      20
+    ],
+    "step_deg": 2.5,
+    "yaw_samples_deg": [
+      -35,
+      -20,
+      0,
+      20,
+      35
+    ],
+    "horn_on_extraction": "clear with 1.5mm radial margin"
+  },
+  "tibia_chassis_samples": {
+    "yaw": [
+      -35,
+      0,
+      35
+    ],
+    "hip": [
+      -110,
+      -75,
+      -40,
+      0,
+      30
+    ],
+    "knee": [
+      -30,
+      -15,
+      0,
+      20
+    ]
+  },
+  "driver_access": "Four \u00d85.5x50mm approaches clear on detached bracket/socket; install before attaching C bracket to knee servo",
+  "old_volume_mm3": 14136.501507583154,
+  "new_volume_mm3": 14887.885537915376,
+  "bed_contact_mm2": 1304.1870790255944
+}

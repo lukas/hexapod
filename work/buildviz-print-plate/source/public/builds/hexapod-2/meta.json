@@ -1,0 +1,17 @@
+{
+  "schema": 2,
+  "buildId": "hexapod-2",
+  "project": "hexapod-2",
+  "build": "hexapod-2",
+  "name": "Hexapod 2",
+  "createdAt": "2026-06-19T18:10:09.320Z",
+  "updatedAt": "2026-06-19T18:10:09.320Z",
+  "defaultVersion": "main",
+  "latestVersion": "main",
+  "versions": [
+    {
+      "name": "main",
+      "pushedAt": "2026-06-19T18:10:09.320Z"
+    }
+  ]
+}

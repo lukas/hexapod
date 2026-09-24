@@ -1,0 +1,754 @@
+{
+  "generatedAt": "2026-09-01T14:10:25.379Z",
+  "build": {
+    "id": "overlap-allowlist-demo",
+    "name": "Overlap allowlist demo (typed allowedInterferences vs legacy ignoreOverlapPairs)"
+  },
+  "checksConfig": {
+    "ignoreOverlapPairs": [
+      [
+        "base_frame",
+        "rocker_link"
+      ],
+      [
+        "decor_cap",
+        "base_frame"
+      ]
+    ],
+    "allowedInterferences": [
+      {
+        "kind": "press_fit",
+        "instances": [
+          "bearing-sleeve",
+          "base-frame"
+        ],
+        "feature": "sleeve bore press fit",
+        "maxPenetrationMm": 4,
+        "reason": "bearing sleeve is pressed 3mm into its bore in the base frame"
+      }
+    ]
+  },
+  "summary": {
+    "total": 22,
+    "pass": 19,
+    "warn": 1,
+    "fail": 2,
+    "byKind": {
+      "scene_meta": {
+        "pass": 3,
+        "warn": 1,
+        "fail": 0
+      },
+      "placement": {
+        "pass": 1,
+        "warn": 0,
+        "fail": 0
+      },
+      "mesh_overlap": {
+        "pass": 2,
+        "warn": 0,
+        "fail": 1
+      },
+      "declared_interference": {
+        "pass": 1,
+        "warn": 0,
+        "fail": 0
+      },
+      "watertight": {
+        "pass": 4,
+        "warn": 0,
+        "fail": 0
+      },
+      "disconnected_components": {
+        "pass": 4,
+        "warn": 0,
+        "fail": 0
+      },
+      "wall_thickness": {
+        "pass": 4,
+        "warn": 0,
+        "fail": 0
+      },
+      "mating_contact": {
+        "pass": 0,
+        "warn": 0,
+        "fail": 1
+      }
+    }
+  },
+  "checks": [
+    {
+      "id": "scene_meta-units",
+      "kind": "scene_meta",
+      "status": "pass",
+      "label": "units = mm"
+    },
+    {
+      "id": "scene_meta-mesh-refs",
+      "kind": "scene_meta",
+      "status": "pass",
+      "label": "all 5 instances resolve to a mesh"
+    },
+    {
+      "id": "scene_meta-unique-ids",
+      "kind": "scene_meta",
+      "status": "pass",
+      "label": "instance ids are unique"
+    },
+    {
+      "id": "scene_meta-legacy-ignore-overlap-pairs",
+      "kind": "scene_meta",
+      "status": "warn",
+      "label": "checksConfig.ignoreOverlapPairs blanket-ignores 2 partType pair(s) (base_frame/rocker_link, decor_cap/base_frame) — every overlap between those types is suppressed, even unintended ones. Migrate to typed instance-level checksConfig.allowedInterferences entries (kind + reason + maxPenetrationMm)."
+    },
+    {
+      "id": "placement-transforms",
+      "kind": "placement",
+      "status": "pass",
+      "label": "all transforms are well-formed"
+    },
+    {
+      "id": "mesh_overlap-0",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "bearing_sleeve ∩ base_frame = 2.769mm penetration (allowed: press_fit — bearing sleeve is pressed 3mm into its bore in the base frame)",
+      "instances": [
+        "bearing-sleeve",
+        "base-frame"
+      ],
+      "point": [
+        -23.176,
+        10.824,
+        2.769
+      ],
+      "region": {
+        "min": [
+          -26,
+          8,
+          0.462
+        ],
+        "max": [
+          -18,
+          16,
+          6
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-1",
+      "kind": "mesh_overlap",
+      "status": "pass",
+      "label": "decor_cap ∩ base_frame = 2mm penetration (intentional — legacy checksConfig.ignoreOverlapPairs; migrate to allowedInterferences)",
+      "instances": [
+        "decor-cap",
+        "base-frame"
+      ],
+      "point": [
+        -17.619,
+        -12.619,
+        4
+      ],
+      "region": {
+        "min": [
+          -20,
+          -15,
+          2
+        ],
+        "max": [
+          -10,
+          -5,
+          6
+        ]
+      }
+    },
+    {
+      "id": "mesh_overlap-2",
+      "kind": "mesh_overlap",
+      "status": "fail",
+      "label": "rocker_link ∩ base_frame = 2mm penetration — listed in ignoreOverlapPairs, but these parts move relative to each other (joints[]); blanket partType ignores never apply to moving bodies. Join them with a real fastener/pin/bearing (a declared allowedInterferences entry) or fix the interference.",
+      "instances": [
+        "rocker-link",
+        "base-frame"
+      ],
+      "point": [
+        2,
+        -3,
+        4
+      ],
+      "region": {
+        "min": [
+          0,
+          -5,
+          2
+        ],
+        "max": [
+          30,
+          5,
+          6
+        ]
+      }
+    },
+    {
+      "id": "declared_interference-0",
+      "kind": "declared_interference",
+      "status": "pass",
+      "label": "bearing-sleeve ∩ base-frame (press_fit [sleeve bore press fit]): interference present, 2.769mm (≤ 4mm cap) — bearing sleeve is pressed 3mm into its bore in the base frame",
+      "instances": [
+        "bearing-sleeve",
+        "base-frame"
+      ],
+      "point": [
+        -23.176,
+        10.824,
+        2.769
+      ]
+    },
+    {
+      "id": "watertight-0",
+      "kind": "watertight",
+      "status": "pass",
+      "label": "base_frame.stl: watertight & manifold",
+      "instances": [
+        "base-frame"
+      ],
+      "point": [
+        -10,
+        6.666666666666666,
+        0
+      ]
+    },
+    {
+      "id": "disconnected_components-0",
+      "kind": "disconnected_components",
+      "status": "pass",
+      "label": "base_frame.stl: single connected body",
+      "instances": [
+        "base-frame"
+      ]
+    },
+    {
+      "id": "wall_thickness-0",
+      "kind": "wall_thickness",
+      "status": "pass",
+      "label": "base_frame.stl: min wall ≈ 6mm (est.)",
+      "instances": [
+        "base-frame"
+      ]
+    },
+    {
+      "id": "watertight-1",
+      "kind": "watertight",
+      "status": "pass",
+      "label": "rocker_link.stl: watertight & manifold",
+      "instances": [
+        "rocker-link"
+      ],
+      "point": [
+        13.333333333333332,
+        1.6666666666666665,
+        2
+      ]
+    },
+    {
+      "id": "disconnected_components-1",
+      "kind": "disconnected_components",
+      "status": "pass",
+      "label": "rocker_link.stl: single connected body",
+      "instances": [
+        "rocker-link"
+      ]
+    },
+    {
+      "id": "wall_thickness-1",
+      "kind": "wall_thickness",
+      "status": "pass",
+      "label": "rocker_link.stl: min wall ≈ 6mm (est.)",
+      "instances": [
+        "rocker-link"
+      ]
+    },
+    {
+      "id": "watertight-2",
+      "kind": "watertight",
+      "status": "pass",
+      "label": "decor_cap.stl: watertight & manifold",
+      "instances": [
+        "decor-cap"
+      ],
+      "point": [
+        -16.666666666666664,
+        -8.333333333333332,
+        2
+      ]
+    },
+    {
+      "id": "disconnected_components-2",
+      "kind": "disconnected_components",
+      "status": "pass",
+      "label": "decor_cap.stl: single connected body",
+      "instances": [
+        "decor-cap"
+      ]
+    },
+    {
+      "id": "wall_thickness-2",
+      "kind": "wall_thickness",
+      "status": "pass",
+      "label": "decor_cap.stl: min wall ≈ 6mm (est.)",
+      "instances": [
+        "decor-cap"
+      ]
+    },
+    {
+      "id": "watertight-3",
+      "kind": "watertight",
+      "status": "pass",
+      "label": "bearing_sleeve.stl: watertight & manifold",
+      "instances": [
+        "bearing-sleeve"
+      ],
+      "point": [
+        -18,
+        10.666666666666666,
+        5.333333333333333
+      ]
+    },
+    {
+      "id": "disconnected_components-3",
+      "kind": "disconnected_components",
+      "status": "pass",
+      "label": "bearing_sleeve.stl: single connected body",
+      "instances": [
+        "bearing-sleeve"
+      ]
+    },
+    {
+      "id": "wall_thickness-3",
+      "kind": "wall_thickness",
+      "status": "pass",
+      "label": "bearing_sleeve.stl: min wall ≈ 8mm (est.)",
+      "instances": [
+        "bearing-sleeve"
+      ]
+    },
+    {
+      "id": "mating_contact-0",
+      "kind": "mating_contact",
+      "status": "fail",
+      "label": "rocker_link ⟷ base_frame (declared mate): interpenetrating 2mm (crash, > 0.2mm)",
+      "instances": [
+        "rocker-link",
+        "base-frame"
+      ],
+      "point": [
+        2,
+        -3,
+        4
+      ],
+      "region": {
+        "min": [
+          0,
+          -5,
+          2
+        ],
+        "max": [
+          30,
+          5,
+          6
+        ]
+      }
+    }
+  ],
+  "highlights": {
+    "parts": [
+      {
+        "instanceId": "rocker-link",
+        "color": "#ff3b30",
+        "annotation": "rocker_link ∩ base_frame = 2mm penetration — listed in ignoreOverlapPairs, but these parts move relative to each other (joints[]); blanket partType ignores never apply to moving bodies. Join them with a real fastener/pin/bearing (a declared allowedInterferences entry) or fix the interference."
+      },
+      {
+        "instanceId": "base-frame",
+        "color": "#ff3b30",
+        "annotation": "rocker_link ∩ base_frame = 2mm penetration — listed in ignoreOverlapPairs, but these parts move relative to each other (joints[]); blanket partType ignores never apply to moving bodies. Join them with a real fastener/pin/bearing (a declared allowedInterferences entry) or fix the interference."
+      }
+    ],
+    "points": [
+      {
+        "point": [
+          2,
+          -3,
+          4
+        ],
+        "color": "#ff3b30",
+        "annotation": "rocker_link ∩ base_frame = 2mm penetration — listed in ignoreOverlapPairs, but these parts move relative to each other (joints[]); blanket partType ignores never apply to moving bodies. Join them with a real fastener/pin/bearing (a declared allowedInterferences entry) or fix the interference."
+      },
+      {
+        "point": [
+          2,
+          -3,
+          4
+        ],
+        "color": "#ff3b30",
+        "annotation": "rocker_link ⟷ base_frame (declared mate): interpenetrating 2mm (crash, > 0.2mm)"
+      }
+    ],
+    "regions": [
+      {
+        "min": [
+          0,
+          -5,
+          2
+        ],
+        "max": [
+          30,
+          5,
+          6
+        ],
+        "color": "#ff3b30",
+        "annotation": "rocker_link ∩ base_frame = 2mm penetration — listed in ignoreOverlapPairs, but these parts move relative to each other (joints[]); blanket partType ignores never apply to moving bodies. Join them with a real fastener/pin/bearing (a declared allowedInterferences entry) or fix the interference."
+      },
+      {
+        "min": [
+          0,
+          -5,
+          2
+        ],
+        "max": [
+          30,
+          5,
+          6
+        ],
+        "color": "#ff3b30",
+        "annotation": "rocker_link ⟷ base_frame (declared mate): interpenetrating 2mm (crash, > 0.2mm)"
+      }
+    ]
+  },
+  "report": {
+    "passed": false,
+    "problemCount": 1,
+    "toleranceMm": 0.5,
+    "minPenetrationMm": 1,
+    "instanceCount": 5,
+    "meshCount": 5,
+    "missingMeshes": [],
+    "fastenersExcluded": 1,
+    "fastenersIncluded": false,
+    "broadPhasePairs": 5,
+    "narrowPhasePairs": 5,
+    "capped": false,
+    "collisions": [
+      {
+        "a": {
+          "instanceId": "bearing-sleeve",
+          "partType": "bearing_sleeve",
+          "name": "Bearing sleeve"
+        },
+        "b": {
+          "instanceId": "base-frame",
+          "partType": "base_frame",
+          "name": "Base frame"
+        },
+        "penetrationMm": 2.769,
+        "point": [
+          -23.176,
+          10.824,
+          2.769
+        ],
+        "region": {
+          "min": [
+            -26,
+            8,
+            0.462
+          ],
+          "max": [
+            -18,
+            16,
+            6
+          ]
+        },
+        "allowed": true,
+        "allowance": {
+          "allowed": true,
+          "source": "declared",
+          "kind": "press_fit",
+          "reason": "bearing sleeve is pressed 3mm into its bore in the base frame",
+          "maxPenetrationMm": 4
+        }
+      },
+      {
+        "a": {
+          "instanceId": "decor-cap",
+          "partType": "decor_cap",
+          "name": "Decor cap"
+        },
+        "b": {
+          "instanceId": "base-frame",
+          "partType": "base_frame",
+          "name": "Base frame"
+        },
+        "penetrationMm": 2,
+        "point": [
+          -17.619,
+          -12.619,
+          4
+        ],
+        "region": {
+          "min": [
+            -20,
+            -15,
+            2
+          ],
+          "max": [
+            -10,
+            -5,
+            6
+          ]
+        },
+        "allowed": true,
+        "allowance": {
+          "allowed": true,
+          "source": "legacy"
+        }
+      },
+      {
+        "a": {
+          "instanceId": "rocker-link",
+          "partType": "rocker_link",
+          "name": "Rocker link"
+        },
+        "b": {
+          "instanceId": "base-frame",
+          "partType": "base_frame",
+          "name": "Base frame"
+        },
+        "penetrationMm": 2,
+        "point": [
+          2,
+          -3,
+          4
+        ],
+        "region": {
+          "min": [
+            0,
+            -5,
+            2
+          ],
+          "max": [
+            30,
+            5,
+            6
+          ]
+        },
+        "allowance": {
+          "allowed": false,
+          "source": "legacy",
+          "refusal": "relative_motion"
+        }
+      }
+    ],
+    "floating": [],
+    "gaps": [],
+    "declaredInterferences": [
+      {
+        "kind": "press_fit",
+        "instances": [
+          "bearing-sleeve",
+          "base-frame"
+        ],
+        "reason": "bearing sleeve is pressed 3mm into its bore in the base frame",
+        "feature": "sleeve bore press fit",
+        "maxPenetrationMm": 4,
+        "outcome": "overlapping",
+        "penetrationMm": 2.769,
+        "gapMm": null,
+        "point": [
+          -23.176,
+          10.824,
+          2.769
+        ],
+        "region": {
+          "min": [
+            -26,
+            8,
+            0.462
+          ],
+          "max": [
+            -18,
+            16,
+            6
+          ]
+        },
+        "reportedAsCollision": true
+      }
+    ],
+    "printability": [
+      {
+        "meshId": "base_frame",
+        "meshName": "base_frame.stl",
+        "instanceIds": [
+          "base-frame"
+        ],
+        "triangleCount": 12,
+        "openEdges": 0,
+        "nonManifoldEdges": 0,
+        "inconsistentWinding": false,
+        "degenerateTriangles": 0,
+        "selfIntersections": 0,
+        "selfIntersectionPoint": null,
+        "componentCount": 1,
+        "smallestComponent": null,
+        "volumeMm3": 14400,
+        "minWallMm": 6,
+        "thinPoint": [
+          -10,
+          6.666666666666666,
+          0
+        ]
+      },
+      {
+        "meshId": "rocker_link",
+        "meshName": "rocker_link.stl",
+        "instanceIds": [
+          "rocker-link"
+        ],
+        "triangleCount": 12,
+        "openEdges": 0,
+        "nonManifoldEdges": 0,
+        "inconsistentWinding": false,
+        "degenerateTriangles": 0,
+        "selfIntersections": 0,
+        "selfIntersectionPoint": null,
+        "componentCount": 1,
+        "smallestComponent": null,
+        "volumeMm3": 2400,
+        "minWallMm": 6,
+        "thinPoint": [
+          13.333333333333332,
+          1.6666666666666665,
+          2
+        ]
+      },
+      {
+        "meshId": "decor_cap",
+        "meshName": "decor_cap.stl",
+        "instanceIds": [
+          "decor-cap"
+        ],
+        "triangleCount": 12,
+        "openEdges": 0,
+        "nonManifoldEdges": 0,
+        "inconsistentWinding": false,
+        "degenerateTriangles": 0,
+        "selfIntersections": 0,
+        "selfIntersectionPoint": null,
+        "componentCount": 1,
+        "smallestComponent": null,
+        "volumeMm3": 600,
+        "minWallMm": 6,
+        "thinPoint": [
+          -16.666666666666664,
+          -8.333333333333332,
+          2
+        ]
+      },
+      {
+        "meshId": "bearing_sleeve",
+        "meshName": "bearing_sleeve.stl",
+        "instanceIds": [
+          "bearing-sleeve"
+        ],
+        "triangleCount": 12,
+        "openEdges": 0,
+        "nonManifoldEdges": 0,
+        "inconsistentWinding": false,
+        "degenerateTriangles": 0,
+        "selfIntersections": 0,
+        "selfIntersectionPoint": null,
+        "componentCount": 1,
+        "smallestComponent": null,
+        "volumeMm3": 512,
+        "minWallMm": 8,
+        "thinPoint": [
+          -18,
+          10.666666666666666,
+          5.333333333333333
+        ]
+      }
+    ],
+    "fasteners": [
+      {
+        "instanceId": "m2-screw-rocker",
+        "partType": "m2_screw",
+        "name": "M2 self-tapping screw (rocker anchor)",
+        "shaftLengthMm": 11,
+        "engagementMm": 5.042,
+        "hostInstanceIds": [
+          "base-frame",
+          "rocker-link"
+        ],
+        "point": [
+          10,
+          0,
+          3
+        ]
+      }
+    ],
+    "access": [],
+    "mating": [
+      {
+        "a": {
+          "instanceId": "rocker-link",
+          "partType": "rocker_link",
+          "name": "Rocker link"
+        },
+        "b": {
+          "instanceId": "base-frame",
+          "partType": "base_frame",
+          "name": "Base frame"
+        },
+        "declared": true,
+        "gapMm": 0,
+        "penetrationMm": 2,
+        "point": [
+          2,
+          -3,
+          4
+        ],
+        "region": {
+          "min": [
+            0,
+            -5,
+            2
+          ],
+          "max": [
+            30,
+            5,
+            6
+          ]
+        }
+      }
+    ],
+    "routing": [],
+    "minWallMm": 0.8,
+    "minThreadEngagementMm": 2,
+    "matingToleranceMm": 0.2,
+    "components": {
+      "count": 1,
+      "mainComponentSize": 5,
+      "floatingComponentCount": 0
+    },
+    "timings": {
+      "loadMs": 2,
+      "bvhMs": 0,
+      "broadMs": 0,
+      "narrowMs": 51,
+      "connectivityMs": 0,
+      "printabilityMs": 3,
+      "threadMs": 2,
+      "accessMs": 0,
+      "matingMs": 38,
+      "routingMs": 0,
+      "totalMs": 97
+    }
+  }
+}

@@ -99,7 +99,8 @@ def test_routing_and_onehot_agree():
         verify_n=0, verify_max_falls=99)
     env.close()
     assert len(episodes) == 1
-    tag, obs, act, val = episodes[0]
+    tag, obs, act, val, height_err_mm = episodes[0]
+    assert height_err_mm is None  # seq episodes: no single height target
     assert tag == "seq"
     modes = stats["eps"][0]["modes"]
     assert len(modes) == act.shape[0] == obs.shape[0] == val.shape[0]

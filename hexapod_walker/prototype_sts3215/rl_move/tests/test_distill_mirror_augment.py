@@ -50,7 +50,8 @@ def _fake_episodes(n_ep: int, obs_dim: int, seed: int = 0) -> list:
         obs = rng.normal(size=(t, obs_dim)).astype(np.float32)
         act = rng.uniform(-1, 1, size=(t, 18)).astype(np.float32)
         val = rng.normal(size=(t,)).astype(np.float32)
-        out.append((mode, obs, act, val))
+        h_err_mm = None if mode == "walk" else float(rng.uniform(5, 60))
+        out.append((mode, obs, act, val, h_err_mm))
     return out
 
 
@@ -60,17 +61,22 @@ def test_mirror_augment_doubles_and_preserves_mode():
     out = mirror_augment_episodes(eps, CFG, obs_dim)
     assert len(out) == 2 * len(eps)
     # original half is byte-identical and in the same order
-    for (m0, o0, a0, v0), (m1, o1, a1, v1) in zip(eps, out[:len(eps)]):
+    for (m0, o0, a0, v0, h0), (m1, o1, a1, v1, h1) in zip(
+            eps, out[:len(eps)]):
         assert m0 == m1
         assert np.array_equal(o0, o1)
         assert np.array_equal(a0, a1)
         assert np.array_equal(v0, v1)
+        assert h0 == h1
     # mirrored half: same mode label, same shape, same value target,
-    # but obs/act actually transformed (not a no-op copy)
-    for (m0, o0, a0, v0), (m1, o1, a1, v1) in zip(eps, out[len(eps):]):
+    # same height_err_mm (a scalar outcome, unaffected by left-right
+    # mirroring), but obs/act actually transformed (not a no-op copy)
+    for (m0, o0, a0, v0, h0), (m1, o1, a1, v1, h1) in zip(
+            eps, out[len(eps):]):
         assert m0 == m1
         assert o1.shape == o0.shape and a1.shape == a0.shape
         assert np.array_equal(v0, v1)
+        assert h0 == h1
         assert not np.array_equal(o0, o1)
         assert not np.array_equal(a0, a1)
 
@@ -86,10 +92,12 @@ def test_mirror_augment_is_involution_on_the_mirrored_copy():
     mirrored_only = once[len(eps):]
     twice = mirror_augment_episodes(mirrored_only, CFG, obs_dim)
     round_tripped = twice[len(mirrored_only):]
-    for (m0, o0, a0, v0), (m1, o1, a1, v1) in zip(eps, round_tripped):
+    for (m0, o0, a0, v0, h0), (m1, o1, a1, v1, h1) in zip(
+            eps, round_tripped):
         assert m0 == m1
         assert np.allclose(o0, o1, atol=1e-6)
         assert np.allclose(a0, a1, atol=1e-6)
+        assert h0 == h1
 
 
 def test_mirror_augment_rejects_wrong_obs_width():

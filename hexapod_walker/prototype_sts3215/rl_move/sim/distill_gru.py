@@ -315,6 +315,51 @@ def _teacher_act_value(teacher, t_obs, deterministic: bool):
     return act, val
 
 
+def _height_err_mm(env, mode: str) -> float | None:
+    """Signed rise/lower height error (mm) at the env's CURRENT state,
+    same ``chassis_z() - (_z0 + _h_target)`` convention
+    ``eval_modeseq.py``/``eval_handoff.py`` already use to score a rise
+    segment's ``height_err_end_mm`` (sim_env.py installs both ``_z0``
+    and ``_h_target`` on every rise/lower reset). Returns None outside
+    a rise/lower context (no meaningful height target -- walk/hold
+    episodes, or a "seq" mixed-mode episode whose final mode is
+    ambiguous) or if the attrs aren't set yet on this env. Standwalk
+    STATUS 2026-09-24 ~06:0x named lever: capture this alongside each
+    collected episode so a BC/DAgger loss can weight by how badly the
+    episode actually missed the height target, instead of every
+    per-tick action-MSE sample counting equally regardless of outcome.
+    """
+    if mode not in ("rise", "lower"):
+        return None
+    z0 = getattr(env, "_z0", None)
+    h_target = getattr(env, "_h_target", None)
+    chassis_bid = getattr(env, "_chassis_bid", None)
+    if z0 is None or h_target is None or chassis_bid is None:
+        return None
+    try:
+        chassis_z = float(env.data.xpos[chassis_bid, 2])
+    except Exception:
+        return None
+    return (chassis_z - (float(z0) + float(h_target))) * 1000.0
+
+
+def _bc_episode_weight(mode: str, height_err_mm: float | None,
+                       gain: float, scale_mm: float = 50.0) -> float:
+    """Per-episode BC action-loss weight (standwalk 09-24 ~06:0x named
+    lever). 1.0 (no-op) unless ``gain > 0`` AND this is a rise episode
+    with a captured height error -- so a plain BC/DAgger run with the
+    default ``gain=0.0`` is bit-exact regardless of what
+    ``height_err_mm`` values happen to be threaded through (every
+    weight collapses to 1.0, matching the pre-lever uniform mask).
+    Linear in ``|height_err_mm| / scale_mm``: a 50mm miss (roughly the
+    top of the historical 20-45mm frozen-plateau band) doubles that
+    episode's action-loss weight at ``gain=1.0``.
+    """
+    if gain <= 0.0 or mode != "rise" or height_err_mm is None:
+        return 1.0
+    return 1.0 + gain * abs(height_err_mm) / scale_mm
+
+
 def collect(envs: dict, teachers: dict, episodes_by_mode: dict[str, int],
             stochastic_frac: float, rng: np.random.Generator):
     """Teacher rollouts -> list of per-episode (obs, act, val) arrays.
@@ -351,7 +396,8 @@ def collect(envs: dict, teachers: dict, episodes_by_mode: dict[str, int],
             episodes.append((got,
                              np.asarray(obs_l, dtype=np.float32),
                              np.asarray(act_l, dtype=np.float32),
-                             np.asarray(val_l, dtype=np.float32)))
+                             np.asarray(val_l, dtype=np.float32),
+                             _height_err_mm(env, got)))
         print(f"[distill-gru] {mode}: {n_ep} eps, teacher return "
               f"med {np.median(returns):.0f} min {min(returns):.0f} "
               f"({time.monotonic() - t0:.0f}s elapsed)")
@@ -391,15 +437,20 @@ def mirror_augment_episodes(episodes: list, cfg: dict, obs_dim: int
     loss already makes about the actor without touching the critic.
     Default OFF (`--mirror-augment`, distill_gru.main); episodes are
     otherwise returned byte-identical when this is not called.
+
+    The 5th field (``height_err_mm``, standwalk 09-24 ~06:0x) is a
+    scalar OUTCOME of the episode, unaffected by left-right mirroring
+    (a mirrored rise episode misses the same height target by the
+    same amount) -- copied through unchanged.
     """
     from .mirror import joint_perm_sign, resolve_obs_mirror_maps
     op, os_ = resolve_obs_mirror_maps(cfg, obs_dim, walk=True)
     ap, as_ = joint_perm_sign()
     out = list(episodes)
-    for mode, obs, act, val in episodes:
+    for mode, obs, act, val, height_err_mm in episodes:
         m_obs = (obs[:, op] * os_).astype(np.float32)
         m_act = (act[:, ap] * as_).astype(np.float32)
-        out.append((mode, m_obs, m_act, val.copy()))
+        out.append((mode, m_obs, m_act, val.copy(), height_err_mm))
     return out
 
 
@@ -437,6 +488,13 @@ def collect_transitions(env, teachers: dict, n_ep: int,
     the collection ABORTS loudly instead of distilling garbage.
     Returns (episodes, stats) — stats carries per-episode plan/fall/
     per-tick-mode records for diagnostics and tests.
+
+    The 5th (``height_err_mm``) episode field is always None here: a
+    sequence episode mixes several segments and the final chassis
+    state is not uniquely attributable to "the rise segment's own
+    outcome" the way a single-mode rise episode's is (standwalk 09-24
+    ~06:0x height-aware-BC-loss lever only targets single-mode rise
+    demos, e.g. via ``--dagger-extra-mix rise=1.0``).
 
     Both teachers' own threaded (recurrent) state is reset exactly
     ONCE per true episode start, never at a mid-sequence mode switch —
@@ -480,7 +538,8 @@ def collect_transitions(env, teachers: dict, n_ep: int,
         episodes.append(("seq",
                          np.asarray(obs_l, dtype=np.float32),
                          np.asarray(act_l, dtype=np.float32),
-                         np.asarray(val_l, dtype=np.float32)))
+                         np.asarray(val_l, dtype=np.float32),
+                         None))
         if fall_mode is not None:
             stats["falls"] += 1
             stats["fall_modes"][fall_mode] = (
@@ -549,7 +608,8 @@ def collect_dagger_transitions(env, student, teachers: dict, n_ep: int):
         episodes.append(("seq",
                          np.asarray(obs_l, dtype=np.float32),
                          np.asarray(act_l, dtype=np.float32),
-                         np.asarray(val_l, dtype=np.float32)))
+                         np.asarray(val_l, dtype=np.float32),
+                         None))
     print(f"[distill-gru] dagger transitions: {n_ep} eps, student "
           f"falls {falls} ({time.monotonic() - t0:.0f}s elapsed)")
     return episodes
@@ -588,15 +648,30 @@ def collect_dagger(envs: dict, student, teachers: dict,
             episodes.append((got,
                              np.asarray(obs_l, dtype=np.float32),
                              np.asarray(act_l, dtype=np.float32),
-                             np.asarray(val_l, dtype=np.float32)))
+                             np.asarray(val_l, dtype=np.float32),
+                             _height_err_mm(env, got)))
         print(f"[distill-gru] dagger {mode}: {n_ep} eps "
               f"({time.monotonic() - t0:.0f}s elapsed)")
     return episodes
 
 
 def train_student(student, episodes, epochs: int, batch_eps: int = 8,
-                  lr: float = 1e-3) -> float:
-    """Sequence BC: BPTT over whole padded episodes, masked loss."""
+                  lr: float = 1e-3, height_weight_gain: float = 0.0
+                  ) -> float:
+    """Sequence BC: BPTT over whole padded episodes, masked loss.
+
+    ``height_weight_gain`` (standwalk STATUS 2026-09-24 ~06:0x named
+    lever, default 0.0): scales each rise episode's ACTION-loss
+    contribution by ``_bc_episode_weight`` (1.0 + gain * |height_err_mm|
+    / 50mm) so an episode that badly missed the rise height target
+    contributes a proportionally larger gradient than one that landed
+    close -- addressing the dagger2_riseextra finding that flat
+    per-timestep action-MSE gives a mis-terminated-height episode no
+    stronger a signal than a near-perfect one. 0.0 (default) makes
+    every weight exactly 1.0, reproducing the original uniform-mask
+    loss bit-for-bit (see ``_bc_episode_weight``). The critic loss is
+    left unweighted (only the action term is targeted, per the named
+    lever's own wording)."""
     import torch
     import torch.nn.functional as F
 
@@ -604,9 +679,10 @@ def train_student(student, episodes, epochs: int, batch_eps: int = 8,
     policy.set_training_mode(True)
     opt = torch.optim.Adam(policy.parameters(), lr=lr)
 
-    seqs = [(torch.as_tensor(o), torch.as_tensor(a), torch.as_tensor(v))
-            for _, o, a, v in episodes]
-    all_vals = np.concatenate([v for _, _, _, v in episodes])
+    seqs = [(torch.as_tensor(o), torch.as_tensor(a), torch.as_tensor(v),
+             _bc_episode_weight(mode, h_err_mm, height_weight_gain))
+            for mode, o, a, v, h_err_mm in episodes]
+    all_vals = np.concatenate([v for _, _, _, v, _ in episodes])
     v_scale = 1.0 / max(float(np.var(all_vals)), 1.0)
     n = len(seqs)
     last_a = float("nan")
@@ -616,18 +692,20 @@ def train_student(student, episodes, epochs: int, batch_eps: int = 8,
         nb = 0
         for i in range(0, n, batch_eps):
             batch = [seqs[j] for j in perm[i:i + batch_eps]]
-            t_max = max(o.shape[0] for o, _, _ in batch)
+            t_max = max(o.shape[0] for o, _, _, _ in batch)
             b = len(batch)
             obs_p = torch.zeros(t_max, b, batch[0][0].shape[1])
             act_p = torch.zeros(t_max, b, batch[0][1].shape[1])
             val_p = torch.zeros(t_max, b, 1)
             mask = torch.zeros(t_max, b, 1)
-            for k, (o, a, v) in enumerate(batch):
+            weight = torch.ones(1, b, 1)
+            for k, (o, a, v, w) in enumerate(batch):
                 t = o.shape[0]
                 obs_p[:t, k] = o
                 act_p[:t, k] = a
                 val_p[:t, k, 0] = v
                 mask[:t, k, 0] = 1.0
+                weight[0, k, 0] = w
 
             feats = policy.extract_features(
                 obs_p.reshape(t_max * b, -1)).reshape(t_max, b, -1)
@@ -644,8 +722,10 @@ def train_student(student, episodes, epochs: int, batch_eps: int = 8,
                 v_pred = policy.value_net(
                     policy.mlp_extractor.forward_critic(lat_vf))
             m_sum = mask.sum()
+            wmask = mask * weight  # weight broadcasts over T (dim 0)
+            wm_sum = wmask.sum()
             loss_a = (F.mse_loss(mu, act_p, reduction="none")
-                      * mask).sum() / (m_sum * mu.shape[-1])
+                      * wmask).sum() / (wm_sum * mu.shape[-1])
             loss_c = (F.mse_loss(v_pred, val_p, reduction="none")
                       * mask).sum() / m_sum
             loss = loss_a + 0.5 * v_scale * loss_c
@@ -937,6 +1017,27 @@ def main(argv: list[str] | None = None) -> int:
                     help="total episodes for --dagger-extra-mix, split "
                          "per its weights (same convention as "
                          "--episodes/--mix). 0 (default) = off.")
+    ap.add_argument("--height-weight-gain", type=float, default=0.0,
+                    help="standwalk STATUS 2026-09-24 ~06:0x named "
+                         "lever, follow-up to the dagger2_riseextra "
+                         "FAIL/NULL result (more rise-only DAgger "
+                         "DENSITY did not touch rise precision -- flat "
+                         "per-timestep action-MSE gives a badly-"
+                         "mis-terminated-height rise episode no "
+                         "stronger a gradient than a near-perfect one). "
+                         "Scales EVERY rise episode's action-loss "
+                         "contribution in train_student by "
+                         "(1 + gain * |height_err_end_mm| / 50mm), "
+                         "computed from the teacher rollout's OWN final "
+                         "chassis height vs its rise target (see "
+                         "_height_err_mm/_bc_episode_weight) -- so a "
+                         "badly-overshot/undershot demo episode gets a "
+                         "proportionally stronger signal to correct, "
+                         "instead of only getting MORE of the same flat "
+                         "-weighted demos. Applies to both the initial "
+                         "BC pass and every DAgger round's train_student "
+                         "call. 0.0 (default) = every weight is exactly "
+                         "1.0, bit-exact original uniform-mask loss.")
     ap.add_argument("--mirror-augment", action="store_true",
                     help="double every collected episode batch (BC "
                          "initial pass + every DAgger round) with a "
@@ -1154,7 +1255,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.mirror_augment:
         initial_eps = mirror_augment_episodes(initial_eps, cfg, n_env_obs)
     episodes.extend(initial_eps)
-    n_steps_total = sum(len(a) for _, _, a, _ in episodes)
+    n_steps_total = sum(len(a) for _, _, a, _, _ in episodes)
     print(f"[distill-gru] {len(episodes)} episodes, "
           f"{n_steps_total} transitions")
 
@@ -1177,7 +1278,8 @@ def main(argv: list[str] | None = None) -> int:
         # and frozen until the frozen-expert PPO phase trains it.
         student.policy.experts_adapter.requires_grad_(False)
 
-    actor_mse = train_student(student, episodes, args.epochs)
+    actor_mse = train_student(student, episodes, args.epochs,
+                              height_weight_gain=args.height_weight_gain)
     print(f"[distill-gru] BC actor RMS {np.sqrt(actor_mse):.4f} action "
           f"units (~{np.sqrt(actor_mse) * 85:.1f} deg on the knee axis)")
 
@@ -1210,7 +1312,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[distill-gru] dagger round {rnd + 1} extra pass: "
                   f"+{len(extra_eps)} eps {extra_by_mode}")
         actor_mse = train_student(student, episodes,
-                                  max(args.epochs // 2, 5))
+                                  max(args.epochs // 2, 5),
+                                  height_weight_gain=args.height_weight_gain)
         print(f"[distill-gru] dagger round {rnd + 1}: dataset "
               f"{len(episodes)} eps, actor RMS {np.sqrt(actor_mse):.4f}")
 

@@ -1,0 +1,34 @@
+{
+  "purpose": "Workspace checkpoint for preservation; not an integrated or deployed change.",
+  "source_workspace": "/Users/lbiewald/Documents/Codex/2026-09-03/can-you-push-on-the-rl/project",
+  "source_commit": "9235c9f3b889a7e59c18cfcc6b715ae64c653914",
+  "source_parent": "9366c50009ac6df40dc5474c35095aa1e2473f52",
+  "github_base": "140d1bc67944b8a2e9315ab8ac355f3ca3a6b4fb",
+  "files": [
+    {
+      "path": "hexapod_walker/prototype_sts3215/linux_control/motor_setup_api.py",
+      "blob": "773f751cfa85f9cf006240e9a146b137be812b84",
+      "mode": "100644"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/linux_control/test_motor_setup_api.py",
+      "blob": "6432f819532651fc47fc1d09f12dbc65e94fc5a0",
+      "mode": "100644"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/linux_control/webui/app.js",
+      "blob": "f83323346bd0477751d26179ec13ca0259da8afc",
+      "mode": "100644"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/linux_control/webui/index.html",
+      "blob": "bcd6fbaa01e799fb207d832fdbe9de3755b80c44",
+      "mode": "100644"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/linux_control/webui/style.css",
+      "blob": "6b6f610277703769b3ac410d4d8d6a3c4a448920",
+      "mode": "100644"
+    }
+  ]
+}

@@ -217,6 +217,7 @@ function applyBackendMeta(meta){
   }
   if(changed){
     updateArmUI();
+    rlPaintReadinessDefault();
     if(activeView === 'rl') simPollMaybe();
   }
   paintTargetRows();
@@ -1851,7 +1852,10 @@ $('dbgtestall').onclick = dbgTestAll;
 $('dbgteststop').onclick = ()=>{ dbgTestAbort = true; cmd('C'); showSent('C'); dbgStatus('Stopping…'); };
 
 // --- Incremental motor setup and identification -----------------------------
-var setupSource = null, setupBusy = false;
+var setupSource = null, setupBusy = false, setupExpectedSource = null;
+var setupReassign = false;
+var setupLastScan = null, setupScanRobot = null;
+var setupLoadFailed = false;
 async function setupRequest(path, data){
   const response = await fetch(path, data === undefined ? {cache:'no-store'} :
     {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
@@ -1865,13 +1869,34 @@ async function setupRequest(path, data){
   return result;
 }
 function setupButtons(){
+  if(setupScanRobot !== robotTargetUrl){setupLastScan = null; setupSource = null;}
   $('setup-scan').disabled = setupBusy || motorSetupSupported === false;
-  $('setup-assign').disabled = setupBusy || motorSetupSupported === false || setupSource === null;
+  $('setup-assign').disabled = setupBusy || motorSetupSupported === false || setupSource === null || (setupReassign && !$('setup-isolated').checked);
+  const extra = setupLastScan && setupLastScan.new_ids.length === 1;
+  document.querySelectorAll('#setup-slots button').forEach(button=>{
+    if(button.dataset.action === 'assign'){
+      const alreadyAtId = setupLastScan && setupLastScan.ids.includes(Number(button.dataset.motorId));
+      button.textContent = alreadyAtId ? 'Finish assignment' : 'Assign';
+      button.title = alreadyAtId
+        ? 'Verify this motor at its current ID and save the joint assignment. Its ID will not change.'
+        : 'Assign the detected extra motor to this joint';
+    }
+    button.disabled = setupBusy || motorSetupSupported === false ||
+      (button.dataset.action === 'assign' && (!extra || setupReassign));
+  });
+  document.querySelectorAll('#setup-slots [data-scan-id]').forEach(cell=>{
+    cell.textContent = !setupLastScan ? 'Not checked' : setupLastScan.ids.includes(Number(cell.dataset.scanId)) ? 'Responded' : 'Not seen';
+    cell.parentElement.classList.toggle('setup-missing', cell.dataset.assigned === 'true' && !!setupLastScan && !setupLastScan.ids.includes(Number(cell.dataset.scanId)));
+  });
   $('setup-joint').disabled = setupBusy || motorSetupSupported === false;
 }
-async function setupLoad(){
+async function setupLoad(snapshot){
+  const requestedRobot = robotTargetUrl;
   try {
-    const data = await setupRequest('/api/setup');
+    const data = snapshot || await setupRequest('/api/setup');
+    if(requestedRobot !== robotTargetUrl) return false;
+    if(setupLoadFailed) $('setup-result').textContent = '';
+    setupLoadFailed = false;
     motorSetupSupported = data.supported !== false;
     motorSetupCount = motorSetupSupported ? data.assigned : null;
     motorSetupError = ''; updateSetupGate(); setupButtons();
@@ -1887,9 +1912,43 @@ async function setupLoad(){
     for(const slot of data.slots){
       const state = slot.saved ? 'Assigned' : 'Unassigned';
       select.add(new Option(slot.name+' · ID '+slot.id+' · '+state, slot.joint));
+      const row = document.createElement('tr');
+      for(const value of ['L'+slot.leg, slot.axis, slot.id, state]){
+        const cell = document.createElement('td'); cell.textContent = value; row.append(cell);
+      }
+      const actions = document.createElement('td');
+      const visibility = document.createElement('td');
+      visibility.dataset.scanId = slot.id;
+      visibility.dataset.assigned = String(!!slot.saved);
+      row.append(visibility);
+      const edit = document.createElement('button');
+      edit.textContent = slot.saved ? 'Reassign' : 'Assign';
+      edit.dataset.action = slot.saved ? 'reassign' : 'assign';
+      edit.dataset.motorId = slot.id;
+      edit.onclick = ()=>{
+        if(setupBusy) return;
+        if(!slot.saved){
+          if(setupReassign || !setupLastScan || setupScanRobot !== robotTargetUrl || setupLastScan.new_ids.length !== 1) return;
+          setupSource = setupLastScan.new_ids[0];
+          select.value = slot.joint;
+          $('setup-replace').checked = false;
+          $('setup-assign').onclick();
+          return;
+        }
+        setSetupOperation(slot.saved);
+        setupExpectedSource = slot.saved ? slot.id : null;
+        select.value = slot.joint;
+        $('setup-replace').checked = false;
+        $('setup-result').textContent = slot.saved
+          ? 'Reassigning '+slot.name+' (ID '+slot.id+'). Isolate this motor, scan, then choose its destination joint.'
+          : 'Assign a new motor to '+slot.name+'. Scan it first.';
+        $('setup-editor').scrollIntoView({behavior:'smooth', block:'start'});
+      };
+      actions.append(edit);
+      if(slot.saved){
       const button = document.createElement('button');
-      button.textContent = slot.name+' · '+slot.id+' · '+state;
-      button.title = slot.saved ? 'Click to wiggle this motor ±3°' : 'Select this joint';
+      button.textContent = 'Identify';
+      button.title = 'Move '+slot.name+' ±3°';
       button.onclick = async ()=> {
         if(setupBusy) return;
         select.value = slot.joint; $('setup-replace').checked = false;
@@ -1902,58 +1961,101 @@ async function setupLoad(){
         } catch(e){ $('setup-result').textContent = e.message; }
         finally { setupBusy = false; setupButtons(); }
       };
-      $('setup-slots').append(button);
+      actions.append(button);
+      }
+      row.append(actions);
+      $('setup-slots').append(row);
     }
     if(previous) select.value = previous;
     $('setup-progress').textContent = data.slots.filter(s=>s.saved).length+' / 18 motors assigned';
-  } catch(e){ motorSetupCount = null; motorSetupError = e.message; updateSetupGate(); $('setup-result').textContent = e.message; }
+    setupButtons();
+    return true;
+  } catch(e){
+    if(requestedRobot !== robotTargetUrl) return false;
+    setupLoadFailed = true;
+    motorSetupCount = null; motorSetupError = e.message; updateSetupGate();
+    $('setup-progress').textContent = 'Assignments unavailable — retrying…';
+    $('setup-result').textContent = 'Could not load assignments from the robot. '+e.message;
+    return false;
+  }
 }
 $('setup-joint').onchange = ()=> { $('setup-replace').checked = false; };
+function setSetupOperation(reassign){
+  setupReassign = reassign;
+  setupSource = null;
+  setupExpectedSource = null;
+  $('setup-editor').hidden = !reassign;
+  $('setup-isolated').checked = false;
+  $('setup-clear-source').checked = false;
+  $('setup-reassign-options').hidden = !setupReassign;
+  $('setup-detected').textContent = 'Scan before assigning a motor.';
+  setupButtons();
+};
+$('setup-isolated').onchange = setupButtons;
+$('setup-cancel').onclick = ()=>{setSetupOperation(false); $('setup-detected').textContent = setupLastScan ? setupScanSummary(setupLastScan) : 'Scan to find motors.';};
 function setupScanSummary(data){
-  const ids = data.ids, fresh = data.new_ids;
-  let message = ids.length
-    ? ids.length+' motor IDs responded: '+ids.join(', ')+'. '
-    : 'No motors responded in the scanned range (IDs 1–30). ';
-  if(fresh.length === 1) message += '1 new motor: ID '+fresh[0]+'. Choose its joint and assign it.';
-  else if(fresh.length > 1) message += fresh.length+' unassigned IDs: '+fresh.join(', ')+'. Add one new motor at a time.';
-  else if(ids.length) message += 'No new motor found; all responding IDs are already assigned. If you added a motor, it may share an existing ID or may not be responding. Scan it alone to check its ID.';
-  else message += 'Check motor power and the data cable from the controller to the first motor. The scan cannot identify the exact cause; a disconnected chain, ID conflict, or an ID outside this range can also prevent detection.';
-  if(data.missing_ids && data.missing_ids.length)
-    message += ' Saved IDs not responding: '+data.missing_ids.join(', ')+'. Saved assignments do not prove a motor is connected.';
-  return message;
+  const fresh = data.new_ids;
+  const count = data.ids.length;
+  const seen = count+' motor'+(count === 1 ? '' : 's')+' seen.';
+  if(fresh.length === 1) return seen+' Motor ID '+fresh[0]+' is ready to assign.';
+  if(fresh.length > 1) return seen+' Multiple unassigned motors: '+fresh.join(', ')+'. Connect one at a time.';
+  return count ? seen+' No extra motor to assign.' : seen;
 }
 $('setup-scan').onclick = async ()=>{
-  setupBusy = true; setupSource = null; setupButtons();
+  setupBusy = true; setupSource = null; setupLastScan = null; setupButtons();
+  const requestedRobot = robotTargetUrl;
   $('setup-detected').textContent = 'Scanning…';
   try {
+    if(!await setupLoad()){
+      $('setup-detected').textContent = 'Scan paused until assignments can be loaded. Try Scan motors again.';
+      return;
+    }
     const data = await setupRequest('/api/setup/scan', {});
+    if(requestedRobot !== robotTargetUrl) return;
+    setupLastScan = data; setupScanRobot = requestedRobot;
     setupSource = data.single ? data.new_ids[0] : null;
     $('setup-detected').textContent = setupScanSummary(data);
+    if(setupReassign){
+      setupSource = data.ids.length === 1 ? data.ids[0] : null;
+      if(setupExpectedSource !== null && setupSource !== setupExpectedSource){
+        setupSource = null;
+        $('setup-detected').textContent = 'Expected only ID '+setupExpectedSource+'. Responding IDs: '+(data.ids.join(', ') || 'none')+'. Isolate the motor selected in the table and scan again.';
+        return;
+      }
+      $('setup-detected').textContent = setupSource !== null
+        ? 'Motor responds as ID '+setupSource+'. Choose the destination joint below. Its ID will become the ID shown for that joint.'
+        : 'Reassignment requires exactly one connected motor. Responding IDs: '+(data.ids.join(', ') || 'none')+'.';
+    }
   } catch(e){ $('setup-detected').textContent = 'Scan failed — motor presence is unknown. '+e.message; }
   finally {setupBusy = false; setupButtons();}
 };
 $('setup-assign').onclick = async ()=>{
+  if(setupBusy || setupSource === null || setupScanRobot !== robotTargetUrl) return;
   setupBusy = true; setupButtons();
-  $('setup-result').textContent = 'Assigning and checking the ID…';
+  $('setup-result').textContent = setupSource === Number($('setup-joint').value)+2
+    ? 'Verifying the existing ID and saving its assignment…' : 'Assigning and checking the ID…';
   try {
     const joint = Number($('setup-joint').value);
     const data = await setupRequest('/api/setup/assign', {source_id:setupSource, joint,
-      replace:$('setup-replace').checked});
+      replace:$('setup-replace').checked, reassign:setupReassign,
+      isolated:$('setup-isolated').checked, clear_source:$('setup-clear-source').checked});
     $('setup-result').textContent = data.message;
     $('setup-replace').checked = false;
+    setupLastScan = null;
+    setSetupOperation(false);
     await setupLoad();
     $('setup-joint').value = Math.min(joint+1,17);
   } catch(e){ $('setup-result').textContent = e.message; }
   finally {
-    setupSource = null; setupBusy = false; setupButtons();
-    $('setup-detected').textContent = 'Scan again before the next assignment.';
+    setupSource = null; setupLastScan = null; setupBusy = false; setupButtons();
+    $('setup-detected').textContent = 'Scan again to update the table. If the motor already has its destination ID, use Finish assignment on that row.';
   }
 };
 
 // --- tab switching ----------------------------------------------------------
-const VIEWS = ['setup','drive','motors','demos','dance','rock','quad','rl',
+const VIEWS = ['vision','setup','drive','motors','demos','dance','rock','quad','rl',
                'experiments','measure','calibrate','touchdown','debug'];
-const TAB_TITLES = {setup:'Motor setup', drive:'Drive', motors:'Motors', demos:'Demos',
+const TAB_TITLES = {vision:'Vision', setup:'Motor setup', drive:'Drive', motors:'Motors', demos:'Demos',
                     dance:'Dance', rock:'Rock', quad:'Quad', rl:'RL',
                     experiments:'Experiments', measure:'Measure',
                     calibrate:'Calibrate', touchdown:'Touchdown',
@@ -2404,8 +2506,8 @@ function paintImuInfo(imu){
   }
 }
 const CHECKUP_STEPS = [
-  {id:'safe_zero', name:'Zero start pose',
-   detail:'Settle and glide to the zero pose before calibration.'},
+  {id:'safe_zero', name:'Safe zero start pose',
+   detail:'Move through the collision-aware zero path before calibration.'},
   {id:'imu_rest', name:'IMU rest/bias',
    detail:'Hold still while gyro and accel rest offsets are saved.'},
   {id:'geometry_plant', name:'Ground contact geometry',
@@ -2942,7 +3044,7 @@ function drvResetLocalInput(){
 }
 function rlButtons(disabled){
   rlMoveControlsLocked = !!disabled;
-  for(const id of ['rlstand','rllower',
+  for(const id of ['rlstand','rllower','rltuckstand','rltucklower',
                    'rlstandrl','rllowerrl','rlwalkfwd',
                    'rlwalkleft','rlwalkright','rlwalkback',
                    'rlwalkfl','rlwalkfr','rlwalkbl','rlwalkbr',
@@ -3008,8 +3110,37 @@ async function rlMove(mode, body){
     rlButtons(false);
   }
 }
+async function rlScriptedStand(mode, label, direction='up'){
+  const lower = direction === 'down';
+  if(!(await rlEnsureNoDriveSession(
+      lower ? 'lowering' : 'stand/lower', lower))) return;
+  $('rlstatus').textContent = label+' request sent…';
+  rlButtons(true);
+  try{
+    const r = await fetch('/api/standup', {method:'POST',
+      body: JSON.stringify({mode, speed:10, direction})});
+    const d = await r.json();
+    if(!d.ok){
+      $('rlstatus').textContent = requestReceiptLine(d, label)
+        + '; refused: '+(d.error || 'unknown');
+      showErr(label+': '+requestReceiptLine(d, '')+'; '
+        +(d.error || 'refused'));
+      rlButtons(false);
+      return;
+    }
+    $('rlstatus').textContent = requestReceiptLine(d, label)+'; moving…';
+    startRlPoll();
+  }catch(e){
+    $('rlstatus').textContent = 'Start failed (link?)';
+    rlButtons(false);
+  }
+}
 $('rlstand').onclick = ()=> rlMove('stand');
 $('rllower').onclick = ()=> rlMove('lower');
+if($('rltuckstand')) $('rltuckstand').onclick =
+  ()=> rlScriptedStand('tuck', 'Tuck stand', 'up');
+if($('rltucklower')) $('rltucklower').onclick =
+  ()=> rlScriptedStand('tuck', 'Tuck lower', 'down');
 // Learned stance-policy episodes (opt-in; the plain buttons stay STEP).
 $('rlstandrl').onclick = ()=> rlMove('stand', {learned:true});
 $('rllowerrl').onclick = ()=> rlMove('lower', {learned:true});
@@ -3053,7 +3184,7 @@ let drvGamepadNextStartT = 0;
 let drvInputAllowed = false;
 const DRV_TAP_PULSE_MS = 650;
 const DRV_GAMEPAD_DEADZONE = 0.14;
-const RL_DRIVE_LOCKED_BUTTONS = ['rlstand','rlstandrl',
+const RL_DRIVE_LOCKED_BUTTONS = ['rlstand','rltuckstand','rlstandrl',
                                  'rlwalkfwd','rlwalkleft','rlwalkright',
                                  'rlwalkback','rlwalkfl','rlwalkfr',
                                  'rlwalkbl','rlwalkbr'];
@@ -3706,7 +3837,7 @@ async function suLoadModes(){
       box.appendChild(b);
     }
     if(suModes.length)
-      suSelect(suModes.some(m=>m.name==='step') ? 'step' : suModes[0].name);
+      suSelect(suModes.some(m=>m.name==='tuck') ? 'tuck' : suModes[0].name);
   }catch(e){ $('sulab-desc').textContent = 'modes unavailable (link?)'; }
 }
 function suSelect(name){
@@ -3966,7 +4097,41 @@ $('mu-stop').onclick = async ()=>{
 };
 $('mu-refresh').onclick = ()=> muRefresh();
 
+async function rlCheck(mode){
+  $('rlpreflight').dataset.checked = '1';
+  $('rlpreflight').textContent = 'Checking '+mode+'…';
+  try{
+    const r = await fetch('/api/rl/preflight?mode='+mode, {cache:'no-store'});
+    const d = await r.json();
+    const det = [];
+    if(d.roll_deg!=null) det.push(`roll ${d.roll_deg}°`);
+    if(d.pitch_deg!=null) det.push(`pitch ${d.pitch_deg}°`);
+    if(d.max_pose_delta_deg!=null)
+      det.push(`pose Δ ${d.max_pose_delta_deg}° (tol ${d.pose_tol_deg}°)`);
+    $('rlpreflight').innerHTML = d.ok
+      ? `<b style="color:#5fd08a">READY for ${mode}</b>`
+        + (d.sim ? ' (sim — always ready)' : '') + ` · ${det.join(' · ')}`
+      : `<b style="color:#ff7b72">NOT ready</b>: ${d.error||'?'}`
+        + (det.length ? ` · ${det.join(' · ')}` : '');
+  }catch(e){ $('rlpreflight').textContent = 'check failed (link?)'; }
+}
+$('rlcheckstand').onclick = ()=> rlCheck('stand');
+$('rlchecklower').onclick = ()=> rlCheck('lower');
+$('rlcheckwalk').onclick = ()=> rlCheck('walk');
+// The Readiness checks guard REAL hardware (servo IDs, IMU, tilt, start
+// pose); the MuJoCo sim passes them by construction. Say so instead of
+// showing an empty box — but never clobber a result the operator asked
+// for (dataset.checked). Re-painted when the backend target flips.
+function rlPaintReadinessDefault(){
+  const pf = $('rlpreflight');
+  if(pf && pf.dataset.checked !== '1')
+    pf.textContent = (targetHasSim && !targetHasRobot)
+      ? 'SIM target — always READY. These checks (servo IDs, IMU, tilt, '
+        + 'start pose) guard the real robot.'
+      : '—';
+}
 async function refreshRlTab(){
+  rlPaintReadinessDefault();
   try{
     const r = await fetch('/api/rl/policy', {cache:'no-store'});
     const d = await r.json();
@@ -4019,74 +4184,7 @@ const RL_DEFAULT_WALK_FILE =
   'walk_allheading_mlp_singleframe_acq1_stdanneal.json';
 const RL_DEFAULT_HOLD_FILE =
   'stand_stancemix_tuckclock_scratch8m.json';
-const RL_GAIT_WALKTEACH_FILE = 'walkteach_allhead_acq12m_100hz.json';
-const RL_GAIT_ALLHEADING_FILE = RL_DEFAULT_WALK_FILE;
-const RL_GAIT_RLONLY_FILE =
-  'walkscratch_rlonly_widen8_crutchoff_s0_warmadapt_50hz_acq1.json';
-// Walking-gait cards: one exported policy each, used for both the walk
-// role and the hold role (the same network at zero command), stand/lower
-// left as they are. Numbers are from
-// docs/RL_GAITS_HEXAPOD1_VS_HEXAPOD2_2026-09-12.md (hexapod2 tag-grid
-// session 2026-09-11, floor camera, net straight-line speed). Only the
-// gait file has to exist on the connected robot for the card to be live.
 const RL_POLICY_BUNDLES = [
-  {
-    id: 'gait-walkteach-100hz',
-    tag: 'Best measured',
-    title: 'Walkteach all-heading, 100 Hz',
-    summary: 'Fastest gait measured on hardware so far. Sets it as the walk '
-      + 'policy and as the hold policy (same network at zero command); '
-      + 'stand and lower are not changed.',
-    files: [RL_GAIT_WALKTEACH_FILE],
-    walkFile: RL_GAIT_WALKTEACH_FILE,
-    roleValues: {walk: RL_GAIT_WALKTEACH_FILE, hold: RL_GAIT_WALKTEACH_FILE},
-    rows: [
-      ['Walk', RL_GAIT_WALKTEACH_FILE],
-      ['Hold', RL_GAIT_WALKTEACH_FILE],
-      ['Stand / Lower', 'unchanged'],
-    ],
-    metrics: ['obs 75, 100 Hz', 'hexapod2 09-11: 15-38 mm/s fwd at cmd 80',
-              '7 mm/s reverse', 'tilt max 3-6 deg', '5 runs, all completed',
-              'hexapod1: no speed number yet'],
-  },
-  {
-    id: 'gait-allheading-100hz',
-    tag: 'Measured',
-    title: 'All-heading MLP single-frame, 100 Hz',
-    summary: 'The todaypolicy walk. Slower than walkteach but the longest '
-      + 'hardware drive sessions on record. Walk and hold both use it; '
-      + 'stand and lower are not changed.',
-    files: [RL_GAIT_ALLHEADING_FILE],
-    walkFile: RL_GAIT_ALLHEADING_FILE,
-    roleValues: {walk: RL_GAIT_ALLHEADING_FILE, hold: RL_GAIT_ALLHEADING_FILE},
-    rows: [
-      ['Walk', RL_GAIT_ALLHEADING_FILE],
-      ['Hold', RL_GAIT_ALLHEADING_FILE],
-      ['Stand / Lower', 'unchanged'],
-    ],
-    metrics: ['obs 74, 100 Hz', 'hexapod2 09-11: 6.5-11 mm/s fwd at cmd 80',
-              'tilt max 4-8 deg', '09-10: two 30 s drive sessions, no fall',
-              'hexapod1: no speed number yet'],
-  },
-  {
-    id: 'gait-rlonly-50hz',
-    tag: '50 Hz',
-    title: 'RL-only from scratch, 50 Hz',
-    summary: 'walkcurr rl_only lineage (no gait clock, no teacher, no motion '
-      + 'prior), transfer candidate v2 at 50 Hz. This is what hexapod1 '
-      + 'currently runs for walk and hold. No hardware speed has been '
-      + 'measured for it yet.',
-    files: [RL_GAIT_RLONLY_FILE],
-    walkFile: RL_GAIT_RLONLY_FILE,
-    roleValues: {walk: RL_GAIT_RLONLY_FILE, hold: RL_GAIT_RLONLY_FILE},
-    rows: [
-      ['Walk', RL_GAIT_RLONLY_FILE],
-      ['Hold', RL_GAIT_RLONLY_FILE],
-      ['Stand / Lower', 'unchanged'],
-    ],
-    metrics: ['obs 72, 50 Hz', 'RL-only lineage', 'hexapod1 current walk + hold',
-              'not measured on hardware'],
-  },
   {
     id: 'todaypolicy-mlpsf-tuck-v1',
     tag: 'Default',
@@ -4747,11 +4845,59 @@ $('mwiggle').onclick = async ()=>{
   }catch(e){ showSent('wiggle failed'); }
 };
 $('mzero').onclick = async ()=>{
-  // go zero: STEP sit-down from a stance, else settle + guarded glide to zero.
-  await goPoseZero('sit', 'go zero');
+  // safe_zero arms itself; plans a collision-aware path and limps on stall.
+  await goPoseZero('sit', 'go zero (safe)');
 };
 $('msetzero').onclick = ()=> setZeroHere(true);
 $('mlimp').onclick = ()=>{ cmd('X'); setArmed(false); };
+$('mpinned').onclick = async ()=>{
+  // Read-only detector: tipped >=12° over a folded knee? (~1.5s when
+  // tipped — it re-reads after a short pause so a rock doesn't classify.)
+  const el = $('mpinnedout');
+  el.textContent = 'checking…';
+  el.style.color = '';
+  showSent('pinned-tip check…');
+  try{
+    const d = await (await fetch('/api/pinned_tip')).json();
+    const s = d.pinned ? 'PINNED' : (d.tipped ? 'tipped (not pinned)' : 'level');
+    el.textContent = s + (d.tilt_deg != null ? ` · tilt ${d.tilt_deg}°` : '')
+      + (d.why ? ` — ${d.why}` : (d.error ? ` — ${d.error}` : ''));
+    if(d.pinned) el.style.color = '#f66';
+    showSent('pinned-tip: ' + s);
+  }catch(e){
+    el.textContent = 'check failed';
+    showSent('pinned-tip check failed');
+  }
+};
+$('muntrap').onclick = async ()=>{
+  // Motion: low-torque (20%) fold. The server re-runs the detector and
+  // refuses when not pinned; offer force=true only then, for bench tests.
+  dancePaused = true;
+  showSent('untrap…');
+  const post = (force)=> fetch('/api/untrap',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(force ? {force:true} : {})});
+  try{
+    let j = await (await post(false)).json();
+    if(!j.ok && /nothing to untrap/.test(j.error||'')){
+      if(!confirm('Detector says: '+(j.error||'not pinned')+'\n\n'
+                  +'Run the low-torque fold ANYWAY (bench test)? '
+                  +'It will limp first, then fold hips+knees at 20% '
+                  +'torque. Watch the robot.')){
+        showSent('untrap: skipped (not pinned)');
+        $('mpinnedout').textContent = j.error || 'not pinned';
+        return;
+      }
+      j = await (await post(true)).json();
+    }
+    if(j.ok){
+      showSent('untrap running — watch the fold');
+    }else{
+      showSent('untrap refused: '+(j.error||'unknown'));
+      $('mpinnedout').textContent = j.error || 'untrap refused';
+    }
+  }catch(e){ showSent('untrap failed'); }
+};
 
 // --- Demos tab + global robot activity --------------------------------------
 function demoSpeed(){ return Math.max(0.25, Math.min(3.0, (+$('dspeed').value)/100)); }
@@ -4911,9 +5057,6 @@ async function refreshRobotState(wantZero){
     if(!r.ok) throw 0;
     const j = await r.json();
     paintRobotActivity(j);
-    // Keep the page's armed flag honest with the robot, so needArm() neither
-    // blocks a truly-armed robot nor claims a limp one is live. Only on change.
-    if(typeof j.armed === 'boolean' && j.armed !== servosArmed) setArmed(!!j.armed);
     if(j.demo){ lastDemo = j.demo; paintDemoStatus(j.demo); }
     if(j.zero){ lastZero = j.zero; paintZeroHint(j.zero); }
   }catch(e){ /* heartbeat covers link loss */ }
@@ -5374,12 +5517,11 @@ $('armbtn').onclick = ()=> servosArmed ? stepLowerThenPowerOff() : armServos();
 $('armzero').onclick = topSafeZero;
 // EMERGENCY STOP is the ONLY instant-limp control (cuts PWM immediately).
 $('estop').onclick  = disarmServos;
-// Reflect the robot's ACTUAL arm state at load instead of forcing a limp.
-// The page used to send `cmd('X')` on every load "to be safe", but that
-// dropped a standing robot the moment anyone reloaded the tab. refreshRobotState
-// reads /api/robot and now mirrors `armed` into the UI (below), and the 2 s
-// poll keeps it in sync. E-STOP is the deliberate limp control, not a reload.
-refreshRobotState(true);
+// Enforce the safe default on EVERY page load: show disarmed AND tell the
+// firmware to disarm now — harmless if it just booted disarmed, and it clears
+// any stale ARMED state from a prior session so the page's OFF state is real.
+setArmed(false);
+cmd('X');
 
 
 // Shared onboarding state. MuJoCo alone does not need physical motor IDs.
@@ -5394,15 +5536,15 @@ function updateSetupGate(){
   const detail = motorSetupError ? 'Unable to read this robot’s assignments. Retry in Motor setup.' :
     motorSetupCount === null ? 'Checking this robot’s motor assignments…' :
     motorSetupCount+' of 18 motors assigned on this robot.';
-  notice.hidden = !blocked;
+  notice.hidden = !blocked || ['setup','motors'].includes(activeView);
   const label = motorSetupError ? 'Setup check unavailable' : motorSetupCount === null ? 'Checking setup' : 'Motor setup required';
   $('setup-notice-title').textContent = label;
   $('setup-notice-detail').textContent = detail+' Robot control pages are unavailable until setup is complete.';
-  const pageBlocked = blocked && activeView !== 'setup';
+  const pageBlocked = blocked && !['setup','vision'].includes(activeView);
   $('setup-required-page').hidden = !pageBlocked;
   $('setup-required-detail').textContent = detail;
   document.querySelectorAll('.view').forEach(view=>{
-    const gated = blocked && view.id !== 'view-setup';
+    const gated = blocked && !['view-setup','view-vision'].includes(view.id);
     view.classList.toggle('setup-locked', gated);
     view.inert = gated;
   });
@@ -5419,6 +5561,8 @@ function updateSetupGate(){
       else if(el.dataset.setupDisabled){el.disabled = false; delete el.dataset.setupDisabled;}
     }
   }
+  const vision = $('nav-vision');
+  if(vision) vision.title = hubMode ? 'Open the central Vision service' : 'Vision is available on the central server';
 }
 async function refreshSetupReadiness(){
   if(motorSetupRefreshing) return;
@@ -5430,6 +5574,7 @@ async function refreshSetupReadiness(){
     motorSetupSupported = data.supported !== false;
     motorSetupCount = motorSetupSupported ? data.assigned : null;
     motorSetupError = '';
+    if(activeView === 'setup' && !setupBusy) await setupLoad(data);
   } catch(e){
     if(requestedRobot !== robotTargetUrl) return;
     motorSetupSupported = null; motorSetupCount = null; motorSetupError = e.message;
@@ -5437,6 +5582,9 @@ async function refreshSetupReadiness(){
   finally {motorSetupRefreshing = false; updateSetupGate();}
 }
 $('setup-notice-open').onclick = $('setup-required-open').onclick = ()=> showView('setup');
+$('nav-vision').onclick = event=>{
+  if(!hubMode){event.preventDefault(); showView('vision');}
+};
 // Capture prevents controls being re-enabled by unrelated telemetry updates.
 document.addEventListener('click', event=>{
   if(motorSetupBlocked() && event.target.closest('#armbtn,#armzero,#topsetzero')){

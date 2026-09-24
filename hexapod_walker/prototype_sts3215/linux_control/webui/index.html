@@ -18,6 +18,7 @@
     <button id="tab-drive" class="tab on">Drive</button>
     <span class="tabsep"></span>
     <button id="tab-calibrate" class="tab">Calibrate</button>
+    <a id="nav-vision" class="tab tab-link" href="/vision">Vision</a>
     <button id="tab-touchdown" class="tab">Touchdown</button>
     <button id="tab-setup" class="tab">Motor setup</button>
     <button id="tab-motors" class="tab">Motors</button>
@@ -116,9 +117,15 @@
     <p>Assign each motor to its leg and joint in Motor setup. Calibration, driving, demos and RL become available after all 18 assignments are saved.</p>
     <button id="setup-required-open">Go to Motor setup</button>
   </section>
+  <div id="view-vision" class="view"><div class="pad">
+    <h2>Vision runs on the central server</h2>
+    <p>The robot does not host the camera and Vision service. Open Vision from the central server on your computer.</p>
+    <a href="http://localhost:8898/vision">Open Vision on this computer’s central server</a>
+    <p>If the central server runs on a different computer, open its address and choose Vision there.</p>
+  </div></div>
+
   <div id="toasts">
     <div id="offlinebar">● Lost connection to Uno Q — retrying…</div>
-    <div id="labbar" style="display:none" role="status"></div>
     <div id="errbar" style="display:none" role="alert">
       <span id="errbar-text"></span>
       <button id="errbar-copy" title="Copy the error text">Copy</button>
@@ -129,27 +136,31 @@
   </div>
   <div id="view-setup" class="view">
     <div class="pad">
-      <h2>Set up motors one by one</h2>
-      <p>Keep the robot supported and disarmed. This tab configures the physical robot, including when accessed through the central hub. Add <b>one new STS3215 motor at a time</b> to the powered servo bus. Leave assigned motors connected. Assignment does not move a motor; click an assigned motor below for a small identification wiggle.</p>
-      <div class="row">
-        <div class="pad"><h2>1 · Detect</h2>
-          <p>Unplug the previous motor before connecting the next. Scans check IDs 1–30 at the current bus baud rate.</p>
-          <button id="setup-scan">Scan connected motor</button>
-          <p id="setup-detected" role="status">No scan yet.</p>
-        </div>
-        <div class="pad"><h2>2 · Assign</h2>
-          <label class="field">Leg and joint<select id="setup-joint"></select></label>
+      <h2>Motor assignments</h2>
+      <p>Assignments are saved on this robot. Identify moves one motor ±3°; Reassign changes its joint and ID. Keep the robot supported and disarmed.</p>
+      <div class="setup-counts">
+        <p id="setup-progress">Loading assignments…</p>
+        <p id="setup-detected" role="status">Scan to see connected motors and find an extra motor to assign.</p>
+      </div>
+      <button id="setup-scan">Scan motors</button>
+      <p id="setup-result" role="status" aria-live="polite"></p>
+      <div class="setup-table-wrap"><table class="setup-table">
+        <thead><tr><th scope="col">Leg</th><th scope="col">Joint</th><th scope="col">Motor ID</th><th scope="col">Assignment</th><th scope="col">Last scan</th><th scope="col">Actions</th></tr></thead>
+        <tbody id="setup-slots"></tbody>
+      </table></div>
+      <div id="setup-editor" hidden>
+        <div class="pad"><h2>Reassign motor</h2>
+          <div id="setup-reassign-options" hidden>
+            <p>Power off and connect only the motor you want to reassign, then restore power and scan. Two motors sharing an ID look like one and would both be changed.</p>
+            <label><input type="checkbox" id="setup-isolated"> Only this one motor is physically connected</label>
+            <p><label><input type="checkbox" id="setup-clear-source"> Clear its old joint assignment (leave unchecked if another motor still uses that ID)</label></p>
+          </div>
+          <label class="field">Destination joint<select id="setup-joint"></select></label>
           <p><label><input type="checkbox" id="setup-replace"> Replace this robot’s assignment for this joint</label></p>
-          <button id="setup-assign" disabled>Assign ID and verify</button>
-        </div>
-        <div class="pad"><h2>3 · Label and repeat</h2>
-          <p id="setup-result" role="status" aria-live="polite">After assignment, label the motor with its leg, joint and ID. Leave it connected, add the next motor, then scan again.</p>
-          <p>Factory ID 1 is reserved. Robot joints use IDs 2–19. Mechanical zero and motion testing remain in the Calibrate and Motors tabs.</p>
+          <button id="setup-assign" disabled>Reassign and verify</button>
+          <button id="setup-cancel">Cancel</button>
         </div>
       </div>
-      <h2 id="setup-progress">Setup progress</h2>
-      <p>Assignments are saved on this robot and stay with it across code updates.</p>
-      <div id="setup-slots" class="btns"></div>
     </div>
   </div>
   <div id="view-drive" class="view active">
@@ -310,6 +321,9 @@
         Different from <b>Go zero</b>, which drives joints to logical 0°.
       </div>
       <div class="btns nowrap" style="margin-top:10px">
+        <button id="mpinned" title="Read-only: is the body tipped ≥12° over a folded knee (the post-fall trapped state)? Never moves the robot.">Pinned-tip check</button>
+        <button id="muntrap" class="danger" title="Escape a pinned-leg tip: limp, wait briefly, then fold hips+knees at 20% torque (heat-bounded). Refuses unless the check says pinned. Success leaves it level+folded — run Go zero next.">Untrap fold</button>
+        <span id="mpinnedout" class="hint" style="margin:0">—</span>
       </div>
       <div style="overflow:auto; margin-top:10px; max-height:420px">
         <table class="motors" id="mtab">
@@ -546,6 +560,8 @@
       <div class="btns" style="margin-top:12px">
         <button id="rlstand" class="on" title="Use STEP stand-up as needed, then hold the sim walk-ready stance expected by RL walk.">⬆ RL Stand Up / Walk Ready</button>
         <button id="rllower" title="STEP lower when standing; safe-zero recovery if not standing or tangled. Not the old learned RL lower policy.">⬇ Lower</button>
+        <button id="rltuckstand" class="on" title="Use the scripted tuck stand: lift/fold the feet in the air, touch down under the body, then push up. This is the known lower-current stand-up path from the hardware notes.">⬆ Tuck Stand</button>
+        <button id="rltucklower" title="Lower by reversing the scripted tuck keyframes. Start from the tuck/walk-ready standing stance.">⬇ Tuck Lower</button>
         <button id="rlstop" class="danger" title="Stop ends the current policy move and hands off to the configured Hold policy. Use X on the Drive tab to limp.">■ Stop</button>
       </div>
       <div class="btns" style="margin-top:8px">
@@ -626,6 +642,15 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
             </select></label>
         </div>
       </details>
+    </div>
+    <div class="pad" style="flex:1 1 340px">
+      <h2 title="Read-only preflight: servo IDs, IMU, tilt, and expected start pose. Refusals show the exact reason. The MuJoCo sim is always ready — these checks guard the real robot.">Readiness (no motion)</h2>
+      <div class="btns" style="margin-top:12px">
+        <button id="rlcheckstand">Check: stand</button>
+        <button id="rlchecklower">Check: lower</button>
+        <button id="rlcheckwalk">Check: walk</button>
+      </div>
+      <div class="hint" id="rlpreflight" style="margin-top:10px">—</div>
     </div>
     <div class="pad" style="flex:2 1 480px">
       <h2 title="Policy info for the active exported numpy models.">Policy</h2>

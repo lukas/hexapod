@@ -6,7 +6,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from hexapod_core.joint_frame import AXES, axis_of, leg_of, servo_id
+AXES = ('yaw', 'hip', 'knee')
 
 
 class MotorSetup:
@@ -29,10 +29,10 @@ class MotorSetup:
         reg = self._registry()
         slots = []
         for j in range(18):
-            sid = servo_id(j)
+            sid = j + 2
             entry = reg['servos'].get(str(sid), {})
-            slots.append(dict(id=sid, joint=j, leg=leg_of(j), axis=axis_of(j),
-                              name=f'L{leg_of(j)} {axis_of(j)}',
+            slots.append(dict(id=sid, joint=j, leg=j // 3, axis=AXES[j % 3],
+                              name=f'L{j // 3} {AXES[j % 3]}',
                               saved=bool(entry), verified=bool(entry.get('web_verified_at'))))
         assigned = sum(slot["saved"] for slot in slots)
         return dict(ok=True, slots=slots, assigned=assigned, required=18, ready=assigned == 18)
@@ -83,7 +83,7 @@ class MotorSetup:
             raise ValueError('Source ID must be between 1 and 30.')
         if type(joint) is not int or not 0 <= joint < 18:
             raise ValueError('Choose one of the 18 joints.')
-        target = servo_id(joint)
+        target = joint + 2
         with self.lock, self.drive._lock:
             bus = self._ready()
             reg = self._registry()
@@ -91,7 +91,10 @@ class MotorSetup:
                 raise ValueError('This joint has a saved assignment. Confirm replacement first.')
             before = self._scan(bus)
             new_ids = [i for i in before if str(i) not in reg['servos']]
-            if new_ids != [sid]:
+            reassign = data.get('reassign') is True
+            if reassign and (data.get('isolated') is not True or before != [sid]):
+                raise ValueError('Connect only the motor being reassigned and confirm it is isolated. Motors sharing an ID cannot be distinguished by a scan.')
+            if not reassign and new_ids != [sid]:
                 raise ValueError('Scan again with one new motor added; assigned motors can stay connected.')
             if target != sid and target in before:
                 raise ValueError('The motor already assigned to this joint is still connected. Choose an empty joint.')
@@ -107,12 +110,22 @@ class MotorSetup:
             value, comm, err = bus.pkt.read1ByteTxRx(target, 5)
             if comm != 0 or err != 0 or value != target or not bus.ping(target):
                 raise ValueError('ID verification failed. Rescan before retrying; the ID may have changed.')
-            if self._scan(bus) != sorted((set(before) - {sid}) | {target}):
-                raise ValueError('Unexpected bus inventory after assignment. Rescan before retrying.')
+            expected = sorted((set(before) - {sid}) | {target})
+            observed = None
+            for attempt in range(3):
+                observed = self._scan(bus)
+                if observed == expected:
+                    break
+                if attempt < 2:
+                    time.sleep(0.1)
+            else:
+                raise ValueError(f'Motor verified at ID {target}, but assignment was not saved because the bus inventory changed. Expected IDs {expected}; received {observed}. Scan again and use Finish assignment on ID {target}.')
             now = datetime.now(timezone.utc).isoformat()
-            name = f'L{leg_of(joint)} {axis_of(joint)}'
-            reg['servos'][str(target)] = dict(id=target, joint=joint, leg=leg_of(joint),
-                axis=axis_of(joint), name=name, from_id=sid, named_at=now, web_verified_at=now)
+            name = f'L{joint // 3} {AXES[joint % 3]}'
+            if reassign and data.get('clear_source') is True and sid != target:
+                reg['servos'].pop(str(sid), None)
+            reg['servos'][str(target)] = dict(id=target, joint=joint, leg=joint // 3,
+                axis=AXES[joint % 3], name=name, from_id=sid, named_at=now, web_verified_at=now)
             reg['updated'] = now
             self.registry.parent.mkdir(parents=True, exist_ok=True)
             tmp = self.registry.with_suffix('.json.tmp')
@@ -125,7 +138,7 @@ class MotorSetup:
         joint = data.get('joint')
         if type(joint) is not int or not 0 <= joint < 18:
             raise ValueError('Choose one of the 18 joints.')
-        sid = servo_id(joint)
+        sid = joint + 2
         self.abort.clear()
         with self.lock, self.drive._lock:
             bus = self._ready()
@@ -174,7 +187,7 @@ class MotorSetup:
                             break
                         if time.monotonic() >= deadline:
                             raise ValueError('Motor did not reach the small identification target.')
-                return dict(ok=True, message=f'L{leg_of(joint)} {axis_of(joint)} identified; torque off.')
+                return dict(ok=True, message=f'L{joint // 3} {AXES[joint % 3]} identified; torque off.')
             finally:
                 try:
                     bus.torque(sid, False)

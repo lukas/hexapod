@@ -139,8 +139,11 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     ap.add_argument("--lr", type=float, default=3e-4)
     # Off-policy SAC path (2026-08-29, walkcurr fallback ladder (a):
     # Haarnoja 2018 Minitaur / Smith 2022). Default 'ppo' is bit-exact
-    # prior behavior; 'sac' is plain-MLP, from-scratch only (refuses
-    # gru/transformer/asym/decleg/transplant/curriculum combos).
+    # prior behavior; 'sac' is plain-MLP, from-scratch OR plain-full-
+    # checkpoint --init-from warm start only (2026-09-24: SAC.load() over
+    # the same MlpPolicy geometry -- see _build_sac_model; refuses
+    # gru/transformer/asym/decleg/actor-only-or-backbone-transplant/
+    # curriculum combos).
     # --batch-size / --lr / --gamma / --net-arch / --activation-fn are
     # shared; --n-steps / --n-epochs / --ent-coef / --log-std-init are
     # PPO-only and ignored under sac.
@@ -1077,17 +1080,67 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 
 def _build_sac_model(args, venv, net_arch, extra_pk, tb_dir):
     """``--algo sac``: construct the off-policy SB3 SAC model over the training
-    VecEnv and print its configuration line."""
-    # Off-policy max-entropy probe (walkcurr fallback ladder (a),
-    # 2026-08-29): stock SB3 SAC over the same MjxVecEnv. The
-    # replay buffer stores buffer_size transitions total across
-    # n_envs slots; train_freq is counted in vec-env steps.
+    VecEnv and print its configuration line.
+
+    Supports a plain ``--init-from`` warm start (SAC.load over the SAME
+    MlpPolicy geometry, hyperparams overridden from this run's own CLI
+    flags) mirroring PPO's own plain warm-start branch further down in
+    ``main()`` -- walkcurr turn-sequencing follow-up, 2026-09-24: the
+    from-scratch 50%-coverage-mix tipmix05 arms showed task-mixture
+    interference (det-eval survival pinned 0, probe falls on all cells);
+    the sequencing question needs the SAME recipe extended from an
+    already-turning SAC parent instead of learning turn+walk at once,
+    which requires SAC to accept an existing checkpoint. The replay
+    buffer always starts EMPTY on a warm start (SB3 does not persist
+    transitions in the .zip) -- only the actor/critic/entropy weights
+    transfer; ``learning_starts`` still gates the first gradient step.
+    """
     from stable_baselines3 import SAC
     _sac_ent = args.sac_ent_coef
     try:
         _sac_ent = float(_sac_ent)
     except (TypeError, ValueError):
         pass  # 'auto' / 'auto_0.1' pass through as strings
+    if args.init_from is not None:
+        model = SAC.load(
+            args.init_from, env=venv, device=args.device,
+            buffer_size=args.sac_buffer_size,
+            batch_size=args.batch_size,
+            learning_rate=args.lr,
+            gamma=(0.99 if args.gamma is None else args.gamma),
+            tau=args.sac_tau,
+            train_freq=(args.sac_train_freq, "step"),
+            gradient_steps=args.sac_gradient_steps,
+            learning_starts=args.sac_learning_starts,
+            ent_coef=_sac_ent,
+            tensorboard_log=tb_dir)
+        # A plain --init-from warm start keeps the checkpoint's own
+        # architecture (same guard as PPO's plain-load branch): accept a
+        # matching --net-arch, refuse only a genuine mismatch. [128, 128]
+        # is the shared --net-arch flag's CLI default (not SB3 SAC's own
+        # default), i.e. "the caller didn't explicitly ask for a shape" --
+        # identical sentinel to the PPO branch.
+        if net_arch != [128, 128]:
+            ck = getattr(model.policy, "net_arch", None)
+            if isinstance(ck, dict):  # SB3 dict(pi=..., qf=...) form
+                ck = ck.get("pi", ck.get("qf"))
+            if ck is not None and list(ck) != net_arch:
+                raise SystemExit(
+                    f"--net-arch {net_arch} conflicts with the "
+                    f"checkpoint's architecture {list(ck)} on a plain "
+                    "--init-from warm start (the checkpoint carries its "
+                    "own architecture); drop the flag or start from "
+                    "scratch")
+            print(f"[mjx-train] --net-arch {net_arch} matches the "
+                  "warm-start checkpoint; proceeding")
+        print(f"[mjx-train] SAC warm start from {args.init_from} (replay "
+              f"buffer FRESH/empty, {args.sac_buffer_size:,} capacity; "
+              f"actor+critic+entropy weights carried over), train_freq "
+              f"{args.sac_train_freq} vec-step(s) x {venv.num_envs} envs, "
+              f"grad_steps {args.sac_gradient_steps}, learning_starts "
+              f"{args.sac_learning_starts:,}, ent_coef {args.sac_ent_coef}, "
+              f"tau {args.sac_tau}, batch {args.batch_size}")
+        return model
     model = SAC(
         "MlpPolicy", venv,
         buffer_size=args.sac_buffer_size,
@@ -2591,11 +2644,17 @@ def main(argv: list[str] | None = None) -> int:
         extra_pk["activation_fn"] = _activation_fn(args.activation_fn)
         print(f"[mjx-train] MLP activation: {args.activation_fn}")
     if args.algo == "sac":
-        # Plain-MLP from-scratch only: every mechanism below is built
-        # around SB3 PPO internals (rollout buffer, clip/KL, custom
-        # on-policy policy classes) and has no SAC counterpart here.
+        # Plain-MLP from-scratch OR plain-full-checkpoint warm start only
+        # (walkcurr turn-sequencing follow-up, 2026-09-24: SAC.load() over
+        # the same MlpPolicy geometry, mirroring PPO's own plain --init-from
+        # branch below -- see _build_sac_model). Every mechanism still
+        # listed below is built around SB3 PPO internals (rollout buffer,
+        # clip/KL, custom on-policy policy classes, transplant helpers that
+        # assume a PPO checkpoint) and has no SAC counterpart here.
         _sac_bad = [
-            ("--init-from", args.init_from is not None),
+            ("--init-from-actor-only", bool(args.init_from_actor_only)),
+            ("--init-from-policy-backbone",
+             bool(args.init_from_policy_backbone)),
             ("--gru/--gru-dual/--gru-experts",
              args.gru or args.gru_dual or args.gru_experts),
             ("--transformer", args.transformer),
@@ -2619,8 +2678,8 @@ def main(argv: list[str] | None = None) -> int:
         ]
         _bad = [n for n, v in _sac_bad if v]
         if _bad:
-            raise SystemExit("--algo sac is plain-MLP from-scratch "
-                             "only; drop " + ", ".join(_bad))
+            raise SystemExit("--algo sac is plain-MLP from-scratch/plain-"
+                             "warm-start only; drop " + ", ".join(_bad))
     _validate_use_sde_scratch_only(args.use_sde, args.init_from,
                                     args.init_from_actor_only,
                                     args.init_from_policy_backbone)

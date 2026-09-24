@@ -30,7 +30,8 @@ import numpy as np
 from rl_move.config import cfg_get
 from rl_move.env import (GOAL_DIM, current_sense_obs_dim,
                           height_err_sense_obs_dim,
-                          height_vel_sense_obs_dim)
+                          height_vel_sense_obs_dim,
+                          rise_start_kind_sense_obs_dim)
 from rl_move.robot_state import DEG2RAD, N_JOINTS
 from rl_move.safety import AXIS_LIMITS_DEG
 
@@ -77,7 +78,8 @@ class SimHexapodJointGoalEnv(SimHexapodGoalEnv):
                 N_OBS - 6 + self.n_act + GOAL_DIM
                 + current_sense_obs_dim(self.cfg)
                 + height_err_sense_obs_dim(self.cfg)
-                + height_vel_sense_obs_dim(self.cfg))
+                + height_vel_sense_obs_dim(self.cfg)
+                + rise_start_kind_sense_obs_dim(self.cfg))
         # Action-centering bias (2026-08-24, walkcurr rung-1 dig-in:
         # cw-walkcurr-pf-fwd6-hgt2-pdw05 triage). Root cause found by
         # direct probe (zero action, no policy, no reward at all): the

@@ -1680,9 +1680,28 @@ def main(argv: list[str] | None = None) -> int:
             raise SystemExit("--gru + mirror loss is not implemented "
                              "(it wraps stock PPO)")
         if args.obs_pad_transplant:
-            raise SystemExit("--gru + --obs-pad-transplant is not "
-                             "implemented (recurrent weights don't "
-                             "transplant from MLP checkpoints)")
+            # 2026-09-24 (standwalk rise start-kind state-conditioning
+            # lever): a GRU-to-WIDER-GRU obs transplant is safe --
+            # ``pad_obs_transplant`` only zero-pads 2-D tensors whose
+            # LAST dim equals the obs width (verified: this already
+            # covers a GRU's ``weight_ih_l0`` input-to-hidden matrix
+            # exactly like an MLP's first-layer weight, for every core
+            # a Dual/Triple/ModeExperts policy has), and reconstructing
+            # the new policy from the CHECKPOINT's own saved
+            # ``policy_class``/``policy_kwargs`` (below) reproduces its
+            # exact hidden size/dual/triple/experts geometry. What
+            # stays genuinely unsupported is transplanting RECURRENT
+            # weights FROM AN MLP checkpoint (no recurrent weights
+            # exist there to copy) -- guarded by ``init_from`` actually
+            # being a recurrent checkpoint.
+            from .gru_policy import is_recurrent_checkpoint
+            if not args.init_from or not is_recurrent_checkpoint(
+                    args.init_from):
+                raise SystemExit(
+                    "--gru + --obs-pad-transplant needs --init-from a "
+                    "GRU/recurrent checkpoint (recurrent weights don't "
+                    "transplant from an MLP checkpoint, and there is "
+                    "nothing to widen without one)")
         from sb3_contrib import RecurrentPPO
         from .gru_policy import (DualGruActorCriticPolicy,
                                  GruActorCriticPolicy,
@@ -2726,24 +2745,56 @@ def main(argv: list[str] | None = None) -> int:
             # way optimizer state is fresh (architecture changed).
             from .obs_transplant import (hist_stride_transplant,
                                          pad_obs_transplant)
-            old = PPO.load(args.init_from, device="cpu")
-            model = algo_cls(
-                "MlpPolicy", venv,
-                n_steps=args.n_steps, batch_size=args.batch_size,
-                n_epochs=args.n_epochs, learning_rate=args.lr,
-                gamma=(0.99 if args.gamma is None else args.gamma),
-                gae_lambda=(0.95 if args.gae_lambda is None
-                            else args.gae_lambda),
-                use_sde=args.use_sde,
-                sde_sample_freq=args.sde_sample_freq,
-                ent_coef=args.ent_coef,
-                clip_range=0.2,
-                target_kl=(args.target_kl if args.target_kl > 0
-                           else None),
-                policy_kwargs=dict(net_arch=net_arch,
-                                   log_std_init=args.log_std_init),
-                seed=args.seed, verbose=1, device=args.device,
-                tensorboard_log=tb_dir)
+            old = algo_cls.load(args.init_from, device="cpu")
+            if args.gru:
+                # GRU-to-WIDER-GRU obs transplant (2026-09-24): SAME
+                # architecture, only obs width changes -- reconstruct
+                # from the CHECKPOINT's own saved policy_class/
+                # policy_kwargs (hidden size, dual/triple/experts,
+                # log_std_split, etc. all obs-independent) instead of
+                # the CLI's own --net-arch/--gru-* defaults, so the
+                # widened policy has IDENTICAL geometry to the parent;
+                # only its input layer widens, automatically, from
+                # `venv`'s wider observation_space. Verified (unit
+                # test): a GRU's `weight_ih_l0` input-to-hidden matrix
+                # zero-pads via the exact same 2-D
+                # last-dim-equals-obs-width rule `pad_obs_transplant`
+                # already applies to an MLP's first layer -- no changes
+                # needed there.
+                model = algo_cls(
+                    old.policy_class, venv,
+                    n_steps=args.n_steps, batch_size=args.batch_size,
+                    n_epochs=args.n_epochs, learning_rate=args.lr,
+                    gamma=(0.99 if args.gamma is None else args.gamma),
+                    gae_lambda=(0.95 if args.gae_lambda is None
+                                else args.gae_lambda),
+                    use_sde=args.use_sde,
+                    sde_sample_freq=args.sde_sample_freq,
+                    ent_coef=args.ent_coef,
+                    clip_range=0.2,
+                    target_kl=(args.target_kl if args.target_kl > 0
+                               else None),
+                    policy_kwargs=old.policy_kwargs,
+                    seed=args.seed, verbose=1, device=args.device,
+                    tensorboard_log=tb_dir)
+            else:
+                model = algo_cls(
+                    "MlpPolicy", venv,
+                    n_steps=args.n_steps, batch_size=args.batch_size,
+                    n_epochs=args.n_epochs, learning_rate=args.lr,
+                    gamma=(0.99 if args.gamma is None else args.gamma),
+                    gae_lambda=(0.95 if args.gae_lambda is None
+                                else args.gae_lambda),
+                    use_sde=args.use_sde,
+                    sde_sample_freq=args.sde_sample_freq,
+                    ent_coef=args.ent_coef,
+                    clip_range=0.2,
+                    target_kl=(args.target_kl if args.target_kl > 0
+                               else None),
+                    policy_kwargs=dict(net_arch=net_arch,
+                                       log_std_init=args.log_std_init),
+                    seed=args.seed, verbose=1, device=args.device,
+                    tensorboard_log=tb_dir)
             if args.obs_pad_transplant:
                 if args.obs_pad_insert_at >= 0:
                     _hf = int(float(_parse_cfg_set(args.cfg_set).get(

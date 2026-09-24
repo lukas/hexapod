@@ -14,6 +14,7 @@ from rl_move.sim.eval_lifecycle_handoff_rlonly import (
     heading_to_vxvy,
     sacrificed_legs,
     write_mp4,
+    zeroed_qvel_state,
 )
 
 
@@ -54,6 +55,31 @@ def test_apply_physical_state_overwrites_destination_arrays():
     # leak into the destination env (own copy, not aliased)
     state.last_safe[0] = 12345.0
     assert dst.safety._last_safe[0] != 12345.0
+
+
+def test_zeroed_qvel_state_zeros_only_velocity():
+    state = PhysicalState(qpos=np.array([1.0, 2.0]),
+                           qvel=np.array([3.0, 4.0]),
+                           ctrl=np.array([5.0, 6.0]),
+                           act=np.array([7.0, 8.0]),
+                           last_safe=np.array([9.0, 10.0]))
+    diag = zeroed_qvel_state(state)
+    assert np.array_equal(diag.qvel, np.zeros(2))
+    assert np.array_equal(diag.qpos, state.qpos)
+    assert np.array_equal(diag.ctrl, state.ctrl)
+    assert np.array_equal(diag.act, state.act)
+    assert np.array_equal(diag.last_safe, state.last_safe)
+
+
+def test_zeroed_qvel_state_does_not_alias_or_mutate_input():
+    state = PhysicalState(qpos=np.array([1.0]), qvel=np.array([3.0]),
+                           ctrl=np.array([5.0]), act=None,
+                           last_safe=np.array([9.0]))
+    diag = zeroed_qvel_state(state)
+    assert diag.act is None
+    diag.qpos[0] = -1.0
+    assert state.qpos[0] == 1.0
+    assert state.qvel[0] == 3.0  # original untouched, not zeroed in place
 
 
 def test_apply_physical_state_handles_empty_act():
@@ -149,6 +175,7 @@ def test_cli_registers_heading_and_rot60_flags_default_off(capsys):
     assert "--lower" in out
     assert "--lower-recipe" in out
     assert "--lower-episode-s" in out
+    assert "--diag-zero-lower-qvel" in out
 
 
 def test_lower_cfg_recipe_excludes_ramp_and_obs_keys():

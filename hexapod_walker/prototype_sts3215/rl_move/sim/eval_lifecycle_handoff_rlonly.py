@@ -180,6 +180,30 @@ def capture_physical_state(env) -> PhysicalState:
         last_safe=env.safety._last_safe.copy())
 
 
+def zeroed_qvel_state(state: PhysicalState) -> PhysicalState:
+    """DIAGNOSTIC ablation, not a production handoff variant (see
+    ``--diag-zero-lower-qvel``): returns a COPY of ``state`` with
+    ``qvel`` zeroed and every other field untouched. Root-causes the
+    walkcurr 2026-09-24 ~13:0x s0 composition-fall finding's own named
+    leading suspect -- but re-reads it as CARRIED MOMENTUM, not
+    "servo current state" literally: the walk gait's real mid-stride
+    joint/root velocities are exactly the kind of initial condition
+    the `lower`-role SAC recipe's own isolated-gate reset (always a
+    static, zero-velocity post-rise hold, never a moving leg) never
+    trained against. Zeroing qvel at the handoff isolates that one
+    variable; it is a diagnostic probe of WHY composition fails, not
+    a proposed fix (a real fix is retraining `lower` with nonzero-
+    velocity initial states in its own curriculum, not silently
+    stripping momentum in an eval harness). Pure array function, no
+    mujoco/env dependency, so it is testable without a live model."""
+    return PhysicalState(qpos=state.qpos.copy(),
+                          qvel=np.zeros_like(state.qvel),
+                          ctrl=state.ctrl.copy(),
+                          act=(state.act.copy() if state.act is not None
+                               else None),
+                          last_safe=state.last_safe.copy())
+
+
 def apply_physical_state(env, state: PhysicalState) -> None:
     """Overwrite ``env``'s live physical state in place. Caller must
     call ``mujoco.mj_forward`` + rebuild ``env._state``/obs afterward
@@ -307,6 +331,18 @@ def main() -> int:
                     help="lower-role episode length in seconds, "
                          "matching this recipe's own trained "
                          "--episode-seconds (default 15.0)")
+    ap.add_argument("--diag-zero-lower-qvel", action="store_true",
+                    help="DIAGNOSTIC ONLY (default off = bit-exact): "
+                         "zero qpos/qvel's velocity component at the "
+                         "walk->lower handoff before dropping it into "
+                         "env_lower, isolating whether CARRIED MOMENTUM "
+                         "(not qpos/ctrl/act) is why some seeds fall "
+                         "under composition that don't fall in their "
+                         "own isolated gate. Root-cause probe named in "
+                         "walkcurr/STATUS.md 2026-09-24 ~13:0x Next(2); "
+                         "not a proposed production handoff -- a real "
+                         "fix belongs in the lower role's own training "
+                         "curriculum, not this eval harness.")
     args = ap.parse_args()
 
     import mujoco
@@ -456,6 +492,8 @@ def main() -> int:
         gen = env_lower._goal_gen
         _set_mix(gen, lower=1.0)
         env_lower.reset(seed=args.seed)
+        if args.diag_zero_lower_qvel:
+            state = zeroed_qvel_state(state)
         apply_physical_state(env_lower, state)
         mujoco.mj_forward(env_lower.model, env_lower.data)
         env_lower._state = env_lower._read_state()
@@ -556,6 +594,7 @@ def main() -> int:
                       "lower": (str(args.lower) if args.lower else None),
                       "speed": args.speed, "heading_deg": args.heading_deg,
                       "rot60": bool(args.rot60),
+                      "diag_zero_lower_qvel": bool(args.diag_zero_lower_qvel),
                       "deterministic": deterministic,
                       "episodes": []}
 

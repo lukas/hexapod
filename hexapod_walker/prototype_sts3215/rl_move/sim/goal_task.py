@@ -249,34 +249,6 @@ class GoalGenerator:
         self.lower_start_bank = str(g.get("lower_start_bank", "") or "")
         self.lower_start_bank_frac = float(
             g.get("lower_start_bank_frac", 0.0))
-        # LOWER-BANK-FRAC RAMP (2026-09-24, walkcurr entrybank020
-        # SAC-lower-role regression: the FIXED-frac bank_qvel_restore
-        # transfer that PASSED on both any_means MLP/GRU architectures
-        # (CURRENT_TRUTHS 2026-09-23 ~21:3x) made the rl_only SAC lower
-        # role's composed-session survival dramatically WORSE, not
-        # better (0/12 and 3/12 vs a 6/12 and 5/6 baseline,
-        # walkcurr/STATUS.md 2026-09-24 ~16:1x) — the mechanical
-        # seed-pruner independently flagged both seeds as stagnating/
-        # regressing mid-run. SAC's off-policy replay buffer is filled
-        # with hard bank-qvel states from step 0, before the actor has
-        # learned the plain task at all; a from-scratch on-policy PPO
-        # curriculum never faced that exact failure mode. This ramps
-        # lower_start_bank_frac from a low/zero start up to the cfg
-        # target over `goal.lower_start_bank_frac_ramp_steps` global
-        # training steps — same plain-ramp / env_method idiom as
-        # `goal.rise_start_ramp_steps`/`env.dr_stage_ramp_steps` above,
-        # applied to bank-draw PROBABILITY instead of DR breadth or
-        # start-pose mix. Default OFF (ramp_steps=0): bank_frac keeps
-        # its legacy cfg value unconditionally, bit-exact, no new rng
-        # draws. Tests: rl_move/tests/test_lower_bank_frac_ramp.py.
-        self._lower_start_bank_frac_target = self.lower_start_bank_frac
-        self.lower_start_bank_frac_ramp_steps = int(float(
-            g.get("lower_start_bank_frac_ramp_steps", 0) or 0))
-        self._lower_start_bank_frac_start = float(
-            g.get("lower_start_bank_frac_ramp_start", 0.0))
-        self.lower_start_bank_frac_ramp_frac = 0.0
-        if self.lower_start_bank_frac_ramp_steps > 0:
-            self.lower_start_bank_frac = self._lower_start_bank_frac_start
         # Slow on purpose: "gently, without banging" is the task. The
         # tracking kernel penalizes running ahead of the ramp, so a
         # 5 s descent IS the gentleness constraint.
@@ -397,28 +369,6 @@ class GoalGenerator:
         self.rise_start_ramp_frac = f
         return {"frac": f, "flat_frac": self.rise_flat_frac,
                 "partial_frac": self.rise_partial_frac}
-
-    def set_lower_start_bank_frac(self, frac: float) -> dict:
-        """Move `lower_start_bank_frac` `frac` of the way from a
-        low/zero ramp-start value to the cfg target (see `goal.
-        lower_start_bank_frac_ramp_steps` in `__init__`). VecEnv
-        `env_method` hook via `SimHexapodGoalEnv.
-        apply_lower_start_bank_frac` — sharded MJX workers can't be
-        poked in-process. Raises if the ramp is not armed, so a
-        broadcast that silently no-ops is never a hidden failure mode
-        (mirrors `set_rise_start_frac`)."""
-        if self.lower_start_bank_frac_ramp_steps <= 0:
-            raise RuntimeError(
-                "set_lower_start_bank_frac called but goal."
-                "lower_start_bank_frac_ramp_steps is not set (>0) — "
-                "the lower-bank-frac ramp is not armed")
-        f = min(max(float(frac), 0.0), 1.0)
-        self.lower_start_bank_frac = (
-            self._lower_start_bank_frac_start
-            + f * (self._lower_start_bank_frac_target
-                   - self._lower_start_bank_frac_start))
-        self.lower_start_bank_frac_ramp_frac = f
-        return {"frac": f, "lower_start_bank_frac": self.lower_start_bank_frac}
 
     @staticmethod
     def _jittered_s(rng: np.random.Generator, base_s: float,
@@ -978,12 +928,6 @@ class SimHexapodGoalEnv(SimHexapodBalanceEnv):
         rise start-pose ramp (`goal.rise_start_ramp_steps`); see
         `GoalGenerator.set_rise_start_frac`."""
         return self._goal_gen.set_rise_start_frac(frac)
-
-    def apply_lower_start_bank_frac(self, frac: float) -> dict:
-        """VecEnv `env_method` hook forwarding to the goal generator's
-        lower-bank-frac ramp (`goal.lower_start_bank_frac_ramp_steps`);
-        see `GoalGenerator.set_lower_start_bank_frac`."""
-        return self._goal_gen.set_lower_start_bank_frac(frac)
 
     def set_goal_mix(self, mix: dict) -> None:
         """Set p_<mode> sampling probabilities on the goal generator.

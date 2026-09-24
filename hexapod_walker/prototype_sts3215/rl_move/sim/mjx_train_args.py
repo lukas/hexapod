@@ -103,6 +103,61 @@ def _validate_gru_triple(gru_triple: bool, gru_dual: bool,
                          "on nothing)")
 
 
+def _sac_incompatible_flags(
+        *, init_from_actor_only: bool, init_from_policy_backbone: bool,
+        gru: bool, gru_dual: bool, gru_experts: bool, transformer: bool,
+        asym_critic: bool, critic_encoder: bool, decleg: bool,
+        use_sde: bool, predictive_live: bool, walk_curriculum: bool,
+        recover_population_id: bool, obs_pad_transplant: bool,
+        hist_stride_transplant: bool, ent_coef_final: bool,
+        log_std_final: bool, actor_lr_on: bool, amp_style_weight_on: bool,
+        rnd_coef_on: bool, mirror_coef_on: bool, bc_coef_on: bool,
+) -> list[str]:
+    """``--algo sac`` is plain-MLP: from-scratch OR a plain full-checkpoint
+    ``--init-from`` warm start (SAC.load over the same MlpPolicy geometry,
+    see ``_build_sac_model``). Every flag below is built around SB3 PPO
+    internals (rollout buffer, clip/KL, custom on-policy policy classes,
+    transplant helpers that assume a PPO checkpoint) and has no SAC
+    counterpart. Pulled out of main() as a pure function so the flag list
+    is unit-testable without mujoco/GPU (mirrors
+    _validate_use_sde_scratch_only above). Returns the list of offending
+    flag names (empty = compatible); the caller raises SystemExit.
+
+    2026-09-24 (walkcurr turn-sequencing follow-up): a plain --init-from
+    used to be unconditionally refused here too. The from-scratch 50%-
+    coverage-mix tipmix05 arms showed task-mixture interference (det-eval
+    survival pinned 0, probe falls on all cells); testing sequencing
+    instead (extend an already-turning SAC parent) requires SAC to accept
+    an existing checkpoint, so plain --init-from is now allowed --
+    actor-only/policy-backbone transplant (PPO-specific machinery) stays
+    refused.
+    """
+    bad = [
+        ("--init-from-actor-only", init_from_actor_only),
+        ("--init-from-policy-backbone", init_from_policy_backbone),
+        ("--gru/--gru-dual/--gru-experts", gru or gru_dual or gru_experts),
+        ("--transformer", transformer),
+        ("--asym-critic", asym_critic),
+        ("--critic-encoder", critic_encoder),
+        ("--decleg", decleg),
+        ("--use-sde", use_sde),
+        ("--predictive-live", predictive_live),
+        ("--walk-curriculum", walk_curriculum),
+        ("--recover-population-id", recover_population_id),
+        ("--obs-pad-transplant", obs_pad_transplant),
+        ("--hist-stride-transplant", hist_stride_transplant),
+        ("--ent-coef-final", ent_coef_final),
+        ("--log-std-final", log_std_final),
+        ("--actor-lr (PPO single-optimizer update-path tools)",
+         actor_lr_on),
+        ("--amp-style-weight", amp_style_weight_on),
+        ("--rnd-coef", rnd_coef_on),
+        ("mirror loss (train.mirror_loss_coef)", mirror_coef_on),
+        ("BC anchor (train.bc_anchor_coef)", bc_coef_on),
+    ]
+    return [name for name, bad_val in bad if bad_val]
+
+
 def _parse_log_std_anneal_specs(log_std_final, log_std_anneal_core,
                                 log_std_anneal_frac):
     """Parses --log-std-final/--log-std-anneal-core/--log-std-anneal-

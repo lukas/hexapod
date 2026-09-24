@@ -445,14 +445,18 @@ def _apply_mjx_twin_hfield(xml: str, xml_name: str) -> str:
     """
     import mujoco_prototype as MP
     # Coarser grid than the primitive model's 128x128: MuJoCo-Warp's
-    # hfield midphase has a ~50-collision buffer per pair and DROPS the
-    # overflow — at 39 mm cells the twin's fitted chassis/battery boxes
-    # overflow it (1.4M+ "height field collision overflow" warnings and
-    # ~2x fps loss, live 2026-09-24). 78 mm cells keep every twin geom
-    # comfortably under the cap (chassis box <= ~12 cells) and still
-    # resolve the indoor bump map (feature wavelength >= ~1.6 m).
-    # _populate_terrain resamples the 128x128 heightmap down to match.
-    nrow = ncol = 64
+    # hfield narrowphase (collision_convex.py) walks 2 triangle-prisms
+    # per cell of the colliding geom's AABB subgrid into a
+    # MJ_MAXCONPAIR=50 buffer and DROPS the overflow — so a geom may
+    # span at most ~25 cells. At 39 mm cells (128x128) the twin's
+    # chassis box overflowed constantly (1.4M+ warnings, ~2x fps loss,
+    # live 2026-09-24); at 78 mm (64x64) rotated worst-case still hit
+    # 5x5 cells (~45 warnings/s). 104 mm cells (48x48) bound the
+    # chassis AABB (0.34 m diagonal) to <=4x4 cells = 32 prisms — no
+    # overflow — and still resolve the indoor bump map (shortest
+    # feature wavelength ~0.67 m). _populate_terrain resamples the
+    # native 128x128 heightmap down to match.
+    nrow = ncol = 48
     old_geom = ('<geom name="terrain" type="plane" size="8 8 0.05" '
                 'material="terrain_mat" friction="1.5 0.05 0.0001" '
                 'condim="4" conaffinity="5"/>')

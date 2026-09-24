@@ -36,18 +36,23 @@ def test_terrain_builds_hfield_populated():
     # friction / conaffinity contract preserved from the plane
     assert m.geom_friction[gid][0] == pytest.approx(1.5)
     assert m.geom_conaffinity[gid] == 5
-    # 64x64 twin grid (78 mm cells) — keeps every fitted-primitive geom
-    # under MuJoCo-Warp's ~50-collision hfield midphase buffer.
+    # 48x48 twin grid (104 mm cells) — keeps every fitted-primitive geom
+    # under MuJoCo-Warp's 50-prism hfield narrowphase buffer (<=25 cells/geom).
     data = m.hfield_data
-    assert data.size == 64 * 64
+    assert data.size == 48 * 48
     # downsampled from the native 128x128 map: near-full range kept,
     # exact 1.0 peak cell may fall between coarse samples
     assert 0.5 < float(data.max()) <= 1.0
-    # spawn region stays flat (heightmap fades in from ~0.32 m)
+    # spawn region stays flat (heightmap fades in from ~0.32 m):
+    # every cell whose center lies within 0.3 m of the origin is zero
     nrow = int(m.hfield_nrow[hf]); ncol = int(m.hfield_ncol[hf])
     grid = np.asarray(data[:nrow * ncol]).reshape(nrow, ncol)
-    c = nrow // 2
-    assert float(np.abs(grid[c - 2:c + 3, c - 2:c + 3]).max()) < 1e-6
+    half = float(m.hfield_size[hf][0])
+    xs = np.linspace(-half, half, ncol)
+    ys = np.linspace(-half, half, nrow)
+    X, Y = np.meshgrid(xs, ys, indexing="xy")
+    R = np.hypot(X, Y)
+    assert float(np.abs(grid[R < 0.30]).max()) < 1e-6
     # model still steps
     d = mujoco.MjData(m)
     mujoco.mj_step(m, d)

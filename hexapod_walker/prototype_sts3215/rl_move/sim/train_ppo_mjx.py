@@ -2195,6 +2195,46 @@ def main(argv: list[str] | None = None) -> int:
                   f"--steps ({args.steps:,}) — the policy will NEVER "
                   "train on the full target start mix in this run")
 
+    # LOWER-BANK-FRAC RAMP (2026-09-24, walkcurr entrybank020 SAC
+    # regression — see goal_task.py's GoalGenerator.__init__ block
+    # for the mechanism/why: the fixed-frac goal.lower_start_bank_frac
+    # + goal.bank_qvel_restore transfer that PASSED on both any_means
+    # MLP/GRU architectures made the rl_only SAC lower role's
+    # composed-session survival dramatically worse, and the mechanical
+    # seed-pruner independently flagged both seeds as regressing
+    # mid-run — consistent with SAC's off-policy replay buffer being
+    # poisoned by hard bank-qvel states before the actor learns the
+    # plain task at all). Same cfg-armed / trainer-driven / default-
+    # OFF contract as the ramps above.
+    _lbf_ramp_steps = 0
+    if env_kw.get("cfg") is not None:
+        from rl_move.config import cfg_get as _cfg_get_lbf
+        _lbf_ramp_steps = int(float(_cfg_get_lbf(
+            env_kw["cfg"], "goal", "lower_start_bank_frac_ramp_steps",
+            default=0) or 0))
+
+    def _lower_bank_frac_ramp_frac_at(step: int) -> float:
+        return min(1.0, float(step) / float(_lbf_ramp_steps))
+
+    def _lower_bank_frac_ramp_apply(target_venv, step: int) -> dict | None:
+        if _lbf_ramp_steps <= 0:
+            return None
+        f = _lower_bank_frac_ramp_frac_at(step)
+        return target_venv.env_method("apply_lower_start_bank_frac", f)[0]
+
+    if _lbf_ramp_steps > 0:
+        _lbf0 = _lower_bank_frac_ramp_apply(venv, 0)
+        print(f"[lower-bank-frac-ramp] armed: {_lbf_ramp_steps:,} "
+              "global env steps from a low/zero lower_start_bank_frac "
+              "to the cfg target; step-0 lower_start_bank_frac="
+              f"{_lbf0['lower_start_bank_frac']:.3f}")
+        if _lbf_ramp_steps >= args.steps:
+            print("[lower-bank-frac-ramp] WARNING: goal."
+                  f"lower_start_bank_frac_ramp_steps ({_lbf_ramp_steps:,}) "
+                  f">= --steps ({args.steps:,}) — the policy will "
+                  "NEVER train at the full target bank frac in this "
+                  "run")
+
     # Dense walk-charge RAMP (08-23, walkcurr fwd1/fwd2 dig-in — see
     # walk_task.py's __init__ block for the mechanism). Same cfg-armed
     # / trainer-driven / default-OFF contract as the two ramps above.
@@ -3405,6 +3445,40 @@ def main(argv: list[str] | None = None) -> int:
                             vals["partial_frac"]})
 
         callbacks.append(_RiseStartRampCb())
+    if _lbf_ramp_steps > 0:
+        class _LowerBankFracRampCb(BaseCallback):
+            """Advance the lower-bank-frac ramp once per rollout (see
+            the arming block after venv construction). W&B gets the
+            live frac under lower_bank_frac_ramp/*."""
+
+            def __init__(self):
+                super().__init__()
+                self._finished = False
+
+            def _on_step(self) -> bool:
+                return True
+
+            def _on_rollout_end(self) -> None:
+                if self._finished:
+                    return
+                vals = _lower_bank_frac_ramp_apply(venv, self.num_timesteps)
+                if vals is None:
+                    return
+                if vals["frac"] >= 1.0:
+                    self._finished = True
+                    print("[lower-bank-frac-ramp] ramp complete @ "
+                          f"{self.num_timesteps:,} steps — training "
+                          "at the full target lower_start_bank_frac "
+                          "from here on")
+                if run is not None:
+                    import wandb
+                    wandb.log({
+                        "global_step": self.num_timesteps,
+                        "lower_bank_frac_ramp/frac": vals["frac"],
+                        "lower_bank_frac_ramp/lower_start_bank_frac":
+                            vals["lower_start_bank_frac"]})
+
+        callbacks.append(_LowerBankFracRampCb())
     if _wc_ramp_steps > 0:
         class _WalkChargeRampCb(BaseCallback):
             """Advance the dense walk-charge ramp once per rollout

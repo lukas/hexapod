@@ -1,0 +1,14 @@
+{
+  "purpose": "Workspace checkpoint for preservation; not an integrated or deployed change.",
+  "source_workspace": "/Users/lbiewald/Documents/Codex/2026-09-07/ca/work/main-integration",
+  "source_commit": "45f9512dd31416f16c8110ab907547b4bd63b4bc",
+  "source_parent": "b0eddf1a7b0d86987e27d0f06d3da8534a9d430b",
+  "github_base": "140d1bc67944b8a2e9315ab8ac355f3ca3a6b4fb",
+  "files": [
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/horn_compression_limiters/README.md",
+      "blob": "e200c4ec77614b2e24a420bc33ca326c29cef811",
+      "mode": "100644"
+    }
+  ]
+}

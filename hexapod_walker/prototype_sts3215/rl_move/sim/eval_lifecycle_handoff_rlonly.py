@@ -281,12 +281,38 @@ def main() -> int:
                     help="sample both policies stochastically instead "
                          "of deterministic (default det, matches the "
                          "stance bundle's own det gate)")
+    ap.add_argument("--lower", type=Path, default=None,
+                    help="OPTIONAL 3rd role: after the walk drive "
+                         "schedule ends (direct AND plant arms), hand "
+                         "off the walk episode's own physical state to "
+                         "a genuinely distinct `lower`-role checkpoint "
+                         "(same cross-env reanchor trick as the "
+                         "rise->walk handoff -- role-selection "
+                         "plumbing, not a scripted motion role) and "
+                         "drive it for its own full training episode. "
+                         "Default None = fully bit-exact old rise->walk"
+                         "-only behavior (this track's own historical "
+                         "'lower still closed' limitation). Currently "
+                         "only the cw-stance50hz-rlonly-lowerrole-"
+                         "scratch-sac-*-drramp-acq1 cfg-set recipe is "
+                         "wired (--lower-recipe); pass a checkpoint "
+                         "trained on that exact recipe.")
+    ap.add_argument("--lower-recipe", choices=("lowerrole_sac_drramp",),
+                    default="lowerrole_sac_drramp",
+                    help="which versioned lower-role cfg-set recipe to "
+                         "build env_lower from (only one registered so "
+                         "far -- see cfg_recipe_stance50hz_rlonly_"
+                         "lowerrole_scratch_sac_drramp.py)")
+    ap.add_argument("--lower-episode-s", type=float, default=15.0,
+                    help="lower-role episode length in seconds, "
+                         "matching this recipe's own trained "
+                         "--episode-seconds (default 15.0)")
     args = ap.parse_args()
 
     import mujoco
-    from stable_baselines3 import PPO
 
     from rl_move.env import build_obs
+    from .gru_policy import load_checkpoint_auto
     if args.walk_recipe == "slew_smooth_s0":
         from .cfg_recipe_walk50hz_slew_smooth_s0 import (
             CFG_ARGS as WALK_CFG_ARGS,
@@ -311,12 +337,21 @@ def main() -> int:
     walk_episode_s = max(20.0, args.hold_s + 1.0 + 2.0 + 2.0)  # +2s margin
     env_walk = _build_env(WALK_CFG_ARGS, episode_seconds=walk_episode_s,
                            seed=args.seed, render=want_render)
+    env_lower = None
+    if args.lower is not None:
+        from .cfg_recipe_stance50hz_rlonly_lowerrole_scratch_sac_drramp \
+            import CFG_ARGS as LOWER_CFG_ARGS
+        env_lower = _build_env(LOWER_CFG_ARGS,
+                                episode_seconds=args.lower_episode_s,
+                                seed=args.seed, render=want_render)
 
-    stance = PPO.load(args.stance, device="cpu")
-    walk = PPO.load(args.walk, device="cpu")
+    stance = load_checkpoint_auto(args.stance, device="cpu")
+    walk = load_checkpoint_auto(args.walk, device="cpu")
     if args.rot60:
         from .rot60 import Rot60Policy
         walk = Rot60Policy(walk)
+    lower = (load_checkpoint_auto(args.lower, device="cpu")
+             if args.lower is not None else None)
     n_stance = int(stance.observation_space.shape[0])
     n_env_rise = int(env_rise.observation_space.shape[0])
     n_env_walk = int(env_walk.observation_space.shape[0])
@@ -326,6 +361,20 @@ def main() -> int:
     assert n_stance <= n_env_rise, (
         "stance policy obs must fit inside env_rise's obs "
         f"(got {n_stance} vs {n_env_rise})")
+    n_lower = None
+    if lower is not None:
+        # Same truncation trick as the stance role (n_stance <=
+        # n_env_rise): SimHexapodJointWalkEnv is a strict-superset-obs
+        # subclass of SimHexapodJointGoalEnv (the `--task joint_goal`
+        # class the lower checkpoint actually trained under), so the
+        # checkpoint's own obs width can be narrower than this eval
+        # harness's env_lower build; feed it only its own leading
+        # obs[:n_lower] slice, exactly like `stance.predict(obs[:n_stance])`.
+        n_lower = int(lower.observation_space.shape[0])
+        n_env_lower = int(env_lower.observation_space.shape[0])
+        assert n_lower <= n_env_lower, (
+            "lower policy obs must fit inside env_lower's obs "
+            f"(got {n_lower} vs {n_env_lower})")
     deterministic = not args.stochastic
 
     strip_frames: list = []
@@ -396,6 +445,52 @@ def main() -> int:
                       env_walk._prev_action, goal=env_walk._current_goal(),
                       tilt_ref=env_walk._tilt_ref0), reset=True)
 
+    def lower_handoff_obs(state: PhysicalState):
+        """Same cross-env reanchor trick as `handoff_obs`, applied to
+        the WALK episode's ending physical state instead of the rise
+        episode's: a fresh `lower`-mode reset establishes the target
+        env's own height reference (`_z0`/`_h_target`, negative for a
+        descent) before the real qpos/qvel/ctrl/act/slew state is
+        dropped in on top -- nothing is teleported, no scripted joint
+        path is used."""
+        gen = env_lower._goal_gen
+        _set_mix(gen, lower=1.0)
+        env_lower.reset(seed=args.seed)
+        apply_physical_state(env_lower, state)
+        mujoco.mj_forward(env_lower.model, env_lower.data)
+        env_lower._state = env_lower._read_state()
+        return env_lower._final_obs(
+            build_obs(env_lower.cfg, env_lower._state, env_lower._q_nom,
+                      env_lower._prev_action, goal=env_lower._current_goal(),
+                      tilt_ref=env_lower._tilt_ref0), reset=True)
+
+    def lower_phase(state: PhysicalState) -> dict:
+        """Drive the `lower` role for its own full trained episode
+        length starting from the walk episode's ending physical state.
+        Success bar mirrors eval_checkpoint.py's `_success("lower", ...)`
+        rule of thumb: not terminated AND |height_err_end_mm|<=15."""
+        obs = lower_handoff_obs(state)
+        if hasattr(lower, "reset"):
+            lower.reset()
+        term = trunc = False
+        info: dict = {}
+        n_steps = max(1, int(round(args.lower_episode_s / env_lower.dt)))
+        for _ in range(n_steps):
+            a, _ = lower.predict(obs[:n_lower], deterministic=deterministic)
+            obs, _rw, term, trunc, info = env_lower.step(a)
+            grab(env_lower)
+            if term or trunc:
+                break
+        h_err_mm = round(1000.0 * (
+            float(env_lower.data.xpos[env_lower._chassis_bid, 2])
+            - (env_lower._z0 + env_lower._h_target)), 1)
+        return {
+            "lower_fall": (str(info.get("termination_reason") or "end")
+                           if term else None),
+            "lower_height_err_end_mm": h_err_mm,
+            "lower_ok": (not term) and abs(h_err_mm) <= 15.0,
+        }
+
     pads_walk = [env_walk.model.body(f"L{i}_pad").id for i in range(6)]
 
     def drive(obs) -> dict:
@@ -458,6 +553,7 @@ def main() -> int:
 
     results: dict = {"stance": str(args.stance), "walk": str(args.walk),
                       "walk_recipe": args.walk_recipe,
+                      "lower": (str(args.lower) if args.lower else None),
                       "speed": args.speed, "heading_deg": args.heading_deg,
                       "rot60": bool(args.rot60),
                       "deterministic": deterministic,
@@ -482,9 +578,19 @@ def main() -> int:
                     rec.update(drive(obs))
                 else:
                     rec["fall"] = "before_handoff"
+            lower_ran = False
+            if lower is not None and rec.get("fall") is None:
+                walk_end_state = capture_physical_state(env_walk)
+                rec.update(lower_phase(walk_end_state))
+                lower_ran = True
             if (want_strips or want_video) and ep == 0:
-                grab(env_walk if rec.get("fall") != "before_handoff"
-                     else env_rise, final=True)
+                if lower_ran:
+                    final_env = env_lower
+                elif rec.get("fall") == "before_handoff":
+                    final_env = env_rise
+                else:
+                    final_env = env_walk
+                grab(final_env, final=True)
                 save_strip(name)
                 save_video(name)
             results["episodes"].append(rec)
@@ -495,7 +601,9 @@ def main() -> int:
                   f"tilt2s={rec.get('stumble_max_tilt_deg', '-')} "
                   f"hmin2s={rec.get('stumble_min_height_mm', '-')} "
                   f"gait_valid={rec.get('gait_valid', '-')} "
-                  f"sacrificed={rec.get('sacrificed_legs', '-')}")
+                  f"sacrificed={rec.get('sacrificed_legs', '-')} "
+                  f"lower_fall={rec.get('lower_fall', '-')} "
+                  f"lower_h_err_mm={rec.get('lower_height_err_end_mm', '-')}")
 
     def band(arm: str, key: str) -> list:
         vals = [e[key] for e in results["episodes"]
@@ -522,6 +630,15 @@ def main() -> int:
             "dist_band": band(arm, "dist_m"),
             "stumble_tilt_band": band(arm, "stumble_max_tilt_deg"),
         }
+        if lower is not None:
+            lowered = [e for e in handed if "lower_height_err_end_mm" in e]
+            summary[arm]["lower_attempted"] = len(lowered)
+            summary[arm]["lower_falls"] = sum(
+                1 for e in lowered if e.get("lower_fall"))
+            summary[arm]["lower_ok"] = sum(
+                1 for e in lowered if e.get("lower_ok"))
+            summary[arm]["lower_height_err_end_mm_band"] = band(
+                arm, "lower_height_err_end_mm")
     results["summary"] = summary
     print(json.dumps(summary, indent=1))
     direct = summary["direct"]
@@ -535,6 +652,15 @@ def main() -> int:
     print("LIFECYCLE GAIT VALIDITY (direct, no sacrificed leg):",
           "CLEAN" if direct_gait_valid else
           f"NOT CLEAN — sacrificed_legs_union={direct['sacrificed_legs_union']}")
+    if lower is not None:
+        d_low = direct.get("lower_attempted", 0)
+        d_low_ok = direct.get("lower_ok", 0)
+        d_low_falls = direct.get("lower_falls", 0)
+        print("LIFECYCLE LOWER (direct, rise->walk->lower, 3 clean-RL "
+              "roles):",
+              f"{d_low_ok}/{d_low} ok, {d_low_falls} falls "
+              f"(err band {direct.get('lower_height_err_end_mm_band')})"
+              if d_low else "NOT ATTEMPTED (walk phase itself fell)")
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(json.dumps(results, indent=1))

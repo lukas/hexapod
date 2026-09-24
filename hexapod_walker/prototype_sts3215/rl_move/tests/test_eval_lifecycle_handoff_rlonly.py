@@ -146,6 +146,25 @@ def test_cli_registers_heading_and_rot60_flags_default_off(capsys):
     assert "rlonly_v2" in out
     assert "slew_smooth_s0" in out
     assert "safewiden6_acq1" in out
+    assert "--lower" in out
+    assert "--lower-recipe" in out
+    assert "--lower-episode-s" in out
+
+
+def test_lower_cfg_recipe_excludes_ramp_and_obs_keys():
+    """The --lower cfg recipe (imported lazily only when --lower is
+    passed, per module docstring) must be well-formed and NOT carry
+    env.dr_stage_ramp_steps (moot/crash-prone at randomize=False, see
+    module docstring) or any obs.* override (this launch command set
+    none -- config.yaml's own defaults apply, verified against the
+    ledger's own extra_args, not assumed from a sibling lineage)."""
+    from rl_move.sim.cfg_recipe_stance50hz_rlonly_lowerrole_scratch_sac_drramp import (  # noqa: E501
+        CFG_ARGS,
+    )
+    assert "env.model_source=mesh_mjx" in CFG_ARGS
+    assert "control.hz=50" in CFG_ARGS
+    assert not any(k.startswith("env.dr_stage_ramp_steps") for k in CFG_ARGS)
+    assert not any(k.startswith("obs.") for k in CFG_ARGS)
 
 
 def test_write_mp4_empty_frames_is_noop(tmp_path):

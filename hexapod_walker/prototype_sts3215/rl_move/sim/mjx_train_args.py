@@ -103,6 +103,50 @@ def _validate_gru_triple(gru_triple: bool, gru_dual: bool,
                          "on nothing)")
 
 
+def _validate_gru_rise_experts(gru_rise_experts: bool, gru_dual: bool,
+                               gru_experts: bool, gru_triple: bool,
+                               init_from,
+                               init_from_actor_only: bool,
+                               init_from_policy_backbone: bool,
+                               mode_onehot: float,
+                               rise_start_kind_gate: float) -> None:
+    """--gru-rise-experts (gru_policy.RiseKindGruActorCriticPolicy) is a
+    WARM-START-ONLY architecture (standwalk rise flat/bridge precision
+    gap, 2026-09-24 ~21:3x): it exists to carve three dedicated rise-
+    start-kind experts out of an already-decent trained stance core,
+    not to learn rise from scratch, so it requires a Dual-policy
+    --init-from (checked here structurally; the actual isinstance
+    check happens once the checkpoint is loaded, in
+    dual_to_rise_experts_transplant). Pulled out of main() as a pure
+    function so it is unit-testable without mujoco/GPU, mirroring
+    _validate_gru_triple. No-op (returns None) when --gru-rise-experts
+    is off (default).
+    """
+    if not gru_rise_experts:
+        return
+    if gru_dual or gru_experts or gru_triple:
+        raise SystemExit("--gru-rise-experts is exclusive with "
+                         "--gru-dual/--gru-experts/--gru-triple")
+    if init_from is None:
+        raise SystemExit("--gru-rise-experts requires --init-from (a "
+                         "DualGruActorCriticPolicy checkpoint — this is "
+                         "a warm-start-only architecture, see "
+                         "gru_policy.dual_to_rise_experts_transplant)")
+    if init_from_actor_only or init_from_policy_backbone:
+        raise SystemExit("--gru-rise-experts uses its own dedicated "
+                         "Dual->RiseExperts transplant; drop --init-"
+                         "from-actor-only/--init-from-policy-backbone")
+    if float(mode_onehot) <= 0.0:
+        raise SystemExit("--gru-rise-experts requires --cfg-set "
+                         "obs.mode_onehot=1 (the policy routes by the "
+                         "obs-tail skill one-hot)")
+    if float(rise_start_kind_gate) <= 0.0:
+        raise SystemExit("--gru-rise-experts requires --cfg-set "
+                         "obs.rise_start_kind_gate=1 (otherwise the "
+                         "flat/bridge/crouch gate one-hot never lights "
+                         "and the three rise experts train on nothing)")
+
+
 def _sac_incompatible_flags(
         *, init_from_actor_only: bool, init_from_policy_backbone: bool,
         gru: bool, gru_dual: bool, gru_experts: bool, transformer: bool,

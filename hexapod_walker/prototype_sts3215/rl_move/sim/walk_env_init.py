@@ -528,6 +528,28 @@ def init_obs_and_mode_flags(env):
     # effect unless obs.mode_onehot=1 too).
     env._mode_turn_cmd = float(cfg_get(
         env.cfg, "obs", "mode_onehot_turn_cmd", default=0.0)) == 1.0
+    # Rise start-kind gate one-hot (obs.rise_start_kind_gate=1; standwalk
+    # rise flat/bridge precision gap, 2026-09-24 ~21:3x). DISTINCT from
+    # the already-closed `obs.rise_start_kind_sense` (removed 2026-09-24
+    # ~19:1x): that fed the identical flat/bridge/crouch label as an
+    # extra INPUT to one shared trunk and measurably changed nothing
+    # (CANARY FAIL - MECHANISM, `startkind-canary2m`) -- the residual
+    # was diagnosed as needing "a genuinely separate-WEIGHTS per-start-
+    # kind mixture-of-experts rise head (distinct parameters per kind,
+    # not a shared trunk fed a richer input)". This flag exists ONLY to
+    # feed `gru_policy.RiseKindGruActorCriticPolicy`'s hard expert gate
+    # (never mixed additively into a shared trunk's forward math) -- a
+    # different mechanism SHAPE, not a re-dose of the closed one, so it
+    # gets its own key rather than reviving the removed one. Requires
+    # obs.mode_onehot=1 (appended immediately BEFORE the mode one-hot,
+    # at the same fixed tail offset regardless of task-specific vel/
+    # phase width upstream, so gru_policy's negative-index gate reads
+    # stay reliable across every goal-task recipe — see module comment
+    # on MODE_ONEHOT_ORDER for why that trailing slot is frozen).
+    # Default OFF: 0 extra obs width, bit-exact for every existing
+    # lineage.
+    env._rise_kind_gate = float(cfg_get(
+        env.cfg, "obs", "rise_start_kind_gate", default=0.0)) == 1.0
     # Recovery needs a task-stable pose frame.  q-q_nom is zero at
     # every reset because q_nom is the arbitrary settled bad pose, so
     # two very different tangles can otherwise begin with identical

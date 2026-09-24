@@ -809,6 +809,508 @@ def dual_to_triple_transplant(old_model, new_model) -> list[str]:
     return copied
 
 
+# --- Rise-start-kind experts (five-core) GRU -------------------------
+#
+# standwalk rise flat/bridge precision gap, 2026-09-24 ~21:3x: THREE
+# independent shared-representation mechanisms (exposure-frequency
+# reweight ~17:1x, explicit-onehot input conditioning ~19:1x,
+# gradient-level disjoint-minibatch isolation ~21:1x) all converged on
+# the IDENTICAL flat-0/10, bridge-2/10, crouch-5/10 fingerprint on the
+# `gru-dual-rlfinetune-rise` lineage — evidence the bottleneck is not
+# training frequency, not inference burden, and not even gradient
+# sharing within one set of weights, but CAPACITY: one shared rise
+# body genuinely cannot express three different rise strategies at
+# once. This class is the named remaining lever: "a genuinely
+# separate-WEIGHTS per-start-kind mixture-of-experts rise head". It
+# extends DualGruActorCriticPolicy (core_a=locomotion, core_b=stance)
+# by carving the "rise" family OUT of core_b into three brand-new
+# dedicated cores (flat/bridge/crouch) while core_b keeps hold+lower+
+# any exotic rise start not in the three labeled kinds (e.g. `rise:
+# bank`) — hold/lower show no evidence of needing their own split, so
+# this is the minimal structural change that targets the diagnosed gap
+# without also multiplying hold/lower's already-adequate parameter
+# count.
+#
+# REQUIREMENT: obs.mode_onehot=1 AND obs.rise_start_kind_gate=1 (see
+# walk_env_init.init_obs_and_mode_flags / walk_task.py's
+# rise_start_kind_gate_onehot) — the rise-kind one-hot is read at the
+# fixed offset immediately BEFORE the mode one-hot,
+# obs[..., -(N_MODE_OBS+N_RISE_KIND_OBS):-N_MODE_OBS].
+
+_N_RISE_KIND = 3
+_RISE_KIND_NAMES = ("flat", "bridge", "crouch")  # walk_task.RISE_START_KIND_LABELS order
+
+
+class _PentaGRU(nn.Module):
+    """Five parallel single-layer GRU cores behind one state facade.
+
+    ``num_layers=5`` is a facade (like _DualGRU's 2 / _TripleGRU's 3):
+    row 0 = core_a (loco), row 1 = core_b (stance: hold/lower/other-
+    rise), rows 2-4 = core_rf/core_rb/core_rc (rise flat/bridge/
+    crouch) — this row order is the transplant contract, keep stable.
+    """
+
+    def __init__(self, input_size: int, hidden_size: int, **gru_kwargs):
+        super().__init__()
+        self.core_a = nn.GRU(input_size, hidden_size, **gru_kwargs)
+        self.core_b = nn.GRU(input_size, hidden_size, **gru_kwargs)
+        self.core_rf = nn.GRU(input_size, hidden_size, **gru_kwargs)
+        self.core_rb = nn.GRU(input_size, hidden_size, **gru_kwargs)
+        self.core_rc = nn.GRU(input_size, hidden_size, **gru_kwargs)
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.num_layers = 5  # facade: 5 state rows, not stacked layers
+
+
+class RiseKindGruActorCriticPolicy(GruActorCriticPolicy):
+    """Dual-core GRU + three dedicated rise-start-kind expert cores.
+
+    core_a/core_b reuse the exact DualGruActorCriticPolicy contract for
+    their heads (``mlp_extractor``/``action_net``/``value_net`` for A,
+    the ``_b``-suffixed set for B) but, UNLIKE Dual's default, core_b
+    ALWAYS gets its OWN learnable ``log_std_b`` (equivalent to Dual's
+    ``log_std_split=True`` permanently on) — this class's real-world
+    Dual parents are warm-started FROM a log_std_split=True checkpoint
+    (core_b's exploration std annealed down independently for rise/
+    hold/lower stability), so carrying that split forward is required
+    fidelity, not an added feature; ``dual_to_rise_experts_transplant``
+    handles both a split and a non-split source. The three new rise
+    experts (``_rf``/``_rb``/``_rc`` suffixes) each get their own
+    complete head set AND their own learnable log_std (unconditional,
+    like TripleGru's core_t) so no exploration-std gradient bleeds
+    between rise kinds or back into core_b.
+
+    Same constructor surface as GruActorCriticPolicy. Requires the
+    default recurrent layout (critic GRU enabled, no shared_lstm, no
+    SDE) and n_lstm_layers=1 per core, identical restrictions to every
+    other multi-core policy in this file.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.lstm_critic is None or self.shared_lstm:
+            raise ValueError(
+                "RiseKindGruActorCriticPolicy requires "
+                "enable_critic_lstm=True and shared_lstm=False")
+        if self.use_sde:
+            raise ValueError("RiseKindGruActorCriticPolicy does not "
+                             "support use_sde")
+        if self.lstm_actor.num_layers != 1:
+            raise ValueError("RiseKindGruActorCriticPolicy requires "
+                             "n_lstm_layers=1 (one layer per core)")
+        import copy
+
+        self.lstm_actor = _PentaGRU(
+            self.lstm_actor.input_size, self.lstm_actor.hidden_size,
+            **self.lstm_kwargs)
+        self.lstm_critic = _PentaGRU(
+            self.lstm_critic.input_size, self.lstm_critic.hidden_size,
+            **self.lstm_kwargs)
+        self.lstm_hidden_state_shape = (
+            5, 1, self.lstm_actor.hidden_size)
+        # Core B's own heads — identical construction to Dual.
+        self.mlp_extractor_b = copy.deepcopy(self.mlp_extractor)
+        self.action_net_b = copy.deepcopy(self.action_net)
+        self.value_net_b = copy.deepcopy(self.value_net)
+        # Core B's own log_std (see class docstring: always split,
+        # unlike Dual's default-off log_std_split).
+        self.log_std_b = nn.Parameter(
+            self.log_std.data.clone(), requires_grad=True)
+        # Three rise-kind experts: own heads + own log_std each,
+        # seeded as copies of the BASE (core_a/loco) heads at
+        # from-scratch construction time — the warm-start transplant
+        # (dual_to_rise_experts_transplant) re-seeds them from the
+        # trained core_b instead, which is what any real acquisition
+        # run should use (from-scratch here is only for tests/
+        # architecture smoke checks).
+        for suf in ("rf", "rb", "rc"):
+            setattr(self, f"mlp_extractor_{suf}",
+                    copy.deepcopy(self.mlp_extractor))
+            setattr(self, f"action_net_{suf}",
+                    copy.deepcopy(self.action_net))
+            setattr(self, f"value_net_{suf}",
+                    copy.deepcopy(self.value_net))
+            setattr(self, f"log_std_{suf}",
+                    nn.Parameter(self.log_std_b.data.clone(),
+                                 requires_grad=True))
+        lr = self.optimizer.defaults["lr"]
+        self.optimizer = self.optimizer_class(
+            self.parameters(), lr=lr, **self.optimizer_kwargs)
+
+    # -- gating --------------------------------------------------
+
+    @staticmethod
+    def _gate5(obs_or_feats: th.Tensor) -> th.Tensor:
+        """(..., obs) -> (..., 5) weights in order (a, b, rf, rb, rc),
+        summing to exactly 1.0 per tick.
+
+        Reads the frozen obs tail: rise-kind one-hot (3, flat/bridge/
+        crouch) immediately followed by the mode one-hot (6, hold/
+        rise/lower/walk/turn/quad). A rise tick whose kind is NOT one
+        of the three labeled ones (e.g. an exotic `rise:bank` start)
+        falls back to core_b (stance) rather than losing all gate mass
+        — ``known_rise`` (the labeled-kind sum) is subtracted out of
+        core_b's own `rise` share so the five weights always partition
+        exactly regardless of which rise starts this run actually
+        exercises."""
+        mode = obs_or_feats[..., -N_MODE_OBS:]
+        rise_kind = obs_or_feats[
+            ..., -(N_MODE_OBS + _N_RISE_KIND): -N_MODE_OBS]
+        hold = mode[..., 0:1]
+        rise = mode[..., 1:2]
+        lower = mode[..., 2:3]
+        loco = mode[..., 3:].sum(dim=-1, keepdim=True).clamp(0.0, 1.0)
+        rf = rise_kind[..., 0:1].clamp(0.0, 1.0)
+        rb = rise_kind[..., 1:2].clamp(0.0, 1.0)
+        rc = rise_kind[..., 2:3].clamp(0.0, 1.0)
+        known_rise = (rf + rb + rc).clamp(0.0, 1.0)
+        stance = (hold + lower + rise - known_rise).clamp(0.0, 1.0)
+        return th.cat([loco, stance, rf, rb, rc], dim=-1)
+
+    def _penta_sequence(self, features, lstm_states, episode_starts,
+                        penta):
+        base = GruActorCriticPolicy._process_sequence
+        h, c = lstm_states[0], lstm_states[1]
+        cores = (penta.core_a, penta.core_b, penta.core_rf,
+                 penta.core_rb, penta.core_rc)
+        outs, hs = [], []
+        for i, core in enumerate(cores):
+            out_i, (h_i, _) = base(
+                features, (h[i:i + 1], c[0:1]), episode_starts, core)
+            outs.append(out_i)
+            hs.append(h_i)
+        return outs, (th.cat(hs, dim=0), c)
+
+    def _pi_heads(self):
+        return ((self.mlp_extractor, self.action_net),
+                (self.mlp_extractor_b, self.action_net_b),
+                (self.mlp_extractor_rf, self.action_net_rf),
+                (self.mlp_extractor_rb, self.action_net_rb),
+                (self.mlp_extractor_rc, self.action_net_rc))
+
+    def _vf_heads(self):
+        return ((self.mlp_extractor, self.value_net),
+                (self.mlp_extractor_b, self.value_net_b),
+                (self.mlp_extractor_rf, self.value_net_rf),
+                (self.mlp_extractor_rb, self.value_net_rb),
+                (self.mlp_extractor_rc, self.value_net_rc))
+
+    def _log_stds(self):
+        """Learnable log_std parameters: core_a's own, core_b's own
+        (always split — see class docstring), plus each rise expert's
+        own (TripleGru core_t convention)."""
+        return (self.log_std, self.log_std_b, self.log_std_rf,
+                self.log_std_rb, self.log_std_rc)
+
+    def _actor_mean(self, outs, w):
+        mus = [head(mlp.forward_actor(out))
+               for (mlp, head), out in zip(self._pi_heads(), outs)]
+        return sum(w[..., i:i + 1] * m for i, m in enumerate(mus))
+
+    def _critic_value(self, outs, w):
+        vs = [head(mlp.forward_critic(out))
+              for (mlp, head), out in zip(self._vf_heads(), outs)]
+        return sum(w[..., i:i + 1] * v for i, v in enumerate(vs))
+
+    def _dist_from_mean(self, mean_actions, w):
+        # Each of the five experts always has its own log_std (no
+        # sharing at all — see class docstring on why core_b is split
+        # unconditionally here, unlike Dual's default).
+        log_std = (w[..., 0:1] * self.log_std
+                   + w[..., 1:2] * self.log_std_b
+                   + w[..., 2:3] * self.log_std_rf
+                   + w[..., 3:4] * self.log_std_rb
+                   + w[..., 4:5] * self.log_std_rc)
+        return self.action_dist.proba_distribution(mean_actions, log_std)
+
+    def _log_std_core(self, which: str):
+        if which == "walk":
+            return (self.log_std,)
+        if which == "stance":
+            return (self.log_std_b,)
+        if which == "rise_flat":
+            return (self.log_std_rf,)
+        if which == "rise_bridge":
+            return (self.log_std_rb,)
+        if which == "rise_crouch":
+            return (self.log_std_rc,)
+        return None
+
+    # -- RecurrentPPO entry points ---------------------------------
+
+    def forward(self, obs, lstm_states, episode_starts,
+                deterministic: bool = False):
+        features = self.extract_features(obs)
+        if self.share_features_extractor:
+            pi_features = vf_features = features
+        else:
+            pi_features, vf_features = features
+        w = self._gate5(obs)
+        outs_pi, st_pi = self._penta_sequence(
+            pi_features, lstm_states.pi, episode_starts, self.lstm_actor)
+        outs_vf, st_vf = self._penta_sequence(
+            vf_features, lstm_states.vf, episode_starts, self.lstm_critic)
+        values = self._critic_value(outs_vf, w)
+        distribution = self._dist_from_mean(
+            self._actor_mean(outs_pi, w), w)
+        actions = distribution.get_actions(deterministic=deterministic)
+        log_prob = distribution.log_prob(actions)
+        actions = actions.reshape((-1, *self.action_space.shape))
+        from sb3_contrib.common.recurrent.type_aliases import RNNStates
+        return actions, values, log_prob, RNNStates(st_pi, st_vf)
+
+    def get_distribution(self, obs, lstm_states, episode_starts):
+        from stable_baselines3.common.policies import ActorCriticPolicy
+        features = super(ActorCriticPolicy, self).extract_features(
+            obs, self.pi_features_extractor)
+        w = self._gate5(obs)
+        outs, st = self._penta_sequence(
+            features, lstm_states, episode_starts, self.lstm_actor)
+        return self._dist_from_mean(self._actor_mean(outs, w), w), st
+
+    def predict_values(self, obs, lstm_states, episode_starts):
+        from stable_baselines3.common.policies import ActorCriticPolicy
+        features = super(ActorCriticPolicy, self).extract_features(
+            obs, self.vf_features_extractor)
+        w = self._gate5(obs)
+        outs, _ = self._penta_sequence(
+            features, lstm_states, episode_starts, self.lstm_critic)
+        return self._critic_value(outs, w)
+
+    def evaluate_actions(self, obs, actions, lstm_states, episode_starts):
+        features = self.extract_features(obs)
+        if self.share_features_extractor:
+            pi_features = vf_features = features
+        else:
+            pi_features, vf_features = features
+        w = self._gate5(obs)
+        outs_pi, _ = self._penta_sequence(
+            pi_features, lstm_states.pi, episode_starts, self.lstm_actor)
+        outs_vf, _ = self._penta_sequence(
+            vf_features, lstm_states.vf, episode_starts, self.lstm_critic)
+        distribution = self._dist_from_mean(
+            self._actor_mean(outs_pi, w), w)
+        log_prob = distribution.log_prob(actions)
+        values = self._critic_value(outs_vf, w)
+        return values, log_prob, distribution.entropy()
+
+    # -- auxiliary paths (distillation, BC anchor) ------------------
+
+    def bptt_forward(self, feats: th.Tensor):
+        """Whole-episode fused BPTT pass for distill_gru.train_student.
+
+        ``feats`` is (T, B, obs) padded episodes starting at reset
+        (zero initial hidden state is the truth). Returns (mu, value).
+        """
+        w = self._gate5(feats)
+        cores_a = self.lstm_actor
+        outs = [cores_a.core_a(feats)[0], cores_a.core_b(feats)[0],
+                cores_a.core_rf(feats)[0], cores_a.core_rb(feats)[0],
+                cores_a.core_rc(feats)[0]]
+        mu = self._actor_mean(outs, w)
+        cores_v = self.lstm_critic
+        outs_v = [cores_v.core_a(feats)[0], cores_v.core_b(feats)[0],
+                  cores_v.core_rf(feats)[0], cores_v.core_rb(feats)[0],
+                  cores_v.core_rc(feats)[0]]
+        value = self._critic_value(outs_v, w)
+        return mu, value
+
+    def bc_anchor_mean(self, th_obs: th.Tensor, th_h: th.Tensor,
+                       detach_trunk: bool = False):
+        """Policy mean at stored hidden states, for the BC anchor's
+        auxiliary step. ``th_h`` is (B, 5*H) flat rows as stored by the
+        anchor ring (row-major over the (5, B, H) state: a, b, rf, rb,
+        rc — same convention as Dual's (2, B, H) / Triple's (3, B, H)).
+        """
+        hidden = self.lstm_actor.hidden_size
+        h = (th_obs.new_zeros((5, th_obs.shape[0], hidden))
+             if th_h is None
+             else th_h.reshape(th_obs.shape[0], 5, hidden)
+             .transpose(0, 1).contiguous())
+        starts = th.zeros(th_obs.shape[0], device=th_obs.device)
+        w = self._gate5(th_obs)
+        if detach_trunk:
+            with th.no_grad():
+                feats = self.extract_features(th_obs)
+                if not self.share_features_extractor:
+                    feats = feats[0]
+                outs, _ = self._penta_sequence(
+                    feats, (h, th.zeros_like(h)), starts, self.lstm_actor)
+            outs = [o.detach() for o in outs]
+        else:
+            feats = self.extract_features(th_obs)
+            if not self.share_features_extractor:
+                feats = feats[0]
+            outs, _ = self._penta_sequence(
+                feats, (h, th.zeros_like(h)), starts, self.lstm_actor)
+        return self._actor_mean(outs, w)
+
+
+def dual_to_rise_experts_transplant(
+        old_model, new_model, n_pad: int = 0,
+        insert_at: int = -1) -> list[str]:
+    """Warm-start a fresh RiseKindGruActorCriticPolicy from an already-
+    trained DualGruActorCriticPolicy checkpoint.
+
+    core_a (loco) and core_b (stance) transplant VERBATIM where shapes
+    already match. The rise-kind gate one-hot (``obs.
+    rise_start_kind_gate=1``) that this policy REQUIRES widens the obs
+    by ``n_pad`` (3) dims relative to any pre-existing Dual checkpoint
+    (which never had this channel), so this is simultaneously an
+    ARCHITECTURE transplant (2 cores -> 5) and an OBS-WIDENING one
+    (mirrors ``obs_transplant.pad_obs_transplant``'s zero-pad-at-
+    ``insert_at`` contract exactly, generalized to tolerate the
+    destination state_dict having extra tensor NAMES the source
+    doesn't, which plain ``pad_obs_transplant`` refuses). ``n_pad=0``
+    (default) skips padding entirely (exact-shape copy only) for the
+    rare case of a same-width warm start.
+
+    The three new rise-kind experts (_rf/_rb/_rc) each start as a copy
+    of the parent's core_b (stance) — the SAME body that was already
+    trained on all rise starts pooled together, not from scratch — so
+    each kind specializes from already-decent shared competence
+    instead of relearning rise from zero. This copy happens AFTER
+    core_b's own padded columns are written, so each rise expert
+    inherits the fully-padded (not raw pre-pad) parent weights.
+    ``log_std_rf``/``_rb``/``_rc`` start as copies of core_b's OWN
+    log_std -- the parent's ``log_std_b`` if it was built with
+    ``log_std_split=True`` (RiseKindGru's destination class always has
+    a real, separate ``log_std_b`` regardless of the source, per its
+    own docstring, and pass 1 below copies a same-named/same-shape
+    ``log_std_b`` verbatim when the source has one), or the parent's
+    single shared ``log_std`` when it was NOT split (core_b really did
+    use that one value in that case).
+
+    Requires ``old_model.policy`` to be a DualGruActorCriticPolicy and
+    ``new_model.policy`` a freshly constructed RiseKindGruActorCriticPolicy
+    with the SAME lstm_hidden_size/net_arch (a non-obs-width shape
+    mismatch raises).
+    """
+    if not isinstance(old_model.policy, DualGruActorCriticPolicy):
+        raise SystemExit("dual_to_rise_experts_transplant requires a "
+                         "DualGruActorCriticPolicy source checkpoint "
+                         f"(got {type(old_model.policy).__name__})")
+    if not isinstance(new_model.policy, RiseKindGruActorCriticPolicy):
+        raise SystemExit("dual_to_rise_experts_transplant requires a "
+                         "RiseKindGruActorCriticPolicy destination "
+                         f"model (got {type(new_model.policy).__name__})")
+    n_new = int(new_model.observation_space.shape[0])
+    n_old = int(old_model.observation_space.shape[0])
+    if n_new - n_old != n_pad:
+        raise SystemExit(
+            f"dual_to_rise_experts_transplant: n_pad={n_pad} but obs "
+            f"widened by {n_new - n_old} ({n_old} -> {n_new})")
+    if insert_at >= 0 and insert_at > n_old:
+        raise SystemExit(
+            f"dual_to_rise_experts_transplant: insert_at {insert_at} "
+            f"out of range for parent obs width {n_old}")
+    sd_old = old_model.policy.state_dict()
+    sd_new = new_model.policy.state_dict()
+    copied: list[str] = []
+
+    def _copy(dst_name: str, src_name: str, sd_src=None) -> None:
+        src = sd_old if sd_src is None else sd_src
+        v_new = sd_new[dst_name]
+        v_old = src[src_name]
+        if v_new.shape == v_old.shape:
+            with th.no_grad():
+                v_new.copy_(v_old)
+        elif (n_pad > 0 and v_new.dim() == 2
+              and v_new.shape[0] == v_old.shape[0]
+              and v_new.shape[1] == n_new and v_old.shape[1] == n_old):
+            with th.no_grad():
+                v_new.zero_()
+                if insert_at < 0:
+                    v_new[:, :n_old].copy_(v_old)
+                else:
+                    v_new[:, :insert_at].copy_(v_old[:, :insert_at])
+                    v_new[:, insert_at + n_pad:].copy_(
+                        v_old[:, insert_at:])
+        else:
+            raise SystemExit(
+                "dual_to_rise_experts_transplant: shape mismatch "
+                f"{src_name} {tuple(v_old.shape)} -> {dst_name} "
+                f"{tuple(v_new.shape)} (hidden_size/net_arch must "
+                "match between the Dual parent and the fresh "
+                "RiseKindGru; only obs-width columns may differ)")
+        copied.append(dst_name)
+
+    # Pass 1 — verbatim/padded: every new-policy tensor that ALSO
+    # exists in the old policy under the identical name (core_a.*,
+    # core_b.*, mlp_extractor(_b).*, log_std, shared feature
+    # extractor, ...).
+    for name in sd_new:
+        if name in sd_old:
+            _copy(name, name)
+    new_model.policy.load_state_dict(sd_new, strict=True)
+
+    # Pass 2 — the three rise-expert-only tensors: map each back to
+    # its core_b-named counterpart, reading from the NEW model's OWN
+    # (already fully-padded, just-loaded) state dict rather than the
+    # old model's raw one, so a padded column layout is inherited
+    # correctly without duplicating the padding logic here.
+    #
+    # log_std_b FIRST, before anything reads it as a source: if the
+    # Dual source had log_std_split=True, pass 1 already copied a
+    # real log_std_b verbatim (same name, same shape, no obs-width
+    # dependency) and this is a no-op skip (already in sd_old); if the
+    # source was NOT split, core_b really did use the single shared
+    # log_std, so that is what backfills log_std_b here.
+    sd_new2 = new_model.policy.state_dict()
+    if "log_std_b" not in sd_old:
+        _copy("log_std_b", "log_std", sd_src=sd_new2)
+    for name in sd_new2:
+        if name in sd_old:
+            continue
+        if name == "log_std_b":
+            continue  # handled above
+        matched = False
+        for suf in ("rf", "rb", "rc"):
+            if name == f"log_std_{suf}":
+                _copy(name, "log_std_b", sd_src=sd_new2)
+                matched = True
+                break
+            if f".core_{suf}." in name:
+                _copy(name, name.replace(f".core_{suf}.", ".core_b."),
+                      sd_src=sd_new2)
+                matched = True
+                break
+            if name.startswith(f"mlp_extractor_{suf}."):
+                _copy(name, "mlp_extractor_b."
+                      + name[len(f"mlp_extractor_{suf}."):],
+                      sd_src=sd_new2)
+                matched = True
+                break
+            if name.startswith(f"action_net_{suf}."):
+                _copy(name, "action_net_b."
+                      + name[len(f"action_net_{suf}."):],
+                      sd_src=sd_new2)
+                matched = True
+                break
+            if name.startswith(f"value_net_{suf}."):
+                _copy(name, "value_net_b."
+                      + name[len(f"value_net_{suf}."):],
+                      sd_src=sd_new2)
+                matched = True
+                break
+        if not matched:
+            raise SystemExit(
+                "dual_to_rise_experts_transplant: unmapped new-only "
+                f"tensor {name} — add a mapping rule or this is a "
+                "genuine architecture mismatch")
+    new_model.policy.load_state_dict(sd_new2, strict=True)
+
+    required = {"lstm_actor.core_rf.weight_ih_l0",
+               "lstm_actor.core_rb.weight_ih_l0",
+               "lstm_actor.core_rc.weight_ih_l0",
+               "log_std_rf", "log_std_rb", "log_std_rc"}
+    if not required.issubset(copied):
+        raise SystemExit(
+            "dual_to_rise_experts_transplant did not copy the expected "
+            "core_rf/core_rb/core_rc/log_std_r* tensors")
+    return copied
+
+
 # --- Mode-experts (four-expert, fully isolated) GRU -----------------
 #
 # Operator directive fb_20260815T013349_488ffd (08-15, executed via

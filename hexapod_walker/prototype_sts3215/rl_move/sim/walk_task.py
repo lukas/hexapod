@@ -42,7 +42,7 @@ import numpy as np
 from rl_move.config import cfg_get
 from rl_move.env import (GOAL_DIM, TaskGoal, current_sense_obs_dim,
                           height_err_sense_obs_dim,
-                          height_vel_sense_obs_dim)
+                          height_vel_sense_obs_dim, start_kind_of)
 from rl_move.robot_state import DEG2RAD, N_JOINTS
 from .joint_task import SimHexapodJointGoalEnv
 from .goal_task import GoalTrajectory
@@ -331,6 +331,28 @@ def mode_onehot(mode: str) -> np.ndarray:
     out = np.zeros(N_MODE_OBS, dtype=float)
     fam = _MODE_FAMILY.get(str(mode), "hold")
     out[MODE_ONEHOT_ORDER.index(fam)] = 1.0
+    return out
+
+
+# Rise start-kind GATE one-hot (obs.rise_start_kind_gate=1; see
+# walk_env_init.init_obs_and_mode_flags for the full rationale/contrast
+# with the closed obs.rise_start_kind_sense). Appended immediately
+# BEFORE mode_onehot at every mode_onehot call site, so
+# gru_policy.RiseKindGruActorCriticPolicy can read it at the fixed
+# offset obs[..., -(N_MODE_OBS+N_RISE_KIND_OBS):-N_MODE_OBS] regardless
+# of task-specific vel/phase width upstream.
+RISE_START_KIND_LABELS = ("flat", "bridge", "crouch")
+N_RISE_KIND_OBS = len(RISE_START_KIND_LABELS)
+
+
+def rise_start_kind_gate_onehot(mode: str, start_kind) -> np.ndarray:
+    """3-wide one-hot, lit only on a live ``rise``-family tick whose
+    ``start_kind_of(traj)`` is one of the three labeled kinds; all-zero
+    otherwise (non-rise ticks, or an exotic rise start like ``bank``)."""
+    out = np.zeros(N_RISE_KIND_OBS, dtype=float)
+    if _MODE_FAMILY.get(str(mode), "hold") == "rise" \
+            and start_kind in RISE_START_KIND_LABELS:
+        out[RISE_START_KIND_LABELS.index(start_kind)] = 1.0
     return out
 
 
@@ -848,6 +870,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 + (N_PHASE_OBS if self._phase_obs else 0)
                 + (1 if self._yaw_cmd else 0)
                 + (N_MODE_OBS if self._mode_obs else 0)
+                + (N_RISE_KIND_OBS if (self._mode_obs
+                                        and self._rise_kind_gate) else 0)
                 + (N_JOINTS if self._recover_plant_q_obs else 0)
                 + (N_JOINTS if self._fault_obs else 0)
                 + current_sense_obs_dim(self.cfg)
@@ -970,6 +994,12 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # — pool-restore safe by construction, no new episode attr).
             mode = (getattr(self._goal_traj, "mode", "hold")
                     if self._goal_traj is not None else "hold")
+            rise_kind_vec = None
+            if self._rise_kind_gate:
+                start_kind = (start_kind_of(self._goal_traj)
+                              if self._goal_traj is not None else None)
+                rise_kind_vec = rise_start_kind_gate_onehot(
+                    mode, start_kind)
             if (self._mode_cmd
                     and _MODE_FAMILY.get(str(mode), "hold") == "walk"):
                 # Command-derived slot (obs.mode_onehot_cmd=1): follow
@@ -990,7 +1020,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 stopped = (abs(vx) <= 0.005 and abs(vy) <= 0.005
                            and abs(wz) <= 0.02)
                 obs = np.concatenate(
-                    [obs, mode_onehot("hold" if stopped else "walk")])
+                    ([obs, rise_kind_vec] if rise_kind_vec is not None
+                     else [obs])
+                    + [mode_onehot("hold" if stopped else "walk")])
             elif (self._mode_turn_cmd
                     and _MODE_FAMILY.get(str(mode), "hold") == "walk"):
                 # Pure-turn command-derived slot (obs.mode_onehot_
@@ -1012,9 +1044,14 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 pure_turn = (math.hypot(vx, vy) <= 1e-3
                              and abs(wz) > 1e-3)
                 obs = np.concatenate(
-                    [obs, mode_onehot("turn" if pure_turn else "walk")])
+                    ([obs, rise_kind_vec] if rise_kind_vec is not None
+                     else [obs])
+                    + [mode_onehot("turn" if pure_turn else "walk")])
             else:
-                obs = np.concatenate([obs, mode_onehot(mode)])
+                obs = np.concatenate(
+                    ([obs, rise_kind_vec] if rise_kind_vec is not None
+                     else [obs])
+                    + [mode_onehot(mode)])
         if self._recover_plant_q_obs:
             mode = (getattr(self._goal_traj, "mode", "hold")
                     if self._goal_traj is not None else "hold")

@@ -61,6 +61,7 @@ from .mjx_train_args import (
     _parse_clip_range_anneal, _parse_log_std_anneal_specs,
     _resolve_training_episode_seconds, _sac_incompatible_flags,
     _validate_gru_dual_log_std_split,
+    _validate_gru_rise_experts,
     _validate_gru_triple, _validate_use_sde_scratch_only,
 )
 from .recover_curriculum import (
@@ -618,6 +619,32 @@ def _build_arg_parser() -> argparse.ArgumentParser:
                          "training. Arm A stage 1 (frozen-expert "
                          "transition-adapter composition). Requires an "
                          "adapter on the policy")
+    ap.add_argument("--gru-rise-experts", action="store_true",
+                    help="Dual core_a/core_b (loco/stance) GRU PLUS "
+                         "three dedicated rise-start-kind expert cores "
+                         "(gru_policy.RiseKindGruActorCriticPolicy): "
+                         "carves flat/bridge/crouch OUT of core_b into "
+                         "their own actor+critic GRUs, heads and "
+                         "learnable log_std (hold/lower stay on core_b, "
+                         "no evidence they need their own split). "
+                         "standwalk rise flat/bridge precision gap "
+                         "(2026-09-24 ~21:3x): three independent "
+                         "shared-representation mechanisms (exposure "
+                         "reweight, input-conditioning, gradient-level "
+                         "minibatch isolation) all converged on the "
+                         "SAME flat-0/bridge-2/crouch-5 fingerprint; "
+                         "this is the named remaining lever, separate "
+                         "WEIGHTS per kind. Requires --cfg-set "
+                         "obs.mode_onehot=1,obs.rise_start_kind_gate=1 "
+                         "and --init-from a DualGruActorCriticPolicy "
+                         "checkpoint (warm-start-only; typically paired "
+                         "with --obs-pad-transplant=3 --obs-pad-insert-"
+                         "at=<parent's own tail offset>, since the "
+                         "rise_start_kind_gate channel is new obs width "
+                         "no pre-existing Dual checkpoint has — see "
+                         "gru_policy.dual_to_rise_experts_transplant). "
+                         "Implies --gru; exclusive with --gru-dual/"
+                         "--gru-experts/--gru-triple")
     ap.add_argument("--transformer", action="store_true",
                     help="causal-transformer actor-critic (transformer_"
                          "policy.py) over the env-side frame stack: "
@@ -1429,7 +1456,7 @@ def main(argv: list[str] | None = None) -> int:
             raise SystemExit("--pred-gate-action-kl must be >= 0")
     if args.critic_encoder is not None:
         if args.gru or args.gru_dual or args.gru_experts or args.gru_triple \
-                or args.transformer:
+                or args.gru_rise_experts or args.transformer:
             raise SystemExit("--critic-encoder uses a raw MLP policy plus "
                              "the pretrained dynamics transformer; drop "
                              "--gru*/--transformer (with --predictive-live, "
@@ -1691,12 +1718,22 @@ def main(argv: list[str] | None = None) -> int:
         float(_parse_cfg_set(args.cfg_set).get("obs.mode_onehot", 0.0)),
         float(_parse_cfg_set(args.cfg_set).get(
             "obs.mode_onehot_turn_cmd", 0.0)))
-    if args.gru_dual or args.gru_experts or args.gru_triple:
+    _validate_gru_rise_experts(
+        args.gru_rise_experts, args.gru_dual, args.gru_experts,
+        args.gru_triple, args.init_from,
+        args.init_from_actor_only, args.init_from_policy_backbone,
+        float(_parse_cfg_set(args.cfg_set).get("obs.mode_onehot", 0.0)),
+        float(_parse_cfg_set(args.cfg_set).get(
+            "obs.rise_start_kind_gate", 0.0)))
+    if args.gru_dual or args.gru_experts or args.gru_triple \
+            or args.gru_rise_experts:
         args.gru = True
         if float(_parse_cfg_set(args.cfg_set).get(
                 "obs.mode_onehot", 0.0)) <= 0.0:
             _which = ("dual" if args.gru_dual
-                      else "experts" if args.gru_experts else "triple")
+                      else "experts" if args.gru_experts
+                      else "rise-experts" if args.gru_rise_experts
+                      else "triple")
             raise SystemExit(
                 f"--gru-{_which} requires "
                 "--cfg-set obs.mode_onehot=1 (the policy routes by the "
@@ -1760,6 +1797,7 @@ def main(argv: list[str] | None = None) -> int:
         from .gru_policy import (DualGruActorCriticPolicy,
                                  GruActorCriticPolicy,
                                  ModeExpertsGruActorCriticPolicy,
+                                 RiseKindGruActorCriticPolicy,
                                  TripleGruActorCriticPolicy)
         algo_cls = RecurrentPPO
         if bc_coef > 0.0:
@@ -1781,6 +1819,8 @@ def main(argv: list[str] | None = None) -> int:
                   f"vf_coef={yaw_credit_vf_coef})")
         policy_cls = (ModeExpertsGruActorCriticPolicy if args.gru_experts
                       else TripleGruActorCriticPolicy if args.gru_triple
+                      else RiseKindGruActorCriticPolicy
+                      if args.gru_rise_experts
                       else DualGruActorCriticPolicy if args.gru_dual
                       else GruActorCriticPolicy)
         extra_pk = dict(lstm_hidden_size=args.gru_hidden_size)
@@ -1793,6 +1833,8 @@ def main(argv: list[str] | None = None) -> int:
         cores_note = (" x4 isolated mode experts" if args.gru_experts
                       else " x3 mode-gated cores (walk/turn/stance)"
                       if args.gru_triple
+                      else " x5 cores (loco/stance + 3 rise-kind "
+                           "experts)" if args.gru_rise_experts
                       else (" x2 mode-gated cores"
                             + (" (SPLIT log_std)"
                                if args.gru_dual_log_std_split else ""))
@@ -2774,6 +2816,61 @@ def main(argv: list[str] | None = None) -> int:
               f": {len(copied)} tensors copied (core_b verbatim, "
               "core_a->core_a+core_t, log_std->log_std+log_std_t); "
               "optimizer state fresh")
+    elif args.gru_rise_experts:
+        # Dual->RiseExperts warm start (standwalk rise flat/bridge
+        # precision gap, 2026-09-24 ~21:3x): build a FRESH
+        # RiseKindGruActorCriticPolicy (never a plain algo_cls.load —
+        # that would reconstruct the OLD Dual architecture) then copy
+        # core_a/core_b verbatim (padded for the new rise_start_kind_
+        # gate obs columns, since no pre-existing Dual checkpoint has
+        # them) and seed core_rf/core_rb/core_rc from the padded
+        # core_b. _validate_gru_rise_experts already required --init-
+        # from and refused init_from_actor_only/policy_backbone.
+        from hexapod_core.joint_frame import require_checkpoint_joint_contract
+        require_checkpoint_joint_contract(args.init_from)
+        from sb3_contrib import RecurrentPPO as _RPPO
+        from .gru_policy import dual_to_rise_experts_transplant
+        old = _RPPO.load(args.init_from, device="cpu")
+        # DERIVE net_arch/lstm_hidden_size from the OLD checkpoint —
+        # same rationale as the gru_triple branch above (this branch
+        # also builds a FRESH policy class, so the CLI's own --net-
+        # arch/--gru-hidden-size defaults must not silently diverge
+        # from the parent's actual geometry).
+        _old_net_arch = getattr(old.policy, "net_arch", net_arch)
+        _old_hidden = int(getattr(old.policy.lstm_actor, "hidden_size",
+                                  args.gru_hidden_size))
+        if _old_hidden != args.gru_hidden_size:
+            print(f"[mjx-train] --gru-hidden-size {args.gru_hidden_size} "
+                  f"overridden by the Dual parent's own "
+                  f"{_old_hidden} (geometry must match for the "
+                  "transplant)")
+        _rke_pk = dict(extra_pk)
+        _rke_pk["lstm_hidden_size"] = _old_hidden
+        model = algo_cls(
+            policy_cls, venv,
+            n_steps=args.n_steps, batch_size=args.batch_size,
+            n_epochs=args.n_epochs, learning_rate=args.lr,
+            gamma=(0.99 if args.gamma is None else args.gamma),
+            gae_lambda=(0.95 if args.gae_lambda is None
+                        else args.gae_lambda),
+            use_sde=args.use_sde,
+            sde_sample_freq=args.sde_sample_freq,
+            ent_coef=args.ent_coef,
+            clip_range=0.2,
+            target_kl=(args.target_kl if args.target_kl > 0 else None),
+            policy_kwargs=dict(net_arch=_old_net_arch,
+                               log_std_init=args.log_std_init,
+                               **_rke_pk),
+            seed=args.seed, verbose=1, device=args.device,
+            tensorboard_log=tb_dir)
+        copied = dual_to_rise_experts_transplant(
+            old, model, n_pad=int(args.obs_pad_transplant),
+            insert_at=int(args.obs_pad_insert_at))
+        del old
+        print("[mjx-train] Dual->RiseExperts transplant from "
+              f"{args.init_from}: {len(copied)} tensors copied "
+              "(core_a/core_b padded+verbatim, core_b->core_rf/rb/rc, "
+              "log_std->log_std+log_std_r*); optimizer state fresh")
     elif args.init_from is not None:
         from hexapod_core.joint_frame import require_checkpoint_joint_contract
         require_checkpoint_joint_contract(args.init_from)

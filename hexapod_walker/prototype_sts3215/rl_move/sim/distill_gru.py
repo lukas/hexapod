@@ -282,6 +282,39 @@ def _make_env(args, cfg: dict, params) -> SimHexapodJointWalkEnv:
         episode_seconds=args.episode_seconds, seed=args.seed, cfg=cfg)
 
 
+def _teacher_reset(teacher) -> None:
+    """Clear a recurrent teacher's threaded state at a true episode
+    start (a plain non-recurrent teacher has no ``.reset`` and needs
+    none -- its predict()/predict_values(obs) calls are already
+    stateless-correct). See ``RecurrentTeacherDriver`` (2026-09-24
+    distillation-tool audit) for why this matters: a GRU teacher
+    driven without ever calling this carries stale memory across
+    episode boundaries instead of the trained zero-state convention."""
+    reset = getattr(teacher, "reset", None)
+    if reset is not None:
+        reset()
+
+
+def _teacher_act_value(teacher, t_obs, deterministic: bool):
+    """One tick of (action, value) from a teacher, dispatching on
+    whether it's a ``RecurrentTeacherDriver`` (``.step`` threads BOTH
+    the actor's and critic's own recurrent state in one
+    ``policy.forward`` call -- see that class's docstring for the bug
+    this replaces) or a plain non-recurrent PPO teacher (unchanged
+    legacy stateless predict()/predict_values(obs) pair, still
+    correct for that case)."""
+    step = getattr(teacher, "step", None)
+    if step is not None:
+        act, val = step(t_obs, deterministic=deterministic)
+        return act, val
+    import torch
+    act, _ = teacher.predict(t_obs, deterministic=deterministic)
+    with torch.no_grad():
+        val = teacher.policy.predict_values(
+            torch.as_tensor(t_obs[None]).float()).item()
+    return act, val
+
+
 def collect(envs: dict, teachers: dict, episodes_by_mode: dict[str, int],
             stochastic_frac: float, rng: np.random.Generator):
     """Teacher rollouts -> list of per-episode (obs, act, val) arrays.
@@ -291,8 +324,6 @@ def collect(envs: dict, teachers: dict, episodes_by_mode: dict[str, int],
     if the TEACHER scores badly in this env context, BC on more of its
     demos cannot help and the context is what needs fixing.
     """
-    import torch
-
     episodes = []
     t0 = time.monotonic()
     for mode, n_ep in episodes_by_mode.items():
@@ -303,15 +334,13 @@ def collect(envs: dict, teachers: dict, episodes_by_mode: dict[str, int],
         for _ in range(n_ep):
             deterministic = rng.random() >= stochastic_frac
             obs, info = env.reset()
+            _teacher_reset(teacher)
             got = info.get("goal_mode", mode)
             obs_l, act_l, val_l = [], [], []
             done, ep_ret = False, 0.0
             while not done:
                 t_obs = obs[:n_t_obs]
-                act, _ = teacher.predict(t_obs, deterministic=deterministic)
-                with torch.no_grad():
-                    val = teacher.policy.predict_values(
-                        torch.as_tensor(t_obs[None]).float()).item()
+                act, val = _teacher_act_value(teacher, t_obs, deterministic)
                 obs_l.append(obs)
                 act_l.append(np.clip(act, -1.0, 1.0))
                 val_l.append(val)
@@ -408,9 +437,18 @@ def collect_transitions(env, teachers: dict, n_ep: int,
     the collection ABORTS loudly instead of distilling garbage.
     Returns (episodes, stats) — stats carries per-episode plan/fall/
     per-tick-mode records for diagnostics and tests.
-    """
-    import torch
 
+    Both teachers' own threaded (recurrent) state is reset exactly
+    ONCE per true episode start, never at a mid-sequence mode switch —
+    the same "state persists across mode switches within an episode,
+    resets only at true episode start" convention
+    ``eval_modeseq.TwoSpecialistDriver`` uses for the analogous
+    two-specialist EVAL path (a GRU teacher's memory of "I've been
+    rising for the last 0.4s" should survive a switch INTO walk just
+    as it would for a real composed session; only a brand new episode
+    should re-zero it). Both are already correct no-ops for a plain
+    non-recurrent teacher (``_teacher_reset``/``_teacher_act_value``).
+    """
     if float(env.cfg.get("goal", {}).get("mode_seq", 0.0)) != 1.0:
         raise SystemExit("collect_transitions needs a goal.mode_seq=1 env")
     episodes: list = []
@@ -420,6 +458,8 @@ def collect_transitions(env, teachers: dict, n_ep: int,
         deterministic = (True if i < verify_n
                          else bool(rng.random() >= stochastic_frac))
         obs, _info = env.reset()
+        for _t, _n in teachers.values():
+            _teacher_reset(_t)
         plan_modes = [str(p["mode"]) for p in env._seq_plan]
         obs_l, act_l, val_l, mode_l = [], [], [], []
         done, ep_ret, fall_mode = False, 0.0, None
@@ -427,10 +467,7 @@ def collect_transitions(env, teachers: dict, n_ep: int,
             mode = str(env._goal_traj.mode)
             teacher, n_t = _seq_teacher(mode, teachers)
             t_obs = obs[:n_t]
-            act, _ = teacher.predict(t_obs, deterministic=deterministic)
-            with torch.no_grad():
-                val = teacher.policy.predict_values(
-                    torch.as_tensor(t_obs[None]).float()).item()
+            act, val = _teacher_act_value(teacher, t_obs, deterministic)
             obs_l.append(obs)
             act_l.append(np.clip(act, -1.0, 1.0))
             val_l.append(val)
@@ -481,14 +518,16 @@ def collect_dagger_transitions(env, student, teachers: dict, n_ep: int):
     (stateful, deterministic) through the mode_seq env; the ACTIVE
     segment's teacher labels every visited state — including lower
     segments (failure-ledger lesson 9: label EVERY segment so the
-    dagger1 lower collapse cannot be inherited)."""
-    import torch
-
+    dagger1 lower collapse cannot be inherited). Both teachers' own
+    threaded state resets once per true episode start, same convention
+    as ``collect_transitions`` (mode switches never reset it)."""
     episodes: list = []
     falls = 0
     t0 = time.monotonic()
     for i in range(n_ep):
         obs, _info = env.reset()
+        for _t, _n in teachers.values():
+            _teacher_reset(_t)
         state, ep_start = None, np.ones((1,), dtype=bool)
         obs_l, act_l, val_l = [], [], []
         done = False
@@ -496,10 +535,7 @@ def collect_dagger_transitions(env, student, teachers: dict, n_ep: int):
             mode = str(env._goal_traj.mode)
             teacher, n_t = _seq_teacher(mode, teachers)
             t_obs = obs[:n_t]
-            label, _ = teacher.predict(t_obs, deterministic=True)
-            with torch.no_grad():
-                val = teacher.policy.predict_values(
-                    torch.as_tensor(t_obs[None]).float()).item()
+            label, val = _teacher_act_value(teacher, t_obs, True)
             obs_l.append(obs)
             act_l.append(np.clip(label, -1.0, 1.0))
             val_l.append(val)
@@ -524,8 +560,6 @@ def collect_dagger(envs: dict, student, teachers: dict,
     """DAgger round: STUDENT drives (stateful, deterministic), TEACHER
     labels every visited state. Fixes BC compounding error — the
     student learns recoveries on its own trajectory distribution."""
-    import torch
-
     episodes = []
     t0 = time.monotonic()
     for mode, n_ep in episodes_by_mode.items():
@@ -534,16 +568,14 @@ def collect_dagger(envs: dict, student, teachers: dict,
         env.set_goal_mix({m: (1.0 if m == mode else 0.0) for m in DIET})
         for _ in range(n_ep):
             obs, info = env.reset()
+            _teacher_reset(teacher)
             got = info.get("goal_mode", mode)
             state, ep_start = None, np.ones((1,), dtype=bool)
             obs_l, act_l, val_l = [], [], []
             done = False
             while not done:
                 t_obs = obs[:n_t_obs]
-                label, _ = teacher.predict(t_obs, deterministic=True)
-                with torch.no_grad():
-                    val = teacher.policy.predict_values(
-                        torch.as_tensor(t_obs[None]).float()).item()
+                label, val = _teacher_act_value(teacher, t_obs, True)
                 obs_l.append(obs)
                 act_l.append(np.clip(label, -1.0, 1.0))
                 val_l.append(val)
@@ -977,11 +1009,11 @@ def main(argv: list[str] | None = None) -> int:
             "turn on (failure-ledger lesson 1 — never a shared trunk)")
 
     from sb3_contrib import RecurrentPPO
-    from stable_baselines3 import PPO
 
     from .gru_policy import (DualGruActorCriticPolicy,
                              GruActorCriticPolicy,
-                             ModeExpertsGruActorCriticPolicy)
+                             ModeExpertsGruActorCriticPolicy,
+                             load_checkpoint_auto, wrap_teacher_driver)
 
     rng = np.random.default_rng(args.seed)
     params = SimServoParams.load()
@@ -1030,8 +1062,19 @@ def main(argv: list[str] | None = None) -> int:
                 "mirror obs map's wz_ref sign-flip is only meaningful "
                 "if the yaw command is actually in the obs)")
 
-    walk_teacher = PPO.load(args.walk_teacher, device="cpu")
-    stance_teacher = PPO.load(args.stance_teacher, device="cpu")
+    # load_checkpoint_auto + wrap_teacher_driver (2026-09-24 distill-
+    # tool audit, standwalk stage-2): a bare PPO.load(...).predict()/
+    # policy.predict_values(obs) pair is wrong for a GRU teacher --
+    # predict_values requires lstm_states/episode_starts it never
+    # supplies (TypeError the instant either --*-teacher-run points at
+    # one of this track's own GRU champions), and even patched around
+    # that, predict() alone only threads the ACTOR's hidden state. See
+    # RecurrentTeacherDriver's docstring. Non-recurrent (MLP) teachers
+    # load/predict exactly as before (wrap_teacher_driver passthrough).
+    walk_teacher = wrap_teacher_driver(
+        load_checkpoint_auto(args.walk_teacher, device="cpu"))
+    stance_teacher = wrap_teacher_driver(
+        load_checkpoint_auto(args.stance_teacher, device="cpu"))
     n_walk = int(walk_teacher.observation_space.shape[0])
     n_stance = int(stance_teacher.observation_space.shape[0])
     print(f"[distill-gru] teachers: walk obs {n_walk}, stance obs {n_stance}")

@@ -1259,6 +1259,100 @@ def wrap_recurrent_predictor(model):
     return model
 
 
+class RecurrentTeacherDriver:
+    """Threads BOTH the actor's and the critic's own recurrent state
+    for a RecurrentPPO/GRU TEACHER used as a per-tick action+value
+    source (BC/DAgger demo collection) -- via ONE ``policy.forward``
+    call per tick, exactly the ``RNNStates(pi, vf)`` convention
+    ``RecurrentPPO.collect_rollouts`` itself threads during real
+    training.
+
+    Found 2026-09-24 auditing ``distill_gru.py`` before funding the
+    standwalk stage-2 distillation task: that module called bare
+    ``teacher.predict(obs)`` (silently re-zeroing hidden state every
+    tick, the same "lobotomy" bug ``RecurrentPredictor`` fixed for
+    eval/drive tools 2026-08-28) AND ``teacher.policy.predict_values
+    (obs_tensor)`` with no ``lstm_states``/``episode_starts`` at all --
+    ``RecurrentActorCriticPolicy.predict_values`` requires both as
+    positional args, so this doesn't silently degrade, it raises
+    ``TypeError`` outright the first time a GRU checkpoint (e.g. any
+    of this track's own ``cw-stand50hz-gru-...``/``cw-walk50hz-gru-
+    ...`` champions) is pointed at ``--stance-teacher-run``/``--walk-
+    teacher-run``. ``RecurrentPredictor`` alone does not fix this: its
+    ``.predict()`` only threads the ACTOR's hidden state (sb3_contrib's
+    own ``predict()`` -> ``_predict()`` -> ``get_distribution`` path
+    never touches ``lstm_critic``) -- exactly the gap
+    ``probe_yaw_credit.py``'s docstring names for the dual-core case,
+    equally true for a plain single-core GRU checkpoint with its own
+    separate critic LSTM (``enable_critic_lstm=True``, the RecurrentPPO
+    default). Calling ``predict()`` then ``predict_values()`` back to
+    back with two independently-tracked states is exactly the trap
+    that docstring warns against; this class instead gets both from
+    the SAME forward pass so there is only one state pair to get right.
+
+    Non-recurrent (plain PPO/MLP) teachers should keep using the model
+    directly -- see ``wrap_teacher_driver`` for the dispatch.
+    """
+
+    def __init__(self, model):
+        self.model = model
+        self.policy = model.policy
+        self.observation_space = getattr(model, "observation_space", None)
+        self.action_space = getattr(model, "action_space", None)
+        self.reset()
+
+    def reset(self) -> None:
+        self._states = None
+        self._episode_start = np.ones((1,), dtype=bool)
+
+    def _zero_pair(self):
+        z = th.zeros(self.policy.lstm_hidden_state_shape,
+                     device=self.policy.device)
+        return (z, z.clone())
+
+    def step(self, obs, deterministic: bool = False):
+        """One tick. Returns ``(action (unbatched np.ndarray), value
+        (float))`` and advances the threaded (pi, vf) state pair."""
+        from sb3_contrib.common.recurrent.type_aliases import RNNStates
+
+        obs_t, _ = self.policy.obs_to_tensor(np.asarray(obs)[None])
+        ep_starts = th.as_tensor(self._episode_start, dtype=th.float32,
+                                 device=self.policy.device)
+        if self._states is None:
+            self._states = RNNStates(self._zero_pair(), self._zero_pair())
+        with th.no_grad():
+            actions, values, _log_prob, new_states = self.policy.forward(
+                obs_t, self._states, ep_starts, deterministic=deterministic)
+        self._states = new_states
+        self._episode_start = np.zeros((1,), dtype=bool)
+        act = actions.cpu().numpy()
+        if self.action_space is not None:
+            act = act.reshape((-1, *self.action_space.shape))
+        val = float(values.cpu().numpy().reshape(-1)[0])
+        return act[0], val
+
+    def predict(self, obs, deterministic: bool = False):
+        """``RecurrentPredictor``-compatible action-only call (some
+        callers only want the action; the value is discarded, but the
+        SAME threaded (pi, vf) state pair still advances so a later
+        ``.step()`` call on the same object stays consistent)."""
+        act, _val = self.step(obs, deterministic=deterministic)
+        return act, None
+
+
+def wrap_teacher_driver(model):
+    """Dispatch to ``RecurrentTeacherDriver`` for a recurrent (GRU/
+    LSTM) teacher, or pass a plain (non-recurrent) model through
+    unchanged -- its stateless ``model.predict()`` / ``policy.
+    predict_values(obs_tensor)`` calls are already correct. Use this
+    (not ``wrap_recurrent_predictor``) for any BC/DAgger-style teacher
+    that needs BOTH actions and values per tick."""
+    if getattr(getattr(model, "policy", None), "lstm_actor", None) \
+            is not None:
+        return RecurrentTeacherDriver(model)
+    return model
+
+
 def load_checkpoint_auto(path: str | Path, device: str = "cpu", env=None):
     """Load an SB3 checkpoint as PPO or RecurrentPPO, whichever wrote it.
 

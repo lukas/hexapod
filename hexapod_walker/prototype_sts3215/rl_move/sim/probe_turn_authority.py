@@ -635,12 +635,13 @@ def _build_cfg(cfg_set: list[str] | None, mode_onehot: bool = False) -> dict:
 
 
 def make_env(cfg_set: list[str] | None, seed: int,
-             episode_seconds: float, mode_onehot: bool = False):
+             episode_seconds: float, mode_onehot: bool = False,
+             render_mode: str | None = None):
     cfg = _build_cfg(cfg_set, mode_onehot=mode_onehot)
     env = SimHexapodJointWalkEnv(
         params=SimServoParams.from_cfg(cfg), randomize=False,
         dr_scale=0.0, episode_seconds=episode_seconds, seed=seed, cfg=cfg,
-        render_mode=None)
+        render_mode=render_mode)
     gen = env._goal_gen
     for m in ("hold", "lean", "track", "unload", "raise", "rise",
               "lower", "quad", "walk"):

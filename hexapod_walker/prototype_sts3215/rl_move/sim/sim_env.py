@@ -35,9 +35,7 @@ from rl_move.body_ik import FixedFootBodyIK, N_ACT, fk_all_feet
 from rl_move.config import cfg_get, load_config
 from rl_move.env import (build_obs, compute_reward, current_sense_obs_dim,
                           height_err_sense_obs_dim,
-                          height_vel_sense_obs_dim,
-                          rise_start_kind_onehot,
-                          rise_start_kind_sense_obs_dim, start_kind_of)
+                          height_vel_sense_obs_dim, start_kind_of)
 from rl_move.robot_state import (
     DEG2RAD, N_JOINTS, RAD2DEG, RobotState, over_current_reading,
 )
@@ -1026,8 +1024,7 @@ class SimHexapodBalanceEnv(_GymBase):
             build_obs(self.cfg, self._state, self._q_nom,
                       self._prev_action, goal=goal,
                       tilt_ref=self._tilt_ref0,
-                      height_vel_mps=self._height_vel_mps,
-                      rise_start_kind_onehot_vec=self._rise_start_kind_obs_vec()),
+                      height_vel_mps=self._height_vel_mps),
             reset=False, augment_reset=True)
 
     # ------------------------------------------------------------------
@@ -2631,8 +2628,7 @@ class SimHexapodBalanceEnv(_GymBase):
             build_obs(self.cfg, self._state, self._q_nom,
                       self._prev_action, goal=goal,
                       tilt_ref=self._tilt_ref0,
-                      height_vel_mps=self._height_vel_mps,
-                      rise_start_kind_onehot_vec=self._rise_start_kind_obs_vec()
+                      height_vel_mps=self._height_vel_mps
                       ), reset=True), info
 
     def _curl_dist(self) -> float:
@@ -2687,20 +2683,6 @@ class SimHexapodBalanceEnv(_GymBase):
                - getattr(self, "_rise_gate_freeze_ticks", 0)
                - getattr(self, "_lower_gate_freeze_ticks", 0))
         return self._goal_traj.at(idx)
-
-    def _rise_start_kind_obs_vec(self):
-        """``obs.rise_start_kind_sense`` (default OFF, see ``env.py``):
-        one-hot start-kind vector for ``build_obs``, computed only on a
-        genuine ``rise`` tick (``None`` otherwise, matching
-        ``build_obs``'s own "zero for non-rise ticks" contract) --
-        cheap short-circuit via the obs-dim check so an OFF cfg never
-        touches ``self._goal_traj`` here."""
-        if rise_start_kind_sense_obs_dim(self.cfg) <= 0:
-            return None
-        traj = self._goal_traj
-        if traj is None or getattr(traj, "mode", None) != "rise":
-            return None
-        return rise_start_kind_onehot(start_kind_of(traj))
 
     def _rise_gate_tick(self) -> None:
         """Rise curl sub-goal (``goal.rise_curl_gate``, default 0 = OFF
@@ -3185,9 +3167,7 @@ class SimHexapodBalanceEnv(_GymBase):
                                   self._prev_action,
                                   goal=self._current_goal(),
                                   tilt_ref=self._tilt_ref0,
-                                  height_vel_mps=self._height_vel_mps,
-                                  rise_start_kind_onehot_vec=
-                                  self._rise_start_kind_obs_vec()),
+                                  height_vel_mps=self._height_vel_mps),
                                   reset=False),
                     -pen, True, False,
                     {"termination_reason": bad, **parts}), None
@@ -4028,9 +4008,7 @@ class SimHexapodBalanceEnv(_GymBase):
                     build_obs(self.cfg, self._state, self._q_nom,
                               self._prev_action, goal=goal,
                               tilt_ref=self._tilt_ref0,
-                              height_vel_mps=self._height_vel_mps,
-                              rise_start_kind_onehot_vec=
-                              self._rise_start_kind_obs_vec()),
+                              height_vel_mps=self._height_vel_mps),
                     reset=False),
                 float(reward), terminated, truncated, info)
 

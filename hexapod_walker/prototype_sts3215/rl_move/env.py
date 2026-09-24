@@ -211,65 +211,11 @@ def height_vel_sense_obs_dim(cfg: dict) -> int:
         cfg, "obs", "height_vel_sense", default=0.0)) == 1.0 else 0)
 
 
-RISE_START_KIND_LABELS = ("flat", "bridge", "crouch")
-
-
-def rise_start_kind_sense_obs_dim(cfg: dict) -> int:
-    """Extra obs width contributed by the optional rise start-kind
-    one-hot channel (see ``build_obs``). 3 (``RISE_START_KIND_LABELS``)
-    when ``obs.rise_start_kind_sense=1``, 0 (default) otherwise --
-    callers that size their ``observation_space`` off
-    ``N_OBS``/``GOAL_DIM``/etc. must add this so the box width matches
-    what ``build_obs`` actually returns.
-
-    2026-09-24 standwalk rise flat/bridge precision gap (`ops.sh index
-    story cw-stand50hz-gru-dual-rlfinetune-rise-s1-flatbias-canary2m`):
-    reweighting how OFTEN flat/bridge starts are drawn during the RL
-    fine-tune left the composed-gate flat/bridge success rate exactly
-    unchanged (0/10 flat both the default and the 55%-flat mix) --
-    closing training-frequency as a lever. The untried axis this
-    channel opens is STATE conditioning: the shared GRU policy sees the
-    same continuous joint-position observation regardless of which
-    start geometry produced it and has to (apparently cannot reliably)
-    infer flat/bridge/crouch from that alone under one shared set of
-    weights; an explicit categorical one-hot removes that inference
-    burden and lets the network learn a per-kind sub-strategy instead
-    of one policy averaged over all three, the same reasoning multi-
-    task/goal-conditioned RL commonly uses one-hot task IDs for. This
-    is start-of-episode CURRICULUM metadata the sim already tracks
-    (``rl_move.env.start_kind_of``, already read into
-    ``info["start_kind"]``), not a motion prior, reference trajectory,
-    or teacher signal -- on real hardware the same three-way label is
-    computable from the very first encoder read at episode reset
-    (already-curled legs vs a flat belly-down pose vs a mid crouch), so
-    it stays in scope for `rl_only` lineages under the 2026-09-13
-    operator clarification. Zero (all-off) for every non-``rise`` tick
-    and for any start kind outside the three labeled here, so hold/
-    lower/walk and this run's own `rise:bank`/other exotic starts are
-    unaffected. Default OFF (bit-exact obs width/values for every
-    existing cfg)."""
-    return (len(RISE_START_KIND_LABELS) if float(cfg_get(
-        cfg, "obs", "rise_start_kind_sense", default=0.0)) == 1.0 else 0)
-
-
-def rise_start_kind_onehot(start_kind: str | None) -> np.ndarray:
-    """3-vector one-hot over ``RISE_START_KIND_LABELS`` (all-zero if
-    ``start_kind`` is ``None`` or not one of the three labeled kinds --
-    e.g. a non-``rise`` tick, or an exotic ``rise:bank``-style start).
-    Callers own deciding WHEN to pass a real label (see
-    ``sim_env.py``'s rise-only gating) so this stays a pure lookup."""
-    vec = np.zeros(len(RISE_START_KIND_LABELS), dtype=float)
-    if start_kind in RISE_START_KIND_LABELS:
-        vec[RISE_START_KIND_LABELS.index(start_kind)] = 1.0
-    return vec
-
-
 def build_obs(cfg: dict, state: RobotState, q_nom: np.ndarray,
               prev_action: np.ndarray,
               goal: "TaskGoal | None" = None,
               tilt_ref: tuple[float, float] = (0.0, 0.0),
-              height_vel_mps: float = 0.0,
-              rise_start_kind_onehot_vec: np.ndarray | None = None
+              height_vel_mps: float = 0.0
               ) -> np.ndarray:
     """47-dim observation (56 with a goal appended).
 
@@ -310,14 +256,6 @@ def build_obs(cfg: dict, state: RobotState, q_nom: np.ndarray,
     function stays stateless -- callers own the per-episode estimator
     and pass its current output in. See ``height_vel_sense_obs_dim``
     for the width contract.
-
-    ``obs.rise_start_kind_sense`` (default 0/OFF, bit-exact when off):
-    appends the caller-supplied ``rise_start_kind_onehot_vec`` (see
-    ``rise_start_kind_onehot``/``RISE_START_KIND_LABELS``) verbatim, or
-    3 zeros if the caller passes ``None`` (e.g. a non-rise tick). This
-    function stays stateless -- callers own deciding which start kind
-    applies this tick (rise-only) and pass the one-hot in. See
-    ``rise_start_kind_sense_obs_dim`` for the width contract.
     """
     qs = float(cfg_get(cfg, "obs", "q_scale", default=1.0))
     qds = float(cfg_get(cfg, "obs", "qd_scale", default=2.0))
@@ -353,11 +291,6 @@ def build_obs(cfg: dict, state: RobotState, q_nom: np.ndarray,
         vs = float(cfg_get(cfg, "obs", "height_vel_scale", default=0.01))
         parts.append(np.array(
             [float(height_vel_mps) / max(vs, 1e-6)], dtype=float))
-    if rise_start_kind_sense_obs_dim(cfg) > 0:
-        if rise_start_kind_onehot_vec is None:
-            parts.append(np.zeros(len(RISE_START_KIND_LABELS)))
-        else:
-            parts.append(np.asarray(rise_start_kind_onehot_vec, dtype=float))
     return np.concatenate(parts).astype(np.float32)
 
 

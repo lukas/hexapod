@@ -298,6 +298,13 @@ class ModelDrScratch:
             # Every touched field is in MODEL_DR_FIELDS, so the
             # per-world upload below carries the fault as-is.
             er.apply_fault_to_model(m)
+            # dr.leg_torque_scale / struct-overlay per-leg torque
+            # asymmetry (actuator_forcerange, in MODEL_DR_FIELDS). Same
+            # order as sim_env.reset: after params + fault rows. Missing
+            # until 2026-09-25 -- every --impl warp run carrying
+            # leg_torque_scale trained with the global torque_scale
+            # only (tests/test_gpu_upload_dr_rows.py pins this).
+            er.apply_asym_to_model(m)
         else:
             apply_params_to_model(m, self.params)
         env._apply_struct_compliance_to_model(m)

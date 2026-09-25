@@ -1113,7 +1113,13 @@ def main() -> int:
                               <= TRACK_ERR_OK_DEG)
         return obs, True
 
+    # host provenance: controller-CPU vs pod-GPU reads of this exact
+    # harness produced materially different composed-hold numbers on a
+    # byte-identical ckpt/cfg/seed (2026-09-25, holdduty50 verdict
+    # correction) — every artifact must record where it was computed.
+    import socket
     results: dict = {"cfg_set": args.cfg_set or [], "grammar": grammar,
+                     "host": socket.gethostname(),
                      "speed": args.speed, "deterministic": det,
                      "drive_random": bool(args.drive_random),
                      "entry_slew": args.entry_slew,

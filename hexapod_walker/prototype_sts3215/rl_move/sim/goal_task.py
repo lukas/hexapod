@@ -36,6 +36,7 @@ from rl_move.config import cfg_get
 from rl_move.env import (GOAL_DIM, TaskGoal, current_sense_obs_dim,
                           height_err_sense_obs_dim,
                           height_vel_sense_obs_dim)
+from .cfg_set import cfg_range
 from .sim_env import N_OBS, SimHexapodBalanceEnv
 
 DEG2RAD = math.pi / 180.0
@@ -114,10 +115,12 @@ class GoalGenerator:
         ref_cap = float(g.get("max_ref_deg", 2.5))
         self.max_roll = min(ref_cap, max_roll) * DEG2RAD
         self.max_pitch = min(ref_cap, max_pitch) * DEG2RAD
-        period = g.get("track_period_s", [2.5, 8.0])
+        period = cfg_range(g.get("track_period_s", [2.5, 8.0]),
+                           "goal.track_period_s")
         self.period_s = (float(period[0]), float(period[1]))
         self.ramp_s = float(g.get("ramp_s", 0.75))
-        rise = g.get("rise_height_mm", [30.0, 70.0])
+        rise = cfg_range(g.get("rise_height_mm", [30.0, 70.0]),
+                         "goal.rise_height_mm")
         max_h = float(cfg_get(cfg, "actions", "max_height_mm", default=5.0))
         self.rise_m = (min(float(rise[0]), max_h) * 0.001,
                        min(float(rise[1]), max_h) * 0.001)
@@ -204,7 +207,8 @@ class GoalGenerator:
         self.rise_start_bank = str(g.get("rise_start_bank", "") or "")
         self.rise_start_bank_frac = float(
             g.get("rise_start_bank_frac", 0.0))
-        raise_mm = g.get("raise_height_mm", [10.0, 30.0])
+        raise_mm = cfg_range(g.get("raise_height_mm", [10.0, 30.0]),
+                             "goal.raise_height_mm")
         self.raise_m = (min(float(raise_mm[0]), max_h) * 0.001,
                         min(float(raise_mm[1]), max_h) * 0.001)
         # Lower targets stay slightly shy of the full plant->belly drop

@@ -152,6 +152,55 @@ def test_export_dual_gru_subclasses_stay_unsupported(tmp_path):
                            "walk_phase_run_on_yaw": True})
 
 
+def test_export_transformer_is_compact_valid_and_loadable(tmp_path):
+    """Causal-transformer trunk (standwalk PHASE-1/PHASE-2, obs.history_
+    frames=N): stateless given the frame-stacked obs, so parity is a
+    random-obs sweep (no episode-reset/hidden-state protocol like GRU)."""
+    from stable_baselines3 import PPO
+
+    from rl_move.np_policy import ARCH_TRANSFORMER, NumpyTransformerModel
+    from rl_move.sim.transformer_policy import TransformerActorCriticPolicy
+
+    n_frames, frame_w = 3, 74
+    model = PPO(
+        TransformerActorCriticPolicy, _ExportEnv(n_frames * frame_w),
+        n_steps=8, batch_size=8, n_epochs=1, seed=7, device="cpu",
+        policy_kwargs={"n_frames": n_frames, "d_model": 8, "n_layers": 2,
+                       "n_heads": 2, "ff_dim": 16, "net_arch": [12, 9]})
+    _stamp(model)
+    checkpoint = tmp_path / "tf.zip"
+    artifact = tmp_path / "tf.json"
+    model.save(checkpoint)
+
+    payload = export(
+        str(checkpoint), str(artifact), training_hz=50.0,
+        extra_meta={"phase_hz": 1.333333, "walk_phase_run_on_yaw": True})
+
+    assert payload["meta"]["architecture"] == ARCH_TRANSFORMER
+    assert payload["meta"]["tf_n_frames"] == n_frames
+    assert payload["meta"]["tf_d_model"] == 8
+    assert payload["meta"]["tf_n_layers"] == 2
+    assert payload["meta"]["tf_n_heads"] == 2
+    assert payload["meta"]["hidden"] == [8, 12, 9]
+    assert artifact.stat().st_size < MAX_POLICY_BYTES
+    errors, info = validate_np_policy(json.loads(artifact.read_text()))
+    assert errors == []
+    assert info["hidden"] == [8, 12, 9]
+    loaded = load_np_policy(artifact)
+    assert isinstance(loaded, NumpyTransformerModel)
+    assert loaded.recurrent is False
+
+    rng = np.random.default_rng(9)
+    worst = 0.0
+    for _ in range(30):
+        obs = rng.normal(0, 1, n_frames * frame_w).astype(np.float32)
+        a_sb3, _ = model.predict(obs, deterministic=True)
+        a_np, state = loaded.predict(obs, deterministic=True)
+        assert state is None
+        worst = max(worst, float(np.max(np.abs(a_np - a_sb3))))
+    assert worst < 1e-5
+
+
 def test_export_obs75_mlp_keeps_legacy_matrix_layout(tmp_path):
     from stable_baselines3 import PPO
 

@@ -46,10 +46,12 @@ from rl_move.np_policy import (
     ARCH_DUAL_GRU,
     ARCH_MLP,
     ARCH_SINGLE_GRU,
+    ARCH_TRANSFORMER,
     MODE_ONEHOT_ORDER,
     NumpyDualGruModel,
     NumpyGruModel,
     NumpyMLPNLayerModel,
+    NumpyTransformerModel,
     pack_f32,
     validate_np_policy,
 )
@@ -158,6 +160,14 @@ def _structural_meta(pol, architecture: str) -> dict:
     elif architecture == ARCH_SINGLE_GRU:
         meta.update({
             "recurrent_hidden_size": int(pol.lstm_actor.hidden_size),
+        })
+    elif architecture == ARCH_TRANSFORMER:
+        fe = pol.pi_features_extractor
+        meta.update({
+            "tf_n_frames": int(fe.n_frames),
+            "tf_d_model": int(fe.embed.out_features),
+            "tf_n_layers": int(len(fe.encoder.layers)),
+            "tf_n_heads": int(fe.encoder.layers[0].self_attn.num_heads),
         })
     return meta
 
@@ -284,6 +294,61 @@ def _single_gru_payload(pol, meta: dict) -> dict:
     }
 
 
+def _transformer_payload(pol, meta: dict) -> dict:
+    from .transformer_policy import TransformerActorCriticPolicy
+
+    if not isinstance(pol, TransformerActorCriticPolicy):
+        raise TypeError(
+            f"expected TransformerActorCriticPolicy, got {type(pol)}")
+    fe = pol.pi_features_extractor
+    linears, activation = _generic_hidden_layers(
+        pol.mlp_extractor.policy_net, name="transformer actor head")
+    if activation != "tanh":
+        raise ValueError(
+            "transformer export only supports a tanh head "
+            f"(got {activation!r}; elu heads are not yet wired for this "
+            "architecture)")
+    meta["hidden"] = [int(fe.embed.out_features)] + [
+        int(lin.out_features) for lin in linears]
+
+    def layer_json(layer) -> dict:
+        return {
+            "ln1_w": _tpack(layer.norm1.weight),
+            "ln1_b": _tpack(layer.norm1.bias),
+            "in_proj_w": _tpack(layer.self_attn.in_proj_weight),
+            "in_proj_b": _tpack(layer.self_attn.in_proj_bias),
+            "out_proj_w": _tpack(layer.self_attn.out_proj.weight),
+            "out_proj_b": _tpack(layer.self_attn.out_proj.bias),
+            "ln2_w": _tpack(layer.norm2.weight),
+            "ln2_b": _tpack(layer.norm2.bias),
+            "lin1_w": _tpack(layer.linear1.weight),
+            "lin1_b": _tpack(layer.linear1.bias),
+            "lin2_w": _tpack(layer.linear2.weight),
+            "lin2_b": _tpack(layer.linear2.bias),
+        }
+
+    return {
+        "meta": meta,
+        "transformer": {
+            "embed_w": _tpack(fe.embed.weight),
+            "embed_b": _tpack(fe.embed.bias),
+            "pos_embed": _tpack(fe.pos_embed[0]),
+            "out_norm_w": _tpack(fe.out_norm.weight),
+            "out_norm_b": _tpack(fe.out_norm.bias),
+            "layers": [layer_json(layer) for layer in fe.encoder.layers],
+            "head": {
+                "layers": [
+                    {"W": _tpack(lin.weight), "b": _tpack(lin.bias)}
+                    for lin in linears
+                ],
+                "Wout": _tpack(pol.action_net.weight),
+                "bout": _tpack(pol.action_net.bias),
+                "activation": activation,
+            },
+        },
+    }
+
+
 def _parity_mlp(model, payload: dict, samples: int = 200) -> float:
     if "layers" in payload:
         # Generic N-layer path: run through the ACTUAL production loader
@@ -384,6 +449,23 @@ def _parity_single_gru(model, payload: dict, samples: int = 200
     return worst_action, worst_hidden
 
 
+def _parity_transformer(model, payload: dict, samples: int = 200) -> float:
+    """Random-obs parity, no sequence/state (the transformer is stateless
+    given the full frame-stacked obs each tick -- unlike the GRU formats,
+    there is no persistent hidden state or episode-reset protocol to
+    exercise here)."""
+    numpy_model = NumpyTransformerModel(payload)
+    rng = np.random.default_rng(0)
+    worst = 0.0
+    for _ in range(samples):
+        obs = rng.normal(
+            0, 1, payload["meta"]["obs_dim"]).astype(np.float32)
+        action_np = numpy_model.act(obs)
+        action_sb3, _ = model.predict(obs, deterministic=True)
+        worst = max(worst, float(np.max(np.abs(action_np - action_sb3))))
+    return worst
+
+
 def _ledger_run_for(policy_path: str) -> str | None:
     """Ledger run whose checkpoint `policy_path` is, by the launcher's naming
     contract (`ppo_goal_<run with '-' as '_'>.zip`); None when no ledger is
@@ -418,7 +500,10 @@ def export(policy_path: str, out_path: str, *, name: str = "",
             f"{JOINT_CONTRACT!r} coordinate contract; old checkpoints "
             "cannot be relabeled during export")
     pol = model.policy
-    if getattr(pol, "lstm_actor", None) is not None:
+    from .transformer_policy import TransformerActorCriticPolicy
+    if isinstance(pol, TransformerActorCriticPolicy):
+        architecture = ARCH_TRANSFORMER
+    elif getattr(pol, "lstm_actor", None) is not None:
         if isinstance(pol, DualGruActorCriticPolicy):
             architecture = ARCH_DUAL_GRU
         elif type(pol) is GruActorCriticPolicy:
@@ -457,7 +542,9 @@ def export(policy_path: str, out_path: str, *, name: str = "",
     # These widths are unambiguous descendants of the phase+yaw lineage.
     # Write the contract explicitly so the validator/runner never has to
     # infer it from a number alone.
-    if meta["obs_dim"] in (75, 81):
+    _frame_width = (meta["obs_dim"] // meta["tf_n_frames"]
+                    if architecture == ARCH_TRANSFORMER else meta["obs_dim"])
+    if _frame_width in (75, 81):
         meta["walk_yaw_cmd"] = True
     required = _structural_meta(pol, architecture)
     for key, expected in required.items():
@@ -469,6 +556,8 @@ def export(policy_path: str, out_path: str, *, name: str = "",
     payload = (_dual_gru_payload(pol, meta) if architecture == ARCH_DUAL_GRU
                else _single_gru_payload(pol, meta)
                if architecture == ARCH_SINGLE_GRU
+               else _transformer_payload(pol, meta)
+               if architecture == ARCH_TRANSFORMER
                else _mlp_payload(pol, meta))
     errors, _ = validate_np_policy(payload)
     if errors:
@@ -488,6 +577,12 @@ def export(policy_path: str, out_path: str, *, name: str = "",
         if worst >= 1e-5 or hidden_worst >= 1e-5:
             raise AssertionError(
                 "numpy single-GRU forward does not match SB3")
+    elif architecture == ARCH_TRANSFORMER:
+        worst = _parity_transformer(model, payload)
+        print(
+            f"parity: max |a_np - a_sb3| over 200 random obs = {worst:.2e}")
+        if worst >= 1e-5:
+            raise AssertionError("numpy transformer forward does not match SB3")
     else:
         worst = _parity_mlp(model, payload)
         print(

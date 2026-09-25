@@ -293,7 +293,14 @@ class RandRanges:
     # commands stay self-consistent; the drift is only visible through
     # physics (gravity/contacts/IMU) — exactly the failure that dropped
     # the robot on 08-09. Flag, not a range: never scaled by dr-scale.
-    zero_drift_cmd_frame: float = 0.0
+    # DEFAULT FLIPPED to 1 (2026-09-25): the whole cw-adapt50hz wide-DR
+    # campaign (83 arms, joint_zero_bias_deg up to 3) ran in legacy mode
+    # because no recipe set this key, so its headline "per-leg zero
+    # miscalibration" axis never displaced a foot physically. Every
+    # probe that established that premise (probe_dr_joint_panel,
+    # probe_ps200_transfer, paper_cpg_search) forced frame mode. Pass
+    # --cfg-set dr.zero_drift_cmd_frame=0 to reproduce a legacy run.
+    zero_drift_cmd_frame: float = 1.0
     encoder_noise_deg: float = 0.09      # ~1 LSB of the 12-bit encoder
     # IMU could be installed anywhere: gross orientation is canonicalized
     # once by imu_calibrate, so rotation DR covers the RESIDUAL error;

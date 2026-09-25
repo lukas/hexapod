@@ -100,6 +100,26 @@ def spawn_pose_q_start(env, start_at):
         qvel_bank = env._lower_start_bank_qvel()
         env._pending_bank_qvel_mj = (
             None if qvel_bank is None else qvel_bank[bi].copy())
+    elif start_at == "hold_bank":
+        # Composed-session HOLD entry start (2026-09-25, goal.
+        # hold_start_bank -- goal_task.sample()'s "hold" branch
+        # analogue of the lower_bank branch above, same harvested-
+        # pose/jitter/qvel-restore contract). Harvested via
+        # `eval_modeseq.py --dump-seg-qpos` (`hold_entry` tag) off a
+        # real post-rise composed session, not a bespoke rollout.
+        bank = env._hold_start_bank()
+        if bank is None:
+            raise RuntimeError(
+                "start_at='hold_bank' requires goal.hold_start_bank")
+        bi = int(env.rng.integers(len(bank)))
+        q_start = bank[bi].copy()
+        q_start += env.rng.uniform(-2.0, 2.0, N_JOINTS) * DEG2RAD
+        if env._ep_rand is not None:
+            q_start = q_start + env._ep_rand.start_offset_rad
+        q_start = env._clip_to_joint_limits(q_start)
+        qvel_bank = env._hold_start_bank_qvel()
+        env._pending_bank_qvel_mj = (
+            None if qvel_bank is None else qvel_bank[bi].copy())
     elif start_at == "walk_entry_bank":
         # Composed-session WALK entry start (2026-09-23 ~19:5x,
         # walk_task._sample_walk's own analogue of the lower_bank

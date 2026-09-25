@@ -344,6 +344,38 @@ class GoalGenerator:
             g.get("hold_start_jitter_frac", 0.0))
         self.hold_start_jitter_m = (
             min(5.0, max_h) * 0.001, min(30.0, max_h) * 0.001)
+        # Composed-session HOLD entry exposure bank (2026-09-25,
+        # standwalk STATUS ~01:2x: the new `eval_modeseq.py --dump-
+        # seg-qpos` `hold_entry`/`hold_cold_reset` tags found the
+        # composed-session `hold` segment -- entered right after a
+        # REAL rise, not env.reset()'s idealized static plant -- fails
+        # 9/29 det / 17/28 sto on the same `hold_min_load` fidget
+        # signature the isolated cold-start probe only saw at 2/10,
+        # 3-8x rarer. Root cause named in that entry: `hold` has NEVER
+        # had training exposure to a genuine post-rise carried-over
+        # pose/momentum, only the idealized static plant (this file's
+        # `start_at="plant"` default) or the small synthetic jitter
+        # above (`hold_start_jitter_frac`, a symmetric offset around
+        # the SAME plant target, not a real rise-tail pose). This is
+        # the exact `rise_start_bank`/`lower_start_bank`/
+        # `walk_entry_bank` generalization applied to the one composed
+        # boundary those three don't yet cover -- harvest real
+        # rise-exit poses (`build_seg_entry_bank.py --tag hold_entry`
+        # off an `eval_modeseq.py --dump-seg-qpos` dump) and let a
+        # fraction of HOLD episodes spawn from one instead of the
+        # plant. goal.hold_start_bank = npz path (key q_rad, shape
+        # (K,18), + optional v2 qvel_mujoco for goal.bank_qvel_restore,
+        # same contract as lower_start_bank/walk_entry_bank);
+        # goal.hold_start_bank_frac f = fraction of HOLD episodes that
+        # draw from it instead of the legacy plant/jitter start.
+        # Default OFF (frac<=0 or no path): conditional draw only when
+        # a bank is actually configured, so every existing hold-
+        # including lineage's rng stream is untouched (same short-
+        # circuit convention as lower_start_bank_frac/
+        # walk_entry_bank_frac above).
+        self.hold_start_bank = str(g.get("hold_start_bank", "") or "")
+        self.hold_start_bank_frac = float(
+            g.get("hold_start_bank_frac", 0.0))
 
     def set_rise_start_frac(self, frac: float) -> dict:
         """Move the rise flat/partial start-pose mix `frac` of the way
@@ -706,6 +738,20 @@ class GoalGenerator:
                 lo_m, hi_m = self.hold_start_jitter_m
                 start_at = "crouch"
                 crouch_dz = float(rng.uniform(lo_m, hi_m))
+        # Composed-session HOLD entry bank (2026-09-25, see
+        # goal.hold_start_bank/hold_start_bank_frac docstring above) --
+        # a SEPARATE conditional draw (not folded into the jitter elif
+        # above) so a bank-off run's rng stream is bit-exact regardless
+        # of the jitter setting, mirroring lower_start_bank_frac's own
+        # draw-after-the-legacy-branch placement. Overrides the jitter
+        # start_at/crouch_dz above when it fires (a real harvested pose
+        # is a strictly richer start-state than the synthetic crouch
+        # offset it replaces for that episode).
+        if (mode == "hold" and self.hold_start_bank
+                and self.hold_start_bank_frac > 0.0
+                and rng.random() < self.hold_start_bank_frac):
+            start_at = "hold_bank"
+            crouch_dz = 0.0
         lift_legs = self.quad_legs if mode == "quad" else None
         return GoalTrajectory(mode=mode, roll=roll, pitch=pitch,
                               height=height, unload_leg=unload_leg,

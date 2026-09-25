@@ -1825,6 +1825,43 @@ class SimHexapodBalanceEnv(_GymBase):
         self._lower_start_bank()
         return self._lower_bank_qvel_cache
 
+    def _hold_start_bank(self) -> np.ndarray | None:
+        """Harvested composed-session hold-entry poses (2026-09-25,
+        goal.hold_start_bank/hold_start_bank_frac; same lazy-cache
+        contract as _rise_start_bank/_lower_start_bank -- the hold-
+        mode analogue, harvested from a real post-rise `eval_modeseq.py
+        --dump-seg-qpos hold_entry` dump rather than the idealized
+        static plant every hold episode has spawned from until now."""
+        if hasattr(self, "_hold_bank_cache"):
+            return self._hold_bank_cache
+        path = cfg_get(self.cfg, "goal", "hold_start_bank", default=None)
+        bank, qvel_bank = None, None
+        if path:
+            arr, npz = _load_robot_abs_q_npz(
+                str(path), source="hold_start_bank")
+            if arr.ndim != 2 or arr.shape[1] != N_JOINTS or len(arr) == 0:
+                raise ValueError(
+                    f"hold_start_bank {path}: expected (K,{N_JOINTS}) "
+                    f"q_rad, got {arr.shape}")
+            bank = arr
+            if "qvel_mujoco" in npz.files:
+                qvel_bank = np.asarray(npz["qvel_mujoco"], dtype=float)
+                if qvel_bank.shape != bank.shape:
+                    npz.close()
+                    raise ValueError(
+                        f"hold_start_bank {path}: qvel_mujoco shape "
+                        f"{qvel_bank.shape} != q_rad shape {bank.shape}")
+            npz.close()
+        self._hold_bank_cache = bank
+        self._hold_bank_qvel_cache = qvel_bank
+        return bank
+
+    def _hold_start_bank_qvel(self) -> np.ndarray | None:
+        """Companion qvel array for _hold_start_bank (see
+        _lower_start_bank_qvel)."""
+        self._hold_start_bank()
+        return self._hold_bank_qvel_cache
+
     def _walk_entry_bank(self) -> np.ndarray | None:
         """Harvested composed-session walk-entry poses (2026-09-23,
         goal.walk_entry_bank/walk_entry_bank_frac; same lazy-cache

@@ -108,6 +108,8 @@ def start_kind_of(traj: Any) -> str:
         return "post_lower"
     if start_at == "lower_bank":
         return "post_walk_lower"
+    if start_at == "hold_bank":
+        return "post_rise_hold"
     if start_at == "walk_entry_bank":
         # goal.walk_entry_bank (2026-09-23): a harvested real rise->walk
         # composed-session handoff pose, the walk-side analog of

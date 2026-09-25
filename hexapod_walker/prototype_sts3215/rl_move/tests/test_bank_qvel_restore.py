@@ -70,6 +70,22 @@ def _lower_env(seed, **goal_over):
     return env
 
 
+def _hold_env(seed, **goal_over):
+    cfg = load_config()
+    goal = cfg.setdefault("goal", {})
+    goal["hold_start_jitter_frac"] = 0.0
+    goal["hold_height_cmd_frac"] = 0.0
+    for k, v in goal_over.items():
+        goal[k] = v
+    env = SimHexapodGoalEnv(cfg=cfg, seed=seed)
+    g = env._goal_gen
+    for m in ("hold", "lean", "track", "unload", "raise", "rise",
+              "lower", "quad", "walk"):
+        if hasattr(g, f"p_{m}"):
+            setattr(g, f"p_{m}", 1.0 if m == "hold" else 0.0)
+    return env
+
+
 def _walk_env(seed, **goal_over):
     cfg = load_config()
     goal = cfg.setdefault("goal", {})
@@ -129,6 +145,20 @@ def test_restore_matches_harvested_row_walk(tmp_path):
     for _ in range(6):
         env.reset()
         assert env._goal_traj.start_at == "walk_entry_bank"
+        qv = env.data.qvel[env._vadr]
+        d = np.abs(qvel - qv[None, :]).max(axis=1).min()
+        assert d < 1e-6, f"qvel {d} away from nearest harvested row"
+    env.close()
+
+
+def test_restore_matches_harvested_row_hold(tmp_path):
+    bank_path, q, qvel = _mk_bank(tmp_path)
+    env = _hold_env(seed=6, hold_start_bank=str(bank_path),
+                    hold_start_bank_frac=1.0,
+                    bank_qvel_restore=1.0, bank_qvel_jitter_frac=0.0)
+    for _ in range(6):
+        env.reset()
+        assert env._goal_traj.start_at == "hold_bank"
         qv = env.data.qvel[env._vadr]
         d = np.abs(qvel - qv[None, :]).max(axis=1).min()
         assert d < 1e-6, f"qvel {d} away from nearest harvested row"

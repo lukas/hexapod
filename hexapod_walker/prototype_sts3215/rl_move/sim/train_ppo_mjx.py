@@ -165,6 +165,29 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     ap.add_argument("--sac-ent-coef", default="auto",
                     help="SAC entropy coefficient ('auto' = learned "
                          "temperature, or a float)")
+    ap.add_argument("--sac-bank-downweight", type=float, default=1.0,
+                    help="replay-buffer sampling weight (0..1) for "
+                         "transitions whose episode drew a "
+                         "goal.*_start_bank curriculum injection "
+                         "(default 1.0 = uniform/off, bit-exact plain "
+                         "ReplayBuffer; <1.0 swaps in "
+                         "sac_bank_buffer.BankDownweightReplayBuffer so "
+                         "SAC's off-policy sampler under-represents "
+                         "bank-origin rows without changing the "
+                         "environment's own goal.*_start_bank_frac draw "
+                         "rate — walkcurr 2026-09-25, the untried "
+                         "'downweight the replay sampler, not the env "
+                         "draw probability' lever named after the "
+                         "ramp/delay exposure-timing mechanisms both "
+                         "closed FAIL)")
+    ap.add_argument("--sac-bank-info-value", default="post_walk_lower",
+                    help="comma-separated info['start_kind'] value(s) "
+                         "counted as bank-origin by "
+                         "--sac-bank-downweight (default "
+                         "'post_walk_lower' = goal.lower_start_bank; use "
+                         "'post_lower' for rise_start_bank, "
+                         "'post_rise_hold' for hold_start_bank, 'bank' "
+                         "for walk_entry_bank)")
     # Update-path protection (08-17, operator-approved
     # fb_20260817T005114 after the scratch3 late-run collapse; all
     # default OFF = legacy single-group optimizer, bit-exact).
@@ -1129,6 +1152,22 @@ def _build_sac_model(args, venv, net_arch, extra_pk, tb_dir):
         _sac_ent = float(_sac_ent)
     except (TypeError, ValueError):
         pass  # 'auto' / 'auto_0.1' pass through as strings
+    _bank_dw = float(getattr(args, "sac_bank_downweight", 1.0))
+    _bank_kw: dict = {}
+    if _bank_dw < 1.0:
+        from rl_move.sim.sac_bank_buffer import BankDownweightReplayBuffer
+        _bank_values = tuple(
+            v.strip() for v in
+            str(getattr(args, "sac_bank_info_value", "post_walk_lower"))
+            .split(",") if v.strip())
+        _bank_kw = dict(
+            replay_buffer_class=BankDownweightReplayBuffer,
+            replay_buffer_kwargs=dict(
+                bank_downweight=_bank_dw,
+                bank_info_values=_bank_values))
+        print(f"[mjx-train] SAC replay-buffer bank downweight "
+              f"{_bank_dw} on info['start_kind'] in {_bank_values} "
+              "(BankDownweightReplayBuffer)")
     if args.init_from is not None:
         model = SAC.load(
             args.init_from, env=venv, device=args.device,
@@ -1141,7 +1180,8 @@ def _build_sac_model(args, venv, net_arch, extra_pk, tb_dir):
             gradient_steps=args.sac_gradient_steps,
             learning_starts=args.sac_learning_starts,
             ent_coef=_sac_ent,
-            tensorboard_log=tb_dir)
+            tensorboard_log=tb_dir,
+            **_bank_kw)
         # A plain --init-from warm start keeps the checkpoint's own
         # architecture (same guard as PPO's plain-load branch): accept a
         # matching --net-arch, refuse only a genuine mismatch. [128, 128]
@@ -1182,7 +1222,8 @@ def _build_sac_model(args, venv, net_arch, extra_pk, tb_dir):
         ent_coef=_sac_ent,
         policy_kwargs=dict(net_arch=net_arch, **extra_pk),
         seed=args.seed, verbose=1, device=args.device,
-        tensorboard_log=tb_dir)
+        tensorboard_log=tb_dir,
+        **_bank_kw)
     print(f"[mjx-train] SAC (off-policy max-ent): buffer "
           f"{args.sac_buffer_size:,}, train_freq "
           f"{args.sac_train_freq} vec-step(s) x {venv.num_envs} "

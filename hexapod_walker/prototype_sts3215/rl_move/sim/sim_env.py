@@ -68,7 +68,7 @@ from .balance_reset import (
     reset_gravity_ease, reset_mode_seq_and_goal, spawn_pose_q_start,
 )
 from .balance_reward_hold import (
-    hold_duty_deficit_reward, hold_minload_shortfall_reward,
+    hold_minload_shortfall_reward,
     hold_still_gate_reward, transition_foot_drag_metric,
 )
 from .balance_terminations import (
@@ -2349,14 +2349,6 @@ class SimHexapodBalanceEnv(_GymBase):
         # lesson, commit 65edba7).
         self._tdrag_prev_xy = [None] * 6
         self._tdrag_prev_on = [False] * 6
-        # HOLD-mode duty-cycle-deficit pricing bookkeeping
-        # (reward.k_hold_duty_deficit, standwalk 2026-09-25): per-foot
-        # EMA of the loaded/unloaded state, reset to fully-loaded
-        # (1.0) at every hold segment entry -- see
-        # hold_duty_deficit_reward in balance_reward_hold.py, snapshot
-        # via mjx_host.SNAP_ATTRS (pool-restore lesson, commit
-        # 65edba7).
-        self._hold_duty_ema = [1.0] * 6
         # HOLD-mode min-foot-load termination bookkeeping
         # (safety.hold_min_load_terminate_s, standwalk mesh2 rung-6):
         # own EMA of the worst (min-over-feet) touch force this
@@ -3946,7 +3938,6 @@ class SimHexapodBalanceEnv(_GymBase):
         reward = hold_still_gate_reward(self, goal, parts, ref_quiet, reward)
         reward = hold_minload_shortfall_reward(self, minload_floor_n,
             minload_in_hold, minload_short_k, parts, reward)
-        reward = hold_duty_deficit_reward(self, goal, parts, reward)
         transition_foot_drag_metric(self, parts)
         lower_score_mode, depth_frac, reward = rise_scored_steps_reward(self,
             goal, h_err, h_rel, parts, reward)

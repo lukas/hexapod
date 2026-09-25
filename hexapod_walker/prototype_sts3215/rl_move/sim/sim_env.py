@@ -68,7 +68,7 @@ from .balance_reset import (
     reset_gravity_ease, reset_mode_seq_and_goal, spawn_pose_q_start,
 )
 from .balance_reward_hold import (
-    hold_churn_reward, hold_minload_shortfall_reward, hold_still_gate_reward,
+    hold_minload_shortfall_reward, hold_still_gate_reward,
     transition_foot_drag_metric,
 )
 from .balance_terminations import (
@@ -2349,15 +2349,6 @@ class SimHexapodBalanceEnv(_GymBase):
         # lesson, commit 65edba7).
         self._tdrag_prev_xy = [None] * 6
         self._tdrag_prev_on = [False] * 6
-        # HOLD-mode churn (liftoff-event) pricing bookkeeping
-        # (reward.k_hold_churn, standwalk 2026-09-25): per-foot
-        # previous loaded/unloaded state, None until the first
-        # observed hold tick so segment entry never charges a
-        # spurious "flip" against a prior segment's foot state --
-        # see hold_churn_reward in balance_reward_hold.py, snapshot
-        # via mjx_host.SNAP_ATTRS (pool-restore lesson, commit
-        # 65edba7).
-        self._hold_churn_prev_on = [None] * 6
         # HOLD-mode min-foot-load termination bookkeeping
         # (safety.hold_min_load_terminate_s, standwalk mesh2 rung-6):
         # own EMA of the worst (min-over-feet) touch force this
@@ -3947,7 +3938,6 @@ class SimHexapodBalanceEnv(_GymBase):
         reward = hold_still_gate_reward(self, goal, parts, ref_quiet, reward)
         reward = hold_minload_shortfall_reward(self, minload_floor_n,
             minload_in_hold, minload_short_k, parts, reward)
-        reward = hold_churn_reward(self, goal, parts, reward)
         transition_foot_drag_metric(self, parts)
         lower_score_mode, depth_frac, reward = rise_scored_steps_reward(self,
             goal, h_err, h_rel, parts, reward)

@@ -82,12 +82,6 @@ SNAP_ATTRS = (
     # Transition-drag bookkeeping (08-11 night, trans_drag_mm metric):
     # per-foot prev contact + XY, read every non-walk tick.
     "_tdrag_prev_xy", "_tdrag_prev_on",
-    # HOLD-mode churn (liftoff-event) pricing bookkeeping
-    # (reward.k_hold_churn, standwalk 2026-09-25 hold-churn-price):
-    # per-foot previous loaded/unloaded state, read/written every
-    # hold tick by balance_reward_hold.hold_churn_reward -- the exact
-    # attr class this list exists to catch.
-    "_hold_churn_prev_on",
     # GETUP (recover→stand→walk) episode state (08-11): mode flag +
     # the staged-progress ratchet baseline, set in _reset_finalize and
     # read every getup tick in walk_task._post_step. A pool-restored

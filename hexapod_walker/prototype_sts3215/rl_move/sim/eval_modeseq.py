@@ -34,11 +34,15 @@ is the gate/baseline both future arms must beat.
 
 Per segment: mode, start_kind (rise only), fall (or None), and the
 segment's OWN existing criterion (rise/lower: `env.plant_report` +
-height_err; walk: tracking error + gait_valid + prog_ratio, same
-definitions as eval_checkpoint's walk letter). Per episode: zero_fall
-over the whole grammar. Summary: per-segment-type success rate +
-fraction of episodes with zero falls end to end, det and stochastic
-passes both supported (--stochastic).
+height_err; walk: tracking error + gait_valid + prog_ratio; hold
+(added 2026-09-25, standwalk riseexperts-acq1 Next item):
+track_err_mean_deg + not-terminated, same criterion eval_checkpoint.py
+uses for its hold/lean/track modes, PLUS per-leg duty_cycle/
+swing_count fidget evidence -- same definitions as eval_checkpoint's
+walk/hold letters). Per episode: zero_fall over the whole grammar.
+Summary: per-segment-type success rate + fraction of episodes with
+zero falls end to end, det and stochastic passes both supported
+(--stochastic).
 
 Two drive modes:
 
@@ -172,9 +176,19 @@ def _random_drive_schedule(rng, v_lo: float, v_hi: float,
     return segs
 LOWER_PHASE_S = 10.0        # lower_hold_s(1) + lower_ramp_s(5) + settle
 RISE_PHASE_S = 12.5         # eval_handoff.py's PHASE_A_S (worst-case rise)
+# `hold` segment duration (standwalk 2026-09-25 ~01:0x/01:1x/01:3x: the
+# riseexperts-acq1 lineage's own isolated `eval_checkpoint.py --modes
+# hold` probe that first characterized this checkpoint's hold quality
+# (8/10 clean / 2/10 fidget-terminate at the strict safety threshold,
+# 10/10 clean at a loosened one, same underlying leg-fidget magnitude
+# either way) ran at this exact duration -- reusing it here keeps the
+# composed-session `hold` segment directly comparable to that already-
+# recorded evidence instead of re-characterizing at a new duration.
+HOLD_PHASE_S = 15.0
 TAIL_S = 0.5
 END_CLEAR_BELLY_MM = 60.0   # eval_checkpoint.py posture-strict lower rule
 HEIGHT_ERR_OK_MM = 15.0     # eval_checkpoint.py lower/rise success rule
+TRACK_ERR_OK_DEG = 1.5      # eval_checkpoint.py hold/lean/track success rule
 RISE_START_KINDS = ("flat", "bridge", "crouch")   # cold-start rotation
 CONTACT_N = 0.5             # eval_checkpoint.py touch-force threshold
 SWITCH_WIN_S = 1.5          # switch-window evidence (directive item 3)
@@ -282,6 +296,34 @@ class TwoSpecialistDriver:
         return a
 
 
+GRAMMAR_TOKENS = ("rise", "walk", "lower", "hold")
+GRAMMAR_START_TOKENS = ("rise", "lower")
+
+
+def parse_grammar(text: str) -> list[str]:
+    """--grammar resolver, factored out so it's unit-testable without
+    a full main() invocation (checkpoints/MuJoCo). Splits on commas,
+    drops blanks, and validates: at least one token, the first token
+    is `rise` or `lower` (every other token needs a prior stance
+    re-anchor to hand off from), and every token is a known segment
+    type. `hold` (added 2026-09-25, standwalk riseexperts-acq1
+    composed-session Next item) is a stance segment exactly like
+    `lower`/`walk` in this regard -- it re-anchors from wherever the
+    previous segment left the robot via the same generic
+    `reanchor_to()` helper, so it may appear anywhere after the first
+    token, never as the first token itself."""
+    grammar = [t.strip() for t in text.split(",") if t.strip()]
+    if not grammar:
+        raise SystemExit("--grammar must name at least one segment")
+    if grammar[0] not in GRAMMAR_START_TOKENS:
+        raise SystemExit("--grammar must start with rise or lower "
+                          "(walk/hold need a prior stance)")
+    for t in grammar:
+        if t not in GRAMMAR_TOKENS:
+            raise SystemExit(f"--grammar unknown token: {t}")
+    return grammar
+
+
 def resolve_episode_seconds(episode_seconds_arg: float | None) -> float:
     """--episode-seconds resolver, factored out so it's unit-testable
     without a full main() invocation (checkpoints/MuJoCo). Default
@@ -351,11 +393,12 @@ def main() -> int:
                          "flat/bridge/crouch)")
     ap.add_argument("--grammar", type=str, default="rise,walk,lower,"
                                                    "rise,walk",
-                    help="comma list of rise|walk|lower segment tokens; "
-                         "must start with rise or lower (walk needs a "
-                         "prior stance) and each rise/lower after the "
-                         "first re-anchors from wherever the previous "
-                         "segment left the robot, not a cold reset")
+                    help="comma list of rise|walk|lower|hold segment "
+                         "tokens; must start with rise or lower "
+                         "(walk/hold need a prior stance) and each "
+                         "rise/lower/hold after the first re-anchors "
+                         "from wherever the previous segment left the "
+                         "robot, not a cold reset")
     ap.add_argument("--speed", type=float, default=0.05)
     ap.add_argument("--drive-random", action="store_true",
                     help="walk segments use a per-episode randomized "
@@ -497,15 +540,7 @@ def main() -> int:
     from .servo_model import SimServoParams
     from .walk_task import SimHexapodJointWalkEnv
 
-    grammar = [t.strip() for t in args.grammar.split(",") if t.strip()]
-    if not grammar:
-        raise SystemExit("--grammar must name at least one segment")
-    if grammar[0] not in ("rise", "lower"):
-        raise SystemExit("--grammar must start with rise or lower "
-                          "(walk needs a prior stance)")
-    for t in grammar:
-        if t not in ("rise", "walk", "lower"):
-            raise SystemExit(f"--grammar unknown token: {t}")
+    grammar = parse_grammar(args.grammar)
 
     cfg = load_config()
     lo, hi = (float(x) for x in args.rise_height_mm.split(","))
@@ -733,12 +768,12 @@ def main() -> int:
             gen.force_rise_start = force_rise_start
         env.reset()
         gen.force_rise_start = None
-        if mode in ("walk", "lower"):
+        if mode in ("walk", "lower", "hold"):
             # The pristine reset BEFORE the composed-session physical
             # state is restored on top -- exactly the pose/velocity an
-            # isolated eval_checkpoint walk/lower episode starts from
-            # (same env, same cfg, same reset() call), captured here
-            # rather than in a separate harness run.
+            # isolated eval_checkpoint walk/lower/hold episode starts
+            # from (same env, same cfg, same reset() call), captured
+            # here rather than in a separate harness run.
             capture_seg_state(f"{mode}_cold_reset", 0.0)
         d.qpos[:] = keep_qpos
         d.qvel[:] = keep_qvel
@@ -748,7 +783,7 @@ def main() -> int:
         env.safety._last_safe = keep_safe
         mujoco.mj_forward(env.model, env.data)
         env._state = env._read_state()
-        if mode in ("walk", "lower"):
+        if mode in ("walk", "lower", "hold"):
             capture_seg_state(f"{mode}_entry", 0.0)
         return env._final_obs(
             build_obs(env.cfg, env._state, env._q_nom,
@@ -1012,6 +1047,72 @@ def main() -> int:
         score_posture(rec, pad_hist, h_err_mm)
         return obs, True
 
+    def hold_gait_evidence(rec: dict, contact_hist: list) -> None:
+        """Per-leg duty_cycle/swing_count evidence (report-only, no
+        bar) -- the exact fields the riseexperts-acq1 isolated `hold`
+        probe (standwalk 2026-09-25 ~01:1x) used to pin down its
+        fidgeting-leg pathology (a leg repeatedly unloading/re-
+        swinging many times during what should be a static hold).
+        Folding them into the composed session for free means a
+        future lineage's fidget signature is visible in the standard
+        gate output, not only in a bespoke probe."""
+        if not contact_hist:
+            return
+        contact = np.asarray(contact_hist, dtype=bool)
+        duty = contact.mean(axis=0)
+        swings = []
+        for f in range(6):
+            d = np.diff(contact[:, f].astype(int))
+            swings.append(int((d == -1).sum()))
+        rec["duty_cycle"] = [round(float(x), 2) for x in duty]
+        rec["swing_count"] = swings
+
+    def run_hold(obs, rec: dict):
+        """Static hold segment: re-anchors like walk/lower, then holds
+        the current stance for HOLD_PHASE_S. Success mirrors
+        eval_checkpoint.py's hold/lean/track rule (track_err_mean_deg
+        <= TRACK_ERR_OK_DEG) but ALSO requires the segment not to
+        terminate early -- eval_checkpoint's own hold success function
+        doesn't gate on `terminated` at all (a documented masking risk,
+        standwalk 2026-09-25 ~01:1x: a fidget-terminate episode would
+        silently read as a plain success off that field alone); this
+        composed-session version closes that gap rather than
+        reproducing it."""
+        obs = reanchor_to("hold")
+        meter = _SegMeter()
+        track_errs: list = []
+        h_err_mm = None
+        contact_hist: list = []
+        for _ in range(int(round(HOLD_PHASE_S / dt))):
+            a = act(obs, "hold")
+            obs, _rw, term, trunc, info = env.step(a)
+            grab()
+            meter.tick(info)
+            if "track_err_deg" in info:
+                track_errs.append(abs(float(info["track_err_deg"])))
+            if "height_err_mm" in info:
+                h_err_mm = float(info["height_err_mm"])
+            contact_hist.append([
+                float(env.data.sensordata[adr]) > CONTACT_N
+                for adr in env._touch_adr])
+            if term or trunc:
+                rec["fall"] = str(info.get("termination_reason")
+                                  or "episode_end")
+                rec["success"] = False
+                meter.finalize(rec)
+                hold_gait_evidence(rec, contact_hist)
+                return obs, False
+        meter.finalize(rec)
+        rec["track_err_mean_deg"] = (round(float(np.mean(track_errs)), 2)
+                                     if track_errs else None)
+        rec["height_err_end_mm"] = (None if h_err_mm is None
+                                    else round(abs(h_err_mm), 1))
+        hold_gait_evidence(rec, contact_hist)
+        rec["success"] = bool(rec["track_err_mean_deg"] is not None
+                              and rec["track_err_mean_deg"]
+                              <= TRACK_ERR_OK_DEG)
+        return obs, True
+
     results: dict = {"cfg_set": args.cfg_set or [], "grammar": grammar,
                      "speed": args.speed, "deterministic": det,
                      "drive_random": bool(args.drive_random),
@@ -1055,6 +1156,8 @@ def main() -> int:
                         (round(s, 2), round(x, 4), round(y, 4))
                         for s, x, y in sched]
                 obs, alive = run_walk(obs, seg, sched)
+            elif mode == "hold":
+                obs, alive = run_hold(obs, seg)
             else:
                 obs, alive = run_lower(obs, seg)
             if not alive:
@@ -1106,6 +1209,21 @@ def main() -> int:
                 if zs:
                     summary[mode]["drive_z_mean_mm_med"] = round(
                         float(np.median(zs)), 1)
+        if mode == "hold":
+            terrs = [s["track_err_mean_deg"] for s in segs
+                     if s.get("track_err_mean_deg") is not None]
+            if terrs:
+                summary[mode]["track_err_deg_med"] = round(
+                    float(np.median(terrs)), 3)
+            # Fidget evidence (no bar): the worst single leg's swing
+            # count per episode, medianed -- a static hold should read
+            # ~0; the riseexperts-acq1 probe's fidgeting legs read
+            # 12-33 swings in 15s (standwalk 2026-09-25 ~01:1x).
+            swc = [max(s["swing_count"]) for s in segs
+                   if s.get("swing_count")]
+            if swc:
+                summary[mode]["max_leg_swings_med"] = round(
+                    float(np.median(swc)), 1)
     tilts = [s["switch_tilt_deg"] for segs in by_type.values()
              for s in segs if "switch_tilt_deg" in s]
     if tilts:

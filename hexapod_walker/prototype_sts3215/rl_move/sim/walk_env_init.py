@@ -285,6 +285,53 @@ def init_charge_ramps(env):
             "target_m": _da_target_mm / 1000.0,
             "frac": 1.0,
         }
+    # Turn-in-place EXPOSURE-TIMING ramp (09-25, walkcurr turn-authority
+    # Next-1 item: CURRENT_TRUTHS/STATUS.md 2026-09-24 ~21:2x closed the
+    # STATIC command-mix fraction `goal.walk_turn_in_place_frac` (tried
+    # at a fixed 0.5 from step 0, both `drramp` and `easedterm` SAC
+    # bases, warm-started-from-a-turn-specialist and scratch, 4/4 FAIL —
+    # "the interference is structural to the task mixture itself... not
+    # the init distribution or the termination caps"). That closure
+    # never varied WHEN in training the mixed exposure starts — every
+    # arm commanded turn-in-place segments from tick 0, before either
+    # walk-forward or turn-in-place is separately established. This
+    # ramp is the untried TIMING axis its own closure names ("a
+    # nonzero-wz-seeding curriculum"): with
+    # goal.walk_turn_in_place_frac_ramp_steps > 0, the live turn-in-
+    # place draw fraction starts at
+    # goal.walk_turn_in_place_frac_ramp_start (default 0.0 = pure
+    # walk-forward only) and anneals LINEARLY up to the cfg target
+    # (goal.walk_turn_in_place_frac) over that many GLOBAL env steps,
+    # letting the policy consolidate plain walking before the
+    # turn-in-place command distribution is introduced. Same
+    # cfg-armed / trainer-driven / default-OFF contract as every other
+    # ramp in this file: default absent/0 is bit-exact legacy
+    # (env._tip_frac_override stays None, the direct cfg read in
+    # walk_task.py._sample_walk is unchanged); armed-but-unbroadcast
+    # (trainer never calls apply_walk_tip_frac) sits at the FULL cfg
+    # target because the override is only set once the trainer
+    # broadcasts, so a train script that forgets to wire the callback
+    # fails safe at the ALREADY-refuted static-mix behavior, never a
+    # silently-diluted one. Tests:
+    # rl_move/tests/test_walk_tip_frac_ramp.py.
+    env._tip_frac_ramp: dict | None = None
+    env._tip_frac_override: float | None = None
+    _tip_ramp_steps = int(float(cfg_get(
+        env.cfg, "goal", "walk_turn_in_place_frac_ramp_steps",
+        default=0) or 0))
+    if _tip_ramp_steps > 0:
+        _tip_target = float(cfg_get(
+            env.cfg, "goal", "walk_turn_in_place_frac", default=0.0))
+        _tip_start = float(cfg_get(
+            env.cfg, "goal", "walk_turn_in_place_frac_ramp_start",
+            default=0.0))
+        env._tip_frac_ramp = {
+            "steps": _tip_ramp_steps,
+            "start": _tip_start,
+            "target": _tip_target,
+            "frac": 0.0,
+        }
+
     # Dense walk-charge RAMP (08-23, walkcurr fwd1/fwd2 dig-in):
     # from-scratch PPO froze into a tilt-safe splayed crouch for
     # 2M steps in three straight rung-1 arms because the dense

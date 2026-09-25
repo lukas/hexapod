@@ -1466,6 +1466,44 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         for b, r in self._wc_results.items()},
         }
 
+    def apply_walk_tip_frac(self, frac: float) -> dict:
+        """Move the live turn-in-place command-mix fraction to
+        ``frac`` of the ramp (0 = the ramp-start mix, usually a low/
+        zero turn-in-place exposure so pure walk-forward is
+        consolidated first; 1 = the cfg target
+        ``goal.walk_turn_in_place_frac``); trainer-driven — see the
+        ``goal.walk_turn_in_place_frac_ramp_steps`` block in
+        ``walk_env_init.init_charge_ramps``. Mirrors
+        ``apply_drag_allow_frac``'s contract exactly: raises when the
+        ramp is not armed, so a broadcast that silently no-ops is
+        never a hidden failure mode.
+        """
+        if self._tip_frac_ramp is None:
+            raise RuntimeError(
+                "apply_walk_tip_frac called but goal."
+                "walk_turn_in_place_frac_ramp_steps is not set (>0) "
+                "in this env's cfg — the turn-in-place exposure ramp "
+                "is not armed")
+        f = min(max(float(frac), 0.0), 1.0)
+        s = self._tip_frac_ramp["start"]
+        t = self._tip_frac_ramp["target"]
+        self._tip_frac_override = s + f * (t - s)
+        self._tip_frac_ramp["frac"] = f
+        return {"frac": f, "tip_frac": self._tip_frac_override}
+
+    def _current_tip_frac(self) -> float:
+        """Live goal.walk_turn_in_place_frac draw probability used by
+        ``_sample_walk``: the ramp override when
+        ``goal.walk_turn_in_place_frac_ramp_steps`` is armed AND the
+        trainer has broadcast at least once, else the plain cfg value
+        (bit-exact legacy / armed-but-unbroadcast-at-target contract,
+        mirrors ``_walk_charge_scale``)."""
+        ov = self._tip_frac_override
+        if ov is not None:
+            return float(ov)
+        return float(cfg_get(self.cfg, "goal",
+                             "walk_turn_in_place_frac", default=0.0))
+
     def apply_drag_allow_frac(self, frac: float) -> dict:
         """Move the live drag_stance allowance to ``frac`` of the ramp
         (0 = loose/noisy-safe start, 1 = the cfg target allowance);
@@ -2008,8 +2046,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # sign draw (both directions get equal exposure by
         # construction; the drift direction can never dominate the
         # curriculum). Applied LAST so it overrides resample segments.
-        tip_frac = float(cfg_get(self.cfg, "goal",
-                                 "walk_turn_in_place_frac", default=0.0))
+        tip_frac = self._current_tip_frac()
         if self._yaw_cmd and tip_frac > 0.0 and rng.random() < tip_frac:
             vx[:] = 0.0
             vy[:] = 0.0

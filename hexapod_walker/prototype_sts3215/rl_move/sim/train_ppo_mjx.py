@@ -2351,6 +2351,41 @@ def main(argv: list[str] | None = None) -> int:
                   f"--steps ({args.steps:,}) — the policy will NEVER "
                   "train on the full target start mix in this run")
 
+    # Turn-in-place EXPOSURE-TIMING ramp (09-25, walkcurr turn-
+    # authority Next-1 item — see walk_env_init.init_charge_ramps for
+    # the full mechanism/why: the static 0.5 mix ratio was already
+    # closed 4/4 FAIL regardless of init/termination base; this ramp
+    # tries the untried TIMING axis instead of another mix-ratio or
+    # optimizer dose). Same cfg-armed / trainer-driven / default-OFF
+    # contract as the ramps above.
+    _tip_ramp_steps = 0
+    if env_kw.get("cfg") is not None:
+        from rl_move.config import cfg_get as _cfg_get_tip
+        _tip_ramp_steps = int(float(_cfg_get_tip(
+            env_kw["cfg"], "goal", "walk_turn_in_place_frac_ramp_steps",
+            default=0) or 0))
+
+    def _tip_frac_ramp_frac_at(step: int) -> float:
+        return min(1.0, float(step) / float(_tip_ramp_steps))
+
+    def _tip_frac_ramp_apply(target_venv, step: int) -> dict | None:
+        if _tip_ramp_steps <= 0:
+            return None
+        f = _tip_frac_ramp_frac_at(step)
+        return target_venv.env_method("apply_walk_tip_frac", f)[0]
+
+    if _tip_ramp_steps > 0:
+        _tip0 = _tip_frac_ramp_apply(venv, 0)
+        print(f"[tip-frac-ramp] armed: {_tip_ramp_steps:,} global env "
+              "steps from the ramp-start turn-in-place mix to the cfg "
+              f"target; step-0 tip_frac={_tip0['tip_frac']:.3f}")
+        if _tip_ramp_steps >= args.steps:
+            print("[tip-frac-ramp] WARNING: goal."
+                  f"walk_turn_in_place_frac_ramp_steps "
+                  f"({_tip_ramp_steps:,}) >= --steps ({args.steps:,}) "
+                  "— the policy will NEVER train on the full target "
+                  "turn-in-place mix in this run")
+
     # Dense walk-charge RAMP (08-23, walkcurr fwd1/fwd2 dig-in — see
     # walk_task.py's __init__ block for the mechanism). Same cfg-armed
     # / trainer-driven / default-OFF contract as the two ramps above.
@@ -3644,6 +3679,39 @@ def main(argv: list[str] | None = None) -> int:
                             vals["partial_frac"]})
 
         callbacks.append(_RiseStartRampCb())
+    if _tip_ramp_steps > 0:
+        class _TipFracRampCb(BaseCallback):
+            """Advance the turn-in-place exposure-timing ramp once per
+            rollout (see the arming block after venv construction).
+            W&B gets the live mix under tip_frac_ramp/*."""
+
+            def __init__(self):
+                super().__init__()
+                self._finished = False
+
+            def _on_step(self) -> bool:
+                return True
+
+            def _on_rollout_end(self) -> None:
+                if self._finished:
+                    return
+                vals = _tip_frac_ramp_apply(venv, self.num_timesteps)
+                if vals is None:
+                    return
+                if vals["frac"] >= 1.0:
+                    self._finished = True
+                    print("[tip-frac-ramp] ramp complete @ "
+                          f"{self.num_timesteps:,} steps — training on "
+                          "the full target turn-in-place mix from "
+                          "here on")
+                if run is not None:
+                    import wandb
+                    wandb.log({
+                        "global_step": self.num_timesteps,
+                        "tip_frac_ramp/frac": vals["frac"],
+                        "tip_frac_ramp/tip_frac": vals["tip_frac"]})
+
+        callbacks.append(_TipFracRampCb())
     if _wc_ramp_steps > 0:
         class _WalkChargeRampCb(BaseCallback):
             """Advance the dense walk-charge ramp once per rollout

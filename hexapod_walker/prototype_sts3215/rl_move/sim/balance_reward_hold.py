@@ -242,3 +242,87 @@ def transition_foot_drag_metric(env, parts):
             env._tdrag_prev_on[f_td] = on_td
         parts["trans_drag_mm"] = drag_td * 1000.0
 
+
+def hold_duty_deficit_reward(env, goal, parts, reward):
+    """HOLD-mode per-foot DUTY-CYCLE-DEFICIT price (2026-09-25, standwalk
+    STATUS ~03:2x follow-up to the just-CLOSED `reward.k_hold_churn`
+    FAIL-MECHANISM canary). That canary priced the discrete liftoff
+    EVENT (a loaded foot going airborne) and produced ZERO measurable
+    change in the metered flip rate at either dose over 2M steps --
+    the run's own verdict named a structurally different, still-
+    untried shape as the live alternative: "price PROPORTIONAL to
+    duty-cycle deficit (a continuous shaping term, not a flat
+    per-event count)". This is that term.
+
+    Instead of counting discrete loaded->unloaded transitions, this
+    tracks a per-foot EXPONENTIAL MOVING AVERAGE of the loaded/
+    unloaded state (time constant `reward.hold_duty_deficit_tau_s`,
+    default 1.0 s) and charges every hold tick proportional to how far
+    below fully-loaded (duty target 1.0) that EMA currently sits,
+    averaged across all six feet. A foot that fidgets (repeatedly
+    unloads and reloads) keeps its own EMA depressed the whole time it
+    is cycling, so the price is a smooth function of RECENT duty
+    history, not a one-tick spike at the instant of a state change --
+    the gradient exists continuously while a foot is mid-fidget, not
+    only at its edges. A foot that reloads and stays down recovers
+    (and stops being charged) as its EMA climbs back toward 1.0 over
+    the same time constant -- deliberately the mirror image of the
+    closed churn price, which never charged reloads at all.
+
+    cfg `reward.k_hold_duty_deficit` (cost scale, default 0.0 = off,
+    bit-exact -- the whole block, including EMA bookkeeping, is
+    skipped when 0 so an inert lever never touches state).
+    `reward.hold_duty_load_n` (default 0.5 N, the same per-foot
+    loaded-force threshold `hold_churn_reward`/
+    `transition_foot_drag_metric` already used) sets the loaded/
+    unloaded boundary. `reward.hold_duty_deficit_tau_s` (default 1.0)
+    is the EMA time constant in seconds (smaller = more reactive/
+    event-like, larger = smoother/slower).
+
+    Scoped to `mode == "hold"` only (not `track`) and the per-foot EMA
+    is reset to 1.0 (fully loaded) at the first tick of every hold
+    SEGMENT (`_step_i == _seg_entry_step`, the same marker
+    `hold_churn_reward`/`hold_min_load_terminate_grace_s` read) so a
+    composed session's prior segment -- including a PRIOR hold
+    segment -- can never leak a stale duty history into a fresh one.
+    """
+    k_duty = float(cfg_get(env.cfg, "reward", "k_hold_duty_deficit",
+                           default=0.0))
+    if k_duty <= 0.0:
+        return reward
+    if (goal is None or env._goal_traj is None
+            or getattr(env._goal_traj, "mode", "") != "hold"
+            or env._pad_z_ref is None):
+        return reward
+    thr_n = float(cfg_get(env.cfg, "reward", "hold_duty_load_n",
+                          default=0.5))
+    tau_s = float(cfg_get(env.cfg, "reward", "hold_duty_deficit_tau_s",
+                          default=1.0))
+    loaded_now = []
+    for i in range(6):
+        adr = env._touch_adr[i]
+        if adr >= 0:
+            f_n = float(env.data.sensordata[adr])
+            loaded_now.append(1.0 if f_n > thr_n else 0.0)
+        else:   # no sensor: fall back to the clearance test
+            clear_i = (float(env.data.xpos[env._pad_bids[i], 2])
+                       - env._pad_z_ref[i])
+            loaded_now.append(
+                1.0 if clear_i <= PLANT_SPEC["foot_down_mm"] * 0.001
+                else 0.0)
+    since_seg = env._step_i - env._seg_entry_step
+    ema = getattr(env, "_hold_duty_ema", None)
+    if since_seg <= 0 or ema is None:
+        ema = [1.0] * 6
+    alpha = min(1.0, env.dt / max(tau_s, 1e-6))
+    new_ema = [e + alpha * (l - e) for e, l in zip(ema, loaded_now)]
+    env._hold_duty_ema = new_ema
+    deficit = sum(max(0.0, 1.0 - e) for e in new_ema) / 6.0
+    parts["hold_duty_ema_mean"] = sum(new_ema) / 6.0
+    if deficit > 0.0:
+        pen = k_duty * deficit * env.dt
+        reward -= pen
+        parts["hold_duty_deficit_pen"] = parts.get(
+            "hold_duty_deficit_pen", 0.0) - pen
+    return reward
+

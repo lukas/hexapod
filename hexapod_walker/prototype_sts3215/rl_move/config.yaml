@@ -289,6 +289,19 @@ env:
   # ratio (calibrate_slip.py) on fresh data to calibrate properly.
   foot_friction_slide: 0.0
 
+  # Persisted-difficulty-curriculum DR-draw rejection sampling
+  # (standwalk track; ADOPTED AS DEFAULT 2026-09-26 --
+  # cw-adapt50hz-tfh16-noramp-ceil225-difficultyreject-fromceil20-{s0,s1}
+  # both PASSED: n=100 own-cfg gait_valid rate +24pp/+28pp,
+  # CI-excluding, vs the ceil20 zero-shot parent at ceil225. At reset,
+  # redraw (bounded, same rng stream) up to difficulty_reject_max_tries
+  # times while the persisted draw_feasibility.LogisticClassifier's
+  # predicted P(gait_valid) stays below difficulty_reject_threshold;
+  # keeps the last draw regardless once the budget is spent. See
+  # SimHexapodJointWalkEnv._sample_ep_rand_with_difficulty_filter.
+  difficulty_reject_threshold: 0.5
+  difficulty_reject_max_tries: 4
+
 obs:
   q_scale: 1.0               # rad → obs (tune from logs)
   qd_scale: 2.0              # rad/s

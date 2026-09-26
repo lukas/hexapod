@@ -1,34 +1,34 @@
-"""env.difficulty_reject_infeasible -- persisted-difficulty-curriculum
-DR-draw rejection sampling (standwalk track, 2026-09-26).
+"""persisted-difficulty-curriculum DR-draw rejection sampling
+(standwalk track; ADOPTED AS DEFAULT 2026-09-26).
 
 Background: the SENSE/reward-reshaping lever fleet (park-price,
 measured-velocity, current-sense, foot-contact-sense observation
 channels, PLUS the oracle-ground-truth observation channel, PLUS the
-2-axis `k_hard_draw_bonus` reward reweight) is now CLOSED 0/many --
-every one of them either lets the policy SENSE the draw better or
-REWEIGHTS how much an episode's return counts, but none of them change
-WHICH draws the policy actually trains on. `draw_feasibility.py`
+2-axis `k_hard_draw_bonus` reward reweight) was CLOSED 0/many --
+every one of them either let the policy SENSE the draw better or
+REWEIGHTED how much an episode's return counts, but none of them
+changed WHICH draws the policy actually trains on. `draw_feasibility.py`
 independently found the raw DR draw predicts `gait_valid` at 88.4% CV
 accuracy (AUC 0.937, 3920 pooled probe episodes) using a full ~50-axis
 logistic fit -- far more separable than the 2-axis proxy
-`k_hard_draw_bonus` already tried and closed. This is the one
-genuinely different, previously-unbuilt mechanism STATUS.md's own
-"Next" list named: use the FULL persisted classifier not to reweight
-reward, but to REJECT-and-redraw predicted-infeasible episodes at
-reset, so training time is spent on the (large, per the classifier)
-feasible-but-still-hard region of DR space instead of episodes no
-policy can plausibly solve.
+`k_hard_draw_bonus` already tried and closed. This module is that
+genuinely different mechanism: REJECT-and-redraw predicted-infeasible
+episodes at reset using the FULL persisted classifier, so training
+time is spent on the (large, per the classifier) feasible-but-still-
+hard region of DR space instead of episodes no policy can plausibly
+solve. `cw-adapt50hz-tfh16-noramp-ceil225-difficultyreject-
+fromceil20-{s0,s1}` both PASSED decisively (n=100 own-cfg gait_valid
+rate +24pp/+28pp, CI-excluding, vs the ceil20 zero-shot parent at
+ceil225) -- this is now unconditional (config-key/off-branch removed
+per RESEARCH_RULES "Code changes").
 
 Contract under test (RESEARCH_RULES "Tests": fast, mechanics-only,
 mesh model, no artifacts):
-  - default OFF (`env.difficulty_reject_infeasible` unset/False) is
-    bit-exact: exactly one `randomizer.sample(rng)` call, identical
-    RNG stream/draw to a keyless env of the same seed;
-  - ON with a stub classifier that always predicts "infeasible"
-    redraws exactly `max_tries - 1` times (bounded, keeps the LAST
-    draw, never loops forever);
-  - ON with a stub classifier that always predicts "feasible" never
-    redraws (only the first sample() call happens, same as OFF);
+  - a stub classifier that always predicts "infeasible" redraws
+    exactly `max_tries - 1` times (bounded, keeps the LAST draw, never
+    loops forever);
+  - a stub classifier that always predicts "feasible" never redraws
+    (only the first sample() call happens);
   - a missing/unreadable persisted model file fails SAFE to the first
     draw unmodified, no crash;
   - `draw_feasibility.save_model`/`load_model` round-trips a fitted
@@ -62,38 +62,6 @@ def _walk_env(seed: int, cfg_overrides: dict | None = None
     return env
 
 
-# --------------------------------------------------------------- default off
-
-def test_default_off_is_bit_exact_vs_keyless():
-    env_a = _walk_env(seed=7)
-    env_b = _walk_env(seed=7, cfg_overrides={})
-    ra = env_a.reset()
-    rb = env_b.reset()
-    np.testing.assert_array_equal(ra[0], rb[0])
-    # Same RNG stream consumed: a subsequent independent draw must also
-    # match (proves no extra rng.random()/uniform() calls happened).
-    draw_a = env_a.randomizer.sample(env_a.rng)
-    draw_b = env_b.randomizer.sample(env_b.rng)
-    np.testing.assert_allclose(draw_a.link_scale, draw_b.link_scale)
-    env_a.close()
-    env_b.close()
-
-
-def test_default_off_calls_sample_exactly_once(monkeypatch):
-    env = _walk_env(seed=1)
-    calls = {"n": 0}
-    real_sample = env.randomizer.sample
-
-    def counting_sample(rng):
-        calls["n"] += 1
-        return real_sample(rng)
-
-    monkeypatch.setattr(env.randomizer, "sample", counting_sample)
-    env.reset()
-    assert calls["n"] == 1
-    env.close()
-
-
 # -------------------------------------------------------- rejection sampling
 
 class _StubClf:
@@ -105,8 +73,7 @@ class _StubClf:
 
 def _arm_reject(env, monkeypatch, always_prob: float, max_tries: int = 4,
                  threshold: float = 0.5):
-    env.cfg.setdefault("env", {})["difficulty_reject_infeasible"] = True
-    env.cfg["env"]["difficulty_reject_max_tries"] = max_tries
+    env.cfg.setdefault("env", {})["difficulty_reject_max_tries"] = max_tries
     env.cfg["env"]["difficulty_reject_threshold"] = threshold
     monkeypatch.setattr(env, "_get_difficulty_classifier",
                          lambda: (_StubClf(), ["feature_a"]))
@@ -150,7 +117,6 @@ def test_always_feasible_never_redraws(monkeypatch):
 
 def test_missing_model_file_fails_safe(monkeypatch):
     env = _walk_env(seed=3, cfg_overrides={
-        "difficulty_reject_infeasible": True,
         "difficulty_model_path": "/nonexistent/path/does_not_exist.json"})
     # Must not raise, and must fall back to a single unmodified draw.
     obs, info = env.reset()

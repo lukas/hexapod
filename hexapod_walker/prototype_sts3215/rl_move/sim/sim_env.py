@@ -3391,29 +3391,27 @@ class SimHexapodBalanceEnv(_GymBase):
         return self._post_step(self._step_finish(ctx))
 
     def _sample_ep_rand_with_difficulty_filter(self):
-        """Draw this episode's `EpisodeRandomization`, optionally
-        REJECTING and re-drawing predicted-infeasible draws (standwalk
-        difficulty-curriculum lever, 2026-09-26 -- the "persisted
-        difficulty curriculum on the DR sampler" that STATUS.md's
-        SENSE/reward-reshaping closure (a/b/c/d/e all TIE, 09-26
-        ~13:0x) flagged as the one remaining, unbuilt, genuinely
-        DIFFERENT mechanism: every closed lever so far only added an
-        observation channel or reweighted the REWARD of an episode
-        that still trains exactly once regardless of its draw; this
-        changes which draws the policy actually sees, using the
-        FULL persisted `draw_feasibility.LogisticClassifier` (88.4%
-        CV accuracy / AUC 0.937 on 3920 pooled probe episodes as of
-        this build, `rl_move/sim/data/draw_feasibility_model.json`)
-        rather than the 2-axis proxy `_compute_hard_draw_mult` already
-        uses (that reward-only proxy lever is the already-CLOSED
-        `k_hard_draw_bonus`/harddraw2x arm -- this is not a repeat of
-        it).
+        """Draw this episode's `EpisodeRandomization`, REJECTING and
+        re-drawing predicted-infeasible draws (persisted-difficulty-
+        curriculum lever, standwalk, 2026-09-26; ADOPTED AS DEFAULT
+        2026-09-26 after `cw-adapt50hz-tfh16-noramp-ceil225-
+        difficultyreject-fromceil20-{s0,s1}` both PASSED decisively:
+        n=100 own-cfg gait_valid rate +24pp/+28pp, CI-excluding
+        (z=3.82/4.51), vs the ceil20 zero-shot parent at ceil225, prog
+        median held, fewer sacrificed legs than the scripted-tripod
+        floor in both seeds' fixed 6-episode owncfg draw). Every prior
+        SENSE/reward-reshaping lever (park-price, measured-velocity,
+        current-sense, foot-contact-sense, oracle ground-truth
+        observation channels; the 2-axis `k_hard_draw_bonus` reward
+        reweight) only let the policy sense the draw better or
+        reweighted an episode's return -- this is the first lever that
+        changes WHICH draws the policy actually trains on, using the
+        FULL persisted `draw_feasibility.LogisticClassifier` (88.4% CV
+        accuracy / AUC 0.937 on 3920 pooled probe episodes,
+        `rl_move/sim/data/draw_feasibility_model.json`).
 
-        cfg `env.difficulty_reject_infeasible` (bool, default False):
-        OFF is bit-exact -- exactly one `self.randomizer.sample(rng)`
-        call, identical to every pre-2026-09-26 lineage's RNG stream.
-        ON: redraw (consuming more of the SAME rng stream, so still
-        fully seed-reproducible) up to `env.difficulty_reject_max_tries`
+        Redraws (consuming more of the SAME rng stream, so still fully
+        seed-reproducible) up to `env.difficulty_reject_max_tries`
         times (default 4, i.e. up to 3 rejections) while the model's
         predicted P(gait_valid) for the drawn `EpisodeRandomization.
         summary()` stays below `env.difficulty_reject_threshold`
@@ -3427,9 +3425,6 @@ class SimHexapodBalanceEnv(_GymBase):
         if self.randomizer is None:
             return None
         draw = self.randomizer.sample(self.rng)
-        if not bool(cfg_get(self.cfg, "env", "difficulty_reject_infeasible",
-                             default=False)):
-            return draw
         clf_order = self._get_difficulty_classifier()
         if clf_order is None:
             return draw

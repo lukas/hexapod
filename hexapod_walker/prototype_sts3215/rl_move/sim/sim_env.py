@@ -2062,8 +2062,7 @@ class SimHexapodBalanceEnv(_GymBase):
         # walk_entry_bank branches (balance_reset.py) set it.
         self._pending_bank_qvel_mj = None
 
-        self._ep_rand = (self.randomizer.sample(self.rng)
-                         if self.randomizer is not None else None)
+        self._ep_rand = self._sample_ep_rand_with_difficulty_filter()
         self._hard_draw_mult = self._compute_hard_draw_mult()
         self._reset_start_offset_rad = self._sample_reset_start_offset_rad()
         if self._struct_comp is not None:
@@ -3390,6 +3389,82 @@ class SimHexapodBalanceEnv(_GymBase):
         self._update_foot_catch_state()
         self._advance()
         return self._post_step(self._step_finish(ctx))
+
+    def _sample_ep_rand_with_difficulty_filter(self):
+        """Draw this episode's `EpisodeRandomization`, optionally
+        REJECTING and re-drawing predicted-infeasible draws (standwalk
+        difficulty-curriculum lever, 2026-09-26 -- the "persisted
+        difficulty curriculum on the DR sampler" that STATUS.md's
+        SENSE/reward-reshaping closure (a/b/c/d/e all TIE, 09-26
+        ~13:0x) flagged as the one remaining, unbuilt, genuinely
+        DIFFERENT mechanism: every closed lever so far only added an
+        observation channel or reweighted the REWARD of an episode
+        that still trains exactly once regardless of its draw; this
+        changes which draws the policy actually sees, using the
+        FULL persisted `draw_feasibility.LogisticClassifier` (88.4%
+        CV accuracy / AUC 0.937 on 3920 pooled probe episodes as of
+        this build, `rl_move/sim/data/draw_feasibility_model.json`)
+        rather than the 2-axis proxy `_compute_hard_draw_mult` already
+        uses (that reward-only proxy lever is the already-CLOSED
+        `k_hard_draw_bonus`/harddraw2x arm -- this is not a repeat of
+        it).
+
+        cfg `env.difficulty_reject_infeasible` (bool, default False):
+        OFF is bit-exact -- exactly one `self.randomizer.sample(rng)`
+        call, identical to every pre-2026-09-26 lineage's RNG stream.
+        ON: redraw (consuming more of the SAME rng stream, so still
+        fully seed-reproducible) up to `env.difficulty_reject_max_tries`
+        times (default 4, i.e. up to 3 rejections) while the model's
+        predicted P(gait_valid) for the drawn `EpisodeRandomization.
+        summary()` stays below `env.difficulty_reject_threshold`
+        (default 0.5); keeps the LAST draw regardless once the try
+        budget is spent (bounded, never loops forever, never discards
+        an episode). Fails safe to the very first draw, unmodified, if
+        the model file is missing/unreadable or `self.randomizer` is
+        None -- this curriculum can never crash a run that doesn't
+        have a fitted model checked in.
+        """
+        if self.randomizer is None:
+            return None
+        draw = self.randomizer.sample(self.rng)
+        if not bool(cfg_get(self.cfg, "env", "difficulty_reject_infeasible",
+                             default=False)):
+            return draw
+        clf_order = self._get_difficulty_classifier()
+        if clf_order is None:
+            return draw
+        clf, feature_order = clf_order
+        threshold = float(cfg_get(self.cfg, "env",
+                                  "difficulty_reject_threshold",
+                                  default=0.5))
+        max_tries = int(cfg_get(self.cfg, "env",
+                                "difficulty_reject_max_tries", default=4))
+        from .draw_feasibility import predict_proba_one
+        for _ in range(max(0, max_tries - 1)):
+            prob = predict_proba_one(draw.summary(), clf, feature_order)
+            if prob >= threshold:
+                break
+            draw = self.randomizer.sample(self.rng)
+        return draw
+
+    def _get_difficulty_classifier(self):
+        """Cached (per-env-instance) load of the persisted difficulty
+        model named by `env.difficulty_model_path` (default
+        `rl_move/sim/data/draw_feasibility_model.json`). Returns None
+        (cached) on any load failure so a missing/corrupt file is a
+        silent no-op, not a crash -- checked once per env instance,
+        not once per episode."""
+        if getattr(self, "_difficulty_clf_cache", "unset") != "unset":
+            return self._difficulty_clf_cache
+        path = str(cfg_get(self.cfg, "env", "difficulty_model_path",
+                           default="rl_move/sim/data/"
+                                   "draw_feasibility_model.json"))
+        try:
+            from .draw_feasibility import load_model
+            self._difficulty_clf_cache = load_model(path)
+        except Exception:
+            self._difficulty_clf_cache = None
+        return self._difficulty_clf_cache
 
     def _compute_hard_draw_mult(self) -> float:
         """reward.k_hard_draw_bonus (default 0.0 -> returns 1.0, the

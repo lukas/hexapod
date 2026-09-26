@@ -246,6 +246,63 @@ class LogisticClassifier:
     def predict(self, X: np.ndarray, threshold: float = 0.5) -> np.ndarray:
         return self.predict_proba(X) >= threshold
 
+    def to_dict(self, feature_order: Sequence[str]) -> dict:
+        """Serialize fitted weights + the exact standardization stats
+        + the feature column order, so a consumer (e.g. a training-
+        time DR-draw curriculum) can score a NEW single draw without
+        refitting or re-pooling report.json files. Raises if unfit
+        (a persisted model must be a real fit, never a stub)."""
+        assert self.weights is not None, "call fit() first"
+        return {
+            "feature_order": list(feature_order),
+            "weights": [float(w) for w in self.weights],
+            "bias": float(self.bias),
+            "mean": [float(v) for v in self._mean],
+            "std": [float(v) for v in self._std],
+            "l2": self.l2, "lr": self.lr, "epochs": self.epochs,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> tuple["LogisticClassifier", list[str]]:
+        """Inverse of `to_dict` -- returns (classifier, feature_order)
+        ready for `predict_proba_one`/`predict_proba` without calling
+        `fit()` again."""
+        clf = cls(l2=float(d.get("l2", 1e-2)), lr=float(d.get("lr", 0.5)),
+                   epochs=int(d.get("epochs", 300)))
+        clf.weights = np.asarray(d["weights"], dtype=np.float64)
+        clf.bias = float(d["bias"])
+        clf._mean = np.asarray(d["mean"], dtype=np.float64)
+        clf._std = np.asarray(d["std"], dtype=np.float64)
+        return clf, list(d["feature_order"])
+
+
+def save_model(path: str, clf: LogisticClassifier,
+               feature_order: Sequence[str]) -> None:
+    """Persist a fitted classifier to a small JSON file (standwalk
+    difficulty-curriculum consumer, `dr.difficulty_model_path`)."""
+    with open(path, "w") as f:
+        json.dump(clf.to_dict(feature_order), f, indent=1)
+
+
+def load_model(path: str) -> tuple[LogisticClassifier, list[str]]:
+    """Load a classifier persisted by `save_model`."""
+    with open(path) as f:
+        d = json.load(f)
+    return LogisticClassifier.from_dict(d)
+
+
+def predict_proba_one(rand: dict, clf: LogisticClassifier,
+                       feature_order: Sequence[str]) -> float:
+    """Score ONE episode's raw `randomization`/`summary()` dict
+    against a persisted model -- the exact `flatten_randomization` ->
+    `vectorize` pipeline `load_dataset`/`_main` use for training,
+    applied to a single new row with the model's OWN fixed feature
+    column order (unknown/missing keys fill 0.0, same convention as
+    `vectorize`'s `feature_order` argument)."""
+    row = flatten_randomization(rand)
+    X, _ = vectorize([row], feature_order=feature_order)
+    return float(clf.predict_proba(X)[0])
+
 
 def auc_score(y_true: Sequence[bool], scores: Sequence[float]) -> float:
     """Rank-based (Mann-Whitney U) AUC, no sklearn needed. Returns
@@ -338,6 +395,9 @@ def _main() -> None:
     ap.add_argument("--k-folds", type=int, default=5)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--top-n", type=int, default=12)
+    ap.add_argument("--save-model", default=None,
+                     help="persist the fitted classifier + feature "
+                          "order to this JSON path (see save_model)")
     args = ap.parse_args()
 
     n_files = len(expand_report_paths(args.report))
@@ -360,6 +420,11 @@ def _main() -> None:
     for name, w in top_features(clf.weights, feature_names, n=args.top_n):
         direction = "raises" if w > 0 else "lowers"
         print(f"  {name:32s} {w:+.3f}  ({direction} P(gait_valid))")
+
+    if args.save_model:
+        save_model(args.save_model, clf, feature_names)
+        print(f"\nsaved model ({len(feature_names)} features) to "
+              f"{args.save_model}")
 
 
 if __name__ == "__main__":

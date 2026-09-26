@@ -69,7 +69,7 @@ def test_presents_single_tick_width_and_stacked_width(stacked):
     assert fake.meta["obs_dim"] == 12         # model meta untouched
 
 
-def test_newest_first_with_zero_padding_matches_sim_contract(stacked):
+def test_newest_first_with_first_frame_fill_matches_sim_contract(stacked):
     fake, pol = stacked
     t1 = np.array([1, 1, 1], dtype=np.float32)
     t2 = np.array([2, 2, 2], dtype=np.float32)
@@ -77,11 +77,12 @@ def test_newest_first_with_zero_padding_matches_sim_contract(stacked):
     pol.act(t1)
     pol.act(t2)
     pol.act(t3)
-    # frame 0 = current tick, older ticks behind it, zeros where no history yet
+    # frame 0 = current tick, older ticks behind it; at an episode start every
+    # slot holds the first observation (sim_env._final_obs reset semantics)
     np.testing.assert_array_equal(
-        fake.seen[0], np.concatenate([t1, [0, 0, 0], [0, 0, 0], [0, 0, 0]]))
+        fake.seen[0], np.concatenate([t1, t1, t1, t1]))
     np.testing.assert_array_equal(
-        fake.seen[2], np.concatenate([t3, t2, t1, [0, 0, 0]]))
+        fake.seen[2], np.concatenate([t3, t2, t1, t1]))
 
 
 def test_oldest_frame_drops_off_after_k_ticks(stacked):
@@ -99,7 +100,7 @@ def test_reset_zeroes_the_stack_and_forwards(stacked):
     assert fake.resets == 1
     pol.act(np.full(3, 9.0, dtype=np.float32))
     np.testing.assert_array_equal(
-        fake.seen[-1], np.concatenate([[9, 9, 9], np.zeros(9)]))
+        fake.seen[-1], np.repeat([9.0], 12))
 
 
 def test_wrong_tick_width_is_rejected(stacked):

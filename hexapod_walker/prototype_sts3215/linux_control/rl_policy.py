@@ -2401,9 +2401,9 @@ class NumpyPolicy:
     Frame-stacked artifacts (``meta.architecture == "transformer"``,
     ``meta.tf_n_frames`` = K > 1) were trained on the env's
     ``obs.history_frames`` stack: the last K single-tick observations
-    concatenated NEWEST-FIRST (frame 0 = the current tick), with frames
-    1..K-1 ZERO at an episode start (sim_env.__init__ "Temporal actor"
-    block). The drive loop builds ONE tick of observation per step, so
+    concatenated NEWEST-FIRST (frame 0 = the current tick); at an episode
+    start every slot holds a copy of the first observation
+    (sim_env._final_obs). The drive loop builds ONE tick of observation per step, so
     this wrapper keeps that K-frame ring buffer itself: ``meta["obs_dim"]``
     is presented as the SINGLE-tick width the loop already validates
     against WALK_OBS_DIMS (72/74/75/81/93), the stacked width lives in
@@ -2431,8 +2431,10 @@ class NumpyPolicy:
             self.meta["stacked_obs_dim"] = stacked
             self._hist = np.zeros((self._frames, self._frame_width),
                                   dtype=np.float32)
+            self._hist_empty = True
         else:
             self._hist = None
+            self._hist_empty = False
         require_robot_abs_joint_frame(self.meta, source=str(path))
         # A frame stack is per-episode state the loop must reset exactly
         # like a recurrent hidden state.
@@ -2451,15 +2453,24 @@ class NumpyPolicy:
             raise ValueError(
                 f"observation width {tick.shape[0]} != policy frame width "
                 f"{self._frame_width}")
-        # Newest-first: shift every frame one slot older, drop the oldest.
-        self._hist[1:] = self._hist[:-1]
-        self._hist[0] = tick
+        if self._hist_empty:
+            # sim_env._final_obs at reset fills every history slot with a
+            # COPY of the first observation (not zeros); match it so the
+            # first K ticks after an episode start see the same input the
+            # policy trained on.
+            self._hist[:] = tick
+            self._hist_empty = False
+        else:
+            # Newest-first: shift every frame one slot older, drop the oldest.
+            self._hist[1:] = self._hist[:-1]
+            self._hist[0] = tick
         return self._model.act(self._hist.reshape(-1))
 
     def reset(self) -> None:
         """Reset recurrent state / frame stack at an actual episode boundary."""
         if self._hist is not None:
             self._hist[:] = 0.0
+            self._hist_empty = True
         self._model.reset()
 
 

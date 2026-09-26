@@ -1049,6 +1049,17 @@ class _NumpyTransformerLayer:
         self.n_heads = n_heads
         self.d_model = self.ln1_w.shape[0]
         self.head_dim = self.d_model // n_heads
+        # Pre-split the fused QKV projection once (np.split per tick was
+        # pure overhead on the robot) and keep every matrix float32: the
+        # forward runs in float32 like the trained torch policy. A float64
+        # observation used to upcast the whole pass -- 70-90 ms per act
+        # on the Uno Q vs ~25 ms in float32 for the tf256/3-layer walker
+        # (hexapod2 benchmark, 2026-09-26).
+        self.qw, self.kw, self.vw = (m.copy() for m in
+                                     np.split(self.in_proj_w, 3, axis=0))
+        self.qb, self.kb, self.vb = (m.copy() for m in
+                                     np.split(self.in_proj_b, 3, axis=0))
+        self.scale = np.float32(1.0 / math.sqrt(self.head_dim))
 
     @staticmethod
     def _layernorm(x: np.ndarray, w: np.ndarray, b: np.ndarray,
@@ -1061,12 +1072,10 @@ class _NumpyTransformerLayer:
         """x: (seq, d_model) time-ordered oldest -> newest."""
         seq, d, h, hd = x.shape[0], self.d_model, self.n_heads, self.head_dim
         hn = self._layernorm(x, self.ln1_w, self.ln1_b)
-        qw, kw, vw = np.split(self.in_proj_w, 3, axis=0)
-        qb, kb, vb = np.split(self.in_proj_b, 3, axis=0)
-        q = (hn @ qw.T + qb).reshape(seq, h, hd).transpose(1, 0, 2)
-        k = (hn @ kw.T + kb).reshape(seq, h, hd).transpose(1, 0, 2)
-        v = (hn @ vw.T + vb).reshape(seq, h, hd).transpose(1, 0, 2)
-        scores = (q @ k.transpose(0, 2, 1)) / math.sqrt(hd)
+        q = (hn @ self.qw.T + self.qb).reshape(seq, h, hd).transpose(1, 0, 2)
+        k = (hn @ self.kw.T + self.kb).reshape(seq, h, hd).transpose(1, 0, 2)
+        v = (hn @ self.vw.T + self.vb).reshape(seq, h, hd).transpose(1, 0, 2)
+        scores = (q @ k.transpose(0, 2, 1)) * self.scale
         scores = np.where(causal_mask[None, :, :], -np.inf, scores)
         scores = scores - scores.max(axis=-1, keepdims=True)
         weights = np.exp(scores)
@@ -1136,7 +1145,7 @@ class NumpyTransformerModel:
         """Stateless compatibility hook shared with recurrent artifacts."""
 
     def act(self, obs: np.ndarray) -> np.ndarray:
-        obs = np.asarray(obs, dtype=np.float64)
+        obs = np.asarray(obs, dtype=np.float32)  # float32 end to end (see _NumpyTransformerLayer)
         if obs.shape != self.observation_space.shape:
             raise ValueError(
                 f"observation shape {obs.shape} != {self.observation_space.shape}")

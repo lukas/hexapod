@@ -1262,6 +1262,23 @@ class EpisodeRandomization:
             "com_offset_mm": [round(v * 1000, 1) for v in self.com_offset_m],
             "link_scale_range": [round(float(np.min(self.link_scale)), 3),
                                  round(float(np.max(self.link_scale)), 3)],
+            # Per-leg breakdown (standwalk STATUS Next#1(b), 2026-09-26:
+            # the walkable/unwalkable draw classifier needs to know WHICH
+            # leg got the worst geometric draw this episode, not just the
+            # whole-robot min/max already above -- link_scale_range and
+            # zero_bias_max_deg collapse all 6 legs/18 joints into one
+            # number, so no prior consumer could ask "did the sacrificed
+            # leg also carry this episode's largest bias/link-scale
+            # deviation?". Purely additive (new keys only, every existing
+            # key/value unchanged) -- bit-exact no-op for any consumer
+            # that doesn't read these two new keys.
+            "link_scale_per_leg": [
+                round(float(np.mean(self.link_scale[i])), 3)
+                for i in range(N_LEGS)],
+            "joint_zero_bias_deg_per_leg": [
+                round(float(np.max(np.abs(
+                    self.joint_zero_bias_rad[3 * i:3 * i + 3]))) / DEG2RAD, 2)
+                for i in range(N_LEGS)],
             "friction_scale": round(self.friction_scale, 3),
             "ground_tilt_deg": round(tilt, 2),
             "kp_scale_mean": round(float(np.mean(self.kp_scale)), 3),

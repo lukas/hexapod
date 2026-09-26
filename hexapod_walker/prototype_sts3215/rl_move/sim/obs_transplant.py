@@ -27,6 +27,10 @@ def _privileged_idx(args, n_obs: int) -> tuple[int, ...]:
         off += 1
     if ov.get("obs.mode_onehot", 0.0) == 1.0:
         off += 6
+    if ov.get("obs.foot_contact_sense", 0.0) == 1.0:
+        # Per-foot load channel (walk_task, 2026-09-26) appends 6 dims
+        # at the frame tail, AFTER the measured-vel/phase/mode extras.
+        off += 6
     if n_obs % k:
         raise SystemExit(f"obs width {n_obs} not divisible by "
                          f"history_frames {k}")
@@ -96,6 +100,79 @@ def pad_obs_transplant(old_model, new_model, n_pad: int,
              else f"inserted at col {insert_at}")
     print(f"[train] obs-pad transplant: {n_old} -> {n_new} dims "
           f"({where}); zero-padded first-layer columns in {widened}")
+
+
+def transformer_pad_obs_transplant(old_model, new_model,
+                                   n_pad: int) -> None:
+    """Transplant a FrameStackTransformer policy across a PER-FRAME obs
+    widening of ``n_pad`` dims appended at each frame's TAIL.
+
+    The flat obs is a K-frame stack; only the frame-embedding Linear
+    layers (``*features_extractor.embed.weight``, one per actor/critic
+    extractor) touch raw obs columns, so the transplant zero-pads the
+    LAST ``n_pad`` columns of each embed weight and copies every other
+    tensor verbatim. The transplanted policy's outputs are
+    bit-identical to the parent for ANY value of the new per-frame tail
+    dims until training moves the zero columns (same contract as
+    ``pad_obs_transplant``). NOTE the ``n_pad`` semantics differ from
+    ``pad_obs_transplant``: here it is the PER-FRAME widening (the flat
+    obs widens by ``n_pad * K``) -- e.g. ``--obs-pad-transplant 6`` for
+    ``obs.foot_contact_sense`` on an obs.history_frames=16 lineage
+    widens the flat obs by 96. The new dims MUST be a frame-tail
+    append (walk_task keeps ``obs.foot_contact_sense`` the last
+    _augment_obs append for exactly this reason); mid-frame insertion
+    is not expressible here. Optimizer state is fresh (architecture
+    changed).
+    """
+    import torch
+    n_new = int(new_model.observation_space.shape[0])
+    n_old = int(old_model.observation_space.shape[0])
+    sd_old = old_model.policy.state_dict()
+    sd_new = new_model.policy.state_dict()
+    if set(sd_old) != set(sd_new):
+        raise SystemExit("state_dict key mismatch; transformer "
+                         "transplant needs the same policy geometry as "
+                         "the parent (reconstruct from the checkpoint's "
+                         "own policy_class/policy_kwargs)")
+    embeds = sorted(k for k in sd_new
+                    if k.endswith("features_extractor.embed.weight"))
+    if not embeds:
+        raise SystemExit("--transformer + --obs-pad-transplant needs a "
+                         "FrameStackTransformer parent checkpoint (no "
+                         "*features_extractor.embed.weight keys found "
+                         "-- is --init-from an MLP/GRU checkpoint?)")
+    w_new = int(sd_new[embeds[0]].shape[1])
+    w_old = int(sd_old[embeds[0]].shape[1])
+    if w_new - w_old != n_pad:
+        raise SystemExit(
+            f"--obs-pad-transplant {n_pad} (per-frame) but the frame "
+            f"widened by {w_new - w_old} ({w_old} -> {w_new}); "
+            "check cfg-sets")
+    if n_new % w_new or n_old % w_old or n_new // w_new != n_old // w_old:
+        raise SystemExit(
+            f"frame-stack mismatch: obs {n_old}->{n_new} is not the "
+            f"same K frames of width {w_old}->{w_new}; "
+            "obs.history_frames must match the parent")
+    widened = []
+    with torch.no_grad():
+        for k, v_new in sd_new.items():
+            v_old = sd_old[k]
+            if v_new.shape == v_old.shape:
+                v_new.copy_(v_old)
+            elif (v_new.dim() == 2 and v_new.shape[0] == v_old.shape[0]
+                  and v_new.shape[1] == w_new
+                  and v_old.shape[1] == w_old):
+                v_new.zero_()
+                v_new[:, :w_old].copy_(v_old)
+                widened.append(k)
+            else:
+                raise SystemExit(f"unexpected shape change for {k}: "
+                                 f"{tuple(v_old.shape)} -> "
+                                 f"{tuple(v_new.shape)}")
+    new_model.policy.load_state_dict(sd_new, strict=True)
+    print(f"[train] transformer obs-pad transplant: frame {w_old} -> "
+          f"{w_new} dims (x{n_new // w_new} frames, flat {n_old} -> "
+          f"{n_new}); zero-padded embed columns in {widened}")
 
 
 def hist_stride_transplant(old_model, new_model, stride: int,

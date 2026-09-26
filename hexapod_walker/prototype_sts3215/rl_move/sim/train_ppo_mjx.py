@@ -1858,6 +1858,22 @@ def main(argv: list[str] | None = None) -> int:
             print("[mjx-train] yaw-decomposed critic ON "
                   f"(pg_coef={yaw_credit_coef}, "
                   f"vf_coef={yaw_credit_vf_coef})")
+        if (float(_parse_cfg_set(args.cfg_set).get(
+                "obs.foot_contact_sense", 0.0)) == 1.0
+                and (args.gru_dual or args.gru_triple or args.gru_experts
+                     or args.gru_rise_experts)):
+            # The mode-gated GRU cores read their routing one-hot at a
+            # LITERAL fixed negative obs offset (gru_policy._gate reads
+            # the last columns); obs.foot_contact_sense appends 6 dims
+            # at the frame TAIL (walk_task, kept last for the
+            # transformer transplant contract), which would silently
+            # shift that gate. Refuse the combination rather than break
+            # routing.
+            raise SystemExit(
+                "obs.foot_contact_sense=1 appends at the obs TAIL and "
+                "shifts the mode-gated GRU routing one-hot; not "
+                "supported with --gru-dual/--gru-triple/--gru-experts/"
+                "--gru-rise-experts")
         policy_cls = (ModeExpertsGruActorCriticPolicy if args.gru_experts
                       else TripleGruActorCriticPolicy if args.gru_triple
                       else RiseKindGruActorCriticPolicy
@@ -1890,9 +1906,24 @@ def main(argv: list[str] | None = None) -> int:
             raise SystemExit("--transformer and --gru are mutually "
                              "exclusive (pick one memory mechanism)")
         if args.obs_pad_transplant:
-            raise SystemExit("--transformer + --obs-pad-transplant is not "
-                             "implemented (transformer weights don't "
-                             "transplant from MLP checkpoints)")
+            # Transformer-to-WIDER-transformer obs transplant (2026-09-26,
+            # standwalk foot-contact-sense lever): supported when
+            # --init-from is itself a FrameStackTransformer checkpoint —
+            # per-frame TAIL widening only, and n_pad means the
+            # PER-FRAME widening (flat obs widens by n_pad * K). The
+            # original blanket refusal ("transformer weights don't
+            # transplant from MLP checkpoints") still holds for the
+            # MLP->transformer case and is enforced at load time by
+            # transformer_pad_obs_transplant's embed-key check.
+            if not args.init_from:
+                raise SystemExit(
+                    "--transformer + --obs-pad-transplant needs "
+                    "--init-from a transformer checkpoint (per-frame "
+                    "tail widening)")
+            if args.obs_pad_insert_at >= 0:
+                raise SystemExit(
+                    "--transformer + --obs-pad-transplant is frame-TAIL "
+                    "append only; --obs-pad-insert-at is not supported")
         hist = int(float(_parse_cfg_set(args.cfg_set).get(
             "obs.history_frames", 1)))
         if hist < 2:
@@ -2960,6 +2991,34 @@ def main(argv: list[str] | None = None) -> int:
                     policy_kwargs=old.policy_kwargs,
                     seed=args.seed, verbose=1, device=args.device,
                     tensorboard_log=tb_dir)
+            elif args.transformer:
+                # Transformer-to-WIDER-transformer obs transplant
+                # (2026-09-26, standwalk foot-contact-sense lever): same
+                # reconstruct-from-the-checkpoint's-own-policy_class/
+                # policy_kwargs pattern as the GRU branch above, so the
+                # widened policy has IDENTICAL geometry (d_model,
+                # layers, heads, n_frames, net_arch) to the parent; only
+                # the per-frame embed layers widen, automatically, from
+                # `venv`'s wider observation_space.
+                # transformer_pad_obs_transplant validates the parent is
+                # genuinely a FrameStackTransformer checkpoint and that
+                # the widening is a per-frame TAIL append.
+                model = algo_cls(
+                    old.policy_class, venv,
+                    n_steps=args.n_steps, batch_size=args.batch_size,
+                    n_epochs=args.n_epochs, learning_rate=args.lr,
+                    gamma=(0.99 if args.gamma is None else args.gamma),
+                    gae_lambda=(0.95 if args.gae_lambda is None
+                                else args.gae_lambda),
+                    use_sde=args.use_sde,
+                    sde_sample_freq=args.sde_sample_freq,
+                    ent_coef=args.ent_coef,
+                    clip_range=0.2,
+                    target_kl=(args.target_kl if args.target_kl > 0
+                               else None),
+                    policy_kwargs=old.policy_kwargs,
+                    seed=args.seed, verbose=1, device=args.device,
+                    tensorboard_log=tb_dir)
             else:
                 model = algo_cls(
                     "MlpPolicy", venv,
@@ -2979,20 +3038,28 @@ def main(argv: list[str] | None = None) -> int:
                     seed=args.seed, verbose=1, device=args.device,
                     tensorboard_log=tb_dir)
             if args.obs_pad_transplant:
-                if args.obs_pad_insert_at >= 0:
-                    _hf = int(float(_parse_cfg_set(args.cfg_set).get(
-                        "obs.history_frames", 1)))
-                    if _hf > 1:
-                        raise SystemExit(
-                            "--obs-pad-insert-at is not supported with "
-                            "obs.history_frames>1 (mid-layout insertion "
-                            "applies per stacked frame)")
-                pad_obs_transplant(old, model, args.obs_pad_transplant,
-                                   insert_at=args.obs_pad_insert_at)
-                _tp_note = (f"+{args.obs_pad_transplant} obs-pad "
-                            "transplant"
-                            + (f" @col{args.obs_pad_insert_at}"
-                               if args.obs_pad_insert_at >= 0 else ""))
+                if args.transformer:
+                    from .obs_transplant import (
+                        transformer_pad_obs_transplant)
+                    transformer_pad_obs_transplant(
+                        old, model, args.obs_pad_transplant)
+                    _tp_note = (f"+{args.obs_pad_transplant}/frame "
+                                "transformer obs-pad transplant")
+                else:
+                    if args.obs_pad_insert_at >= 0:
+                        _hf = int(float(_parse_cfg_set(args.cfg_set).get(
+                            "obs.history_frames", 1)))
+                        if _hf > 1:
+                            raise SystemExit(
+                                "--obs-pad-insert-at is not supported "
+                                "with obs.history_frames>1 (mid-layout "
+                                "insertion applies per stacked frame)")
+                    pad_obs_transplant(old, model, args.obs_pad_transplant,
+                                       insert_at=args.obs_pad_insert_at)
+                    _tp_note = (f"+{args.obs_pad_transplant} obs-pad "
+                                "transplant"
+                                + (f" @col{args.obs_pad_insert_at}"
+                                   if args.obs_pad_insert_at >= 0 else ""))
             else:
                 _tp_hist = int(float(_parse_cfg_set(args.cfg_set).get(
                     "obs.history_frames", 1)))

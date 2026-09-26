@@ -89,8 +89,12 @@ MODE_ONEHOT_ORDER = ("hold", "rise", "lower", "walk", "turn", "quad")
 ARCH_MLP = "mlp"
 ARCH_DUAL_GRU = "dual_gru"
 ARCH_SINGLE_GRU = "gru"
+ARCH_TRANSFORMER = "transformer"
 _MATS = ("W1", "b1", "W2", "b2", "Wout", "bout")
 _GRU_MATS = ("weight_ih", "weight_hh", "bias_ih", "bias_hh")
+_TF_LAYER_MATS = ("ln1_w", "ln1_b", "in_proj_w", "in_proj_b",
+                  "out_proj_w", "out_proj_b", "ln2_w", "ln2_b",
+                  "lin1_w", "lin1_b", "lin2_w", "lin2_b")
 # meta.activation values accepted for the generic N-layer MLP format
 # (obj["layers"] present). The legacy 2-layer format above stays tanh-only.
 _NLAYER_ACTIVATIONS = {
@@ -98,6 +102,27 @@ _NLAYER_ACTIVATIONS = {
     # torch.nn.ELU default alpha=1.0: x if x>0 else exp(x)-1.
     "elu": lambda x: np.where(x > 0.0, x, np.expm1(x)),
 }
+
+
+def _erf(x: np.ndarray) -> np.ndarray:
+    """Vectorized erf (Abramowitz & Stegun 7.1.26, max abs error 1.5e-7).
+
+    No scipy dependency (this module is dependency-light by design —
+    numpy only, "no torch on the board"); the transformer's exact
+    (non-tanh-approx) GELU needs erf, and this polynomial is accurate
+    well beyond the 1e-5 export-parity bar with plain numpy ops.
+    """
+    sign = np.sign(x)
+    ax = np.abs(x)
+    t = 1.0 / (1.0 + 0.3275911 * ax)
+    poly = t * (0.254829592 + t * (-0.284496736 + t * (
+        1.421413741 + t * (-1.453152027 + t * 1.061405429))))
+    return sign * (1.0 - poly * np.exp(-ax * ax))
+
+
+def _gelu(x: np.ndarray) -> np.ndarray:
+    """Exact (erf-based) GELU, matching torch's default ``F.gelu``."""
+    return 0.5 * x * (1.0 + _erf(x / math.sqrt(2.0)))
 
 
 def pack_f32(array) -> dict:
@@ -324,6 +349,131 @@ def _validate_single_gru(obj: dict, meta: dict, obs: int,
     return [], {"hidden": [hidden, *head_info["hidden"]]}
 
 
+def _validate_transformer(obj: dict, meta: dict, obs: int,
+                          act: int) -> tuple[list[str], dict]:
+    """Validate the causal-transformer format (mirrors ``transformer_policy.
+    FrameStackTransformerExtractor``): embed -> +pos_embed -> N pre-LN
+    causal self-attn/FFN encoder layers -> out_norm(newest token) -> the
+    same N-layer tanh head format as the plain GRU (:func:`_validate_
+    mlp_nlayer`), just fed ``d_model`` instead of a recurrent hidden size.
+    No persistent state (unlike the GRU formats): the caller must feed the
+    already frame-stacked flat observation every tick, identical to what
+    the env produces during training/eval (``obs.history_frames``).
+    """
+    errs: list[str] = []
+    try:
+        n_frames = int(meta["tf_n_frames"])
+        d_model = int(meta["tf_d_model"])
+        n_layers = int(meta["tf_n_layers"])
+        n_heads = int(meta["tf_n_heads"])
+    except (KeyError, TypeError, ValueError):
+        errs.append(
+            "transformer requires integer meta.tf_n_frames/tf_d_model/"
+            "tf_n_layers/tf_n_heads")
+        return errs, {}
+    if n_frames < 2 or n_frames > 512:
+        errs.append("meta.tf_n_frames must be in [2, 512]")
+    if d_model < 1 or d_model > 4096:
+        errs.append("meta.tf_d_model must be in [1, 4096]")
+    if n_layers < 1 or n_layers > 32:
+        errs.append("meta.tf_n_layers must be in [1, 32]")
+    if n_heads < 1 or d_model % max(n_heads, 1) != 0:
+        errs.append("meta.tf_n_heads must divide meta.tf_d_model evenly")
+    if obs % max(n_frames, 1) != 0:
+        errs.append(
+            f"obs_dim {obs} is not a multiple of meta.tf_n_frames {n_frames}")
+    if errs:
+        return errs, {}
+    frame_width = obs // n_frames
+    core = obj.get("transformer")
+    if not isinstance(core, dict):
+        return errs + ["missing transformer object"], {}
+    try:
+        embed_w = unpack_f32(core.get("embed_w"), name="transformer.embed_w")
+        embed_b = unpack_f32(core.get("embed_b"), name="transformer.embed_b")
+        pos_embed = unpack_f32(
+            core.get("pos_embed"), name="transformer.pos_embed")
+        out_norm_w = unpack_f32(
+            core.get("out_norm_w"), name="transformer.out_norm_w")
+        out_norm_b = unpack_f32(
+            core.get("out_norm_b"), name="transformer.out_norm_b")
+    except ValueError as exc:
+        return errs + [str(exc)], {}
+    expected = {
+        "embed_w": (embed_w, (d_model, frame_width)),
+        "embed_b": (embed_b, (d_model,)),
+        "pos_embed": (pos_embed, (n_frames, d_model)),
+        "out_norm_w": (out_norm_w, (d_model,)),
+        "out_norm_b": (out_norm_b, (d_model,)),
+    }
+    for name, (value, want) in expected.items():
+        if value.shape != want:
+            errs.append(f"transformer.{name} shape {value.shape} != {want}")
+        if not np.all(np.isfinite(value)):
+            errs.append(f"transformer.{name} contains non-finite values")
+    layers = core.get("layers")
+    if not isinstance(layers, list) or len(layers) != n_layers:
+        errs.append(
+            f"transformer.layers must be a list of length {n_layers}")
+        layers = []
+    ff_dim = None
+    for i, layer in enumerate(layers):
+        if not isinstance(layer, dict):
+            errs.append(f"transformer.layers[{i}] must be an object")
+            continue
+        decoded = {}
+        for key in _TF_LAYER_MATS:
+            try:
+                decoded[key] = unpack_f32(
+                    layer.get(key), name=f"transformer.layers[{i}].{key}")
+            except ValueError as exc:
+                errs.append(str(exc))
+        if len(decoded) != len(_TF_LAYER_MATS):
+            continue
+        this_ff = decoded["lin1_w"].shape[0]
+        ff_dim = ff_dim or this_ff
+        want = {
+            "ln1_w": (d_model,), "ln1_b": (d_model,),
+            "in_proj_w": (3 * d_model, d_model), "in_proj_b": (3 * d_model,),
+            "out_proj_w": (d_model, d_model), "out_proj_b": (d_model,),
+            "ln2_w": (d_model,), "ln2_b": (d_model,),
+            "lin1_w": (this_ff, d_model), "lin1_b": (this_ff,),
+            "lin2_w": (d_model, this_ff), "lin2_b": (d_model,),
+        }
+        for key, arr in decoded.items():
+            if arr.shape != want[key]:
+                errs.append(
+                    f"transformer.layers[{i}].{key} shape {arr.shape} "
+                    f"!= {want[key]}")
+            if not np.all(np.isfinite(arr)):
+                errs.append(
+                    f"transformer.layers[{i}].{key} contains "
+                    "non-finite values")
+        if this_ff != ff_dim:
+            errs.append(
+                f"transformer.layers[{i}].lin1_w ff_dim {this_ff} != "
+                f"layer 0's {ff_dim}")
+    head = core.get("head")
+    if not isinstance(head, dict):
+        return errs + ["missing transformer.head object"], {}
+    if head.get("activation", "tanh") not in _NLAYER_ACTIVATIONS:
+        errs.append(
+            "transformer.head.activation must be one of "
+            f"{sorted(_NLAYER_ACTIVATIONS)}, got {head.get('activation')!r}")
+    head_errs, head_info = _validate_mlp_nlayer(
+        {"layers": head.get("layers"), "Wout": head.get("Wout"),
+         "bout": head.get("bout")},
+        d_model, act)
+    errs.extend(f"transformer.head.{e}" for e in head_errs)
+    if errs:
+        return errs, {}
+    return [], {
+        "hidden": [d_model, *head_info["hidden"]],
+        "n_frames": n_frames, "frame_width": frame_width,
+        "n_heads": n_heads, "ff_dim": ff_dim,
+    }
+
+
 def _validate_mlp_nlayer(obj: dict, obs: int, act: int) -> tuple[list[str], dict]:
     """Validate the generic N-layer ``obj["layers"]`` MLP format."""
     errs: list[str] = []
@@ -395,7 +545,10 @@ def validate_np_policy(obj) -> tuple[list[str], dict]:
             "act_dim": act, "source": meta.get("source", ""),
             "notes": meta.get("notes", ""),
             "architecture": architecture}
-    if obs not in KNOWN_OBS:
+    # A transformer's obs_dim is n_frames * (a known single-frame width),
+    # not itself a known width -- checked properly once tf_n_frames
+    # decodes below; skip the flat KNOWN_OBS check here for it alone.
+    if architecture != ARCH_TRANSFORMER and obs not in KNOWN_OBS:
         errs.append(f"obs_dim {obs!r} fits no slot "
                     f"(68 stance / 72 walk / 74 phase-walk / "
                     f"75 phase+yaw walk / 81 dual-GRU unified / "
@@ -407,7 +560,8 @@ def validate_np_policy(obj) -> tuple[list[str], dict]:
         require_robot_abs_joint_frame(meta, source="numpy policy")
     except ValueError as exc:
         errs.append(str(exc))
-    if architecture not in (ARCH_MLP, ARCH_DUAL_GRU, ARCH_SINGLE_GRU):
+    if architecture not in (ARCH_MLP, ARCH_DUAL_GRU, ARCH_SINGLE_GRU,
+                            ARCH_TRANSFORMER):
         errs.append(f"unsupported meta.architecture {architecture!r}")
     is_nlayer = architecture == ARCH_MLP and isinstance(obj, dict) and "layers" in obj
     activation = meta.get("activation", "tanh")
@@ -416,6 +570,12 @@ def validate_np_policy(obj) -> tuple[list[str], dict]:
             errs.append(
                 "meta.activation must be one of "
                 f"{sorted(_NLAYER_ACTIVATIONS)} for the layers format, "
+                f"got {activation!r}")
+    elif architecture == ARCH_TRANSFORMER:
+        if activation not in _NLAYER_ACTIVATIONS:
+            errs.append(
+                "meta.activation must be one of "
+                f"{sorted(_NLAYER_ACTIVATIONS)} for the transformer head, "
                 f"got {activation!r}")
     elif activation != "tanh":
         errs.append("activation must be tanh (export_policy_np contract)")
@@ -431,9 +591,35 @@ def validate_np_policy(obj) -> tuple[list[str], dict]:
             errs.append("meta.training_hz must be finite and in [1, 200]")
         else:
             info["training_hz"] = training_hz
-    _phase_meta_errors(meta, obs, errs)
+    if architecture == ARCH_TRANSFORMER:
+        # Each token/frame carries the same per-tick layout a non-history
+        # env would produce; phase-obs requirements apply to that
+        # single-frame width, not the whole stacked obs_dim.
+        try:
+            _phase_meta_errors(meta, int(obs) // int(meta["tf_n_frames"]), errs)
+        except (KeyError, TypeError, ValueError, ZeroDivisionError):
+            pass  # tf_n_frames itself is validated (and reported) below
+    else:
+        _phase_meta_errors(meta, obs, errs)
     if errs:
         return (errs, info)
+
+    if architecture == ARCH_TRANSFORMER:
+        tf_errs, tf_info = _validate_transformer(obj, meta, int(obs), int(act))
+        errs.extend(tf_errs)
+        if errs:
+            return errs, info
+        info["hidden"] = tf_info["hidden"]
+        try:
+            model = NumpyTransformerModel(obj)
+            probe = np.zeros(int(obs), dtype=np.float32)
+            action = model.act(probe)
+        except (KeyError, TypeError, ValueError) as exc:
+            errs.append(f"transformer smoke forward pass failed: {exc}")
+        else:
+            if action.shape != (18,) or not np.all(np.isfinite(action)):
+                errs.append("transformer smoke forward pass failed")
+        return errs, info
 
     if architecture == ARCH_DUAL_GRU:
         recurrent_errs, recurrent_info = _validate_dual_gru(
@@ -851,9 +1037,158 @@ class NumpyGruModel:
         return action, self._state_tuple()
 
 
+class _NumpyTransformerLayer:
+    """One pre-LN causal-transformer encoder layer, matching torch's
+    ``nn.TransformerEncoderLayer(norm_first=True, activation="gelu",
+    batch_first=True)`` forward pass exactly (dropout=0 in this project's
+    trained recipe, so no dropout term to reproduce)."""
+
+    def __init__(self, obj: dict, *, n_heads: int):
+        for key in _TF_LAYER_MATS:
+            setattr(self, key, unpack_f32(obj[key], name=key))
+        self.n_heads = n_heads
+        self.d_model = self.ln1_w.shape[0]
+        self.head_dim = self.d_model // n_heads
+        # Pre-split the fused QKV projection once (np.split per tick was
+        # pure overhead on the robot) and keep every matrix float32: the
+        # forward runs in float32 like the trained torch policy. A float64
+        # observation used to upcast the whole pass -- 70-90 ms per act
+        # on the Uno Q vs ~25 ms in float32 for the tf256/3-layer walker
+        # (hexapod2 benchmark, 2026-09-26).
+        self.qw, self.kw, self.vw = (m.copy() for m in
+                                     np.split(self.in_proj_w, 3, axis=0))
+        self.qb, self.kb, self.vb = (m.copy() for m in
+                                     np.split(self.in_proj_b, 3, axis=0))
+        self.scale = np.float32(1.0 / math.sqrt(self.head_dim))
+
+    @staticmethod
+    def _layernorm(x: np.ndarray, w: np.ndarray, b: np.ndarray,
+                   eps: float = 1e-5) -> np.ndarray:
+        mu = x.mean(axis=-1, keepdims=True)
+        var = x.var(axis=-1, keepdims=True)
+        return (x - mu) / np.sqrt(var + eps) * w + b
+
+    def forward(self, x: np.ndarray, causal_mask: np.ndarray) -> np.ndarray:
+        """x: (seq, d_model) time-ordered oldest -> newest."""
+        seq, d, h, hd = x.shape[0], self.d_model, self.n_heads, self.head_dim
+        hn = self._layernorm(x, self.ln1_w, self.ln1_b)
+        q = (hn @ self.qw.T + self.qb).reshape(seq, h, hd).transpose(1, 0, 2)
+        k = (hn @ self.kw.T + self.kb).reshape(seq, h, hd).transpose(1, 0, 2)
+        v = (hn @ self.vw.T + self.vb).reshape(seq, h, hd).transpose(1, 0, 2)
+        scores = (q @ k.transpose(0, 2, 1)) * self.scale
+        scores = np.where(causal_mask[None, :, :], -np.inf, scores)
+        scores = scores - scores.max(axis=-1, keepdims=True)
+        weights = np.exp(scores)
+        weights /= weights.sum(axis=-1, keepdims=True)
+        attn = (weights @ v).transpose(1, 0, 2).reshape(seq, d)
+        attn = attn @ self.out_proj_w.T + self.out_proj_b
+        x = x + attn
+        hn2 = self._layernorm(x, self.ln2_w, self.ln2_b)
+        ff = _gelu(hn2 @ self.lin1_w.T + self.lin1_b)
+        ff = ff @ self.lin2_w.T + self.lin2_b
+        return x + ff
+
+
+class NumpyTransformerModel:
+    """Stateless causal-transformer deterministic actor, without torch.
+
+    Mirrors :class:`rl_move.sim.transformer_policy.
+    TransformerActorCriticPolicy`'s actor path exactly: embed each
+    frame -> +learned positional embedding -> N pre-LN causal
+    self-attention/FFN encoder layers -> LayerNorm(newest token) -> the
+    same N-layer tanh head format as :class:`NumpyGruModel`.
+
+    UNLIKE the GRU/dual-GRU models above, this is stateless: the
+    transformer attends over the whole context window every tick, so
+    the caller must feed the already frame-stacked flat observation
+    (the exact ``obs.history_frames``-stacked vector the env produces
+    during training/eval) each call -- there is no persistent hidden
+    state to carry or reset between episodes.
+    """
+
+    def __init__(self, obj: dict, path: Path | None = None):
+        self.meta = dict(obj["meta"])
+        self.path = path
+        core = obj["transformer"]
+        self.n_frames = int(self.meta["tf_n_frames"])
+        self.n_heads = int(self.meta["tf_n_heads"])
+        self.embed_w = unpack_f32(core["embed_w"], name="embed_w")
+        self.embed_b = unpack_f32(core["embed_b"], name="embed_b")
+        self.pos_embed = unpack_f32(core["pos_embed"], name="pos_embed")
+        self.out_norm_w = unpack_f32(core["out_norm_w"], name="out_norm_w")
+        self.out_norm_b = unpack_f32(core["out_norm_b"], name="out_norm_b")
+        self.layers = [_NumpyTransformerLayer(layer, n_heads=self.n_heads)
+                       for layer in core["layers"]]
+        self.frame_width = self.embed_w.shape[1]
+        # Upper-triangular strict mask: token i cannot attend to j > i.
+        self._causal_mask = np.triu(
+            np.ones((self.n_frames, self.n_frames), dtype=bool), k=1)
+        head = core["head"]
+        self.head_layers = [
+            (unpack_f32(layer["W"], name="transformer.head.layers.W"),
+             unpack_f32(layer["b"], name="transformer.head.layers.b"))
+            for layer in head["layers"]
+        ]
+        self.Wo = unpack_f32(head["Wout"], name="transformer.head.Wout")
+        self.bo = unpack_f32(head["bout"], name="transformer.head.bout")
+        activation = str(head.get("activation", "tanh"))
+        if activation not in _NLAYER_ACTIVATIONS:
+            raise ValueError(f"unsupported activation {activation!r}")
+        self._act_fn = _NLAYER_ACTIVATIONS[activation]
+        self.observation_space = _Space(int(self.meta["obs_dim"]))
+        self.action_space = _Space(int(self.meta.get("act_dim", 18)))
+        self.hidden = [self.embed_w.shape[0]] + [
+            int(W.shape[0]) for W, _ in self.head_layers]
+        self.recurrent = False
+
+    def reset(self) -> None:
+        """Stateless compatibility hook shared with recurrent artifacts."""
+
+    def act(self, obs: np.ndarray) -> np.ndarray:
+        obs = np.asarray(obs, dtype=np.float32)  # float32 end to end (see _NumpyTransformerLayer)
+        if obs.shape != self.observation_space.shape:
+            raise ValueError(
+                f"observation shape {obs.shape} != {self.observation_space.shape}")
+        # Env frames are stacked NEWEST-FIRST (frame 0 = current tick);
+        # flip to oldest-first so the causal mask reads left-to-right
+        # in time and position -1 is "now" -- mirrors FrameStack
+        # TransformerExtractor.tokens() exactly.
+        x = obs.reshape(self.n_frames, self.frame_width)[::-1]
+        x = x @ self.embed_w.T + self.embed_b
+        x = x + self.pos_embed
+        for layer in self.layers:
+            x = layer.forward(x, self._causal_mask)
+        newest = x[-1]
+        mu = newest.mean()
+        var = newest.var()
+        newest = (newest - mu) / np.sqrt(var + 1e-5) * self.out_norm_w \
+            + self.out_norm_b
+        hidden = newest
+        for W, b in self.head_layers:
+            hidden = self._act_fn(W @ hidden + b)
+        mean = self.Wo @ hidden + self.bo
+        return np.clip(mean, -1.0, 1.0).astype(np.float32, copy=False)
+
+    def predict(self, obs, state=None, episode_start=None,
+                deterministic: bool = True, **_kw):
+        del deterministic, state, episode_start  # stateless, no-op
+        batched = np.asarray(obs).ndim == 2
+        values = np.asarray(obs, dtype=np.float64)
+        if batched:
+            if values.shape[0] != 1:
+                raise ValueError(
+                    "numpy transformer supports one stream at a time")
+            values = values[0]
+        action = self.act(values)
+        if batched:
+            action = action[None, :]
+        return action, None
+
+
 def load_np_policy(
     path,
-) -> NumpyMLPModel | NumpyMLPNLayerModel | NumpyDualGruModel | NumpyGruModel:
+) -> (NumpyMLPModel | NumpyMLPNLayerModel | NumpyDualGruModel | NumpyGruModel
+      | NumpyTransformerModel):
     obj = json.loads(Path(path).read_text())
     errs, _ = validate_np_policy(obj)
     if errs:
@@ -862,9 +1197,37 @@ def load_np_policy(
         return NumpyDualGruModel(obj, Path(path))
     if obj["meta"].get("architecture") == ARCH_SINGLE_GRU:
         return NumpyGruModel(obj, Path(path))
+    if obj["meta"].get("architecture") == ARCH_TRANSFORMER:
+        return NumpyTransformerModel(obj, Path(path))
     if "layers" in obj:
         return NumpyMLPNLayerModel(obj, Path(path))
     return NumpyMLPModel(obj, Path(path))
+
+
+def tick_obs_width(meta: dict | None) -> int | None:
+    """Single-tick observation width of an artifact's ``meta``.
+
+    MLP/GRU artifacts consume one tick, so this is ``meta.obs_dim``. A
+    frame-stacked causal transformer (``meta.architecture == "transformer"``,
+    ``meta.tf_n_frames`` = K) stores the STACKED width in ``obs_dim`` (K x
+    tick); the robot drive loop builds one tick and NumpyPolicy stacks it,
+    so every slot/role decision on the robot must use the tick width, not
+    the stacked one. Returns None when meta is unusable.
+    """
+    if not isinstance(meta, dict):
+        return None
+    try:
+        obs = int(meta["obs_dim"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if meta.get("architecture") == ARCH_TRANSFORMER:
+        try:
+            frames = int(meta.get("tf_n_frames", 1) or 1)
+        except (TypeError, ValueError):
+            return None
+        if frames > 1 and obs % frames == 0:
+            return obs // frames
+    return obs
 
 
 def np_policy_obs_width(path) -> int | None:

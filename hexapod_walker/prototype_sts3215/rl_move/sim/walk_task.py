@@ -55,6 +55,39 @@ except Exception:  # pragma: no cover
 
 WALK_GOAL_DIM = GOAL_DIM + 2
 N_VEL_OBS = 2             # measured body-frame vx, vy appended to obs
+N_FOOT_CONTACT_OBS = 6    # per-foot normalized load (obs.foot_contact_sense)
+
+
+def foot_contact_sense_obs_dim(cfg) -> int:
+    """Extra obs width from the optional per-foot LOAD channel
+    (``obs.foot_contact_sense=1`` -> 6 dims, default 0/OFF, bit-exact
+    when off). Appended by ``_augment_obs`` at the absolute FRAME TAIL
+    (after every other extra, so a warm start is a per-frame tail
+    zero-pad: ``--obs-pad-transplant 6`` with the transformer/history
+    stack, see ``obs_transplant.transformer_pad_obs_transplant``).
+
+    2026-09-26 standwalk standing hypothesis (operator focus, RL_GOALS
+    169c555 lever (c)): the walker cannot ADAPT to per-leg
+    miscalibration because no obs channel carries the draw --
+    frame-mode zero bias is invisible in the joint reads by design,
+    per-leg link scale is unobserved, and walk_obs_body_vel=2 feeds the
+    COMMAND. Per-foot load is the first channel through which a
+    mis-scaled/mis-zeroed leg is directly *sensible* (it under/over
+    loads vs its peers). Value per foot = ``tanh(force_N /
+    obs.foot_contact_scale)`` (default 5.0 N ~ one-sixth of the 3.5 kg
+    robot's weight, so a nominally loaded stance foot reads ~0.6);
+    tanh keeps impact spikes bounded. Sim source: the same per-foot
+    touch sensors every duty/slip mechanism already reads
+    (``sim_env._touch_adr``); feet without a touch sensor read 0.
+    Robot-side proxy = per-servo current aggregated per leg (noted in
+    linux_control/README.md) -- deployment needs that estimator before
+    a real walk, same contract as walk_obs_body_vel=3.
+
+    NOT compatible with the Dual-GRU loco gate (reads the literal last
+    3 obs columns) -- guarded in train_ppo_mjx.
+    """
+    return (N_FOOT_CONTACT_OBS if float(cfg_get(
+        cfg, "obs", "foot_contact_sense", default=0.0)) == 1.0 else 0)
 VEL_SCALE = 0.15          # m/s; matches the max commanded speed
 K_WALK = 2.0              # kernel peak, ~2x the tilt-tracking kernel
 SIGMA_V = 0.05            # m/s; kernel width
@@ -876,7 +909,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 + (N_JOINTS if self._fault_obs else 0)
                 + current_sense_obs_dim(self.cfg)
                 + height_err_sense_obs_dim(self.cfg)
-                + height_vel_sense_obs_dim(self.cfg))
+                + height_vel_sense_obs_dim(self.cfg)
+                + foot_contact_sense_obs_dim(self.cfg))
 
     def _augment_obs(self, obs: np.ndarray, *,
                      reset: bool = False) -> np.ndarray:
@@ -1068,6 +1102,21 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             fh = (er.fault_health() if er is not None
                   else np.ones(N_JOINTS, dtype=np.float32))
             obs = np.concatenate([obs, fh])
+        if foot_contact_sense_obs_dim(self.cfg) > 0:
+            # Per-foot normalized load at the absolute FRAME TAIL (see
+            # foot_contact_sense_obs_dim's docstring for the design and
+            # the transplant contract). MUST stay the last append in
+            # this method: --obs-pad-transplant 6 on the transformer
+            # lineage zero-pads the last 6 embed columns per frame.
+            fscale = float(cfg_get(self.cfg, "obs", "foot_contact_scale",
+                                   default=5.0))
+            f = np.zeros(N_FOOT_CONTACT_OBS, dtype=float)
+            adrs = getattr(self, "_touch_adr", None)
+            if adrs is not None:
+                for i, adr in enumerate(adrs):
+                    if adr >= 0:
+                        f[i] = max(float(self.data.sensordata[adr]), 0.0)
+            obs = np.concatenate([obs, np.tanh(f / max(fscale, 1e-6))])
         return obs.astype(np.float32)
 
     def _reset_begin(self, seed: int | None = None):

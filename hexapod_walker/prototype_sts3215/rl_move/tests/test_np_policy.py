@@ -437,3 +437,17 @@ def test_transformer_validation_rejects_heads_not_dividing_d_model():
     # need to rebuild mismatched attention weights -- caught before decode.
     errs, _ = validate_np_policy(payload)
     assert any("tf_n_heads" in e for e in errs)
+
+
+def test_tick_obs_width_unstacks_transformer_artifacts():
+    from rl_move.np_policy import tick_obs_width
+    assert tick_obs_width({"obs_dim": 74}) == 74
+    assert tick_obs_width({"obs_dim": 81, "architecture": "dual_gru"}) == 81
+    assert tick_obs_width({"obs_dim": 1184, "architecture": "transformer",
+                           "tf_n_frames": 16}) == 74
+    # a stacked width that is not a multiple of K is left alone (validator
+    # rejects it elsewhere); unusable meta -> None
+    assert tick_obs_width({"obs_dim": 1183, "architecture": "transformer",
+                           "tf_n_frames": 16}) == 1183
+    assert tick_obs_width({}) is None
+    assert tick_obs_width(None) is None

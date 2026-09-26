@@ -1195,6 +1195,32 @@ def load_np_policy(
     return NumpyMLPModel(obj, Path(path))
 
 
+def tick_obs_width(meta: dict | None) -> int | None:
+    """Single-tick observation width of an artifact's ``meta``.
+
+    MLP/GRU artifacts consume one tick, so this is ``meta.obs_dim``. A
+    frame-stacked causal transformer (``meta.architecture == "transformer"``,
+    ``meta.tf_n_frames`` = K) stores the STACKED width in ``obs_dim`` (K x
+    tick); the robot drive loop builds one tick and NumpyPolicy stacks it,
+    so every slot/role decision on the robot must use the tick width, not
+    the stacked one. Returns None when meta is unusable.
+    """
+    if not isinstance(meta, dict):
+        return None
+    try:
+        obs = int(meta["obs_dim"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if meta.get("architecture") == ARCH_TRANSFORMER:
+        try:
+            frames = int(meta.get("tf_n_frames", 1) or 1)
+        except (TypeError, ValueError):
+            return None
+        if frames > 1 and obs % frames == 0:
+            return obs // frames
+    return obs
+
+
 def np_policy_obs_width(path) -> int | None:
     """meta.obs_dim of a policy JSON, or None if unreadable."""
     try:

@@ -11,6 +11,13 @@ from .common import *  # noqa: F401,F403
 from async_bus_guard import AsyncSamplerCleanupError
 
 
+
+def _tick_obs_width(meta):
+    """Single-tick obs width (frame-stacked transformer artifacts store K x
+    tick in meta.obs_dim); see rl_move.np_policy.tick_obs_width."""
+    from rl_move.np_policy import tick_obs_width
+    return tick_obs_width(meta)
+
 class RlApi:
     # -- RL / agent HTTP surface (prefer this over SSH) ---------------------
     def rl_state(self) -> dict:
@@ -636,12 +643,15 @@ class RlApi:
                     errors, _ = validate_np_policy(obj)
                 except Exception as e:
                     errors = [str(e)]
-                slot = self._SLOT_OBS.get(meta.get("obs_dim"))
+                slot = self._SLOT_OBS.get(_tick_obs_width(meta))
                 out.append({
                     "file": f.name,
                     "name": meta.get("name") or f.stem,
                     "slot": slot,
-                    "obs_dim": meta.get("obs_dim"),
+                    "obs_dim": _tick_obs_width(meta),
+                    **({"stacked_obs_dim": meta.get("obs_dim")}
+                       if _tick_obs_width(meta) != meta.get("obs_dim")
+                       else {}),
                     "architecture": meta.get("architecture", "mlp"),
                     "source": (meta.get("source") or "").rsplit("/", 1)[-1],
                     "notes": meta.get("notes", ""),
@@ -676,10 +686,10 @@ class RlApi:
                         "error": "invalid v2 policy: " + "; ".join(errors[:3])}
         except Exception as e:
             return {"ok": False, "error": f"unreadable policy: {e}"}
-        slot = self._SLOT_OBS.get(meta.get("obs_dim"))
+        slot = self._SLOT_OBS.get(_tick_obs_width(meta))
         if slot is None:
             return {"ok": False,
-                    "error": (f"obs_dim {meta.get('obs_dim')} fits no slot "
+                    "error": (f"obs_dim {_tick_obs_width(meta)} fits no slot "
                               "(68 = stance; 72/74/75/81/93 = walk)")}
         dst = self._policy_slot_targets()[slot]
         tmp = dst.with_name(dst.name + ".tmp")
@@ -789,9 +799,9 @@ class RlApi:
                                      + "; ".join(errors[:3])}
             except Exception as e:
                 return {"ok": False, "error": f"unreadable policy: {e}"}
-            if meta.get("obs_dim") not in self._ROLE_OBS[role]:
+            if _tick_obs_width(meta) not in self._ROLE_OBS[role]:
                 return {"ok": False,
-                        "error": (f"{name} (obs {meta.get('obs_dim')}) "
+                        "error": (f"{name} (obs {_tick_obs_width(meta)}) "
                                   f"does not fit role {role} "
                                   f"(needs obs {self._ROLE_OBS[role]})")}
             val = name

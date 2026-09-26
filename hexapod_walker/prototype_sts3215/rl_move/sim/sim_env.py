@@ -731,6 +731,46 @@ class SimHexapodBalanceEnv(_GymBase):
                                    "over_current_trip_s", default=.8))
             self.safety._over_current_trip_ticks = max(
                 1, int(round(trip_s * self._deployed_transport.snapshot.hz)))
+        # Adaptive tilt-cap schedule keyed to |wz_ref| (walkcurr Next
+        # item, lever (i) from the track STATUS.md 2026-09-25 ~13:5x
+        # design list: after BOTH state-machine composition and task-
+        # space turn parameterization closed 0/2 seeds on the SAME
+        # flat "eased 45deg" tilt-termination cap [STATUS.md
+        # 2026-09-26 ~12:2x/~16:0x], the fixed-cap CONTRACT itself --
+        # not the command family used to ask for a turn -- is the
+        # remaining untried suspect. Every closed easedterm arm
+        # relaxes safety.max_roll_deg/max_pitch_deg to one constant
+        # (e.g. 45) for the WHOLE episode, including ticks that command
+        # no rotation at all (straight walking, holds) -- so an
+        # unstable straight-walking basin can freely wander up to the
+        # wide cap meant for turning, then never recovers. This
+        # schedule instead keeps the STRICT (tight) cap on near-zero
+        # -wz_ref ticks and only relaxes to the wide cap on ticks that
+        # actually command a turn, re-asserting SafetyLayer's mutable
+        # max_roll/max_pitch fields every tick (same "live re-assert"
+        # pattern already used for the slew-ramp override,
+        # `self._profile_ramp_dq_rad` above). Default OFF
+        # (`safety.tilt_cap_wz_schedule` unset/0): this whole block is
+        # skipped and self.safety.max_roll/max_pitch stay exactly what
+        # SafetyLayer.__init__ set them to for the entire episode --
+        # bit-exact legacy for every existing checkpoint/recipe.
+        self._tilt_cap_wz_schedule = (float(cfg_get(
+            self.cfg, "safety", "tilt_cap_wz_schedule",
+            default=0.0)) == 1.0)
+        if self._tilt_cap_wz_schedule:
+            # "wide" = whatever safety.max_roll_deg/max_pitch_deg cfg
+            # already configured (e.g. the eased-cap family's 45deg) --
+            # captured BEFORE any per-tick mutation below ever runs.
+            self._tilt_cap_wide_roll_rad = self.safety.max_roll
+            self._tilt_cap_wide_pitch_rad = self.safety.max_pitch
+            self._tilt_cap_tight_roll_rad = math.radians(float(cfg_get(
+                self.cfg, "safety", "tilt_cap_tight_roll_deg",
+                default=30.0)))
+            self._tilt_cap_tight_pitch_rad = math.radians(float(cfg_get(
+                self.cfg, "safety", "tilt_cap_tight_pitch_deg",
+                default=30.0)))
+            self._tilt_cap_wz_thresh_rad_s = float(cfg_get(
+                self.cfg, "safety", "tilt_cap_wz_thresh", default=0.05))
         # Subclasses with a different action space (e.g. raw joint targets)
         # override n_act and _act_to_q; everything else is shared.
         self.n_act = N_ACT
@@ -3247,6 +3287,24 @@ class SimHexapodBalanceEnv(_GymBase):
             # SafetyLayer minted under an older ramp value — re-assert
             # the live slew clamp every tick (see apply_profile_ramp_frac).
             self.safety.max_dq = self._profile_ramp_dq_rad
+        if self._tilt_cap_wz_schedule:
+            # Adaptive tilt-cap re-assert (see __init__ comment): tight
+            # cap on near-zero-wz_ref ticks, wide (eased) cap only on
+            # ticks that actually command a turn. `_current_goal()`
+            # here reads the SAME step_i already used above for the
+            # residual-blend goal lookup this tick — a goal-less base
+            # env (rise/lower/no goal_traj) falls back to wz_ref=0.0,
+            # i.e. the tight cap, same as leaving this feature off with
+            # safety.max_roll_deg/pitch_deg set to the tight value.
+            _tcs_goal = self._current_goal()
+            _tcs_wz = abs(float(getattr(_tcs_goal, "wz_ref", 0.0) or 0.0)
+                          ) if _tcs_goal is not None else 0.0
+            if _tcs_wz <= self._tilt_cap_wz_thresh_rad_s:
+                self.safety.max_roll = self._tilt_cap_tight_roll_rad
+                self.safety.max_pitch = self._tilt_cap_tight_pitch_rad
+            else:
+                self.safety.max_roll = self._tilt_cap_wide_roll_rad
+                self.safety.max_pitch = self._tilt_cap_wide_pitch_rad
         safety_state = (self._state if self._deployed_transport is None else
                         self._deployed_transport.safety_state(self._state))
         q_safe, status = self.safety.filter(

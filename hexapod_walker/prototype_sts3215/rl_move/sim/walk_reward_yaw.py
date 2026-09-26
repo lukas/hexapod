@@ -560,11 +560,31 @@ def turn_kernel_neutral(env, goal, info, r_prog, r_walk, s_ref):
     # walk_turn_in_place_tick above); every other tick
     # (forward, combined, hold) is untouched. See
     # test_walk_turn_kernel_neutral.py.
+    #
+    # EXTENDED 2026-09-26 (walkcurr task-space redesign, same STATUS
+    # entry as yaw_offset_kernel above) to also cover the NEW
+    # position-tracking offset command: an offset episode also forces
+    # vx_ref=vy_ref=0 (s_ref<=1e-3), so without this extension the
+    # exact same stand-still subsidy this whole mechanism was built to
+    # kill on the rate-based command would silently reappear on every
+    # offset-commanded tick with a nonzero target -- same bug, new
+    # command family, same fix. Gated on env._yaw_offset_cmd (only set
+    # when goal.walk_yaw_offset_set is configured) and a nonzero
+    # target (a 0-degree "hold current heading" offset tick is a
+    # legitimate stand-still, exactly like a wz_ref==0 hold tick under
+    # the rate command -- not suppressed). Additive OR with the
+    # existing rate-based condition; a pre-09-26 lineage always has
+    # env._yaw_offset_cmd False, so this branch is never reached and
+    # the rate-only behavior above is unchanged bit-for-bit.
     g_turn_neutral = float(cfg_get(
         env.cfg, "reward", "walk_turn_kernel_neutral",
         default=0.0))
-    if (g_turn_neutral > 0.0 and env._yaw_cmd
-            and s_ref <= 1e-3 and abs(goal.wz_ref) > 1e-3):
+    _rate_turn_tick = (env._yaw_cmd and abs(goal.wz_ref) > 1e-3)
+    _offset_turn_tick = (
+        getattr(env, "_yaw_offset_cmd", False)
+        and abs(float(getattr(goal, "yaw_offset_ref", 0.0))) > 1e-3)
+    if (g_turn_neutral > 0.0 and s_ref <= 1e-3
+            and (_rate_turn_tick or _offset_turn_tick)):
         _tn_factor = 1.0 - min(max(g_turn_neutral, 0.0), 1.0)
         r_walk *= _tn_factor
         r_prog *= _tn_factor

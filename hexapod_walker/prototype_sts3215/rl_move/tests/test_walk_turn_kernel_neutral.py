@@ -179,3 +179,76 @@ def test_forward_tick_never_gated_even_with_armed_flag():
     _, _, _, _, info = env.step(_hold_action(env))
     assert "walk_turn_kernel_neutral_factor" not in info
     env.close()
+
+
+# ---------------------------------------------------------------------
+# 2026-09-26 extension: the same stand-still subsidy, same fix, on the
+# NEW position-tracking offset command (goal.walk_yaw_offset_set).
+# ---------------------------------------------------------------------
+
+def _offset_env(gate=0.0, offset_set="45", frac=1.0, seed=0):
+    cfg = load_config()
+    goal = cfg.setdefault("goal", {})
+    goal["walk_yaw_offset_set"] = offset_set
+    goal["walk_yaw_offset_frac"] = frac
+    goal["walk_gait_start_frac"] = 0.0
+    goal["walk_park_start_frac"] = 0.0
+    rw = cfg.setdefault("reward", {})
+    if gate:
+        rw["walk_turn_kernel_neutral"] = gate
+    env = SimHexapodJointWalkEnv(cfg, seed=seed)
+    g = env._goal_gen
+    for m in ("hold", "lean", "track", "unload", "raise", "rise",
+              "lower"):
+        if hasattr(g, f"p_{m}"):
+            setattr(g, f"p_{m}", 0.0)
+    g.p_walk = 1.0
+    env.reset()
+    return env
+
+
+def test_offset_tick_with_nonzero_target_gated_like_rate_tick():
+    """A genuine offset-commanded tick (nonzero target, s_ref<=1e-3)
+    is suppressed by the SAME gate as a rate-based turn-in-place tick,
+    even though env._yaw_cmd/goal.wz_ref are never touched by this
+    command family."""
+    env = _offset_env(gate=0.0)
+    goal = env._current_goal()
+    assert abs(float(goal.yaw_offset_ref)) > 1e-3   # sanity: live target
+    _, _, _, _, info_off = env.step(_hold_action(env))
+    r_walk_off = info_off["reward_walk"]
+    assert "walk_turn_kernel_neutral_factor" not in info_off
+    assert r_walk_off > 0.0
+    env.close()
+
+    env2 = _offset_env(gate=1.0)
+    _, _, _, _, info_on = env2.step(_hold_action(env2))
+    assert info_on["walk_turn_kernel_neutral_factor"] == pytest.approx(0.0)
+    assert info_on["reward_walk"] == pytest.approx(0.0)
+    env2.close()
+
+
+def test_offset_tick_with_zero_target_not_gated():
+    """A 0-degree offset command (hold current heading) is a
+    legitimate stand-still, exactly like a wz_ref==0 hold tick under
+    the rate command -- never suppressed, even with the gate armed."""
+    env = _offset_env(gate=1.0, offset_set="0", frac=1.0)
+    goal = env._current_goal()
+    assert float(goal.yaw_offset_ref) == 0.0
+    _, _, _, _, info = env.step(_hold_action(env))
+    assert "walk_turn_kernel_neutral_factor" not in info
+    env.close()
+
+
+def test_legacy_lineage_unaffected_by_offset_extension():
+    """No goal.walk_yaw_offset_set configured (every pre-09-26
+    lineage): env._yaw_offset_cmd is False, so the new OR-branch can
+    never fire even with the gate armed and a rate-based turn-in-place
+    tick live -- identical numbers to before this extension."""
+    env = _turn_env(gate=1.0)
+    _advance_to_turn_tick(env)
+    _, _, _, _, info = env.step(_hold_action(env))
+    assert info["walk_turn_kernel_neutral_factor"] == pytest.approx(0.0)
+    assert info["reward_walk"] == pytest.approx(0.0)
+    assert env._yaw_offset_cmd is False
+    env.close()

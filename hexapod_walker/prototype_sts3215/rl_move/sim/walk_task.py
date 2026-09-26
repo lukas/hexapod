@@ -623,6 +623,41 @@ def walk_legduty_ratio_tick(ema: list, *, on: list, dt: float,
     return [e + (dt / tau_s) * (float(o) - e) for e, o in zip(ema, on)]
 
 
+def walk_foot_load_min_bonus(contact_forces_n, *, k: float,
+                             scale_n: float = 5.0,
+                             tau: float = 0.15) -> float:
+    """``reward.k_walk_foot_load_min`` -- a per-tick FORCE-based bonus
+    on the worst-loaded (nearest-to-hovering) of the six feet, standing
+    2026-09-26 ~14:2x control-experiment follow-up: an open-loop
+    scripted TripodGait sacrifices the SAME legs on the SAME per-leg
+    DR draws every trained transformer does (gait_valid at the ceil225
+    rung is fixed-plant-geometry not reaching the ground, controller-
+    independent, not a learning failure). Unlike `k_park_duty` (a
+    BEHAVIOR-pattern charge on contact DUTY, already closed as a null
+    lever 2026-09-26 ~05:5x), this prices actual per-foot FORCE, using
+    the exact tanh(force_N/scale_n) units `obs.foot_contact_sense`
+    already exposes, so it rewards literally raising an under-reaching
+    leg's ground force rather than discounting a duty pattern.
+
+    Soft-min via log-sum-exp (same tau=0.15 shape as
+    `walk_reward_recover.recover_reward`'s proven getup/recover-role
+    "M" potential term): bounded in ``[0, k]``, and — because it is a
+    MIN, not a mean — cannot be bought by piling load onto the other
+    five feet while one stays at zero.  ``k<=0`` (the default) always
+    returns 0.0 with zero float ops beyond the two comparisons, so a
+    keyless caller pays nothing (mirrors every other reward.k_* guard
+    in this module).
+    """
+    if k <= 0.0:
+        return 0.0
+    x = np.array([math.tanh(max(float(f), 0.0) / max(scale_n, 1e-6))
+                  for f in contact_forces_n])
+    tau = max(float(tau), 1e-6)
+    m = -tau * math.log(float(np.mean(np.exp(-x / tau))))
+    m = min(max(m, 0.0), 1.0)
+    return float(k) * m
+
+
 def walk_legduty_ratio_charge(ema: list, target: float,
                                swing_counts: list | None = None,
                                swing_min_count: float = 0.0,

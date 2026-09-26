@@ -3128,6 +3128,21 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # known. Same lifecycle as _walk_course_disp_hist.
         self._walk_course_win_hist = None
         self._walk_course_win_cum = [0.0, 0.0, 0]
+        # Consecutive-progress PERSISTENCE streak, seconds
+        # (reward.k_walk_persistence_bonus, AMP M2 sustainment
+        # design lever, 2026-09-26 -- amp/STATUS.md Next item (i),
+        # "a persistence/streak-shaped reward that prices
+        # CONSECUTIVE valid steps, not instantaneous progress").
+        # Counts unbroken seconds of positive
+        # reward_walk_course_income ticks while a move is
+        # commanded; reset to 0.0 the instant a commanded-move
+        # tick fails to earn positive course income (freeze,
+        # reversal, or derail). Read (never written) by
+        # walk_reward_course.walk_persistence_bonus. Same
+        # lifecycle as _walk_course_win_hist. Maintained
+        # unconditionally (one cheap float) but only PRICED when
+        # k_walk_persistence_bonus > 0 -- default 0.0 is bit-exact.
+        self._walk_persist_s = 0.0
         # Stride-EMA velocity for the tracking kernel
         # (reward.walk_kernel_vel_ema); same lifecycle.
         self._walk_kernel_vema = [0.0, 0.0]
@@ -3305,6 +3320,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 goal, info, reward, s_ref)
             reward = walk_reward_course.course_increment_and_sway_charges(self,
                 goal, info, reward, s_ref, support_gate)
+            reward = walk_reward_course.walk_persistence_bonus(self,
+                goal, info, reward, s_ref)
             walk_reward_progress.direction_telemetry(self,
                 along, cmd_cross, goal, info, k_cmd_track, s_ref, v)
             reward = walk_reward_stepevent.phase_contact_agreement(self,

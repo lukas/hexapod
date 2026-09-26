@@ -334,6 +334,71 @@ def course_increment_and_sway_charges(env,
     return reward
 
 
+def walk_persistence_bonus(env, goal, info, reward, s_ref):
+    # ---------------------------------------------------------
+    # PERSISTENCE bonus (amp/STATUS.md Next item (i), 2026-09-26):
+    # a streak-shaped addition that prices CONSECUTIVE valid
+    # command-following ticks, not just instantaneous progress.
+    #
+    # Motivation (AMP M2 "can't stay" finding, four independently-
+    # closed lever classes -- reward-shape swap, state-init dose,
+    # algorithm swap, episode-horizon curriculum -- all reproduce
+    # the SAME signature: a from-scratch actor reaches a walking
+    # gait, then freezes into a static crouch mid-episode despite
+    # k_walk_course_income already gating on genuine net
+    # displacement). A flat per-tick income term is memoryless: the
+    # actor loses only THIS tick's small reward by freezing, so an
+    # unstable gait's downside risk can outweigh one tick's income.
+    # This term makes the recent past matter: every tick that
+    # continues an unbroken run of positive course-income ticks
+    # pays a bonus that RAMPS UP over `walk_persistence_ramp_s`
+    # (capped at `walk_persistence_cap` x k), and freezing forfeits
+    # the whole accumulated rate at once (reset to 0), not just one
+    # tick's income -- raising the opportunity cost of stopping
+    # without ever pricing being frozen directly (no new charge, no
+    # new failure mode if the base income term is itself off/zero).
+    #
+    # Requires k_walk_course_income > 0 (this term rides its info
+    # key, `reward_walk_course_income`, as the per-tick "valid step"
+    # signal -- it does not recompute course tracking itself).
+    # Streak state (`env._walk_persist_s`) is maintained
+    # unconditionally in reset (cheap scalar) but this function
+    # only reads/prices it when k_persist > 0.
+    #
+    # cfg: reward.k_walk_persistence_bonus (default 0.0 = OFF, no
+    # info keys, reward bit-exact legacy), reward.
+    # walk_persistence_ramp_s (seconds of unbroken streak to reach
+    # full bonus rate, default 3.0), reward.walk_persistence_cap
+    # (bonus multiple cap, default 1.0 -- so at full ramp the bonus
+    # equals k_persist added on top of whatever course-income the
+    # tick already earned).
+    k_persist = float(cfg_get(env.cfg, "reward",
+                               "k_walk_persistence_bonus", default=0.0))
+    if k_persist <= 0.0:
+        return reward
+    ramp_s = max(float(cfg_get(env.cfg, "reward",
+                               "walk_persistence_ramp_s",
+                               default=3.0)), env.dt)
+    cap = max(float(cfg_get(env.cfg, "reward",
+                            "walk_persistence_cap", default=1.0)), 0.0)
+    if s_ref > 1e-3:
+        r_cinc = float(info.get("reward_walk_course_income", 0.0))
+        if r_cinc > 0.0:
+            env._walk_persist_s = env._walk_persist_s + env.dt
+        else:
+            env._walk_persist_s = 0.0
+        if env._walk_persist_s > 0.0:
+            frac = min(env._walk_persist_s / ramp_s, cap)
+            r_persist = k_persist * frac
+            reward = float(reward) + r_persist
+            info["walk_persistence_s"] = env._walk_persist_s
+            info["reward_walk_persistence_bonus"] = r_persist
+    # Commanded stops neither grow nor break the streak (an honest
+    # stop is not a freeze mid-walk); the streak simply resumes
+    # from wherever it stood the next time a move is commanded.
+    return reward
+
+
 def course_displacement_charge(env, goal, info, reward, s_ref):
     # Commanded-COURSE charge via NET POSITION DISPLACEMENT
     # (k_walk_course fix-lever (b), 2026-08-29 standwalk

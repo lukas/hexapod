@@ -3413,6 +3413,14 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     _rnd.record_struct_outcome(
                         _story, self._struct_ep_peak_roll_deg)
                 self._struct_ep_peak_roll_deg = 0.0
+        # reward.k_hard_draw_bonus (see sim_env._compute_hard_draw_mult):
+        # applied LAST, after every walk-mode shaping term above, so the
+        # multiplier covers the FULL per-step reward this episode's DR
+        # draw earned — not just the base-class slice computed before
+        # this override's own additions. Default 0.0 -> mult == 1.0 ->
+        # this is a no-op comparison, never a rebuild: bit-exact.
+        if self._hard_draw_mult != 1.0:
+            reward = float(reward) * self._hard_draw_mult
         return obs, reward, term, trunc, info
 
     def _quad_income(self, reward: float, info: dict) -> tuple:

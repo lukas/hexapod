@@ -704,6 +704,20 @@ class SimHexapodBalanceEnv(_GymBase):
         self._ep_rand: EpisodeRandomization | None = None
         self._reset_start_offset_rad: np.ndarray | None = None
         self._reset_start_bad_joints: list[int] = []
+        # reward.k_hard_draw_bonus (2026-09-26, standwalk track — the
+        # closing lever of the input-observability grid: park-price,
+        # measured-velocity, current-sense and foot-contact-sense obs
+        # channels are ALL now instrument-confirmed null [CURRENT_TRUTHS
+        # 09-26 ~06:3x, 8+ arch/seed cells each] at gait_valid_rate.py's
+        # rate+CI resolution — the walker's INPUT is not the bottleneck,
+        # so the next untried lever is the LEARNING SIGNAL: does this
+        # episode's own DR draw even get a bigger say in the loss.
+        # `self._hard_draw_mult` is this episode's per-step reward
+        # multiplier; 1.0 (bit-exact no-op) whenever the flag is 0 (the
+        # default) or before the first reset. See _compute_hard_draw_mult
+        # for the score; applied in walk_task's (not this base class's)
+        # _post_step, LAST, after every walk-mode shaping term.
+        self._hard_draw_mult: float = 1.0
 
         self._plant_deg = (np.asarray(plant_deg, dtype=float).reshape(N_JOINTS)
                            if plant_deg is not None else _default_plant_deg())
@@ -2050,6 +2064,7 @@ class SimHexapodBalanceEnv(_GymBase):
 
         self._ep_rand = (self.randomizer.sample(self.rng)
                          if self.randomizer is not None else None)
+        self._hard_draw_mult = self._compute_hard_draw_mult()
         self._reset_start_offset_rad = self._sample_reset_start_offset_rad()
         if self._struct_comp is not None:
             dr = (getattr(self.randomizer, "scale", 1.0)
@@ -3375,6 +3390,48 @@ class SimHexapodBalanceEnv(_GymBase):
         self._update_foot_catch_state()
         self._advance()
         return self._post_step(self._step_finish(ctx))
+
+    def _compute_hard_draw_mult(self) -> float:
+        """reward.k_hard_draw_bonus (default 0.0 -> returns 1.0, the
+        bit-exact no-op): a per-episode reward MULTIPLIER (not a new
+        reward term) that reweights this episode's whole return by how
+        hard its OWN DR draw is, so PPO's gradient gives more weight to
+        the hard-draw region of DR space instead of the ~50% of draws
+        that are already gait_valid regardless of training (see
+        CURRENT_TRUTHS 2026-09-26 draw_feasibility.py finding: 86-87%
+        CV accuracy predicting gait_valid from the draw alone, top
+        axes link_scale_range span + zero_bias_max_deg). This does NOT
+        change what is rewarded within an episode (same optimum, same
+        shape) — only how much that episode's transitions count,
+        exactly like a curriculum/importance weight — so it cannot
+        introduce a NEW exploit; k=0 leaves every reward bit-identical
+        to before this key existed.
+
+        Difficulty score uses the two dominant axes draw_feasibility.py
+        has repeatedly found to dominate its fit (STATUS 2026-09-26
+        ~01:5x/04:1x/04:3x) rather than the full persisted classifier
+        (no serialized-model dependency yet) — a first, cheap, already
+        evidence-backed proxy: (link_scale span) / (2 * configured
+        link_len_leg_pct ceiling), and (max |zero_bias|) / (configured
+        joint_zero_bias_deg ceiling), averaged and clipped to [0, 1].
+        Self-normalizing across DR ceilings/dr_scale since it divides
+        by THIS episode's own configured range, not a fixed constant.
+        """
+        k = float(cfg_get(self.cfg, "reward", "k_hard_draw_bonus",
+                          default=0.0) or 0.0)
+        if k == 0.0 or self._ep_rand is None or self.randomizer is None:
+            return 1.0
+        ranges = self.randomizer.ranges
+        link_pct = float(getattr(ranges, "link_len_leg_pct", 0.0))
+        bias_deg = float(getattr(ranges, "joint_zero_bias_deg", 0.0))
+        link_span = (float(np.max(self._ep_rand.link_scale))
+                     - float(np.min(self._ep_rand.link_scale)))
+        link_frac = (link_span / (2.0 * link_pct)) if link_pct > 0 else 0.0
+        zero_bias_deg = float(np.max(np.abs(self._ep_rand.joint_zero_bias_rad))
+                               ) * RAD2DEG
+        bias_frac = (zero_bias_deg / bias_deg) if bias_deg > 0 else 0.0
+        difficulty = float(np.clip(0.5 * (link_frac + bias_frac), 0.0, 1.0))
+        return 1.0 + k * difficulty
 
     def _post_step(self, result):
         """Subclass hook applied to EVERY completed step tuple (both the

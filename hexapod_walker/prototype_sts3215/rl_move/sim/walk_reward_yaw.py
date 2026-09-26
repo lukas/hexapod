@@ -445,6 +445,79 @@ def yaw_rate_kernel(env, along, goal, info, reward, s_ref):
     return reward
 
 
+def yaw_offset_kernel(env, goal, info, reward):
+    """Task-space TURN-OFFSET reward (walkcurr Next item; design
+    sketched track STATUS.md 2026-09-25 ~13:5x, built 2026-09-26 after
+    the rate-based tip_frac==0 "walk+curve specialist" composition
+    route CLOSED 0/2 seeds on the SAME eased-cap contract:
+    `cw-walkyaw50hz-rlonly-scratch-sac-{s0,s1}-easedterm-tipfrac0-
+    acq1`, both FAIL on sacrificed legs / prog / wrong-way). Every
+    closed rate-based mechanism above (`yaw_rate_kernel`,
+    `anti_drift_yaw_pricing`, ...) prices a continuous commanded
+    yaw-RATE every tick — either pinned at exactly 0 (heading-hold) or
+    a nonzero band with an instant flip at resample boundaries — so
+    the policy must simultaneously hold near-zero rate AND spin at a
+    commanded rate within the SAME continuous-control episode, with no
+    notion of "the turn is done." This function instead prices the
+    REMAINING error between a discrete target relative-heading OFFSET
+    (drawn once per episode/segment in walk_task._sample_walk from
+    goal.walk_yaw_offset_set) and the cumulative body rotation actually
+    achieved since the command was issued (env._yaw_offset_achieved,
+    integrated from env._body_wz() every tick — avoids any atan2
+    wraparound since offsets stay well under one full turn). A
+    0-degree offset now settles the SAME position-error kernel at 0 as
+    every other offset, removing the bang-bang rate/zero dichotomy the
+    closed mechanism could never resolve.
+
+    Two additive, independently-gated terms, both default 0.0 = off,
+    bit-exact legacy (goal.walk_yaw_offset_set unset -> env._yaw_
+    offset_cmd False -> this function returns reward unchanged, no
+    info keys, no state mutation):
+      - reward.k_walk_yaw_offset: Gaussian kernel on the remaining
+        error (width reward.walk_yaw_offset_sigma_rad) — shapes the
+        approach, same family as every other kernel in this file.
+      - reward.k_walk_yaw_offset_hold: flat per-tick bonus paid only
+        while |remaining error| <= reward.walk_yaw_offset_tol_rad —
+        the settle/hold analog of walk_yaw_hold_prog_gate/k_yaw_still,
+        rewarding STAYING at the target rather than merely passing
+        through it.
+
+    Runs on every walk tick this lineage trains with (not gated on
+    s_ref: the linear command is forced to zero whenever _sample_walk
+    draws this mode, so s_ref is already ~0 on those ticks). Episodes
+    where the frac draw did not fire keep yaw_offset_ref at its
+    default 0.0 — i.e. "hold whatever heading you started at," a
+    sensible degenerate case, not a separate exclusion flag.
+    See test_walk_yaw_offset.py.
+    """
+    if not getattr(env, "_yaw_offset_cmd", False):
+        return reward
+    target = float(getattr(goal, "yaw_offset_ref", 0.0))
+    env._yaw_offset_achieved += env._body_wz() * env.dt
+    err = target - env._yaw_offset_achieved
+    info["walk_yaw_offset_target"] = target
+    info["walk_yaw_offset_achieved"] = env._yaw_offset_achieved
+    info["walk_yaw_offset_err"] = err
+    k_kernel = float(cfg_get(env.cfg, "reward", "k_walk_yaw_offset",
+                             default=0.0))
+    if k_kernel > 0.0:
+        sigma = max(float(cfg_get(
+            env.cfg, "reward", "walk_yaw_offset_sigma_rad",
+            default=0.35)), 1e-6)
+        r_off = k_kernel * math.exp(-(err ** 2) / (2.0 * sigma ** 2))
+        reward = float(reward) + r_off
+        info["reward_walk_yaw_offset"] = r_off
+    k_hold = float(cfg_get(env.cfg, "reward", "k_walk_yaw_offset_hold",
+                           default=0.0))
+    if k_hold > 0.0:
+        tol = float(cfg_get(env.cfg, "reward",
+                            "walk_yaw_offset_tol_rad", default=0.07))
+        if abs(err) <= tol:
+            reward = float(reward) + k_hold
+            info["reward_walk_yaw_offset_hold"] = k_hold
+    return reward
+
+
 def turn_kernel_neutral(env, goal, info, r_prog, r_walk, s_ref):
     # Turn-kernel-neutral: strip the BASE velocity-tracking
     # kernel's stand-still subsidy on genuine turn-in-place

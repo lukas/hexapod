@@ -9,6 +9,8 @@ and re-indentation; the header comments travelled with the code.
 """
 from __future__ import annotations
 
+import math
+
 from rl_move.config import cfg_get
 from .walk_task import (
     WALKCURR_BUCKETS, WALKCURR_BUCKETS_V10, WALKCURR_BUCKETS_V2,
@@ -59,6 +61,13 @@ def init_reward_bookkeeping(env):
     # reset in _reset_begin, snapshot via MJX_SNAPSHOT_EXTRA.
     env._yaw_still_ema = 0.0
     env._yaw_prog_ema = 0.0
+    # Task-space turn-OFFSET cumulative achieved rotation
+    # (goal.walk_yaw_offset_set lineage; walk_reward_yaw.
+    # yaw_offset_kernel), integrated from env._body_wz() every walk
+    # tick since episode/segment start. Per-episode, reset in
+    # _reset_begin, snapshot via MJX_SNAPSHOT_EXTRA — same lifecycle
+    # as _yaw_still_ema/_yaw_prog_ema above.
+    env._yaw_offset_achieved = 0.0
     # Leg-odometry velocity estimator (goal.walk_obs_body_vel=3
     # only; None in every other mode = zero overhead). Per-episode
     # stateful — recreated on reset in _augment_obs, snapshot via
@@ -539,6 +548,28 @@ def init_obs_and_mode_flags(env):
     # width change means no warm start from a non-yaw checkpoint.
     env._yaw_cmd = float(cfg_get(env.cfg, "goal", "walk_yaw_cmd",
                                   default=0.0)) == 1.0
+    # Task-space turn-OFFSET curriculum (goal.walk_yaw_offset_set;
+    # walk_task._sample_walk's yaw_offset block / walk_reward_yaw.
+    # yaw_offset_kernel — the structurally-different, position-
+    # tracking alternative to the closed rate-tracking walk_yaw_cmd
+    # mechanism, see track STATUS.md 2026-09-25 ~13:5x design note).
+    # A JSON list (`[15,30,45,90,-15,...]`) or comma-separated string
+    # of DEGREES, parsed once here into radians; empty/absent (the
+    # default) leaves env._yaw_offset_cmd False and every draw in
+    # _sample_walk short-circuited — bit-exact legacy for every
+    # existing lineage. New-lineage obs-width flag like walk_yaw_cmd
+    # above (no warm start from a non-offset checkpoint without
+    # --obs-pad-transplant).
+    _yoff_raw = cfg_get(env.cfg, "goal", "walk_yaw_offset_set",
+                         default="")
+    if isinstance(_yoff_raw, (list, tuple)):
+        _yoff_deg = [float(x) for x in _yoff_raw]
+    elif isinstance(_yoff_raw, str) and _yoff_raw.strip():
+        _yoff_deg = [float(x) for x in _yoff_raw.split(",")]
+    else:
+        _yoff_deg = []
+    env._yaw_offset_set_rad = [math.radians(d) for d in _yoff_deg]
+    env._yaw_offset_cmd = bool(env._yaw_offset_set_rad)
     # Explicit mode/command one-hot (obs.mode_onehot=1): +6 obs at
     # the frame TAIL (see module constants). New-lineage flag like
     # walk_yaw_cmd — the width change means no direct warm start
@@ -793,6 +824,7 @@ def reset_reward_bookkeeping(env):
     env._phase = 0.0
     env._yaw_still_ema = 0.0
     env._yaw_prog_ema = 0.0
+    env._yaw_offset_achieved = 0.0
     env._vel_est = None
     if env._wc_on:
         # Bucket must be chosen BEFORE super() samples this

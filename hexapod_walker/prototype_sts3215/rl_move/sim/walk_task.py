@@ -301,6 +301,20 @@ def phase_hz_effective(hz_base, s_ref, k_coup,
 
 
 WZ_SCALE = 0.5            # rad/s; obs scale for the commanded yaw rate
+YAW_OFFSET_SCALE = math.pi / 2   # rad (90 deg); obs scale for the
+                                 # task-space turn-OFFSET target/error
+                                 # (goal.walk_yaw_offset_set) — matches
+                                 # the widest offset in the default set,
+                                 # same "scale ~ max commanded value"
+                                 # convention as WZ_SCALE/VEL_SCALE.
+N_YAW_OFFSET_OBS = 2      # [target, live remaining error] at the obs
+                          # TAIL, only when env._yaw_offset_cmd; the
+                          # remaining error is a PRIVILEGED simulator
+                          # quantity (integrated body yaw-rate since
+                          # command issue, not recoverable from a
+                          # single instantaneous-gyro frame) — same
+                          # privileged-by-default convention as
+                          # goal.walk_obs_body_vel=1.
 
 # Explicit mode/command one-hot (obs.mode_onehot=1; RL_PLAN queue 2.4,
 # the flagship-unified-policy prerequisite). Today the policy must
@@ -395,6 +409,10 @@ class WalkGoal(TaskGoal):
     vx_ref: float = 0.0
     vy_ref: float = 0.0
     wz_ref: float = 0.0   # rad/s, +CCW; only in obs when walk_yaw_cmd=1
+    yaw_offset_ref: float = 0.0   # rad, task-space turn-OFFSET target
+                                  # (goal.walk_yaw_offset_set lineage
+                                  # only); see walk_reward_yaw.
+                                  # yaw_offset_kernel.
 
     def as_obs(self, cfg: dict) -> np.ndarray:
         # NOTE: the commanded yaw rate (wz_ref, walk_yaw_cmd lineage) is
@@ -412,6 +430,9 @@ class WalkTrajectory(GoalTrajectory):
     vx: np.ndarray = None  # (n_steps,) m/s
     vy: np.ndarray = None
     wz: np.ndarray = None  # (n_steps,) rad/s; None = no yaw channel
+    yaw_offset: np.ndarray = None  # (n_steps,) rad target rotation;
+                                   # None = no turn-offset channel
+                                   # (goal.walk_yaw_offset_set lineage)
     cmd_mode: str = "legacy"
     duration_steps: int | None = None
     command_changes: int = 0
@@ -426,7 +447,9 @@ class WalkTrajectory(GoalTrajectory):
                         vx_ref=float(self.vx[i]),
                         vy_ref=float(self.vy[i]),
                         wz_ref=float(self.wz[i])
-                        if self.wz is not None else 0.0)
+                        if self.wz is not None else 0.0,
+                        yaw_offset_ref=float(self.yaw_offset[i])
+                        if self.yaw_offset is not None else 0.0)
 
 
 def _wrap_goal(goal: TaskGoal | None) -> WalkGoal | None:
@@ -826,7 +849,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           "_ls_prev_xy", "_ls_prev_on",
                           "_ls_slip_m", "_ls_prog_m",
                           "_ls_slip_ema", "_ls_prog_ema",
-                          "_yaw_still_ema", "_yaw_prog_ema", "_stance_slip_acc",
+                          "_yaw_still_ema", "_yaw_prog_ema",
+                          "_yaw_offset_achieved", "_stance_slip_acc",
                           "_walk_idle_ema", "_walk_idle_low_s",
                           "_walk_stop_cmd_s",
                           "_walk_qvel_ema", "_walk_course_ema",
@@ -902,6 +926,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 N_OBS - 6 + self.n_act + WALK_GOAL_DIM + N_VEL_OBS
                 + (N_PHASE_OBS if self._phase_obs else 0)
                 + (1 if self._yaw_cmd else 0)
+                + (N_YAW_OFFSET_OBS if self._yaw_offset_cmd else 0)
                 + (N_MODE_OBS if self._mode_obs else 0)
                 + (N_RISE_KIND_OBS if (self._mode_obs
                                         and self._rise_kind_gate) else 0)
@@ -1022,6 +1047,24 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             wz_ref = float(getattr(goal, "wz_ref", 0.0)) \
                 if goal is not None else 0.0
             obs = np.concatenate([obs, [wz_ref / WZ_SCALE]])
+        if self._yaw_offset_cmd:
+            # Task-space turn-OFFSET target + live remaining error at
+            # the obs TAIL (same tail-append convention as wz_ref
+            # above, so --obs-pad-transplant can still warm-start from
+            # a non-offset champion). The achieved cumulative rotation
+            # (env._yaw_offset_achieved) is a PRIVILEGED simulator
+            # quantity integrated from env._body_wz() every walk tick
+            # (see walk_reward_yaw.yaw_offset_kernel) — not otherwise
+            # recoverable from a single instantaneous-gyro obs frame,
+            # so both the target and the remaining error are given
+            # explicitly.
+            goal = self._current_goal()
+            yoff_target = float(getattr(goal, "yaw_offset_ref", 0.0)) \
+                if goal is not None else 0.0
+            yoff_remaining = yoff_target - self._yaw_offset_achieved
+            obs = np.concatenate(
+                [obs, [yoff_target / YAW_OFFSET_SCALE,
+                       yoff_remaining / YAW_OFFSET_SCALE]])
         if self._mode_obs:
             # Skill-family one-hot, constant per episode, re-derived
             # every tick from _goal_traj (already in mjx_host.SNAP_ATTRS
@@ -2112,6 +2155,44 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             wz[:hold_n] = 0.0
             wz[hold_n:end] = np.linspace(0.0, wz_t, end - hold_n)
             start_at = "plant"
+        # Task-space TURN-OFFSET curriculum (walkcurr Next item,
+        # design sketched in track STATUS.md 2026-09-25 ~13:5x, built
+        # 2026-09-26 after the rate-based tip_frac==0 "walk+curve
+        # specialist" composition route CLOSED 0/2 seeds on the SAME
+        # eased-cap contract: cw-walkyaw50hz-rlonly-scratch-sac-
+        # {s0,s1}-easedterm-tipfrac0-acq1, both FAIL on sacrificed
+        # legs/prog/wrong-way). Every closed rate-based arm above
+        # commands a continuous body-frame yaw-RATE that is either
+        # pinned at exactly 0 or drawn from a wide band with an
+        # instant flip at resample boundaries — the policy must hold
+        # near-zero rate AND spin at a commanded rate within the SAME
+        # continuous-control episode, with no notion of "the turn is
+        # done." This block instead draws a discrete relative-heading
+        # OFFSET (goal.walk_yaw_offset_set, comma/JSON list of
+        # degrees) to be reached and HELD — a position-tracking
+        # target, not a rate-tracking one, so a 0-degree offset is
+        # continuous with every other offset instead of a separate
+        # bang-bang regime. Independent of the tip_frac mechanism
+        # above (its own frac, goal.walk_yaw_offset_frac); gated on
+        # env._yaw_offset_cmd (set only when walk_yaw_offset_set is
+        # non-empty) so `rng.random()` is short-circuited and never
+        # drawn for any existing lineage — every pre-09-26 rng stream
+        # is bit-exact. See walk_reward_yaw.yaw_offset_kernel for the
+        # matching settle/hold-error reward (retargeted from the rate
+        # kernel per the design note, not a dose/seed of it).
+        yaw_offset = None
+        if (self._yaw_offset_cmd and self._yaw_offset_set_rad
+                and rng.random() < float(cfg_get(
+                    self.cfg, "goal", "walk_yaw_offset_frac",
+                    default=0.0))):
+            vx[:] = 0.0
+            vy[:] = 0.0
+            vx_t = 0.0
+            vy_t = 0.0
+            delta = self._yaw_offset_set_rad[
+                int(rng.integers(len(self._yaw_offset_set_rad)))]
+            yaw_offset = np.full(n, delta)
+            start_at = "plant"
         # Mid-stride reset diversity (TALL LADDER T6: RSI-for-walk,
         # 08-11 eve). Five reward-side arms (ref ladder, income gate,
         # gate+budget, k_height 3x/10x, speed relief) all left the
@@ -2159,7 +2240,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         return WalkTrajectory(mode="walk", roll=zeros, pitch=zeros,
                               height=height, unload_leg=None,
                               start_at=start_at, vx=vx, vy=vy, wz=wz,
-                              cmd_mode=cmd_mode)
+                              yaw_offset=yaw_offset, cmd_mode=cmd_mode)
 
     def _sample_quadwalk(self) -> WalkTrajectory:
         """QUADWALK mode (quad track, 08-13 spec): commanded planar
@@ -2990,6 +3071,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._step_disp_bank = 0.0
         self._yaw_still_ema = 0.0
         self._yaw_prog_ema = 0.0
+        self._yaw_offset_achieved = 0.0
         self._ls_prev_xy = [None] * 6
         self._ls_prev_on = [False] * 6
         self._ls_slip_m = 0.0
@@ -3258,6 +3340,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             reward = walk_reward_yaw.yaw_rate_kernel(self,
                 along, goal, info, reward, s_ref)
             reward = walk_reward_yaw.anti_drift_yaw_pricing(self,
+                goal, info, reward)
+            reward = walk_reward_yaw.yaw_offset_kernel(self,
                 goal, info, reward)
             r_walk, support_gate = walk_reward_gates.kernel_progress_gate(self,
                 along, info, r_walk, s_ref)

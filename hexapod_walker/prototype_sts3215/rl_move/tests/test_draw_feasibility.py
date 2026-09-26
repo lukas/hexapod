@@ -23,7 +23,8 @@ from rl_move.sim.draw_feasibility import (
 
 
 def _rand(mass_scale=1.0, friction_scale=1.0, com=(0.0, 0.0, 0.0),
-          fault="none", bad_joints=()):
+          fault="none", bad_joints=(), link_scale_per_leg=None,
+          zero_bias_per_leg=None):
     return {
         "mass_scale": mass_scale,
         "friction_scale": friction_scale,
@@ -33,6 +34,10 @@ def _rand(mass_scale=1.0, friction_scale=1.0, com=(0.0, 0.0, 0.0),
         "zero_drift_cmd_frame": True,
         "bad_start_joints": list(bad_joints),
         "fault": fault,
+        **({"link_scale_per_leg": list(link_scale_per_leg)}
+           if link_scale_per_leg is not None else {}),
+        **({"joint_zero_bias_deg_per_leg": list(zero_bias_per_leg)}
+           if zero_bias_per_leg is not None else {}),
     }
 
 
@@ -50,6 +55,25 @@ def test_flatten_randomization_expands_vectors_and_bools_and_counts():
     # an unknown categorical value must not silently disappear as a
     # scalar feature (it's one-hot, not passed through as a number)
     assert "fault" not in flat
+
+
+def test_flatten_randomization_expands_per_leg_vectors():
+    flat = flatten_randomization(_rand(
+        link_scale_per_leg=[0.95, 0.97, 0.99, 1.01, 1.03, 1.05],
+        zero_bias_per_leg=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6]))
+    for i, v in enumerate([0.95, 0.97, 0.99, 1.01, 1.03, 1.05]):
+        assert flat[f"link_scale_per_leg_leg{i}"] == pytest.approx(v)
+    for i, v in enumerate([0.1, 0.2, 0.3, 0.4, 0.5, 0.6]):
+        assert flat[f"joint_zero_bias_deg_per_leg_leg{i}"] == pytest.approx(v)
+
+
+def test_flatten_randomization_missing_per_leg_vectors_omits_columns():
+    # older report.json files predate the per-leg keys -- must not crash
+    # or invent values, just leave those columns absent (vectorize()
+    # fills 0.0 for any row missing them).
+    flat = flatten_randomization(_rand())
+    assert not any(k.startswith("link_scale_per_leg_") for k in flat)
+    assert not any(k.startswith("joint_zero_bias_deg_per_leg_") for k in flat)
 
 
 def test_flatten_randomization_passes_through_unknown_scalar_keys():

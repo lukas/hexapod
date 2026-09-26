@@ -4,11 +4,14 @@ Pure statistics over hand-built report dicts -- no sim rollout, no
 randomization, no artifacts. Per RESEARCH_RULES "Tests": under 5s,
 no rollout-ranking bank.
 """
+import json
 import math
 
 from rl_move.sim.gait_valid_rate import (
     aggregate_counts,
+    conditioned_counts_by_difficulty,
     episode_gait_valid_counts,
+    fit_difficulty_classifier,
     per_leg_sacrifice_histogram,
     two_proportion_z_test,
     wilson_interval,
@@ -106,3 +109,84 @@ def test_two_proportion_z_test_small_n_same_ratio_not_overconfident():
 def test_two_proportion_z_test_empty_sample_is_nan():
     z, p_value = two_proportion_z_test(0, 0, 5, 10)
     assert math.isnan(z) and math.isnan(p_value)
+
+
+def _rand(mass_scale=1.0, zero_bias_max_deg=0.0):
+    return {"mass_scale": mass_scale, "zero_bias_max_deg": zero_bias_max_deg}
+
+
+def _write_report(path, mass_scales, gait_valid_flags, mode="walk/det"):
+    episodes = [
+        {"gait_valid": bool(gv), "randomization": _rand(mass_scale=m)}
+        for m, gv in zip(mass_scales, gait_valid_flags)
+    ]
+    path.write_text(json.dumps({"episodes": {mode: episodes}}))
+
+
+def test_fit_difficulty_classifier_learns_a_separable_fit_pool(tmp_path):
+    # a clean fit pool: low mass_scale -> gait_valid, high -> not.
+    p = tmp_path / "fit.json"
+    _write_report(
+        p,
+        mass_scales=[0.8, 0.85, 0.9, 1.1, 1.15, 1.2],
+        gait_valid_flags=[True, True, True, False, False, False],
+    )
+    clf, feature_order = fit_difficulty_classifier([str(p)], mode="walk/det")
+    assert "mass_scale" in feature_order
+    # sanity: the fitted classifier should score an easy draw higher
+    # than a hard one along the same axis it was fit on.
+    import numpy as np
+    from rl_move.sim.draw_feasibility import vectorize
+    X, _ = vectorize(
+        [{"mass_scale": 0.8}, {"mass_scale": 1.2}], feature_order=feature_order)
+    proba = clf.predict_proba(X)
+    assert proba[0] > proba[1]
+
+
+def test_conditioned_counts_by_difficulty_splits_easy_and_hard(tmp_path):
+    fit_p = tmp_path / "fit.json"
+    _write_report(
+        fit_p,
+        mass_scales=[0.8, 0.85, 0.9, 1.1, 1.15, 1.2],
+        gait_valid_flags=[True, True, True, False, False, False],
+    )
+    clf, feature_order = fit_difficulty_classifier([str(fit_p)], mode="walk/det")
+
+    target_p = tmp_path / "target.json"
+    _write_report(
+        target_p,
+        mass_scales=[0.82, 0.88, 1.12, 1.18],
+        gait_valid_flags=[True, True, False, False],
+    )
+    target = json.loads(target_p.read_text())
+    (easy_k, easy_n), (hard_k, hard_n) = conditioned_counts_by_difficulty(
+        target, clf, feature_order, mode="walk/det")
+    # the two low-mass_scale episodes should land predicted-easy and
+    # actually be gait_valid; the two high-mass_scale ones predicted-hard.
+    assert easy_n == 2 and easy_k == 2
+    assert hard_n == 2 and hard_k == 0
+
+
+def test_conditioned_counts_by_difficulty_skips_episodes_missing_randomization(tmp_path):
+    fit_p = tmp_path / "fit.json"
+    _write_report(
+        fit_p, mass_scales=[0.8, 1.2], gait_valid_flags=[True, False])
+    clf, feature_order = fit_difficulty_classifier([str(fit_p)], mode="walk/det")
+    report = {"episodes": {"walk/det": [
+        {"gait_valid": True},  # no randomization -> skipped
+        {"randomization": _rand(0.8)},  # no gait_valid -> skipped
+        {"gait_valid": True, "randomization": _rand(0.8)},
+    ]}}
+    (easy_k, easy_n), (hard_k, hard_n) = conditioned_counts_by_difficulty(
+        report, clf, feature_order, mode="walk/det")
+    assert easy_n + hard_n == 1
+
+
+def test_conditioned_counts_by_difficulty_empty_report_is_zero(tmp_path):
+    fit_p = tmp_path / "fit.json"
+    _write_report(fit_p, mass_scales=[0.8, 1.2], gait_valid_flags=[True, False])
+    clf, feature_order = fit_difficulty_classifier([str(fit_p)], mode="walk/det")
+    (easy_k, easy_n), (hard_k, hard_n) = conditioned_counts_by_difficulty(
+        {"episodes": {}}, clf, feature_order, mode="walk/det")
+    assert (easy_k, easy_n) == (0, 0)
+    assert (hard_k, hard_n) == (0, 0)

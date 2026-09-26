@@ -71,6 +71,16 @@ _VECTOR_KEYS = {
     "com_offset_mm": ("x", "y", "z"),
     "imu_pos_mm": ("x", "y", "z"),
     "link_scale_range": ("lo", "hi"),
+    # Per-leg breakdown (standwalk STATUS 2026-09-26 ~02:1x wiring
+    # follow-up): domain_rand.EpisodeRandomization.summary() started
+    # recording these two 6-length per-leg vectors alongside the
+    # existing whole-robot min/max/max-abs scalars so a future fit can
+    # ask "did the SACRIFICED leg also carry this episode's worst
+    # per-leg draw" instead of only the whole-robot extreme. Additive
+    # only -- old report.json files without these keys still flatten
+    # fine (missing key -> absent feature -> vectorize() fills 0.0).
+    "link_scale_per_leg": tuple(f"leg{i}" for i in range(6)),
+    "joint_zero_bias_deg_per_leg": tuple(f"leg{i}" for i in range(6)),
 }
 # Booleans stored as python bool.
 _BOOL_KEYS = ["zero_drift_cmd_frame"]

@@ -29,6 +29,21 @@ Library:
     from rl_move.sim.gait_valid_rate import (
         episode_gait_valid_counts, wilson_interval, two_proportion_z_test,
     )
+
+Difficulty-conditioned rate (standwalk STATUS 2026-09-26 ~02:1x Next
+item 1, "wire a difficulty-conditioned rate into gait_valid_rate.py"):
+`draw_feasibility.py` found the DR draw alone predicts gait_valid at
+~87% CV accuracy (2026-09-26 refill, n=1678/40 files), independent of
+which checkpoint trained on it. That means a bare rate over a fixed
+episode set mixes "the policy got worse" with "this particular draw
+set happened to be harder" and can't tell the two apart -- exactly the
+09-26 00:2x/00:5x zero-shot-parent-ties finding. `conditioned_rates`
+below fits a `draw_feasibility.LogisticClassifier` on a (usually
+larger, pooled) fit-report set and then reports each target report's
+gait_valid rate SEPARATELY for predicted-easy vs predicted-hard
+episodes, so a future comparison can ask "did training move the rate
+within the same difficulty band" instead of comparing raw pooled
+counts across runs whose fixed-N draws may not be equally hard.
 """
 from __future__ import annotations
 
@@ -37,6 +52,14 @@ import json
 import math
 from pathlib import Path
 from typing import Iterable, Sequence
+
+from rl_move.sim.draw_feasibility import (
+    LogisticClassifier,
+    expand_report_paths,
+    flatten_randomization,
+    load_dataset,
+    vectorize,
+)
 
 
 def episode_gait_valid_counts(report: dict, mode: str = "walk/det") -> tuple[int, int]:
@@ -109,6 +132,60 @@ def _load(path: Path) -> dict:
         return json.load(f)
 
 
+def fit_difficulty_classifier(
+    fit_report_globs: Sequence[str], mode: str = "walk/det", seed: int = 0
+) -> tuple[LogisticClassifier, list[str]]:
+    """Fit a draw-difficulty `LogisticClassifier` (P(gait_valid) from
+    the recorded DR draw alone) on a pool of eval_checkpoint
+    report.json files/globs. Returns (classifier, feature_order) --
+    `feature_order` must be reused (not re-derived) when scoring a
+    different report's episodes so the column set/order matches."""
+    rows, labels = load_dataset(fit_report_globs, mode=mode)
+    if not rows:
+        raise ValueError(
+            f"no episodes with randomization+gait_valid found in "
+            f"{list(fit_report_globs)!r} for mode={mode}")
+    X, feature_order = vectorize(rows)
+    clf = LogisticClassifier().fit(X, labels)
+    return clf, feature_order
+
+
+def conditioned_counts_by_difficulty(
+    report: dict,
+    classifier: LogisticClassifier,
+    feature_order: Sequence[str],
+    mode: str = "walk/det",
+    threshold: float = 0.5,
+) -> tuple[tuple[int, int], tuple[int, int]]:
+    """Split one report's episodes for `mode` into predicted-easy
+    (P(gait_valid) >= threshold) and predicted-hard (< threshold)
+    buckets per the fitted difficulty classifier, and return each
+    bucket's (k, n) gait_valid counts. Episodes missing a recorded
+    `randomization` dict are skipped (never invented); an episode
+    with no gait_valid key is also skipped."""
+    rows = []
+    labels = []
+    for ep in report.get("episodes", {}).get(mode, []):
+        rand = ep.get("randomization")
+        if not rand or "gait_valid" not in ep:
+            continue
+        rows.append(flatten_randomization(rand))
+        labels.append(bool(ep["gait_valid"]))
+    if not rows:
+        return (0, 0), (0, 0)
+    X, _ = vectorize(rows, feature_order=feature_order)
+    proba = classifier.predict_proba(X)
+    easy_k = easy_n = hard_k = hard_n = 0
+    for p, label in zip(proba, labels):
+        if p >= threshold:
+            easy_n += 1
+            easy_k += int(label)
+        else:
+            hard_n += 1
+            hard_k += int(label)
+    return (easy_k, easy_n), (hard_k, hard_n)
+
+
 def compare_reports(
     paths: Sequence[Path],
     mode: str = "walk/det",
@@ -146,8 +223,32 @@ def main() -> None:
                      help="optional label per --report, same order/count")
     ap.add_argument("--mode", default="walk/det",
                      help="episode-group key inside report['episodes'], e.g. walk/det, walk/sto")
+    ap.add_argument("--difficulty-fit", action="append", default=None,
+                     help="report.json path/glob (repeatable) to fit the "
+                          "draw-difficulty classifier on; when given, each "
+                          "--report is additionally split into predicted-"
+                          "easy/predicted-hard gait_valid rates")
+    ap.add_argument("--difficulty-threshold", type=float, default=0.5)
     args = ap.parse_args()
     print(compare_reports(args.report, mode=args.mode, labels=args.label))
+
+    if args.difficulty_fit:
+        clf, feature_order = fit_difficulty_classifier(
+            args.difficulty_fit, mode=args.mode)
+        labels = list(args.label) if args.label else [str(p) for p in args.report]
+        print(f"\ndifficulty-conditioned rate (fit on "
+              f"{len(expand_report_paths(args.difficulty_fit))} file(s), "
+              f"threshold={args.difficulty_threshold}):")
+        for label, path in zip(labels, args.report):
+            report = _load(path)
+            (ek, en), (hk, hn) = conditioned_counts_by_difficulty(
+                report, clf, feature_order, mode=args.mode,
+                threshold=args.difficulty_threshold)
+            ep, elo, ehi = wilson_interval(ek, en)
+            hp, hlo, hhi = wilson_interval(hk, hn)
+            print(f"  {label}:")
+            print(f"    predicted-easy: {ek}/{en} = {ep:.3f}  95% CI [{elo:.3f}, {ehi:.3f}]")
+            print(f"    predicted-hard: {hk}/{hn} = {hp:.3f}  95% CI [{hlo:.3f}, {hhi:.3f}]")
 
 
 if __name__ == "__main__":

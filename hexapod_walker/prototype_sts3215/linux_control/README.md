@@ -206,6 +206,19 @@ physical validation only: `observer_only=true` and `gait_gating=false` are
 written into both status and every estimate. Nothing in this recorder changes
 a gait or declares a leg safe to unload.
 
+**Deployment note — `obs.foot_contact_sense` policies (2026-09-26).** Sim
+policies trained with `obs.foot_contact_sense=1` (walk task,
+`rl_move/sim/walk_task.py::foot_contact_sense_obs_dim`) expect 6 extra obs
+dims at each frame's tail: `tanh(per_foot_load_N / obs.foot_contact_scale)`
+(default scale 5.0 N), fed in sim from the per-foot touch sensors. The robot
+has no foot sensors, so the runner-side proxy is **per-servo current
+aggregated per leg** (the same signal the contact observer above already
+consumes) — map each leg's estimated load/contact strength through the same
+tanh squash before building the obs. No policy with this channel may drive
+the robot until the runner computes that proxy; until then such checkpoints
+are sim-valid only (same contract as `goal.walk_obs_body_vel=3` needing the
+`LegOdometryVelocity` estimator).
+
 ### Phone-video diagnosis
 
 When a run fails, save the phone video and generate timestamped stills plus a

@@ -853,8 +853,10 @@ class RlApi:
                  src="bench", data=info)
         except Exception:
             pass
-        return {"ok": True, "file": p.name, "obs_dim": info["obs_dim"],
-                "slot": self._SLOT_OBS.get(info["obs_dim"]),
+        return {"ok": True, "file": p.name, "obs_dim": _tick_obs_width(meta),
+                **({"stacked_obs_dim": info["obs_dim"]}
+                   if _tick_obs_width(meta) != info["obs_dim"] else {}),
+                "slot": self._SLOT_OBS.get(_tick_obs_width(meta)),
                 "hidden": info.get("hidden"), "bytes": p.stat().st_size}
 
     def get_rl_policy(self, file: str) -> str | None:

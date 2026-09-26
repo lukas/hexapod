@@ -3039,6 +3039,34 @@ def main(argv: list[str] | None = None) -> int:
                 if args.transformer:
                     from .obs_transplant import (
                         transformer_pad_obs_transplant)
+                    # Silent-corruption guard (2026-09-26, caught live
+                    # on cw-adapt50hz-tfh16-noramp-ceil225-currentsense-
+                    # fromceil20-s0/-r2): the build_obs sense channels
+                    # (obs.current_sense/height_err_sense/
+                    # height_vel_sense) land INSIDE build_obs BEFORE
+                    # walk_task's vel/phase/mode frame extras, so a
+                    # frame-TAIL transplant maps the parent's vel/phase
+                    # embed columns onto the new channel and zeroes the
+                    # real vel/phase. Refuse tail-append when any of
+                    # them is armed; pass the per-frame column
+                    # explicitly (vel+phase walk lineage: parent frame
+                    # width - 4; a parent that ALREADY carried the
+                    # channel can pass insert_at = parent frame width
+                    # for a true tail append).
+                    _mid = [k for k in ("obs.current_sense",
+                                        "obs.height_err_sense",
+                                        "obs.height_vel_sense")
+                            if float(_parse_cfg_set(args.cfg_set).get(
+                                k, 0.0)) == 1.0]
+                    if _mid and args.obs_pad_insert_at < 0:
+                        raise SystemExit(
+                            f"--transformer + --obs-pad-transplant with "
+                            f"{_mid} armed needs an explicit "
+                            "--obs-pad-insert-at PER-FRAME column: "
+                            "these channels land mid-frame (before the "
+                            "walk vel/phase extras); a tail-append "
+                            "transplant silently scrambles the parent's "
+                            "vel/phase inputs")
                     transformer_pad_obs_transplant(
                         old, model, args.obs_pad_transplant,
                         insert_at=args.obs_pad_insert_at)

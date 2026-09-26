@@ -120,9 +120,42 @@ def _erf(x: np.ndarray) -> np.ndarray:
     return sign * (1.0 - poly * np.exp(-ax * ax))
 
 
+_INV_SQRT2 = 1.0 / math.sqrt(2.0)
+
+
 def _gelu(x: np.ndarray) -> np.ndarray:
-    """Exact (erf-based) GELU, matching torch's default ``F.gelu``."""
-    return 0.5 * x * (1.0 + _erf(x / math.sqrt(2.0)))
+    """Exact (erf-based) GELU, matching torch's default ``F.gelu``.
+
+    Same Abramowitz & Stegun 7.1.26 erf as :func:`_erf`, written as
+    ``0.5 * (x + |x| * erf(|x| / sqrt 2))`` (``x * sign(x) == |x|``) with
+    in-place numpy ops: on the robot's Uno Q this call was the single
+    most expensive op of an encoder layer (~390 us for 16x256 in the
+    per-op form, 2026-09-26 profile), and every temporary array costs
+    more than the arithmetic there.
+    """
+    x = np.asarray(x)
+    ax = np.abs(x)
+    t = ax * np.float32(0.3275911 * _INV_SQRT2)
+    t += 1.0
+    np.reciprocal(t, out=t)
+    p = t * np.float32(1.061405429)
+    p += np.float32(-1.453152027)
+    p *= t
+    p += np.float32(1.421413741)
+    p *= t
+    p += np.float32(-0.284496736)
+    p *= t
+    p += np.float32(0.254829592)
+    p *= t
+    e = ax * ax
+    e *= np.float32(-0.5)          # exp(-(|x|/sqrt2)^2)
+    np.exp(e, out=e)
+    p *= e
+    np.subtract(1.0, p, out=p)     # erf(|x| / sqrt 2)
+    p *= ax
+    p += x
+    p *= 0.5
+    return p
 
 
 def pack_f32(array) -> dict:
@@ -1060,6 +1093,33 @@ class _NumpyTransformerLayer:
         self.qb, self.kb, self.vb = (m.copy() for m in
                                      np.split(self.in_proj_b, 3, axis=0))
         self.scale = np.float32(1.0 / math.sqrt(self.head_dim))
+        # FUSED forward (2026-09-26, hexapod2 profile: ~25 numpy calls per
+        # layer cost ~2.5 ms of call overhead at width 64, more than the
+        # arithmetic). Exact algebra, float32:
+        #   LayerNorm(x)*w+b followed by a linear == LayerNorm(x) (no affine)
+        #   followed by a linear whose weight columns are scaled by w and
+        #   whose bias absorbs W@b  -> both LN affines fold into QKV / lin1;
+        #   the 1/sqrt(head_dim) attention scale folds into the q rows;
+        #   the three projections become one (d, 3d) matmul; the causal
+        #   mask becomes one additive (seq, seq) array; softmax runs in
+        #   place. Legacy attributes above stay for tests/tools.
+        d, hd = self.d_model, self.head_dim
+        w_in = np.asarray(self.in_proj_w, dtype=np.float32)          # (3d, d)
+        b_in = np.asarray(self.in_proj_b, dtype=np.float32)
+        row_scale = np.ones(3 * d, dtype=np.float32)
+        row_scale[:d] = self.scale
+        w_f = (w_in * self.ln1_w[None, :]) * row_scale[:, None]
+        b_f = (b_in + w_in @ self.ln1_b) * row_scale
+        self._wqkv_t = np.ascontiguousarray(w_f.T, dtype=np.float32)  # (d, 3d)
+        self._bqkv = np.ascontiguousarray(b_f, dtype=np.float32)
+        self._wo_t = np.ascontiguousarray(self.out_proj_w.T, dtype=np.float32)
+        w1 = np.asarray(self.lin1_w, dtype=np.float32)                # (4d, d)
+        self._w1_t = np.ascontiguousarray((w1 * self.ln2_w[None, :]).T,
+                                          dtype=np.float32)          # (d, 4d)
+        self._b1 = np.ascontiguousarray(self.lin1_b + w1 @ self.ln2_b,
+                                        dtype=np.float32)
+        self._w2_t = np.ascontiguousarray(self.lin2_w.T, dtype=np.float32)
+        self._mask_add: np.ndarray | None = None
 
     @staticmethod
     def _layernorm(x: np.ndarray, w: np.ndarray, b: np.ndarray,
@@ -1068,8 +1128,48 @@ class _NumpyTransformerLayer:
         var = x.var(axis=-1, keepdims=True)
         return (x - mu) / np.sqrt(var + eps) * w + b
 
-    def forward(self, x: np.ndarray, causal_mask: np.ndarray) -> np.ndarray:
-        """x: (seq, d_model) time-ordered oldest -> newest."""
+    @staticmethod
+    def _norm(x: np.ndarray, eps: float = 1e-5) -> np.ndarray:
+        """LayerNorm without the affine (folded into the next linear)."""
+        xc = x - x.mean(axis=-1, keepdims=True)
+        var = np.mean(xc * xc, axis=-1, keepdims=True)
+        var += eps
+        np.sqrt(var, out=var)
+        xc /= var
+        return xc
+
+    def forward(self, x: np.ndarray, causal_mask: np.ndarray,
+                *, last_only: bool = False) -> np.ndarray:
+        """x: (seq, d_model) time-ordered oldest -> newest. Returns the
+        layer output for every token, or -- ``last_only`` -- only the
+        newest token's (1, d_model): with a causal mask the newest
+        token's output depends on every token's K/V but on nobody else's
+        FFN, so the final layer can skip 15/16 of its work."""
+        seq, d, h, hd = x.shape[0], self.d_model, self.n_heads, self.head_dim
+        if self._mask_add is None or self._mask_add.shape[0] != seq:
+            self._mask_add = np.where(causal_mask, -np.inf, 0.0).astype(np.float32)
+        hn = self._norm(x)
+        qkv = (hn @ self._wqkv_t + self._bqkv).reshape(seq, 3, h, hd).transpose(1, 2, 0, 3)
+        q, k, v = qkv[0], qkv[1], qkv[2]                 # (h, seq, hd) each
+        if last_only:
+            q = q[:, -1:, :]
+            mask_add = self._mask_add[-1:, :]
+            x = x[-1:, :]
+        else:
+            mask_add = self._mask_add
+        scores = q @ k.transpose(0, 2, 1)                # (h, seq_q, seq)
+        scores += mask_add
+        scores -= scores.max(axis=-1, keepdims=True)
+        np.exp(scores, out=scores)
+        scores /= scores.sum(axis=-1, keepdims=True)
+        attn = (scores @ v).transpose(1, 0, 2).reshape(-1, d)
+        x = x + (attn @ self._wo_t + self.out_proj_b)
+        hn2 = self._norm(x)
+        ff = _gelu(hn2 @ self._w1_t + self._b1)
+        return x + (ff @ self._w2_t + self.lin2_b)
+
+    def forward_reference(self, x: np.ndarray, causal_mask: np.ndarray) -> np.ndarray:
+        """The unfused per-op forward (kept for parity tests)."""
         seq, d, h, hd = x.shape[0], self.d_model, self.n_heads, self.head_dim
         hn = self._layernorm(x, self.ln1_w, self.ln1_b)
         q = (hn @ self.qw.T + self.qb).reshape(seq, h, hd).transpose(1, 0, 2)
@@ -1140,6 +1240,19 @@ class NumpyTransformerModel:
         self.hidden = [self.embed_w.shape[0]] + [
             int(W.shape[0]) for W, _ in self.head_layers]
         self.recurrent = False
+        # Fused act() constants (see _NumpyTransformerLayer.forward):
+        self._embed_t = np.ascontiguousarray(self.embed_w.T, dtype=np.float32)
+        self._embed_bias = np.ascontiguousarray(
+            self.embed_b[None, :] + self.pos_embed, dtype=np.float32)   # (seq, d)
+        if self.head_layers:
+            w0, b0 = self.head_layers[0]
+            self._head0 = (np.ascontiguousarray(w0 * self.out_norm_w[None, :], dtype=np.float32),
+                           np.ascontiguousarray(b0 + w0 @ self.out_norm_b, dtype=np.float32))
+            self._wo_f, self._bo_f = self.Wo, self.bo
+        else:
+            self._head0 = None
+            self._wo_f = np.ascontiguousarray(self.Wo * self.out_norm_w[None, :], dtype=np.float32)
+            self._bo_f = np.ascontiguousarray(self.bo + self.Wo @ self.out_norm_b, dtype=np.float32)
 
     def reset(self) -> None:
         """Stateless compatibility hook shared with recurrent artifacts."""
@@ -1154,19 +1267,21 @@ class NumpyTransformerModel:
         # in time and position -1 is "now" -- mirrors FrameStack
         # TransformerExtractor.tokens() exactly.
         x = obs.reshape(self.n_frames, self.frame_width)[::-1]
-        x = x @ self.embed_w.T + self.embed_b
-        x = x + self.pos_embed
-        for layer in self.layers:
-            x = layer.forward(x, self._causal_mask)
+        x = x @ self._embed_t + self._embed_bias
+        last = len(self.layers) - 1
+        for i, layer in enumerate(self.layers):
+            x = layer.forward(x, self._causal_mask, last_only=(i == last))
         newest = x[-1]
-        mu = newest.mean()
-        var = newest.var()
-        newest = (newest - mu) / np.sqrt(var + 1e-5) * self.out_norm_w \
-            + self.out_norm_b
-        hidden = newest
-        for W, b in self.head_layers:
-            hidden = self._act_fn(W @ hidden + b)
-        mean = self.Wo @ hidden + self.bo
+        newest = newest - newest.mean()
+        newest /= np.sqrt(np.mean(newest * newest) + 1e-5)   # LayerNorm, affine folded below
+        if self._head0 is not None:
+            w0, b0 = self._head0
+            hidden = self._act_fn(w0 @ newest + b0)
+            for W, b in self.head_layers[1:]:
+                hidden = self._act_fn(W @ hidden + b)
+        else:
+            hidden = newest
+        mean = self._wo_f @ hidden + self._bo_f
         return np.clip(mean, -1.0, 1.0).astype(np.float32, copy=False)
 
     def predict(self, obs, state=None, episode_start=None,

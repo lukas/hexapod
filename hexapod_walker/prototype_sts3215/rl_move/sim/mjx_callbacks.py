@@ -37,7 +37,7 @@ class _Track(BaseCallback):
         "reward_current_max", "reward_termination",
         "reward_phase_contact", "reward_support_margin",
         "reward_load_even", "reward_step_event", "reward_drag",
-        "reward_park_duty", "reward_walk_foot_load_min",
+        "reward_park_duty",
         "reward_end_posture", "reward_effort",
         "reward_walk_yaw", "reward_quad_clear", "reward_quad_plant",
         "reward_hold_barrier",

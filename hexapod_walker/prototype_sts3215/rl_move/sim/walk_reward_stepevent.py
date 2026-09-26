@@ -16,7 +16,7 @@ import numpy as np
 from rl_move.config import cfg_get
 from .walk_task import (
     PHASE_TRIPOD_A, transition_window_liftoff, transition_window_tick,
-    transition_window_touchdown, walk_foot_load_min_bonus,
+    transition_window_touchdown,
     walk_leg_swing_initiation_maxload,
     walk_legduty_ratio_tick, walk_legslip_ratio_tick,
 )
@@ -82,25 +82,13 @@ def step_event_package(env,
     # is the fixed plant trajectory never reaching the ground under
     # that draw's geometry, controller-independent, not a learning
     # failure. k_park_duty (a BEHAVIOR-pattern charge on contact duty)
-    # was already tried alone and closed 2026-09-26 ~05:5x: a policy
-    # that cannot sense/adapt just eats a bigger flat penalty. This is
-    # a DIFFERENT mechanism -- a FORCE-based shaping bonus mirroring
-    # walk_reward_recover's already-proven getup/recover-role "M
-    # SMOOTH-MIN per-foot load" potential term (log-sum-exp soft-min,
-    # tau=0.15, over the SAME tanh-scaled per-foot load the
-    # obs.foot_contact_sense channel already exposes) -- rewards
-    # actually raising the worst-loaded (nearest-to-hovering) foot's
-    # contact force each tick, i.e. extending stance depth until an
-    # under-reaching leg touches down, rather than merely discounting
-    # a duty pattern. Meant to be combined with obs.foot_contact_sense
-    # (the sense half) but does not require it -- the reward reads
-    # sensordata directly, independent of what the policy is shown.
-    # Default 0.0 = OFF, bit-exact (the block below only runs when
-    # k_load_min>0.0 joins the step-event gate's OR-condition).
-    k_load_min = float(cfg_get(env.cfg, "reward",
-                               "k_walk_foot_load_min", default=0.0))
-    foot_load_scale_n = float(cfg_get(
-        env.cfg, "reward", "walk_foot_load_scale_n", default=5.0))
+    # was already tried alone and closed 2026-09-26 ~05:5x. A FORCE-
+    # based soft-min bonus (reward.k_walk_foot_load_min, stacked with
+    # obs.foot_contact_sense) was tried next and closed 2026-09-26
+    # ~15:4x (2 seeds, both an exact TIE on gait_valid_rate vs the
+    # untrained zero-shot parent AND the identical sacrificed-leg
+    # identities as the scripted-tripod floor on the fixed seed-0
+    # draws) -- removed, RESEARCH_RULES close-the-key rule.
     # Structural stance-slip charge (charge-magnitude audit,
     # 2026-08-11, probe_drag_audit.py): per-foot accumulated
     # loaded XY travel per STANCE PERIOD, charged continuously
@@ -245,7 +233,6 @@ def step_event_package(env,
             or g_ratio > 0.0 or g_lsratio > 0.0
             or g_swinggap > 0.0 or g_swinit > 0.0
             or k_tslip > 0.0 or k_wts > 0.0
-            or k_load_min > 0.0
             or contact_diag) and s_ref > 1e-3:
         if budget_m > 0.0:
             # `along` here is still the BODY along-command
@@ -704,11 +691,6 @@ def step_event_package(env,
                 r_park = -k_park * over
                 reward += r_park
             info["reward_park_duty"] = r_park
-        if k_load_min > 0.0:
-            r_load_min = walk_foot_load_min_bonus(
-                contact_forces, k=k_load_min, scale_n=foot_load_scale_n)
-            reward += r_load_min
-            info["reward_walk_foot_load_min"] = r_load_min
     return reward
 
 

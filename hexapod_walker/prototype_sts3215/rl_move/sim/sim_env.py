@@ -771,6 +771,42 @@ class SimHexapodBalanceEnv(_GymBase):
                 default=30.0)))
             self._tilt_cap_wz_thresh_rad_s = float(cfg_get(
                 self.cfg, "safety", "tilt_cap_wz_thresh", default=0.05))
+        # Adaptive tilt-PENALTY schedule keyed to |wz_ref| -- walkcurr
+        # Next item, lever (ii) from STATUS.md 2026-09-26 ~12:2x's own
+        # candidate list ("decoupling the roll/pitch stabilization
+        # reward from the turn-tracking reward so they don't compete
+        # for the same authority budget"), now scoped after lever (i)
+        # (the analogous HARD-cap schedule, `tilt_cap_wz_schedule`
+        # above) closed 0/2 seeds 2026-09-26 ~22:1x/~22:2x without
+        # changing the tight-circle-spin collapse signature at all --
+        # evidence the binding constraint isn't the termination
+        # THRESHOLD. This lever instead targets the per-tick REWARD
+        # PRICE: `compute_reward` (rl_move/env.py) already has a
+        # `tilt_settle_scale` multiplier on ONLY r_roll/r_pitch
+        # (added 08-29 for a wall-clock post-spawn grace idea that was
+        # never actually wired to any call site -- `git grep
+        # tilt_settle_scale` shows sim_env.py never passes it, so every
+        # walk tick today pays the full k_roll/k_pitch=10.0 charge
+        # regardless of turn intent). This block re-purposes that
+        # existing, already-tested multiplier for the turn-intent
+        # question instead: relax r_roll/r_pitch to
+        # `reward.tilt_penalty_wz_scale` (default 0.3) on ticks that
+        # command a real turn (|wz_ref| > thresh) while near-zero-wz
+        # ticks keep the full charge -- the reward-side mirror of the
+        # already-closed hard-cap schedule. Default OFF
+        # (`reward.tilt_penalty_wz_schedule` unset/0): `_reward_tilt_wz`
+        # stays None and the call site below keeps passing the
+        # implicit default `tilt_settle_scale=1.0` -- bit-exact legacy.
+        self._tilt_penalty_wz_schedule = (float(cfg_get(
+            self.cfg, "reward", "tilt_penalty_wz_schedule",
+            default=0.0)) == 1.0)
+        if self._tilt_penalty_wz_schedule:
+            self._tilt_penalty_wz_thresh_rad_s = float(cfg_get(
+                self.cfg, "reward", "tilt_penalty_wz_thresh",
+                default=0.05))
+            self._tilt_penalty_wz_scale = float(cfg_get(
+                self.cfg, "reward", "tilt_penalty_wz_scale",
+                default=0.3))
         # Subclasses with a different action space (e.g. raw joint targets)
         # override n_act and _act_to_q; everything else is shared.
         self.n_act = N_ACT
@@ -4113,12 +4149,21 @@ class SimHexapodBalanceEnv(_GymBase):
                 abs(goal.roll_ref - prev_g.roll_ref) < 1e-9
                 and abs(goal.pitch_ref - prev_g.pitch_ref) < 1e-9
                 and abs(goal.height_ref - prev_g.height_ref) < 1e-9)
+        # tilt_settle_scale: 1.0 (bit-exact legacy) unless
+        # reward.tilt_penalty_wz_schedule=1 -- see __init__ comment.
+        tilt_settle_scale = 1.0
+        if self._tilt_penalty_wz_schedule:
+            _tps_wz = abs(float(getattr(goal, "wz_ref", 0.0) or 0.0)
+                          ) if goal is not None else 0.0
+            if _tps_wz > self._tilt_penalty_wz_thresh_rad_s:
+                tilt_settle_scale = self._tilt_penalty_wz_scale
         reward, parts = compute_reward(self.cfg, self._state, clipped,
                                        self._prev_action, goal=goal,
                                        tilt_ref=self._tilt_ref0,
                                        height_err=h_err,
                                        unload_force_n=unload_f,
                                        ref_quiet=ref_quiet,
+                                       tilt_settle_scale=tilt_settle_scale,
                                        prev_prev_action=self._prev_prev_action)
         reward = hold_still_gate_reward(self, goal, parts, ref_quiet, reward)
         reward = hold_minload_shortfall_reward(self, minload_floor_n,

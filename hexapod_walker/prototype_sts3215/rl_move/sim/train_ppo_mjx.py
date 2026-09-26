@@ -1919,11 +1919,9 @@ def main(argv: list[str] | None = None) -> int:
                 raise SystemExit(
                     "--transformer + --obs-pad-transplant needs "
                     "--init-from a transformer checkpoint (per-frame "
-                    "tail widening)")
-            if args.obs_pad_insert_at >= 0:
-                raise SystemExit(
-                    "--transformer + --obs-pad-transplant is frame-TAIL "
-                    "append only; --obs-pad-insert-at is not supported")
+                    "widening; --obs-pad-insert-at is a PER-FRAME "
+                    "column here, e.g. w_old-4 for obs.current_sense "
+                    "on the vel+phase walk lineage)")
         hist = int(float(_parse_cfg_set(args.cfg_set).get(
             "obs.history_frames", 1)))
         if hist < 2:
@@ -3042,9 +3040,13 @@ def main(argv: list[str] | None = None) -> int:
                     from .obs_transplant import (
                         transformer_pad_obs_transplant)
                     transformer_pad_obs_transplant(
-                        old, model, args.obs_pad_transplant)
+                        old, model, args.obs_pad_transplant,
+                        insert_at=args.obs_pad_insert_at)
                     _tp_note = (f"+{args.obs_pad_transplant}/frame "
-                                "transformer obs-pad transplant")
+                                "transformer obs-pad transplant"
+                                + (f" @framecol{args.obs_pad_insert_at}"
+                                   if args.obs_pad_insert_at >= 0
+                                   else ""))
                 else:
                     if args.obs_pad_insert_at >= 0:
                         _hf = int(float(_parse_cfg_set(args.cfg_set).get(

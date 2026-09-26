@@ -109,3 +109,35 @@ def test_transplant_refuses_frame_count_mismatch():
                            n_layers=1, n_heads=2, ff_dim=32))
     with pytest.raises(SystemExit):
         transformer_pad_obs_transplant(old, bad, N_PAD)
+
+
+def _inserted_obs(obs_old, pad_vals, at):
+    frames = obs_old.reshape(K, W_OLD)
+    return np.concatenate(
+        [np.concatenate([f[:at], pad_vals, f[at:]])
+         for f in frames]).astype(np.float32)
+
+
+def test_mid_frame_insert_bit_identical():
+    # The obs.current_sense case: the new channel lands INSIDE
+    # build_obs, BEFORE walk_task's vel/phase tail extras -- per-frame
+    # insert_at, not tail append.
+    at = W_OLD - 4
+    old = _model(K * W_OLD, seed=1)
+    new = _model(K * W_NEW, seed=2)
+    transformer_pad_obs_transplant(old, new, N_PAD, insert_at=at)
+    rng = np.random.default_rng(1)
+    obs_old = rng.normal(size=(K * W_OLD,)).astype(np.float32)
+    for pad in (np.zeros(N_PAD), rng.normal(size=N_PAD) * 5.0):
+        obs_new = _inserted_obs(obs_old, pad.astype(np.float32), at)
+        a_old, _ = old.predict(obs_old, deterministic=True)
+        a_new, _ = new.predict(obs_new, deterministic=True)
+        np.testing.assert_array_equal(a_old, a_new)
+
+
+def test_mid_frame_insert_out_of_range_refused():
+    old = _model(K * W_OLD, seed=1)
+    new = _model(K * W_NEW, seed=2)
+    with pytest.raises(SystemExit, match="FRAME width"):
+        transformer_pad_obs_transplant(old, new, N_PAD,
+                                       insert_at=W_OLD + 1)

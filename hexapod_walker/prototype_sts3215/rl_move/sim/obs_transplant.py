@@ -102,26 +102,32 @@ def pad_obs_transplant(old_model, new_model, n_pad: int,
           f"({where}); zero-padded first-layer columns in {widened}")
 
 
-def transformer_pad_obs_transplant(old_model, new_model,
-                                   n_pad: int) -> None:
+def transformer_pad_obs_transplant(old_model, new_model, n_pad: int,
+                                   insert_at: int = -1) -> None:
     """Transplant a FrameStackTransformer policy across a PER-FRAME obs
-    widening of ``n_pad`` dims appended at each frame's TAIL.
+    widening of ``n_pad`` dims.
 
     The flat obs is a K-frame stack; only the frame-embedding Linear
     layers (``*features_extractor.embed.weight``, one per actor/critic
-    extractor) touch raw obs columns, so the transplant zero-pads the
-    LAST ``n_pad`` columns of each embed weight and copies every other
-    tensor verbatim. The transplanted policy's outputs are
-    bit-identical to the parent for ANY value of the new per-frame tail
-    dims until training moves the zero columns (same contract as
-    ``pad_obs_transplant``). NOTE the ``n_pad`` semantics differ from
-    ``pad_obs_transplant``: here it is the PER-FRAME widening (the flat
-    obs widens by ``n_pad * K``) -- e.g. ``--obs-pad-transplant 6`` for
-    ``obs.foot_contact_sense`` on an obs.history_frames=16 lineage
-    widens the flat obs by 96. The new dims MUST be a frame-tail
-    append (walk_task keeps ``obs.foot_contact_sense`` the last
-    _augment_obs append for exactly this reason); mid-frame insertion
-    is not expressible here. Optimizer state is fresh (architecture
+    extractor) touch raw obs columns, so the transplant zero-pads
+    ``n_pad`` columns of each embed weight (at the frame TAIL by
+    default, or INSERTED at per-frame column ``insert_at``) and copies
+    every other tensor verbatim. The transplanted policy's outputs are
+    bit-identical to the parent for ANY value of the new per-frame dims
+    until training moves the zero columns (same contract as
+    ``pad_obs_transplant``). NOTE the semantics differ from
+    ``pad_obs_transplant``: ``n_pad`` is the PER-FRAME widening (the
+    flat obs widens by ``n_pad * K``) and ``insert_at`` is a PER-FRAME
+    column index -- because the frame repeats K times, a mid-layout
+    channel is expressible here even though it is NOT for the flat MLP
+    stack. Examples: ``obs.foot_contact_sense`` (+6, a true frame-tail
+    append, default insert_at=-1); ``obs.current_sense`` (+18) lands
+    INSIDE build_obs BEFORE walk_task's vel/phase extras, so on the
+    vel+phase walk lineage it needs ``insert_at = w_old - 4`` -- a
+    tail-append transplant there silently maps the parent's vel/phase
+    embed columns onto current dims (caught 2026-09-26 on
+    cw-adapt50hz-tfh16-noramp-ceil225-currentsense-fromceil20-s0,
+    killed+relaunched). Optimizer state is fresh (architecture
     changed).
     """
     import torch
@@ -153,6 +159,11 @@ def transformer_pad_obs_transplant(old_model, new_model,
             f"frame-stack mismatch: obs {n_old}->{n_new} is not the "
             f"same K frames of width {w_old}->{w_new}; "
             "obs.history_frames must match the parent")
+    if insert_at >= 0 and insert_at > w_old:
+        raise SystemExit(
+            f"--obs-pad-insert-at {insert_at} out of range for parent "
+            f"FRAME width {w_old} (per-frame column semantics with "
+            "--transformer)")
     widened = []
     with torch.no_grad():
         for k, v_new in sd_new.items():
@@ -163,16 +174,23 @@ def transformer_pad_obs_transplant(old_model, new_model,
                   and v_new.shape[1] == w_new
                   and v_old.shape[1] == w_old):
                 v_new.zero_()
-                v_new[:, :w_old].copy_(v_old)
+                if insert_at < 0:
+                    v_new[:, :w_old].copy_(v_old)
+                else:
+                    v_new[:, :insert_at].copy_(v_old[:, :insert_at])
+                    v_new[:, insert_at + n_pad:].copy_(
+                        v_old[:, insert_at:])
                 widened.append(k)
             else:
                 raise SystemExit(f"unexpected shape change for {k}: "
                                  f"{tuple(v_old.shape)} -> "
                                  f"{tuple(v_new.shape)}")
     new_model.policy.load_state_dict(sd_new, strict=True)
+    where = ("appended at frame tail" if insert_at < 0
+             else f"inserted at frame col {insert_at}")
     print(f"[train] transformer obs-pad transplant: frame {w_old} -> "
-          f"{w_new} dims (x{n_new // w_new} frames, flat {n_old} -> "
-          f"{n_new}); zero-padded embed columns in {widened}")
+          f"{w_new} dims ({where}, x{n_new // w_new} frames, flat "
+          f"{n_old} -> {n_new}); zero-padded embed columns in {widened}")
 
 
 def hist_stride_transplant(old_model, new_model, stride: int,

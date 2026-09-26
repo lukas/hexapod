@@ -128,10 +128,10 @@ def _gelu(x: np.ndarray) -> np.ndarray:
 
     Same Abramowitz & Stegun 7.1.26 erf as :func:`_erf`, written as
     ``0.5 * (x + |x| * erf(|x| / sqrt 2))`` (``x * sign(x) == |x|``) with
-    in-place numpy ops: on the robot's Uno Q this call was the single
-    most expensive op of an encoder layer (~390 us for 16x256 in the
-    per-op form, 2026-09-26 profile), and every temporary array costs
-    more than the arithmetic there.
+    in-place numpy ops. On the robot's Uno Q every numpy call costs
+    ~15-50 us regardless of size, so temporaries are the cost; a
+    table-interpolated erf (np.interp) was tried and is SLOWER (per-
+    element search), so the polynomial stays.
     """
     x = np.asarray(x)
     ax = np.abs(x)
@@ -1120,6 +1120,8 @@ class _NumpyTransformerLayer:
                                         dtype=np.float32)
         self._w2_t = np.ascontiguousarray(self.lin2_w.T, dtype=np.float32)
         self._mask_add: np.ndarray | None = None
+        self._inv_d = np.full(d, 1.0 / d, dtype=np.float32)
+        self._ones_seq: np.ndarray | None = None
 
     @staticmethod
     def _layernorm(x: np.ndarray, w: np.ndarray, b: np.ndarray,
@@ -1128,14 +1130,16 @@ class _NumpyTransformerLayer:
         var = x.var(axis=-1, keepdims=True)
         return (x - mu) / np.sqrt(var + eps) * w + b
 
-    @staticmethod
-    def _norm(x: np.ndarray, eps: float = 1e-5) -> np.ndarray:
-        """LayerNorm without the affine (folded into the next linear)."""
-        xc = x - x.mean(axis=-1, keepdims=True)
-        var = np.mean(xc * xc, axis=-1, keepdims=True)
+    def _norm(self, x: np.ndarray, eps: float = 1e-5) -> np.ndarray:
+        """LayerNorm without the affine (folded into the next linear).
+        Row means as matvecs against a 1/d vector: on the Uno Q an axis
+        reduction with keepdims costs ~50 us, a small matvec ~10 us."""
+        mu = x @ self._inv_d                     # (seq,)
+        xc = x - mu[:, None]
+        var = (xc * xc) @ self._inv_d
         var += eps
         np.sqrt(var, out=var)
-        xc /= var
+        xc /= var[:, None]
         return xc
 
     def forward(self, x: np.ndarray, causal_mask: np.ndarray,
@@ -1157,11 +1161,13 @@ class _NumpyTransformerLayer:
             x = x[-1:, :]
         else:
             mask_add = self._mask_add
+        if self._ones_seq is None or self._ones_seq.shape[0] != seq:
+            self._ones_seq = np.ones(seq, dtype=np.float32)
         scores = q @ k.transpose(0, 2, 1)                # (h, seq_q, seq)
         scores += mask_add
-        scores -= scores.max(axis=-1, keepdims=True)
+        scores -= scores.max(axis=-1, keepdims=True)     # keep: overflow guard
         np.exp(scores, out=scores)
-        scores /= scores.sum(axis=-1, keepdims=True)
+        scores /= (scores @ self._ones_seq)[..., None]   # row sums as a matvec
         attn = (scores @ v).transpose(1, 0, 2).reshape(-1, d)
         x = x + (attn @ self._wo_t + self.out_proj_b)
         hn2 = self._norm(x)
@@ -1242,6 +1248,7 @@ class NumpyTransformerModel:
         self.recurrent = False
         # Fused act() constants (see _NumpyTransformerLayer.forward):
         self._embed_t = np.ascontiguousarray(self.embed_w.T, dtype=np.float32)
+        self._inv_d_model = np.full(self.embed_w.shape[0], 1.0 / self.embed_w.shape[0], dtype=np.float32)
         self._embed_bias = np.ascontiguousarray(
             self.embed_b[None, :] + self.pos_embed, dtype=np.float32)   # (seq, d)
         if self.head_layers:
@@ -1272,8 +1279,10 @@ class NumpyTransformerModel:
         for i, layer in enumerate(self.layers):
             x = layer.forward(x, self._causal_mask, last_only=(i == last))
         newest = x[-1]
-        newest = newest - newest.mean()
-        newest /= np.sqrt(np.mean(newest * newest) + 1e-5)   # LayerNorm, affine folded below
+        newest = newest - (newest @ self._inv_d_model)
+        var = (newest * newest) @ self._inv_d_model
+        var += 1e-5
+        newest /= np.sqrt(var)                      # LayerNorm, affine folded below
         if self._head0 is not None:
             w0, b0 = self._head0
             hidden = self._act_fn(w0 @ newest + b0)

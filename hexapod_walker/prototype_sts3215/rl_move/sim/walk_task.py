@@ -88,6 +88,52 @@ def foot_contact_sense_obs_dim(cfg) -> int:
     """
     return (N_FOOT_CONTACT_OBS if float(cfg_get(
         cfg, "obs", "foot_contact_sense", default=0.0)) == 1.0 else 0)
+
+
+N_DR_ORACLE_OBS = 12      # oracle per-leg link-scale + zero-bias (obs.dr_oracle_sense)
+
+
+def dr_oracle_sense_obs_dim(cfg) -> int:
+    """Extra obs width from the optional ORACLE per-leg draw channel
+    (``obs.dr_oracle_sense=1`` -> 12 dims, default 0/OFF, bit-exact
+    when off). Appended by ``_augment_obs`` at the absolute FRAME TAIL,
+    after ``foot_contact_sense`` if both are on (per-frame tail
+    zero-pad: ``--obs-pad-transplant 12`` on the transformer/history
+    stack, see ``obs_transplant.transformer_pad_obs_transplant``).
+
+    2026-09-26 standwalk SENSE-hypothesis closure (CURRENT_TRUTHS
+    ~08:0x): every INDIRECT sensing lever tried (park-price, measured
+    velocity, per-joint current-sense, per-foot contact-sense) tied its
+    zero-shot parent at the ceil225 stepping-stone -- none gave the
+    policy anything it could use to avoid the per-episode DR-draw leg
+    sacrifice. ``draw_feasibility.py`` already showed the RAW draw
+    itself (not any proxy) predicts ``gait_valid`` at ~87% CV accuracy.
+    This channel hands the policy that same ground truth directly: per
+    leg, ``mean(link_scale) - 1.0`` (dimensionless, the classifier's
+    top-coefficient axis) and ``max(|joint_zero_bias_deg|)`` (degrees,
+    the next axis), 6 legs x 2 values = 12 dims, normalized by
+    ``obs.dr_oracle_link_scale``/``obs.dr_oracle_bias_scale`` (defaults
+    0.05 / 3.0, matching the sampled ranges at this ceiling) then left
+    UNBOUNDED (no tanh -- this is a diagnostic oracle probe, not a
+    hardware-deployable channel; there is no real-robot proxy for
+    "this leg's true manufactured link length", unlike current-sense/
+    foot-contact-sense which both have one). Sim source: the same
+    ``EpisodeRandomization.link_scale``/``joint_zero_bias_rad`` arrays
+    ``summary()`` already reduces to ``link_scale_per_leg``/
+    ``joint_zero_bias_deg_per_leg`` for the offline classifier -- this
+    channel is the online, in-observation version of those same two
+    numbers. If handing the policy PERFECT knowledge of its own draw
+    still ties the zero-shot parent, that rules out "cannot sense" as
+    the bottleneck entirely (the remaining explanation becomes reward/
+    capacity/exploration, not observability) -- a decisive result
+    either way, and a cheaper one to fund than a real online
+    system-ID estimator.
+
+    NOT compatible with the Dual-GRU loco gate (reads the literal last
+    3 obs columns) -- guarded in train_ppo_mjx.
+    """
+    return (N_DR_ORACLE_OBS if float(cfg_get(
+        cfg, "obs", "dr_oracle_sense", default=0.0)) == 1.0 else 0)
 VEL_SCALE = 0.15          # m/s; matches the max commanded speed
 K_WALK = 2.0              # kernel peak, ~2x the tilt-tracking kernel
 SIGMA_V = 0.05            # m/s; kernel width
@@ -935,7 +981,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 + current_sense_obs_dim(self.cfg)
                 + height_err_sense_obs_dim(self.cfg)
                 + height_vel_sense_obs_dim(self.cfg)
-                + foot_contact_sense_obs_dim(self.cfg))
+                + foot_contact_sense_obs_dim(self.cfg)
+                + dr_oracle_sense_obs_dim(self.cfg))
 
     def _augment_obs(self, obs: np.ndarray, *,
                      reset: bool = False) -> np.ndarray:
@@ -1148,9 +1195,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         if foot_contact_sense_obs_dim(self.cfg) > 0:
             # Per-foot normalized load at the absolute FRAME TAIL (see
             # foot_contact_sense_obs_dim's docstring for the design and
-            # the transplant contract). MUST stay the last append in
-            # this method: --obs-pad-transplant 6 on the transformer
-            # lineage zero-pads the last 6 embed columns per frame.
+            # the transplant contract). Kept last unless dr_oracle_sense
+            # is ALSO on, in which case that channel appends after this
+            # one (see below) and becomes the true tail instead.
             fscale = float(cfg_get(self.cfg, "obs", "foot_contact_scale",
                                    default=5.0))
             f = np.zeros(N_FOOT_CONTACT_OBS, dtype=float)
@@ -1160,6 +1207,31 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     if adr >= 0:
                         f[i] = max(float(self.data.sensordata[adr]), 0.0)
             obs = np.concatenate([obs, np.tanh(f / max(fscale, 1e-6))])
+        if dr_oracle_sense_obs_dim(self.cfg) > 0:
+            # Oracle per-leg ground-truth draw at the absolute FRAME
+            # TAIL (see dr_oracle_sense_obs_dim's docstring). MUST stay
+            # the last append in this method: --obs-pad-transplant 12
+            # on the transformer lineage zero-pads the last 12 embed
+            # columns per frame.
+            link_scale_norm = float(cfg_get(
+                self.cfg, "obs", "dr_oracle_link_scale", default=0.05))
+            bias_norm_deg = float(cfg_get(
+                self.cfg, "obs", "dr_oracle_bias_scale", default=3.0))
+            er = getattr(self, "_ep_rand", None)
+            if er is not None:
+                link_dev = np.array(
+                    [float(np.mean(er.link_scale[i])) - 1.0
+                     for i in range(6)], dtype=float)
+                bias_deg = np.array(
+                    [float(np.max(np.abs(
+                        er.joint_zero_bias_rad[3 * i:3 * i + 3])))
+                     / DEG2RAD for i in range(6)], dtype=float)
+            else:
+                link_dev = np.zeros(6, dtype=float)
+                bias_deg = np.zeros(6, dtype=float)
+            obs = np.concatenate(
+                [obs, link_dev / max(link_scale_norm, 1e-6),
+                 bias_deg / max(bias_norm_deg, 1e-6)])
         return obs.astype(np.float32)
 
     def _reset_begin(self, seed: int | None = None):

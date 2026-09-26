@@ -1874,6 +1874,18 @@ def main(argv: list[str] | None = None) -> int:
                 "shifts the mode-gated GRU routing one-hot; not "
                 "supported with --gru-dual/--gru-triple/--gru-experts/"
                 "--gru-rise-experts")
+        if (float(_parse_cfg_set(args.cfg_set).get(
+                "obs.dr_oracle_sense", 0.0)) == 1.0
+                and (args.gru_dual or args.gru_triple or args.gru_experts
+                     or args.gru_rise_experts)):
+            # Same tail-shift hazard as obs.foot_contact_sense above,
+            # for the oracle per-leg draw channel (walk_task.py
+            # dr_oracle_sense_obs_dim, +12 dims at the frame tail).
+            raise SystemExit(
+                "obs.dr_oracle_sense=1 appends at the obs TAIL and "
+                "shifts the mode-gated GRU routing one-hot; not "
+                "supported with --gru-dual/--gru-triple/--gru-experts/"
+                "--gru-rise-experts")
         policy_cls = (ModeExpertsGruActorCriticPolicy if args.gru_experts
                       else TripleGruActorCriticPolicy if args.gru_triple
                       else RiseKindGruActorCriticPolicy

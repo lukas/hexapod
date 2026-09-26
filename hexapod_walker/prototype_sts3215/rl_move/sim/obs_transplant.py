@@ -31,6 +31,11 @@ def _privileged_idx(args, n_obs: int) -> tuple[int, ...]:
         # Per-foot load channel (walk_task, 2026-09-26) appends 6 dims
         # at the frame tail, AFTER the measured-vel/phase/mode extras.
         off += 6
+    if ov.get("obs.dr_oracle_sense", 0.0) == 1.0:
+        # Oracle per-leg draw channel (walk_task, 2026-09-26) appends
+        # 12 dims at the frame tail, after foot_contact_sense if both
+        # are on.
+        off += 12
     if n_obs % k:
         raise SystemExit(f"obs width {n_obs} not divisible by "
                          f"history_frames {k}")

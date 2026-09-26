@@ -5,9 +5,11 @@ import pytest
 
 from rl_move.np_policy import (
     ARCH_DUAL_GRU,
+    ARCH_TRANSFORMER,
     MODE_ONEHOT_ORDER,
     NumpyDualGruModel,
     NumpyMLPNLayerModel,
+    NumpyTransformerModel,
     load_np_policy,
     pack_f32,
     unpack_f32,
@@ -284,3 +286,154 @@ def test_dual_gru_validation_rejects_mode_order_and_shape_drift():
     payload["dual_gru"]["core_a"]["weight_ih"]["shape"] = [14, 81]
     errs, _ = validate_np_policy(payload)
     assert any("byte count" in error or "shape" in error for error in errs)
+
+
+def _transformer_payload(n_frames=3, frame_w=68, d_model=4, n_heads=2,
+                         n_layers=2, ff_dim=6, hidden=(6,), seed=0,
+                         extra_meta=None):
+    """Build a small (payload, torch reference modules) pair mirroring
+    ``transformer_policy.FrameStackTransformerExtractor``'s exact layout,
+    without constructing a full gym env / SB3 policy (keeps this test
+    fast and torch-import-local, matching the dual-GRU test's style)."""
+    import torch as th
+    import torch.nn as nn
+
+    th.manual_seed(seed)
+    obs_dim = n_frames * frame_w
+    embed = nn.Linear(frame_w, d_model)
+    pos_embed = nn.Parameter(th.randn(1, n_frames, d_model) * 0.02)
+    layers = nn.ModuleList([
+        nn.TransformerEncoderLayer(
+            d_model, n_heads, dim_feedforward=ff_dim, dropout=0.0,
+            activation="gelu", batch_first=True, norm_first=True)
+        for _ in range(n_layers)
+    ])
+    out_norm = nn.LayerNorm(d_model)
+    head_linears = []
+    in_dim = d_model
+    for h in hidden:
+        head_linears.append(nn.Linear(in_dim, h))
+        in_dim = h
+    action_net = nn.Linear(in_dim, 18)
+    for m in (embed, out_norm, action_net, *head_linears):
+        pass  # default torch init is fine; no reset needed for this test
+
+    def tpack(t):
+        return pack_f32(t.detach().numpy())
+
+    def layer_json(layer):
+        return {
+            "ln1_w": tpack(layer.norm1.weight), "ln1_b": tpack(layer.norm1.bias),
+            "in_proj_w": tpack(layer.self_attn.in_proj_weight),
+            "in_proj_b": tpack(layer.self_attn.in_proj_bias),
+            "out_proj_w": tpack(layer.self_attn.out_proj.weight),
+            "out_proj_b": tpack(layer.self_attn.out_proj.bias),
+            "ln2_w": tpack(layer.norm2.weight), "ln2_b": tpack(layer.norm2.bias),
+            "lin1_w": tpack(layer.linear1.weight), "lin1_b": tpack(layer.linear1.bias),
+            "lin2_w": tpack(layer.linear2.weight), "lin2_b": tpack(layer.linear2.bias),
+        }
+
+    meta = {
+        "obs_dim": obs_dim, "act_dim": 18, "activation": "tanh",
+        "architecture": ARCH_TRANSFORMER, "training_hz": 50.0,
+        "tf_n_frames": n_frames, "tf_d_model": d_model,
+        "tf_n_layers": n_layers, "tf_n_heads": n_heads,
+        "joint_frame": "robot_abs", "joint_contract": "robot_abs_tibia_v2",
+        **(extra_meta or {}),
+    }
+    payload = {
+        "meta": meta,
+        "transformer": {
+            "embed_w": tpack(embed.weight), "embed_b": tpack(embed.bias),
+            "pos_embed": tpack(pos_embed[0]),
+            "out_norm_w": tpack(out_norm.weight), "out_norm_b": tpack(out_norm.bias),
+            "layers": [layer_json(layer) for layer in layers],
+            "head": {
+                "layers": [{"W": tpack(lin.weight), "b": tpack(lin.bias)}
+                          for lin in head_linears],
+                "Wout": tpack(action_net.weight), "bout": tpack(action_net.bias),
+                "activation": "tanh",
+            },
+        },
+    }
+
+    def torch_forward(obs: np.ndarray) -> np.ndarray:
+        x = th.as_tensor(obs, dtype=th.float32).view(1, n_frames, frame_w)
+        x = x.flip(1)
+        x = embed(x) + pos_embed
+        causal = th.triu(th.full((n_frames, n_frames), float("-inf")), diagonal=1)
+        for layer in layers:
+            x = layer(x, src_mask=causal)
+        newest = out_norm(x[:, -1])
+        h = newest
+        for lin in head_linears:
+            h = th.tanh(lin(h))
+        action = action_net(h)
+        return th.clamp(action, -1.0, 1.0)[0].detach().numpy()
+
+    return payload, torch_forward
+
+
+def test_transformer_numpy_matches_torch_layer_stack():
+    payload, torch_forward = _transformer_payload()
+    errs, info = validate_np_policy(payload)
+    assert errs == []
+    assert info["architecture"] == ARCH_TRANSFORMER
+    assert info["hidden"] == [4, 6]
+
+    model = NumpyTransformerModel(payload)
+    rng = np.random.default_rng(1)
+    for _ in range(10):
+        obs = rng.normal(size=payload["meta"]["obs_dim"]).astype(np.float32)
+        np.testing.assert_allclose(
+            model.act(obs), torch_forward(obs), rtol=0, atol=2e-5)
+
+
+def test_transformer_dispatches_through_load_np_policy(tmp_path):
+    payload, _ = _transformer_payload()
+    path = tmp_path / "tf.json"
+    import json
+    path.write_text(json.dumps(payload))
+    model = load_np_policy(path)
+    assert isinstance(model, NumpyTransformerModel)
+    action, state = model.predict(
+        np.zeros(payload["meta"]["obs_dim"], dtype=np.float32))
+    assert action.shape == (18,)
+    assert np.all(np.isfinite(action))
+    assert state is None  # stateless: no persistent hidden state to thread
+
+
+def test_transformer_validation_rejects_frame_count_mismatch():
+    payload, _ = _transformer_payload()
+    payload["meta"]["obs_dim"] = payload["meta"]["obs_dim"] + 1
+    errs, _ = validate_np_policy(payload)
+    assert any("not a multiple" in e for e in errs)
+
+
+def test_transformer_validation_rejects_bad_head_count_of_layers():
+    payload, _ = _transformer_payload()
+    payload["transformer"]["layers"].pop()
+    errs, _ = validate_np_policy(payload)
+    assert any("transformer.layers must be a list of length" in e for e in errs)
+
+
+def test_transformer_requires_phase_hz_when_frame_width_is_phase_obs():
+    # frame_width=74 is a phase-clock single-frame width (see PHASE_OBS);
+    # a transformer over it must carry meta.phase_hz, exactly like a
+    # plain MLP/GRU over the same per-tick layout would.
+    payload, _ = _transformer_payload(frame_w=74, d_model=4, n_heads=2)
+    errs, _ = validate_np_policy(payload)
+    assert any("phase_hz" in e for e in errs)
+
+    payload, _ = _transformer_payload(
+        frame_w=74, d_model=4, n_heads=2, extra_meta={"phase_hz": 1.5})
+    errs, _ = validate_np_policy(payload)
+    assert errs == []
+
+
+def test_transformer_validation_rejects_heads_not_dividing_d_model():
+    payload, _ = _transformer_payload(d_model=4, n_heads=2)
+    payload["meta"]["tf_n_heads"] = 3  # 4 % 3 != 0; mutate meta only, no
+    # need to rebuild mismatched attention weights -- caught before decode.
+    errs, _ = validate_np_policy(payload)
+    assert any("tf_n_heads" in e for e in errs)

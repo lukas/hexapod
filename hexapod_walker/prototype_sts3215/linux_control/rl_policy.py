@@ -2395,19 +2395,71 @@ _HALF_RAD = np.array([
 
 
 class NumpyPolicy:
-    """Validated dependency-light MLP or persistent dual-GRU actor."""
+    """Validated dependency-light MLP, persistent GRU, or frame-stacked
+    causal-transformer actor.
+
+    Frame-stacked artifacts (``meta.architecture == "transformer"``,
+    ``meta.tf_n_frames`` = K > 1) were trained on the env's
+    ``obs.history_frames`` stack: the last K single-tick observations
+    concatenated NEWEST-FIRST (frame 0 = the current tick), with frames
+    1..K-1 ZERO at an episode start (sim_env.__init__ "Temporal actor"
+    block). The drive loop builds ONE tick of observation per step, so
+    this wrapper keeps that K-frame ring buffer itself: ``meta["obs_dim"]``
+    is presented as the SINGLE-tick width the loop already validates
+    against WALK_OBS_DIMS (72/74/75/81/93), the stacked width lives in
+    ``meta["stacked_obs_dim"]``, ``act`` pushes the tick and feeds the
+    stacked vector to the model, and ``reset`` zeroes the buffer at the
+    same episode boundaries that reset a GRU's hidden state. MLP/GRU
+    artifacts pass through unchanged (K == 1).
+    """
 
     def __init__(self, path: Path = WEIGHTS_PATH):
         self._model = load_np_policy(path)
-        self.meta = self._model.meta
+        self._frames = max(1, int(getattr(self._model, "n_frames", 1) or 1))
+        self._frame_width = int(getattr(self._model, "frame_width", 0) or 0)
+        self.meta = dict(self._model.meta)
+        if self._frames > 1:
+            stacked = int(self._model.meta["obs_dim"])
+            if self._frame_width <= 0 or \
+                    self._frame_width * self._frames != stacked:
+                raise ValueError(
+                    f"{Path(path).name}: frame-stacked policy has obs_dim "
+                    f"{stacked} but {self._frames} frames x "
+                    f"{self._frame_width} wide -- cannot build the ring "
+                    "buffer")
+            self.meta["obs_dim"] = self._frame_width
+            self.meta["stacked_obs_dim"] = stacked
+            self._hist = np.zeros((self._frames, self._frame_width),
+                                  dtype=np.float32)
+        else:
+            self._hist = None
         require_robot_abs_joint_frame(self.meta, source=str(path))
-        self.recurrent = self._model.recurrent
+        # A frame stack is per-episode state the loop must reset exactly
+        # like a recurrent hidden state.
+        self.recurrent = bool(self._model.recurrent) or self._frames > 1
+
+    @property
+    def frames(self) -> int:
+        """Context length K (1 for MLP/GRU artifacts)."""
+        return self._frames
 
     def act(self, obs: np.ndarray) -> np.ndarray:
-        return self._model.act(obs)
+        if self._hist is None:
+            return self._model.act(obs)
+        tick = np.asarray(obs, dtype=np.float32).reshape(-1)
+        if tick.shape[0] != self._frame_width:
+            raise ValueError(
+                f"observation width {tick.shape[0]} != policy frame width "
+                f"{self._frame_width}")
+        # Newest-first: shift every frame one slot older, drop the oldest.
+        self._hist[1:] = self._hist[:-1]
+        self._hist[0] = tick
+        return self._model.act(self._hist.reshape(-1))
 
     def reset(self) -> None:
-        """Reset recurrent state at an actual episode boundary."""
+        """Reset recurrent state / frame stack at an actual episode boundary."""
+        if self._hist is not None:
+            self._hist[:] = 0.0
         self._model.reset()
 
 

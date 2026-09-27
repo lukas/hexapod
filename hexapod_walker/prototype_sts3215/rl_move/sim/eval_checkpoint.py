@@ -1735,6 +1735,17 @@ def main() -> None:
             sect, name = key.split(".", 1)
             cfg.setdefault(sect, {})[name] = parsed
         cfg_kw["cfg"] = cfg
+    # 2026-09-27: cfg default bus profile moved 400/20 -> 2000/80. A
+    # checkpoint that did not pin bus.* itself must still be evaluated at
+    # the profile it TRAINED with (its training sidecar records it).
+    from .trained_profile import pin_trained_bus_profile
+    if "cfg" not in cfg_kw:
+        from rl_move.config import load_config
+        _pin_cfg = load_config()
+    else:
+        _pin_cfg = cfg_kw["cfg"]
+    if pin_trained_bus_profile(_pin_cfg, args.checkpoint) is not None:
+        cfg_kw["cfg"] = _pin_cfg
     # dr.<field> cfg overrides need the randomizer alive even at
     # --dr-scale 0 (payload/latency-axis arms: scale 0 = nominal sim +
     # ONLY the overridden field randomized). Without this the override

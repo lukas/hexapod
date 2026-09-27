@@ -95,7 +95,10 @@ def test_profile_actually_goes_faster_with_override():
     reality-gap refit raised that fitted ceiling 350 -> 400 counts/s (the
     run's write_speed=400, previously clamped to the stale 350), so the
     default clamp reference is 400 counts/s now, not 350."""
-    stock = SimServoParams.from_cfg(None)
+    # 2026-09-27: the fitted set itself now carries the 2000 counts/s
+    # contract ceiling, so the clamped reference is an explicit 400 cps
+    # ceiling (the legacy RL profile), not from_cfg(None).
+    stock = SimServoParams.from_cfg({"bus": {"servo_vel_max_counts_s": 400}})
     fast = SimServoParams.from_cfg(
         {"bus": {"servo_vel_max_counts_s": "write_speed",
                  "write_speed": 1500}})

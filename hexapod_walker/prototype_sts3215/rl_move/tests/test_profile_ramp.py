@@ -68,8 +68,9 @@ def test_default_off_bit_exact_and_apply_raises():
     env = _env()
     assert env._profile_ramp is None
     assert env._profile_ramp_dq_rad is None
-    assert _counts(env.write_speed_deg_s) == pytest.approx(400.0)
-    assert env.write_acc_units == pytest.approx(20.0)
+    # cfg default profile = the scripted-walk contract 2000/80 (2026-09-27)
+    assert _counts(env.write_speed_deg_s) == pytest.approx(2000.0)
+    assert env.write_acc_units == pytest.approx(80.0)
     with pytest.raises(RuntimeError, match="not armed"):
         env.apply_profile_ramp_frac(0.5)
     env.close()
@@ -122,10 +123,12 @@ def test_custom_start_keys():
 
 
 def test_target_above_ceiling_fails_closed():
-    # params WITHOUT the vel-ceiling override (fitted ~350 counts/s)
-    # but a ramp targeting 1500 -> the ramp would be silently clamped.
+    # params with a 400 counts/s ceiling (the legacy RL profile; the fitted
+    # set itself now carries 2000) but a ramp targeting 1500 -> the ramp
+    # would be silently clamped.
     with pytest.raises(ValueError, match="silently clamped"):
-        _env(RAMP_KEYS, params=SimServoParams.from_cfg(None))
+        _env(RAMP_KEYS, params=SimServoParams.from_cfg(
+            {"bus": {"servo_vel_max_counts_s": 400}}))
 
 
 def test_bad_start_values_fail_closed():

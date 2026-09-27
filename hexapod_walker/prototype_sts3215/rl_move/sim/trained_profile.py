@@ -65,22 +65,26 @@ def trained_bus_profile(checkpoint_path) -> dict | None:
     return out
 
 
-def pin_trained_bus_profile(cfg: dict, checkpoint_path, *, log=print) -> dict | None:
-    """When ``cfg`` carries no bus.write_speed/write_acc of its own, set them
-    (and the speed ceiling sentinel) to the checkpoint's trained profile.
+def pin_trained_bus_profile(cfg: dict, checkpoint_path, *, caller_keys=(),
+                            log=print) -> dict | None:
+    """Unless the CALLER pinned bus.write_speed/write_acc itself (``caller_keys``
+    = the dotted keys it passed via --cfg-set), set them (and the speed
+    ceiling sentinel) to the checkpoint's trained profile -- the loaded cfg
+    always carries the config.yaml default, so its presence is not a pin.
     Returns the profile applied, or None (caller pinned it, or unknown)."""
-    bus = cfg.setdefault("bus", {})
-    if "write_speed" in bus or "write_acc" in bus:
+    pinned = {str(k).split("=", 1)[0] for k in caller_keys}
+    if pinned & {"bus.write_speed", "bus.write_acc"}:
         return None
     prof = trained_bus_profile(checkpoint_path)
     if prof is None:
         return None
+    bus = cfg.setdefault("bus", {})
     bus["write_speed"] = prof["bus_write_speed"]
     bus["write_acc"] = prof["bus_write_acc"]
-    bus.setdefault("servo_vel_max_counts_s", "write_speed")
+    bus["servo_vel_max_counts_s"] = "write_speed"
     if log is not None:
         log(f"[motor-contract] pinned bus.write_speed={bus['write_speed']} "
             f"write_acc={bus['write_acc']} from {prof['bus_profile_origin']} "
-            "(no --cfg-set bus.* given; the trained profile wins over the "
-            "config default)")
+            "(no --cfg-set bus.write_speed/acc given; the trained profile "
+            "wins over the config default)")
     return prof

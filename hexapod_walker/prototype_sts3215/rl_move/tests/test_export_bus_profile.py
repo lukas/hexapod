@@ -50,11 +50,14 @@ def test_training_sidecar_wins(tmp_path, monkeypatch):
     prof = ex._bus_profile_for(str(ck), None)
     assert (prof["bus_write_speed"], prof["bus_write_acc"]) == (400, 20)
     # eval pin: only when the caller did not set bus.* itself
-    cfg = {}
+    # the loaded cfg always carries the config default -> still pinned
+    cfg = {"bus": {"write_speed": 2000, "write_acc": 80}}
     assert tp.pin_trained_bus_profile(cfg, ck, log=None)["bus_write_speed"] == 400
     assert cfg["bus"] == {"write_speed": 400, "write_acc": 20,
                           "servo_vel_max_counts_s": "write_speed"}
+    # ... unless the caller pinned bus.* itself via --cfg-set
     cfg2 = {"bus": {"write_speed": 2000}}
-    assert tp.pin_trained_bus_profile(cfg2, ck, log=None) is None
+    assert tp.pin_trained_bus_profile(
+        cfg2, ck, caller_keys=["dr.x=1", "bus.write_speed=2000"], log=None) is None
     assert cfg2["bus"] == {"write_speed": 2000}
     assert tp.trained_bus_profile(tmp_path / "nothing.zip") is None

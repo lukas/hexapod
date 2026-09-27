@@ -43,6 +43,7 @@ import csv
 import filecmp
 import json
 import math
+import socket
 import os
 import sys
 import queue
@@ -757,6 +758,33 @@ def _policy_safety_max_delta_q_deg(policy: "NumpyPolicy", cfg: dict,
     if isinstance(safety, dict) and "max_delta_q_deg" in safety:
         return _positive_float(safety["max_delta_q_deg"], fallback), True
     return fallback, False
+
+
+def _policy_envelope(policy: "NumpyPolicy") -> tuple[float | None, float | None]:
+    """(hip_min_deg, knee_hinge_max_deg) the artifact trained with, from meta["safety"]."""
+    safety = (policy.meta or {}).get("safety")
+    if not isinstance(safety, dict):
+        return None, None
+    def _f(key):
+        v = safety.get(key)
+        try:
+            return float(v) if v is not None else None
+        except (TypeError, ValueError):
+            return None
+    return _f("hip_min_deg"), _f("knee_hinge_max_deg")
+
+
+def _apply_policy_envelope(safety: SafetyLayer, policy: "NumpyPolicy",
+                           host: str | None = None) -> tuple[float, float]:
+    """The joint envelope this robot runs the policy in: the TIGHTEST of the runtime
+    cfg, the artifact's trained envelope and this robot's measured stops
+    (hexapod_core.hardware_envelope) -- a policy never gets to command past a stop
+    it cannot see (2026-09-27: over_load stall at hinge 135.6 on hexapod2)."""
+    from hexapod_core import hardware_envelope
+    if host is None:
+        host = socket.gethostname()
+    safety.set_envelope(*_policy_envelope(policy))
+    return safety.set_envelope(*hardware_envelope.stops_for(host))
 
 
 def _apply_policy_safety_timing(safety: SafetyLayer, policy: "NumpyPolicy",
@@ -3508,6 +3536,7 @@ def _run_policy_move_impl(drive, mode: str, *, on_progress=None,
     safety = SafetyLayer(cfg)
     max_dq_deg, max_dq_explicit = _apply_policy_safety_timing(
         safety, policy, cfg, timing)
+    envelope_deg = _apply_policy_envelope(safety, policy)
     direct_feedback_hz = _apply_safety_feedback_timing(safety, cfg)
     if mode == "walk":
         # Match the walk policy's trained tilt envelope (see
@@ -3711,6 +3740,7 @@ def _run_policy_move_impl(drive, mode: str, *, on_progress=None,
         } if async_move else None),
         "max_delta_q_deg": round(max_dq_deg, 4),
         "max_delta_q_deg_explicit": max_dq_explicit,
+                           "joint_envelope_deg": list(envelope_deg),
         "write_speed": write_speed, "write_acc": write_acc,
         "policy": dict(policy.meta),
         "policy_joint_frame": joint_frame,

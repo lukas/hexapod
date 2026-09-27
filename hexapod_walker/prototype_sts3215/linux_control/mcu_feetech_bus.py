@@ -51,6 +51,7 @@ from feetech_bus import (  # noqa: E402
     ADDR_TORQUE_ENABLE,
     BAUD_DEFAULT,
     FeetechBus,
+    JOINT_SIGN,
     N_JOINTS,
     SERVO_IDS,
     count_to_deg,
@@ -60,7 +61,13 @@ from feetech_bus import (  # noqa: E402
     load_trims,
     normalize_acc,
     normalize_speed,
+    raw_degree_to_count,
+    raw_feedback_to_robot_feedback,
+    raw_positions_to_robot_degrees,
+    raw_speeds_to_robot_speeds,
+    robot_pose_to_raw_degrees,
 )
+from hexapod_core.joint_frame import FRAME_ROBOT_ABS  # noqa: E402
 
 MCU_PORT_DEFAULT = "/dev/ttyHS1"
 # Firmware HOST_BAUD.  The bridge speaks 921600.  2 Mbaud was tried on
@@ -669,11 +676,12 @@ class McuFeetechBus:
             joint = joint_of_servo(int(sid))
             # count_to_deg ignores trim; undo the trim that deg_to_count
             # added so the logged target stays in logical robot degrees.
-            command[joint] = (
-                count_to_deg(joint, int(count)) - float(self.trims[joint]))
+            command[joint] = count_to_deg(joint, int(count))   # raw, trim included
             speeds[joint] = int(speed)
             accelerations[joint] = int(acc)
-        return command, speeds, accelerations
+        logical = raw_positions_to_robot_degrees(
+            {j: v for j, v in enumerate(command) if v is not None}, self.trims)
+        return [logical.get(j) for j in range(N_JOINTS)], speeds, accelerations
 
     def _emit_goal_items(self, items: list[tuple[int, int, int, int]], *,
                          kind: str, ok: bool | None = None) -> None:
@@ -681,7 +689,8 @@ class McuFeetechBus:
             return
         command, speeds, accelerations = self._command_from_items(items)
         payload = {
-            "command_deg": command,
+            "command_deg": command,          # robot_abs (logical)
+            "joint_frame": FRAME_ROBOT_ABS,
             "speed_counts_s": speeds,
             "acc_units": accelerations,
         }
@@ -700,11 +709,17 @@ class McuFeetechBus:
             "snapshot_seq": snapshot.get("seq"),
             "position_age_ms": snapshot.get("pos_age_ms"),
             "imu_age_ms": snapshot.get("imu_age_ms"),
-            "position_deg": [positions.get(j) for j in range(N_JOINTS)],
+            "position_deg": [positions.get(j) for j in range(N_JOINTS)],   # robot_abs
             "speed_deg_s": [speeds.get(j) for j in range(N_JOINTS)],
+            "joint_frame": FRAME_ROBOT_ABS,
+            "raw_position_deg": [(snapshot.get("raw_pos_deg") or {}).get(j)
+                                 for j in range(N_JOINTS)],
+            "raw_speed_deg_s": [(snapshot.get("raw_speed_deg_s") or {}).get(j)
+                                for j in range(N_JOINTS)],
             "servo_reports": snapshot.get("servo_reports", []),
             "missing_servo_ids": [joint_to_servo_id(j) for j in range(N_JOINTS)
-                                  if j not in positions],
+                                  if j not in (snapshot.get("raw_pos_deg") or positions)],
+            "missing_joint_coordinates": [j for j in range(N_JOINTS) if j not in positions],
             "imu": dict(snapshot["imu"])
             if isinstance(snapshot.get("imu"), dict) else None,
         }
@@ -1208,14 +1223,22 @@ class McuFeetechBus:
                 continue
             self._filter_temp(fb)
             out[fb["joint"]] = fb
+        # Servo boundary: raw hinge-frame knees -> robot_abs (None without hip)
+        out = raw_feedback_to_robot_feedback(out, self.trims)
+        for fb in out.values():
             self._fb_cache[fb["id"]] = fb
-            self._pos_cache[fb["joint"]] = float(fb["deg"])
+            if fb.get("deg") is not None:
+                self._pos_cache[fb["joint"]] = float(fb["deg"])
         self._fb_cache_mono = time.monotonic()
         self._pos_cache_mono = self._fb_cache_mono
         if getattr(self, "_telemetry_sink", None) is not None:
             self._emit_telemetry("feedback", {
+                "joint_frame": FRAME_ROBOT_ABS,
                 "position_deg": [
                     out[j].get("deg") if j in out else None
+                    for j in range(N_JOINTS)],
+                "raw_position_deg": [
+                    out[j].get("raw_deg") if j in out else None
                     for j in range(N_JOINTS)],
                 "speed_deg_s": [
                     out[j].get("speed_deg_s") if j in out else None
@@ -1269,7 +1292,19 @@ class McuFeetechBus:
         pos = self._read_pos_counts(joint_to_servo_id(joint))
         if pos is None:
             return None
-        return count_to_deg(joint, pos)
+        raw = {joint: count_to_deg(joint, pos)}
+        if joint % 3 == 2:
+            # a logical knee needs its hip from the same acquisition
+            hip = self._read_pos_counts(joint_to_servo_id(joint - 1))
+            if hip is None:
+                return None
+            raw[joint - 1] = count_to_deg(joint - 1, hip)
+        return raw_positions_to_robot_degrees(raw, self.trims).get(joint)
+
+    def read_raw_position_deg(self, joint: int) -> float | None:
+        """Raw servo angle (hinge frame for knees), trim NOT removed: bench use."""
+        pos = self._read_pos_counts(joint_to_servo_id(joint))
+        return None if pos is None else count_to_deg(joint, pos)
 
     def read_feedback(self, joint: int) -> dict | None:
         """Match ``FeetechBus.read_feedback`` (bulk path when possible)."""
@@ -1287,6 +1322,8 @@ class McuFeetechBus:
     def write_joint(self, joint: int, deg: float,
                     speed: int = 1500, acc: int = 30,
                     *, allow_max_speed: bool = False) -> None:
+        """RAW single-servo bench move (hinge frame for knees, trim applied).
+        Not a robot_abs leg command: use write_all / step_all for poses."""
         speed = normalize_speed(speed, allow_max=allow_max_speed)
         acc = normalize_acc(acc)
         count = deg_to_count(joint, deg, self.trims[joint])
@@ -1297,10 +1334,10 @@ class McuFeetechBus:
         require_bus_available(self)
         speed = normalize_speed(speed, allow_max=allow_max_speed)
         acc = normalize_acc(acc)
-        for joint, deg in enumerate(degrees):
-            count = deg_to_count(joint, deg, self.trims[joint])
+        raw = robot_pose_to_raw_degrees(degrees, self.trims)   # servo boundary
+        for joint, deg in enumerate(raw):
             self.pkt.SyncWritePosEx(
-                joint_to_servo_id(joint), count, speed, acc)
+                joint_to_servo_id(joint), raw_degree_to_count(joint, deg), speed, acc)
         self.pkt.groupSyncWrite.txPacket()
         self.pkt.groupSyncWrite.clearParam()
 
@@ -1324,10 +1361,11 @@ class McuFeetechBus:
         speed = normalize_speed(speed, allow_max=allow_max_speed)
         acc = normalize_acc(acc)
         degrees = [float(value) for value in degrees]
+        raw = robot_pose_to_raw_degrees(degrees, self.trims)   # servo boundary
         items = []
-        for joint, deg in enumerate(degrees):
+        for joint, deg in enumerate(raw):
             items.append((joint_to_servo_id(joint),
-                          deg_to_count(joint, deg, self.trims[joint]),
+                          raw_degree_to_count(joint, deg),
                           speed, acc))
         if getattr(self, "proto", 1) >= 2 and len(items) == N_JOINTS:
             snapshot = self._tick_txn(items, apply_calib=apply_calib)
@@ -1336,7 +1374,9 @@ class McuFeetechBus:
         if getattr(self, "_telemetry_sink", None) is not None:
             payload = self._snapshot_payload(snapshot)
             payload.update({
-                "command_deg": degrees,
+                "command_deg": degrees,          # robot_abs
+                "raw_command_deg": raw,          # servo_relative incl. trims
+                "joint_frame": FRAME_ROBOT_ABS,
                 "speed_counts_s": int(speed),
                 "acc_units": int(acc),
             })
@@ -1395,17 +1435,21 @@ class McuFeetechBus:
                                           apply_calib=apply_calib)
 
     def _snapshot_from_parsed(self, snap: dict, *, apply_calib: bool) -> dict:
-        pos_deg: dict[int, float] = {}
-        speed_deg_s: dict[int, float] = {}
+        raw_pos: dict[int, float] = {}
+        raw_speed: dict[int, float] = {}
         for rec in snap["servos"]:
             joint = int(rec["id"]) - 2
             if not rec["ok"] or not 0 <= joint < N_JOINTS:
                 continue
-            deg = count_to_deg(joint, rec["pos_counts"])
-            pos_deg[joint] = deg
-            # STS speed unit is counts/s → deg/s = counts × 360/4096.
-            speed_deg_s[joint] = rec["spd_counts_s"] * 360.0 / 4096.0
-            self._pos_cache[joint] = deg
+            raw_pos[joint] = count_to_deg(joint, rec["pos_counts"])
+            # STS speed unit is counts/s → deg/s = counts × 360/4096; signed
+            # like the position so a logical knee speed can be summed.
+            raw_speed[joint] = JOINT_SIGN[joint] * rec["spd_counts_s"] * 360.0 / 4096.0
+        # Servo boundary: raw hinge-frame knees -> robot_abs; a knee whose hip
+        # is missing from this same reply stays unknown (not in pos_deg).
+        pos_deg = raw_positions_to_robot_degrees(raw_pos, self.trims)
+        speed_deg_s = raw_speeds_to_robot_speeds(raw_speed)
+        self._pos_cache = dict(pos_deg)
         self._pos_cache_mono = time.monotonic()
         imu = None
         if (snap["imu_age_ms"] != SNAP_AGE_INVALID
@@ -1417,8 +1461,11 @@ class McuFeetechBus:
             "seq": snap["seq"],
             "pos_age_ms": snap["pos_age_ms"],
             "imu_age_ms": snap["imu_age_ms"],
-            "pos_deg": pos_deg,
+            "pos_deg": pos_deg,            # robot_abs
             "speed_deg_s": speed_deg_s,
+            "joint_frame": FRAME_ROBOT_ABS,
+            "raw_pos_deg": raw_pos,        # servo_relative (hinge knees), trims included
+            "raw_speed_deg_s": raw_speed,
             "imu": imu,
             # Keep rejected per-servo records instead of losing their IDs
             # when the position dictionary filters an MCU ok=false entry.

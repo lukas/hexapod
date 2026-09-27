@@ -1,0 +1,48 @@
+{
+  "source": "reality-gap refit vs real combo-walk tape 20260920-205326-b616 (per-axis actuator; claude/sim-refit). Base = air fit 2026-08-07 (kept in sim_model_air_20260807.json). yaw/hip latency raised to match measured cmd->q lag (real 273/256 ms); knee kp stiffened (43.8->250, loaded kp 915 was unstable in this dynamic replay) + air short latency; vel_max 30.76->35.16 (=400 counts/s, the run's write_speed=400, previously clamped to 350). speed_counts_s is metadata only (dynamics lever is vel_max_deg_s).",
+  "timestamp": "2026-09-21T00:00:00",
+  "speed_counts_s": 400.0,
+  "axes": {
+    "yaw": {
+      "kp": 51.274440767548064,
+      "kv": 0.35,
+      "frictionloss": 0.02,
+      "latency_ms": 130.0,
+      "vel_max_deg_s": 35.15625,
+      "deadband_deg": 0.432,
+      "torque_limit_nm": 2.2
+    },
+    "hip": {
+      "kp": 574.885279474555,
+      "kv": 0.28125,
+      "frictionloss": 0.02,
+      "latency_ms": 125.0,
+      "vel_max_deg_s": 35.15625,
+      "deadband_deg": 0.353,
+      "torque_limit_nm": 2.2
+    },
+    "knee": {
+      "kp": 250.0,
+      "kv": 0.7952707287670507,
+      "frictionloss": 0.02,
+      "latency_ms": 8.587500000000006,
+      "vel_max_deg_s": 35.15625,
+      "deadband_deg": 0.494,
+      "torque_limit_nm": 2.2
+    }
+  },
+  "spread": {
+    "yaw": {
+      "delay_ms_pct": 0.043,
+      "rise_ms_pct": 0.108
+    },
+    "hip": {
+      "delay_ms_pct": 0.146,
+      "rise_ms_pct": 0.104
+    },
+    "knee": {
+      "delay_ms_pct": 0.114,
+      "rise_ms_pct": 0.088
+    }
+  }
+}

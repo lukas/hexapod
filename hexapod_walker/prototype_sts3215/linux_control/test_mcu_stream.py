@@ -12,7 +12,8 @@ import threading
 from unittest.mock import patch
 
 
-from feetech_bus import (N_JOINTS, count_to_deg, deg_to_count,
+from feetech_bus import (N_JOINTS, JOINT_SIGN, count_to_deg, deg_to_count,
+                         raw_positions_to_robot_degrees, robot_pose_to_raw_degrees,
                          joint_to_servo_id, speed_counts_to_deg_s)
 import pytest
 
@@ -276,18 +277,23 @@ def test_step_all_round_trip():
     snap = bus.step_all(degrees, speed=400, acc=20)
     assert snap is not None
 
-    # TX side: exactly the 'S' frame write_all would have sync-written.
-    want_items = [(joint_to_servo_id(j), deg_to_count(j, degrees[j], 0.0),
+    # TX side: exactly the 'S' frame write_all would have sync-written --
+    # at the servo boundary knees go out as hinge angles (robot_abs - hip).
+    raw = robot_pose_to_raw_degrees(degrees, bus.trims)
+    want_items = [(joint_to_servo_id(j), deg_to_count(j, raw[j], 0.0),
                    400, 20) for j in range(N_JOINTS)]
     assert bytes(bus._ser.tx) == encode_sync_frame(ord("S"), want_items)
 
-    # RX side: engineering units.
+    # RX side: engineering units in robot_abs (knee = raw knee + hip).
     assert snap["seq"] == 42 and snap["pos_age_ms"] == 4
+    want_pos = raw_positions_to_robot_degrees(
+        {j: count_to_deg(j, 2048 + 10 * j) for j in range(N_JOINTS)}, bus.trims)
     for j in range(N_JOINTS):
-        assert abs(snap["pos_deg"][j]
-                   - count_to_deg(j, 2048 + 10 * j)) < 1e-9
-        assert abs(snap["speed_deg_s"][j]
-                   - speed_counts_to_deg_s(40)) < 1e-9
+        assert abs(snap["pos_deg"][j] - want_pos[j]) < 1e-9
+        want_speed = JOINT_SIGN[j] * speed_counts_to_deg_s(40)
+        if j % 3 == 2:
+            want_speed += JOINT_SIGN[j - 1] * speed_counts_to_deg_s(40)
+        assert abs(snap["speed_deg_s"][j] - want_speed) < 1e-9
     imu = snap["imu"]
     assert imu is not None
     assert abs(imu["az_g"] - 1.0) < 1e-6
@@ -687,13 +693,19 @@ def test_step_all_uses_profile_then_tick_on_proto2():
 
     snap = bus.step_all(degrees, speed=400, acc=20)
     assert snap is not None and snap["seq"] == 42
-    counts = [deg_to_count(j, degrees[j], 0.0) for j in range(N_JOINTS)]
+    raw = robot_pose_to_raw_degrees(degrees, bus.trims)   # servo boundary
+    counts = [deg_to_count(j, raw[j], 0.0) for j in range(N_JOINTS)]
     assert bytes(bus._ser.tx) == (encode_profile_frame(400, 20)
                                   + encode_tick_frame(counts))
     assert bus._profile_sent == (400, 20)
+    want_pos = raw_positions_to_robot_degrees(
+        {j: count_to_deg(j, 2048 + 10 * j) for j in range(N_JOINTS)}, bus.trims)
     for j in range(N_JOINTS):
-        assert abs(snap["pos_deg"][j] - count_to_deg(j, 2048 + 10 * j)) < 1e-9
-        assert abs(snap["speed_deg_s"][j] - speed_counts_to_deg_s(40)) < 1e-9
+        assert abs(snap["pos_deg"][j] - want_pos[j]) < 1e-9
+        want_speed = JOINT_SIGN[j] * speed_counts_to_deg_s(40)
+        if j % 3 == 2:
+            want_speed += JOINT_SIGN[j - 1] * speed_counts_to_deg_s(40)
+        assert abs(snap["speed_deg_s"][j] - want_speed) < 1e-9
     assert abs(snap["imu"]["az_g"] - 1.0) < 1e-6
 
     # Same profile again: only the 41-byte tick goes out.

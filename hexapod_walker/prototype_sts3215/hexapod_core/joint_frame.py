@@ -116,6 +116,13 @@ def _check_joint(j: int) -> None:
 
 FRAME_ROBOT_ABS = "robot_abs"
 JOINT_CONTRACT = "robot_abs_tibia_v2"
+# The frame the knee SERVO physically measures: its hinge angle relative to
+# the femur it is mounted on. MuJoCo's knee qpos is the same quantity. Both
+# boundaries (the bus driver and the simulator) convert robot_abs <-> this
+# frame with the two functions below and nowhere else (2026-09-27; the
+# 2026-09-14 servo-boundary fix 4fcc7969 never reached main, and the robot
+# ran every command 20 deg more knee-flexed than the sim for six weeks).
+FRAME_SERVO_RELATIVE = "servo_relative"
 
 
 def _as_joint_array(q: np.ndarray | list[float] | tuple[float, ...]) -> np.ndarray:
@@ -144,6 +151,17 @@ def _mujoco_rel_to_robot_abs(q_mujoco_rel: np.ndarray | list[float]) -> list[flo
         knee_j = joint_index(leg, "knee")
         q[knee_j] = q[knee_j] + q[hip_j]
     return [float(v) for v in q]
+
+
+def robot_abs_to_servo_relative(q_robot_abs: np.ndarray | list[float]) -> list[float]:
+    """robot_abs -> the knee servo's hinge frame (knee - hip); unit-agnostic.
+    Identical arithmetic to the MuJoCo boundary: one implementation."""
+    return _robot_abs_to_mujoco_rel(q_robot_abs)
+
+
+def servo_relative_to_robot_abs(q_servo_rel: np.ndarray | list[float]) -> list[float]:
+    """Knee servo hinge frame -> robot_abs (knee + hip); unit-agnostic."""
+    return _mujoco_rel_to_robot_abs(q_servo_rel)
 
 
 def robot_abs_rad_to_mujoco_rel_rad(q_robot_abs_rad: np.ndarray | list[float]) -> np.ndarray:
@@ -197,6 +215,18 @@ def require_checkpoint_joint_contract(path: str | Path) -> str:
     return contract
 
 
+# Default walk reset shared by the simulator and the hardware, in robot_abs.
+# The historical MuJoCo/servo plant is hip 20, hinge knee 80; as an absolute
+# tibia angle that is 20 + 80 = 100.
+WALK_START_HIP_ABS_DEG = 20.0
+WALK_START_TIBIA_ABS_DEG = 100.0
+
+
+def walk_start_pose_degrees() -> list[float]:
+    """Default walk reset [yaw, hip, tibia_abs] x 6 in robot_abs degrees."""
+    return [0.0, WALK_START_HIP_ABS_DEG, WALK_START_TIBIA_ABS_DEG] * N_LEGS
+
+
 def robot_stand_degrees() -> list[float]:
     """Robot stand/plant pose in logical robot degrees."""
     try:
@@ -206,4 +236,5 @@ def robot_stand_degrees() -> list[float]:
             return q
     except Exception:
         pass
-    return [0.0, 19.0, 28.0] * N_LEGS
+    # legacy default plant was authored in the servo hinge frame (19, 28)
+    return servo_relative_to_robot_abs([0.0, 19.0, 28.0] * N_LEGS)

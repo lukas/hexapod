@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import math
 from pathlib import Path
 
@@ -449,6 +450,7 @@ def _parity_single_gru(model, payload: dict, samples: int = 200
     return worst_action, worst_hidden
 
 
+<<<<<<< HEAD
 def _parity_transformer(model, payload: dict, samples: int = 200) -> float:
     """Random-obs parity, no sequence/state (the transformer is stateless
     given the full frame-stacked obs each tick -- unlike the GRU formats,
@@ -470,6 +472,13 @@ def _ledger_run_for(policy_path: str) -> str | None:
     """Ledger run whose checkpoint `policy_path` is, by the launcher's naming
     contract (`ppo_goal_<run with '-' as '_'>.zip`); None when no ledger is
     reachable (GPU pods, laptops without the state dir) or nothing matches."""
+=======
+def _ledger_entry_for(policy_path: str) -> tuple[str | None, dict | None]:
+    """(run, latest ledger entry) whose checkpoint `policy_path` is, by the
+    launcher's naming contract (`ppo_goal_<run with '-' as '_'>.zip`);
+    (None, None) when no ledger is reachable (GPU pods, laptops without the
+    state dir) or nothing matches."""
+>>>>>>> origin/main
     stem = Path(policy_path).stem
     if stem.startswith("ppo_goal_"):
         stem = stem[len("ppo_goal_"):]
@@ -477,11 +486,66 @@ def _ledger_run_for(policy_path: str) -> str | None:
         from rl_move import ledger
         runs = ledger.current_entries(ledger.load_ledger())
     except Exception:  # noqa: BLE001 -- the ledger is optional context here
-        return None
-    for run in runs:
+        return None, None
+    for run, entry in runs.items():
         if run.replace("-", "_") == stem:
-            return run
-    return None
+            return run, entry
+    return None, None
+
+
+def _ledger_run_for(policy_path: str) -> str | None:
+    return _ledger_entry_for(policy_path)[0]
+
+
+_BUS_KEY_RE = {
+    "bus_write_speed": re.compile(r"bus\.write_speed=(\d+(?:\.\d+)?)"),
+    "bus_write_acc": re.compile(r"bus\.write_acc=(\d+(?:\.\d+)?)"),
+}
+
+
+def _bus_profile_from_command(command) -> dict[str, int]:
+    """bus.write_speed / bus.write_acc a launch command pinned via --cfg-set
+    (the run's TRAINED profile); keys absent when the command did not set them."""
+    if command is None:
+        return {}
+    text = " ".join(command) if isinstance(command, (list, tuple)) else str(command)
+    out = {}
+    for key, rx in _BUS_KEY_RE.items():
+        m = rx.findall(text)
+        if m:
+            out[key] = int(round(float(m[-1])))
+    return out
+
+
+def _bus_profile_for(policy_path: str, run: str | None) -> dict:
+    """The servo write profile this policy TRAINED with, stamped into the
+    artifact so the robot drives it at the same profile (2026-09-27: RL
+    trained/deployed at 400/20 while the scripted gait ran 2000/80 --
+    linux_control/rl_policy._policy_bus_profile reads these keys, falling
+    back to the robot's cfg, which is now 2000/80). Source order: the ledger
+    entry's launch command (--cfg-set bus.write_speed/acc), else the
+    checked-in rl_move/config.yaml defaults; the checkpoint's training
+    sidecar (trained_profile.trained_bus_profile) overrides both."""
+    from rl_move.config import cfg_get, load_config
+    cfg = load_config()
+    prof = {"bus_write_speed": int(cfg_get(cfg, "bus", "write_speed", default=2000)),
+            "bus_write_acc": int(cfg_get(cfg, "bus", "write_acc", default=80)),
+            "bus_profile_origin": "config.yaml default"}
+    entry = None
+    if run is not None:
+        _, entry = _ledger_entry_for(policy_path)
+    if entry is not None:
+        pinned = _bus_profile_from_command(entry.get("command"))
+        if pinned:
+            prof.update(pinned)
+            prof["bus_profile_origin"] = f"ledger command of {run}"
+    # The training sidecar's recorded motor contract is authoritative: it is
+    # what the trainer actually resolved (incl. the cfg default of its day).
+    from .trained_profile import trained_bus_profile
+    side = trained_bus_profile(policy_path)
+    if side is not None:
+        prof.update(side)
+    return prof
 
 
 def export(policy_path: str, out_path: str, *, name: str = "",
@@ -539,6 +603,10 @@ def export(policy_path: str, out_path: str, *, name: str = "",
         run = _ledger_run_for(policy_path)
         if run:
             meta["source_run"] = run
+    if "bus_write_speed" not in meta or "bus_write_acc" not in meta:
+        for key, value in _bus_profile_for(
+                policy_path, meta.get("source_run")).items():
+            meta.setdefault(key, value)
     # These widths are unambiguous descendants of the phase+yaw lineage.
     # Write the contract explicitly so the validator/runner never has to
     # infer it from a number alone.

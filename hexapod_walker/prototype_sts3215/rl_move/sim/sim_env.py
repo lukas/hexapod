@@ -2270,8 +2270,13 @@ class SimHexapodBalanceEnv(_GymBase):
         # walk_entry_bank branches (balance_reset.py) set it.
         self._pending_bank_qvel_mj = None
 
+<<<<<<< HEAD
         self._ep_rand = self._sample_ep_rand_with_difficulty_filter()
         self._hard_draw_mult = self._compute_hard_draw_mult()
+=======
+        self._ep_rand = (self.randomizer.sample(self.rng)
+                         if self.randomizer is not None else None)
+>>>>>>> origin/main
         self._apply_episode_write_profile()
         self._reset_start_offset_rad = self._sample_reset_start_offset_rad()
         if self._struct_comp is not None:

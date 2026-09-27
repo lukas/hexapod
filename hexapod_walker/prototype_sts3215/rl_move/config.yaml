@@ -404,8 +404,13 @@ bus:
   current_stall_thr_nm: 1.2        # free-hold torque rail (N·m)
   # Default OFF after 2026-08-06 cooked-knee incident. Explicit opt-in only.
   enable_motion: false
-  write_speed: 400           # gentler after tip event
-  write_acc: 20
+  # 2026-09-27: 2000/80 = the scripted-walk contract (hexapod_core/scripted_walk_contract.py)
+  # the robot has run since 2026-09-01; RL trained and deployed at 400/20 until now, which
+  # low-pass filtered the gait (~300 ms cmd->q lag at 1.33 Hz) and hid stance sensitivity.
+  # The sim speed ceiling follows write_speed (servo_vel_max_counts_s) so the two never drift.
+  write_speed: 2000
+  write_acc: 80
+  servo_vel_max_counts_s: write_speed
   hold_speed: 250
   stand_speed: 200           # even slower during stand blend
 

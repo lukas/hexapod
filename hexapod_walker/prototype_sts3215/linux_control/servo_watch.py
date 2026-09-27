@@ -64,13 +64,28 @@ class ServoWatch:
                  on_trip: Callable[[str], None] | None = None,
                  *, is_armed: Callable[[], bool] | None = None,
                  on_strain: Callable[[str, dict], None] | None = None,
-                 on_torque_lost: Callable[[str, dict], None] | None = None):
+                 on_torque_lost: Callable[[str, dict], None] | None = None,
+                 idle_guard: Any | None = None,
+                 standing_fn: Callable[[list], bool | None] | None = None,
+                 rl_active_fn: Callable[[], bool] | None = None,
+                 last_request_fn: Callable[[], float | None] | None = None,
+                 on_idle_sit: Callable[[], dict | None] | None = None,
+                 on_idle_limp: Callable[[str, dict], None] | None = None):
         self._get_bus = get_bus
         self._is_busy = is_busy
         self._label = label  # joint index -> human name ("L5 knee")
         self._is_armed = is_armed
         self._on_strain = on_strain
         self._on_torque_lost = on_torque_lost
+        # Idle guard (2026-09-27, Lukas): standing + no requests 20 min -> sit;
+        # current + no motion + no requests 60 min -> limp. See idle_guard.py.
+        self._idle_guard = idle_guard
+        self._standing_fn = standing_fn
+        self._rl_active_fn = rl_active_fn
+        self._last_request_fn = last_request_fn
+        self._on_idle_sit = on_idle_sit
+        self._on_idle_limp = on_idle_limp
+        self._idle_state: dict = {}
         self._torque_lost_latched = False
         self._strain_reads = 0
         self._strain_released = False   # latched until the robot reads calm again
@@ -175,6 +190,7 @@ class ServoWatch:
 
         self._check_static_strain(fb)
         self._check_torque_lost(bus, fb)
+        self._check_idle(fb)
 
         with self._lock:
             # raw per-joint feedback for /api/feedback while a job owns the bus (no extra bus traffic)
@@ -198,6 +214,7 @@ class ServoWatch:
                 "imu_ok": imu_ok,
                 "strain": dict(self._strain),
                 "torque_off": list(getattr(self, "_snap_torque_off", [])),
+                "idle_guard": dict(self._idle_state),
             }
 
     def _check_torque_lost(self, bus: Any, fb: dict) -> None:
@@ -282,6 +299,39 @@ class ServoWatch:
             self._on_strain(reason, dict(self._strain))
         except Exception as e:
             self._emit("static_strain", f"release FAILED: {e}", dict(self._strain), level="warn")
+
+    def _check_idle(self, fb: dict) -> None:
+        """Idle guard sample + action (idle_guard.py). Never raises into _tick."""
+        g = self._idle_guard
+        if g is None:
+            return
+        try:
+            positions = {int(j): float(f["deg"]) for j, f in fb.items() if f.get("deg") is not None}
+            cur = [abs(float(f.get("current_a") or 0.0)) for f in fb.values()]
+            total = sum(a for a in cur if a < IMPLAUSIBLE_A)
+            armed = bool(self._is_armed()) if self._is_armed is not None else False
+            busy = bool(self._is_busy())
+            rl_active = bool(self._rl_active_fn()) if self._rl_active_fn is not None else False
+            standing = None
+            if self._standing_fn is not None and len(positions) == N_JOINTS:
+                standing = self._standing_fn([positions[j] for j in range(N_JOINTS)])
+            last_req = self._last_request_fn() if self._last_request_fn is not None else None
+            action = g.observe(time.monotonic(), armed=armed, busy=busy, rl_active=rl_active,
+                               standing=standing, positions=positions, total_current_a=total,
+                               last_request_mono=last_req)
+            self._idle_state = dict(g.state)
+            if action == "sit" and self._on_idle_sit is not None:
+                self._emit("idle_sit", f"IDLE GUARD: standing with no request for {g.state.get('since_request_s')} s -- sitting (STEP down)",
+                           dict(g.state), level="warn")
+                res = self._on_idle_sit()
+                self._idle_state["sit_result"] = res if isinstance(res, dict) else {"ok": bool(res)}
+            elif action == "limp" and self._on_idle_limp is not None:
+                reason = (f"idle guard: {total:.2f} A total with no motion and no request for "
+                          f"{g.state.get('since_request_s')} s")
+                self._emit("idle_limp", "IDLE GUARD: " + reason + " -- releasing torque", dict(g.state), level="warn")
+                self._on_idle_limp(reason, dict(g.state))
+        except Exception as e:  # noqa: BLE001 -- the guard must never break the watchdog
+            self._idle_state = {"error": f"{type(e).__name__}: {e}"}
 
     def _trip(self, bus: Any, joint: int, temp_c: int) -> None:
         """Cut torque on one over-temperature servo (never re-enables)."""

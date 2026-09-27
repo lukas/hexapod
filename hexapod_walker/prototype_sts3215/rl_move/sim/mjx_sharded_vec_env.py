@@ -50,7 +50,7 @@ from ..config import cfg_get
 from .servo_model import DEG2RAD, N_JOINTS, SimServoParams
 from .sim_env import SimHexapodBalanceEnv
 
-_TP_KEYS = ("latency_s", "deadband", "vel_max", "imu_off")
+_TP_KEYS = ("latency_s", "deadband", "vel_max", "imu_off", "lp_tau_s")
 
 
 def _dr_field_shapes(model) -> dict[str, tuple]:
@@ -101,6 +101,7 @@ def _shm_layout(B: int, n_act: int, n_obs: int, nq: int, nv: int,
         "tp_deadband": s("tpdbd", (B, N_JOINTS), "float64"),
         "tp_vel_max": s("tpvel", (B, N_JOINTS), "float64"),
         "tp_imu_off": s("tpimu", (B, 3), "float64"),
+        "tp_lp_tau_s": s("tplp", (B, N_JOINTS), "float64"),
         # TickOutput mirror (device dtypes = float32, matching what the
         # in-process class sees from jax.device_get).
         "o_qpos_all": s("oqpos", (B, nq), "float32"),

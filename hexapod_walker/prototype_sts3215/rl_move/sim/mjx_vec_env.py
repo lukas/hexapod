@@ -329,7 +329,8 @@ class MjxVecEnv(VecEnv):
         # Pre-physics half + placement (host, sequential, cheap).
         qpos0 = np.zeros((B, self.mj_model.nq))
         q_starts = np.zeros((B, N_JOINTS))
-        tp = {k: [] for k in ("latency_s", "deadband", "vel_max", "imu_off")}
+        tp = {k: [] for k in ("latency_s", "deadband", "vel_max", "imu_off",
+                              "lp_tau_s")}
         dr_rows: dict[str, list] | None = (
             {k: [] for k in MODEL_DR_FIELDS} if self._model_dr else None)
         # Mode-sequencing canonical frames (goal.mode_seq): the batched

@@ -74,6 +74,33 @@ class SimServoParams:
     source: str = "defaults"
     timestamp: str = ""
     speed_counts_s: float = 350.0
+    # Profile-shape refit (sysid/fit_servo_profile.py, 2026-09-26): one
+    # model that predicts cmd->q on every tape we have -- unloaded hip
+    # Bode/small-fast sines at 400/20 and 2000/80, the RL write_speed
+    # A/B walks (400/20 .. 2000/80) and the scripted stance walks at
+    # 2000/80. The Feetech trapezoid alone cannot: its "decelerate to
+    # stop at the goal" pre-planning strangles a 20 Hz staircase of
+    # ~1 deg goal steps (the real shaft follows that staircase with
+    # ~100 ms lag and full amplitude), while per-profile fits disagree
+    # on latency/vel/acc. What fits all tapes with ONE parameter set:
+    #   lowpass_tau_ms      first-order lag between the profile target
+    #                       and the shaft (the servo's own position
+    #                       loop; 0 = off, legacy bit-exact);
+    #   acc_scale           multiplies the Feetech acc register ->
+    #                       deg/s^2 conversion (1 = nominal register
+    #                       semantics);
+    #   vel_of_write_speed  when > 0 the profile speed ceiling is THIS
+    #                       fraction of the run's bus.write_speed (all
+    #                       axes) instead of the fixed vel_max_deg_s --
+    #                       the fit wants ~0.63 x write_speed at 400
+    #                       AND at 2000, so it must scale with the
+    #                       written profile, not sit at one number.
+    # All three default to the legacy identity so every existing json
+    # and cfg is bit-exact; the fitted set lives in
+    # sim_model_profilefit_20260926.json (bus.servo_params=<path>).
+    lowpass_tau_ms: float = 0.0
+    acc_scale: float = 1.0
+    vel_of_write_speed: float = 0.0
 
     # -- vectorized (18,) views used by the env ---------------------------
     def per_joint(self, attr: str) -> np.ndarray:
@@ -108,6 +135,10 @@ class SimServoParams:
             "axes": {ax: asdict(p) for ax, p in self.axes.items()},
             "spread": self.spread,
         }
+        if self.lowpass_tau_ms or self.acc_scale != 1.0 or self.vel_of_write_speed:
+            blob["lowpass_tau_ms"] = self.lowpass_tau_ms
+            blob["acc_scale"] = self.acc_scale
+            blob["vel_of_write_speed"] = self.vel_of_write_speed
         path.write_text(json.dumps(blob, indent=2))
         return path
 
@@ -124,6 +155,9 @@ class SimServoParams:
             source=blob.get("source", str(path)),
             timestamp=blob.get("timestamp", ""),
             speed_counts_s=float(blob.get("speed_counts_s", 350.0)),
+            lowpass_tau_ms=float(blob.get("lowpass_tau_ms", 0.0)),
+            acc_scale=float(blob.get("acc_scale", 1.0)),
+            vel_of_write_speed=float(blob.get("vel_of_write_speed", 0.0)),
         )
 
     @classmethod
@@ -196,6 +230,21 @@ class SimServoParams:
             for ax in params.axes.values():
                 ax.vel_max_deg_s = deg_s
             params.source += f"+vel_max={counts:g}cps"
+        # Profile-shape refit: the speed ceiling follows the written
+        # profile (fraction of bus.write_speed on every axis). Only
+        # fitted json sets carry vel_of_write_speed > 0, so legacy sets
+        # never enter here; it deliberately overrides the counts
+        # override above (the fitted fraction already IS the ceiling
+        # for that write_speed).
+        if params.vel_of_write_speed > 0.0:
+            ws = 400.0
+            if cfg is not None:
+                ws = float(cfg_get(cfg, "bus", "write_speed", default=400))
+            deg_s = params.vel_of_write_speed * ws / COUNTS_PER_DEG
+            for ax in params.axes.values():
+                ax.vel_max_deg_s = deg_s
+            params.source += (f"+vel_max={params.vel_of_write_speed:g}"
+                              f"x{ws:g}cps")
         return params
 
 
@@ -833,13 +882,21 @@ class ServoProfile:
         # level (real firmware outputs no torque inside the deadband).
         self.deadband_rad = self._deadband
         self._vel_default = params.per_joint("vel_max_deg_s") * DEG2RAD * vel_scale
+        # Profile-shape refit knobs (see SimServoParams): identity
+        # defaults keep every legacy set bit-exact.
+        self._acc_scale = float(params.acc_scale)
+        self._tau_s = float(params.lowpass_tau_ms) / 1000.0
         self._acc_default = np.full(N_JOINTS, 15.0 * ACC_UNIT_DEG_S2 * DEG2RAD)
+        if self._acc_scale != 1.0:
+            self._acc_default *= self._acc_scale
         self.reset(q0_rad)
 
     def reset(self, q0_rad: np.ndarray) -> None:
         q0 = np.asarray(q0_rad, dtype=float).reshape(N_JOINTS)
         self.goal = q0.copy()
         self.target = q0.copy()
+        # Shaft angle behind the first-order lag (== target when tau=0).
+        self.shaft = q0.copy()
         self._vel_now = self._vel_default.copy()
         self._acc_now = self._acc_default.copy()
         self._v = np.zeros(N_JOINTS, dtype=float)  # profile velocity
@@ -869,6 +926,8 @@ class ServoProfile:
             acc = np.broadcast_to(
                 np.asarray(acc_units, dtype=float) * ACC_UNIT_DEG_S2
                 * DEG2RAD, (N_JOINTS,)).astype(float)
+            if self._acc_scale != 1.0:
+                acc = acc * self._acc_scale
         self._queue.append((self._t, q, vel, acc))
 
     def command_robot_abs(self, q_robot_abs_rad: np.ndarray, *,
@@ -940,4 +999,11 @@ class ServoProfile:
         self.target = np.where(move, self.target + step,
                                np.where(active, self.goal, self.target))
         self._v = np.where(move, v_new, 0.0)
-        return self.target
+        if self._tau_s <= 0.0:
+            return self.target
+        # First-order servo position-loop lag (profile-shape refit): the
+        # shaft the MuJoCo actuator tracks follows the profile target
+        # with time constant tau.
+        alpha = min(dt / self._tau_s, 1.0)
+        self.shaft = self.shaft + alpha * (self.target - self.shaft)
+        return self.shaft

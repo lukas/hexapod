@@ -96,8 +96,32 @@ def leg_swinggap_charge(env, info, s_ref):
     g_swinggap = float(cfg_get(env.cfg, "reward",
                                "walk_leg_swing_gap_charge",
                                default=0.0))
+    # INCOME mode (reward.walk_leg_swing_gap_income, 2026-09-27,
+    # walkcurr term400-acq3 dig-in): the CHARGE form of this term
+    # is an unbounded-in-episode-time per-tick bleed (cap 40/tick
+    # = 2000/s frozen-body worst case), so early termination
+    # escapes it -- no bounded one-time term_penalty can beat a
+    # full episode of it (term400-acq3: ep_len 1000->707 as the
+    # charge escalated -1->-7.2/tick), and a term_cost_per_
+    # remaining_s big enough to dominate it (~40k terminal)
+    # recreates the known critic-cliff failure term_cost_max was
+    # built for. This key flips the SAME priced quantity into a
+    # bounded per-tick income, +income*(cap_s - priced_gap) in
+    # [0, income*cap_s]: identical within-episode slope, but
+    # death forfeits future income instead of escaping future
+    # charges, so suicide is never the reward optimum at ANY
+    # skill level. Requires gap_cap_s > 0 (the cap IS the bound);
+    # additive with the charge if both set (arms normally set
+    # charge=0, income=charge's old dose). Default 0.0 = off,
+    # legacy bit-exact. The returned gain is max(charge, income)
+    # so the stepevent bookkeeping (qualifying-swing flags +
+    # _swing_gap_s counters, gated on >0) runs in income-only
+    # mode too.
+    g_gap_income = float(cfg_get(env.cfg, "reward",
+                                 "walk_leg_swing_gap_income",
+                                 default=0.0))
     r_gap = 0.0
-    if g_swinggap > 0.0 and s_ref > 1e-3:
+    if (g_swinggap > 0.0 or g_gap_income > 0.0) and s_ref > 1e-3:
         gap_grace_s = float(cfg_get(
             env.cfg, "reward", "walk_leg_swing_gap_grace_s",
             default=3.0))
@@ -109,9 +133,11 @@ def leg_swinggap_charge(env, info, s_ref):
         priced_gap = (min(excess, gap_cap_s)
                       if gap_cap_s > 0.0 else excess)
         r_gap = -g_swinggap * priced_gap
+        if g_gap_income > 0.0 and gap_cap_s > 0.0:
+            r_gap += g_gap_income * (gap_cap_s - priced_gap)
         info["walk_leg_swing_gap_worst_s"] = worst_gap
         info["reward_walk_leg_swing_gap"] = r_gap
-    return g_swinggap, r_gap
+    return max(g_swinggap, g_gap_income), r_gap
 
 
 def leg_loadslip_ratio_charge(env, info, s_ref):
@@ -217,8 +243,22 @@ def leg_duty_ratio_charge(env, info, s_ref):
     g_ratio_swingfloor = float(cfg_get(
         env.cfg, "reward",
         "walk_leg_duty_ratio_swing_min_count", default=0.0))
+    # INCOME mode (reward.walk_leg_duty_ratio_income, 2026-09-27
+    # -- same dig-in and same rationale as walk_leg_swing_gap_
+    # income above): +income*(target - worst_shortfall) in
+    # [0, income*target] (shortfall is naturally bounded at
+    # `target`), identical slope to the charge but death forfeits
+    # future income instead of escaping future charges. Grace
+    # gating identical to the charge (no term at all until the
+    # EMA window has filled). Additive with the charge if both
+    # set; default 0.0 = off, legacy bit-exact. Returned gain is
+    # max(charge, income) so the stepevent EMA bookkeeping runs
+    # in income-only mode.
+    g_ratio_income = float(cfg_get(
+        env.cfg, "reward", "walk_leg_duty_ratio_income",
+        default=0.0))
     r_ratio = 0.0
-    if g_ratio > 0.0 and s_ref > 1e-3:
+    if (g_ratio > 0.0 or g_ratio_income > 0.0) and s_ref > 1e-3:
         ratio_grace_s = float(cfg_get(
             env.cfg, "reward", "walk_leg_duty_ratio_grace_s",
             default=3.0))
@@ -245,9 +285,12 @@ def leg_duty_ratio_charge(env, info, s_ref):
                 swing_min_count=g_ratio_swingfloor,
                 agg=ratio_agg)
             r_ratio = -g_ratio * worst_shortfall
+            if g_ratio_income > 0.0:
+                r_ratio += g_ratio_income * (
+                    max(ratio_target - worst_shortfall, 0.0))
             info["walk_leg_duty_ratio_shortfall"] = worst_shortfall
             info["reward_walk_leg_duty_ratio"] = r_ratio
-    return g_ratio, g_ratio_swingfloor, r_ratio
+    return max(g_ratio, g_ratio_income), g_ratio_swingfloor, r_ratio
 
 
 def leg_swing_rate_gate(env,

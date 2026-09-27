@@ -918,6 +918,16 @@ def joint_ids(model) -> np.ndarray:
 # Feetech acc register unit: 100 counts/s² = 8.789 °/s².
 ACC_UNIT_DEG_S2 = 100.0 * 360.0 / 4096.0
 
+
+def write_acc_for_speed(speed_counts_s: float) -> float:
+    """Acceleration register that goes with a profile speed, on the line
+    through the two profiles the robot actually runs: 400/20 (legacy RL)
+    and 2000/80 (scripted-walk contract). Used when DR samples the write
+    profile per episode (dr.write_speed_counts_s) so speed and acc move
+    together like the operator contracts do."""
+    acc = 20.0 + (float(speed_counts_s) - 400.0) * (60.0 / 1600.0)
+    return float(min(max(acc, 5.0), 254.0))
+
 # Cap on |load|/load_ref before it stops widening a load-coupled effect
 # (matches domain_rand.JOINT_BACKLASH_LOAD_CAP's value/purpose -- kept as
 # an independent constant here, not imported, to avoid a servo_model <->

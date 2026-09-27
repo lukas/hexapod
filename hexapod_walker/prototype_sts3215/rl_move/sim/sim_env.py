@@ -47,7 +47,7 @@ from .deployed_transport import DeployedTransport
 from .servo_model import (
     ServoProfile, SimServoParams, apply_params_to_model, build_model,
     joint_qpos_addrs, joint_qvel_addrs, lowest_collidable_z,
-    position_actuator_ids, resolve_model_source,
+    position_actuator_ids, resolve_model_source, write_acc_for_speed,
 )
 from .struct_compliance import StructCompliance
 from .leg_mount_flex import (
@@ -374,6 +374,10 @@ class SimHexapodBalanceEnv(_GymBase):
             * 360.0 / 4096.0)
         self.write_acc_units = float(
             cfg_get(self.cfg, "bus", "write_acc", default=20))
+        # Non-DR profile (cfg, or the live profile-ramp value): restored at
+        # every reset unless dr.write_speed_counts_s samples one for the episode.
+        self._base_write_speed_deg_s = self.write_speed_deg_s
+        self._base_write_acc_units = self.write_acc_units
 
         # Servo current ESTIMATE model (see _read_state). Default "power":
         # the validated mechanical-power model (fitted 2026-09-19,
@@ -2113,6 +2117,32 @@ class SimHexapodBalanceEnv(_GymBase):
     # gym API
     # ------------------------------------------------------------------
 
+    def _apply_episode_write_profile(self) -> None:
+        """dr.write_speed_counts_s: use the sampled bus write profile for
+        this episode (speed + the matching acc), else the non-DR one."""
+        er = self._ep_rand
+        ws = 0.0 if er is None else float(
+            getattr(er, "write_speed_counts_s", 0.0) or 0.0)
+        if ws > 0.0:
+            self.write_speed_deg_s = ws * 360.0 / 4096.0
+            self.write_acc_units = write_acc_for_speed(ws)
+        elif er is not None:
+            self.write_speed_deg_s = self._base_write_speed_deg_s
+            self.write_acc_units = self._base_write_acc_units
+
+    def _profile_vel_scale(self, er):
+        """ServoProfile vel_scale for this episode. With a sampled write
+        profile the speed CEILING follows the sampled speed (times the
+        usual dr.vel_scale spread) so the profile is not clamped back to
+        the fitted vel_max, mirroring bus.servo_vel_max_counts_s=write_speed."""
+        if er is None:
+            return 1.0
+        ws = float(getattr(er, "write_speed_counts_s", 0.0) or 0.0)
+        if ws <= 0.0:
+            return er.vel_scale
+        base = self.params.per_joint("vel_max_deg_s")
+        return er.vel_scale * (ws * 360.0 / 4096.0) / np.maximum(base, 1e-9)
+
     def _reset_begin(self, seed: int | None = None) -> np.ndarray:
         """Pre-physics half of reset: bookkeeping, this episode's DR
         sample, goal sample, and the start pose. Touches NO model or
@@ -2140,6 +2170,7 @@ class SimHexapodBalanceEnv(_GymBase):
 
         self._ep_rand = self._sample_ep_rand_with_difficulty_filter()
         self._hard_draw_mult = self._compute_hard_draw_mult()
+        self._apply_episode_write_profile()
         self._reset_start_offset_rad = self._sample_reset_start_offset_rad()
         if self._struct_comp is not None:
             dr = (getattr(self.randomizer, "scale", 1.0)
@@ -2340,7 +2371,7 @@ class SimHexapodBalanceEnv(_GymBase):
             self.params, q_start,
             latency_scale=1.0 if er is None else er.latency_scale,
             deadband_scale=1.0 if er is None else er.deadband_scale,
-            vel_scale=1.0 if er is None else er.vel_scale,
+            vel_scale=self._profile_vel_scale(er),
             latency_load_gain=None if er is None else er.latency_load_gain,
             latency_load_ref_nm=(
                 1.2 if er is None else er.latency_load_ref_nm),
@@ -3092,6 +3123,8 @@ class SimHexapodBalanceEnv(_GymBase):
         ws, acc, dq = (s[i] + f * (t[i] - s[i]) for i in range(3))
         self.write_speed_deg_s = ws * 360.0 / 4096.0
         self.write_acc_units = float(acc)
+        self._base_write_speed_deg_s = self.write_speed_deg_s
+        self._base_write_acc_units = self.write_acc_units
         # safety is deep-copied into MJX pool-restore snapshots
         # (mjx_host.SNAP_ATTRS), so a restored episode would revive a
         # stale max_dq — _step_begin re-asserts this value every tick
@@ -3913,7 +3946,7 @@ class SimHexapodBalanceEnv(_GymBase):
                 self.params, q_probe,
                 latency_scale=1.0 if er is None else er.latency_scale,
                 deadband_scale=1.0 if er is None else er.deadband_scale,
-                vel_scale=1.0 if er is None else er.vel_scale,
+                vel_scale=self._profile_vel_scale(er),
                 latency_load_gain=(
                     None if er is None else er.latency_load_gain),
                 latency_load_ref_nm=(

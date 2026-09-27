@@ -103,6 +103,16 @@ def main() -> None:
                          "envelope, so the teacher's numbers ARE the "
                          "allowance)")
     ap.add_argument("--json-out", default=None)
+    ap.add_argument("--bus-servo-params", default=None,
+                    help="override bus.servo_params (e.g. 'profilefit'); "
+                         "unset (default) = legacy behavior, "
+                         "SimServoParams.from_cfg(None), bit-exact")
+    ap.add_argument("--bus-write-speed", type=float, default=None,
+                    help="override bus.write_speed counts/s; only takes "
+                         "effect together with --bus-servo-params (both "
+                         "unset = legacy bit-exact path)")
+    ap.add_argument("--bus-write-acc", type=float, default=None,
+                    help="override bus.write_acc register value")
     args = ap.parse_args()
 
     # Same override pattern the pinned test suite uses; must be set
@@ -124,8 +134,27 @@ def main() -> None:
     cfg = load_config()
     cfg.setdefault("safety", {})["max_delta_q_deg"] = float(max_dq)
 
+    # Opt-in actuator-profile override (2026-09-27, servo write-profile
+    # contract investigation): unset (both flags default None) reproduces
+    # the exact legacy call (`SimServoParams.from_cfg(None)`), bit-exact.
+    # Only when the caller explicitly asks for a bus.servo_params selection
+    # do we thread cfg through so bus.write_speed/write_acc (and the
+    # profile-fit's vel_of_write_speed ceiling) actually take effect --
+    # matches the pattern `eval_checkpoint`/training already use, just
+    # never wired into this probe (it always called `from_cfg(None)`).
+    if args.bus_servo_params is not None:
+        bus = cfg.setdefault("bus", {})
+        bus["servo_params"] = args.bus_servo_params
+        if args.bus_write_speed is not None:
+            bus["write_speed"] = args.bus_write_speed
+        if args.bus_write_acc is not None:
+            bus["write_acc"] = args.bus_write_acc
+        servo_params = SimServoParams.from_cfg(cfg)
+    else:
+        servo_params = SimServoParams.from_cfg(None)
+
     env = SimHexapodJointWalkEnv(
-        params=SimServoParams.from_cfg(None), randomize=False,
+        params=servo_params, randomize=False,
         dr_scale=0.0, episode_seconds=args.seconds + 2.0,
         seed=args.seed, cfg=cfg)
     gen = env._goal_gen

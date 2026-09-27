@@ -258,6 +258,12 @@ class RandRanges:
     latency_scale: tuple[float, float] = (0.7, 1.8)
     deadband_scale: tuple[float, float] = (0.5, 1.8)
     vel_scale: tuple[float, float] = (0.85, 1.10)
+    # Per-episode bus write PROFILE (counts/s; acc follows via
+    # servo_model.write_acc_for_speed). (0, 0) = OFF: the env's cfg
+    # bus.write_speed/write_acc are used, bit-exact legacy. A range such as
+    # 400,2000 spans the legacy RL profile and the scripted-walk contract;
+    # ABSOLUTE like every dr.* override (not shrunk by scaled()).
+    write_speed_counts_s: tuple[float, float] = (0.0, 0.0)
     cmd_drop_prob_max: float = 0.05      # lost SyncWrite per control tick
     # cmd_drop BURSTS (2026-09-22, hardware-failure axis): brownout/bus
     # stalls drop SEVERAL consecutive SyncWrites, not i.i.d. single ticks.
@@ -777,6 +783,7 @@ class RandRanges:
             latency_scale=pair(*self.latency_scale),
             deadband_scale=pair(*self.deadband_scale),
             vel_scale=pair(*self.vel_scale),
+            write_speed_counts_s=self.write_speed_counts_s,
             cmd_drop_prob_max=self.cmd_drop_prob_max * s,
             # Failure-injection DOSE passes through unscaled; only the
             # probability follows the curriculum (tipped/kick/push convention).
@@ -1032,6 +1039,8 @@ class EpisodeRandomization:
     # (multiplying by 1.0 in apply_to_model is a pure no-op).
     foot_contact_soft_scale: np.ndarray = field(
         default_factory=lambda: np.ones(N_LEGS))
+    # Sampled bus write profile speed (counts/s); 0.0 = use the env cfg.
+    write_speed_counts_s: float = 0.0
     # Structured per-leg foot torsional/rolling-friction softening
     # (dr.foot_torsion_soft_pct / -group, see RandRanges). All-ones (the
     # default) = OFF, byte-exact (multiplying by 1.0 in apply_to_model
@@ -1285,6 +1294,7 @@ class EpisodeRandomization:
             "torque_scale": round(self.torque_scale, 3),
             "latency_scale": round(self.latency_scale, 3),
             "deadband_scale": round(self.deadband_scale, 3),
+            "write_speed_counts_s": round(self.write_speed_counts_s, 1),
             "cmd_drop_prob": round(self.cmd_drop_prob, 3),
             "imu_pos_mm": [round(v * 1000, 1) for v in self.imu_pos_m],
             "zero_bias_max_deg": round(
@@ -1785,6 +1795,9 @@ class DomainRandomizer:
             latency_scale=u(*r.latency_scale),
             deadband_scale=u(*r.deadband_scale),
             vel_scale=u(*r.vel_scale),
+            write_speed_counts_s=(
+                float(u(*r.write_speed_counts_s))
+                if float(r.write_speed_counts_s[1]) > 0.0 else 0.0),
             cmd_drop_prob=u(0.0, r.cmd_drop_prob_max),
             cmd_drop_burst_len=r.cmd_drop_burst_len,
             imu_dropout_ticks=r.imu_dropout_ticks,

@@ -558,7 +558,7 @@ def test_walk_preflight_replant_tolerance_passes_moderate_offset_for_drive_start
     # one knee 30 deg off walk-ready (a frozen policy stance after a policy switch, 2026-09-20): the plain preflight
     # refuses (tol 25), the drive-start preflight passes and flags the tripod re-plant
     pose = [0.0, 20.0, 100.0] * 6
-    pose[8] = 110.0
+    pose[8] = 130.0          # 30 deg off the robot_abs walk-ready knee (100)
     ok, reason, _ = rl_policy.preflight(_PreflightBus(pose), "walk")
     assert not ok and "joint 8" in reason
 
@@ -568,7 +568,7 @@ def test_walk_preflight_replant_tolerance_passes_moderate_offset_for_drive_start
     assert details["replant_at_start"] is True
     assert details["max_pose_delta_deg"] == pytest.approx(30.0)
 
-    pose[8] = 140.0                                          # 60 deg off: still refused
+    pose[8] = 160.0                                          # 60 deg off the robot_abs walk-ready knee: still refused
     ok, reason, _ = rl_policy.preflight(
         _PreflightBus(pose), "walk", replant_tol_deg=rl_policy.DRIVE_START_REPLANT_MAX_DEG)
     assert not ok

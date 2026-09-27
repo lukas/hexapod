@@ -137,11 +137,28 @@ def _append_file(entry: dict[str, Any]) -> None:
         _file_failed = True
 
 
+# Service start counts as the first request: a robot restarted while standing
+# and then ignored still sits after the idle timeout (idle_guard.py).
+_last_request_mono: float | None = time.monotonic()
+
+
+def touch_request() -> None:
+    """Any POST the web service received (commands AND heartbeats): the idle
+    guard's clock (idle_guard.py). GETs never count."""
+    global _last_request_mono
+    _last_request_mono = time.monotonic()
+
+
+def last_request_mono() -> float | None:
+    return _last_request_mono
+
+
 def record(method: str, path: str, *, body: Any = None, peer: str = "",
            headers: Any = None, code: int | None = None) -> dict[str, Any] | None:
     """Journal one command. Returns the entry, or None if it was a heartbeat."""
     global _seq
     base = path.split("?", 1)[0]
+    touch_request()
     who = identify_controller(peer, headers)
     if base in HEARTBEAT_PATHS:
         with _lock:

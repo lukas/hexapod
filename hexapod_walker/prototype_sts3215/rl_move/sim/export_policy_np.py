@@ -450,7 +450,6 @@ def _parity_single_gru(model, payload: dict, samples: int = 200
     return worst_action, worst_hidden
 
 
-<<<<<<< HEAD
 def _parity_transformer(model, payload: dict, samples: int = 200) -> float:
     """Random-obs parity, no sequence/state (the transformer is stateless
     given the full frame-stacked obs each tick -- unlike the GRU formats,
@@ -468,17 +467,11 @@ def _parity_transformer(model, payload: dict, samples: int = 200) -> float:
     return worst
 
 
-def _ledger_run_for(policy_path: str) -> str | None:
-    """Ledger run whose checkpoint `policy_path` is, by the launcher's naming
-    contract (`ppo_goal_<run with '-' as '_'>.zip`); None when no ledger is
-    reachable (GPU pods, laptops without the state dir) or nothing matches."""
-=======
 def _ledger_entry_for(policy_path: str) -> tuple[str | None, dict | None]:
     """(run, latest ledger entry) whose checkpoint `policy_path` is, by the
     launcher's naming contract (`ppo_goal_<run with '-' as '_'>.zip`);
     (None, None) when no ledger is reachable (GPU pods, laptops without the
     state dir) or nothing matches."""
->>>>>>> origin/main
     stem = Path(policy_path).stem
     if stem.startswith("ppo_goal_"):
         stem = stem[len("ppo_goal_"):]

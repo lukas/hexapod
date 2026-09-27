@@ -40,3 +40,13 @@ policy.
 Scripted controllers now emit this contract directly, but their historical
 performance/safety claims are not automatically transferred. Re-run their
 trajectory and safety gates under v2 before treating those claims as current.
+
+## The hardware boundary (2026-09-27)
+
+The knee SERVO measures the femur-relative hinge, exactly like MuJoCo's knee
+qpos. `motor_setup.feetech_bus` converts every full-pose write and every
+position read at the bus with the same two `hexapod_core.joint_frame`
+functions the simulator uses (`robot_abs_to_servo_relative`,
+`servo_relative_to_robot_abs`). See `linux_control/HARDWARE_JOINT_FRAME.md`
+for the boundary, the raw (`servo_relative`) diagnostics that stay alongside,
+the stored-pose migrations, and the history of the four times this drifted.

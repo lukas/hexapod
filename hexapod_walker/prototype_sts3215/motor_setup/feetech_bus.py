@@ -72,6 +72,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 import time
 from pathlib import Path
@@ -80,9 +81,11 @@ _PROTO_ROOT = Path(__file__).resolve().parents[1]
 if str(_PROTO_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROTO_ROOT))
 
-from hexapod_core.joint_frame import (  # noqa: F401 (re-exported)
+from hexapod_core.joint_frame import (  # noqa: F401 (re-exported,
     FACTORY_SERVO_ID, FRAME_ROBOT_ABS, JOINT_CONTRACT, N_JOINTS,
-    SERVO_ID_OFFSET, SERVO_IDS, joint_of_servo, servo_id)
+    SERVO_ID_OFFSET, SERVO_IDS, joint_of_servo, servo_id,
+    FRAME_SERVO_RELATIVE, robot_abs_to_servo_relative,
+    servo_relative_to_robot_abs)
 
 # ---------------------------------------------------------------------------
 # Joint model (mirrors firmware/prototype_servo_bridge.ino and mujoco_prototype)
@@ -228,6 +231,15 @@ def load_plant_pose() -> dict:
         hip_lo, hip_hi = AXIS_LIMITS_DEG[1]
         knee_lo, knee_hi = AXIS_LIMITS_DEG[2]
         joints = _parse_joints_deg(data)
+        migrated = False
+        if data.get("servo_boundary") != FRAME_ROBOT_ABS:
+            # Files written before 2026-09-27 are stamped robot_abs but hold
+            # the numbers the servos were given, i.e. hinge-frame knees
+            # (no conversion existed at the bus). Convert once here.
+            knee = knee + hip
+            if joints is not None:
+                joints = servo_relative_to_robot_abs(joints)
+            migrated = True
         return {
             "hip_deg": clampf(hip, hip_lo, hip_hi),
             "knee_deg": clampf(knee, knee_lo, knee_hi),
@@ -239,10 +251,12 @@ def load_plant_pose() -> dict:
             "source": data.get("source") or "plant_calibrate",
             "joint_frame": FRAME_ROBOT_ABS,
             "joint_contract": JOINT_CONTRACT,
+            "migrated_from_servo_relative": migrated,
         }
     return {
         "hip_deg": DEFAULT_STAND_HIP_DEG,
-        "knee_deg": DEFAULT_STAND_KNEE_DEG,
+        # the default plant was authored as a hinge knee (28) at hip 19
+        "knee_deg": DEFAULT_STAND_KNEE_DEG + DEFAULT_STAND_HIP_DEG,
         "joints_deg": None,
         "path": None,
         "learned": False,
@@ -270,6 +284,7 @@ def save_plant_pose(hip_deg: float, knee_deg: float, *,
     if extra:
         payload.update(extra)
     payload["joint_frame"] = FRAME_ROBOT_ABS
+    payload["servo_boundary"] = FRAME_ROBOT_ABS   # numbers are robot_abs, converted at the bus
     payload["joint_contract"] = JOINT_CONTRACT
     path.write_text(json.dumps(payload, indent=2))
     return path
@@ -320,8 +335,83 @@ def deg_to_count(joint: int, deg: float, trim: float) -> int:
 
 
 def count_to_deg(joint: int, count: int) -> float:
-    """Inverse of deg_to_count (ignoring trim) -- for feedback display."""
+    """RAW servo angle (hinge frame for knees), inverse of deg_to_count
+    ignoring trim. Not a robot_abs angle: use raw_positions_to_robot_degrees."""
     return JOINT_SIGN[joint] * (count - STS_CENTRE_COUNT) / COUNTS_PER_DEG
+
+
+# ---------------------------------------------------------------------------
+# The servo boundary (2026-09-27, spec = the lost 2026-09-14 commit 4fcc7969,
+# HARDWARE_JOINT_FRAME.md). Complete poses are robot_abs (absolute tibia);
+# the knee servo measures the femur-relative hinge, so for each leg
+#   raw_knee = tibia_abs - hip + knee_trim,   raw_hip = hip + hip_trim
+#   tibia_abs = raw_knee - knee_trim + hip,   hip = raw_hip - hip_trim
+# A logical knee needs its hip from the SAME acquisition; without it the
+# knee is unknown (None), never guessed.
+# ---------------------------------------------------------------------------
+def robot_pose_to_raw_degrees(degrees, trims=None, *, validate=True) -> list[float]:
+    """robot_abs 18-pose -> raw servo degrees incl. trims. With ``validate``
+    every logical angle, converted hinge angle and encoder count is checked
+    BEFORE anything is written; an unreachable knee is refused, not clipped
+    (clipping a converted knee silently changes the foot path)."""
+    q = [float(v) for v in degrees]
+    offsets = [0.0] * N_JOINTS if trims is None else [float(v) for v in trims]
+    if len(q) != N_JOINTS or len(offsets) != N_JOINTS:
+        raise ValueError("need all 18 joint angles and trims")
+    if not all(math.isfinite(v) for v in q + offsets):
+        raise ValueError("joint angles and trims must be finite")
+    raw = robot_abs_to_servo_relative(q)
+    raw = [v + t for v, t in zip(raw, offsets)]
+    if validate:
+        for j, (logical, servo) in enumerate(zip(q, raw)):
+            lo, hi = joint_limits(j)
+            if not lo <= servo <= hi:
+                raise ValueError(
+                    f"joint {j} ({'yaw hip knee'.split()[j % 3]} of leg {j // 3}): "
+                    f"robot_abs {logical:g} deg -> raw servo {servo:g} deg is outside "
+                    f"[{lo:g}, {hi:g}]")
+            count = STS_CENTRE_COUNT + JOINT_SIGN[j] * servo * COUNTS_PER_DEG
+            if not 0 <= round(count) < STS_COUNTS_PER_REV:
+                raise ValueError(f"raw servo joint {j} outside the encoder range")
+    return raw
+
+
+def raw_degree_to_count(joint: int, raw_deg: float) -> int:
+    """Raw (already trimmed, hinge-frame) servo degrees -> goal count."""
+    return deg_to_count(joint, raw_deg, 0.0)
+
+
+def raw_positions_to_robot_degrees(positions, trims=None) -> dict[int, float]:
+    """One coherent raw sample {joint: raw deg} -> {joint: robot_abs deg}.
+    A knee whose hip is absent from the sample is left out (unknown)."""
+    offsets = [0.0] * N_JOINTS if trims is None else trims
+    raw = {int(j): float(v) - float(offsets[int(j)]) for j, v in positions.items()
+           if v is not None and math.isfinite(float(v))}
+    out = {j: v for j, v in raw.items() if j % 3 != 2}
+    for knee in range(2, N_JOINTS, 3):
+        if knee in raw and knee - 1 in raw:
+            out[knee] = raw[knee] + raw[knee - 1]
+    return out
+
+
+def raw_speeds_to_robot_speeds(speeds) -> dict[int, float]:
+    """Logical knee velocity = raw knee + raw hip velocity (no trims)."""
+    return raw_positions_to_robot_degrees(speeds, None)
+
+
+def raw_feedback_to_robot_feedback(feedback, trims=None) -> dict[int, dict]:
+    """{joint: fb} with raw ``deg``/``speed_deg_s`` -> logical ``deg``/
+    ``speed_deg_s`` (None when the hip is missing) plus ``raw_deg`` and
+    ``raw_speed_deg_s`` so servo diagnostics are never lost."""
+    positions = raw_positions_to_robot_degrees(
+        {j: row.get("deg") for j, row in feedback.items()}, trims)
+    speeds = raw_speeds_to_robot_speeds(
+        {j: row.get("speed_deg_s") for j, row in feedback.items()})
+    return {j: dict(row, raw_deg=row.get("deg"),
+                    raw_speed_deg_s=row.get("speed_deg_s"),
+                    deg=positions.get(j), speed_deg_s=speeds.get(j),
+                    joint_frame=FRAME_ROBOT_ABS)
+            for j, row in feedback.items()}
 
 
 # ---------------------------------------------------------------------------
@@ -438,6 +528,8 @@ class FeetechBus:
     def write_joint(self, joint: int, deg: float,
                     speed: int = DEFAULT_SPEED, acc: int = DEFAULT_ACC,
                     *, allow_max_speed: bool = False) -> None:
+        """RAW single-servo bench move (hinge frame for knees, trim applied).
+        Not a robot_abs leg command: use write_all for logical poses."""
         speed = normalize_speed(speed, allow_max=allow_max_speed)
         acc = normalize_acc(acc)
         count = deg_to_count(joint, deg, self.trims[joint])
@@ -453,9 +545,10 @@ class FeetechBus:
         """
         speed = normalize_speed(speed, allow_max=allow_max_speed)
         acc = normalize_acc(acc)
-        for joint, deg in enumerate(degrees):
-            count = deg_to_count(joint, deg, self.trims[joint])
-            self.pkt.SyncWritePosEx(joint_to_servo_id(joint), count, speed, acc)
+        raw = robot_pose_to_raw_degrees(degrees, self.trims)   # robot_abs -> servo boundary
+        for joint, deg in enumerate(raw):
+            self.pkt.SyncWritePosEx(joint_to_servo_id(joint),
+                                    raw_degree_to_count(joint, deg), speed, acc)
         self.pkt.groupSyncWrite.txPacket()
         self.pkt.groupSyncWrite.clearParam()
 
@@ -496,11 +589,18 @@ class FeetechBus:
         return pose
 
     # -- feedback (the reason for the swap) --------------------------------
-    def read_position_deg(self, joint: int) -> float | None:
+    def read_raw_position_deg(self, joint: int) -> float | None:
         pos, result, _err = self.pkt.ReadPos(joint_to_servo_id(joint))
         if result != self.scs.COMM_SUCCESS:
             return None
         return count_to_deg(joint, pos)
+
+    def read_position_deg(self, joint: int) -> float | None:
+        """robot_abs angle; a knee reads its hip in the same call."""
+        raw = {joint: self.read_raw_position_deg(joint)}
+        if joint % 3 == 2:
+            raw[joint - 1] = self.read_raw_position_deg(joint - 1)
+        return raw_positions_to_robot_degrees(raw, self.trims).get(joint)
 
     def read_feedback(self, joint: int) -> dict | None:
         sid = joint_to_servo_id(joint)
@@ -519,10 +619,16 @@ class FeetechBus:
             speed_deg_s = speed_counts_to_deg_s(_signed_speed_counts(spd_raw))
         else:
             speed_deg_s = 0.0
+        raw_deg = count_to_deg(joint, pos)
+        logical = raw_positions_to_robot_degrees(
+            {joint: raw_deg, **({joint - 1: self.read_raw_position_deg(joint - 1)}
+                                if joint % 3 == 2 else {})}, self.trims).get(joint)
         return {
             "joint": joint,
             "id": sid,
-            "deg": count_to_deg(joint, pos),
+            "deg": logical,
+            "raw_deg": raw_deg,
+            "joint_frame": FRAME_ROBOT_ABS,
             "load_pct": load_pct,
             "volt": volt / 10.0,        # 0.1 V units
             "temp_c": temp,             # deg C

@@ -21,6 +21,7 @@ KNEE_FOLD_CAP_DEG = float(os.environ.get("HEXAPOD_KNEE_FOLD_CAP_DEG", str(_knee_
 HIP_FOLD_CAP_DEG = float(os.environ.get("HEXAPOD_HIP_FOLD_CAP_DEG", str(_hip_cap_default)))
 
 from .common import *  # noqa: F401,F403
+from hexapod_core.joint_frame import servo_relative_to_robot_abs  # noqa: E402
 
 
 class StandupApi:
@@ -187,6 +188,11 @@ class StandupApi:
                     (max(float(v), HIP_FOLD_CAP_DEG) if (i % 3 == 1) else float(v))
                     for i, v in enumerate(kf["q_deg"])], float(kf["s"]))
                   for kf in keyframes]
+        # standup_modes.json is authored in the set_zero / servo hinge frame
+        # (MuJoCo qpos, compare_standup.py --export); the caps above are hinge
+        # limits (mechanical knee stop). Convert to robot_abs AFTER capping so
+        # the bus boundary writes exactly the servo angles that were baked.
+        frames = [(servo_relative_to_robot_abs(q), s_) for q, s_ in frames]
         if start_keyframe:
             # resume a stand-up from a later keyframe (e.g. the STEP push from the tucked pose the
             # reversed sit-down parks in on hexapod2): align onto that frame from the present pose

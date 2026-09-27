@@ -1,0 +1,51 @@
+{
+  "source": "profile-shape refit 2026-09-26 (sysid/fit_servo_profile.py, sharedlat+lowpass): one servo model for every cmd->q tape (unloaded hip Bode/small-fast 400/20 + 2000/80, RL write_speed A/B walks 400..2000, scripted stance walks 2000/80; holdout W_rl_1400 + S_knee84). Feetech trapezoid + first-order shaft lag; latency shared across axes; speed ceiling = vel_of_write_speed x bus.write_speed; acc register x acc_scale. kp/kv/frictionloss/torque_limit copied unchanged from sim_model.json (2026-09-21 refit). Fit report: ~/.hexapod/analysis/servo_profile_fit/report_sharedlat+lowpass.md",
+  "timestamp": "2026-09-26T21:00:00",
+  "speed_counts_s": 400.0,
+  "axes": {
+    "yaw": {
+      "kp": 51.274440767548064,
+      "kv": 0.35,
+      "frictionloss": 0.02,
+      "latency_ms": 23.3,
+      "vel_max_deg_s": 35.15625,
+      "deadband_deg": 0.039,
+      "torque_limit_nm": 2.2
+    },
+    "hip": {
+      "kp": 574.885279474555,
+      "kv": 0.28125,
+      "frictionloss": 0.02,
+      "latency_ms": 23.3,
+      "vel_max_deg_s": 35.15625,
+      "deadband_deg": 0.029,
+      "torque_limit_nm": 2.2
+    },
+    "knee": {
+      "kp": 250.0,
+      "kv": 0.7952707287670507,
+      "frictionloss": 0.02,
+      "latency_ms": 23.3,
+      "vel_max_deg_s": 35.15625,
+      "deadband_deg": 0.027,
+      "torque_limit_nm": 2.2
+    }
+  },
+  "spread": {
+    "yaw": {
+      "delay_ms_pct": 0.043,
+      "rise_ms_pct": 0.108
+    },
+    "hip": {
+      "delay_ms_pct": 0.146,
+      "rise_ms_pct": 0.104
+    },
+    "knee": {
+      "delay_ms_pct": 0.114,
+      "rise_ms_pct": 0.088
+    }
+  },
+  "lowpass_tau_ms": 56.1,
+  "acc_scale": 1.9,
+  "vel_of_write_speed": 0.626
+}

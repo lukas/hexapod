@@ -14,7 +14,7 @@ import numpy as np
 
 from .mjx_backend import MODEL_DR_FIELDS
 from .servo_model import (
-    SimServoParams, apply_params_to_model, build_model,
+    N_JOINTS, SimServoParams, apply_params_to_model, build_model,
     position_actuator_ids, resolve_model_source,
 )
 from .sim_env import (leg_chassis_collision_from_cfg,
@@ -329,7 +329,10 @@ def tp_rows(env) -> dict:
         dbd = dbd * er.deadband_scale
         vel = vel * er.vel_scale
     off = np.zeros(3) if er is None else np.asarray(er.imu_pos_m, float)
-    return dict(latency_s=lat, deadband=dbd, vel_max=vel, imu_off=off)
+    # Profile-shape refit: per-joint shaft lag (0 = legacy identity).
+    tau = np.full(N_JOINTS, float(p.lowpass_tau_ms) / 1000.0)
+    return dict(latency_s=lat, deadband=dbd, vel_max=vel, imu_off=off,
+                lp_tau_s=tau)
 
 
 class FakeData:

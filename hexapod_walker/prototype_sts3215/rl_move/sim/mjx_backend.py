@@ -129,6 +129,9 @@ class ProfileState(NamedTuple):
     pend_acc: Any     # (K,18)  queued accelerations
     pend_t: Any       # (K,)    write times (+inf = empty slot)
     head: Any         # ()      int32 ring index of the oldest slot
+    y: Any            # (18,)   shaft behind the first-order lag
+                      #         (== target when TickParams.lp_tau_s is
+                      #         None / 0; see servo_model profile refit)
 
 
 class TickParams(NamedTuple):
@@ -137,6 +140,11 @@ class TickParams(NamedTuple):
     deadband: Any     # (18,)  rad; profile AND firmware dead-zone
     vel_max: Any      # (18,)  rad/s ceiling (commanded speed is clamped)
     imu_off: Any      # (3,)   IMU mounting point offset, chassis frame
+    # Profile-shape refit (servo_model.SimServoParams.lowpass_tau_ms):
+    # per-joint first-order shaft lag time constant, seconds. None (the
+    # default every legacy constructor gets) = the pre-refit tick,
+    # bit-exact; an array of zeros is also the identity.
+    lp_tau_s: Any = None
 
 
 class ImuState(NamedTuple):
@@ -191,6 +199,7 @@ def init_profile_state(jnp, q0, vel0, acc0) -> ProfileState:
         pend_acc=jnp.zeros((K, N_JOINTS), jnp.float32),
         pend_t=jnp.full((K,), jnp.inf, jnp.float32),
         head=jnp.int32(0),
+        y=q0,
     )
 
 
@@ -254,8 +263,19 @@ def _profile_tick(jnp, prof: ProfileState, params: TickParams,
     target = jnp.where(move, prof.target + step,
                        jnp.where(active, goal, prof.target))
     v = jnp.where(move, v_new, 0.0)
+    if params.lp_tau_s is None:
+        # Legacy tick (bit-exact): the actuator tracks the profile
+        # target directly; keep the shaft slot in sync for symmetry.
+        return prof._replace(t=t, goal=goal, target=target, v=v,
+                             vel_now=vel_now, acc_now=acc_now,
+                             y=target), target
+    # Profile-shape refit: first-order servo position-loop lag between
+    # the profile target and the shaft (mirrors ServoProfile.tick).
+    tau = params.lp_tau_s
+    alpha = jnp.minimum(h / jnp.maximum(tau, 1e-9), 1.0)
+    y = jnp.where(tau > 0.0, prof.y + alpha * (target - prof.y), target)
     return prof._replace(t=t, goal=goal, target=target, v=v,
-                         vel_now=vel_now, acc_now=acc_now), target
+                         vel_now=vel_now, acc_now=acc_now, y=y), y
 
 
 # ---------------------------------------------------------------------------
@@ -493,6 +513,9 @@ class MjxTickStepper:
         self.adr = _model_addrs(mj_model)
         self.substeps = None  # set per dt at first reset
         self.params_src = params if params is not None else SimServoParams.load()
+        # Profile-shape refit: Feetech acc register -> rad/s^2 multiplier
+        # (1.0 for every legacy set; mirrors ServoProfile._acc_scale).
+        self._acc_scale = float(getattr(self.params_src, "acc_scale", 1.0))
         self._tick_jit = None
         self._tick_jit_slip = None
         self._fwd_jit = None
@@ -555,7 +578,9 @@ class MjxTickStepper:
         vel = np.outer(one * vel_scale, vel)
         off = (np.zeros((B, 3)) if imu_off is None
                else np.broadcast_to(np.asarray(imu_off, float), (B, 3)))
-        return dict(latency_s=lat, deadband=dbd, vel_max=vel, imu_off=off)
+        tau = np.outer(one, np.full(N_JOINTS, p.lowpass_tau_ms / 1000.0))
+        return dict(latency_s=lat, deadband=dbd, vel_max=vel, imu_off=off,
+                    lp_tau_s=tau)
 
     def make_command(self, q_rad: np.ndarray, *,
                      speed_deg_s: float | np.ndarray,
@@ -569,8 +594,8 @@ class MjxTickStepper:
         vel = np.broadcast_to(
             np.asarray(speed_deg_s, np.float32) * DEG2RAD, (B, N_JOINTS))
         acc = np.broadcast_to(
-            np.asarray(acc_units, np.float32) * ACC_UNIT_DEG_S2 * DEG2RAD,
-            (B, N_JOINTS))
+            np.asarray(acc_units, np.float32) * ACC_UNIT_DEG_S2 * DEG2RAD
+            * self._acc_scale, (B, N_JOINTS))
         val = np.broadcast_to(np.asarray(valid, bool), (B,))
         return Command(q=jnp.asarray(q), vel=jnp.asarray(vel),
                        acc=jnp.asarray(acc), valid=jnp.asarray(val))
@@ -652,7 +677,9 @@ class MjxTickStepper:
             latency_s=jnp.asarray(tp["latency_s"], jnp.float32),
             deadband=jnp.asarray(tp["deadband"], jnp.float32),
             vel_max=jnp.asarray(tp["vel_max"], jnp.float32),
-            imu_off=jnp.asarray(tp["imu_off"], jnp.float32))
+            imu_off=jnp.asarray(tp["imu_off"], jnp.float32),
+            lp_tau_s=(jnp.asarray(tp["lp_tau_s"], jnp.float32)
+                      if tp.get("lp_tau_s") is not None else None))
 
     def reset_profiles(self, q0: np.ndarray) -> None:
         """Re-initialize EVERY env's servo profile at q0 (B, 18) — the
@@ -662,7 +689,7 @@ class MjxTickStepper:
         q0 = np.broadcast_to(np.asarray(q0, np.float32),
                              (self.n_envs, N_JOINTS))
         acc0 = jnp.full((self.n_envs, N_JOINTS),
-                        self._acc_units0 * ACC_UNIT_DEG_S2 * DEG2RAD,
+                        self._acc_units0 * ACC_UNIT_DEG_S2 * DEG2RAD * self._acc_scale,
                         jnp.float32)
         self._prof = jax.vmap(partial(init_profile_state, jnp))(
             jnp.asarray(q0), self._tick_params.vel_max, acc0)
@@ -745,7 +772,7 @@ class MjxTickStepper:
         self._dx = self._fwd_jit(self._dr_vals(), dx)
 
         acc0 = jnp.full((k, N_JOINTS),
-                        self._acc_units0 * ACC_UNIT_DEG_S2 * DEG2RAD,
+                        self._acc_units0 * ACC_UNIT_DEG_S2 * DEG2RAD * self._acc_scale,
                         jnp.float32)
         prof_new = jax.vmap(partial(init_profile_state, jnp))(
             q0, self._tick_params.vel_max[idx], acc0)

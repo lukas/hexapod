@@ -1284,6 +1284,26 @@ def test_dual_to_triple_transplant_wrong_types_refused():
         dual_to_triple_transplant(not_dual, triple)
 
 
+def test_is_triple_checkpoint_distinguishes_dual_from_triple(tmp_path):
+    # Found live 2026-09-27 (cw-walkyaw50hz-rlonly-grutriple-easedterm-
+    # tipmix05-acq30m-s0): a --gru-triple respec of an ALREADY-Triple
+    # checkpoint must be routed to a plain warm start, never
+    # dual_to_triple_transplant (which refuses a Triple source). The
+    # routing decision in train_ppo_mjx lives on this predicate.
+    from rl_move.sim.gru_policy import is_triple_checkpoint
+
+    dual = _dual_model()
+    dual_zip = tmp_path / "dual.zip"
+    dual.save(dual_zip)
+
+    triple = _triple_model()
+    triple_zip = tmp_path / "triple.zip"
+    triple.save(triple_zip)
+
+    assert is_triple_checkpoint(triple_zip)
+    assert not is_triple_checkpoint(dual_zip)
+
+
 def test_dual_to_triple_transplant_core_b_verbatim_core_a_to_both():
     old, new = _dual_to_triple_fixture()
     copied = dual_to_triple_transplant(old, new)

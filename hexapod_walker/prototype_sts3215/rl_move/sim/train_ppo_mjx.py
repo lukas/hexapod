@@ -44,6 +44,24 @@ _RL = Path(__file__).resolve().parents[1]
 _PROTO = _RL.parent
 _LINUX = _PROTO / "linux_control"
 
+
+def _is_triple_source_checkpoint(init_from) -> bool:
+    """True if a --gru-triple --init-from checkpoint is ALREADY a
+    TripleGruActorCriticPolicy (a prior transplant's product), meaning
+    this launch is a same-architecture continuation rather than a
+    Dual->Triple transplant. ``None``/missing-path safe (returns False;
+    ``_validate_gru_triple`` already refuses --gru-triple without
+    --init-from before this is ever called, and a genuinely bad path
+    surfaces via the normal load error in whichever branch runs next).
+    """
+    if not init_from:
+        return False
+    from .gru_policy import is_triple_checkpoint
+    try:
+        return is_triple_checkpoint(init_from)
+    except Exception:
+        return False
+
 from .mjx_backend import mjx_is_available
 from .cfg_set import _parse_cfg_set
 from .env_registry import ENV_CLASSES
@@ -2900,6 +2918,40 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[mjx-train] {scope} transplant from {args.init_from}: "
               f"{len(copied)} tensors copied ({copied}); predictive "
               "adapters/gates + transformer snapshot untouched")
+    elif args.gru_triple and _is_triple_source_checkpoint(args.init_from):
+        # Triple->Triple CONTINUATION (found live 2026-09-27:
+        # cw-walkyaw50hz-rlonly-grutriple-easedterm-tipmix05-acq30m-s0
+        # crashed at step 0 -- its --init-from was the CANARY-PASS
+        # checkpoint, itself already a dual_to_triple_transplant
+        # product, so the unconditional transplant branch below hit
+        # dual_to_triple_transplant's own "requires a
+        # DualGruActorCriticPolicy source" guard and burned the whole
+        # launch). --gru-triple is set (needed so policy_cls above
+        # resolves to TripleGruActorCriticPolicy) but the SOURCE
+        # checkpoint is already Triple: this is an ordinary warm start
+        # of the same architecture, not a transplant. Reconstruct from
+        # the checkpoint's OWN saved policy_class/policy_kwargs (never
+        # the CLI's --net-arch/--gru-hidden-size defaults) exactly like
+        # the plain --init-from branch below does for every other
+        # architecture, and carry num_timesteps forward so step
+        # accounting stays continuous across the respec.
+        from hexapod_core.joint_frame import require_checkpoint_joint_contract
+        require_checkpoint_joint_contract(args.init_from)
+        _ld_kw = {}
+        if args.gamma is not None:
+            _ld_kw["gamma"] = args.gamma
+        if args.gae_lambda is not None:
+            _ld_kw["gae_lambda"] = args.gae_lambda
+        model = algo_cls.load(args.init_from, env=venv, device=args.device,
+                              n_steps=args.n_steps,
+                              batch_size=args.batch_size,
+                              n_epochs=args.n_epochs, learning_rate=args.lr,
+                              ent_coef=args.ent_coef, **_ld_kw,
+                              target_kl=(args.target_kl or None),
+                              tensorboard_log=tb_dir)
+        print(f"[mjx-train] Triple->Triple warm start from "
+              f"{args.init_from} (source already TripleGru; ordinary "
+              "same-architecture continuation, no transplant)")
     elif args.gru_triple:
         # Dual->Triple warm start (standwalk item-2 escalation, 09-04):
         # build a FRESH TripleGruActorCriticPolicy (never a plain
@@ -2908,7 +2960,10 @@ def main(argv: list[str] | None = None) -> int:
         # then copy core_b verbatim + core_a into both core_a and
         # core_t. _validate_gru_triple already required --init-from and
         # refused init_from_actor_only/policy_backbone, so this branch
-        # owns --init-from exclusively whenever --gru-triple is set.
+        # owns --init-from exclusively whenever --gru-triple is set AND
+        # the source checkpoint is genuinely Dual (see the
+        # Triple->Triple continuation branch immediately above for the
+        # already-Triple case).
         from hexapod_core.joint_frame import require_checkpoint_joint_contract
         require_checkpoint_joint_contract(args.init_from)
         from sb3_contrib import RecurrentPPO as _RPPO

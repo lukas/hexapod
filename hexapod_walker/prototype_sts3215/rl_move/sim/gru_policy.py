@@ -1625,6 +1625,30 @@ class ModeExpertsGruActorCriticPolicy(GruActorCriticPolicy):
         return self._actor_mean(outs, w, feats)
 
 
+def is_triple_checkpoint(path: str | Path) -> bool:
+    """True if the SB3 zip at ``path`` already holds a
+    TripleGruActorCriticPolicy (i.e. is itself a PRODUCT of a prior
+    dual_to_triple_transplant, not a plain Dual checkpoint).
+
+    Added 2026-09-27 after cw-walkyaw50hz-rlonly-grutriple-easedterm-
+    tipmix05-acq30m-s0 crashed at step 0: a --gru-triple respec of an
+    ALREADY-Triple canary checkpoint hit dual_to_triple_transplant's
+    own type guard ("requires a DualGruActorCriticPolicy source"),
+    burning the whole launch. --gru-triple's caller must peek the
+    checkpoint's saved policy_class BEFORE deciding whether to run the
+    Dual->Triple transplant or a plain same-architecture warm start
+    (see train_ppo_mjx.py's --gru-triple branch).
+    """
+    from stable_baselines3.common.save_util import load_from_zip_file
+    data, _, _ = load_from_zip_file(path, device="cpu", load_data=True)
+    policy_class = data.get("policy_class")
+    try:
+        return bool(policy_class) and issubclass(
+            policy_class, TripleGruActorCriticPolicy)
+    except TypeError:
+        return False
+
+
 def is_recurrent_checkpoint(path: str | Path) -> bool:
     """True if the SB3 zip at ``path`` holds a recurrent policy."""
     from stable_baselines3.common.save_util import load_from_zip_file

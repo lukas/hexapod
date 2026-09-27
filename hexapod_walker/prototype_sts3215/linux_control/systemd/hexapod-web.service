@@ -34,6 +34,10 @@ LimitRTPRIO=80
 Environment=HEXAPOD_LOG_PORT=9377
 Environment=HEXAPOD_LOG_BEACON_PORT=9378
 Environment=HEXAPOD_LOG_MCU=cmds
+# Idle guard (2026-09-27): standing + no request -> sit; current + no motion + no request -> limp. 0 disables.
+Environment=HEXAPOD_IDLE_SIT_S=1200
+Environment=HEXAPOD_IDLE_LIMP_S=3600
+Environment=HEXAPOD_IDLE_LIMP_CURRENT_A=0.15
 # No ExecStartPre sleep: the bus claim settles and retries HELLO itself.
 # '+' runs only this helper as root; '-' keeps startup available if unsupported.
 # The web process remains arduino. No bus access or governor daemon is needed.

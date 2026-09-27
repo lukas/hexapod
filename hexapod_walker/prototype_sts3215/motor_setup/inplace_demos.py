@@ -56,7 +56,19 @@ from feetech_bus import (  # noqa: E402
     ADDR_TORQUE_ENABLE, BAUD_DEFAULT, COUNTS_PER_DEG, FeetechBus, JOINT_SIGN,
     N_JOINTS, SERVO_IDS, WALK_ACC, WALK_SPEED, count_to_deg, deg_to_count,
     joint_to_servo_id, normalize_acc, normalize_speed, standing_pose_degrees,
+    raw_positions_to_robot_degrees, robot_abs_to_servo_relative,
+    servo_relative_to_robot_abs,
 )
+# FRAME CONTRACT of this module (2026-09-27, after the servo-boundary fix):
+# every 18-pose handed to _write_pose / PoseStreamer / ease_to_pose / _hold_here
+# and every pose _read_pose returns is robot_abs (absolute tibia angle,
+# hexapod_core.joint_frame), exactly like the bus, the RL runtime and MuJoCo.
+# The knee servo measures the femur-relative hinge, so the conversion happens
+# HERE, at the last stop before deg_to_count -- nowhere upstream.  The show/
+# dance vocabulary below is still authored in hinge terms (a "knee +6" lifts
+# the tibia relative to the femur); _yaw_hip_knee / _set_leg / the literal
+# stance constructors translate that vocabulary into robot_abs poses, so the
+# shows move the way they always did.
 from motion_telemetry import (  # noqa: E402
     MotionLog, default_log_path, joint_name, run_hold_log,
 )
@@ -270,7 +282,7 @@ def _elevated_stand_pose(*, hip: float = RISE_HIP_DEG,
     """
     out: list[float] = []
     for _leg in range(6):
-        out.extend([float(yaw), float(hip), float(knee)])
+        out.extend([float(yaw), float(hip), float(hip) + float(knee)])   # knee literal is hinge -> robot_abs
     return out
 
 
@@ -278,13 +290,15 @@ def _set_leg(pose: list[float], leg: int, *,
              yaw: float | None = None,
              hip: float | None = None,
              knee: float | None = None) -> None:
+    """Set one leg from show-vocabulary literals (HINGE-frame ``knee``) on a
+    robot_abs ``pose``; a hip change alone keeps the hinge angle."""
     base = leg * 3
     if yaw is not None:
         pose[base + 0] = float(yaw)
+    hinge = pose[base + 2] - pose[base + 1] if knee is None else float(knee)
     if hip is not None:
         pose[base + 1] = float(hip)
-    if knee is not None:
-        pose[base + 2] = float(knee)
+    pose[base + 2] = pose[base + 1] + hinge
 
 
 def _planted_leg_up(hip: float, knee: float, leg: int, *,
@@ -759,10 +773,11 @@ def _glide_speed_acc(start: list[float], goal: list[float], live: set[int],
 def _write_pose(bus: FeetechBus, degrees: list[float], live: set[int],
                 *, speed: int = 250, acc: int = 20,
                 speeds: list[int] | None = None) -> None:
-    """One-shot sync-write. ``speeds[j]`` overrides per-joint when given."""
+    """One-shot sync-write of a robot_abs pose. ``speeds[j]`` overrides per-joint when given."""
     speed = normalize_speed(speed)
     acc = normalize_acc(acc)
-    for joint, deg in enumerate(degrees):
+    raw = robot_abs_to_servo_relative(degrees)     # robot_abs -> hinge knees
+    for joint, deg in enumerate(raw):
         sid = joint_to_servo_id(joint)
         if sid not in live:
             continue
@@ -787,13 +802,15 @@ class PoseStreamer:
     """
 
     def __init__(self):
-        self.last: list[float] | None = None
+        self.last: list[float] | None = None          # robot_abs, per joint: last pose written
         self.prev: list[float] | None = None
+        self.last_raw: list[float] | None = None      # the same in servo (hinge) degrees: the deadband lives here
         self.last_written_goal: dict[int, float] = {}
 
     def reset(self) -> None:
         self.last = None
         self.prev = None
+        self.last_raw = None
         self.last_written_goal = {}
 
     def write(self, bus: FeetechBus, degrees: list[float], live: set[int],
@@ -812,6 +829,7 @@ class PoseStreamer:
             # First frame: ease toward the pose gently (no slam).
             self.last = list(degrees)
             self.prev = list(degrees)
+            self.last_raw = robot_abs_to_servo_relative(degrees)
             _write_pose(bus, degrees, live, speed=120, acc=10)
             self.last_written_goal = {
                 j: float(degrees[j]) for j in range(N_JOINTS)
@@ -826,17 +844,28 @@ class PoseStreamer:
 
         wrote: dict[int, tuple[int, int]] = {}
         written_goal: dict[int, float] = {}
+        # The servo moves in the hinge frame: a knee whose absolute tibia angle
+        # is unchanged still has to be written when its hip moves.  Deadband,
+        # speed sizing and the write itself are therefore done on the RAW
+        # (servo) degrees of the whole 18-pose; ``degrees`` stays robot_abs.
+        raw_now = robot_abs_to_servo_relative(degrees)
+        if self.last_raw is None:
+            self.last_raw = robot_abs_to_servo_relative(self.last)
+        lead = [0.0] * N_JOINTS
+        if STREAM_DENSE and dt <= 0.021:
+            lead = [v * DENSE_LEAD_S for v in vel]
+        raw_goal = robot_abs_to_servo_relative([d + l for d, l in zip(degrees, lead)])
         for joint, deg in enumerate(degrees):
             sid = joint_to_servo_id(joint)
             if sid not in live:
                 continue
-            delta = deg - self.last[joint]
+            delta = raw_now[joint] - self.last_raw[joint]
             if abs(delta) < db:
                 continue
             speed, acc = _speed_for_delta(
                 delta, dt, min_speed=min_speed, max_speed=max_speed,
                 max_acc=max_acc)
-            goal = deg
+            goal = deg + lead[joint]
             if STREAM_DENSE and dt <= 0.021:
                 # Lead the goal along the trajectory ("carrot"). With
                 # 100 Hz waypoints the raw per-tick goal sits only 2-3
@@ -848,10 +877,11 @@ class PoseStreamer:
                 # here — goal recedes ahead of the servo at matched
                 # speed, so it never decelerates into the tiny-error
                 # zone, and reversals still update within one tick.
-                goal = deg + vel[joint] * DENSE_LEAD_S
-            count = deg_to_count(joint, goal, bus.trims[joint])
+                pass    # ``lead`` computed above, in robot_abs, then converted
+            count = deg_to_count(joint, raw_goal[joint], bus.trims[joint])
             bus.pkt.SyncWritePosEx(sid, count, speed, acc)
             self.last[joint] = deg
+            self.last_raw[joint] = raw_now[joint]
             wrote[joint] = (speed, acc)
             written_goal[joint] = float(goal)
         if wrote:
@@ -862,7 +892,7 @@ class PoseStreamer:
 
 
 def _read_pose(bus: FeetechBus, live: set[int]) -> list[float]:
-    """Present joint angles (deg); missing IDs → 0."""
+    """Present joint angles, robot_abs (deg); missing IDs → 0."""
     # MCU stream bridge: one cached snapshot beats 18 round trips.
     read_snapshot = getattr(bus, "read_snapshot", None)
     if callable(read_snapshot):
@@ -881,14 +911,19 @@ def _read_pose(bus: FeetechBus, live: set[int]) -> list[float]:
                     got += 1
             if got:
                 return pose
-    pose = [0.0] * N_JOINTS
+    raw: dict[int, float] = {}
     for joint in range(N_JOINTS):
         sid = joint_to_servo_id(joint)
         if sid not in live:
             continue
         pos, result, _err = bus.pkt.ReadPos(sid)
         if result == bus.scs.COMM_SUCCESS:
-            pose[joint] = count_to_deg(joint, pos)
+            raw[joint] = count_to_deg(joint, pos)
+    # raw hinge degrees (trims included) -> robot_abs, like the MCU snapshot
+    logical = raw_positions_to_robot_degrees(raw, bus.trims)
+    pose = [0.0] * N_JOINTS
+    for joint, deg in logical.items():
+        pose[joint] = float(deg)
     return pose
 
 
@@ -1171,10 +1206,13 @@ def _run_frames(bus: FeetechBus, live: set[int], frames, abort_check,
 def _yaw_hip_knee(leg: int, pose: list[float], *,
                   yaw: float = 0.0, hip: float = 0.0,
                   knee: float = 0.0) -> None:
+    """Add show-vocabulary deltas (HINGE frame: ``knee`` is tibia relative
+    to femur) to a robot_abs ``pose``: tibia_abs = hip + hinge, so the
+    absolute knee moves by hip + knee."""
     base = leg * 3
     pose[base + 0] += yaw
     pose[base + 1] += hip
-    pose[base + 2] += knee
+    pose[base + 2] += hip + knee
 
 
 # ---------------------------------------------------------------------------

@@ -88,3 +88,46 @@ def pin_trained_bus_profile(cfg: dict, checkpoint_path, *, caller_keys=(),
             "(no --cfg-set bus.write_speed/acc given; the trained profile "
             "wins over the config default)")
     return prof
+
+
+_SAFETY_KEYS = ("max_delta_q_deg", "hip_min_deg", "knee_hinge_max_deg")
+
+
+def trained_cfg_values(checkpoint_path, dotted_keys) -> dict[str, float]:
+    """Resolved values of dotted cfg keys (e.g. ``safety.max_delta_q_deg``) from the
+    training sidecar's ``resolved_config`` text; keys the sidecar does not carry are
+    absent from the result."""
+    sc = sidecar_path(checkpoint_path)
+    if sc is None:
+        return {}
+    try:
+        text = str(json.load(open(sc)).get("resolved_config", ""))
+    except Exception:  # noqa: BLE001 -- unreadable sidecar = no information
+        return {}
+    out = {}
+    for key in dotted_keys:
+        m = re.search(re.escape(key) + r"\\?': (-?[0-9.]+)", text)
+        if m:
+            out[key] = float(m.group(1))
+    return out
+
+
+def trained_safety_contract(checkpoint_path, command=None) -> dict[str, float]:
+    """The safety contract a checkpoint TRAINED with -- per-tick slew and the hardware
+    envelope -- for the exporter to stamp into ``meta["safety"]`` so the robot runs
+    the policy under the numbers it learned (2026-09-27: the teacher-free walker
+    trained at 7.2 deg/tick and ran at the runtime default 0.75).  Source order: the
+    launch command's --cfg-set (pinned values), overridden by the sidecar's resolved
+    config (what the trainer actually used, incl. that day's config.yaml default)."""
+    out: dict[str, float] = {}
+    if command is not None:
+        text = " ".join(command) if isinstance(command, (list, tuple)) else str(command)
+        for key in _SAFETY_KEYS:
+            m = re.findall(r"safety\." + key + r"=(-?[0-9.]+)", text)
+            if m:
+                out[key] = float(m[-1])
+    side = trained_cfg_values(checkpoint_path, ["safety." + k for k in _SAFETY_KEYS])
+    for k, v in side.items():
+        out[k.split(".", 1)[1]] = v
+    return out
+

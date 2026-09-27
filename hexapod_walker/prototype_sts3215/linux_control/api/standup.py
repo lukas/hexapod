@@ -10,13 +10,14 @@ import socket
 
 from inplace_demos import STOP_HOLD_TORQUE  # every scripted loop holds at this after a stop
 # most acute knee fold the stand-up may command (deg from straight); see the frames cap in standup()
-# Per-robot mechanical stops (2026-09-22): hexapod2's femur meets the top chassis near -55 and its L0
-# knee stops near 126 (the others 130-135).  The baked STEP frames ask for hips -65/-78 and knees 146:
-# commanding past a stop is a fight against plastic (8.2 A summed this afternoon).  Cap per hostname;
-# env vars override.  Other robots keep the frames as baked.
-_FOLD_CAPS = {"hexapod2": (-52.0, 125.0)}          # hostname -> (hip min deg, knee max deg)
+# Per-robot mechanical stops live in hexapod_core.hardware_envelope (one source for the STEP fold
+# caps here AND the RL safety layer): hexapod2's femur meets the top chassis near -55 and its knees
+# stop near 126-136.  The baked STEP frames ask for hips -65/-78 and knees 146: commanding past a stop
+# is a fight against plastic (8.2 A summed on 2026-09-22).  Cap per hostname; env vars override.
+# Other robots keep the frames as baked.
+from hexapod_core.hardware_envelope import stops_for as _stops_for  # noqa: E402
 _host = socket.gethostname().split(".")[0]
-_hip_cap_default, _knee_cap_default = _FOLD_CAPS.get(_host, (-80.0, 150.0))
+_hip_cap_default, _knee_cap_default = _stops_for(_host)
 KNEE_FOLD_CAP_DEG = float(os.environ.get("HEXAPOD_KNEE_FOLD_CAP_DEG", str(_knee_cap_default)))
 HIP_FOLD_CAP_DEG = float(os.environ.get("HEXAPOD_HIP_FOLD_CAP_DEG", str(_hip_cap_default)))
 

@@ -515,6 +515,19 @@ def export(policy_path: str, out_path: str, *, name: str = "",
         for key, value in _bus_profile_for(
                 policy_path, meta.get("source_run")).items():
             meta.setdefault(key, value)
+    # The trained safety contract (per-tick slew + hardware envelope): the robot's
+    # rl_policy reads meta["safety"] and runs the policy under the numbers it
+    # learned instead of the runtime default (trained_profile.trained_safety_contract).
+    if not isinstance(meta.get("safety"), dict):
+        meta["safety"] = {}
+    if meta["safety"].keys() < set(("max_delta_q_deg", "hip_min_deg", "knee_hinge_max_deg")):
+        from .trained_profile import trained_safety_contract
+        _, entry = _ledger_entry_for(policy_path)
+        for key, value in trained_safety_contract(
+                policy_path, (entry or {}).get("command")).items():
+            meta["safety"].setdefault(key, value)
+    if not meta["safety"]:
+        del meta["safety"]
     # These widths are unambiguous descendants of the phase+yaw lineage.
     # Write the contract explicitly so the validator/runner never has to
     # infer it from a number alone.

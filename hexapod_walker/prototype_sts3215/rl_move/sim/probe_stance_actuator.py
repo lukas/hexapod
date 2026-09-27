@@ -78,6 +78,11 @@ def main(argv=None) -> int:
                          "profile) instead of the stock TripodGait; --hip/--knee are "
                          "taken from the first walking write")
     ap.add_argument("--bout", type=int, default=0, help="which walking bout of the tape")
+    ap.add_argument("--knee-plus-hip", action="store_true",
+                    help="servo-boundary bug (main 70fd986f, fixed 2026-09-27): the robot wrote "
+                         "robot_abs knee commands to the femur-relative hinge, so the PHYSICAL "
+                         "absolute tibia angle was knee + hip. Apply that to the replayed goals and "
+                         "plant so the twin stands where the robot actually stood.")
     ap.add_argument("--cfg", action="append", default=[],
                     help="cfg override section.key=value (float), e.g. env.foot_friction_slide=0.6")
     ap.add_argument("--json-out", default=None)
@@ -92,9 +97,13 @@ def main(argv=None) -> int:
         bi = raw["bouts"][args.bout]
         # the write before the leg is the lab's standing pose = the plant
         # the robot settled on; the leg's own writes run on their clock
-        pre = raw["C"][max(bi[0] - 1, 0)]
+        pre = raw["C"][max(bi[0] - 1, 0)].copy()
         t_rel = raw["t_cmd"][bi] - raw["t_cmd"][bi[0]]
-        goals = raw["C"][bi]
+        goals = raw["C"][bi].copy()
+        if args.knee_plus_hip:
+            for leg in range(6):
+                goals[:, 3 * leg + 2] += goals[:, 3 * leg + 1]
+                pre[3 * leg + 2] += pre[3 * leg + 1]
         replay = dict(t=t_rel, goals=goals, plant=pre,
                       speed=float(np.median(raw["S"][bi])),
                       acc=float(np.median(raw["A"][bi])),
@@ -250,6 +259,7 @@ def main(argv=None) -> int:
         "label": args.label, "cfg": args.cfg, "hip": args.hip, "knee": args.knee,
         "replay_run": args.replay_run or None,
         "replay_leg": replay["label"] if replay is not None else None,
+        "knee_plus_hip": bool(args.knee_plus_hip),
         "servo_params": params.source, "write_speed": args.write_speed,
         "write_acc": args.write_acc, "hz": args.hz, "vx_mm_s": args.vx * 1e3,
         "seconds": dur, "fell": fell, "wall_s": round(wall, 1),

@@ -57,7 +57,7 @@ def test_legacy_json_carries_no_refit_knobs():
 def test_tau_off_returns_the_profile_target_itself():
     """tau = 0: tick() hands back the trapezoid target array (identity
     path, no low-pass arithmetic), exactly as before the refit."""
-    params = SimServoParams.load()
+    params = SimServoParams.from_cfg({"bus": {"write_speed": 400}})
     prof = ServoProfile(params, np.zeros(N_JOINTS))
     rng = np.random.default_rng(1)
     for _ in range(30):
@@ -137,7 +137,12 @@ def test_profilefit_staircase_tracks_at_2000_80():
             for _ in range(int(round(0.05 / H))):
                 ys.append(prof.tick(H)[1] / DEG2RAD)
         return np.asarray(ys), cmd
-    y_old, cmd = staircase(SimServoParams.load())
+    # "legacy" = the 2026-09-21 set every pre-09-27 run trained under
+    # (35 deg/s ceiling, 125-130 ms latency); main's 2026-09-27 default
+    # already lifts the ceiling to the write speed.
+    legacy = FIT_JSON.with_name("sim_model_20260921_refit.json")
+    y_old, cmd = staircase(SimServoParams.from_cfg(
+        {"bus": {"servo_params": str(legacy), "write_speed": 2000}}))
     y_new, _ = staircase(SimServoParams.from_cfg(
         {"bus": {"servo_params": str(FIT_JSON), "write_speed": 2000}}))
     # staircase reached 80 deg at 40 deg/s; the fitted model trails it
@@ -261,3 +266,21 @@ def test_mjx_tick_params_default_none_is_legacy():
     st, y = mb._profile_tick(jnp, st, tp, H)
     assert np.array_equal(np.asarray(y), np.asarray(st.target))
     assert np.array_equal(np.asarray(st.y), np.asarray(st.target))
+
+
+def test_write_speed_dr_keeps_the_fitted_fraction():
+    """dr.write_speed_counts_s (main 2026-09-27) sets the ceiling to the
+    sampled write speed; with the profile-shape refit the ceiling must be
+    vel_of_write_speed x the sample on both backends."""
+    import types
+    from rl_move.sim.servo_model import SimServoParams
+    from rl_move.sim import mjx_host
+    params = SimServoParams.from_cfg({"bus": {"servo_params": "profilefit",
+                                              "write_speed": 2000}})
+    er = types.SimpleNamespace(latency_scale=1.0, deadband_scale=1.0, vel_scale=1.0,
+                               write_speed_counts_s=800.0, imu_pos_m=np.zeros(3))
+    env = types.SimpleNamespace(params=params, _ep_rand=er)
+    row = mjx_host.tp_rows(env)
+    want = params.vel_of_write_speed * 800.0 / COUNTS_PER_DEG * DEG2RAD
+    assert np.allclose(row["vel_max"], want)
+    assert np.allclose(row["lp_tau_s"], params.lowpass_tau_ms / 1000.0)

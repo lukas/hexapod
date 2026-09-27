@@ -2243,7 +2243,11 @@ class SimHexapodBalanceEnv(_GymBase):
         if ws <= 0.0:
             return er.vel_scale
         base = self.params.per_joint("vel_max_deg_s")
-        return er.vel_scale * (ws * 360.0 / 4096.0) / np.maximum(base, 1e-9)
+        # Profile-shape refit sets (servo_model.vel_of_write_speed > 0):
+        # the fitted ceiling is a FRACTION of the written speed, so the
+        # sampled profile's ceiling is that fraction of the sample too.
+        frac = float(getattr(self.params, "vel_of_write_speed", 0.0) or 0.0) or 1.0
+        return er.vel_scale * (frac * ws * 360.0 / 4096.0) / np.maximum(base, 1e-9)
 
     def _reset_begin(self, seed: int | None = None) -> np.ndarray:
         """Pre-physics half of reset: bookkeeping, this episode's DR

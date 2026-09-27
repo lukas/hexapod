@@ -441,9 +441,11 @@ def run_hold_log(bus: FeetechBus, live: set[int], *,
         pose[j] = 0.0 if deg is None else deg
         bus.pkt.write1ByteTxRx(sid, ADDR_TORQUE_ENABLE, 1)
 
-    from feetech_bus import HOLD_ACC, HOLD_SPEED, deg_to_count
-    # One gentle hold command.
-    for j, deg in enumerate(pose):
+    from feetech_bus import HOLD_ACC, HOLD_SPEED, deg_to_count, robot_abs_to_servo_relative
+    # One gentle hold command.  ``pose`` is robot_abs (read_position_deg);
+    # the servo boundary converts knees to the hinge frame right here.
+    raw = robot_abs_to_servo_relative(pose)
+    for j, deg in enumerate(raw):
         sid = joint_to_servo_id(j)
         if sid not in live:
             continue
@@ -464,7 +466,7 @@ def run_hold_log(bus: FeetechBus, live: set[int], *,
                 break
             wrote = {}
             if recommand:
-                for j, deg in enumerate(pose):
+                for j, deg in enumerate(raw):
                     sid = joint_to_servo_id(j)
                     if sid not in live:
                         continue

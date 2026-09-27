@@ -46,10 +46,13 @@ class StandupApi:
             knees = [float(present[joint_index(leg, "knee")]) for leg in range(6)]
         except Exception:
             return False
-        hip_med, knee_med = self._median(hips), self._median(knees)
+        # ``present`` is robot_abs; these bands were measured on the servo
+        # (hinge) knee, so judge the hinge angle: hinge = tibia_abs - hip.
+        hinges = [k - h for h, k in zip(hips, knees)]
+        hip_med, knee_med = self._median(hips), self._median(hinges)
         if hip_med <= 0.0 or not (40.0 <= knee_med <= 110.0):
             return False
-        return not any(k > 115.0 and h < 0.0 for h, k in zip(hips, knees))
+        return not any(k > 115.0 and h < 0.0 for h, k in zip(hips, hinges))
 
     def standup_modes(self) -> dict:
         """List the available stand-up strategies (web UI selector)."""
@@ -315,8 +318,9 @@ class StandupApi:
                             return False
                         q_lift = list(target_q)
                         for lg in legs:
+                            # robot_abs pose: hip -6 with the absolute tibia
+                            # angle unchanged IS "hip -6 / hinge knee +6".
                             q_lift[joint_index(lg, "hip")] -= 6.0
-                            q_lift[joint_index(lg, "knee")] += 6.0
                         _write_pose(d.bus, q_lift, live,
                                     speed=400, acc=50)
                         time.sleep(0.4)

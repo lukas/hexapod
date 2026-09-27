@@ -642,6 +642,32 @@ def _build_arg_parser() -> argparse.ArgumentParser:
                          "training. Arm A stage 1 (frozen-expert "
                          "transition-adapter composition). Requires an "
                          "adapter on the policy")
+    ap.add_argument("--residual-frozen-base", type=str, default=None,
+                    help="Design A (walkcurr STATUS.md 2026-09-27, "
+                         "\"lever (iii)\"): path to an SB3 PPO/SAC "
+                         "checkpoint loaded as a FROZEN base actor "
+                         "(requires_grad=False forever, never in "
+                         "train() mode) wrapped by a small trainable "
+                         "residual adapter -- see "
+                         "rl_move/sim/residual_policy.py. --algo sac "
+                         "only; mutually exclusive with --init-from "
+                         "(this builds a fresh critic + adapter over "
+                         "an already-trained, now-frozen actor, not a "
+                         "checkpoint continuation). The frozen "
+                         "checkpoint's own obs width may be narrower "
+                         "than this run's (trailing command-channel "
+                         "columns dropped before it sees the obs, "
+                         "mirrors --obs-pad-transplant's append-at-end "
+                         "convention).")
+    ap.add_argument("--residual-adapter-hidden", type=int, default=64,
+                    help="hidden width of the Design A trainable "
+                         "residual-adapter actor MLP. Only with "
+                         "--residual-frozen-base")
+    ap.add_argument("--residual-adapter-scale", type=float, default=0.1,
+                    help="residual multiplier for the Design A "
+                         "frozen-base adapter (zero-init last layer, "
+                         "same pattern as --gru-experts-adapter-scale; "
+                         "default 0.1)")
     ap.add_argument("--gru-rise-experts", action="store_true",
                     help="Dual core_a/core_b (loco/stance) GRU PLUS "
                          "three dedicated rise-start-kind expert cores "
@@ -1168,6 +1194,53 @@ def _build_sac_model(args, venv, net_arch, extra_pk, tb_dir):
         print(f"[mjx-train] SAC replay-buffer bank downweight "
               f"{_bank_dw} on info['start_kind'] in {_bank_values} "
               "(BankDownweightReplayBuffer)")
+    if getattr(args, "residual_frozen_base", None):
+        # Design A (walkcurr STATUS.md 2026-09-27, "lever (iii)"): a
+        # frozen, already-trained actor (any source algorithm) plus a
+        # small trainable residual adapter and a FRESH critic. See
+        # residual_policy.py's module docstring for the full mechanism.
+        if args.init_from is not None:
+            raise SystemExit(
+                "--residual-frozen-base is incompatible with "
+                "--init-from: this builds a fresh critic + adapter "
+                "over an already-trained, now-frozen actor, not a "
+                "checkpoint continuation")
+        from rl_move.sim.residual_policy import get_residual_sac_policy_class
+        _adapter_hidden = int(args.residual_adapter_hidden)
+        _adapter_scale = float(args.residual_adapter_scale)
+        _rf_ckpt = str(args.residual_frozen_base)
+        ResidualSACPolicy = get_residual_sac_policy_class()
+        model = SAC(
+            ResidualSACPolicy, venv,
+            buffer_size=args.sac_buffer_size,
+            batch_size=args.batch_size,
+            learning_rate=args.lr,
+            gamma=(0.99 if args.gamma is None else args.gamma),
+            tau=args.sac_tau,
+            train_freq=(args.sac_train_freq, "step"),
+            gradient_steps=args.sac_gradient_steps,
+            learning_starts=args.sac_learning_starts,
+            ent_coef=_sac_ent,
+            policy_kwargs=dict(
+                net_arch={"pi": [_adapter_hidden], "qf": net_arch},
+                frozen_base_ckpt=_rf_ckpt,
+                adapter_hidden=_adapter_hidden,
+                adapter_scale=_adapter_scale,
+                **extra_pk),
+            seed=args.seed, verbose=1, device=args.device,
+            tensorboard_log=tb_dir,
+            **_bank_kw)
+        print(f"[mjx-train] SAC residual-adapter (Design A): frozen "
+              f"base {_rf_ckpt} (no grad, eval forever), adapter "
+              f"hidden={_adapter_hidden} scale={_adapter_scale}, fresh "
+              f"critic arch {net_arch}, buffer {args.sac_buffer_size:,}, "
+              f"train_freq {args.sac_train_freq} vec-step(s) x "
+              f"{venv.num_envs} envs, grad_steps "
+              f"{args.sac_gradient_steps}, learning_starts "
+              f"{args.sac_learning_starts:,}, ent_coef "
+              f"{args.sac_ent_coef}, tau {args.sac_tau}, batch "
+              f"{args.batch_size}")
+        return model
     if args.init_from is not None:
         model = SAC.load(
             args.init_from, env=venv, device=args.device,
@@ -2778,6 +2851,8 @@ def main(argv: list[str] | None = None) -> int:
         if _bad:
             raise SystemExit("--algo sac is plain-MLP from-scratch/plain-"
                              "warm-start only; drop " + ", ".join(_bad))
+    elif getattr(args, "residual_frozen_base", None):
+        raise SystemExit("--residual-frozen-base requires --algo sac")
     _validate_use_sde_scratch_only(args.use_sde, args.init_from,
                                     args.init_from_actor_only,
                                     args.init_from_policy_backbone)

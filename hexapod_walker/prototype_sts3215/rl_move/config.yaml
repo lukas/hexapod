@@ -84,6 +84,15 @@ safety:
   # speeds. Legacy 25 Hz evals/continues must set BOTH control.hz=25
   # and max_delta_q_deg=1.5 together.
   max_delta_q_deg: 0.375
+  # Hardware envelope (2026-09-27, hexapod_core.hardware_envelope): the real leg
+  # stops before the servo range -- hexapod2 femur meets the chassis near hip
+  # -55, knee HINGE stalls near 126-136 (over_load at 135.6 deg / 2.6 A on the
+  # teacher-free walker, which had learned hinge 147-149 inside the MJCF's 150).
+  # The safety layer clips commanded poses to hip >= hip_min_deg and
+  # (knee_abs - hip) <= knee_hinge_max_deg in sim AND on the robot; the
+  # exporter stamps the trained values into the artifact.
+  hip_min_deg: -52.0
+  knee_hinge_max_deg: 125.0
   # Staged gait-entry slew ramp (08-13 takeoff ruling; design +
   # measured results in rl_docs/TAKEOFF.md, DEFAULT OFF = bit-exact).
   # Instrumented mechanism (26+ walk tapes, takeoff_audit +

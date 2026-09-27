@@ -8,6 +8,7 @@ from typing import Any
 import numpy as np
 
 from hexapod_core.joint_frame import axis_of, leg_of
+from hexapod_core import hardware_envelope
 
 from .body_ik import BodyOffset, N_ACT, N_JOINTS
 from .config import cfg_get
@@ -60,6 +61,20 @@ class SafetyLayer:
             float(cfg_get(cfg, "safety", "max_pitch_deg", default=15)))
         self.max_dq = math.radians(
             float(cfg_get(cfg, "safety", "max_delta_q_deg", default=2.0)))
+        # Hardware envelope (2026-09-27, hexapod_core.hardware_envelope): the real
+        # leg stops before the servo's expressible range (hexapod2 hip -52, knee
+        # HINGE 125 vs -80/150), and the legacy clip below compared the robot_abs
+        # knee against the hinge limit -- a frame confusion that let a policy
+        # command hinge 147-149 (over_load stall on the robot).  Both keys unset =
+        # legacy clip, bit-exact.  config.yaml sets them for every new run; the
+        # robot runtime tightens with its own measured stops (set_envelope).
+        hip_min = cfg_get(cfg, "safety", "hip_min_deg", default=None)
+        hinge_max = cfg_get(cfg, "safety", "knee_hinge_max_deg", default=None)
+        self.envelope_deg: tuple[float, float] | None = None
+        if hip_min is not None or hinge_max is not None:
+            self.envelope_deg = hardware_envelope.tightest(
+                (float(hip_min) if hip_min is not None else hardware_envelope.SERVO_HIP_MIN_DEG,
+                 float(hinge_max) if hinge_max is not None else hardware_envelope.SERVO_KNEE_HINGE_MAX_DEG))
         # Entry slew ramp (08-13, takeoff-transient instrumentation —
         # operator ruling "staged gait-entry transition"): the 08-11
         # bench tapes show the walk policy saturates the full
@@ -417,6 +432,16 @@ class SafetyLayer:
                         held=True)
         return None
 
+    def set_envelope(self, hip_min_deg: float | None, knee_hinge_max_deg: float | None) -> tuple[float, float] | None:
+        """Tighten (never loosen) the hardware envelope -- the robot runtime passes
+        its measured stops and the policy artifact's trained envelope here."""
+        if hip_min_deg is None and knee_hinge_max_deg is None:
+            return self.envelope_deg
+        extra = (float(hip_min_deg) if hip_min_deg is not None else hardware_envelope.SERVO_HIP_MIN_DEG,
+                 float(knee_hinge_max_deg) if knee_hinge_max_deg is not None else hardware_envelope.SERVO_KNEE_HINGE_MAX_DEG)
+        self.envelope_deg = hardware_envelope.tightest(self.envelope_deg, extra)
+        return self.envelope_deg
+
     def filter(self, proposed_q: np.ndarray, state: RobotState,
                *, ik_ok: bool = True, ik_reason: str = "",
                action: np.ndarray | None = None,
@@ -516,6 +541,10 @@ class SafetyLayer:
 
         # Joint limits (deg in AXIS_LIMITS).
         q = np.clip(q, _JOINT_LIMIT_LO_RAD, _JOINT_LIMIT_HI_RAD)
+        if self.envelope_deg is not None:
+            # hinge-frame stops: hip >= hip_min, knee_abs - hip <= hinge max
+            q = hardware_envelope.clip_robot_abs(
+                q, self.envelope_deg[0], self.envelope_deg[1], radians=True)
 
         self._last_safe = q.copy()
         return q, status

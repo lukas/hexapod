@@ -533,6 +533,7 @@ def test_policy_safety_slew_prefers_trained_metadata():
 
 
 def test_walk_start_options_use_sim_start_only():
+    # walk start is robot_abs (0, 20, 100) = servo knee 80 + hip 20 since the servo boundary (PR #12)
     options, err = rl_policy._expected_start_options_deg("walk")  # noqa: SLF001
 
     assert err == ""
@@ -541,12 +542,12 @@ def test_walk_start_options_use_sim_start_only():
     assert "sim_walk_start" in names
     assert names == ["sim_walk_start"]
     pose = dict((name, pose) for name, pose, _tol in options)["sim_walk_start"]
-    assert pose.tolist() == pytest.approx([0.0, 20.0, 80.0] * 6)
+    assert pose.tolist() == pytest.approx([0.0, 20.0, 100.0] * 6)
 
 
 def test_walk_preflight_reports_sim_walk_start():
     ok, reason, details = rl_policy.preflight(
-        _PreflightBus([0.0, 20.0, 80.0] * 6), "walk")
+        _PreflightBus([0.0, 20.0, 100.0] * 6), "walk")
 
     assert ok, reason
     assert details["start_pose"] == "sim_walk_start"
@@ -556,7 +557,7 @@ def test_walk_preflight_reports_sim_walk_start():
 def test_walk_preflight_replant_tolerance_passes_moderate_offset_for_drive_start():
     # one knee 30 deg off walk-ready (a frozen policy stance after a policy switch, 2026-09-20): the plain preflight
     # refuses (tol 25), the drive-start preflight passes and flags the tripod re-plant
-    pose = [0.0, 20.0, 80.0] * 6
+    pose = [0.0, 20.0, 100.0] * 6
     pose[8] = 110.0
     ok, reason, _ = rl_policy.preflight(_PreflightBus(pose), "walk")
     assert not ok and "joint 8" in reason

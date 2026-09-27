@@ -864,6 +864,48 @@ class SimHexapodBalanceEnv(_GymBase):
         self._settle_lean = (0.0, 0.0)
         self._z0 = 0.0
 
+        # safety.body_pose_assist_* (2026-09-27, walkcurr walkyaw
+        # turn-in-place structurally-new candidate — see the
+        # safety.body_pose_assist_gain_nm_per_rad block in config.yaml
+        # for the full mechanism/why). Single source of truth: the
+        # ramp is armed purely by body_pose_assist_ramp_steps > 0 (no
+        # separate curriculum flag), mirroring reward.
+        # drag_stance_allow_ramp_steps exactly, INCLUDING its
+        # armed-but-unbroadcast convention (sits at the TARGET, here
+        # 0 = fully unassisted, so any eval/play path that never
+        # broadcasts always judges the final unassisted policy).
+        self._body_pose_assist_ramp: dict | None = None
+        self._body_pose_assist_override: float | None = None
+        _bpa_ramp_steps = int(float(cfg_get(
+            self.cfg, "safety", "body_pose_assist_ramp_steps",
+            default=0) or 0))
+        _bpa_target = float(cfg_get(
+            self.cfg, "safety", "body_pose_assist_gain_nm_per_rad",
+            default=0.0))
+        if _bpa_ramp_steps > 0:
+            _bpa_start = float(cfg_get(
+                self.cfg, "safety", "body_pose_assist_start_gain_nm_per_rad",
+                default=8.0))
+            if _bpa_start < _bpa_target:
+                raise ValueError(
+                    "safety.body_pose_assist_start_gain_nm_per_rad "
+                    f"({_bpa_start:g}) must be >= the target safety."
+                    f"body_pose_assist_gain_nm_per_rad ({_bpa_target:g}) "
+                    "— the ramp only ever FADES OUT the assist, never "
+                    "raises it above the loose start")
+            self._body_pose_assist_ramp = {
+                "steps": _bpa_ramp_steps, "start": _bpa_start,
+                "target": _bpa_target, "frac": 1.0,
+            }
+            self._body_pose_assist_override = _bpa_target
+        self._body_pose_assist_deadband_frac = float(cfg_get(
+            self.cfg, "safety", "body_pose_assist_deadband_frac",
+            default=0.7))
+        self._body_pose_assist_max_nm = float(cfg_get(
+            self.cfg, "safety", "body_pose_assist_max_nm", default=15.0))
+        self._body_pose_assist_active = (
+            _bpa_target > 0.0 or self._body_pose_assist_ramp is not None)
+
         # Residual-blend GATED anneal (2026-09-09, assistfade rung 3
         # "blend-schedule fix" — rl_docs/tracks/assistfade/STATUS.md
         # 09-09 ~07:5x closure: 6/6 per-leg reward-shaping addons FAIL
@@ -1420,6 +1462,47 @@ class SimHexapodBalanceEnv(_GymBase):
             fx += mag * math.cos(ang)
             fy += mag * math.sin(ang)
         return (fx, fy)
+
+    def _current_body_pose_assist_gain(self) -> float:
+        """Live safety.body_pose_assist_gain_nm_per_rad (Nm/rad): the
+        ramp's cfg target until the trainer broadcasts
+        ``apply_body_pose_assist_frac`` (see __init__), thereafter the
+        live interpolated value."""
+        ov = self._body_pose_assist_override
+        if ov is not None:
+            return float(ov)
+        return float(cfg_get(self.cfg, "safety",
+                             "body_pose_assist_gain_nm_per_rad",
+                             default=0.0))
+
+    def _body_pose_assist_torque_nm(self) -> tuple[float, float]:
+        """safety.body_pose_assist_* (see config.yaml + __init__):
+        one-tick-lagged restoring (roll_nm, pitch_nm) torque about the
+        chassis's own x/y axes, computed from the SAME roll/pitch-vs-
+        tilt_ref0 signal the tilt_roll/tilt_pitch termination already
+        reads (self._state, populated by the previous tick's
+        _read_state). Zero inside body_pose_assist_deadband_frac of
+        the live safety.max_roll/max_pitch cap, proportional beyond
+        it, capped at body_pose_assist_max_nm. Returns (0.0, 0.0)
+        whenever the mechanism is inactive (default) — no extra float
+        ops on the hot path."""
+        if not self._body_pose_assist_active or self._state is None:
+            return (0.0, 0.0)
+        gain = self._current_body_pose_assist_gain()
+        if gain <= 0.0:
+            return (0.0, 0.0)
+        db_frac = self._body_pose_assist_deadband_frac
+        max_nm = self._body_pose_assist_max_nm
+        err_roll = self._state.imu_roll - self._tilt_ref0[0]
+        err_pitch = self._state.imu_pitch - self._tilt_ref0[1]
+        db_roll = db_frac * self.safety.max_roll
+        db_pitch = db_frac * self.safety.max_pitch
+        exc_roll = math.copysign(max(abs(err_roll) - db_roll, 0.0), err_roll)
+        exc_pitch = math.copysign(
+            max(abs(err_pitch) - db_pitch, 0.0), err_pitch)
+        t_roll = min(max(-gain * exc_roll, -max_nm), max_nm)
+        t_pitch = min(max(-gain * exc_pitch, -max_nm), max_nm)
+        return (t_roll, t_pitch)
 
     def _advance(self, *, limp: bool = False) -> None:
         assert self._profile is not None
@@ -3102,6 +3185,28 @@ class SimHexapodBalanceEnv(_GymBase):
         r["frac"] = f
         return {"frac": f, "drop_mm": self._hold_grace_override_drop_mm,
                 "grace_s": self._hold_grace_override_grace_s}
+
+    def apply_body_pose_assist_frac(self, frac: float) -> dict:
+        """Move the live body-pose-assist gain to ``frac`` of the ramp
+        (0 = the loose/full-assist safety.
+        body_pose_assist_start_gain_nm_per_rad start, 1 = the cfg
+        safety.body_pose_assist_gain_nm_per_rad target — normally 0,
+        i.e. fully unassisted); see the safety.
+        body_pose_assist_ramp_steps block in ``__init__``. Mirrors
+        ``apply_drag_allow_frac``'s contract exactly: raises when the
+        ramp is not armed, so a broadcast that silently no-ops is
+        never a hidden failure mode."""
+        if self._body_pose_assist_ramp is None:
+            raise RuntimeError(
+                "apply_body_pose_assist_frac called but safety."
+                "body_pose_assist_ramp_steps is not set (>0) in this "
+                "env's cfg — the body-pose-assist ramp is not armed")
+        f = min(max(float(frac), 0.0), 1.0)
+        r = self._body_pose_assist_ramp
+        self._body_pose_assist_override = (
+            r["start"] + f * (r["target"] - r["start"]))
+        r["frac"] = f
+        return {"frac": f, "gain_nm_per_rad": self._body_pose_assist_override}
 
     def apply_profile_ramp_frac(self, frac: float) -> dict:
         """Move the live write profile to ``frac`` of the ramp

@@ -110,6 +110,40 @@ safety:
   max_load_pct: 90.0
   limp_on_terminate: true      # torque-off on tilt/estop (stop fighting)
 
+  # Kinematic FALL-PROOF body-pose-assist curriculum (2026-09-27,
+  # walkcurr walkyaw turn-in-place — the one unscoped, structurally-new
+  # candidate left in OPERATOR_QUESTIONS q_20260927T0828Z after every
+  # architecture/reward/action-box/RND lever on the turn-in-place
+  # freeze closed). Unlike every closed lever, this changes the
+  # PHYSICS, not a termination price or reward price: once the live
+  # roll/pitch error (vs the episode's tilt_ref0, same signal
+  # SafetyLayer.filter's tilt_roll/tilt_pitch check already reads)
+  # exceeds body_pose_assist_deadband_frac * the LIVE safety.max_roll/
+  # max_pitch cap (0.7 = the same envelope fraction _apply_tipped_start
+  # already uses), a restoring torque pushes back toward level —
+  # capped at body_pose_assist_max_nm — so early turn-practice cannot
+  # actually topple even while the policy is still random. Applied via
+  # xfrc_applied exactly like the existing dr.walk_push_*/dr.ext_push_*
+  # disturbance torques (sim_env.py _advance, mjx_backend.py substep) —
+  # same infra, opposite purpose (assist, not disturb).
+  # Gated/ramped exactly like reward.drag_stance_allow_ramp_steps
+  # (sim_env.py __init__, apply_body_pose_assist_frac): armed only when
+  # body_pose_assist_ramp_steps > 0, in which case the gain starts at
+  # body_pose_assist_start_gain_nm_per_rad and anneals DOWN over that
+  # many global env steps to the target body_pose_assist_gain_nm_per_rad
+  # below (default 0.0 = fully unassisted) — armed-but-unbroadcast sits
+  # at the TARGET (0), so any eval/play path that never broadcasts
+  # (checkpoint eval, video capture) always judges the final, unassisted
+  # policy, never a stale training wheel. Default OFF
+  # (body_pose_assist_gain_nm_per_rad=0, ramp_steps=0): bit-exact, zero
+  # extra float ops on the hot path (_body_pose_assist_active is False).
+  # Tests: test_body_pose_assist.py.
+  body_pose_assist_gain_nm_per_rad: 0.0
+  body_pose_assist_start_gain_nm_per_rad: 8.0
+  body_pose_assist_deadband_frac: 0.7
+  body_pose_assist_max_nm: 15.0
+  body_pose_assist_ramp_steps: 0
+
 reward:
   # 2026-08-07 redesign: the only substantial POSITIVE term is the task
   # kernel — k_track * exp(-err²/2σ²), a product of Gaussians over every

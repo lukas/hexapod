@@ -355,7 +355,8 @@ def _make_tick_fn(base_model, adr: _Addrs, substeps: int,
     h = float(base_model.opt.timestep)
 
     def substep(carry, _):
-        model, dx, prof, imu, params, limp, push_nm, push_fxy = carry
+        (model, dx, prof, imu, params, limp, push_nm, push_fxy,
+         assist_roll_nm, assist_pitch_nm) = carry
         gravity = model.opt.gravity
         prof, target = _profile_tick(jnp, prof, params, h)
         q = dx.qpos[adr.qadr]
@@ -370,9 +371,20 @@ def _make_tick_fn(base_model, adr: _Addrs, substeps: int,
         # x-axis (world-frame xfrc row, recomputed each substep —
         # mirrors sim_env._advance). Written unconditionally: push 0
         # clears the row, so no state survives the pulse window.
-        x_axis = dx.xmat[adr.chassis_bid].reshape(3, 3)[:, 0]
+        chassis_R = dx.xmat[adr.chassis_bid].reshape(3, 3)
+        x_axis = chassis_R[:, 0]
+        # safety.body_pose_assist_* (sim_env.py's _body_pose_assist_
+        # torque_nm/config.yaml): a restoring roll/pitch torque, same
+        # per-tick-constant / overwrite-every-substep convention as
+        # push_nm above (pitch uses the chassis's OWN y-axis, a second
+        # independent term this mechanism alone ever writes). Zero
+        # arrays when inactive (the default) -> bit-exact no-op, same
+        # convention as push_fxy below.
+        y_axis = chassis_R[:, 1]
         dx = dx.replace(xfrc_applied=dx.xfrc_applied.at[
-            adr.chassis_bid, 3:6].set(x_axis * push_nm))
+            adr.chassis_bid, 3:6].set(
+                x_axis * (push_nm + assist_roll_nm)
+                + y_axis * assist_pitch_nm))
         # dr.ext_push_* mid-episode horizontal FORCE (M3 push-recovery
         # curriculum, sim_env._ext_push_force_n): already world-frame,
         # no rotation needed. Same overwrite-every-substep convention.
@@ -397,16 +409,19 @@ def _make_tick_fn(base_model, adr: _Addrs, substeps: int,
             + dx.site_xmat[adr.gyro_site].reshape(3, 3).T @ omega,
             gyro_n=imu.gyro_n + 1,
         )
-        return (model, dx, prof, imu, params, limp, push_nm, push_fxy), None
+        return (model, dx, prof, imu, params, limp, push_nm, push_fxy,
+                assist_roll_nm, assist_pitch_nm), None
 
-    def tick(dr_vals, dx, prof, imu, params, cmd, limp, push_nm, push_fxy):
+    def tick(dr_vals, dx, prof, imu, params, cmd, limp, push_nm, push_fxy,
+             assist_roll_nm, assist_pitch_nm):
         model = base_model
         if dr_fields:
             model = model.tree_replace(dict(zip(dr_fields, dr_vals)))
         prof = _profile_enqueue(jnp, prof, params, cmd)
-        (_, dx, prof, imu, _, _, _, _), _ = jax.lax.scan(
+        (_, dx, prof, imu, _, _, _, _, _, _), _ = jax.lax.scan(
             substep,
-            (model, dx, prof, imu, params, limp, push_nm, push_fxy), None,
+            (model, dx, prof, imu, params, limp, push_nm, push_fxy,
+             assist_roll_nm, assist_pitch_nm), None,
             length=substeps)
         f_imu = jnp.where(imu.f_n > 0, imu.f_accum / jnp.maximum(imu.f_n, 1),
                           -model.opt.gravity)
@@ -697,7 +712,9 @@ class MjxTickStepper:
     def tick(self, cmd: Command, *, limp: np.ndarray | bool = False,
              slip: bool = False,
              push_nm: np.ndarray | None = None,
-             push_fxy: np.ndarray | None = None) -> TickOutput:
+             push_fxy: np.ndarray | None = None,
+             assist_roll_nm: np.ndarray | None = None,
+             assist_pitch_nm: np.ndarray | None = None) -> TickOutput:
         """Advance every env one control tick; returns device arrays
         (np.asarray() them host-side). ``slip=True`` uses the low-
         friction model variant (reset slip-settle; needs slip_mu).
@@ -707,7 +724,10 @@ class MjxTickStepper:
         ``push_fxy``: per-env (B, 2) world-frame (fx, fy) horizontal
         force applied as xfrc at the chassis for this tick — the
         dr.ext_push_* mid-episode push-recovery disturbance
-        (None/0 = no push)."""
+        (None/0 = no push). ``assist_roll_nm``/``assist_pitch_nm``:
+        per-env (B,) restoring roll/pitch torque about the chassis's
+        own x/y axes — safety.body_pose_assist_* (None/0 = no
+        assist, the default)."""
         assert self._dx is not None, "call reset_envs() first"
         jnp = self._jnp
         if slip:
@@ -728,9 +748,20 @@ class MjxTickStepper:
                    else np.broadcast_to(
                        np.asarray(push_fxy, np.float32),
                        (self.n_envs, 2)))
+        assist_roll = (np.zeros(self.n_envs, np.float32)
+                       if assist_roll_nm is None
+                       else np.broadcast_to(
+                           np.asarray(assist_roll_nm, np.float32),
+                           (self.n_envs,)))
+        assist_pitch = (np.zeros(self.n_envs, np.float32)
+                        if assist_pitch_nm is None
+                        else np.broadcast_to(
+                            np.asarray(assist_pitch_nm, np.float32),
+                            (self.n_envs,)))
         self._dx, self._prof, self._imu, out = fn(
             dr, self._dx, self._prof, self._imu, self._tick_params, cmd,
-            limp_b, jnp.asarray(push), jnp.asarray(push_xy))
+            limp_b, jnp.asarray(push), jnp.asarray(push_xy),
+            jnp.asarray(assist_roll), jnp.asarray(assist_pitch))
         return out
 
     # -- state surgery (pooled resets) ---------------------------------------

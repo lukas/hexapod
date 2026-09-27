@@ -1513,6 +1513,13 @@ class SimHexapodBalanceEnv(_GymBase):
         vel = np.zeros(6)
         push_nm = 0.0 if limp else self._walk_push_torque_nm()
         push_fx, push_fy = (0.0, 0.0) if limp else self._ext_push_force_n()
+        # safety.body_pose_assist_* (see __init__/config.yaml): one-
+        # tick-lagged restoring roll/pitch torque, computed ONCE per
+        # tick like push_nm above. (0.0, 0.0) whenever the mechanism
+        # is inactive (default) or during limp settling.
+        assist_roll_nm, assist_pitch_nm = (
+            (0.0, 0.0) if (limp or not self._body_pose_assist_active)
+            else self._body_pose_assist_torque_nm())
         # Only claim xfrc_applied[chassis, 0:3] for episodes that actually
         # drew an ext_push this episode (dr.ext_push_prob > 0 somewhere
         # upstream) -- indices 0:3 are also used by unrelated interactive
@@ -1574,8 +1581,20 @@ class SimHexapodBalanceEnv(_GymBase):
             # (world-frame xfrc row). Overwritten every substep, zeroed
             # outside the pulse window — no state survives the window.
             Rp = self.data.xmat[self._chassis_bid].reshape(3, 3)
-            self.data.xfrc_applied[self._chassis_bid, 3:6] = (
-                Rp[:, 0] * push_nm)
+            if self._body_pose_assist_active:
+                # Restoring assist shares the same torque row as the
+                # takeoff push (both act about the chassis's roll
+                # axis); pitch is a second, independent axis (Rp[:,1])
+                # only this mechanism ever writes. Guarded by a
+                # boolean (not just zero-valued floats) so the default
+                # path below stays byte-for-byte the pre-existing
+                # expression.
+                self.data.xfrc_applied[self._chassis_bid, 3:6] = (
+                    Rp[:, 0] * (push_nm + assist_roll_nm)
+                    + Rp[:, 1] * assist_pitch_nm)
+            else:
+                self.data.xfrc_applied[self._chassis_bid, 3:6] = (
+                    Rp[:, 0] * push_nm)
             # Mid-episode external push (dr.ext_push_*): world-frame
             # horizontal force, same overwrite-every-substep /
             # zero-outside-window convention as the takeoff torque

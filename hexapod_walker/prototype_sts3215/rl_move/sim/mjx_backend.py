@@ -648,14 +648,14 @@ class MjxTickStepper:
             tick = _make_tick_fn(self.model, self.adr, substeps,
                                  dr_fields=dr_f)
             self._tick_jit = jax.jit(jax.vmap(
-                tick, in_axes=(dr_ax, 0, 0, 0, 0, 0, 0, 0, 0)))
+                tick, in_axes=(dr_ax, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)))
             self._tick_jit_slip = None
             if self.model_slip is not None:
                 dr_fs = self._SLIP_DR_FIELDS if self.model_dr else ()
                 tick_s = _make_tick_fn(self.model_slip, self.adr,
                                        substeps, dr_fields=dr_fs)
                 self._tick_jit_slip = jax.jit(jax.vmap(
-                    tick_s, in_axes=(dr_ax, 0, 0, 0, 0, 0, 0, 0, 0)))
+                    tick_s, in_axes=(dr_ax, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)))
 
             def fwd(dr_vals, dx):
                 m = self.model

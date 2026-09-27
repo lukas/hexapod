@@ -591,6 +591,8 @@ class MjxVecEnv(VecEnv):
         valid = np.zeros(B, dtype=bool)
         push = np.zeros(B, dtype=np.float32)
         push_fxy = np.zeros((B, 2), dtype=np.float32)
+        assist_roll = np.zeros(B, dtype=np.float32)
+        assist_pitch = np.zeros(B, dtype=np.float32)
 
         for i, env in enumerate(self.envs):
             stub = env._profile
@@ -615,10 +617,17 @@ class MjxVecEnv(VecEnv):
                 # dr.ext_push_* mid-episode push-recovery force: same
                 # pre-_step_finish clock, world-frame (fx, fy).
                 push_fxy[i] = env._ext_push_force_n()
+                # safety.body_pose_assist_*: restoring roll/pitch
+                # torque, same pre-_step_finish clock/lag as push_nm
+                # above -- (0.0, 0.0) whenever inactive (default).
+                if env._body_pose_assist_active:
+                    (assist_roll[i], assist_pitch[i]
+                     ) = env._body_pose_assist_torque_nm()
 
         out = self.stepper.tick(self.stepper.make_command(
             cmd_q, speed_deg_s=speed, acc_units=acc, valid=valid),
-            push_nm=push, push_fxy=push_fxy)
+            push_nm=push, push_fxy=push_fxy,
+            assist_roll_nm=assist_roll, assist_pitch_nm=assist_pitch)
         outs = self._jax.device_get(out)
 
         for i, env in enumerate(self.envs):

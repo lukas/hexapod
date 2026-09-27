@@ -2341,6 +2341,46 @@ def main(argv: list[str] | None = None) -> int:
                   f">= --steps ({args.steps:,}) — the policy will "
                   "NEVER train at the target allowance in this run")
 
+    # Body-pose-assist RAMP (2026-09-27, walkcurr walkyaw turn-in-place
+    # structurally-new candidate, OPERATOR_QUESTIONS q_20260927T0828Z —
+    # see sim_env.py's safety.body_pose_assist_gain_nm_per_rad block in
+    # __init__ for the mechanism/why). Same cfg-armed / trainer-driven
+    # / default-OFF contract as the ramps above, but the ramp direction
+    # is INVERTED: frac 0 = the loose/full-assist START, frac 1 = the
+    # cfg TARGET (normally 0 = fully unassisted) — armed-but-
+    # unbroadcast sits at the TARGET (apply_body_pose_assist_frac),
+    # so eval_checkpoint/play/the periodic C-env evals always judge the
+    # final, unassisted policy, never a stale training wheel.
+    _bpa_ramp_steps = 0
+    if env_kw.get("cfg") is not None:
+        from rl_move.config import cfg_get as _cfg_get_bpa
+        _bpa_ramp_steps = int(float(_cfg_get_bpa(
+            env_kw["cfg"], "safety", "body_pose_assist_ramp_steps",
+            default=0) or 0))
+
+    def _body_pose_assist_ramp_frac_at(step: int) -> float:
+        return min(1.0, float(step) / float(_bpa_ramp_steps))
+
+    def _body_pose_assist_ramp_apply(target_venv, step: int) -> dict | None:
+        """Broadcast the frac for ``step`` to a vec env; returns the
+        applied gain. No-op when the ramp is off."""
+        if _bpa_ramp_steps <= 0:
+            return None
+        f = _body_pose_assist_ramp_frac_at(step)
+        return target_venv.env_method("apply_body_pose_assist_frac", f)[0]
+
+    if _bpa_ramp_steps > 0:
+        b0 = _body_pose_assist_ramp_apply(venv, 0)
+        print(f"[body-pose-assist-ramp] armed: {_bpa_ramp_steps:,} global "
+              "env steps fading the restoring roll/pitch assist from "
+              f"gain={b0['gain_nm_per_rad']:.2f} Nm/rad down to the cfg "
+              "target")
+        if _bpa_ramp_steps >= args.steps:
+            print("[body-pose-assist-ramp] WARNING: "
+                  f"body_pose_assist_ramp_steps ({_bpa_ramp_steps:,}) "
+                  f">= --steps ({args.steps:,}) — the assist will NEVER "
+                  "fully fade out in this run")
+
     # Action-BOX RAMP (09-23, standwalk extplant82-actionbox PARTIAL
     # triage — see joint_task.py's __init__ block for the mechanism/
     # why). Same cfg-armed / trainer-driven / default-OFF contract as
@@ -3792,6 +3832,39 @@ def main(argv: list[str] | None = None) -> int:
                         "drag_allow_ramp/allow_mm": vals["allow_mm"]})
 
         callbacks.append(_DragAllowRampCb())
+    if _bpa_ramp_steps > 0:
+        class _BodyPoseAssistRampCb(BaseCallback):
+            """Advance the body-pose-assist fade-out ramp once per
+            rollout (see the arming block after venv construction).
+            Broadcasts stay on after frac hits 1.0 for one extra round
+            (idempotent), then stop; W&B gets the live gain under
+            body_pose_assist_ramp/*."""
+
+            def __init__(self):
+                super().__init__()
+                self._finished = False
+
+            def _on_step(self) -> bool:
+                return True
+
+            def _on_rollout_end(self) -> None:
+                if self._finished:
+                    return
+                vals = _body_pose_assist_ramp_apply(venv, self.num_timesteps)
+                if vals["frac"] >= 1.0:
+                    self._finished = True
+                    print("[body-pose-assist-ramp] ramp complete @ "
+                          f"{self.num_timesteps:,} steps — training "
+                          "fully unassisted from here on")
+                if run is not None:
+                    import wandb
+                    wandb.log({
+                        "global_step": self.num_timesteps,
+                        "body_pose_assist_ramp/frac": vals["frac"],
+                        "body_pose_assist_ramp/gain_nm_per_rad":
+                            vals["gain_nm_per_rad"]})
+
+        callbacks.append(_BodyPoseAssistRampCb())
     if _box_ramp_steps > 0:
         class _ActionBoxRampCb(BaseCallback):
             """Advance the action-box ramp once per rollout (see the

@@ -90,6 +90,8 @@ def _shm_layout(B: int, n_act: int, n_obs: int, nq: int, nv: int,
         "cmd_push": s("cmdpush", (B,), "float32"),
         "cmd_push_fx": s("cmdpfx", (B,), "float32"),
         "cmd_push_fy": s("cmdpfy", (B,), "float32"),
+        "cmd_assist_roll": s("cmdaroll", (B,), "float32"),
+        "cmd_assist_pitch": s("cmdapitch", (B,), "float32"),
         "obs": s("obs", (B, n_obs), "float32"),
         "rew": s("rew", (B,), "float32"),
         "term": s("term", (B,), "bool"),
@@ -579,6 +581,8 @@ def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
                     shm["cmd_push"][g] = 0.0
                     shm["cmd_push_fx"][g] = 0.0
                     shm["cmd_push_fy"][g] = 0.0
+                    shm["cmd_assist_roll"][g] = 0.0
+                    shm["cmd_assist_pitch"][g] = 0.0
                     if e is not None:
                         early[k] = env._post_step(e)
                     else:
@@ -599,6 +603,14 @@ def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
                         fx, fy = env._ext_push_force_n()
                         shm["cmd_push_fx"][g] = fx
                         shm["cmd_push_fy"][g] = fy
+                        # safety.body_pose_assist_*: restoring roll/
+                        # pitch torque, same pre-_step_finish clock/
+                        # lag as cmd_push above -- (0.0, 0.0) whenever
+                        # inactive (default, already zeroed above).
+                        if env._body_pose_assist_active:
+                            (shm["cmd_assist_roll"][g],
+                             shm["cmd_assist_pitch"][g]
+                             ) = env._body_pose_assist_torque_nm()
                 conn.send(("ok", None))
 
             elif cmd == "step_finish":
@@ -1079,7 +1091,9 @@ class MjxShardedVecEnv(VecEnv):
             push_nm=self._shm["cmd_push"].copy(),
             push_fxy=np.stack(
                 [self._shm["cmd_push_fx"], self._shm["cmd_push_fy"]],
-                axis=1))
+                axis=1),
+            assist_roll_nm=self._shm["cmd_assist_roll"].copy(),
+            assist_pitch_nm=self._shm["cmd_assist_pitch"].copy())
         self._copy_outs(out)
         info_chunks = self._broadcast("step_finish")
         infos = [dict(info) for chunk in info_chunks for info in chunk]

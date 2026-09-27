@@ -14,7 +14,7 @@ import numpy as np
 
 from .mjx_backend import MODEL_DR_FIELDS
 from .servo_model import (
-    SimServoParams, apply_params_to_model, build_model,
+    N_JOINTS, SimServoParams, apply_params_to_model, build_model,
     position_actuator_ids, resolve_model_source,
 )
 from .sim_env import (leg_chassis_collision_from_cfg,

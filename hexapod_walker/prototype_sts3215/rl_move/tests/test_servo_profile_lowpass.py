@@ -95,6 +95,14 @@ def test_acc_scale_scales_the_ramp():
     assert y1[-1] == pytest.approx(0.5 * a * 0.1 ** 2, rel=0.05)
 
 
+def test_profilefit_alias_resolves_to_the_json():
+    p = SimServoParams.from_cfg({"bus": {"servo_params": "profilefit"}})
+    q = SimServoParams.from_cfg({"bus": {"servo_params": str(FIT_JSON)}})
+    assert (p.lowpass_tau_ms, p.acc_scale, p.vel_of_write_speed) == \
+        (q.lowpass_tau_ms, q.acc_scale, q.vel_of_write_speed)
+    assert p.lowpass_tau_ms > 0
+
+
 def test_profilefit_json_loads_and_follows_write_speed():
     assert FIT_JSON.is_file()
     for ws in (400, 2000):
@@ -190,6 +198,55 @@ def test_mjx_profile_tick_matches_numpy_with_lowpass():
         st, y = run_tick(st, cmd)
         worst = max(worst, float(np.max(np.abs(np.asarray(y) - ref_y))))
     assert worst < 3e-4, f"lowpass profile diverged: {worst:.2e} rad"
+
+
+def test_mjx_lp_tau_zeros_is_bitwise_the_legacy_path():
+    """What the training path actually runs: tp_rows always emits an
+    lp_tau_s row (zeros for every legacy json), so the tau branch of
+    _profile_tick with tau=0 must be array_equal to the None (legacy)
+    branch over a random command sequence."""
+    jax = pytest.importorskip("jax")
+    import jax.numpy as jnp
+    from rl_move.sim import mjx_backend as mb
+
+    params = SimServoParams.load()
+    rng = np.random.default_rng(5)
+    q0 = rng.uniform(-0.5, 0.5, N_JOINTS)
+    lat = params.per_joint("latency_ms") / 1000.0
+    dbd = params.per_joint("deadband_deg") * DEG2RAD
+    vel = params.per_joint("vel_max_deg_s") * DEG2RAD
+    base = dict(latency_s=jnp.asarray(lat, jnp.float32),
+                deadband=jnp.asarray(dbd, jnp.float32),
+                vel_max=jnp.asarray(vel, jnp.float32),
+                imu_off=jnp.zeros(3, jnp.float32))
+    tp_none = mb.TickParams(**base)
+    tp_zero = mb.TickParams(**base, lp_tau_s=jnp.zeros(N_JOINTS, jnp.float32))
+    acc0 = np.full(N_JOINTS, 15.0 * ACC_UNIT_DEG_S2 * DEG2RAD)
+    st_n = mb.init_profile_state(jnp, q0, vel, acc0)
+    st_z = mb.init_profile_state(jnp, q0, vel, acc0)
+
+    def make(tp):
+        @jax.jit
+        def run_tick(st, cmd):
+            st = mb._profile_enqueue(jnp, st, tp, cmd)
+            outs = []
+            for _ in range(10):
+                st, y = mb._profile_tick(jnp, st, tp, H)
+                outs.append(y)
+            return st, jnp.stack(outs)
+        return run_tick
+    run_n, run_z = make(tp_none), make(tp_zero)
+    for _ in range(40):
+        goal = rng.uniform(-0.8, 0.8, N_JOINTS)
+        valid = rng.random() > 0.15
+        cmd = mb.Command(q=jnp.asarray(goal, jnp.float32),
+                         vel=jnp.full(N_JOINTS, 35.0 * DEG2RAD, jnp.float32),
+                         acc=jnp.full(N_JOINTS, 20.0 * ACC_UNIT_DEG_S2 * DEG2RAD, jnp.float32),
+                         valid=jnp.bool_(valid))
+        st_n, y_n = run_n(st_n, cmd)
+        st_z, y_z = run_z(st_z, cmd)
+        assert np.array_equal(np.asarray(y_n), np.asarray(y_z))
+        assert np.array_equal(np.asarray(st_n.target), np.asarray(st_z.target))
 
 
 def test_mjx_tick_params_default_none_is_legacy():

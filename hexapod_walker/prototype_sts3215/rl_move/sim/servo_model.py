@@ -51,6 +51,12 @@ LOADED_MODEL_PATH = Path(__file__).resolve().parent / "sim_model_loaded.json"
 # the pre-refit per-axis actuator; the DR `spread` ranges are the same in
 # both so DR remains interpretable across the switch.
 AIR_MODEL_PATH = Path(__file__).resolve().parent / "sim_model_air_20260807.json"
+# Profile-shape refit (2026-09-26, sysid/fit_servo_profile.py): trapezoid +
+# first-order shaft lag, ceiling relative to bus.write_speed; fitted on every
+# cmd->q tape (unloaded Bode, RL write_speed A/B, scripted stance legs).
+# --cfg-set bus.servo_params=profilefit
+PROFILEFIT_MODEL_PATH = (Path(__file__).resolve().parent
+                         / "sim_model_profilefit_20260926.json")
 
 
 @dataclass
@@ -168,7 +174,9 @@ class SimServoParams:
         reality-gap refit (per-axis actuator; claude/sim-refit); "air" ->
         ``sim_model_air_20260807.json`` (the pre-refit air fit, for A/B);
         "loaded" -> ``sim_model_loaded.json`` (the 08-10 loaded bench
-        fit); any other value -> explicit json path. A missing file for
+        fit); "profilefit" -> ``sim_model_profilefit_20260926.json`` (the
+        2026-09-26 profile-shape refit); any other value -> explicit json
+        path. A missing file for
         an EXPLICIT selection raises instead of silently falling back (a
         dropped reward/cfg package voided a verdict once — gotcha 3; same
         failure class).
@@ -184,6 +192,8 @@ class SimServoParams:
                 path = LOADED_MODEL_PATH
             elif sel == "air":
                 path = AIR_MODEL_PATH
+            elif sel == "profilefit":
+                path = PROFILEFIT_MODEL_PATH
             else:
                 path = Path(sel)
             if not path.is_file():

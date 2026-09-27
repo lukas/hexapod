@@ -368,6 +368,12 @@ class CoreApi:
             from servo_watch import ServoWatch
         except ImportError:
             return
+        try:
+            from idle_guard import IdleGuard
+            from command_journal import last_request_mono
+            idle_guard = IdleGuard()
+        except ImportError:
+            idle_guard, last_request_mono = None, None
         self._servo_watch = ServoWatch(
             lambda: self.drive.bus,
             lambda: bool(self._demo_thread and self._demo_thread.is_alive()),
@@ -375,8 +381,32 @@ class CoreApi:
             on_trip=self.thermal_panic,
             is_armed=lambda: bool(self.drive.armed),
             on_strain=self.static_strain_release,
-            on_torque_lost=self.torque_lost)
+            on_torque_lost=self.torque_lost,
+            idle_guard=idle_guard,
+            standing_fn=lambda present: self._normal_standing_pose(present) is not None,
+            rl_active_fn=self._drive_active,
+            last_request_fn=last_request_mono,
+            on_idle_sit=self.idle_sit,
+            on_idle_limp=self.static_strain_release)
         self._servo_watch.start()
+
+    def idle_sit(self) -> dict:
+        """Idle guard action: the robot has stood with no request for the
+        configured time -> play STEP down (the ONE way down).  Only when the
+        classifier says the robot is upright; anything else is left alone and
+        logged, never routed into a recovery on the guard's own initiative."""
+        try:
+            res = self.standup(mode="step", direction="down")
+        except Exception as e:  # noqa: BLE001
+            res = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+        try:
+            from event_log import emit
+            emit("idle_sit_result", f"idle guard sit -> {res}", src="servo_watch",
+                 data=res if isinstance(res, dict) else {"result": str(res)},
+                 level="info" if isinstance(res, dict) and res.get("ok", True) else "warn")
+        except Exception:
+            pass
+        return res if isinstance(res, dict) else {"ok": bool(res)}
 
     def torque_lost(self, reason: str, info: dict) -> None:
         """Servos dropped torque on their own (voltage unload, MCU host-lost
@@ -1001,7 +1031,7 @@ class CoreApi:
         """Keep re-holding the sim walk-ready stance after planted demos."""
         d = self.drive
         try:
-            from rl_walk_start import walk_start_pose_degrees
+            from hexapod_core.joint_frame import walk_start_pose_degrees
             stand = walk_start_pose_degrees()
         except Exception:
             stand = None

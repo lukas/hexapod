@@ -92,17 +92,12 @@ from hexapod_core.demo_tripod import (  # noqa: E402
 )
 from hexapod_core.middle_tuck_quad_gait import MiddleTuckQuadGait  # noqa: E402
 
-try:
-    from rl_walk_start import (  # noqa: E402
-        SIM_WALK_START_HIP_DEG, SIM_WALK_START_KNEE_DEG,
-        walk_start_pose_degrees,
-    )
-except Exception:  # pragma: no cover - deploy bundle always ships it
-    SIM_WALK_START_HIP_DEG = 20.0
-    SIM_WALK_START_KNEE_DEG = 80.0
-
-    def walk_start_pose_degrees() -> list[float]:
-        return [0.0, SIM_WALK_START_HIP_DEG, SIM_WALK_START_KNEE_DEG] * 6
+from hexapod_core.joint_frame import (  # noqa: E402
+    WALK_START_HIP_ABS_DEG as SIM_WALK_START_HIP_DEG,
+    WALK_START_TIBIA_ABS_DEG as SIM_WALK_START_KNEE_DEG,
+    walk_start_pose_degrees,
+)
+from feetech_bus import raw_degree_to_count, robot_pose_to_raw_degrees  # noqa: E402
 
 # Scripted gait and MuJoCo share this 100 Hz contract.  The MCU stream bridge
 # reduced a full SyncWrite to ~1-2 ms, leaving margin inside the 10 ms budget.
@@ -407,12 +402,12 @@ class DriveController:
                 if snap is None:
                     self._snapshot_misses += 1
                 return
-        for joint, deg in enumerate(degrees):
+        raw = robot_pose_to_raw_degrees(degrees, self.bus.trims)   # servo boundary
+        for joint, deg in enumerate(raw):
             sid = joint_to_servo_id(joint)
             if live and sid not in live:
                 continue
-            count = deg_to_count(joint, deg, self.bus.trims[joint])
-            self.bus.pkt.SyncWritePosEx(sid, count, speed, acc)
+            self.bus.pkt.SyncWritePosEx(sid, raw_degree_to_count(joint, deg), speed, acc)
         self.bus.pkt.groupSyncWrite.txPacket()
         self.bus.pkt.groupSyncWrite.clearParam()
 

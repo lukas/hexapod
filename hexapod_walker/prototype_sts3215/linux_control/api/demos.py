@@ -905,7 +905,7 @@ class DemosApi:
         # folded postures are still excluded by the shape gates above.
         refs: list[tuple[str, list[float], float]] = []
         try:
-            from rl_walk_start import walk_start_pose_degrees
+            from hexapod_core.joint_frame import walk_start_pose_degrees
             refs.append(("sim_walk_start", [float(v) for v in
                                             walk_start_pose_degrees()],
                          self.UPRIGHT_MAX_DELTA_DEG))
@@ -950,7 +950,7 @@ class DemosApi:
                 CurrentPeakTracker, MotionGuard, _enable_torque,
                 _live_robot_ids, _set_torque_limit, _write_pose,
             )
-            from rl_walk_start import walk_start_pose_degrees
+            from hexapod_core.joint_frame import walk_start_pose_degrees
             from hexapod_core.walk_ready_transition import build_tripod_plant_transition
         except ImportError as e:
             return {"ok": False, "error": str(e)}

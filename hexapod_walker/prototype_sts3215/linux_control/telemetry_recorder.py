@@ -152,7 +152,7 @@ class RollingContactObserver:
                 or len(measured) != 18):
             return None
 
-        neutral_z_m = self._foot_z_m(20.0, 80.0)
+        neutral_z_m = self._foot_z_m(20.0, 100.0)   # robot_abs walk start (tibia 100)
         legs: list[dict] = []
         for leg in range(6):
             lo = 3 * leg

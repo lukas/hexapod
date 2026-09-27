@@ -20,6 +20,7 @@ right). Both fixed 08-20, bit-exact when the overrides are absent.
 import numpy as np
 import pytest
 
+from rl_move.config import load_config
 from rl_move.sim.servo_model import (
     COUNTS_PER_DEG, SimServoParams, motor_contract, motor_contract_line)
 
@@ -33,9 +34,12 @@ RAISED = {"bus": {"servo_vel_max_counts_s": "write_speed",
 def test_contract_default_reports_stock_config():
     c = motor_contract()
     base = SimServoParams.load().per_joint("vel_max_deg_s")
-    assert c["bus.write_speed"] == 400.0
-    assert c["bus.write_acc"] == 20.0
-    assert c["bus.servo_vel_max_counts_s"] == ""
+    # 2026-09-27: stock config = the 2000/80 write contract with the
+    # ceiling tied to write_speed.
+    assert c["bus.write_speed"] == 2000.0
+    assert c["bus.write_acc"] == 80.0
+    assert c["bus.servo_vel_max_counts_s"] == "write_speed"
+    assert c["resolved_vel_max_counts_s_max"] == pytest.approx(2000.0)
     # 2026-08-24 100 Hz flip (fb_20260824T174619_c49b7e): rate x4,
     # per-tick slew /4 — the PHYSICAL 37.5 deg/s contract is unchanged.
     assert c["control.hz"] == 100.0
@@ -139,8 +143,17 @@ def test_train_ppo_sim_build_env_default_bit_exact():
 
     stale = SimServoParams.load()
     T._build_env(fake_env_cls, stale, Args())
-    assert captured["params"] is stale, (
-        "non-bus overrides must not replace the caller's params object")
+    # Since 2026-09-27 the stock config itself pins the ceiling sentinel
+    # (bus.servo_vel_max_counts_s=write_speed), so _build_env re-resolves
+    # params from cfg on every path; object identity is no longer the
+    # contract. The guarantee that matters: a non-bus override must not
+    # CHANGE the resolved actuator set vs. the stock config.
+    got = captured["params"]
+    stock = SimServoParams.from_cfg(load_config())
+    for ax in ("yaw", "hip", "knee"):
+        assert got.axes[ax] == stock.axes[ax], (ax, got.axes[ax], stock.axes[ax])
+    assert np.allclose(got.per_joint("vel_max_deg_s"),
+                       stale.per_joint("vel_max_deg_s"))
 
 
 def test_train_ppo_mjx_env_kwargs_resolves_ceiling():

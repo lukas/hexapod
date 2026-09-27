@@ -211,6 +211,22 @@ PHASEDIR1_STACK = {k: v for k, v in PHASEDIR2_STACK.items()
                    if k not in ALIGN_KEYS}
 
 
+    # Reward-bank calibration pin (2026-09-27): these banks (thresholds,
+    # sway envelope, income margins) were calibrated with the 2026-09-21
+    # actuator set, whose 35 deg/s ceiling clamped the 1500-count profile
+    # and whose 130/125 ms yaw/hip latency low-pass filtered the teacher.
+    # The 09-27 servo-profile refit (bench latency, 2000 cps ceiling) makes
+    # the honest teacher faster and sway more, and the reward's
+    # clean-teacher envelope (walk_sway_allow_mm etc.) taxes it -- a real
+    # recalibration item for 2000/80 training, tracked separately. Until
+    # the envelope is recalibrated the bank keeps testing the MECHANISM on
+    # the actuator it was built against.
+def _bank_actuator():
+    from rl_move.sim.servo_model import AIR_MODEL_PATH, SimServoParams
+    legacy = AIR_MODEL_PATH.with_name("sim_model_20260921_refit.json")
+    return SimServoParams.from_cfg({"bus": {"servo_params": str(legacy)}})
+
+
 def _make_walk_env(seed: int, overrides: dict,
                    episode_seconds: float = EP_SECONDS):
     from rl_move.sim.walk_task import SimHexapodJointWalkEnv
@@ -219,7 +235,7 @@ def _make_walk_env(seed: int, overrides: dict,
     for (sec, leaf), val in overrides.items():
         cfg.setdefault(sec, {})[leaf] = val
     env = SimHexapodJointWalkEnv(
-        params=SimServoParams.from_cfg(None), randomize=False,
+        params=_bank_actuator(), randomize=False,
         dr_scale=0.0, episode_seconds=episode_seconds, seed=seed, cfg=cfg)
     gen = env._goal_gen
     for m in ("hold", "lean", "track", "unload", "raise", "rise",

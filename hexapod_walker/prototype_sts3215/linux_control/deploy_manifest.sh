@@ -21,10 +21,10 @@ LC_FILES=(
   joint_calibrate.py plant_calibrate.py geometry_plant.py imu_calibrate.py
   event_log.py telemetry_recorder.py async_bus_guard.py
   command_journal.py deploy_record.py
-  status_display.py deploy_status_display.py servo_watch.py
+  status_display.py deploy_status_display.py servo_watch.py idle_guard.py
   mpu_probe.py rl_policy.py
   sysid_protocol.py sysid_runner.py
-  bus_bench.py touchdown_zero.py rl_walk_start.py
+  bus_bench.py touchdown_zero.py
   standup_modes.json
 )
 

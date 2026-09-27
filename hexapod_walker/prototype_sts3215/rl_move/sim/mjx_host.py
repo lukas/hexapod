@@ -328,6 +328,13 @@ def tp_rows(env) -> dict:
         lat = lat * er.latency_scale
         dbd = dbd * er.deadband_scale
         vel = vel * er.vel_scale
+        ws = float(getattr(er, "write_speed_counts_s", 0.0) or 0.0)
+        if ws > 0.0:
+            # dr.write_speed_counts_s: ceiling follows the sampled profile
+            # (mirrors SimHexapodEnv._profile_vel_scale on the CPU path);
+            # a profile-shape refit set scales it by its fitted fraction.
+            frac = float(getattr(p, "vel_of_write_speed", 0.0) or 0.0) or 1.0
+            vel = np.full_like(vel, frac * ws * 360.0 / 4096.0 * DEG2RAD) * er.vel_scale
     off = np.zeros(3) if er is None else np.asarray(er.imu_pos_m, float)
     # Profile-shape refit: per-joint shaft lag (0 = legacy identity).
     tau = np.full(N_JOINTS, float(p.lowpass_tau_ms) / 1000.0)

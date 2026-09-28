@@ -74,16 +74,20 @@ goal:
 safety:
   max_roll_deg: 10.0           # tighter after tip/brownout
   max_pitch_deg: 10.0
-  # Per-tick joint rate limit. PHYSICAL contract is 37.5°/s of command
-  # slew, expressed per tick at control.hz: 1.5°/tick at the legacy
-  # 25 Hz, 0.375°/tick at the 100 Hz contract (operator order
-  # 2026-08-24, fb_20260824T174619_c49b7e — rate flip must NOT quietly
-  # 4x the physical slew to 150°/s). History: 0.5°/tick @25 Hz
-  # (12.5°/s) made standing up take >10 s; 37.5°/s matches the old bus
-  # write_speed cap (400 units ≈ 35°/s). Still far below incident
-  # speeds. Legacy 25 Hz evals/continues must set BOTH control.hz=25
-  # and max_delta_q_deg=1.5 together.
-  max_delta_q_deg: 0.375
+  # Per-tick joint rate limit, expressed per tick at control.hz.
+  # 2026-09-27 (Lukas, chat: "we should open it up for faster movement"):
+  # the contract follows the servo bus profile -- write_speed 2000 counts/s
+  # = 175.8 deg/s -> 1.76 deg/tick at 100 Hz, 3.52 at 50 Hz -- so the
+  # software slew never binds below what the servo can do.  The exporter
+  # stamps the trained value into every artifact (meta.safety) and the
+  # robot runs each policy at ITS trained slew, so this default only
+  # governs NEW runs; every artifact on hexapod2 was stamped with its
+  # trained 37.5 deg/s value before this changed.
+  # History: 37.5 deg/s (0.375 @100 Hz, operator order 2026-08-24) matched
+  # the old 400-count bus (35 deg/s); PR #11 moved the bus to 2000/80 on
+  # 2026-09-27 and this follows it.  Legacy 25 Hz evals/continues must set
+  # BOTH control.hz=25 and max_delta_q_deg together.
+  max_delta_q_deg: 1.76
   # Hardware envelope (2026-09-27, hexapod_core.hardware_envelope): the real leg
   # stops before the servo range -- hexapod2 femur meets the chassis near hip
   # -55, knee HINGE stalls near 126-136 (over_load at 135.6 deg / 2.6 A on the

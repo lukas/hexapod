@@ -1,4 +1,7 @@
-"""Tests for probe_turn_authority.py (standwalk wave-2 turn-diet gate
+"""
+NOTE 2026-09-27: these probes study the slew clip under the 37.5 deg/s contract (0.375 deg/tick @100 Hz); the
+config default opened to the 2000-count bus that day, so every rollout here pins safety.max_delta_q_deg=0.375.
+Tests for probe_turn_authority.py (standwalk wave-2 turn-diet gate
 instrument, 08-30). Two layers: pure threshold-logic unit tests (no
 MuJoCo) and a short env-integration smoke test that pins the tool
 against the SCRIPTED reference gait — the sanity control that caught
@@ -183,7 +186,7 @@ def test_contact_audit_preserves_every_step_of_scripted_rollout(monkeypatch):
         env.step = traced
         return env
     monkeypatch.setattr(probe, "make_env", make_traced)
-    kwargs = dict(model=None, env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+    kwargs = dict(model=None, env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1", "safety.max_delta_q_deg=0.375"]},
                   wz_cmd=.25, vx_cmd=.08, seed=0, episode_seconds=3., policy="scripted")
     baseline = rollout(**kwargs)
     audited = rollout(contact_audit=True, **kwargs)
@@ -231,7 +234,7 @@ def test_scripted_offsets_change_real_gait_and_audit_uses_its_phase(monkeypatch)
     for offset in (0, np.pi):
         phase_sequences.append([])
         commands.append([])
-        result = probe.rollout(model=None, env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+        result = probe.rollout(model=None, env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1", "safety.max_delta_q_deg=0.375"]},
                                wz_cmd=.25, vx_cmd=.08, seed=0, episode_seconds=3.,
                                policy="scripted", contact_audit=True, phase_offset=offset)
         assert result["scripted_start_phase"] == offset
@@ -274,7 +277,7 @@ def test_scripted_gait_env_mechanics_show_real_wz():
     (that version read 0.0 here too, since it is reward-gated on
     reward.k_walk_yaw > 0, unset by default)."""
     res = rollout(model=None,
-                  env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                  env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1", "safety.max_delta_q_deg=0.375"]},
                   wz_cmd=0.25, seed=0, episode_seconds=3.0,
                   policy="scripted")
     assert res["n_walk_ticks"] > 50
@@ -290,7 +293,7 @@ def test_vx_cmd_default_is_bit_exact_pure_turn():
     capability, not a behavior change for every existing caller that
     never passes vx_cmd."""
     kwargs = dict(model=None,
-                  env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                  env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1", "safety.max_delta_q_deg=0.375"]},
                   wz_cmd=0.25, seed=0, episode_seconds=3.0,
                   policy="scripted")
     baseline = rollout(**kwargs)
@@ -312,7 +315,7 @@ def test_vx_cmd_combined_scripted_teacher_actually_walks_and_turns():
     forward body-frame speed AND a real yaw rate must show up together
     (not one axis silently zeroed by the other), on the same episode."""
     res = rollout(model=None,
-                  env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                  env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1", "safety.max_delta_q_deg=0.375"]},
                   wz_cmd=0.25, vx_cmd=0.08, seed=0, episode_seconds=3.0,
                   policy="scripted")
     assert res["n_walk_ticks"] > 50
@@ -329,7 +332,7 @@ def test_vx_cmd_combined_scripted_teacher_actually_walks_and_turns():
 
 def test_omega_boost_default_is_bit_exact():
     kwargs = dict(model=None,
-                  env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                  env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1", "safety.max_delta_q_deg=0.375"]},
                   wz_cmd=0.25, vx_cmd=0.08, seed=0, episode_seconds=3.0,
                   policy="scripted")
     baseline = rollout(**kwargs)
@@ -344,7 +347,7 @@ def test_omega_boost_recovers_combined_tick_wz_at_a_vx_cost():
     while vx_med drops somewhat — the measured trade this lever
     exists to make, not a free win."""
     kwargs = dict(model=None,
-                  env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                  env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1", "safety.max_delta_q_deg=0.375"]},
                   wz_cmd=0.25, vx_cmd=0.08, seed=0, episode_seconds=3.0,
                   policy="scripted")
     plain = rollout(**kwargs)
@@ -358,7 +361,7 @@ def test_omega_boost_is_a_no_op_on_pure_turn_and_pure_walk():
     (vx_cmd=0) or pure-walk (wz_cmd=0) rollout — both must match their
     boost=1.0 baseline exactly."""
     turn_kwargs = dict(model=None,
-                        env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                        env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1", "safety.max_delta_q_deg=0.375"]},
                         wz_cmd=0.25, vx_cmd=0.0, seed=0,
                         episode_seconds=3.0, policy="scripted")
     plain_turn = rollout(**turn_kwargs)
@@ -366,7 +369,7 @@ def test_omega_boost_is_a_no_op_on_pure_turn_and_pure_walk():
     assert plain_turn["wz_med"] == boosted_turn["wz_med"]
 
     walk_kwargs = dict(model=None,
-                        env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                        env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1", "safety.max_delta_q_deg=0.375"]},
                         wz_cmd=0.0, vx_cmd=0.08, seed=0,
                         episode_seconds=3.0, policy="scripted")
     plain_walk = rollout(**walk_kwargs)
@@ -389,7 +392,7 @@ def test_yaw_amplify_scale_desaturates_clip_but_REGRESSES_real_wz():
     this knob into BC-anchor training or spends an RL canary on it --
     refuted zero-training, same cycle it was built."""
     kwargs = dict(model=None,
-                  env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                  env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1", "safety.max_delta_q_deg=0.375"]},
                   wz_cmd=0.25, vx_cmd=0.08, seed=0, episode_seconds=3.0,
                   policy="scripted")
     plain = rollout(**kwargs)
@@ -399,7 +402,7 @@ def test_yaw_amplify_scale_desaturates_clip_but_REGRESSES_real_wz():
 
 def test_yaw_amplify_scale_is_a_no_op_on_pure_turn_and_pure_walk():
     turn_kwargs = dict(model=None,
-                        env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                        env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1", "safety.max_delta_q_deg=0.375"]},
                         wz_cmd=0.25, vx_cmd=0.0, seed=0,
                         episode_seconds=3.0, policy="scripted")
     plain_turn = rollout(**turn_kwargs)
@@ -407,7 +410,7 @@ def test_yaw_amplify_scale_is_a_no_op_on_pure_turn_and_pure_walk():
     assert plain_turn["wz_med"] == dosed_turn["wz_med"]
 
     walk_kwargs = dict(model=None,
-                        env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                        env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1", "safety.max_delta_q_deg=0.375"]},
                         wz_cmd=0.0, vx_cmd=0.08, seed=0,
                         episode_seconds=3.0, policy="scripted")
     plain_walk = rollout(**walk_kwargs)
@@ -417,7 +420,7 @@ def test_yaw_amplify_scale_is_a_no_op_on_pure_turn_and_pure_walk():
 
 def test_selective_omega_boost_default_is_bit_exact():
     kwargs = dict(model=None,
-                  env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                  env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1", "safety.max_delta_q_deg=0.375"]},
                   wz_cmd=0.25, vx_cmd=0.08, seed=0, episode_seconds=3.0,
                   policy="scripted")
     baseline = rollout(**kwargs)
@@ -435,7 +438,7 @@ def test_selective_omega_boost_recovers_combined_tick_wz_at_a_vx_cost():
     somewhat -- the measured trade, not a free win."""
     for wz_cmd in (0.25, -0.25):
         kwargs = dict(model=None,
-                      env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                      env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1", "safety.max_delta_q_deg=0.375"]},
                       wz_cmd=wz_cmd, vx_cmd=0.08, seed=0, episode_seconds=3.0,
                       policy="scripted")
         plain = rollout(**kwargs)
@@ -452,7 +455,7 @@ def test_selective_omega_boost_beats_uniform_boost_at_matched_dose():
     saturates by dose 2.0-3.0 (0.165->0.168 rad/s) while the selective
     lever keeps climbing (0.160->0.231 rad/s)."""
     kwargs = dict(model=None,
-                  env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                  env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1", "safety.max_delta_q_deg=0.375"]},
                   wz_cmd=0.25, vx_cmd=0.08, seed=0, episode_seconds=3.0,
                   policy="scripted")
     uniform = rollout(scripted_omega_boost=3.0, **kwargs)
@@ -466,7 +469,7 @@ def test_selective_omega_boost_is_a_no_op_on_pure_turn_and_pure_walk():
     (wz_cmd=0) rollout -- both must match their boost=1.0 baseline
     exactly."""
     turn_kwargs = dict(model=None,
-                        env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                        env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1", "safety.max_delta_q_deg=0.375"]},
                         wz_cmd=0.25, vx_cmd=0.0, seed=0,
                         episode_seconds=3.0, policy="scripted")
     plain_turn = rollout(**turn_kwargs)
@@ -474,7 +477,7 @@ def test_selective_omega_boost_is_a_no_op_on_pure_turn_and_pure_walk():
     assert plain_turn["wz_med"] == boosted_turn["wz_med"]
 
     walk_kwargs = dict(model=None,
-                        env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                        env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1", "safety.max_delta_q_deg=0.375"]},
                         wz_cmd=0.0, vx_cmd=0.08, seed=0,
                         episode_seconds=3.0, policy="scripted")
     plain_walk = rollout(**walk_kwargs)
@@ -555,7 +558,7 @@ def test_scored_interval_does_not_include_prior_unaccepted_impulses():
 
 def test_mesh_family_at_100hz_closes_momentum_with_hinge_armature(monkeypatch):
     monkeypatch.setenv("HEXAPOD_MODEL_SOURCE", "mesh_mjx")
-    out = rollout(model=None, env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1", "control.hz=100"]},
+    out = rollout(model=None, env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1", "control.hz=100", "safety.max_delta_q_deg=0.375"]},
                   wz_cmd=.15, vx_cmd=.08, seed=0, episode_seconds=3.,
                   policy="scripted", contact_audit=True)["contact_audit"]
     assert out["angmom_check"]["unaccounted"] == []
@@ -577,7 +580,7 @@ def test_late_start_s_default_does_not_change_legacy_fields():
     byte-identical values whether or not it knows about late_start_s —
     the new fields are additive, not a behavior change."""
     kwargs = dict(model=None,
-                  env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                  env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1", "safety.max_delta_q_deg=0.375"]},
                   wz_cmd=0.25, vx_cmd=0.08, seed=0, episode_seconds=3.0,
                   policy="scripted")
     baseline = rollout(**kwargs)
@@ -593,7 +596,7 @@ def test_late_wz_med_excludes_ticks_before_the_late_threshold():
     late_start_s must report a late sub-slice of zero ticks (no
     spurious data), while the un-split wz_med is still populated."""
     res = rollout(model=None,
-                  env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                  env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1", "safety.max_delta_q_deg=0.375"]},
                   wz_cmd=0.25, seed=0, episode_seconds=3.0,
                   policy="scripted", late_start_s=100.0)
     assert res["wz_med"] is not None
@@ -607,7 +610,7 @@ def test_late_wz_med_matches_whole_window_when_threshold_is_at_episode_start():
     read, since the scored window itself already starts after the 1s
     hold + 1s ramp -- i.e. every scored tick also qualifies as late."""
     res = rollout(model=None,
-                  env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                  env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1", "safety.max_delta_q_deg=0.375"]},
                   wz_cmd=0.25, seed=0, episode_seconds=3.0,
                   policy="scripted", late_start_s=0.0)
     assert res["n_late_ticks"] == res["n_walk_ticks"]
@@ -641,7 +644,7 @@ def test_summarize_late_is_insufficient_data_when_field_absent():
 
 
 def test_resolved_scripted_radius_is_reported_and_doses_remain_distinct():
-    rows = [rollout(model=None, env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+    rows = [rollout(model=None, env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1", "safety.max_delta_q_deg=0.375"]},
                     wz_cmd=.15, vx_cmd=.08, seed=0, episode_seconds=2.1,
                     policy="scripted", scripted_stance_radius_scale=scale)
             for scale in (1.10, 1.15)]

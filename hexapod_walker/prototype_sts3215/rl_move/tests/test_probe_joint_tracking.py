@@ -51,7 +51,7 @@ def test_rollout_swing_stance_split_present_and_partitions_all_ticks():
     for the leg-major axis columns, and the split keys must exist on
     the returned dict (used by ``summarize``'s swing/stance
     comparison)."""
-    cfg = ["env.model_source=mesh", "control.hz=100",
+    cfg = ["env.model_source=mesh", "control.hz=100", "safety.max_delta_q_deg=0.375",   # the 37.5 deg/s contract these slew-saturation studies were written under (default opened 2026-09-27)
            "goal.walk_yaw_cmd=1", "goal.walk_phase_run_on_yaw=1"]
     res = rollout(cfg_set=cfg, wz_cmd=0.25, vx_cmd=0.08, seed=0,
                   episode_seconds=5.0)
@@ -74,7 +74,7 @@ def test_rollout_group_duty_skew_is_forwarded_and_bit_exact_at_zero():
     knob in this codebase); a nonzero skew must actually change the
     swing/stance tick-count split (since it re-times which legs get
     more swing time)."""
-    cfg = ["env.model_source=mesh", "control.hz=100",
+    cfg = ["env.model_source=mesh", "control.hz=100", "safety.max_delta_q_deg=0.375",   # the 37.5 deg/s contract these slew-saturation studies were written under (default opened 2026-09-27)
            "goal.walk_yaw_cmd=1", "goal.walk_phase_run_on_yaw=1"]
     base = rollout(cfg_set=cfg, wz_cmd=0.25, vx_cmd=0.08, seed=0,
                    episode_seconds=5.0, group_duty_skew=0.0)
@@ -106,7 +106,7 @@ def test_scripted_env_shows_yaw_clip_asymmetry():
     SafetyLayer clip saturation on a combined (vx!=0) tick than on a
     pure-turn (vx==0) tick -- this is the finding a future
     tripod_gait.py geometry fix must falsify against."""
-    cfg = ["env.model_source=mesh", "control.hz=100",
+    cfg = ["env.model_source=mesh", "control.hz=100", "safety.max_delta_q_deg=0.375",   # the 37.5 deg/s contract these slew-saturation studies were written under (default opened 2026-09-27)
            "goal.walk_yaw_cmd=1", "goal.walk_phase_run_on_yaw=1"]
     pure = rollout(cfg_set=cfg, wz_cmd=0.25, vx_cmd=0.0, seed=0,
                    episode_seconds=5.0)

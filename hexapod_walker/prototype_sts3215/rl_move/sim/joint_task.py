@@ -254,9 +254,61 @@ class SimHexapodJointGoalEnv(SimHexapodGoalEnv):
         # single-extra-scalar-knob action-channel family. Mechanism
         # and its tests (test_joint_action_cart_swing.py) deleted
         # per the close-the-key rule.
+        #
+        # Stance-GATED CARTESIAN foot-placement action channel (lever
+        # #20, 2026-09-28) -- the structurally different next idea:
+        # #16-19 all nudged a SWING-phase (airborne) foot's future
+        # touchdown point, which cannot generate a ground-reaction
+        # impulse until the leg is already loaded; the #16 dig-in's
+        # own physics read named the missing ingredient as
+        # "stance-stroke/step ratcheting" (`ops.sh index story
+        # ...-yawcollective15-canary2m-r2`; OPERATOR_QUESTIONS
+        # q_20260928T1112Z). This channel instead nudges the
+        # currently-STANCE (`env._foot_on` True, foot planted, assumed
+        # non-slip) leg's Cartesian TANGENTIAL target by a fixed
+        # metres offset, re-solved to the full (yaw,hip,knee) triplet
+        # via the SAME already-verified `CartFootDecoder.ik_from_p`
+        # analytic IK shared by #19 and the from-scratch
+        # `walk_cart_foot_box_*` mechanism. Because the foot is
+        # grounded, commanding its logical target to move is a
+        # genuine lever-against-the-ground push -- the body, not the
+        # foot, is what actually displaces -- physically the
+        # mechanism real turning/rowing gaits use, unlike any
+        # swing-phase placement change. Swing legs are left exactly
+        # as the box/bias mapping produced them. Still a raw,
+        # reward-only-learned scalar knob (no reference trajectory,
+        # no demonstration, no gait clock). cfg
+        # goal.walk_cart_stance_gain_m, default 0.0 = OFF
+        # (n_act/action_space/obs width/_act_to_q all bit-exact
+        # legacy whenever unset).
+        self._cart_stance_gain_m = float(cfg_get(
+            self.cfg, "goal", "walk_cart_stance_gain_m", default=0.0))
+        self._cart_stance_active = self._cart_stance_gain_m > 0.0
+        if self._cart_stance_active:
+            self.n_act += 1
+            self._prev_action = np.zeros(self.n_act, dtype=float)
+            self._prev_prev_action = np.zeros(self.n_act, dtype=float)
+            if _gym is not None:
+                self.action_space = _gym.spaces.Box(
+                    -1.0, 1.0, shape=(self.n_act,), dtype=np.float32)
+                self.observation_space = self._obs_space_box(
+                    N_OBS - 6 + self.n_act + GOAL_DIM
+                    + current_sense_obs_dim(self.cfg)
+                    + height_err_sense_obs_dim(self.cfg)
+                    + height_vel_sense_obs_dim(self.cfg))
+            from .cart_foot_decode import CartFootDecoder
+            self._cart_stance_ik = CartFootDecoder(
+                self.model, np.zeros(N_JOINTS), np.zeros(3))
 
     def _act_to_q(self, clipped: np.ndarray):
         clipped = np.asarray(clipped, dtype=float)
+        cart_stance_gain = None
+        if self._cart_stance_active:
+            # Last channel is the stance-gated Cartesian knob; the
+            # first N_JOINTS drive the ordinary per-joint mapping
+            # below exactly as if this mechanism were off.
+            cart_stance_gain = float(clipped[N_JOINTS])
+            clipped = clipped[:N_JOINTS]
         if self._cart_foot_active:
             q = self._cart_foot.decode(np.asarray(clipped, dtype=float))
         elif self._joint_action_box_active:
@@ -271,6 +323,21 @@ class SimHexapodJointGoalEnv(SimHexapodGoalEnv):
                 clipped = np.clip(clipped + self._joint_action_bias,
                                    -1.0, 1.0)
             q = action_to_q_rad(clipped)
+        if cart_stance_gain is not None:
+            # Gated to currently-STANCE legs (opposite mask from the
+            # closed swing channel) -- see the __init__ comment for
+            # why this is the physically distinct, untested case.
+            stance_mask = np.array(
+                [bool(on) for on in self._foot_on], dtype=bool)
+            if np.any(stance_mask):
+                cur_p = self._cart_stance_ik.fk(q)          # (6,3)
+                cur_p[stance_mask, 1] += (
+                    cart_stance_gain * self._cart_stance_gain_m)
+                q_swapped = self._cart_stance_ik.ik_from_p(
+                    cur_p).reshape(6, 3)
+                q = q.reshape(6, 3).copy()
+                q[stance_mask] = q_swapped[stance_mask]
+                q = q.reshape(N_JOINTS)
         return q, True, ""
 
     def apply_action_box_ramp_frac(self, frac: float) -> dict:

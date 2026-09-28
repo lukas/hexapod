@@ -3926,7 +3926,22 @@ class SimHexapodBalanceEnv(_GymBase):
         legal ceiling (1.05: +2.5% speed, improved slip) -- free money
         to fold into a speed-track dose alongside period/lift/stride,
         never a standalone lever. Default 1.0 = legacy identity
-        (bit-exact off)."""
+        (bit-exact off).
+
+        ``train.bc_anchor_teacher_stance_unload_frac`` (standwalk
+        09-28, `audit_slip_frame.py` root-cause pass on the
+        ceil15-stressmixbase lineage -- see ``TripodGait.
+        stance_unload_frac``'s ctor comment for the full derivation):
+        maps 1:1 onto the teacher's own eased-stance-tail knob so a
+        discovery arm can anchor to a teacher that decelerates the
+        horizontal foot-push rate to zero over the final fraction of
+        each stance window (instead of dragging at the same constant
+        rate right up to liftoff) -- targets the measured "slip spikes
+        in the last phase-bin while foot force is already dropping"
+        signature with a WHEN-timing fix, after additive reward
+        pricing and contact-solver-iteration levers both came back
+        CANARY FAIL - inert on this exact lineage. Default 0.0 =
+        legacy identity (bit-exact off)."""
         from hexapod_core.tripod_gait import TripodGait
         _g = TripodGait(
             vx=0.0,
@@ -3947,7 +3962,10 @@ class SimHexapodBalanceEnv(_GymBase):
                 default=1.0)),
             combined_selective_omega_boost=float(cfg_get(
                 self.cfg, "train", "bc_anchor_teacher_selective_omega_boost",
-                default=1.0)))
+                default=1.0)),
+            stance_unload_frac=float(cfg_get(
+                self.cfg, "train", "bc_anchor_teacher_stance_unload_frac",
+                default=0.0)))
         _g.sync_plant_stance(float(self._plant_deg[1]),
                              float(self._plant_deg[2]))
         _g.reset_phase()

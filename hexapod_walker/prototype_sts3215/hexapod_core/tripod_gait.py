@@ -123,6 +123,7 @@ class TripodGait:
         combined_yaw_amplify_scale: float = 1.0,
         combined_selective_omega_boost: float = 1.0,
         combined_group_duty_skew: float = 0.0,
+        stance_unload_frac: float = 0.0,
     ):
         self.period = period
         self.lift = lift
@@ -302,6 +303,39 @@ class TripodGait:
         # -- no new floating-point path when unused).
         self.combined_group_duty_skew = _clip(
             float(combined_group_duty_skew), -0.45, 0.45)
+        # standwalk 09-28 (`audit_slip_frame.py --phase-bins 8` root-
+        # cause pass): every draw of the ceil15-stressmixbase family,
+        # det AND sto, both deployable widths, showed a slip spike
+        # concentrated ONLY in the LAST stance phase-bin (pre-liftoff)
+        # while measured foot-force there is already at its lowest --
+        # the foot is naturally unloading (weight shifting to the
+        # other stanced legs) while the reference/policy still drags
+        # it at the SAME constant horizontal rate as mid-stance. Three
+        # non-timing candidates were closed first on this exact
+        # lineage before reaching for this one: additive reward
+        # pricing (aggregate + per-leg loadslip charge, both CANARY
+        # FAIL - inert), the MJX contact-solver iteration count
+        # (CANARY FAIL - inert), and a frozen-policy high-friction
+        # probe (bin7 slip unchanged, ruling out contact fidelity) --
+        # this is the first WHEN-timing lever tried. Legacy stance is
+        # a pure constant-rate linear sweep (prog=0.5-s): this knob
+        # instead decelerates the horizontal push rate to exactly ZERO
+        # over the FINAL `stance_unload_frac` fraction of the stance
+        # window (a triangular-velocity tail), raising the constant-
+        # rate segment's own rate just enough that total stroke
+        # (0.5 -> -0.5) and total stance DURATION are unchanged --
+        # same period, same reach, only the velocity SHAPE moves
+        # swing-ward, matching the measured "still dragging while
+        # already unloading" mechanism instead of pricing or gripping
+        # the drag after the fact. Foot HEIGHT (dz) is untouched during
+        # stance either way (stays 0.0) -- this is a horizontal-rate
+        # lever only, one dimension. Default 0.0 = legacy identity
+        # (bit-exact: `_stance_prog` returns the exact legacy
+        # `0.5 - s` expression whenever frac<=0.0, no new float path).
+        # Clipped to (0.0, 0.45] like the sibling duty-skew knob above
+        # -- 0.45 keeps the constant-rate segment's rate factor
+        # (1/(1-frac/2)) sane and leaves a nonzero constant-rate lead-in.
+        self.stance_unload_frac = _clip(float(stance_unload_frac), 0.0, 0.45)
         self.vx = vx
         self.vy = vy
         self.omega = omega
@@ -451,6 +485,28 @@ class TripodGait:
             return None
         return 0 if counts[0] > counts[1] else 1
 
+    def _stance_prog(self, s: float) -> float:
+        """Stance horizontal-progress profile at normalized stance
+        position ``s`` in [0, 1] (0 = touchdown, 1 = liftoff). Legacy
+        (``stance_unload_frac<=0.0``) is the exact bit-identical
+        constant-rate sweep ``0.5 - s``. See the ``stance_unload_frac``
+        ctor comment for the mechanism/derivation; briefly: raise the
+        constant-rate segment's own rate to ``r = 1/(1 - frac/2)`` over
+        ``s`` in [0, 1-frac], then linearly decelerate to exactly zero
+        velocity by ``s=1`` -- the triangular tail covers ``r*frac/2``
+        of the sweep, so total displacement (0.5 -> -0.5) and total
+        stance duration both match the legacy profile exactly for any
+        ``frac``, including 0."""
+        frac = self.stance_unload_frac
+        if frac <= 0.0:
+            return 0.5 - s
+        r = 1.0 / (1.0 - 0.5 * frac)
+        knee = 1.0 - frac
+        if s <= knee:
+            return 0.5 - r * s
+        u = s - knee
+        return 0.5 - r * knee - r * (u - (u * u) / (2.0 * frac))
+
     def _foot_target_in_body(self, i: int, vx, vy, omega):
         t_eff = max(self.period * self.period_scale, 0.05)
         ramp_amp = min(self._elapsed / self.ramp, 1.0)
@@ -473,7 +529,7 @@ class TripodGait:
                 dz = self.lift * self.lift_scale[i] * ramp_amp * math.sin(math.pi * s)
             else:
                 s = (phi - math.pi) / math.pi
-                prog = 0.5 - s
+                prog = self._stance_prog(s)
                 dz = 0.0
         else:
             # Re-timed path: ONE shared boundary on the phase circle
@@ -504,7 +560,7 @@ class TripodGait:
                 own_width = width1 if leg_is_group0 else width0
                 local = (theta - width0) if leg_is_group0 else theta
                 s = local / own_width
-                prog = 0.5 - s
+                prog = self._stance_prog(s)
                 dz = 0.0
         a_i = self.leg_angles[i]
         sa, ca = math.sin(a_i), math.cos(a_i)

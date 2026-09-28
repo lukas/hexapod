@@ -240,66 +240,23 @@ class SimHexapodJointGoalEnv(SimHexapodGoalEnv):
             self._cart_foot = CartFootDecoder(
                 self.model, center_q, cart_box_m)
         # Swing-GATED CARTESIAN foot-placement action channel (lever
-        # #19, 2026-09-28) -- the swing-gated YAW joint-offset channel
-        # (lever #18, `goal.walk_yaw_swing_gain_deg`, deleted with its
-        # tests this same cycle per the close-the-key rule once
-        # verdicted) closed CANARY_FAIL 2/2
-        # (ops.sh index story ...-yawswing15-canary2m-v2): its own
-        # pre-registered gate named the required next idea verbatim --
-        # "a Cartesian foot-placement swing TARGET (shift where the
-        # swinging foot's IK target lands, not a joint-space offset)".
-        # A pure joint yaw nudge is mathematically nothing but a
-        # ROTATION of the foot's Cartesian target about the leg's own
-        # anchor (cart_foot_decode.py's fk: the world (x,y) foot
-        # position depends on yaw ONLY through that rotation) -- levers
-        # #16/#17/#18 already covered exactly that one Cartesian degree
-        # of freedom and it stayed flat every time.  This channel
-        # instead nudges the swinging leg's TANGENTIAL Cartesian
-        # target (the leg-root-frame y axis, ``CartFootDecoder.fk``'s
-        # ``y = self._yf`` term) by a fixed metres offset; because y is
-        # NOT independent of yaw once fixed-|y| geometry is enforced,
-        # the SAME already-verified analytic IK
-        # (``CartFootDecoder.ik_from_p``, shared with the from-scratch
-        # ``walk_cart_foot_box_*`` mechanism, ``verify_fk``-checked)
-        # returns a joint combination that mixes yaw AND radial reach
-        # (hip/knee) -- not a pure yaw rotation -- giving the swinging
-        # foot a genuinely different next-touchdown point than any
-        # yaw-only offset could reach.  Gated to the swinging leg(s)
-        # only via the same env._foot_on flag as #18; stance legs'
-        # joints are left exactly as the mapping above produced them.
-        # Still a raw, reward-only-learned scalar knob (no reference
-        # trajectory, no demonstration). cfg
-        # goal.walk_cart_swing_gain_m, default 0.0 = OFF
-        # (n_act/action_space/obs width/_act_to_q all bit-exact legacy
-        # whenever unset).
-        self._cart_swing_gain_m = float(cfg_get(
-            self.cfg, "goal", "walk_cart_swing_gain_m", default=0.0))
-        self._cart_swing_active = self._cart_swing_gain_m > 0.0
-        if self._cart_swing_active:
-            self.n_act += 1
-            self._prev_action = np.zeros(self.n_act, dtype=float)
-            self._prev_prev_action = np.zeros(self.n_act, dtype=float)
-            if _gym is not None:
-                self.action_space = _gym.spaces.Box(
-                    -1.0, 1.0, shape=(self.n_act,), dtype=np.float32)
-                self.observation_space = self._obs_space_box(
-                    N_OBS - 6 + self.n_act + GOAL_DIM
-                    + current_sense_obs_dim(self.cfg)
-                    + height_err_sense_obs_dim(self.cfg)
-                    + height_vel_sense_obs_dim(self.cfg))
-            from .cart_foot_decode import CartFootDecoder
-            self._cart_swing_ik = CartFootDecoder(
-                self.model, np.zeros(N_JOINTS), np.zeros(3))
+        # #19, goal.walk_cart_swing_gain_m) was CLOSED CANARY_FAIL -
+        # MECHANISM 2/2 seeds (2026-09-28, ops.sh index story
+        # cw-walkyaw50hz-rlonly-scratch-sac-s{0,1}-...-cartswing02-
+        # canary2m): env/walk_yaw_err stayed pinned ~0.83-0.90 both
+        # seeds with no downward trend, env/walk_wz stayed near-zero
+        # (mean ~0.01-0.02, std ~0.15-0.17, missing both PASS bars) --
+        # the same flat band every yaw-offset-family lever (#16
+        # uniform, #17 pricing, #18 swing-gated yaw) already showed,
+        # because a fixed-|y| leg's foot line ties this Cartesian-
+        # tangential nudge to a rotation of the same per-leg foot
+        # target those levers already tried. Closes the whole
+        # single-extra-scalar-knob action-channel family. Mechanism
+        # and its tests (test_joint_action_cart_swing.py) deleted
+        # per the close-the-key rule.
 
     def _act_to_q(self, clipped: np.ndarray):
         clipped = np.asarray(clipped, dtype=float)
-        cart_swing_gain = None
-        if self._cart_swing_active:
-            # Last channel is the swing-gated Cartesian knob; the
-            # first N_JOINTS drive the ordinary per-joint mapping
-            # below exactly as if this mechanism were off.
-            cart_swing_gain = float(clipped[N_JOINTS])
-            clipped = clipped[:N_JOINTS]
         if self._cart_foot_active:
             q = self._cart_foot.decode(np.asarray(clipped, dtype=float))
         elif self._joint_action_box_active:
@@ -314,23 +271,6 @@ class SimHexapodJointGoalEnv(SimHexapodGoalEnv):
                 clipped = np.clip(clipped + self._joint_action_bias,
                                    -1.0, 1.0)
             q = action_to_q_rad(clipped)
-        if cart_swing_gain is not None:
-            # Same swing gate as the yaw channel above, but the nudge
-            # is applied in the swinging leg's Cartesian tangential
-            # (y) coordinate, then re-solved to (yaw,hip,knee) via the
-            # shared analytic IK -- see the __init__ comment for why
-            # this is not reducible to a pure yaw offset.
-            swing_mask = np.array(
-                [not bool(on) for on in self._foot_on], dtype=bool)
-            if np.any(swing_mask):
-                cur_p = self._cart_swing_ik.fk(q)          # (6,3)
-                cur_p[swing_mask, 1] += (
-                    cart_swing_gain * self._cart_swing_gain_m)
-                q_swapped = self._cart_swing_ik.ik_from_p(
-                    cur_p).reshape(6, 3)
-                q = q.reshape(6, 3).copy()
-                q[swing_mask] = q_swapped[swing_mask]
-                q = q.reshape(N_JOINTS)
         return q, True, ""
 
     def apply_action_box_ramp_frac(self, frac: float) -> dict:

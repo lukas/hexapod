@@ -435,9 +435,24 @@ class DriveController:
         self._write_pose(pose, speed=250, acc=30)
 
     def _sync_gait_walk_stance(self) -> None:
-        """Make scripted gaits use the same tall pose as Stand/RL walk."""
+        """Make scripted gaits use the same tall pose as Stand/RL walk --
+        or the operator's `PLANT hip knee` override (sim2real stance A/B,
+        2026-09-26: the RL policies stand at knee ~100 and pogo, the
+        scripted gaits stand at knee 80 and walk; the same scripted gait at
+        both stances separates the physics from the controller)."""
+        override = getattr(self, "_scripted_plant_override", None)
+        if override is not None:
+            self.gait.sync_plant_stance(override[0], override[1])
+            return
         self.gait.sync_plant_stance(
             SIM_WALK_START_HIP_DEG, SIM_WALK_START_KNEE_DEG)
+
+    def scripted_plant(self) -> tuple[float, float]:
+        """The stance the scripted gaits are using (hip, knee degrees)."""
+        override = getattr(self, "_scripted_plant_override", None)
+        if override is not None:
+            return (float(override[0]), float(override[1]))
+        return (float(SIM_WALK_START_HIP_DEG), float(SIM_WALK_START_KNEE_DEG))
 
     def _walk_start_delta_vs_present(self) -> tuple[float | None, int | None]:
         if not self.bus:
@@ -837,6 +852,31 @@ class DriveController:
                 except ValueError:
                     pass
             return "K"
+
+        if cmd == "PLANT":
+            # PLANT            -> report the scripted stance (hip knee deg)
+            # PLANT hip knee   -> override it (refused mid-walk: NoSlipGait's
+            #                     sync re-pins world anchors under load)
+            # PLANT DEFAULT    -> back to the walk-ready stance
+            hip, knee = self.scripted_plant()
+            if len(parts) == 1:
+                return f"PLANT {hip:.1f} {knee:.1f}"
+            if abs(self._vx) > 1e-6 or abs(self._vy) > 1e-6 or abs(self._omega) > 1e-6:
+                return "PLANT refused: stop the walk first (J 0 0 0)"
+            if parts[1].upper() == "DEFAULT":
+                self._scripted_plant_override = None
+            else:
+                try:
+                    h, k = float(parts[1]), float(parts[2])
+                except (IndexError, ValueError):
+                    return "bad PLANT: PLANT <hip_deg> <knee_deg> | PLANT DEFAULT"
+                if not (0.0 <= h <= 40.0 and 60.0 <= k <= 120.0):
+                    return f"bad PLANT: hip 0..40 and knee 60..120 deg only, got {h:g} {k:g}"
+                self._scripted_plant_override = (h, k)
+            self._sync_gait_walk_stance()
+            self.gait.reset_phase(t=time.monotonic())
+            hip, knee = self.scripted_plant()
+            return f"PLANT {hip:.1f} {knee:.1f}"
 
         if cmd == "GTUNE":
             if len(parts) == 1:

@@ -173,6 +173,16 @@ class CartFootDecoder:
         """(18,) action in [-1,1] -> (18,) logical joint targets (rad)."""
         a = np.asarray(action, dtype=float).reshape(6, 3)
         p = self.center_p + a * self.box[None, :]
+        return self.ik_from_p(p)
+
+    # ------------------------------------------------------------------
+    def ik_from_p(self, p) -> np.ndarray:
+        """(6,3) ABSOLUTE leg-root-frame foot targets -> (18,) logical
+        joint rad. Same analytic per-leg IK ``decode`` uses, factored
+        out so callers with their own Cartesian target (not an
+        action-box-scaled one) can reuse the identical, already-
+        verified math (``walk_cart_swing_gain_m``, 2026-09-28)."""
+        p = np.asarray(p, dtype=float).reshape(6, 3)
         px, py, pz = p[:, 0], p[:, 1], p[:, 2]
 
         # yaw so the (fixed-|y|) foot line passes through the target

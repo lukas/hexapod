@@ -239,43 +239,43 @@ class SimHexapodJointGoalEnv(SimHexapodGoalEnv):
                         else action_to_q_rad(self._joint_action_bias))
             self._cart_foot = CartFootDecoder(
                 self.model, center_q, cart_box_m)
-        # Swing-GATED yaw-nudge action channel (2026-09-28, walkcurr
-        # rl_only turn-in-place saga's next named lever after the
-        # UNIFORM collective-yaw channel closed CANARY_FAIL 2/2
-        # (lever #16, ops.sh index story ...-yawcollective15-canary2m-
-        # r2): that dig-in's own physics read was explicit -- "static
-        # joint-space yaw offsets ... oscillate median-zero without
-        # stance-stroke/step ratcheting -- offset-style action
-        # channels are disfavored as a family". This channel is
-        # offset-style too, but changes the ONE thing that read named
-        # as missing: instead of nudging every yaw joint identically
-        # on EVERY tick (a torque with nothing asymmetric to push
-        # against once all six legs share it equally), the same extra
-        # raw action dim is applied ONLY to whichever leg(s) are
-        # currently SWINGING, read from ``env._foot_on`` -- the
-        # existing one-tick-lagged per-leg contact flag every other
-        # gate in this module already reads on the same lag (see
-        # walk_reward_stepevent.py's own "one-tick lag every other
-        # gate here uses" convention). A swinging leg's yaw joint sets
-        # WHERE that foot's next placement lands; shifting only that
-        # value creates a genuinely asymmetric next-stance posture
-        # (the stance-stroke ratchet the closed lever's physics read
-        # says a uniform nudge cannot produce) -- a stance leg's yaw
-        # joint is left untouched because nudging it just fights the
-        # ground reaction at an already-planted foot instead of
-        # shaping a future footstep. Still a raw, random-at-init,
-        # reward-only-learned scalar knob (no reference trajectory, no
-        # demonstration) -- same differential-drive-style
-        # reparameterization as the closed channel, just gated to the
-        # physically relevant leg(s). cfg
-        # goal.walk_yaw_swing_gain_deg, default 0.0 = OFF
-        # (n_act/action_space/obs width/_act_to_q all bit-exact
-        # legacy whenever unset).
-        self._yaw_swing_gain_rad = float(cfg_get(
-            self.cfg, "goal", "walk_yaw_swing_gain_deg",
-            default=0.0)) * DEG2RAD
-        self._yaw_swing_active = self._yaw_swing_gain_rad > 0.0
-        if self._yaw_swing_active:
+        # Swing-GATED CARTESIAN foot-placement action channel (lever
+        # #19, 2026-09-28) -- the swing-gated YAW joint-offset channel
+        # (lever #18, `goal.walk_yaw_swing_gain_deg`, deleted with its
+        # tests this same cycle per the close-the-key rule once
+        # verdicted) closed CANARY_FAIL 2/2
+        # (ops.sh index story ...-yawswing15-canary2m-v2): its own
+        # pre-registered gate named the required next idea verbatim --
+        # "a Cartesian foot-placement swing TARGET (shift where the
+        # swinging foot's IK target lands, not a joint-space offset)".
+        # A pure joint yaw nudge is mathematically nothing but a
+        # ROTATION of the foot's Cartesian target about the leg's own
+        # anchor (cart_foot_decode.py's fk: the world (x,y) foot
+        # position depends on yaw ONLY through that rotation) -- levers
+        # #16/#17/#18 already covered exactly that one Cartesian degree
+        # of freedom and it stayed flat every time.  This channel
+        # instead nudges the swinging leg's TANGENTIAL Cartesian
+        # target (the leg-root-frame y axis, ``CartFootDecoder.fk``'s
+        # ``y = self._yf`` term) by a fixed metres offset; because y is
+        # NOT independent of yaw once fixed-|y| geometry is enforced,
+        # the SAME already-verified analytic IK
+        # (``CartFootDecoder.ik_from_p``, shared with the from-scratch
+        # ``walk_cart_foot_box_*`` mechanism, ``verify_fk``-checked)
+        # returns a joint combination that mixes yaw AND radial reach
+        # (hip/knee) -- not a pure yaw rotation -- giving the swinging
+        # foot a genuinely different next-touchdown point than any
+        # yaw-only offset could reach.  Gated to the swinging leg(s)
+        # only via the same env._foot_on flag as #18; stance legs'
+        # joints are left exactly as the mapping above produced them.
+        # Still a raw, reward-only-learned scalar knob (no reference
+        # trajectory, no demonstration). cfg
+        # goal.walk_cart_swing_gain_m, default 0.0 = OFF
+        # (n_act/action_space/obs width/_act_to_q all bit-exact legacy
+        # whenever unset).
+        self._cart_swing_gain_m = float(cfg_get(
+            self.cfg, "goal", "walk_cart_swing_gain_m", default=0.0))
+        self._cart_swing_active = self._cart_swing_gain_m > 0.0
+        if self._cart_swing_active:
             self.n_act += 1
             self._prev_action = np.zeros(self.n_act, dtype=float)
             self._prev_prev_action = np.zeros(self.n_act, dtype=float)
@@ -287,20 +287,18 @@ class SimHexapodJointGoalEnv(SimHexapodGoalEnv):
                     + current_sense_obs_dim(self.cfg)
                     + height_err_sense_obs_dim(self.cfg)
                     + height_vel_sense_obs_dim(self.cfg))
-            self._yaw_swing_joint_idx = np.arange(0, N_JOINTS, 3)
-            self._yaw_swing_axis_lo = (
-                (_CENTER_RAD - _HALF_RAD)[self._yaw_swing_joint_idx])
-            self._yaw_swing_axis_hi = (
-                (_CENTER_RAD + _HALF_RAD)[self._yaw_swing_joint_idx])
+            from .cart_foot_decode import CartFootDecoder
+            self._cart_swing_ik = CartFootDecoder(
+                self.model, np.zeros(N_JOINTS), np.zeros(3))
 
     def _act_to_q(self, clipped: np.ndarray):
         clipped = np.asarray(clipped, dtype=float)
-        swing_gain = None
-        if self._yaw_swing_active:
-            # Last channel is the swing-gated yaw knob; the first
-            # N_JOINTS drive the ordinary per-joint mapping below
-            # exactly as if this mechanism were off.
-            swing_gain = float(clipped[N_JOINTS])
+        cart_swing_gain = None
+        if self._cart_swing_active:
+            # Last channel is the swing-gated Cartesian knob; the
+            # first N_JOINTS drive the ordinary per-joint mapping
+            # below exactly as if this mechanism were off.
+            cart_swing_gain = float(clipped[N_JOINTS])
             clipped = clipped[:N_JOINTS]
         if self._cart_foot_active:
             q = self._cart_foot.decode(np.asarray(clipped, dtype=float))
@@ -316,21 +314,23 @@ class SimHexapodJointGoalEnv(SimHexapodGoalEnv):
                 clipped = np.clip(clipped + self._joint_action_bias,
                                    -1.0, 1.0)
             q = action_to_q_rad(clipped)
-        if swing_gain is not None:
-            # Apply the knob's offset only to the yaw joints of legs
-            # currently swinging (env._foot_on False = airborne, the
-            # one-tick-lagged flag walk_reward_stepevent.py maintains
-            # every walk tick); stance legs' yaw targets are left
-            # exactly as the mapping above produced them.
+        if cart_swing_gain is not None:
+            # Same swing gate as the yaw channel above, but the nudge
+            # is applied in the swinging leg's Cartesian tangential
+            # (y) coordinate, then re-solved to (yaw,hip,knee) via the
+            # shared analytic IK -- see the __init__ comment for why
+            # this is not reducible to a pure yaw offset.
             swing_mask = np.array(
                 [not bool(on) for on in self._foot_on], dtype=bool)
             if np.any(swing_mask):
-                idx = self._yaw_swing_joint_idx[swing_mask]
-                q = q.copy()
-                q[idx] = np.clip(
-                    q[idx] + swing_gain * self._yaw_swing_gain_rad,
-                    self._yaw_swing_axis_lo[swing_mask],
-                    self._yaw_swing_axis_hi[swing_mask])
+                cur_p = self._cart_swing_ik.fk(q)          # (6,3)
+                cur_p[swing_mask, 1] += (
+                    cart_swing_gain * self._cart_swing_gain_m)
+                q_swapped = self._cart_swing_ik.ik_from_p(
+                    cur_p).reshape(6, 3)
+                q = q.reshape(6, 3).copy()
+                q[swing_mask] = q_swapped[swing_mask]
+                q = q.reshape(N_JOINTS)
         return q, True, ""
 
     def apply_action_box_ramp_frac(self, frac: float) -> dict:

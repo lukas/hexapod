@@ -205,7 +205,9 @@ def anti_drift_yaw_pricing(env, goal, info, reward):
                              default=0.0))
         k_ys = float(cfg_get(env.cfg, "reward", "k_yaw_still",
                              default=0.0))
-        if k_yp > 0.0 or k_ys > 0.0:
+        k_yte = float(cfg_get(env.cfg, "reward",
+                              "k_yaw_track_err", default=0.0))
+        if k_yp > 0.0 or k_ys > 0.0 or k_yte > 0.0:
             wz_now = env._body_wz()
             if k_yp > 0.0 and abs(goal.wz_ref) > 1e-3:
                 # OVER-SPIN FARM FIX (08-23 income audit,
@@ -255,6 +257,44 @@ def anti_drift_yaw_pricing(env, goal, info, reward):
                 r_yp = k_yp * val
                 reward = float(reward) + r_yp
                 info["reward_yaw_prog"] = r_yp
+            if k_yte > 0.0 and abs(goal.wz_ref) > 1e-3:
+                # DIRECT SIGNED-MATCH TRACKING-ERROR CHARGE
+                # (walkcurr STATUS Next item (a), 09-28: "a
+                # direct signed-match term shaped so near-zero
+                # wz is never reward-optimal under any
+                # k_yaw_still"). The k_yaw_prog ratio kernel
+                # above already has a constant, non-vanishing
+                # gradient toward the command (val=ratio, slope
+                # 1/wz_ref) -- it is NOT the vanishing-gradient
+                # defect the old Gaussian yaw_rate_kernel had.
+                # But it is ZERO, not negative, at wz=0: "do
+                # nothing" earns exactly the same income
+                # (0) as "attempt and land exactly at the
+                # boundary of the wrong-direction clip", so a
+                # risk-averse policy weighing this income
+                # against term_penalty fall risk has no reward
+                # incentive to prefer a small, safe attempt over
+                # standing frozen. This term makes wz=0 a
+                # strictly WORSE income than any point closer to
+                # the commanded wz, with a maximum (0) ONLY at
+                # exact tracking -- independent of k_yaw_still
+                # (which the closed stillretune{0,10,25} sweep
+                # already showed cannot explain the freeze on
+                # its own: zeroing it entirely still reproduced
+                # the identical frozen-body shape). Charge is
+                # normalized by the command magnitude (so it is
+                # comparable in scale across wz_ref doses, like
+                # k_yaw_prog's own ratio) and clipped at 3x
+                # command error to avoid an unbounded charge
+                # during a fall/collision transient. Default 0.0
+                # = OFF, bit-exact (no new reward path taken).
+                # See test_walk_yaw_track_err.py.
+                err_ratio = abs(wz_now - goal.wz_ref) / abs(
+                    goal.wz_ref)
+                err_ratio = min(err_ratio, 3.0)
+                r_yte = -k_yte * (err_ratio ** 2)
+                reward = float(reward) + r_yte
+                info["reward_yaw_track_err"] = r_yte
             if k_ys > 0.0 and abs(goal.wz_ref) <= 1e-3:
                 # DC-drift charge, not oscillation tax (08-11,
                 # probe_walk_income latent-defect fix). The

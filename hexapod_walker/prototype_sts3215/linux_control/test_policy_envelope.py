@@ -40,3 +40,11 @@ def test_unknown_robot_without_contract_keeps_the_servo_range():
     gate = _gate()
     assert rl_policy._apply_policy_envelope(gate, _policy({}), host="somebot") == (-80.0, 150.0)
     assert rl_policy._policy_envelope(_policy({"safety": {"hip_min_deg": "x"}})) == (None, None)
+
+
+def test_unstamped_artifact_keeps_the_old_slew_contract_whatever_the_config_says():
+    cfg = {"control": {"hz": 100}, "safety": {"max_delta_q_deg": 1.76}}     # today's opened default
+    dq, explicit = rl_policy._policy_safety_max_delta_q_deg(_policy({}), cfg, 50.0)
+    assert dq == 0.75 and not explicit                                         # 37.5 deg/s at 50 Hz, not 3.52
+    dq, explicit = rl_policy._policy_safety_max_delta_q_deg(_policy({"safety": {"max_delta_q_deg": 3.52}}), cfg, 50.0)
+    assert dq == 3.52 and explicit

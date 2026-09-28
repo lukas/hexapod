@@ -90,6 +90,30 @@ def pin_trained_bus_profile(cfg: dict, checkpoint_path, *, caller_keys=(),
     return prof
 
 
+def pin_trained_slew(cfg: dict, checkpoint_path, *, caller_keys=(), log=print) -> float | None:
+    """Unless the caller pinned safety.max_delta_q_deg itself, set it to the
+    checkpoint's TRAINED per-tick slew (training sidecar); a sidecar without the
+    key = a run from before the resolved-config record, trained under the 37.5 deg/s
+    contract -> 37.5 / control.hz.  2026-09-27: the config default opened to the
+    2000-count bus (1.76 @100 Hz), so an eval that fell back to it would replay an
+    old policy under a looser slew than it learned."""
+    pinned = {str(k).split("=", 1)[0] for k in caller_keys}
+    if "safety.max_delta_q_deg" in pinned:
+        return None
+    side = trained_cfg_values(checkpoint_path, ["safety.max_delta_q_deg"])
+    if "safety.max_delta_q_deg" in side:
+        val, origin = float(side["safety.max_delta_q_deg"]), f"training sidecar {sidecar_path(checkpoint_path).name}"
+    elif sidecar_path(checkpoint_path) is not None:
+        hz = float((cfg.get("control") or {}).get("hz", 100.0))
+        val, origin = 37.5 / hz, "pre-record sidecar -> the 37.5 deg/s contract of its day"
+    else:
+        return None
+    cfg.setdefault("safety", {})["max_delta_q_deg"] = val
+    if log is not None:
+        log(f"[motor-contract] pinned safety.max_delta_q_deg={val:g} from {origin}")
+    return val
+
+
 _SAFETY_KEYS = ("max_delta_q_deg", "hip_min_deg", "knee_hinge_max_deg")
 
 

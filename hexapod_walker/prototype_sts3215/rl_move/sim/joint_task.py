@@ -67,7 +67,48 @@ class SimHexapodJointGoalEnv(SimHexapodGoalEnv):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.n_act = N_JOINTS
+        # Collective YAW action channel (2026-09-28, walkcurr rl_only
+        # turn-in-place saga: gapincome fixed the income economics
+        # 2/2 seeds, the tipframp6m exposure-TIMING ramp then closed
+        # FAIL 2/2 seeds too -- env/walk_wz quarters stayed exactly
+        # flat [~0,~0,~0,~0] and env/walk_yaw_err stayed pinned
+        # ~0.81-0.84 across all 4 quarters BOTH seeds despite the
+        # per-joint yaw action box already being wide open
+        # (goal.joint_action_box_yaw_deg=30, i.e. this is NOT an
+        # action-MAGNITUDE ceiling -- the box already grants each
+        # yaw joint +/-30 of its +/-35deg hardware range). The
+        # remaining barrier is CREDIT ASSIGNMENT: producing net body
+        # yaw needs 6 independently-actuated yaw joints to move in a
+        # correlated pattern, a vanishingly unlikely event under
+        # per-dimension SAC exploration noise, so the yaw reward
+        # gradient never has anything to attach to. This adds ONE
+        # extra raw action channel (n_act -> N_JOINTS+1) that is
+        # added IDENTICALLY to all 6 yaw joints' targets on top of
+        # their existing (bias/box/cart-foot-derived) per-joint
+        # target -- a fixed LINEAR structural remap of the action
+        # basis, not a scripted trajectory or reference motion: the
+        # channel's VALUE is still random at init and learned purely
+        # from the task reward, exactly like every other raw action.
+        # It turns "discover a correlated 6-joint pattern" into
+        # "discover the sign of one scalar knob", a standard
+        # differential-drive-style action reparameterization (a
+        # basis change, not a demonstration/motion prior) that stays
+        # available every tick (both stance and swing ticks) so the
+        # SafetyLayer/reward/servo model never see anything but a
+        # slightly different set of 19 (not 18) joint-target-shaping
+        # inputs. Default 0.0 = OFF: n_act/action_space/obs width and
+        # _act_to_q are bit-exact legacy (this whole block is a
+        # no-op) whenever goal.walk_yaw_collective_gain_deg is unset.
+        # SAC's plain --init-from warm start requires an identical
+        # architecture (train_ppo_mjx.py's own SAC restriction), so
+        # this can only be exercised by a from-scratch run -- by
+        # design, since rl_only continuation must stay demonstration-
+        # free regardless.
+        self._yaw_collective_gain_rad = float(cfg_get(
+            self.cfg, "goal", "walk_yaw_collective_gain_deg",
+            default=0.0)) * DEG2RAD
+        self._yaw_collective_active = self._yaw_collective_gain_rad > 0.0
+        self.n_act = N_JOINTS + (1 if self._yaw_collective_active else 0)
         self._prev_action = np.zeros(self.n_act, dtype=float)
         self._prev_prev_action = np.zeros(self.n_act, dtype=float)
         if _gym is not None:
@@ -121,6 +162,10 @@ class SimHexapodJointGoalEnv(SimHexapodGoalEnv):
             bias_deg * DEG2RAD / _HALF_RAD, -1.0, 1.0)
         self._joint_action_bias_active = bool(
             np.any(self._joint_action_bias != 0.0))
+        if self._yaw_collective_active:
+            self._yaw_joint_idx = np.arange(0, N_JOINTS, 3)
+            self._yaw_axis_lo = (_CENTER_RAD - _HALF_RAD)[self._yaw_joint_idx]
+            self._yaw_axis_hi = (_CENTER_RAD + _HALF_RAD)[self._yaw_joint_idx]
         # Action BOX (2026-08-30, operator literature ruling for the
         # walkcurr final wave — Smith/Kostrikov/Levine 2022 "Walk in
         # the Park" ablation: a TIGHT symmetric action box around the
@@ -241,14 +286,20 @@ class SimHexapodJointGoalEnv(SimHexapodGoalEnv):
                 self.model, center_q, cart_box_m)
 
     def _act_to_q(self, clipped: np.ndarray):
+        clipped = np.asarray(clipped, dtype=float)
+        collective = None
+        if self._yaw_collective_active:
+            # Last channel is the collective-yaw knob; the first
+            # N_JOINTS drive the ordinary per-joint mapping below
+            # exactly as if this mechanism were off.
+            collective = float(clipped[N_JOINTS])
+            clipped = clipped[:N_JOINTS]
         if self._cart_foot_active:
-            q = self._cart_foot.decode(np.asarray(clipped, dtype=float))
-            return q, True, ""
-        if self._joint_action_box_active:
+            q = self._cart_foot.decode(clipped)
+        elif self._joint_action_box_active:
             q = np.clip(
                 self._joint_action_box_center
-                + np.asarray(clipped, dtype=float)
-                * self._joint_action_box_rad,
+                + clipped * self._joint_action_box_rad,
                 self._joint_action_box_axis_lo,
                 self._joint_action_box_axis_hi)
         else:
@@ -256,6 +307,12 @@ class SimHexapodJointGoalEnv(SimHexapodGoalEnv):
                 clipped = np.clip(clipped + self._joint_action_bias,
                                    -1.0, 1.0)
             q = action_to_q_rad(clipped)
+        if collective is not None:
+            q = q.copy()
+            q[self._yaw_joint_idx] = np.clip(
+                q[self._yaw_joint_idx]
+                + collective * self._yaw_collective_gain_rad,
+                self._yaw_axis_lo, self._yaw_axis_hi)
         return q, True, ""
 
     def apply_action_box_ramp_frac(self, frac: float) -> dict:

@@ -348,3 +348,16 @@ def test_hold_leg_gate_partial_dose_blends_toward_ungated():
     wry.yaw_offset_kernel(env, _FakeGoal(0.02), info, 0.0)
     assert info["reward_walk_yaw_offset_hold"] == pytest.approx(
         6.0 * (0.5 + 0.5 * 4 / 6))
+
+
+def test_mjx_snapshot_attrs_all_present_after_reset(monkeypatch):
+    """Every attr in MJX_SNAPSHOT_EXTRA exists on a freshly reset real
+    env (regression for the 09-28 holdleggate launch failure: the new
+    _yoff_leg_duty_hist was in the snapshot tuple but only initialized
+    on the mode-seq reset path, so MjxShardedVecEnv's snapshot_env
+    AttributeError'd at pool build)."""
+    env = _offset_env(monkeypatch, offset_set="15", frac=1.0, seed=0)
+    env.reset()
+    for name in type(env).MJX_SNAPSHOT_EXTRA:
+        assert hasattr(env, name), name
+    env.close()

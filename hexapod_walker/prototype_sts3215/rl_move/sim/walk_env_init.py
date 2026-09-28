@@ -157,6 +157,13 @@ def init_reward_bookkeeping(env):
     # the loadslip EMA's own 0-seed rationale). Independent of
     # every other slip/duty mechanism's state above.
     env._swing_gap_s = [0.0] * 6
+    # Per-leg trailing contact-duty window for the yaw-offset HOLD
+    # income's leg-health gate (reward.walk_yaw_offset_hold_leg_gate,
+    # 2026-09-28 yawoffset-acq1 dig-in -- design rationale in
+    # walk_reward_yaw.yaw_offset_kernel). Empty at reset: full income
+    # until the window fills (spawn grace, same convention as every
+    # windowed gate here).
+    env._yoff_leg_duty_hist = []
     # Per-leg swing-INITIATION income state (reward.walk_leg_
     # swing_initiation_income, 2026-09-08): the OTHER concrete
     # lead named alongside swing-gap-charge by the loadslip-ratio-
@@ -763,6 +770,13 @@ def reset_reward_bookkeeping(env):
     # the loadslip EMA's own 0-seed rationale). Independent of
     # every other slip/duty mechanism's state above.
     env._swing_gap_s = [0.0] * 6
+    # Per-leg trailing contact-duty window for the yaw-offset HOLD
+    # income's leg-health gate (reward.walk_yaw_offset_hold_leg_gate,
+    # 2026-09-28 yawoffset-acq1 dig-in -- design rationale in
+    # walk_reward_yaw.yaw_offset_kernel). Empty at reset: full income
+    # until the window fills (spawn grace, same convention as every
+    # windowed gate here).
+    env._yoff_leg_duty_hist = []
     # Per-leg swing-INITIATION income state (reward.walk_leg_
     # swing_initiation_income, 2026-09-08): the OTHER concrete
     # lead named alongside swing-gap-charge by the loadslip-ratio-

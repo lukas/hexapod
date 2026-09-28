@@ -572,9 +572,38 @@ class _VideoClock:
         return False
 
 
+def _sacrificed_legs(duty_w, swings_w, lift=(), *,
+                      gait_valid_relaxed_hold: bool = False) -> list:
+    """Pure helper (2026-09-28): which of the 6 legs count as
+    "sacrificed" given each leg's whole-walk-run duty fraction
+    (``duty_w``) and swing count (``swings_w``), excluding any
+    quadwalk-commanded-lifted legs (``lift``).
+
+    Default (``gait_valid_relaxed_hold=False``, bit-exact to the
+    pre-2026-09-28 inline logic): a leg is sacrificed if it is
+    essentially always airborne/unloaded (``duty < 0.10``, a parked
+    flag leg) OR grounded the whole run with zero swings (``duty >
+    0.95 and swings == 0``, a dragged anchor).
+
+    ``gait_valid_relaxed_hold=True`` drops the second branch: for a
+    discrete turn-to-heading-and-HOLD task (``goal.walk_yaw_offset_
+    frac>0``), a policy that reaches its commanded offset early and
+    then correctly stands quietly on all six legs for the rest of the
+    episode produces exactly that grounded/zero-swing signature on
+    some or all legs -- the right behavior for that task, not a
+    walking pathology. The unloaded/parked-leg branch always still
+    applies either way.
+    """
+    return [f for f in range(6) if f not in lift
+            and (duty_w[f] < 0.10 or (not gait_valid_relaxed_hold
+                                       and duty_w[f] > 0.95
+                                       and swings_w[f] == 0))]
+
+
 def run_episode(env, model, *, deterministic: bool, video: bool,
                 annotate, end_posture_gate: bool = False,
                 valid_plant_gate: bool = False,
+                gait_valid_relaxed_hold: bool = False,
                 course_trace=None,
                 trace_sink: list | None = None,
                 video_fps: float | None = None,
@@ -1096,9 +1125,17 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
                 swings_w[f] += int(np.sum(d == -1))
                 moved = np.linalg.norm(np.diff(pxy[:, f], axis=0), axis=1)
                 slips_w[f] += float(moved[cf[:-1]].sum()) if len(cf) > 1 else 0.0
-        ep["sacrificed_legs"] = [
-            f for f in range(6) if f not in lift
-            and (duty_w[f] < 0.10 or (duty_w[f] > 0.95 and swings_w[f] == 0))]
+        # gait_valid_relaxed_hold (2026-09-28, walkcurr yaw-offset canary
+        # triage) -- see _sacrificed_legs' own docstring: for a
+        # discrete turn-to-heading-and-HOLD task a converged hold
+        # legitimately stops swings on some/all legs, which the
+        # default "grounded whole episode, zero swings" disqualifier
+        # would otherwise wrongly flag as a walking pathology. Default
+        # OFF, bit-exact to the pre-existing behavior for every other
+        # task type.
+        ep["sacrificed_legs"] = _sacrificed_legs(
+            duty_w, swings_w, lift,
+            gait_valid_relaxed_hold=gait_valid_relaxed_hold)
         ep["gait_valid"] = not ep["sacrificed_legs"]
         if mode == "quadwalk":
             n_skip = min(int(round(3.0 / env.dt)), max(len(contact) - 1,
@@ -1642,6 +1679,17 @@ def main() -> None:
                     action=argparse.BooleanOptionalAction, default=False,
                     help="require the geometric valid-plant criterion "
                          "for rise/raise success")
+    ap.add_argument("--gait-valid-relaxed-hold",
+                    action=argparse.BooleanOptionalAction, default=False,
+                    help="for gait_valid/sacrificed_legs: drop the "
+                         "'grounded whole episode with zero swings' "
+                         "disqualifier (keep only the 'airborne/unloaded "
+                         "whole episode' one) -- for discrete turn-to-"
+                         "heading-and-HOLD tasks (goal.walk_yaw_offset_"
+                         "frac>0) where a converged hold legitimately "
+                         "stops leg swings on some/all legs; default OFF, "
+                         "bit-exact to prior behavior for every other "
+                         "task type")
     ap.add_argument("--pinned-speed-panel", nargs="*", type=float,
                     default=None, metavar="M_S",
                     help="extra walk rows with the command PINNED to "
@@ -2024,6 +2072,7 @@ def main() -> None:
                         annotate=_annotate_frame,
                         end_posture_gate=args.end_posture_gate,
                         valid_plant_gate=args.valid_plant_gate,
+                        gait_valid_relaxed_hold=args.gait_valid_relaxed_hold,
                         course_trace=course_trace_fh,
                         trace_sink=_trace_sink, video_fps=args.video_fps,
                         video_timing=video_timing)
@@ -2175,6 +2224,7 @@ def main() -> None:
                                 annotate=_annotate_frame,
                                 end_posture_gate=args.end_posture_gate,
                                 valid_plant_gate=args.valid_plant_gate,
+                                gait_valid_relaxed_hold=args.gait_valid_relaxed_hold,
                                 video_fps=args.video_fps,
                                 video_timing=video_timing)
                             if ep.get("mode", mode) != mode:
@@ -2248,6 +2298,7 @@ def main() -> None:
                                 annotate=_annotate_frame,
                                 end_posture_gate=args.end_posture_gate,
                                 valid_plant_gate=args.valid_plant_gate,
+                                gait_valid_relaxed_hold=args.gait_valid_relaxed_hold,
                                 video_fps=args.video_fps,
                                 video_timing=video_timing)
                             if ep.get("mode", "walk") != "walk":
@@ -2327,6 +2378,7 @@ def main() -> None:
                                 annotate=_annotate_frame,
                                 end_posture_gate=args.end_posture_gate,
                                 valid_plant_gate=args.valid_plant_gate,
+                                gait_valid_relaxed_hold=args.gait_valid_relaxed_hold,
                                 video_fps=args.video_fps,
                                 video_timing=video_timing)
                             if ep.get("mode", "walk") != "walk":

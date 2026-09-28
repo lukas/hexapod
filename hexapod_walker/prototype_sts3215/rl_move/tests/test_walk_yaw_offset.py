@@ -238,10 +238,16 @@ def test_zero_frac_never_draws_despite_configured_set(monkeypatch):
 
 
 # ---------------------------------------------------------------------
-# Hold-income leg-health gate (reward.walk_yaw_offset_hold_leg_gate,
-# 2026-09-28 yawoffset-acq1 dig-in): the offset draw forces s_ref~0 so
-# every s_ref-gated anti-sacrifice term is inert on offset episodes --
-# this gate prices unloaded legs directly inside the hold bonus.
+# Leg-health gate, shared by the hold bonus (reward.walk_yaw_offset_
+# hold_leg_gate, 2026-09-28 yawoffset-acq1 dig-in) and the approach
+# kernel (reward.walk_yaw_offset_kernel_leg_gate, added same day per
+# the holdleggate-canary2m read: tracking converged and the hold gate
+# engaged, but own-cfg eval still showed a MAJORITY of episodes with a
+# leg under the duty floor -- the kernel term, paid every tick
+# regardless of tolerance, was still unconditionally pricing an
+# unloaded-leg approach). The offset draw forces s_ref~0 so every
+# s_ref-gated anti-sacrifice term is inert on offset episodes -- these
+# gates price unloaded legs directly inside the offset income instead.
 # Pure mechanics against the same fake-env pattern as above (touch
 # sensors faked via _touch_adr/data.sensordata).
 # ---------------------------------------------------------------------
@@ -348,6 +354,71 @@ def test_hold_leg_gate_partial_dose_blends_toward_ungated():
     wry.yaw_offset_kernel(env, _FakeGoal(0.02), info, 0.0)
     assert info["reward_walk_yaw_offset_hold"] == pytest.approx(
         6.0 * (0.5 + 0.5 * 4 / 6))
+
+
+def test_kernel_leg_gate_off_is_bit_exact_and_stateless():
+    """Kernel gate key unset: approach term pays the ungated Gaussian
+    exactly as before, no factor info key, no contact state touched
+    (mirrors test_hold_leg_gate_off_is_bit_exact_and_stateless)."""
+    cfg = {"reward": {"k_walk_yaw_offset": 4.0}}
+    env = _make_env(cfg=cfg, dt=1.0, wz=0.0)
+    info = {}
+    r = wry.yaw_offset_kernel(env, _FakeGoal(0.0), info, 1.0)
+    assert r == pytest.approx(5.0)
+    assert info["reward_walk_yaw_offset"] == pytest.approx(4.0)
+    assert "walk_yaw_offset_hold_leg_factor" not in info
+    assert not hasattr(env, "_yoff_leg_duty_hist")
+
+
+def test_kernel_leg_gate_scales_approach_income_by_unloaded_legs():
+    """walk_yaw_offset_kernel_leg_gate=1.0, one-tick window: two legs
+    airborne -> factor 4/6 -> kernel income k_kernel*4/6 (same shared
+    factor math as the hold gate, applied to the approach term)."""
+    cfg = {"reward": {"k_walk_yaw_offset": 6.0,
+                      "walk_yaw_offset_kernel_leg_gate": 1.0,
+                      "walk_yaw_offset_hold_leg_window_s": 1.0}}
+    env = _make_contact_env(cfg, forces=[9.0, 9.0, 9.0, 0.0, 9.0, 0.0])
+    info = {}
+    r = wry.yaw_offset_kernel(env, _FakeGoal(0.0), info, 0.0)
+    assert info["walk_yaw_offset_hold_leg_factor"] == pytest.approx(4 / 6)
+    assert info["reward_walk_yaw_offset"] == pytest.approx(6.0 * 4 / 6)
+    assert r == pytest.approx(6.0 * 4 / 6)
+
+
+def test_kernel_leg_gate_full_income_for_healthy_approach():
+    """All six feet planted: factor 1.0, kernel income identical to
+    the ungated term -- the gate never fights a correct approach."""
+    cfg = {"reward": {"k_walk_yaw_offset": 6.0,
+                      "walk_yaw_offset_kernel_leg_gate": 1.0,
+                      "walk_yaw_offset_hold_leg_window_s": 1.0}}
+    env = _make_contact_env(cfg, forces=[9.0] * 6)
+    info = {}
+    r = wry.yaw_offset_kernel(env, _FakeGoal(0.0), info, 0.0)
+    assert info["walk_yaw_offset_hold_leg_factor"] == pytest.approx(1.0)
+    assert info["reward_walk_yaw_offset"] == pytest.approx(6.0)
+    assert r == pytest.approx(6.0)
+
+
+def test_kernel_and_hold_leg_gates_share_one_history_and_can_differ():
+    """Both gates enabled with different doses: ONE shared duty
+    history/factor feeds both terms (no double sensor read, no drift
+    between two independent histories), each term still scales by its
+    own gate dose against the same factor."""
+    cfg = {"reward": {"k_walk_yaw_offset": 4.0,
+                      "k_walk_yaw_offset_hold": 6.0,
+                      "walk_yaw_offset_tol_rad": 0.05,
+                      "walk_yaw_offset_kernel_leg_gate": 1.0,
+                      "walk_yaw_offset_hold_leg_gate": 0.5,
+                      "walk_yaw_offset_hold_leg_window_s": 1.0}}
+    env = _make_contact_env(cfg, forces=[9.0, 9.0, 9.0, 0.0, 9.0, 0.0])
+    info = {}
+    r = wry.yaw_offset_kernel(env, _FakeGoal(0.0), info, 0.0)
+    factor = 4 / 6
+    assert info["walk_yaw_offset_hold_leg_factor"] == pytest.approx(factor)
+    assert info["reward_walk_yaw_offset"] == pytest.approx(4.0 * factor)
+    assert info["reward_walk_yaw_offset_hold"] == pytest.approx(
+        6.0 * (0.5 + 0.5 * factor))
+    assert r == pytest.approx(4.0 * factor + 6.0 * (0.5 + 0.5 * factor))
 
 
 def test_mjx_snapshot_attrs_all_present_after_reset(monkeypatch):

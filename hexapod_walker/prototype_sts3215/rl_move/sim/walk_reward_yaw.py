@@ -500,68 +500,84 @@ def yaw_offset_kernel(env, goal, info, reward):
     info["walk_yaw_offset_err"] = err
     k_kernel = float(cfg_get(env.cfg, "reward", "k_walk_yaw_offset",
                              default=0.0))
+    k_hold = float(cfg_get(env.cfg, "reward", "k_walk_yaw_offset_hold",
+                           default=0.0))
+
+    # LEG-HEALTH GATE, shared by BOTH offset income terms (2026-09-28,
+    # yawoffset-acq1 dig-in; EXTENDED to the kernel term 2026-09-28 per
+    # the holdleggate-canary2m read: tracking converged and the hold
+    # gate engaged, but own-cfg eval still showed a MAJORITY of
+    # episodes with a leg under the duty floor — the approach-phase
+    # kernel term (paid on every tick with k_walk_yaw_offset>0, unlike
+    # the hold bonus which only pays inside tolerance) was still
+    # unconditionally pricing an unloaded-leg approach in full, so a
+    # policy could earn nearly the same income sacrificing two legs to
+    # approach the target faster/steadier as it could with six feet
+    # planted. Root cause of the ORIGINAL hold-only gate (see below):
+    # the offset draw forces vx=vy=0 (s_ref ~ 0) for the whole episode,
+    # and EVERY anti-sacrifice/anti-drag term (walk_leg_swing_gap_*,
+    # walk_leg_duty_ratio_*, all stepevent bookkeeping) is gated on
+    # s_ref > 1e-3 — with goal.walk_yaw_offset_frac=1.0 those terms
+    # never executed ONCE in the whole run, so unloading legs was
+    # literally unpriced anywhere in the offset-command path. Same
+    # stillness-subsidy defect class walk_yaw_kernel_gate/walk_yaw_
+    # hold_prog_gate (08-11) fixed on the rate stack — but those key on
+    # wz_ref/s_ref and never engage here. Fix (both instances): multiply
+    # the income term by a per-leg trailing-window CONTACT-duty factor.
+    # Each leg earns credit min(duty/floor, 1) over the last
+    # walk_yaw_offset_hold_leg_window_s seconds; factor is the mean over
+    # 6 legs, so every unloaded leg costs income independently (smooth
+    # per-leg marginal gradient — unlike the max/min-agg income terms
+    # whose all-or-nothing shape gives no reward for fixing one leg at
+    # a time). A correct hold/approach (6 planted feet) keeps duty 1.0
+    # on every leg -> factor 1.0 -> income unchanged, so this never
+    # fights the converged behavior the task wants. Window not yet
+    # filled -> factor 1.0 (spawn grace, same convention as every
+    # windowed gate). One shared history/factor computation feeds both
+    # gates (same per-leg contact signal — no reason to double the
+    # sensor reads or keep two histories in sync). cfg reward.
+    # walk_yaw_offset_hold_leg_gate / walk_yaw_offset_kernel_leg_gate,
+    # each in [0,1], default 0.0 = off, bit-exact legacy (no state
+    # touched, no info key, when BOTH are 0.0).
+    g_leg_hold = float(cfg_get(env.cfg, "reward",
+                              "walk_yaw_offset_hold_leg_gate",
+                              default=0.0))
+    g_leg_kernel = float(cfg_get(env.cfg, "reward",
+                                 "walk_yaw_offset_kernel_leg_gate",
+                                 default=0.0))
+    leg_factor = 1.0
+    if g_leg_hold > 0.0 or g_leg_kernel > 0.0:
+        floor_d = float(cfg_get(
+            env.cfg, "reward",
+            "walk_yaw_offset_hold_leg_duty_floor", default=0.10))
+        win_s = float(cfg_get(
+            env.cfg, "reward",
+            "walk_yaw_offset_hold_leg_window_s", default=1.0))
+        n_win = max(1, int(round(win_s / env.dt)))
+        hist = getattr(env, "_yoff_leg_duty_hist", None) or []
+        hist.append(yaw_offset_hold_leg_contacts(env))
+        if len(hist) > n_win:
+            hist = hist[-n_win:]
+        env._yoff_leg_duty_hist = hist
+        if len(hist) >= n_win:
+            duty = [sum(col) / len(hist) for col in zip(*hist)]
+            leg_factor = yaw_offset_hold_leg_factor(duty, floor_d)
+        info["walk_yaw_offset_hold_leg_factor"] = leg_factor
+
     if k_kernel > 0.0:
         sigma = max(float(cfg_get(
             env.cfg, "reward", "walk_yaw_offset_sigma_rad",
             default=0.35)), 1e-6)
-        r_off = k_kernel * math.exp(-(err ** 2) / (2.0 * sigma ** 2))
+        base = k_kernel * math.exp(-(err ** 2) / (2.0 * sigma ** 2))
+        r_off = base * ((1.0 - g_leg_kernel) + g_leg_kernel * leg_factor)
         reward = float(reward) + r_off
         info["reward_walk_yaw_offset"] = r_off
-    k_hold = float(cfg_get(env.cfg, "reward", "k_walk_yaw_offset_hold",
-                           default=0.0))
+
     if k_hold > 0.0:
         tol = float(cfg_get(env.cfg, "reward",
                             "walk_yaw_offset_tol_rad", default=0.07))
-        # LEG-HEALTH GATE on the hold income (2026-09-28, yawoffset-acq1
-        # dig-in). Root cause of the 0/2-seed acquisition FAIL: the
-        # offset draw forces vx=vy=0 (s_ref ~ 0) for the whole episode,
-        # and EVERY anti-sacrifice/anti-drag term (walk_leg_swing_gap_*,
-        # walk_leg_duty_ratio_*, all stepevent bookkeeping) is gated on
-        # s_ref > 1e-3 — with goal.walk_yaw_offset_frac=1.0 those terms
-        # never executed ONCE in the whole run, so unloading two legs
-        # was literally unpriced while this flat 50/tick bonus paid a
-        # hunched 4-leg drag-hold in full (eval: legs 3/5 duty 0.00-0.09
-        # in 22/24 episodes, gait_valid 0/6). Same stillness-subsidy
-        # defect class walk_yaw_kernel_gate/walk_yaw_hold_prog_gate
-        # (08-11) fixed on the rate stack — but those key on wz_ref/
-        # s_ref and never engage here. Fix is the third instance of the
-        # same pattern, priced on the observed defect: multiply the hold
-        # bonus by a per-leg trailing-window CONTACT-duty factor. Each
-        # leg earns credit min(duty/floor, 1) over the last
-        # walk_yaw_offset_hold_leg_window_s seconds; factor is the mean
-        # over 6 legs, so every unloaded leg costs income independently
-        # (smooth per-leg marginal gradient — unlike the max/min-agg
-        # income terms whose all-or-nothing shape gives no reward for
-        # fixing one leg at a time). A correct hold (6 planted feet)
-        # keeps duty 1.0 on every leg -> factor 1.0 -> income unchanged,
-        # so this never fights the converged behavior the task wants.
-        # Window not yet filled -> factor 1.0 (spawn grace, same
-        # convention as every windowed gate). cfg reward.
-        # walk_yaw_offset_hold_leg_gate in [0,1], default 0.0 = off,
-        # bit-exact legacy (no state touched, no info key).
-        g_leg = float(cfg_get(env.cfg, "reward",
-                              "walk_yaw_offset_hold_leg_gate",
-                              default=0.0))
-        leg_factor = 1.0
-        if g_leg > 0.0:
-            floor_d = float(cfg_get(
-                env.cfg, "reward",
-                "walk_yaw_offset_hold_leg_duty_floor", default=0.10))
-            win_s = float(cfg_get(
-                env.cfg, "reward",
-                "walk_yaw_offset_hold_leg_window_s", default=1.0))
-            n_win = max(1, int(round(win_s / env.dt)))
-            hist = getattr(env, "_yoff_leg_duty_hist", None) or []
-            hist.append(yaw_offset_hold_leg_contacts(env))
-            if len(hist) > n_win:
-                hist = hist[-n_win:]
-            env._yoff_leg_duty_hist = hist
-            if len(hist) >= n_win:
-                duty = [sum(col) / len(hist) for col in zip(*hist)]
-                leg_factor = yaw_offset_hold_leg_factor(duty, floor_d)
-            info["walk_yaw_offset_hold_leg_factor"] = leg_factor
         if abs(err) <= tol:
-            r_hold = k_hold * ((1.0 - g_leg) + g_leg * leg_factor)
+            r_hold = k_hold * ((1.0 - g_leg_hold) + g_leg_hold * leg_factor)
             reward = float(reward) + r_hold
             info["reward_walk_yaw_offset_hold"] = r_hold
     return reward

@@ -853,6 +853,7 @@ class RlApi:
                  src="bench", data=info)
         except Exception:
             pass
+        meta = obj.get("meta") or {}
         return {"ok": True, "file": p.name, "obs_dim": _tick_obs_width(meta),
                 **({"stacked_obs_dim": info["obs_dim"]}
                    if _tick_obs_width(meta) != info["obs_dim"] else {}),

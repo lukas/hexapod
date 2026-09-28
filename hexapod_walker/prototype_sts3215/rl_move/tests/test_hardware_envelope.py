@@ -102,3 +102,17 @@ def test_trained_safety_contract_from_command_and_sidecar(tmp_path):
     assert got == {"max_delta_q_deg": 0.75, "hip_min_deg": -52.0, "knee_hinge_max_deg": 125.0}   # sidecar wins
     best = tmp_path / "ppo_goal_x_best.zip"; best.write_bytes(b"0")
     assert trained_safety_contract(str(best), None)["knee_hinge_max_deg"] == 125.0
+
+
+def test_pin_trained_slew_uses_sidecar_or_the_old_contract(tmp_path):
+    from rl_move.sim.trained_profile import pin_trained_slew
+    ck = tmp_path / "ppo_goal_y.zip"; ck.write_bytes(b"0")
+    cfg = {"control": {"hz": 50.0}, "safety": {"max_delta_q_deg": 3.52}}
+    assert pin_trained_slew(cfg, str(ck), log=None) is None                 # no sidecar: nothing known
+    (tmp_path / "ppo_goal_y.training_complete.json").write_text(json.dumps({"resolved_config": "{'x': 1}"}))
+    assert pin_trained_slew(cfg, str(ck), log=None) == pytest.approx(0.75)  # pre-record sidecar -> 37.5 deg/s at 50 Hz
+    (tmp_path / "ppo_goal_y.training_complete.json").write_text(
+        json.dumps({"resolved_config": str({"safety.max_delta_q_deg": 7.2})}))
+    assert pin_trained_slew(cfg, str(ck), log=None) == pytest.approx(7.2)
+    assert cfg["safety"]["max_delta_q_deg"] == pytest.approx(7.2)
+    assert pin_trained_slew(cfg, str(ck), caller_keys=["safety.max_delta_q_deg=1.0"], log=None) is None

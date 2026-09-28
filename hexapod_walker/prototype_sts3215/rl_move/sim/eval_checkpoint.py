@@ -1846,6 +1846,10 @@ def main() -> None:
     if pin_trained_bus_profile(_pin_cfg, args.checkpoint,
                                caller_keys=args.cfg_set or ()) is not None:
         cfg_kw["cfg"] = _pin_cfg
+    from .trained_profile import pin_trained_slew
+    if pin_trained_slew(_pin_cfg, args.checkpoint,
+                        caller_keys=args.cfg_set or ()) is not None:
+        cfg_kw["cfg"] = _pin_cfg
     # dr.<field> cfg overrides need the randomizer alive even at
     # --dr-scale 0 (payload/latency-axis arms: scale 0 = nominal sim +
     # ONLY the overridden field randomized). Without this the override

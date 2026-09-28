@@ -734,21 +734,26 @@ def _policy_bus_profile(policy: "NumpyPolicy", cfg: dict) -> tuple[int, int]:
             _clamped_int(acc, 20, 0, 254))
 
 
+UNSTAMPED_ARTIFACT_SLEW_DEG_S = 37.5   # the pre-2026-09-27 contract every unstamped artifact trained under
+
+
 def _policy_safety_max_delta_q_deg(policy: "NumpyPolicy", cfg: dict,
                                    policy_hz: float) -> tuple[float, bool]:
     """Policy-tick joint slew, preserving old policies under new config.
 
     A metadata value is a trained per-policy-tick cap and wins. Without
-    metadata, convert the config's per-tick cap at config control.hz into
-    the same deg/s envelope at the selected policy cadence; this maps the
-    current 100 Hz 0.375 deg/tick config back to 1.5 deg/tick for 25 Hz
-    legacy policies.
+    metadata the artifact predates the stamp and trained under the 37.5 deg/s
+    contract: that envelope, at the selected policy cadence (1.5 deg/tick at
+    25 Hz, 0.75 at 50 Hz, 0.375 at 100 Hz).  ``cfg`` is accepted for the call
+    surface; the config default governs new training runs, not old artifacts.
     """
-    cfg_dq = _positive_float(
-        cfg_get(cfg, "safety", "max_delta_q_deg", default=1.5), 1.5)
-    cfg_hz = _positive_float(
-        cfg_get(cfg, "control", "hz", default=HZ), HZ)
-    fallback = cfg_dq * cfg_hz / _positive_float(
+    # Artifacts without a stamped contract were exported before 2026-09-27 and
+    # trained under the 37.5 deg/s slew order of 2026-08-24 (0.375 deg/tick at
+    # 100 Hz).  They keep THAT slew regardless of today's config default (which
+    # opened to the 2000-count bus, 175.8 deg/s): a policy runs at the slew it
+    # learned, never at a looser one it never saw.  New artifacts carry
+    # meta.safety.max_delta_q_deg (export_policy_np stamps the trained value).
+    fallback = UNSTAMPED_ARTIFACT_SLEW_DEG_S / _positive_float(
         policy_hz, LEGACY_POLICY_HZ)
     meta = policy.meta or {}
     for key in ("safety_max_delta_q_deg", "max_delta_q_deg"):

@@ -1138,6 +1138,19 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
         ep["slip_per_m"] = (round(
             float(np.sum(slips_w)) / max(along_dist_m, 0.05), 3)
             if cmd_dist_m > 1e-6 else None)
+        # Per-leg breakdown of the same statistic (standwalk 09-28
+        # loadslip-pricing dose10 canary verdict: the additive
+        # aggregate slip_per_m charge read CANARY_FAIL "still inert"
+        # at two doses on the ceil15-stressmixbase lineage; the named
+        # next lever is a per-leg-targeted mechanism, which first needs
+        # to know WHERE the slip concentrates. `slips_w` (per-leg
+        # loaded-foot XY travel, already summed into slip_per_m above)
+        # was computed but discarded -- purely additive, same guard/
+        # denominator as slip_per_m, so sum(slip_per_m_per_leg) ==
+        # slip_per_m up to rounding for every existing/new report.
+        ep["slip_per_m_per_leg"] = ([
+            round(float(sw) / max(along_dist_m, 0.05), 3)
+            for sw in slips_w] if cmd_dist_m > 1e-6 else None)
     if mode == "getup":
         # Whole-sequence metrics (RISE_WALK_NEXT_48H P1, 08-13): a
         # getup "success" must mean the WHOLE pipeline worked — the

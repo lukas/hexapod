@@ -303,6 +303,15 @@ def phase_hz_effective(hz_base, s_ref, k_coup,
 
 
 WZ_SCALE = 0.5            # rad/s; obs scale for the commanded yaw rate
+WZ_ERR_SCALE = 1.5        # rad/s; obs scale for the LIVE signed yaw-
+                          # rate tracking error (goal.walk_yaw_err_obs,
+                          # walkcurr STATUS Next item (b), 09-28).
+                          # 1.5 matches the k_yaw_prog ratio clip's own
+                          # positive bound (walk_reward_yaw.py) and
+                          # comfortably covers the turnonly/yawprice20
+                          # overshoot band (measured wz 1.3-1.8 rad/s
+                          # against a 0.25 command) without saturating
+                          # a well-tracked signal near zero.
 YAW_OFFSET_SCALE = math.pi / 2   # rad (90 deg); obs scale for the
                                  # task-space turn-OFFSET target/error
                                  # (goal.walk_yaw_offset_set) — matches
@@ -928,6 +937,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 N_OBS - 6 + self.n_act + WALK_GOAL_DIM + N_VEL_OBS
                 + (N_PHASE_OBS if self._phase_obs else 0)
                 + (1 if self._yaw_cmd else 0)
+                + (1 if (self._yaw_cmd and self._yaw_err_obs) else 0)
                 + (N_YAW_OFFSET_OBS if self._yaw_offset_cmd else 0)
                 + (N_MODE_OBS if self._mode_obs else 0)
                 + (N_RISE_KIND_OBS if (self._mode_obs
@@ -1049,6 +1059,27 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             wz_ref = float(getattr(goal, "wz_ref", 0.0)) \
                 if goal is not None else 0.0
             obs = np.concatenate([obs, [wz_ref / WZ_SCALE]])
+            if self._yaw_err_obs:
+                # LIVE signed yaw-rate tracking error (walkcurr STATUS
+                # Next item (b), 09-28): the actor/critic currently has
+                # to reconstruct "am I tracking the command" itself by
+                # subtracting the raw wz_ref tail entry above from the
+                # measured yaw rate buried elsewhere in the gyro obs
+                # block -- a subtraction across two obs positions with
+                # independent DR noise/bias/scale on each side. This
+                # gives that error DIRECTLY, from the privileged
+                # simulator body rate (env._body_wz(), the same
+                # ground-truth channel probe_turn_authority reads —
+                # never info["walk_wz"], which is reward-shaped).
+                # Zero for non-walk goals / settle hold (wz_ref==0 and
+                # the body isn't turning is the correct near-zero
+                # error). Default OFF (goal.walk_yaw_err_obs=0):
+                # obs width and every value above are unchanged, so
+                # this is bit-exact for every walk_yaw_cmd lineage that
+                # predates it.
+                wz_meas = self._body_wz()
+                obs = np.concatenate(
+                    [obs, [(wz_meas - wz_ref) / WZ_ERR_SCALE]])
         if self._yaw_offset_cmd:
             # Task-space turn-OFFSET target + live remaining error at
             # the obs TAIL (same tail-append convention as wz_ref

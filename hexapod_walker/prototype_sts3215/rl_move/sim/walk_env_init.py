@@ -548,6 +548,19 @@ def init_obs_and_mode_flags(env):
     # width change means no warm start from a non-yaw checkpoint.
     env._yaw_cmd = float(cfg_get(env.cfg, "goal", "walk_yaw_cmd",
                                   default=0.0)) == 1.0
+    # LIVE signed yaw-rate tracking error at the obs tail
+    # (goal.walk_yaw_err_obs=1; walkcurr STATUS Next item (b), 09-28
+    # closure of yaw_prog_overshoot_decay: probe_turn_authority showed
+    # a reward-only fix either re-farms overshoot or collapses to a
+    # near-frozen body with zero signed tracking -- an OBSERVATION gap,
+    # not just a reward-shape one, since the actor/critic currently
+    # never sees "how wrong am I" directly, only the raw command and a
+    # separately-noised measured rate it would have to subtract itself
+    # internally). Only takes effect when walk_yaw_cmd=1 (needs wz_ref
+    # to compute against); default OFF = bit-exact legacy obs width for
+    # every existing walk_yaw_cmd lineage.
+    env._yaw_err_obs = (env._yaw_cmd and float(cfg_get(
+        env.cfg, "goal", "walk_yaw_err_obs", default=0.0)) == 1.0)
     # Task-space turn-OFFSET curriculum (goal.walk_yaw_offset_set;
     # walk_task._sample_walk's yaw_offset block / walk_reward_yaw.
     # yaw_offset_kernel — the structurally-different, position-

@@ -235,3 +235,116 @@ def test_zero_frac_never_draws_despite_configured_set(monkeypatch):
         goal = env._current_goal()
         assert float(goal.yaw_offset_ref) == 0.0
     env.close()
+
+
+# ---------------------------------------------------------------------
+# Hold-income leg-health gate (reward.walk_yaw_offset_hold_leg_gate,
+# 2026-09-28 yawoffset-acq1 dig-in): the offset draw forces s_ref~0 so
+# every s_ref-gated anti-sacrifice term is inert on offset episodes --
+# this gate prices unloaded legs directly inside the hold bonus.
+# Pure mechanics against the same fake-env pattern as above (touch
+# sensors faked via _touch_adr/data.sensordata).
+# ---------------------------------------------------------------------
+
+def _make_contact_env(cfg, forces, dt=1.0, wz=0.0):
+    env = _make_env(cfg=cfg, dt=dt, wz=wz)
+    env._touch_adr = list(range(6))
+
+    class _Data:
+        pass
+    env.data = _Data()
+    env.data.sensordata = list(forces)
+    return env
+
+
+def test_leg_factor_pure_math():
+    """min(duty/floor, 1) mean: healthy legs -> 1.0; each unloaded leg
+    reduces the factor independently (per-leg additive)."""
+    assert wry.yaw_offset_hold_leg_factor([1.0] * 6, 0.10) == 1.0
+    # two dead legs, four healthy: (4*1 + 0 + 0)/6
+    assert wry.yaw_offset_hold_leg_factor(
+        [1.0, 1.0, 1.0, 0.0, 1.0, 0.0], 0.10) == pytest.approx(4 / 6)
+    # duty at half the floor earns half credit
+    assert wry.yaw_offset_hold_leg_factor(
+        [0.05] + [1.0] * 5, 0.10) == pytest.approx((0.5 + 5) / 6)
+    # degenerate floor: no gating
+    assert wry.yaw_offset_hold_leg_factor([0.0] * 6, 0.0) == 1.0
+
+
+def test_hold_leg_gate_off_is_bit_exact_and_stateless():
+    """Gate key unset: hold branch pays the flat k_hold exactly as
+    before, writes no factor info key and touches no contact state
+    (no data/sensordata access at all -- the fake env has none)."""
+    cfg = {"reward": {"k_walk_yaw_offset_hold": 4.0,
+                      "walk_yaw_offset_tol_rad": 0.05}}
+    env = _make_env(cfg=cfg, dt=1.0, wz=0.0)
+    info = {}
+    r = wry.yaw_offset_kernel(env, _FakeGoal(0.02), info, 1.0)
+    assert r == pytest.approx(5.0)
+    assert info["reward_walk_yaw_offset_hold"] == pytest.approx(4.0)
+    assert "walk_yaw_offset_hold_leg_factor" not in info
+    assert not hasattr(env, "_yoff_leg_duty_hist")
+
+
+def test_hold_leg_gate_scales_income_by_unloaded_legs():
+    """Gate 1.0, window one tick (win_s == dt): two legs airborne
+    (force 0) -> factor 4/6 -> hold income k_hold * 4/6."""
+    cfg = {"reward": {"k_walk_yaw_offset_hold": 6.0,
+                      "walk_yaw_offset_tol_rad": 0.05,
+                      "walk_yaw_offset_hold_leg_gate": 1.0,
+                      "walk_yaw_offset_hold_leg_window_s": 1.0}}
+    env = _make_contact_env(cfg, forces=[9.0, 9.0, 9.0, 0.0, 9.0, 0.0])
+    info = {}
+    r = wry.yaw_offset_kernel(env, _FakeGoal(0.02), info, 0.0)
+    assert info["walk_yaw_offset_hold_leg_factor"] == pytest.approx(4 / 6)
+    assert info["reward_walk_yaw_offset_hold"] == pytest.approx(6.0 * 4 / 6)
+    assert r == pytest.approx(6.0 * 4 / 6)
+
+
+def test_hold_leg_gate_full_income_for_healthy_hold():
+    """All six feet planted (the behavior the task wants): factor 1.0,
+    income identical to the ungated bonus -- the gate never fights a
+    correct hold."""
+    cfg = {"reward": {"k_walk_yaw_offset_hold": 6.0,
+                      "walk_yaw_offset_tol_rad": 0.05,
+                      "walk_yaw_offset_hold_leg_gate": 1.0,
+                      "walk_yaw_offset_hold_leg_window_s": 1.0}}
+    env = _make_contact_env(cfg, forces=[9.0] * 6)
+    info = {}
+    r = wry.yaw_offset_kernel(env, _FakeGoal(0.02), info, 0.0)
+    assert info["walk_yaw_offset_hold_leg_factor"] == pytest.approx(1.0)
+    assert info["reward_walk_yaw_offset_hold"] == pytest.approx(6.0)
+    assert r == pytest.approx(6.0)
+
+
+def test_hold_leg_gate_spawn_grace_until_window_fills():
+    """Window longer than the ticks seen so far: factor stays 1.0
+    (full income) until the trailing window has real data -- then the
+    dead legs start costing income."""
+    cfg = {"reward": {"k_walk_yaw_offset_hold": 6.0,
+                      "walk_yaw_offset_tol_rad": 0.05,
+                      "walk_yaw_offset_hold_leg_gate": 1.0,
+                      "walk_yaw_offset_hold_leg_window_s": 2.0}}
+    env = _make_contact_env(cfg, forces=[9.0, 9.0, 9.0, 0.0, 9.0, 0.0],
+                            dt=1.0)
+    info1 = {}
+    wry.yaw_offset_kernel(env, _FakeGoal(0.0), info1, 0.0)
+    assert info1["walk_yaw_offset_hold_leg_factor"] == pytest.approx(1.0)
+    assert info1["reward_walk_yaw_offset_hold"] == pytest.approx(6.0)
+    info2 = {}
+    wry.yaw_offset_kernel(env, _FakeGoal(0.0), info2, 0.0)
+    assert info2["walk_yaw_offset_hold_leg_factor"] == pytest.approx(4 / 6)
+    assert info2["reward_walk_yaw_offset_hold"] == pytest.approx(6.0 * 4 / 6)
+
+
+def test_hold_leg_gate_partial_dose_blends_toward_ungated():
+    """gate=0.5 blends: income = k*(0.5 + 0.5*factor)."""
+    cfg = {"reward": {"k_walk_yaw_offset_hold": 6.0,
+                      "walk_yaw_offset_tol_rad": 0.05,
+                      "walk_yaw_offset_hold_leg_gate": 0.5,
+                      "walk_yaw_offset_hold_leg_window_s": 1.0}}
+    env = _make_contact_env(cfg, forces=[9.0, 9.0, 9.0, 0.0, 9.0, 0.0])
+    info = {}
+    wry.yaw_offset_kernel(env, _FakeGoal(0.02), info, 0.0)
+    assert info["reward_walk_yaw_offset_hold"] == pytest.approx(
+        6.0 * (0.5 + 0.5 * 4 / 6))

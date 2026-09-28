@@ -512,10 +512,83 @@ def yaw_offset_kernel(env, goal, info, reward):
     if k_hold > 0.0:
         tol = float(cfg_get(env.cfg, "reward",
                             "walk_yaw_offset_tol_rad", default=0.07))
+        # LEG-HEALTH GATE on the hold income (2026-09-28, yawoffset-acq1
+        # dig-in). Root cause of the 0/2-seed acquisition FAIL: the
+        # offset draw forces vx=vy=0 (s_ref ~ 0) for the whole episode,
+        # and EVERY anti-sacrifice/anti-drag term (walk_leg_swing_gap_*,
+        # walk_leg_duty_ratio_*, all stepevent bookkeeping) is gated on
+        # s_ref > 1e-3 — with goal.walk_yaw_offset_frac=1.0 those terms
+        # never executed ONCE in the whole run, so unloading two legs
+        # was literally unpriced while this flat 50/tick bonus paid a
+        # hunched 4-leg drag-hold in full (eval: legs 3/5 duty 0.00-0.09
+        # in 22/24 episodes, gait_valid 0/6). Same stillness-subsidy
+        # defect class walk_yaw_kernel_gate/walk_yaw_hold_prog_gate
+        # (08-11) fixed on the rate stack — but those key on wz_ref/
+        # s_ref and never engage here. Fix is the third instance of the
+        # same pattern, priced on the observed defect: multiply the hold
+        # bonus by a per-leg trailing-window CONTACT-duty factor. Each
+        # leg earns credit min(duty/floor, 1) over the last
+        # walk_yaw_offset_hold_leg_window_s seconds; factor is the mean
+        # over 6 legs, so every unloaded leg costs income independently
+        # (smooth per-leg marginal gradient — unlike the max/min-agg
+        # income terms whose all-or-nothing shape gives no reward for
+        # fixing one leg at a time). A correct hold (6 planted feet)
+        # keeps duty 1.0 on every leg -> factor 1.0 -> income unchanged,
+        # so this never fights the converged behavior the task wants.
+        # Window not yet filled -> factor 1.0 (spawn grace, same
+        # convention as every windowed gate). cfg reward.
+        # walk_yaw_offset_hold_leg_gate in [0,1], default 0.0 = off,
+        # bit-exact legacy (no state touched, no info key).
+        g_leg = float(cfg_get(env.cfg, "reward",
+                              "walk_yaw_offset_hold_leg_gate",
+                              default=0.0))
+        leg_factor = 1.0
+        if g_leg > 0.0:
+            floor_d = float(cfg_get(
+                env.cfg, "reward",
+                "walk_yaw_offset_hold_leg_duty_floor", default=0.10))
+            win_s = float(cfg_get(
+                env.cfg, "reward",
+                "walk_yaw_offset_hold_leg_window_s", default=1.0))
+            n_win = max(1, int(round(win_s / env.dt)))
+            hist = getattr(env, "_yoff_leg_duty_hist", None) or []
+            hist.append(yaw_offset_hold_leg_contacts(env))
+            if len(hist) > n_win:
+                hist = hist[-n_win:]
+            env._yoff_leg_duty_hist = hist
+            if len(hist) >= n_win:
+                duty = [sum(col) / len(hist) for col in zip(*hist)]
+                leg_factor = yaw_offset_hold_leg_factor(duty, floor_d)
+            info["walk_yaw_offset_hold_leg_factor"] = leg_factor
         if abs(err) <= tol:
-            reward = float(reward) + k_hold
-            info["reward_walk_yaw_offset_hold"] = k_hold
+            r_hold = k_hold * ((1.0 - g_leg) + g_leg * leg_factor)
+            reward = float(reward) + r_hold
+            info["reward_walk_yaw_offset_hold"] = r_hold
     return reward
+
+
+def yaw_offset_hold_leg_factor(duty: list, floor_d: float) -> float:
+    """Mean per-leg credit min(duty/floor, 1) — pure math, unit-tested.
+
+    1.0 when every leg's trailing-window contact duty is at/above the
+    floor (a healthy hold); each unloaded leg reduces the factor
+    independently (per-leg additive, smooth in each leg's duty)."""
+    if floor_d <= 0.0 or not duty:
+        return 1.0
+    credits = [min(max(float(d), 0.0) / floor_d, 1.0) for d in duty]
+    return float(sum(credits) / len(credits))
+
+
+def yaw_offset_hold_leg_contacts(env) -> list:
+    """Per-leg contact flags (1.0/0.0) from the touch sensors — same
+    force > 0.5 N rule as walk_reward_stepevent's `contacts`."""
+    out = []
+    for f in range(6):
+        adr = env._touch_adr[f]
+        force = (max(0.0, float(env.data.sensordata[adr]))
+                 if adr >= 0 else 0.0)
+        out.append(1.0 if force > 0.5 else 0.0)
+    return out
 
 
 def turn_kernel_neutral(env, goal, info, r_prog, r_walk, s_ref):

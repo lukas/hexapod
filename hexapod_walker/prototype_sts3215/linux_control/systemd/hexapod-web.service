@@ -18,6 +18,13 @@ Group=arduino
 SupplementaryGroups=dialout
 WorkingDirectory=/home/arduino/hexapod_sts/linux_control
 Environment=PYTHONUNBUFFERED=1
+# numpy/OpenBLAS: one thread. The RL policies are tiny matmuls (a 64-wide
+# transformer is no faster with 4 threads: 4.02 vs 4.15 ms/act measured on
+# this board 2026-09-26) and OpenBLAS worker threads busy-wait after every
+# call, stealing the bus/stream threads' CPU mid-tick (write_ms 8.2 vs 5.6
+# with the GRU in the same session set).
+Environment=OPENBLAS_NUM_THREADS=1
+Environment=OMP_NUM_THREADS=1
 # ".." = the bundle root (/home/arduino/hexapod_sts): makes hexapod_core,
 # rl_move and motor_setup importable as packages. urt2_setup was retired
 # 2026-08-29 (it was a stale-prone duplicate of motor_setup).

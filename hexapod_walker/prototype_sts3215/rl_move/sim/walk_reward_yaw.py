@@ -570,6 +570,13 @@ def yaw_offset_kernel(env, goal, info, reward):
         agg = str(cfg_get(
             env.cfg, "reward",
             "walk_yaw_offset_hold_leg_agg", default="mean"))
+        # PER-LEG FLOOR SCALE (2026-09-29, bothleggate-minagg-canary2m
+        # pair read): cfg reward.walk_yaw_offset_hold_leg_floor_scale,
+        # length-6 list, default None -> all 1.0 -> bit-exact legacy
+        # uniform floor. See yaw_offset_hold_leg_factor docstring.
+        floor_scale = cfg_get(
+            env.cfg, "reward",
+            "walk_yaw_offset_hold_leg_floor_scale", default=None)
         n_win = max(1, int(round(win_s / env.dt)))
         hist = getattr(env, "_yoff_leg_duty_hist", None) or []
         hist.append(yaw_offset_hold_leg_contacts(env))
@@ -578,7 +585,8 @@ def yaw_offset_kernel(env, goal, info, reward):
         env._yoff_leg_duty_hist = hist
         if len(hist) >= n_win:
             duty = [sum(col) / len(hist) for col in zip(*hist)]
-            leg_factor = yaw_offset_hold_leg_factor(duty, floor_d, agg=agg)
+            leg_factor = yaw_offset_hold_leg_factor(
+                duty, floor_d, agg=agg, floor_scale=floor_scale)
         info["walk_yaw_offset_hold_leg_factor"] = leg_factor
 
     if k_kernel > 0.0:
@@ -600,8 +608,8 @@ def yaw_offset_kernel(env, goal, info, reward):
     return reward
 
 
-def yaw_offset_hold_leg_factor(duty: list, floor_d: float,
-                                agg: str = "mean") -> float:
+def yaw_offset_hold_leg_factor(duty: list, floor_d, agg: str = "mean",
+                                floor_scale=None) -> float:
     """Per-leg credit min(duty/floor, 1), aggregated across 6 legs —
     pure math, unit-tested.
 
@@ -611,10 +619,34 @@ def yaw_offset_hold_leg_factor(duty: list, floor_d: float,
     each leg's duty, but a single sacrificed leg only costs 1/6 of the
     factor). agg="min": the factor IS the worst leg's own credit --
     one chronically-sacrificed leg prices the whole income term at its
-    own shortfall, no dilution across the other five legs."""
-    if floor_d <= 0.0 or not duty:
+    own shortfall, no dilution across the other five legs.
+
+    floor_scale (2026-09-29, bothleggate-minagg-canary2m pair read):
+    optional length-6 multiplier applied to floor_d PER LEG before the
+    credit ratio (leg_floor[i] = floor_d * floor_scale[i]). Default
+    None == all 1.0 == bit-exact legacy (uniform floor). Motivation:
+    the minagg pair showed the chronically-sacrificed leg migrate
+    leg1->leg4 rather than disappear -- legs 1/4 are VERIFIED (mesh
+    XML mount coords) the only two of six with x=0.0 foot-mount
+    (mounted at +-90 deg; corners at +-30/+-150 have x=+-0.0866), i.e.
+    zero fore-aft moment arm and no pitch-stabilizing role in a
+    stationary-heading hold (vx=vy=0) -- a uniform duty floor prices
+    them for a stabilizing contribution they are structurally unable
+    to make. A lower floor_scale for those legs targets that real
+    asymmetry instead of another uniform-shape dose."""
+    if not duty:
         return 1.0
-    credits = [min(max(float(d), 0.0) / floor_d, 1.0) for d in duty]
+    n = len(duty)
+    if floor_scale is None:
+        floors = [float(floor_d)] * n
+    else:
+        floors = [float(floor_d) * float(floor_scale[i]) for i in range(n)]
+    credits = []
+    for d, f in zip(duty, floors):
+        if f <= 0.0:
+            credits.append(1.0)
+        else:
+            credits.append(min(max(float(d), 0.0) / f, 1.0))
     if agg == "min":
         return float(min(credits))
     return float(sum(credits) / len(credits))

@@ -419,6 +419,40 @@ def test_leg_factor_min_agg_pure_math():
         [1.0, 1.0, 1.0, 0.0, 1.0, 0.0], 0.10) == pytest.approx(4 / 6)
 
 
+def test_leg_factor_floor_scale_default_none_is_bit_exact():
+    """floor_scale=None (default, unset): identical to no floor_scale
+    arg at all -- adding the kwarg cannot silently change any prior
+    call's math."""
+    duty = [1.0, 0.05, 1.0, 0.3, 1.0, 1.0]
+    assert wry.yaw_offset_hold_leg_factor(
+        duty, 0.10) == wry.yaw_offset_hold_leg_factor(
+        duty, 0.10, floor_scale=None)
+    assert wry.yaw_offset_hold_leg_factor(
+        duty, 0.10, agg="min") == wry.yaw_offset_hold_leg_factor(
+        duty, 0.10, agg="min", floor_scale=None)
+    # all-ones floor_scale is also bit-exact vs no scale at all
+    assert wry.yaw_offset_hold_leg_factor(
+        duty, 0.10, floor_scale=[1.0] * 6) == wry.yaw_offset_hold_leg_factor(
+        duty, 0.10)
+
+
+def test_leg_factor_floor_scale_lowers_bar_for_scaled_legs():
+    """floor_scale halves the floor for legs 1/4 (the x=0 mid legs):
+    a duty that would violate the uniform 0.10 floor now clears it for
+    those two legs specifically, unchanged for the other four."""
+    scale = [1.0, 0.5, 1.0, 1.0, 0.5, 1.0]
+    duty = [1.0, 0.06, 1.0, 1.0, 0.06, 1.0]  # 0.06 < 0.10 but >= 0.05
+    factor = wry.yaw_offset_hold_leg_factor(duty, 0.10, floor_scale=scale)
+    # legs 1/4 now hit the scaled floor (0.05) exactly -> full credit;
+    # all six legs get credit 1.0 -> mean factor 1.0
+    assert factor == pytest.approx(1.0)
+    # without the scale, same duty violates the uniform floor on
+    # legs 1/4 -> credit 0.6 each -> mean factor < 1.0
+    unscaled = wry.yaw_offset_hold_leg_factor(duty, 0.10)
+    assert unscaled == pytest.approx((1.0 * 4 + 0.6 * 2) / 6)
+    assert unscaled < factor
+
+
 def test_hold_leg_gate_min_agg_prices_single_flag_leg_at_full_strength():
     """cfg walk_yaw_offset_hold_leg_agg='min': one airborne leg among
     five planted -> factor equals that leg's own credit (0.0 here, force
@@ -435,6 +469,42 @@ def test_hold_leg_gate_min_agg_prices_single_flag_leg_at_full_strength():
     assert info["walk_yaw_offset_hold_leg_factor"] == pytest.approx(0.0)
     assert info["reward_walk_yaw_offset_hold"] == pytest.approx(0.0)
     assert r == pytest.approx(0.0)
+
+
+def test_floor_scale_cfg_unset_is_bit_exact():
+    """cfg key entirely absent: identical to explicit floor_scale=None
+    at the call site -- adding the key cannot silently change any
+    prior run's reward."""
+    cfg = {"reward": {"k_walk_yaw_offset_hold": 6.0,
+                      "walk_yaw_offset_tol_rad": 0.05,
+                      "walk_yaw_offset_hold_leg_gate": 1.0,
+                      "walk_yaw_offset_hold_leg_window_s": 1.0}}
+    env = _make_contact_env(cfg, forces=[9.0, 0.0, 9.0, 9.0, 0.0, 9.0])
+    info = {}
+    r = wry.yaw_offset_kernel(env, _FakeGoal(0.02), info, 0.0)
+    assert info["walk_yaw_offset_hold_leg_factor"] == pytest.approx(4 / 6)
+    assert r == pytest.approx(6.0 * 4 / 6)
+
+
+def test_floor_scale_cfg_lowers_bar_for_mid_legs():
+    """cfg walk_yaw_offset_hold_leg_floor_scale halves the floor for
+    legs 1/4 (mid, x=0 mount): those two legs airborne (duty 0) still
+    cost income under the scaled floor's own math (0/0.05=0 credit,
+    same as 0/0.10), but a PARTIALLY loaded mid leg clears sooner than
+    a corner leg at the same duty."""
+    cfg = {"reward": {"k_walk_yaw_offset_hold": 6.0,
+                      "walk_yaw_offset_tol_rad": 0.05,
+                      "walk_yaw_offset_hold_leg_gate": 1.0,
+                      "walk_yaw_offset_hold_leg_window_s": 1.0,
+                      "walk_yaw_offset_hold_leg_floor_scale":
+                          [1.0, 0.5, 1.0, 1.0, 0.5, 1.0]}}
+    env = _make_contact_env(cfg, forces=[9.0, 0.0, 9.0, 9.0, 0.0, 9.0])
+    info = {}
+    r = wry.yaw_offset_kernel(env, _FakeGoal(0.02), info, 0.0)
+    # legs 1/4 fully airborne either way -> credit 0 regardless of the
+    # scaled floor (0/anything == 0) -> factor unchanged at 4/6
+    assert info["walk_yaw_offset_hold_leg_factor"] == pytest.approx(4 / 6)
+    assert r == pytest.approx(6.0 * 4 / 6)
 
 
 def test_leg_agg_unset_is_bit_exact_mean(monkeypatch):

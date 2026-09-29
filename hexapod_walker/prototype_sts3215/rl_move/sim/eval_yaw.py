@@ -77,14 +77,19 @@ def main() -> int:
     cfg_kw = {}
     if args.cfg_set:
         from rl_move.config import load_config
+
+        from .cfg_set import _parse_cfg_set
+        # Parsing MUST share cfg_set._parse_cfg_set, not a local
+        # float-or-string reimplementation (same bug class fixed in
+        # eval_cmd_suite.py 2026-08-30: a bare float/str parser keeps a
+        # '[..]' JSON-list value -- e.g. goal.walk_heading_set=[] -- as
+        # the literal bracketed STRING, which crashes float('[]') deep
+        # in walk_task's heading-set parsing. Caught 2026-09-29 on
+        # cw-walk50hz-tf128l2h16-yaw-contract-turngate-s0's own gate
+        # eval_yaw invocation.)
         cfg = load_config()
-        for spec in args.cfg_set:
-            key, val = spec.split("=", 1)
+        for key, parsed in _parse_cfg_set(args.cfg_set).items():
             sect, name = key.split(".", 1)
-            try:
-                parsed: float | str = float(val)
-            except ValueError:
-                parsed = val.strip()
             cfg.setdefault(sect, {})[name] = parsed
         cfg_kw["cfg"] = cfg
     env = SimHexapodJointWalkEnv(

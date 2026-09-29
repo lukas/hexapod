@@ -553,6 +553,23 @@ def yaw_offset_kernel(env, goal, info, reward):
         win_s = float(cfg_get(
             env.cfg, "reward",
             "walk_yaw_offset_hold_leg_window_s", default=1.0))
+        # AGGREGATION SHAPE (2026-09-29, floor05-canary2m s1 dig-in):
+        # mean-of-6-legs (the default/legacy shape) dilutes ONE
+        # chronically-sacrificed leg's shortfall to 1/6 of the whole
+        # factor -- a single flag-leg near-zero duty still nets ~0.83
+        # income multiplier, and lowering/widening the floor/window
+        # (both tried, both closed) only makes that dilution worse or
+        # unchanged, never better, because the floor sets a CREDIT
+        # CEILING (min(duty/floor,1)) not a punishment threshold --
+        # shrinking it makes a low-duty leg reach full credit sooner.
+        # "min" aggregation instead prices the SINGLE WORST leg at full
+        # strength (income multiplier = that leg's own credit), a
+        # structurally different shape, not another dose of the mean
+        # gate's threshold/window. Default "mean" is bit-exact legacy;
+        # cfg reward.walk_yaw_offset_hold_leg_agg in {"mean","min"}.
+        agg = str(cfg_get(
+            env.cfg, "reward",
+            "walk_yaw_offset_hold_leg_agg", default="mean"))
         n_win = max(1, int(round(win_s / env.dt)))
         hist = getattr(env, "_yoff_leg_duty_hist", None) or []
         hist.append(yaw_offset_hold_leg_contacts(env))
@@ -561,7 +578,7 @@ def yaw_offset_kernel(env, goal, info, reward):
         env._yoff_leg_duty_hist = hist
         if len(hist) >= n_win:
             duty = [sum(col) / len(hist) for col in zip(*hist)]
-            leg_factor = yaw_offset_hold_leg_factor(duty, floor_d)
+            leg_factor = yaw_offset_hold_leg_factor(duty, floor_d, agg=agg)
         info["walk_yaw_offset_hold_leg_factor"] = leg_factor
 
     if k_kernel > 0.0:
@@ -583,15 +600,23 @@ def yaw_offset_kernel(env, goal, info, reward):
     return reward
 
 
-def yaw_offset_hold_leg_factor(duty: list, floor_d: float) -> float:
-    """Mean per-leg credit min(duty/floor, 1) — pure math, unit-tested.
+def yaw_offset_hold_leg_factor(duty: list, floor_d: float,
+                                agg: str = "mean") -> float:
+    """Per-leg credit min(duty/floor, 1), aggregated across 6 legs —
+    pure math, unit-tested.
 
     1.0 when every leg's trailing-window contact duty is at/above the
-    floor (a healthy hold); each unloaded leg reduces the factor
-    independently (per-leg additive, smooth in each leg's duty)."""
+    floor (a healthy hold). agg="mean" (default/legacy): each unloaded
+    leg reduces the factor independently (per-leg additive, smooth in
+    each leg's duty, but a single sacrificed leg only costs 1/6 of the
+    factor). agg="min": the factor IS the worst leg's own credit --
+    one chronically-sacrificed leg prices the whole income term at its
+    own shortfall, no dilution across the other five legs."""
     if floor_d <= 0.0 or not duty:
         return 1.0
     credits = [min(max(float(d), 0.0) / floor_d, 1.0) for d in duty]
+    if agg == "min":
+        return float(min(credits))
     return float(sum(credits) / len(credits))
 
 

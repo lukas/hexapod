@@ -399,6 +399,59 @@ def test_kernel_leg_gate_full_income_for_healthy_approach():
     assert r == pytest.approx(6.0)
 
 
+def test_leg_factor_min_agg_pure_math():
+    """agg='min': factor is the single worst leg's own credit, not the
+    mean -- one dead leg among five healthy ones costs the SAME as six
+    dead legs (0.0), unlike mean-agg which only pays 1/6 of the price."""
+    assert wry.yaw_offset_hold_leg_factor(
+        [1.0] * 6, 0.10, agg="min") == pytest.approx(1.0)
+    assert wry.yaw_offset_hold_leg_factor(
+        [1.0, 1.0, 1.0, 0.0, 1.0, 1.0], 0.10, agg="min") == pytest.approx(0.0)
+    # duty at half the floor on the worst leg -> factor 0.5 regardless
+    # of the other five legs being fully healthy
+    assert wry.yaw_offset_hold_leg_factor(
+        [0.05] + [1.0] * 5, 0.10, agg="min") == pytest.approx(0.5)
+    # degenerate floor: no gating regardless of agg
+    assert wry.yaw_offset_hold_leg_factor(
+        [0.0] * 6, 0.0, agg="min") == 1.0
+    # default agg is still "mean" (positional-call bit-exactness)
+    assert wry.yaw_offset_hold_leg_factor(
+        [1.0, 1.0, 1.0, 0.0, 1.0, 0.0], 0.10) == pytest.approx(4 / 6)
+
+
+def test_hold_leg_gate_min_agg_prices_single_flag_leg_at_full_strength():
+    """cfg walk_yaw_offset_hold_leg_agg='min': one airborne leg among
+    five planted -> factor equals that leg's own credit (0.0 here, force
+    0), not the mean-agg 5/6 -- the min shape prices a lone sacrificed
+    leg far harder than the default mean shape."""
+    cfg = {"reward": {"k_walk_yaw_offset_hold": 6.0,
+                      "walk_yaw_offset_tol_rad": 0.05,
+                      "walk_yaw_offset_hold_leg_gate": 1.0,
+                      "walk_yaw_offset_hold_leg_window_s": 1.0,
+                      "walk_yaw_offset_hold_leg_agg": "min"}}
+    env = _make_contact_env(cfg, forces=[9.0, 9.0, 9.0, 9.0, 9.0, 0.0])
+    info = {}
+    r = wry.yaw_offset_kernel(env, _FakeGoal(0.02), info, 0.0)
+    assert info["walk_yaw_offset_hold_leg_factor"] == pytest.approx(0.0)
+    assert info["reward_walk_yaw_offset_hold"] == pytest.approx(0.0)
+    assert r == pytest.approx(0.0)
+
+
+def test_leg_agg_unset_is_bit_exact_mean(monkeypatch):
+    """cfg key entirely absent (legacy configs / bothleggate-canary2m
+    lineage): behavior is identical to explicit agg='mean' -- adding
+    the new key cannot silently change any prior run's reward."""
+    cfg = {"reward": {"k_walk_yaw_offset_hold": 6.0,
+                      "walk_yaw_offset_tol_rad": 0.05,
+                      "walk_yaw_offset_hold_leg_gate": 1.0,
+                      "walk_yaw_offset_hold_leg_window_s": 1.0}}
+    env = _make_contact_env(cfg, forces=[9.0, 9.0, 9.0, 0.0, 9.0, 0.0])
+    info = {}
+    r = wry.yaw_offset_kernel(env, _FakeGoal(0.02), info, 0.0)
+    assert info["walk_yaw_offset_hold_leg_factor"] == pytest.approx(4 / 6)
+    assert r == pytest.approx(6.0 * 4 / 6)
+
+
 def test_kernel_and_hold_leg_gates_share_one_history_and_can_differ():
     """Both gates enabled with different doses: ONE shared duty
     history/factor feeds both terms (no double sensor read, no drift

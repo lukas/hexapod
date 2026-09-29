@@ -553,30 +553,21 @@ def yaw_offset_kernel(env, goal, info, reward):
         win_s = float(cfg_get(
             env.cfg, "reward",
             "walk_yaw_offset_hold_leg_window_s", default=1.0))
-        # AGGREGATION SHAPE (2026-09-29, floor05-canary2m s1 dig-in):
-        # mean-of-6-legs (the default/legacy shape) dilutes ONE
-        # chronically-sacrificed leg's shortfall to 1/6 of the whole
-        # factor -- a single flag-leg near-zero duty still nets ~0.83
-        # income multiplier, and lowering/widening the floor/window
-        # (both tried, both closed) only makes that dilution worse or
-        # unchanged, never better, because the floor sets a CREDIT
-        # CEILING (min(duty/floor,1)) not a punishment threshold --
-        # shrinking it makes a low-duty leg reach full credit sooner.
-        # "min" aggregation instead prices the SINGLE WORST leg at full
-        # strength (income multiplier = that leg's own credit), a
-        # structurally different shape, not another dose of the mean
-        # gate's threshold/window. Default "mean" is bit-exact legacy;
-        # cfg reward.walk_yaw_offset_hold_leg_agg in {"mean","min"}.
-        agg = str(cfg_get(
-            env.cfg, "reward",
-            "walk_yaw_offset_hold_leg_agg", default="mean"))
-        # PER-LEG FLOOR SCALE (2026-09-29, bothleggate-minagg-canary2m
-        # pair read): cfg reward.walk_yaw_offset_hold_leg_floor_scale,
-        # length-6 list, default None -> all 1.0 -> bit-exact legacy
-        # uniform floor. See yaw_offset_hold_leg_factor docstring.
-        floor_scale = cfg_get(
-            env.cfg, "reward",
-            "walk_yaw_offset_hold_leg_floor_scale", default=None)
+        # AGGREGATION SHAPE / PER-LEG FLOOR SCALE (closed 2026-09-29):
+        # two mechanism-tuning variants on this mean-of-6-legs factor
+        # were tried and refuted as improvements over plain mean/
+        # uniform-floor -- "min"-aggregation (single-worst-leg pricing,
+        # walk_yaw_offset_hold_leg_agg) regressed one seed of its pair
+        # (bothleggate-minagg-canary2m: s0 regressed, s1 improved, pair
+        # closed mixed), and a per-leg floor_scale halving the floor
+        # for the two zero-moment-arm mid legs (bothleggate-floorscale-
+        # canary2m) made duty-floor violations WORSE on BOTH seeds (s0
+        # 7->11/24, s1 12->14/24) vs the plain-mean/uniform-floor
+        # parent. Both variants removed with their tests; the mid-leg
+        # duty deficit stands as an accepted structural cost of this
+        # task (legs 1/4 mounted at x=0.0, zero fore-aft moment arm per
+        # mesh XML), not a reward-fixable asymmetry. Plain mean over
+        # 6 legs against one uniform floor is the only remaining shape.
         n_win = max(1, int(round(win_s / env.dt)))
         hist = getattr(env, "_yoff_leg_duty_hist", None) or []
         hist.append(yaw_offset_hold_leg_contacts(env))
@@ -585,8 +576,7 @@ def yaw_offset_kernel(env, goal, info, reward):
         env._yoff_leg_duty_hist = hist
         if len(hist) >= n_win:
             duty = [sum(col) / len(hist) for col in zip(*hist)]
-            leg_factor = yaw_offset_hold_leg_factor(
-                duty, floor_d, agg=agg, floor_scale=floor_scale)
+            leg_factor = yaw_offset_hold_leg_factor(duty, floor_d)
         info["walk_yaw_offset_hold_leg_factor"] = leg_factor
 
     if k_kernel > 0.0:
@@ -608,47 +598,30 @@ def yaw_offset_kernel(env, goal, info, reward):
     return reward
 
 
-def yaw_offset_hold_leg_factor(duty: list, floor_d, agg: str = "mean",
-                                floor_scale=None) -> float:
-    """Per-leg credit min(duty/floor, 1), aggregated across 6 legs —
-    pure math, unit-tested.
+def yaw_offset_hold_leg_factor(duty: list, floor_d) -> float:
+    """Per-leg credit min(duty/floor, 1), mean over 6 legs — pure
+    math, unit-tested.
 
     1.0 when every leg's trailing-window contact duty is at/above the
-    floor (a healthy hold). agg="mean" (default/legacy): each unloaded
-    leg reduces the factor independently (per-leg additive, smooth in
-    each leg's duty, but a single sacrificed leg only costs 1/6 of the
-    factor). agg="min": the factor IS the worst leg's own credit --
-    one chronically-sacrificed leg prices the whole income term at its
-    own shortfall, no dilution across the other five legs.
+    floor (a healthy hold). Each unloaded leg reduces the factor
+    independently (per-leg additive, smooth in each leg's duty).
 
-    floor_scale (2026-09-29, bothleggate-minagg-canary2m pair read):
-    optional length-6 multiplier applied to floor_d PER LEG before the
-    credit ratio (leg_floor[i] = floor_d * floor_scale[i]). Default
-    None == all 1.0 == bit-exact legacy (uniform floor). Motivation:
-    the minagg pair showed the chronically-sacrificed leg migrate
-    leg1->leg4 rather than disappear -- legs 1/4 are VERIFIED (mesh
-    XML mount coords) the only two of six with x=0.0 foot-mount
-    (mounted at +-90 deg; corners at +-30/+-150 have x=+-0.0866), i.e.
-    zero fore-aft moment arm and no pitch-stabilizing role in a
-    stationary-heading hold (vx=vy=0) -- a uniform duty floor prices
-    them for a stabilizing contribution they are structurally unable
-    to make. A lower floor_scale for those legs targets that real
-    asymmetry instead of another uniform-shape dose."""
+    A "min" aggregation (single-worst-leg pricing) and a per-leg
+    floor_scale (lower floor for the two zero-moment-arm mid legs)
+    were both tried and refuted as improvements over this plain shape
+    (2026-09-29, bothleggate-minagg-canary2m and bothleggate-
+    floorscale-canary2m pairs) — see walk_yaw_offset_hold_leg_gate's
+    call-site comment. Removed with their tests; do not re-add either
+    without a new structural argument, not another dose."""
     if not duty:
         return 1.0
-    n = len(duty)
-    if floor_scale is None:
-        floors = [float(floor_d)] * n
-    else:
-        floors = [float(floor_d) * float(floor_scale[i]) for i in range(n)]
+    floor_d = float(floor_d)
     credits = []
-    for d, f in zip(duty, floors):
-        if f <= 0.0:
+    for d in duty:
+        if floor_d <= 0.0:
             credits.append(1.0)
         else:
-            credits.append(min(max(float(d), 0.0) / f, 1.0))
-    if agg == "min":
-        return float(min(credits))
+            credits.append(min(max(float(d), 0.0) / floor_d, 1.0))
     return float(sum(credits) / len(credits))
 
 

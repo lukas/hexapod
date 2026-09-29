@@ -505,20 +505,23 @@ def yaw_offset_kernel(env, goal, info, reward, along=0.0, s_ref=0.0):
     # defect walk_yaw_hold_prog_gate already repaired for the rate-
     # kernel income above. Mirror image of that validated gate: on
     # ticks with an active linear command (s_ref > 1e-3) both offset
-    # income terms are scaled by (1-g) + g*clip(along/s_ref, 0, 1),
-    # using the SAME stride-EMA `along` freeprog prices (passed from
-    # the walk_task callsite) so within-stride sway cannot fire it.
+    # income terms are scaled by clip(along/s_ref, 0, 1), using the
+    # SAME stride-EMA `along` freeprog prices (passed from the
+    # walk_task callsite) so within-stride sway cannot fire it.
     # Offset-command episodes force s_ref ~ 0, so the gate is inert
-    # there even when on -- the existing frac=1.0 recipe is bit-exact
-    # with the flag SET, and default 0.0 = off is bit-exact for
-    # everyone else (no new info key). cfg reward.walk_yaw_offset_
-    # prog_gate in [0,1]. See test_walk_yaw_offset.py prog-gate tests.
+    # there -- the frac=1.0 recipes are bit-exact. ADOPTED
+    # UNCONDITIONAL at full strength 2026-09-29 (dial
+    # reward.walk_yaw_offset_prog_gate removed) per the mixwalk05-
+    # canary2m s0/s1 CANARY_PASS pair: with the gate at 1.0 the walk
+    # half of the mixed curriculum executed (env/reward_walk nonzero
+    # 100% of steps) while hold convergence stayed intact (terminal
+    # deciles 0.028/0.030 rad). Like the leg-health gate below, this
+    # only ever runs inside the opt-in offset-command path (early
+    # return above); no other recipe is affected. See
+    # test_walk_yaw_offset.py prog-gate tests.
     prog_factor = 1.0
-    g_prog = float(cfg_get(env.cfg, "reward",
-                           "walk_yaw_offset_prog_gate", default=0.0))
-    if g_prog > 0.0 and s_ref > 1e-3:
-        frac = min(max(along / s_ref, 0.0), 1.0)
-        prog_factor = (1.0 - g_prog) + g_prog * frac
+    if s_ref > 1e-3:
+        prog_factor = min(max(along / s_ref, 0.0), 1.0)
         info["walk_yaw_offset_prog_factor"] = prog_factor
     env._yaw_offset_achieved += env._body_wz() * env.dt
     err = target - env._yaw_offset_achieved

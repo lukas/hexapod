@@ -1,0 +1,59 @@
+# GPU vision lab pod: one H200 on the CoreWeave cluster for offline video
+# models (VLM behaviour classification, pose probes) over Robot Lab footage.
+# Data lives on the RWX PVC so the pod can be recreated without re-upload.
+# Apply:  KUBECONFIG=~/.kube/coreweave.yaml kubectl apply -f vision-lab.yaml
+# Jobs:   kubectl cp job.sh hexapod-vision-lab:/data/jobs/ && kubectl exec hexapod-vision-lab -- bash /data/jobs/job.sh
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hexapod-vision-data
+  namespace: default
+spec:
+  accessModes: ["ReadWriteMany"]
+  storageClassName: shared-vast
+  resources:
+    requests:
+      storage: 200Gi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hexapod-vision-lab
+  namespace: default
+  labels:
+    app: hexapod-vision-lab
+spec:
+  restartPolicy: Always
+  nodeSelector:
+    kubernetes.io/hostname: g13e3e6
+  containers:
+    - name: lab
+      image: vllm/vllm-openai:latest
+      imagePullPolicy: IfNotPresent
+      command: ["sleep", "infinity"]
+      workingDir: /data
+      env:
+        - name: HF_HOME
+          value: /data/hf
+        - name: HF_HUB_ENABLE_HF_TRANSFER
+          value: "1"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+      resources:
+        requests:
+          cpu: "8"
+          memory: 64Gi
+          nvidia.com/gpu: "1"
+        limits:
+          cpu: "12"
+          memory: 96Gi
+          nvidia.com/gpu: "1"
+      volumeMounts:
+        - { mountPath: /data, name: data }
+        - { mountPath: /dev/shm, name: dshm }
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: hexapod-vision-data
+    - name: dshm
+      emptyDir: { medium: Memory, sizeLimit: 16Gi }

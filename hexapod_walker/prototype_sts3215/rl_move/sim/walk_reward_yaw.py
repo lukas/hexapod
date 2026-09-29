@@ -445,7 +445,7 @@ def yaw_rate_kernel(env, along, goal, info, reward, s_ref):
     return reward
 
 
-def yaw_offset_kernel(env, goal, info, reward):
+def yaw_offset_kernel(env, goal, info, reward, along=0.0, s_ref=0.0):
     """Task-space TURN-OFFSET reward (walkcurr Next item; design
     sketched track STATUS.md 2026-09-25 ~13:5x, built 2026-09-26 after
     the rate-based tip_frac==0 "walk+curve specialist" composition
@@ -493,6 +493,33 @@ def yaw_offset_kernel(env, goal, info, reward):
     if not getattr(env, "_yaw_offset_cmd", False):
         return reward
     target = float(getattr(goal, "yaw_offset_ref", 0.0))
+    # PROGRESS GATE on active-speed ticks (built 2026-09-29, speedwiden
+    # s1 dig-in verdict: the speedwiden pair was INVALID because
+    # goal.walk_yaw_offset_frac=1.0 zeroes every command, so composing
+    # the offset-hold skill with real forward walking requires a MIXED
+    # curriculum, frac<1.0 -- but on those non-offset walk episodes
+    # goal.yaw_offset_ref stays 0.0 and this kernel would pay the
+    # dominant k_walk_yaw_offset_hold (50/tick in the lineage) to a
+    # MOTIONLESS body whose heading trivially holds, the third
+    # recurrence of the 08-11 stillness-subsidy class and the exact
+    # defect walk_yaw_hold_prog_gate already repaired for the rate-
+    # kernel income above. Mirror image of that validated gate: on
+    # ticks with an active linear command (s_ref > 1e-3) both offset
+    # income terms are scaled by (1-g) + g*clip(along/s_ref, 0, 1),
+    # using the SAME stride-EMA `along` freeprog prices (passed from
+    # the walk_task callsite) so within-stride sway cannot fire it.
+    # Offset-command episodes force s_ref ~ 0, so the gate is inert
+    # there even when on -- the existing frac=1.0 recipe is bit-exact
+    # with the flag SET, and default 0.0 = off is bit-exact for
+    # everyone else (no new info key). cfg reward.walk_yaw_offset_
+    # prog_gate in [0,1]. See test_walk_yaw_offset.py prog-gate tests.
+    prog_factor = 1.0
+    g_prog = float(cfg_get(env.cfg, "reward",
+                           "walk_yaw_offset_prog_gate", default=0.0))
+    if g_prog > 0.0 and s_ref > 1e-3:
+        frac = min(max(along / s_ref, 0.0), 1.0)
+        prog_factor = (1.0 - g_prog) + g_prog * frac
+        info["walk_yaw_offset_prog_factor"] = prog_factor
     env._yaw_offset_achieved += env._body_wz() * env.dt
     err = target - env._yaw_offset_achieved
     info["walk_yaw_offset_target"] = target
@@ -572,7 +599,7 @@ def yaw_offset_kernel(env, goal, info, reward):
             env.cfg, "reward", "walk_yaw_offset_sigma_rad",
             default=0.35)), 1e-6)
         base = k_kernel * math.exp(-(err ** 2) / (2.0 * sigma ** 2))
-        r_off = base * leg_factor
+        r_off = base * leg_factor * prog_factor
         reward = float(reward) + r_off
         info["reward_walk_yaw_offset"] = r_off
 
@@ -580,7 +607,7 @@ def yaw_offset_kernel(env, goal, info, reward):
         tol = float(cfg_get(env.cfg, "reward",
                             "walk_yaw_offset_tol_rad", default=0.07))
         if abs(err) <= tol:
-            r_hold = k_hold * leg_factor
+            r_hold = k_hold * leg_factor * prog_factor
             reward = float(reward) + r_hold
             info["reward_walk_yaw_offset_hold"] = r_hold
     return reward

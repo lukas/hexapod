@@ -399,3 +399,94 @@ def test_mjx_snapshot_attrs_all_present_after_reset(monkeypatch):
     for name in type(env).MJX_SNAPSHOT_EXTRA:
         assert hasattr(env, name), name
     env.close()
+
+
+# ---------------------------------------------------------------------
+# Progress gate on active-speed ticks (reward.walk_yaw_offset_prog_gate,
+# 2026-09-29 speedwiden-s1 dig-in: mixed-curriculum frac<1.0 arms need
+# the offset income prog-gated on walk episodes or a motionless body
+# collects the dominant hold bonus -- stillness-subsidy class)
+# ---------------------------------------------------------------------
+
+def test_prog_gate_default_off_is_bit_exact_with_active_speed():
+    """Key absent (default 0.0): passing an active command (s_ref>0,
+    along=0 -- the worst-case motionless body) changes NOTHING vs
+    legacy: full income, no prog-factor info key."""
+    cfg = {"reward": {"k_walk_yaw_offset_hold": 4.0,
+                      "walk_yaw_offset_tol_rad": 0.05}}
+    env = _make_env(cfg=cfg, dt=1.0, wz=0.0)
+    info = {}
+    r = wry.yaw_offset_kernel(env, _FakeGoal(0.0), info, 1.0,
+                              along=0.0, s_ref=0.06)
+    assert r == pytest.approx(5.0)
+    assert info["reward_walk_yaw_offset_hold"] == pytest.approx(4.0)
+    assert "walk_yaw_offset_prog_factor" not in info
+
+
+def test_prog_gate_zeroes_income_for_motionless_body_on_walk_ticks():
+    """Gate fully on (1.0): a body holding heading (err 0) but making
+    ZERO along-command progress on an active-speed tick earns 0 from
+    BOTH offset income terms (the stillness subsidy is gone)."""
+    cfg = {"reward": {"k_walk_yaw_offset": 3.0,
+                      "k_walk_yaw_offset_hold": 4.0,
+                      "walk_yaw_offset_tol_rad": 0.05,
+                      "walk_yaw_offset_prog_gate": 1.0}}
+    env = _make_env(cfg=cfg, dt=1.0, wz=0.0)
+    info = {}
+    r = wry.yaw_offset_kernel(env, _FakeGoal(0.0), info, 1.0,
+                              along=0.0, s_ref=0.06)
+    assert r == pytest.approx(1.0)
+    assert info["walk_yaw_offset_prog_factor"] == pytest.approx(0.0)
+    assert info["reward_walk_yaw_offset"] == pytest.approx(0.0)
+    assert info["reward_walk_yaw_offset_hold"] == pytest.approx(0.0)
+
+
+def test_prog_gate_scales_by_progress_and_saturates_at_command():
+    """Gate on: half the commanded along-speed pays half the income;
+    exceeding the command clips at 1.0 (never punished for faster,
+    same convention as walk_yaw_hold_prog_gate/freeprog)."""
+    cfg = {"reward": {"k_walk_yaw_offset_hold": 4.0,
+                      "walk_yaw_offset_tol_rad": 0.05,
+                      "walk_yaw_offset_prog_gate": 1.0}}
+    env_half = _make_env(cfg=cfg, dt=1.0, wz=0.0)
+    info_half = {}
+    r_half = wry.yaw_offset_kernel(env_half, _FakeGoal(0.0), info_half,
+                                   0.0, along=0.03, s_ref=0.06)
+    assert r_half == pytest.approx(2.0)
+    assert info_half["walk_yaw_offset_prog_factor"] == pytest.approx(0.5)
+    env_over = _make_env(cfg=cfg, dt=1.0, wz=0.0)
+    info_over = {}
+    r_over = wry.yaw_offset_kernel(env_over, _FakeGoal(0.0), info_over,
+                                   0.0, along=0.12, s_ref=0.06)
+    assert r_over == pytest.approx(4.0)
+    assert info_over["walk_yaw_offset_prog_factor"] == pytest.approx(1.0)
+
+
+def test_prog_gate_inert_on_offset_ticks_even_when_set():
+    """Gate SET but s_ref ~ 0 (every offset-command episode forces the
+    linear command to zero): income untouched, no prog-factor info key
+    -- the existing frac=1.0 recipe is bit-exact with the flag on."""
+    cfg = {"reward": {"k_walk_yaw_offset_hold": 4.0,
+                      "walk_yaw_offset_tol_rad": 0.05,
+                      "walk_yaw_offset_prog_gate": 1.0}}
+    env = _make_env(cfg=cfg, dt=1.0, wz=0.0)
+    info = {}
+    r = wry.yaw_offset_kernel(env, _FakeGoal(0.0), info, 1.0,
+                              along=0.0, s_ref=0.0)
+    assert r == pytest.approx(5.0)
+    assert info["reward_walk_yaw_offset_hold"] == pytest.approx(4.0)
+    assert "walk_yaw_offset_prog_factor" not in info
+
+
+def test_prog_gate_partial_dose_blends_toward_identity():
+    """Gate at 0.5: a motionless body keeps (1-g)=50% of the income --
+    same blend convention as walk_yaw_hold_prog_gate."""
+    cfg = {"reward": {"k_walk_yaw_offset_hold": 4.0,
+                      "walk_yaw_offset_tol_rad": 0.05,
+                      "walk_yaw_offset_prog_gate": 0.5}}
+    env = _make_env(cfg=cfg, dt=1.0, wz=0.0)
+    info = {}
+    r = wry.yaw_offset_kernel(env, _FakeGoal(0.0), info, 0.0,
+                              along=0.0, s_ref=0.06)
+    assert r == pytest.approx(2.0)
+    assert info["walk_yaw_offset_prog_factor"] == pytest.approx(0.5)

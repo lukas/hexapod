@@ -3381,7 +3381,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             reward = walk_reward_yaw.anti_drift_yaw_pricing(self,
                 goal, info, reward)
             reward = walk_reward_yaw.yaw_offset_kernel(self,
-                goal, info, reward)
+                goal, info, reward, along=along, s_ref=s_ref)
             r_walk, support_gate = walk_reward_gates.kernel_progress_gate(self,
                 along, info, r_walk, s_ref)
             r_walk, r_freeze = (

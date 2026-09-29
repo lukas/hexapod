@@ -45,6 +45,18 @@ def _make_env(cfg, dt=0.02, wz=0.0, yaw_offset_cmd=True):
     e._yaw_offset_cmd = yaw_offset_cmd
     e._yaw_offset_achieved = 0.0
     e._body_wz = lambda: wz
+    # Default all-six-feet-planted contact state (2026-09-29 leg-gate
+    # adoption: the gate is now unconditional whenever an offset income
+    # term is on, so every basic-mechanics test below needs SOME
+    # working touch-sensor state -- all-planted is the neutral choice,
+    # giving leg_factor==1.0 and leaving every pre-adoption assertion
+    # bit-exact. Tests that specifically probe the gate use
+    # _make_contact_env with deliberately unloaded legs instead.
+    class _Data:
+        pass
+    e.data = _Data()
+    e.data.sensordata = [9.0] * 6
+    e._touch_adr = list(range(6))
     return e
 
 
@@ -238,18 +250,21 @@ def test_zero_frac_never_draws_despite_configured_set(monkeypatch):
 
 
 # ---------------------------------------------------------------------
-# Leg-health gate, shared by the hold bonus (reward.walk_yaw_offset_
-# hold_leg_gate, 2026-09-28 yawoffset-acq1 dig-in) and the approach
-# kernel (reward.walk_yaw_offset_kernel_leg_gate, added same day per
-# the holdleggate-canary2m read: tracking converged and the hold gate
-# engaged, but own-cfg eval still showed a MAJORITY of episodes with a
-# leg under the duty floor -- the kernel term, paid every tick
-# regardless of tolerance, was still unconditionally pricing an
-# unloaded-leg approach). The offset draw forces s_ref~0 so every
-# s_ref-gated anti-sacrifice term is inert on offset episodes -- these
-# gates price unloaded legs directly inside the offset income instead.
-# Pure mechanics against the same fake-env pattern as above (touch
-# sensors faked via _touch_adr/data.sensordata).
+# Leg-health gate, ADOPTED unconditional 2026-09-29 (whenever k_walk_
+# yaw_offset or k_walk_yaw_offset_hold is on): shared by the hold bonus
+# and the approach kernel (2026-09-28 yawoffset-acq1 dig-in / holdleg-
+# gate-canary2m read: tracking converged and the hold gate engaged,
+# but own-cfg eval still showed a MAJORITY of episodes with a leg
+# under the duty floor -- the kernel term, paid every tick regardless
+# of tolerance, was still unconditionally pricing an unloaded-leg
+# approach). The offset draw forces s_ref~0 so every s_ref-gated
+# anti-sacrifice term is inert on offset episodes -- this gate prices
+# unloaded legs directly inside the offset income instead. Adoption
+# evidence: acq5 s1 (8M-step, full budget) PASS with the gate on
+# (gait_valid 17/24, duty violations 7/24) vs the pre-gate acq1
+# control's FAIL both seeds (gait_valid 0/6). Pure mechanics against
+# the same fake-env pattern as above (touch sensors faked via
+# _touch_adr/data.sensordata).
 # ---------------------------------------------------------------------
 
 def _make_contact_env(cfg, forces, dt=1.0, wz=0.0):
@@ -277,27 +292,12 @@ def test_leg_factor_pure_math():
     assert wry.yaw_offset_hold_leg_factor([0.0] * 6, 0.0) == 1.0
 
 
-def test_hold_leg_gate_off_is_bit_exact_and_stateless():
-    """Gate key unset: hold branch pays the flat k_hold exactly as
-    before, writes no factor info key and touches no contact state
-    (no data/sensordata access at all -- the fake env has none)."""
-    cfg = {"reward": {"k_walk_yaw_offset_hold": 4.0,
-                      "walk_yaw_offset_tol_rad": 0.05}}
-    env = _make_env(cfg=cfg, dt=1.0, wz=0.0)
-    info = {}
-    r = wry.yaw_offset_kernel(env, _FakeGoal(0.02), info, 1.0)
-    assert r == pytest.approx(5.0)
-    assert info["reward_walk_yaw_offset_hold"] == pytest.approx(4.0)
-    assert "walk_yaw_offset_hold_leg_factor" not in info
-    assert not hasattr(env, "_yoff_leg_duty_hist")
-
-
 def test_hold_leg_gate_scales_income_by_unloaded_legs():
-    """Gate 1.0, window one tick (win_s == dt): two legs airborne
-    (force 0) -> factor 4/6 -> hold income k_hold * 4/6."""
+    """Window one tick (win_s == dt): two legs airborne (force 0) ->
+    factor 4/6 -> hold income k_hold * 4/6 (unconditional whenever
+    k_walk_yaw_offset_hold is on -- no separate gate dial)."""
     cfg = {"reward": {"k_walk_yaw_offset_hold": 6.0,
                       "walk_yaw_offset_tol_rad": 0.05,
-                      "walk_yaw_offset_hold_leg_gate": 1.0,
                       "walk_yaw_offset_hold_leg_window_s": 1.0}}
     env = _make_contact_env(cfg, forces=[9.0, 9.0, 9.0, 0.0, 9.0, 0.0])
     info = {}
@@ -313,7 +313,6 @@ def test_hold_leg_gate_full_income_for_healthy_hold():
     correct hold."""
     cfg = {"reward": {"k_walk_yaw_offset_hold": 6.0,
                       "walk_yaw_offset_tol_rad": 0.05,
-                      "walk_yaw_offset_hold_leg_gate": 1.0,
                       "walk_yaw_offset_hold_leg_window_s": 1.0}}
     env = _make_contact_env(cfg, forces=[9.0] * 6)
     info = {}
@@ -329,7 +328,6 @@ def test_hold_leg_gate_spawn_grace_until_window_fills():
     dead legs start costing income."""
     cfg = {"reward": {"k_walk_yaw_offset_hold": 6.0,
                       "walk_yaw_offset_tol_rad": 0.05,
-                      "walk_yaw_offset_hold_leg_gate": 1.0,
                       "walk_yaw_offset_hold_leg_window_s": 2.0}}
     env = _make_contact_env(cfg, forces=[9.0, 9.0, 9.0, 0.0, 9.0, 0.0],
                             dt=1.0)
@@ -343,39 +341,12 @@ def test_hold_leg_gate_spawn_grace_until_window_fills():
     assert info2["reward_walk_yaw_offset_hold"] == pytest.approx(6.0 * 4 / 6)
 
 
-def test_hold_leg_gate_partial_dose_blends_toward_ungated():
-    """gate=0.5 blends: income = k*(0.5 + 0.5*factor)."""
-    cfg = {"reward": {"k_walk_yaw_offset_hold": 6.0,
-                      "walk_yaw_offset_tol_rad": 0.05,
-                      "walk_yaw_offset_hold_leg_gate": 0.5,
-                      "walk_yaw_offset_hold_leg_window_s": 1.0}}
-    env = _make_contact_env(cfg, forces=[9.0, 9.0, 9.0, 0.0, 9.0, 0.0])
-    info = {}
-    wry.yaw_offset_kernel(env, _FakeGoal(0.02), info, 0.0)
-    assert info["reward_walk_yaw_offset_hold"] == pytest.approx(
-        6.0 * (0.5 + 0.5 * 4 / 6))
-
-
-def test_kernel_leg_gate_off_is_bit_exact_and_stateless():
-    """Kernel gate key unset: approach term pays the ungated Gaussian
-    exactly as before, no factor info key, no contact state touched
-    (mirrors test_hold_leg_gate_off_is_bit_exact_and_stateless)."""
-    cfg = {"reward": {"k_walk_yaw_offset": 4.0}}
-    env = _make_env(cfg=cfg, dt=1.0, wz=0.0)
-    info = {}
-    r = wry.yaw_offset_kernel(env, _FakeGoal(0.0), info, 1.0)
-    assert r == pytest.approx(5.0)
-    assert info["reward_walk_yaw_offset"] == pytest.approx(4.0)
-    assert "walk_yaw_offset_hold_leg_factor" not in info
-    assert not hasattr(env, "_yoff_leg_duty_hist")
-
-
 def test_kernel_leg_gate_scales_approach_income_by_unloaded_legs():
-    """walk_yaw_offset_kernel_leg_gate=1.0, one-tick window: two legs
-    airborne -> factor 4/6 -> kernel income k_kernel*4/6 (same shared
-    factor math as the hold gate, applied to the approach term)."""
+    """One-tick window: two legs airborne -> factor 4/6 -> kernel
+    income k_kernel*4/6 (same shared factor math as the hold gate,
+    applied to the approach term, unconditional whenever
+    k_walk_yaw_offset is on)."""
     cfg = {"reward": {"k_walk_yaw_offset": 6.0,
-                      "walk_yaw_offset_kernel_leg_gate": 1.0,
                       "walk_yaw_offset_hold_leg_window_s": 1.0}}
     env = _make_contact_env(cfg, forces=[9.0, 9.0, 9.0, 0.0, 9.0, 0.0])
     info = {}
@@ -389,7 +360,6 @@ def test_kernel_leg_gate_full_income_for_healthy_approach():
     """All six feet planted: factor 1.0, kernel income identical to
     the ungated term -- the gate never fights a correct approach."""
     cfg = {"reward": {"k_walk_yaw_offset": 6.0,
-                      "walk_yaw_offset_kernel_leg_gate": 1.0,
                       "walk_yaw_offset_hold_leg_window_s": 1.0}}
     env = _make_contact_env(cfg, forces=[9.0] * 6)
     info = {}
@@ -399,16 +369,13 @@ def test_kernel_leg_gate_full_income_for_healthy_approach():
     assert r == pytest.approx(6.0)
 
 
-def test_kernel_and_hold_leg_gates_share_one_history_and_can_differ():
-    """Both gates enabled with different doses: ONE shared duty
-    history/factor feeds both terms (no double sensor read, no drift
-    between two independent histories), each term still scales by its
-    own gate dose against the same factor."""
+def test_kernel_and_hold_leg_gates_share_one_history():
+    """Both income terms enabled: ONE shared duty history/factor feeds
+    both terms (no double sensor read, no drift between two
+    independent histories) -- each term scales by the same factor."""
     cfg = {"reward": {"k_walk_yaw_offset": 4.0,
                       "k_walk_yaw_offset_hold": 6.0,
                       "walk_yaw_offset_tol_rad": 0.05,
-                      "walk_yaw_offset_kernel_leg_gate": 1.0,
-                      "walk_yaw_offset_hold_leg_gate": 0.5,
                       "walk_yaw_offset_hold_leg_window_s": 1.0}}
     env = _make_contact_env(cfg, forces=[9.0, 9.0, 9.0, 0.0, 9.0, 0.0])
     info = {}
@@ -417,8 +384,8 @@ def test_kernel_and_hold_leg_gates_share_one_history_and_can_differ():
     assert info["walk_yaw_offset_hold_leg_factor"] == pytest.approx(factor)
     assert info["reward_walk_yaw_offset"] == pytest.approx(4.0 * factor)
     assert info["reward_walk_yaw_offset_hold"] == pytest.approx(
-        6.0 * (0.5 + 0.5 * factor))
-    assert r == pytest.approx(4.0 * factor + 6.0 * (0.5 + 0.5 * factor))
+        6.0 * factor)
+    assert r == pytest.approx(4.0 * factor + 6.0 * factor)
 
 
 def test_mjx_snapshot_attrs_all_present_after_reset(monkeypatch):

@@ -503,71 +503,59 @@ def yaw_offset_kernel(env, goal, info, reward):
     k_hold = float(cfg_get(env.cfg, "reward", "k_walk_yaw_offset_hold",
                            default=0.0))
 
-    # LEG-HEALTH GATE, shared by BOTH offset income terms (2026-09-28,
-    # yawoffset-acq1 dig-in; EXTENDED to the kernel term 2026-09-28 per
-    # the holdleggate-canary2m read: tracking converged and the hold
-    # gate engaged, but own-cfg eval still showed a MAJORITY of
-    # episodes with a leg under the duty floor — the approach-phase
-    # kernel term (paid on every tick with k_walk_yaw_offset>0, unlike
-    # the hold bonus which only pays inside tolerance) was still
+    # LEG-HEALTH GATE, shared by BOTH offset income terms and ADOPTED
+    # unconditional 2026-09-29 (yawoffset-acq1 dig-in 09-28; EXTENDED to
+    # the kernel term same day per the holdleggate-canary2m read:
+    # tracking converged and the hold gate engaged, but own-cfg eval
+    # still showed a MAJORITY of episodes with a leg under the duty
+    # floor -- the approach-phase kernel term, paid every tick with
+    # k_walk_yaw_offset>0 regardless of tolerance, was still
     # unconditionally pricing an unloaded-leg approach in full, so a
     # policy could earn nearly the same income sacrificing two legs to
-    # approach the target faster/steadier as it could with six feet
-    # planted. Root cause of the ORIGINAL hold-only gate (see below):
-    # the offset draw forces vx=vy=0 (s_ref ~ 0) for the whole episode,
-    # and EVERY anti-sacrifice/anti-drag term (walk_leg_swing_gap_*,
-    # walk_leg_duty_ratio_*, all stepevent bookkeeping) is gated on
-    # s_ref > 1e-3 — with goal.walk_yaw_offset_frac=1.0 those terms
-    # never executed ONCE in the whole run, so unloading legs was
-    # literally unpriced anywhere in the offset-command path. Same
-    # stillness-subsidy defect class walk_yaw_kernel_gate/walk_yaw_
-    # hold_prog_gate (08-11) fixed on the rate stack — but those key on
-    # wz_ref/s_ref and never engage here. Fix (both instances): multiply
-    # the income term by a per-leg trailing-window CONTACT-duty factor.
+    # approach the target as it could with six feet planted). Root
+    # cause of the ORIGINAL hold-only gap: the offset draw forces
+    # vx=vy=0 (s_ref ~ 0) for the whole episode, and EVERY anti-
+    # sacrifice/anti-drag term (walk_leg_swing_gap_*, walk_leg_duty_
+    # ratio_*, all stepevent bookkeeping) is gated on s_ref > 1e-3 --
+    # with goal.walk_yaw_offset_frac=1.0 those terms never executed
+    # ONCE in the whole run, so unloading legs was literally unpriced
+    # anywhere in the offset-command path (third recurrence of the
+    # 08-11 stillness-subsidy defect class). Fix: multiply each offset
+    # income term by a per-leg trailing-window CONTACT-duty factor.
     # Each leg earns credit min(duty/floor, 1) over the last
-    # walk_yaw_offset_hold_leg_window_s seconds; factor is the mean over
-    # 6 legs, so every unloaded leg costs income independently (smooth
-    # per-leg marginal gradient — unlike the max/min-agg income terms
-    # whose all-or-nothing shape gives no reward for fixing one leg at
-    # a time). A correct hold/approach (6 planted feet) keeps duty 1.0
-    # on every leg -> factor 1.0 -> income unchanged, so this never
-    # fights the converged behavior the task wants. Window not yet
-    # filled -> factor 1.0 (spawn grace, same convention as every
-    # windowed gate). One shared history/factor computation feeds both
-    # gates (same per-leg contact signal — no reason to double the
-    # sensor reads or keep two histories in sync). cfg reward.
-    # walk_yaw_offset_hold_leg_gate / walk_yaw_offset_kernel_leg_gate,
-    # each in [0,1], default 0.0 = off, bit-exact legacy (no state
-    # touched, no info key, when BOTH are 0.0).
-    g_leg_hold = float(cfg_get(env.cfg, "reward",
-                              "walk_yaw_offset_hold_leg_gate",
-                              default=0.0))
-    g_leg_kernel = float(cfg_get(env.cfg, "reward",
-                                 "walk_yaw_offset_kernel_leg_gate",
-                                 default=0.0))
+    # walk_yaw_offset_hold_leg_window_s seconds; factor is the mean
+    # over 6 legs, so every unloaded leg costs income independently
+    # (smooth per-leg marginal gradient). A correct hold/approach (6
+    # planted feet) keeps duty 1.0 on every leg -> factor 1.0 -> income
+    # unchanged, so this never fights the converged behavior the task
+    # wants. Window not yet filled -> factor 1.0 (spawn grace, same
+    # convention as every windowed gate). One shared history/factor
+    # computation feeds both terms (same per-leg contact signal -- no
+    # reason to double the sensor reads or keep two histories in
+    # sync). Unconditional (no separate on/off dial) because every
+    # dose tried below full-strength/mean-agg was refuted: acq5's own
+    # full-8M-budget seed (s1 PASS: gait_valid 17/24, duty violations
+    # 7/24, vs the pre-gate acq1 control's 0/6 gait_valid both seeds)
+    # is the adoption evidence -- a "min" aggregation
+    # (walk_yaw_offset_hold_leg_agg) and a per-leg floor_scale for the
+    # two zero-moment-arm mid legs (legs 1/4, mesh XML mount x=0.0,
+    # zero fore-aft moment arm) were both tried and refuted as
+    # improvements over this plain mean/uniform-floor shape
+    # (2026-09-29, bothleggate-minagg-canary2m and bothleggate-
+    # floorscale-canary2m pairs, both removed with their tests) -- the
+    # mid-leg duty deficit stands as an accepted structural cost of
+    # this task, not a reward-fixable asymmetry. This whole block only
+    # ever runs on offset-command episodes (the early return above),
+    # itself an opt-in feature (goal.walk_yaw_offset_frac); no other
+    # recipe is affected.
     leg_factor = 1.0
-    if g_leg_hold > 0.0 or g_leg_kernel > 0.0:
+    if k_kernel > 0.0 or k_hold > 0.0:
         floor_d = float(cfg_get(
             env.cfg, "reward",
             "walk_yaw_offset_hold_leg_duty_floor", default=0.10))
         win_s = float(cfg_get(
             env.cfg, "reward",
             "walk_yaw_offset_hold_leg_window_s", default=1.0))
-        # AGGREGATION SHAPE / PER-LEG FLOOR SCALE (closed 2026-09-29):
-        # two mechanism-tuning variants on this mean-of-6-legs factor
-        # were tried and refuted as improvements over plain mean/
-        # uniform-floor -- "min"-aggregation (single-worst-leg pricing,
-        # walk_yaw_offset_hold_leg_agg) regressed one seed of its pair
-        # (bothleggate-minagg-canary2m: s0 regressed, s1 improved, pair
-        # closed mixed), and a per-leg floor_scale halving the floor
-        # for the two zero-moment-arm mid legs (bothleggate-floorscale-
-        # canary2m) made duty-floor violations WORSE on BOTH seeds (s0
-        # 7->11/24, s1 12->14/24) vs the plain-mean/uniform-floor
-        # parent. Both variants removed with their tests; the mid-leg
-        # duty deficit stands as an accepted structural cost of this
-        # task (legs 1/4 mounted at x=0.0, zero fore-aft moment arm per
-        # mesh XML), not a reward-fixable asymmetry. Plain mean over
-        # 6 legs against one uniform floor is the only remaining shape.
         n_win = max(1, int(round(win_s / env.dt)))
         hist = getattr(env, "_yoff_leg_duty_hist", None) or []
         hist.append(yaw_offset_hold_leg_contacts(env))
@@ -584,7 +572,7 @@ def yaw_offset_kernel(env, goal, info, reward):
             env.cfg, "reward", "walk_yaw_offset_sigma_rad",
             default=0.35)), 1e-6)
         base = k_kernel * math.exp(-(err ** 2) / (2.0 * sigma ** 2))
-        r_off = base * ((1.0 - g_leg_kernel) + g_leg_kernel * leg_factor)
+        r_off = base * leg_factor
         reward = float(reward) + r_off
         info["reward_walk_yaw_offset"] = r_off
 
@@ -592,7 +580,7 @@ def yaw_offset_kernel(env, goal, info, reward):
         tol = float(cfg_get(env.cfg, "reward",
                             "walk_yaw_offset_tol_rad", default=0.07))
         if abs(err) <= tol:
-            r_hold = k_hold * ((1.0 - g_leg_hold) + g_leg_hold * leg_factor)
+            r_hold = k_hold * leg_factor
             reward = float(reward) + r_hold
             info["reward_walk_yaw_offset_hold"] = r_hold
     return reward

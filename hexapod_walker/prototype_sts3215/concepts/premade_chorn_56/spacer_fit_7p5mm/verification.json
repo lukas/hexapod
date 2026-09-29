@@ -1,0 +1,51 @@
+{
+  "status": "physical_fit_test_only",
+  "thickness_mm": 7.5,
+  "reason": "User reports a real gap with 7 mm spacers and suspects deeper horn seating; trial +0.5 mm per spacer.",
+  "physical_fit_verified": false,
+  "published_assembly_unchanged": true,
+  "parts": [
+    {
+      "file": "driven_horn_spacer_7p5mm_fit_test.stl",
+      "source_v38_sha256": "b1eadb1649e57c0b5fa2dfa2196a71b2279a50791c568d6a2b0313765fa2654d",
+      "stl_sha256": "9aa7b49588470148c1573442c07b38de5b7674e4ea2a7069233bfb09841b3785",
+      "bounds_mm": [
+        [
+          -10.5,
+          -10.5,
+          0.0
+        ],
+        [
+          10.5,
+          10.5,
+          7.5
+        ]
+      ],
+      "watertight_single_solid": true,
+      "four_bores_clear": true,
+      "head_clearance_preserved": true,
+      "added_volume_mm3": 147.98896957093098
+    },
+    {
+      "file": "passive_horn_spacer_7p5mm_fit_test.stl",
+      "source_v38_sha256": "1ac5ba9098b887e0136d0b2d3c47dee4da0f147b8cc13e8887c91851190d6efa",
+      "stl_sha256": "34ce01c8d0fc40058c2d85396f895d202a4035f2d16a968d1718275d7c362d60",
+      "bounds_mm": [
+        [
+          -10.5,
+          -10.5,
+          0.0
+        ],
+        [
+          10.5,
+          10.5,
+          7.5
+        ]
+      ],
+      "watertight_single_solid": true,
+      "four_bores_clear": true,
+      "head_clearance_preserved": true,
+      "added_volume_mm3": 125.88794565605038
+    }
+  ]
+}

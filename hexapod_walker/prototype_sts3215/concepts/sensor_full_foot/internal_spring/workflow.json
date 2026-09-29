@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "parts": {
+    "petg_foot": {
+      "kind": "printed",
+      "label": "petg foot",
+      "material": "PETG"
+    },
+    "petg_guide": {
+      "kind": "printed",
+      "label": "petg guide",
+      "material": "PETG"
+    },
+    "petg_plunger": {
+      "kind": "printed",
+      "label": "petg plunger",
+      "material": "PETG"
+    },
+    "petg_spring_stop": {
+      "kind": "printed",
+      "label": "petg spring stop",
+      "material": "PETG"
+    },
+    "carbon_tube_reference": {
+      "kind": "purchased",
+      "label": "carbon tube reference"
+    },
+    "spring_reference": {
+      "kind": "purchased",
+      "label": "spring reference"
+    },
+    "sensor_reference": {
+      "kind": "purchased",
+      "label": "sensor reference"
+    },
+    "retainer_screw_right": {
+      "kind": "purchased",
+      "label": "retainer screw right"
+    },
+    "retainer_screw_left": {
+      "kind": "purchased",
+      "label": "retainer screw left"
+    }
+  },
+  "instructions": [
+    {
+      "id": "assembly",
+      "title": "Internal spring prototype",
+      "text": "Bond upper spring stop inside 8/6 mm carbon tube with its bottom 13.5 mm above tube end. Insert 4 mm OD x 10 mm free-length spring and 5.6 mm PETG plunger from below. Bond guide to outside of rod with guide top 24 mm above rod end. Attach sensor to foot, insert foot sleeve into guide and fit two M2 x 4 mm radial screws into tapped pilots, heads seated against bosses. Tips enter closed travel slots without clamping foot. No carbon drilling. Verify free return, preload, angled touch and hard stop before use. Four PETG parts; no TPU. Spring stiffness and exact end geometry unverified."
+    }
+  ]
+}

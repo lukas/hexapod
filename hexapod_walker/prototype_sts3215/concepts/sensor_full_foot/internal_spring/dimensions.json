@@ -1,0 +1,19 @@
+{
+  "tube_od_mm": 8,
+  "tube_id_mm": 6,
+  "foot_od_mm": 19,
+  "guide_od_mm": 16,
+  "travel_mm": 0.6,
+  "plunger_od_mm": 5.6,
+  "spring_od_mm": 4,
+  "spring_wire_mm": 0.3,
+  "spring_free_length_mm": 10,
+  "spring_installed_length_mm": 9.5,
+  "spring_preload_deflection_mm": 0.5,
+  "spring_length_at_stop_mm": 8.9,
+  "foot_sleeve_od_mm": 12,
+  "guide_bore_mm": 12.4,
+  "retainers": "2 x M2 x 4 mm screws into PETG; no carbon drilling",
+  "checks": "watertight single solids; seven travel positions clear; compression and extension stops; wire clearance; print transforms",
+  "limitations": "No measured spring rate, friction, fatigue, adhesive strength, sensor force or print fit. Helix is illustrative, not measured coil/end geometry."
+}

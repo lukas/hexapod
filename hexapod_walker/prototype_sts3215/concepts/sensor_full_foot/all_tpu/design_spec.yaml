@@ -1,0 +1,27 @@
+{
+  "build": {
+    "id": "prototype_sts3215/sensor-full-foot",
+    "name": "Two-part all-TPU contact foot \u2014 95A prototype",
+    "units": "mm"
+  },
+  "parts": {
+    "tpu_sensor_cup": {
+      "manufacturing": "printed",
+      "purpose": "tpu sensor cup",
+      "material": "TPU 95A (user confirmed hardness; brand unspecified)"
+    },
+    "tpu_socket_and_return": {
+      "manufacturing": "printed",
+      "purpose": "tpu socket and return",
+      "material": "TPU 95A (user confirmed hardness; brand unspecified)"
+    },
+    "sensor_reference": {
+      "manufacturing": "purchased",
+      "purpose": "sensor reference"
+    },
+    "carbon_tube_reference": {
+      "manufacturing": "purchased",
+      "purpose": "carbon tube reference"
+    }
+  }
+}

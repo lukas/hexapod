@@ -1,0 +1,42 @@
+{
+  "build": {
+    "id": "prototype_sts3215/sensor-full-foot",
+    "name": "Snap-on foot with self-seating spring insert",
+    "units": "mm",
+    "status": "geometric prototype; spring force and physical fit unvalidated"
+  },
+  "parts": {
+    "petg_foot": {
+      "purpose": "petg foot",
+      "manufacturing": "printed",
+      "material": "PETG"
+    },
+    "petg_guide": {
+      "purpose": "petg guide",
+      "manufacturing": "printed",
+      "material": "PETG"
+    },
+    "petg_plunger": {
+      "purpose": "petg plunger",
+      "manufacturing": "printed",
+      "material": "PETG"
+    },
+    "petg_spring_stop": {
+      "purpose": "petg spring stop",
+      "manufacturing": "printed",
+      "material": "PETG"
+    },
+    "carbon_tube_reference": {
+      "purpose": "carbon tube reference",
+      "manufacturing": "purchased"
+    },
+    "spring_reference": {
+      "purpose": "spring reference",
+      "manufacturing": "purchased"
+    },
+    "sensor_reference": {
+      "purpose": "sensor reference",
+      "manufacturing": "purchased"
+    }
+  }
+}

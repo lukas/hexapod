@@ -1,0 +1,21 @@
+{
+  "material": "TPU 95A",
+  "printed_parts": 2,
+  "metal_spring": false,
+  "screws": false,
+  "rod_od_mm": 8,
+  "rod_id_mm": 6,
+  "socket_bore_mm": 8.2,
+  "socket_depth_mm": 17.2,
+  "foot_od_mm": 19,
+  "collar_max_od_mm": 22.8,
+  "sensor_od_mm": 10,
+  "sensor_plus_adhesive_assumed_mm": 0.2,
+  "pad_diameter_mm": 6.5,
+  "pad_height_mm": 1,
+  "initial_pad_gap_mm": 0.2,
+  "nominal_bumper_contact_travel_mm": 0.6,
+  "nominal_pad_compression_at_bumper_mm": 0.4,
+  "checks": "watertight connected solids; unloaded clearances; seven body stroke positions; rod seating; wire routing; cuff geometric capture; print transforms",
+  "limitations": "No TPU deformation simulation, stiffness, trigger force, creep, friction, pull-off or fatigue tests. TPU bumper keeps compressing under load; it is not a hard stop. Collar carries a parallel load path. Socket adhesion needs material-specific testing."
+}

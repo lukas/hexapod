@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "parts": {
+    "petg_foot": {
+      "kind": "printed",
+      "label": "petg foot",
+      "material": "PETG"
+    },
+    "petg_guide": {
+      "kind": "printed",
+      "label": "petg guide",
+      "material": "PETG"
+    },
+    "petg_plunger": {
+      "kind": "printed",
+      "label": "petg plunger",
+      "material": "PETG"
+    },
+    "petg_spring_stop": {
+      "kind": "printed",
+      "label": "petg spring stop",
+      "material": "PETG"
+    },
+    "carbon_tube_reference": {
+      "kind": "purchased",
+      "label": "carbon tube reference"
+    },
+    "spring_reference": {
+      "kind": "purchased",
+      "label": "spring reference"
+    },
+    "sensor_reference": {
+      "kind": "purchased",
+      "label": "sensor reference"
+    }
+  },
+  "instructions": [
+    {
+      "id": "assembly",
+      "title": "Snap-on internal spring prototype",
+      "text": "Print all four parts in PETG; guide top down so both snap tabs grow from their roots. Clear support from tab gaps. Bond upper spring stop inside 8/6 mm carbon tube with its bottom 13.5 mm above tube end. Bond guide to rod with guide top 24 mm above rod end. Insert 4 mm OD x 10 mm free-length spring and 5.6 mm PETG plunger from below. Attach sensor to foot and align the two side pockets with the snap hooks; route the wire through its opening. Push foot upward until both hooks click into pockets. Confirm both hooks return fully and the foot slides freely through 0.6 mm then meets the shoulder. For removal gently lift both accessible hooks outward while withdrawing foot. No screws, tapping, TPU or carbon drilling. Spring rate, PETG tab strength, fatigue and print fit need bench testing. Do not glue sliding parts."
+    }
+  ]
+}

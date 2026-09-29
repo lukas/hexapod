@@ -13,7 +13,7 @@
   "shoulder_mm": 5.8,
   "horn_pilot_mm": 2.2,
   "collisions_mm3": {
-    "hub": 4.353009233295768e-07,
+    "hub": 2.9638728566252267e-07,
     "leg": 0.0,
     "join-0": 0.0,
     "join-1": 0.0,
@@ -38,9 +38,25 @@
     40,
     75
   ],
-  "stop_contact_after_0p2mm_overtravel_mm3": 3.6353090621990827,
+  "stop_contact_after_0p2mm_overtravel_mm3": 1.9502170979359483,
   "driver_envelope_mm": 6,
   "watertight": true,
   "physical_tested": false,
+  "revision": "v2 flat back at Y=-0.3; D profiles within v1 radial envelope",
+  "print_bounds_mm": [
+    [
+      -37.0,
+      -65.30000305175781,
+      -1.192092963231417e-08
+    ],
+    [
+      11.0,
+      10.5,
+      5.300000000000004
+    ]
+  ],
+  "flat_bed_station_checks": 80,
+  "spacer_section_max_width_mm": 2.8,
+  "spacer_section_thickness_mm": 1.7,
   "limitations": "Existing coxa meshes and sleeves checked. Horn schematic. Servo/chassis absent from source scene; full robot access not validated. Hold tool by hand."
 }

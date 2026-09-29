@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "parts": {
+    "petg_foot": {
+      "kind": "printed",
+      "label": "petg foot",
+      "material": "PETG"
+    },
+    "petg_guide": {
+      "kind": "printed",
+      "label": "petg guide",
+      "material": "PETG"
+    },
+    "petg_plunger": {
+      "kind": "printed",
+      "label": "petg plunger",
+      "material": "PETG"
+    },
+    "petg_spring_stop": {
+      "kind": "printed",
+      "label": "petg spring stop",
+      "material": "PETG"
+    },
+    "carbon_tube_reference": {
+      "kind": "purchased",
+      "label": "carbon tube reference"
+    },
+    "spring_reference": {
+      "kind": "purchased",
+      "label": "spring reference"
+    },
+    "sensor_reference": {
+      "kind": "purchased",
+      "label": "sensor reference"
+    }
+  },
+  "instructions": [
+    {
+      "id": "assembly",
+      "title": "Snap-on internal spring prototype",
+      "text": "Print all four parts in PETG; use this wider-pocket foot and wider-hook guide together. The v13 spring insert and plunger can be reused. This is not an all-TPU geometry; a flexible tread would be a separate part.  guide top down so both snap tabs grow from their roots. Clear support from tab gaps. Push the flanged spring insert into the 6 mm tube bore until its 8 mm flange seats flush against the tube end. This automatically places the spring seat 13 mm inside. No glue on the insert; its flange carries spring force against the tube end. Ensure tube end is square and deburred. Bond guide to rod with guide top 23.5 mm above rod end. Insert 4 mm OD x 10 mm free-length spring and stepped PETG plunger (4 mm stem, 5.6 mm sensing pad) from below. Attach sensor to foot and align the two side pockets with the snap hooks; route the wire through its opening. Push foot upward until both hooks click into pockets. Confirm both hooks return fully and the foot slides freely through 0.6 mm then meets the shoulder. For removal gently lift both accessible hooks outward while withdrawing foot. No screws, tapping, TPU or carbon drilling. Spring rate, PETG tab strength, fatigue and print fit need bench testing. Do not glue sliding parts."
+    }
+  ]
+}

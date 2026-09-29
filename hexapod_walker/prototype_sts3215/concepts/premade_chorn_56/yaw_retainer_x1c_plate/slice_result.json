@@ -1,0 +1,147 @@
+{
+    "error_string": "Success.",
+    "export_time": 876,
+    "layer_height": 0.20000000298023224,
+    "plate_index": 0,
+    "prepare_time": 23,
+    "return_code": 0,
+    "sliced_plates": [
+        {
+            "feature_type_times": {
+                "Bottom surface": 19.138179779052734,
+                "Bridge": 92.0361328125,
+                "Custom": 486.3562316894531,
+                "Flush": 29.0,
+                "Gap infill": 1318.9373779296875,
+                "Inner wall": 11618.7529296875,
+                "Internal solid infill": 2850.981201171875,
+                "Outer wall": 6127.6025390625,
+                "Overhang wall": 552.864013671875,
+                "Sparse infill": 60.374732971191406,
+                "Support": 4475.92822265625,
+                "Support interface": 202.76303100585938,
+                "Support transition": 152.10214233398438,
+                "Top surface": 671.2723999023438,
+                "Travel": 4998.68359375,
+                "Undefined": 4983.37060546875
+            },
+            "filament_change_times": 0,
+            "filaments": [
+                {
+                    "filament_id": "GFG99",
+                    "id": 1,
+                    "main_used_g": 169.00265502929688,
+                    "total_used_g": 169.00267028808594
+                }
+            ],
+            "generate_support_material_time": 205,
+            "id": 1,
+            "infill_time": 190,
+            "layer_filament_change": 0,
+            "main_predication": 33156.06640625,
+            "make_perimeters_time": 301,
+            "obj_cached_cnt": 0,
+            "objects": [
+                {
+                    "bbox": {
+                        "depth": 54.0,
+                        "height": 34.0,
+                        "width": 59.0,
+                        "x": 27.5,
+                        "y": 68.0,
+                        "z": 0.0
+                    },
+                    "id": 5,
+                    "name": "yaw_retainer_1",
+                    "triangle_count": 5648
+                },
+                {
+                    "bbox": {
+                        "depth": 54.0,
+                        "height": 34.0,
+                        "width": 59.0,
+                        "x": 98.5,
+                        "y": 68.0,
+                        "z": 0.0
+                    },
+                    "id": 9,
+                    "name": "yaw_retainer_2",
+                    "triangle_count": 5648
+                },
+                {
+                    "bbox": {
+                        "depth": 54.0,
+                        "height": 34.0,
+                        "width": 59.0,
+                        "x": 169.5,
+                        "y": 68.0,
+                        "z": 0.0
+                    },
+                    "id": 13,
+                    "name": "yaw_retainer_3",
+                    "triangle_count": 5648
+                },
+                {
+                    "bbox": {
+                        "depth": 54.0,
+                        "height": 34.0,
+                        "width": 59.0,
+                        "x": 27.5,
+                        "y": 134.0,
+                        "z": 0.0
+                    },
+                    "id": 17,
+                    "name": "yaw_retainer_4",
+                    "triangle_count": 5648
+                },
+                {
+                    "bbox": {
+                        "depth": 54.0,
+                        "height": 34.0,
+                        "width": 59.0,
+                        "x": 98.5,
+                        "y": 134.0,
+                        "z": 0.0
+                    },
+                    "id": 21,
+                    "name": "yaw_retainer_5",
+                    "triangle_count": 5648
+                },
+                {
+                    "bbox": {
+                        "depth": 54.0,
+                        "height": 34.0,
+                        "width": 59.0,
+                        "x": 169.5,
+                        "y": 134.0,
+                        "z": 0.0
+                    },
+                    "id": 25,
+                    "name": "yaw_retainer_6",
+                    "triangle_count": 5648
+                }
+            ],
+            "sliced_time": 2473,
+            "sliced_time_with_cache": 1595,
+            "total_predication": 33685.078125,
+            "triangle_count": 33888,
+            "warning_message": ""
+        }
+    ],
+    "sparse_infill_density": 40.0,
+    "upward_compatible_machine": [
+        "Bambu Lab P1S 0.4 nozzle",
+        "Bambu Lab P1P 0.4 nozzle",
+        "Bambu Lab X1 0.4 nozzle",
+        "Bambu Lab X1E 0.4 nozzle",
+        "Bambu Lab A1 0.4 nozzle",
+        "Bambu Lab H2D 0.4 nozzle",
+        "Bambu Lab H2D Pro 0.4 nozzle",
+        "Bambu Lab H2S 0.4 nozzle",
+        "Bambu Lab P2S 0.4 nozzle",
+        "Bambu Lab H2C 0.4 nozzle",
+        "Bambu Lab X2D 0.4 nozzle",
+        "Bambu Lab A2L 0.4 nozzle"
+    ],
+    "wall_loops": 6
+}

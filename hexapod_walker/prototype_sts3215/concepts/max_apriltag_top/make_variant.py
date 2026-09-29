@@ -19,7 +19,7 @@ sys.path[:0] = [str(PROTO), str(PROTO/'apriltag_lids'), str(PROTO/'knee_yoke_apr
 import make_apriltag_lids as lids
 import make_knee_yoke_apriltag_flag as flag
 BASE = PROTO/'concepts/apriltag_top_hatch/baseline'
-TAG_ID = 0
+TAG_ID = 504
 EDGE_MARGIN = 1.0
 SKIN = .6
 
@@ -89,13 +89,13 @@ def main():
         mesh.export(out/f'hatch_{name}_assembly.stl')
         m=mesh.copy();m.apply_transform(trimesh.transformations.rotation_matrix(np.pi,[1,0,0]));m.apply_translation([0,0,top])
         m.export(out/f'hatch_{name}_print.stl');printable.append(m)
-    portable=HERE/'hex_top_apriltag_0_98mm.3mf'
+    portable=HERE/f'hex_top_apriltag_{TAG_ID}_98mm.3mf'
     lids.write_3mf(portable,[(TAG_ID,*printable)],arrange=False)
     root=lids.BAMBU_MACHINE_PROFILE.parent.parent
     lids.BAMBU_MACHINE_PROFILE=root/'machine/Bambu Lab H2D 0.4 nozzle.json'
     lids.BAMBU_PROCESS_PROFILE=root/'process/0.20mm Standard @BBL H2D.json'
     lids.BAMBU_PLA_PROFILE=root/'filament/Generic PLA @BBL H2D.json'
-    bambu=HERE/'hex_top_apriltag_0_98mm_H2D.3mf'
+    bambu=HERE/f'hex_top_apriltag_{TAG_ID}_98mm_H2D.3mf'
     assert lids.write_bambu_project(bambu,portable)
     # Camera-facing preview, not the mirrored build-plate face.
     fig,ax=plt.subplots(figsize=(8,7),dpi=160)
@@ -103,10 +103,10 @@ def main():
     for h in mounting:ax.fill(*h.exterior.xy,color='#d7dbe1')
     for poly in cells:ax.fill(*poly.exterior.xy,color='#101010',linewidth=0)
     ax.set_aspect('equal');ax.set_xlim(-90,90);ax.set_ylim(-80,80);ax.axis('off')
-    ax.set_title(f'Tag36h11 ID 0 · {size} mm including white border\n{size*.8:g} mm black square · flush two-colour surface',fontsize=13)
+    ax.set_title(f'Tag36h11 ID {TAG_ID} · {size} mm including white border\n{size*.8:g} mm black square · flush two-colour surface',fontsize=13)
     fig.tight_layout();fig.savefig(HERE/'preview.png',facecolor='white');plt.close(fig)
     detector=cv2.aruco.ArucoDetector(cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_APRILTAG_36h11),cv2.aruco.DetectorParameters())
-    _,ids,_=detector.detectMarkers(cv2.imread(str(HERE/'preview.png'),cv2.IMREAD_GRAYSCALE));assert ids is not None and 0 in ids.flatten()
+    _,ids,_=detector.detectMarkers(cv2.imread(str(HERE/'preview.png'),cv2.IMREAD_GRAYSCALE));assert ids is not None and TAG_ID in ids.flatten()
     # Self-contained full assembly with only the hatch changed.
     for a in scene['meshes']:
         path=BASE/a['url']; target=out/('base_'+path.name);shutil.copy2(path,target);a['url']='stl/'+target.name
@@ -120,7 +120,7 @@ def main():
     scene.update(name='Hexagonal top — integrated 98 mm AprilTag',buildId='prototype_sts3215/max-apriltag-top',source='concepts/max_apriltag_top/make_variant.py')
     scene.pop('checksConfig',None);scene.pop('designSpecUrl',None)
     (HERE/'scene.json').write_text(json.dumps(scene,indent=2)+'\n')
-    report={'pass':True,'tag_id':0,'outer_tag_mm':size,'black_square_mm':size*.8,'cell_mm':cell,'skin_mm':SKIN,'angle_deg':angle,
+    report={'pass':True,'tag_id':TAG_ID,'outer_tag_mm':size,'black_square_mm':size*.8,'cell_mm':cell,'skin_mm':SKIN,'angle_deg':angle,
       'max_square_with_1mm_margin_mm':best[0],'actual_edge_margin_mm':square.distance(Polygon(outline.exterior).boundary),
       'six_mounting_holes_preserved':True,'registration_lip_preserved':True,'closed_internal_openings':len(obsolete),
       'external_bounds_unchanged':bool(np.allclose(original.bounds,solid.bounds)),'colour_partition_error_mm3':partition_error,

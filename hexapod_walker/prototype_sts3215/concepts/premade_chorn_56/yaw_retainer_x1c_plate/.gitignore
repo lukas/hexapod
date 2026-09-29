@@ -1,0 +1,7 @@
+*.log
+/plate_1.gcode
+/result.json
+/plate_1_*.png
+__pycache__/
+!/*.3mf
+!/*.png

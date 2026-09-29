@@ -25,17 +25,32 @@ for x,tip_depth in [(-7,1.5),(7,1.0)]:
     key+=Pos(x,0,HORN_Z)*Cone(1.1,1.4,0.3,align=A)
     key+=cyl(x,HORN_Z-tip_depth+0.6,2.2,tip_depth-0.6)
     key+=Pos(x,0,HORN_Z-tip_depth)*Cone(0.4,1.1,0.6,align=A)
+# v2: trim a continuous back at Y=-0.3, including the smallest tapered tips.
+# All sections become flat-backed D profiles within the original fit envelope.
+# A 90-degree X rotation puts this entire planar face on the print bed.
+key &= Pos(0,49.7,20)*Box(200,100,200)
 assert key.is_valid and len(key.solids())==1
 export_step(key,HERE/'yaw_alignment_key.step')
 export_stl(key,OUT/'key_installed.stl',tolerance=.025,angular_tolerance=.1)
 tool=trimesh.load(OUT/'key_installed.stl',force='mesh')
 assert tool.is_watertight and tool.is_volume
-# Handle on the bed, pins up; no support under the small annular shoulders.
-P=trimesh.transformations.rotation_matrix(np.pi,[1,0,0]);P[2,3]=BRIDGE_Z+5
+# Flat back on bed; pin lengths lie in the XY plane, not upright in Z.
+P=trimesh.transformations.rotation_matrix(np.pi/2,[1,0,0]);P[2,3]=.3
 printed=tool.copy();printed.apply_transform(P);printed.export(OUT/'yaw_alignment_key_PRINT.stl')
+assert abs(printed.bounds[0,2])<1e-5
+assert printed.extents[2]<5.31
+# Every installed-axis station, including each narrow tapered tip, touches bed.
+bed_stations=[]
+for x,depth in [(-7,1.5),(7,1.0)]:
+    for z in np.linspace(HORN_Z-depth+.03,BRIDGE_Z-.01,40):
+        section=printed.section(plane_origin=[0,-z,0],plane_normal=[0,1,0])
+        assert section is not None
+        vertices=section.vertices[np.abs(section.vertices[:,0]-x)<3.1]
+        assert len(vertices) and abs(vertices[:,2].min())<1e-4,(x,z)
+        bed_stations.append([float(x),float(z)])
 source=json.loads((SOURCE/'scene.json').read_text())
 lookup={m['id']:m for m in source['meshes']}
-scene={'name':'Long-reach yaw alignment key — fitted to 6706 coxa','units':'mm',
+scene={'name':'Flat-print long-reach yaw alignment key — v2','units':'mm',
        'center':[25,0,26],'meshes':[],'instances':[]}
 for m in source['meshes']:
     dest=f"reference_{m['id'].replace(':','_')}.stl"
@@ -65,8 +80,8 @@ def instance(mid,name,T,color,cots=False):
       'role':'reference' if cots else 'printed','color':color,'transform':T.T.flatten().tolist()})
 instance('horn_schematic','Horn — schematic thread envelope',np.eye(4),'#d6ab52',True)
 instance('key','Alignment key — installed through both spacers',np.linalg.inv(P),'#25cadb')
-T=np.linalg.inv(P);T[0,3]+=90
-instance('key','Same key alone — shoulders stop at recessed seats',T,'#25cadb')
+T=np.eye(4);T[0,3]=90;T[1,3]=20
+instance('key','Flat print orientation — entire back on bed',T,'#25cadb')
 
 collisions={}
 for name,mesh in refs:
@@ -96,6 +111,9 @@ report={'source':'coxa_6706_bottom_nuts/scene.json','source_upper_z_mm':55.3,
  'collisions_mm3':collisions,'withdrawal_samples_mm':[.5,2,5,10,20,40,75],
  'stop_contact_after_0p2mm_overtravel_mm3':float(stop_v),'driver_envelope_mm':6,
  'watertight':True,'physical_tested':False,
+ 'revision':'v2 flat back at Y=-0.3; D profiles within v1 radial envelope',
+ 'print_bounds_mm':printed.bounds.tolist(),'flat_bed_station_checks':len(bed_stations),
+ 'spacer_section_max_width_mm':2.8,'spacer_section_thickness_mm':1.7,
  'limitations':'Existing coxa meshes and sleeves checked. Horn schematic. Servo/chassis absent from source scene; full robot access not validated. Hold tool by hand.'}
 (HERE/'checks.json').write_text(json.dumps(report,indent=2)+'\n')
 (HERE/'scene.json').write_text(json.dumps(scene,indent=2)+'\n')

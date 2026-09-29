@@ -4,7 +4,7 @@ Replacement for the removable rigid/CNC-overhead hexagonal hatch, based on the
 captured September 11 CAD in `../apriltag_top_hatch/baseline/`. This is not the
 older raised screen platform from `full_robot_viz`.
 
-The tag36h11 ID 0 pattern is flush in the white hatch surface. The complete
+The tag36h11 ID 504 pattern is flush in the white hatch surface. The complete
 square including its one-cell quiet zone is 98 mm; the detector's black-square
 size is **78.4 mm / 0.0784 m**. The old servo-lid black square was 27.2 mm, so
 tracking must use the new size when this part is installed. No live tracker
@@ -18,7 +18,7 @@ and 1.5 mm locating lip are preserved. The central opening and eight old
 accessory/electronics holes are filled. The hatch no longer supports those
 through-hole accessories; the six perimeter screws still remove the hatch.
 
-Print `hex_top_apriltag_0_98mm_H2D.3mf` in Bambu Studio, with the camera face
+Print `hex_top_apriltag_504_98mm_H2D.3mf` in Bambu Studio, with the camera face
 on the bed and lip upward. The black inlay is 0.6 mm deep; white and black PLA
 are assigned in the H2D 0.4 mm project. A portable two-material 3MF and aligned
 STLs are provided. Verify the selected materials match the loaded spools.

@@ -1,0 +1,663 @@
+{
+  "date": "2026-09-29",
+  "sourceWorkspace": "/Users/lbiewald/Documents/Codex/2026-09-02/can-x20/hexapod",
+  "sourceCommit": "b2f3e4f4c66a9ac5624745270b24d1e6a2be9e72",
+  "sourceBase": "2625eb52a398f7c0db32d83c8a96652973da26d7",
+  "publishedParent": "0b83c9029db0b3520dbe05cd04e889b928090318",
+  "sourceCommits": [
+    "155c0d832cac41c78a4221a4760a3d75d7ac9747",
+    "504ac60dd20a687d9c60ae4d1b8a590af5f6dab0",
+    "b2f3e4f4c66a9ac5624745270b24d1e6a2be9e72"
+  ],
+  "purpose": "Preserve exact file changes since the September 24 CAD checkpoint without republishing retired repository history. Original local commits remain intact. Not an integration-tested merge into main.",
+  "files": [
+    {
+      "path": "hexapod_walker/prototype_sts3215/calibration_aprilgrid_h2d/README.md",
+      "mode": "100644",
+      "gitObject": "06d9105e370b99772537a5782d58fa72cbb5f5ab"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/calibration_aprilgrid_h2d/aprilgrid_400-419.svg",
+      "mode": "100644",
+      "gitObject": "72ccf719876db96d8a39fd87402ea48571b1e208"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/calibration_aprilgrid_h2d/aprilgrid_400-419_258x318mm_tower_clearance.3mf",
+      "mode": "100644",
+      "gitObject": "a64020d9e17071235bf2fbf38db81d043fc0c7fe"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/calibration_aprilgrid_h2d/aprilgrid_400-419_298x318mm.3mf",
+      "mode": "100644",
+      "gitObject": "5cf1d568749ff461f202dc32ce25b7249074c771"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/calibration_aprilgrid_h2d/aprilgrid_400-419_H2D.3mf",
+      "mode": "100644",
+      "gitObject": "c27b8878f3c1219e06bbbf35cf1e6a1dba0644a6"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/calibration_aprilgrid_h2d/aprilgrid_400-419_H2D_Studio_ready.3mf",
+      "mode": "100644",
+      "gitObject": "00b8a795d861f1ec5e0a1667771a515b54500ab7"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/calibration_aprilgrid_h2d/aprilgrid_400-419_H2D_prime_tower_ready.3mf",
+      "mode": "100644",
+      "gitObject": "3a95811fd95f80fea656cf7f5c43efa8684c698d"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/calibration_aprilgrid_h2d/aprilgrid_400-419_H2D_quality_PLA.3mf",
+      "mode": "100644",
+      "gitObject": "c4fb4ce2dd591245a62e171bfad8a7e06008bec8"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/calibration_aprilgrid_h2d/aprilgrid_400-419_H2D_tower_clearance.3mf",
+      "mode": "100644",
+      "gitObject": "3a95811fd95f80fea656cf7f5c43efa8684c698d"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/calibration_aprilgrid_h2d/aprilgrid_400-455.svg",
+      "mode": "100644",
+      "gitObject": "d05f9ef5da6f6914d6c24c7a291da07a460ab9b6"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/calibration_aprilgrid_h2d/aprilgrid_400-455_298x318mm.3mf",
+      "mode": "100644",
+      "gitObject": "4f6a686fed619ce6fb42f4f6cd393c652d0cc0ce"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/calibration_aprilgrid_h2d/aprilgrid_400-455_H2D.3mf",
+      "mode": "100644",
+      "gitObject": "85295b70c1cc44623905fa1ad2458feeff7efd44"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/calibration_aprilgrid_h2d/calibration_board.json",
+      "mode": "100644",
+      "gitObject": "fcd97b49a40737495a0efc5218c949feaba6aeab"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/calibration_aprilgrid_h2d/calibration_board_tower_clearance.json",
+      "mode": "100644",
+      "gitObject": "fcd97b49a40737495a0efc5218c949feaba6aeab"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/calibration_aprilgrid_h2d/make_board.py",
+      "mode": "100644",
+      "gitObject": "fe2452eb84df1355fb4a15b022502e9ab314bce4"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/calibration_aprilgrid_h2d/plate_preview.png",
+      "mode": "100644",
+      "gitObject": "f8fa03fb0ee922e628cd44eabbfc3c77ca5b51a8"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/calibration_aprilgrid_h2d/preview.png",
+      "mode": "100644",
+      "gitObject": "3295e9d26d3b6859677af759b3ee73de3c6a958d"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/calibration_aprilgrid_h2d/quality_print_settings.json",
+      "mode": "100644",
+      "gitObject": "5bf384289f53fd43526c46e670a0a073cc0207ba"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/calibration_aprilgrid_h2d/quality_slice_verification.json",
+      "mode": "100644",
+      "gitObject": "ea27418e0edd8a6c48539bd4d743af0fded50dc9"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/calibration_aprilgrid_h2d/result.json",
+      "mode": "100644",
+      "gitObject": "3a5a55ac9a1628c29f6fe81f59b5feb497602281"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/calibration_aprilgrid_h2d/tune_print.py",
+      "mode": "100644",
+      "gitObject": "99ee2a762d6fa022322527afe79d5e0b0c95f080"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/calibration_aprilgrid_h2d/verification.json",
+      "mode": "100644",
+      "gitObject": "6e0451f3f10cc89440b2991426ffe8f7a9cb804e"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/knee_cap_heatset_front_selftap/x1c_plate/.gitignore",
+      "mode": "100644",
+      "gitObject": "9e0384ee40a8e96eb3318f379adec972dea4ad89"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/knee_cap_heatset_front_selftap/x1c_plate/README.md",
+      "mode": "100644",
+      "gitObject": "0d053232748a103cbcf2392ac9cfa52fa9ba4fcb"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/knee_cap_heatset_front_selftap/x1c_plate/filament_PETG.json",
+      "mode": "100644",
+      "gitObject": "009acb4720ea4141f86abcb53071dd4eec7630f4"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/knee_cap_heatset_front_selftap/x1c_plate/machine_PETG.json",
+      "mode": "100644",
+      "gitObject": "1fed7976ad6ad7f232ade95d98a5bbdaaba00d11"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/knee_cap_heatset_front_selftap/x1c_plate/make_plate.py",
+      "mode": "100644",
+      "gitObject": "a4d4bd18a388f79223fcc1025445cae8dbb32141"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/knee_cap_heatset_front_selftap/x1c_plate/metal_femur_and_cap_v38_X1C_PETG.3mf",
+      "mode": "100644",
+      "gitObject": "26119b8347be3f8eb66259fd29f997736b6789e3"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/knee_cap_heatset_front_selftap/x1c_plate/metal_femur_and_cap_v38_geometry.3mf",
+      "mode": "100644",
+      "gitObject": "3ff07727cbff363ac33058ddd4b07013630d4dfd"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/knee_cap_heatset_front_selftap/x1c_plate/plate_preview.png",
+      "mode": "100644",
+      "gitObject": "3be54b76436294d27912bf9fc8fce0211aba60cf"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/knee_cap_heatset_front_selftap/x1c_plate/process_PETG.json",
+      "mode": "100644",
+      "gitObject": "eee8c4a8a1b347f8abe0a4e6be2b9f96139f6fb9"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/knee_cap_heatset_front_selftap/x1c_plate/slice_result.json",
+      "mode": "100644",
+      "gitObject": "680b73619f57e048d35028639318ae0ce09de84c"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/knee_cap_heatset_front_selftap/x1c_plate/verification.json",
+      "mode": "100644",
+      "gitObject": "0d608de8008d3ca254c20a1ab4aa3c8703158fe7"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/max_apriltag_top/README.md",
+      "mode": "100644",
+      "gitObject": "ada6cf14006d411aedb00f3e14c19c4464482d98"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/max_apriltag_top/geometry_report.json",
+      "mode": "100644",
+      "gitObject": "5116d741555b4c6070ea3f01049a84472fdd759a"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/max_apriltag_top/hex_top_apriltag_504_98mm.3mf",
+      "mode": "100644",
+      "gitObject": "e416c7f9e182a065db4fa5cf433bf11f71271e3d"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/max_apriltag_top/hex_top_apriltag_504_98mm_H2D.3mf",
+      "mode": "100644",
+      "gitObject": "fd9545d4033290b0c936e24fd80e1343de499773"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/max_apriltag_top/id505/geometry_report.json",
+      "mode": "100644",
+      "gitObject": "e3bd0a85303980bc55334ec323e601f572e05b22"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/max_apriltag_top/id505/hex_top_apriltag_505_98mm.3mf",
+      "mode": "100644",
+      "gitObject": "98e161ca5f2f10c3d9b4a4b6d343aa33cfc4b530"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/max_apriltag_top/id505/hex_top_apriltag_505_98mm_H2D.3mf",
+      "mode": "100644",
+      "gitObject": "555ab793362097f4d8cee03cf781945179de421e"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/max_apriltag_top/id505/preview.png",
+      "mode": "100644",
+      "gitObject": "d8d454c402d594e01f63d649691ea687c8794c23"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/max_apriltag_top/id505/scene.json",
+      "mode": "100644",
+      "gitObject": "7f9afefc7070ed02e27acd1acb9229882d89e8b6"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/max_apriltag_top/make_variant.py",
+      "mode": "100644",
+      "gitObject": "59220126d14fe60d98f2d31df777209a13955b2d"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/max_apriltag_top/preview.png",
+      "mode": "100644",
+      "gitObject": "5056a16d58aa37764bd2682ce0408f80a241843a"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/premade_chorn_56/spacer_fit_7p5mm/.gitignore",
+      "mode": "100644",
+      "gitObject": "54c0f237aa2346ba287cdb9014b76b21d42fbdb5"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/premade_chorn_56/spacer_fit_7p5mm/README.md",
+      "mode": "100644",
+      "gitObject": "d6827763ec96f2687ac437f6e005dfbfdc9309a1"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/premade_chorn_56/spacer_fit_7p5mm/driven_horn_spacer_7p5mm_fit_test.stl",
+      "mode": "100644",
+      "gitObject": "d834d1729ace04d9d41701efbfdd6e606bf222ce"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/premade_chorn_56/spacer_fit_7p5mm/make_spacers.py",
+      "mode": "100644",
+      "gitObject": "5d7138de68cb62b2a3dcd16aa7c5c36de55cb675"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/premade_chorn_56/spacer_fit_7p5mm/passive_horn_spacer_7p5mm_fit_test.stl",
+      "mode": "100644",
+      "gitObject": "239d3f1002de25e202a115f4307a5a22c524e2cc"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/premade_chorn_56/spacer_fit_7p5mm/verification.json",
+      "mode": "100644",
+      "gitObject": "1a6d8f67d5d1e50bce920c44388ece0e9a125e67"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/premade_chorn_56/yaw_retainer_x1c_plate/.gitignore",
+      "mode": "100644",
+      "gitObject": "a9adc815eb852069b325f015c8e6f05a90f9ff5f"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/premade_chorn_56/yaw_retainer_x1c_plate/README.md",
+      "mode": "100644",
+      "gitObject": "8f6c0d8ceda4b27148259706d8cef31f7c95b94b"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/premade_chorn_56/yaw_retainer_x1c_plate/filament_PETG.json",
+      "mode": "100644",
+      "gitObject": "009acb4720ea4141f86abcb53071dd4eec7630f4"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/premade_chorn_56/yaw_retainer_x1c_plate/machine_PETG.json",
+      "mode": "100644",
+      "gitObject": "1fed7976ad6ad7f232ade95d98a5bbdaaba00d11"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/premade_chorn_56/yaw_retainer_x1c_plate/make_plate.py",
+      "mode": "100644",
+      "gitObject": "39c557d203434d75dd8ba8373045fac572863785"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/premade_chorn_56/yaw_retainer_x1c_plate/plate_preview.png",
+      "mode": "100644",
+      "gitObject": "0193adff8c06d15d08875f3770a9c1120f097e0f"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/premade_chorn_56/yaw_retainer_x1c_plate/process_PETG.json",
+      "mode": "100644",
+      "gitObject": "934a34a9fc54a1d7890290dec4b3c97999d868a2"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/premade_chorn_56/yaw_retainer_x1c_plate/slice_result.json",
+      "mode": "100644",
+      "gitObject": "769922d8adf55aeeac088ecf4c65d9019d3c700a"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/premade_chorn_56/yaw_retainer_x1c_plate/verification.json",
+      "mode": "100644",
+      "gitObject": "4956f9a917398b0a1544e3b7fc13821958c6097e"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/premade_chorn_56/yaw_retainer_x1c_plate/yaw_retainers_6x_X1C_PETG.3mf",
+      "mode": "100644",
+      "gitObject": "53dd4e319a817d6837a07dff68a37fbeca9ab7a8"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/premade_chorn_56/yaw_retainer_x1c_plate/yaw_retainers_6x_geometry.3mf",
+      "mode": "100644",
+      "gitObject": "dbbe8c21c5f8c9b16bd7226b21c45e6cb18206fe"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/all_tpu/README.md",
+      "mode": "100644",
+      "gitObject": "bffc726d854104364c8714aa3eaa45878d730c78"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/all_tpu/all_tpu_parts.3mf",
+      "mode": "100644",
+      "gitObject": "533edecc803958e393d85633e64624a3ec82a033"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/all_tpu/design_spec.yaml",
+      "mode": "100644",
+      "gitObject": "764d1c4f3c75c209eebcb88bf5153beb39c5156a"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/all_tpu/dimensions.json",
+      "mode": "100644",
+      "gitObject": "87900fac7e3e26fb1223841dd3ac6403ff633cb5"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/all_tpu/make_all_tpu.py",
+      "mode": "100644",
+      "gitObject": "13d1f4826dd18a5491b1f1b951468df9e0f1f959"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/all_tpu/scene.json",
+      "mode": "100644",
+      "gitObject": "ec3eb5d218befa1bcdd14f4c2f9fe9f3d05c2dee"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/all_tpu/tpu_sensor_cup.3mf",
+      "mode": "100644",
+      "gitObject": "7df48c6eb5e4700ceedcb77a2c75279154b35981"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/all_tpu/tpu_socket_and_return.3mf",
+      "mode": "100644",
+      "gitObject": "103a70393ccc57da8ae92fea413678744897e63a"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/all_tpu/workflow.json",
+      "mode": "100644",
+      "gitObject": "f78ef203a0b83fb99705f3c00636084adcd8692b"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/internal_spring/README.md",
+      "mode": "100644",
+      "gitObject": "016f5938fa403cf8fc3bf805db06eab9b3190779"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/internal_spring/all_petg_parts.3mf",
+      "mode": "100644",
+      "gitObject": "b27d045c09d768732f68f395ba625052f1173efc"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/internal_spring/design_spec.yaml",
+      "mode": "100644",
+      "gitObject": "8ff9c45d0d1eb9a89b9850889b4d5a588d8bdb62"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/internal_spring/dimensions.json",
+      "mode": "100644",
+      "gitObject": "ee4e80a11c06b7225ecaa50a32635e8d7cf6ef68"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/internal_spring/make_internal_foot.py",
+      "mode": "100644",
+      "gitObject": "d2483c90ec05c1b3f158923c21d619a62d30ece1"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/internal_spring/petg_foot.3mf",
+      "mode": "100644",
+      "gitObject": "f0c485d70c90dd38ba325cc5dd5a7975ebb2f51c"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/internal_spring/petg_guide.3mf",
+      "mode": "100644",
+      "gitObject": "f9705d3e5f4b5be0dcb36a49838dfa13e229ff9e"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/internal_spring/petg_plunger.3mf",
+      "mode": "100644",
+      "gitObject": "9533a38be4ff9c08f7a225380191a392124ba9b7"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/internal_spring/petg_spring_stop.3mf",
+      "mode": "100644",
+      "gitObject": "d3bf132817740b0cc1168fc93e9b240822c70dd6"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/internal_spring/scene.json",
+      "mode": "100644",
+      "gitObject": "e09ae823e6d7bad28b3b85d32494eb3765d6f2df"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/internal_spring/workflow.json",
+      "mode": "100644",
+      "gitObject": "a30145aa16e253ad0447285f4e329b8f702f2611"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/seated_spring/README.md",
+      "mode": "100644",
+      "gitObject": "9d9e387ed6123944fdfb5f6a6f68070e807c87e7"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/seated_spring/all_petg_parts.3mf",
+      "mode": "100644",
+      "gitObject": "2fadaffcc6eed5a72f91cbc12a75d25d751cdec3"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/seated_spring/design_spec.yaml",
+      "mode": "100644",
+      "gitObject": "6336558c3879654d0d352c202ef9d14f2c277117"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/seated_spring/dimensions.json",
+      "mode": "100644",
+      "gitObject": "2ee8b761166de29ff95b3b8047e3d61e4e8a7426"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/seated_spring/make_seated_foot.py",
+      "mode": "100644",
+      "gitObject": "8dfdd60e9e3f22bbae75ab90a5e68bba81952797"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/seated_spring/petg_foot.3mf",
+      "mode": "100644",
+      "gitObject": "ef46b598547ab9eb1845c3049622251d7e67cc6f"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/seated_spring/petg_guide.3mf",
+      "mode": "100644",
+      "gitObject": "be7e83ea07ef85a386e28da948c42161f1089bd3"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/seated_spring/petg_plunger.3mf",
+      "mode": "100644",
+      "gitObject": "06ca7b8ab529c3bf266112fa193cc4bea358c910"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/seated_spring/petg_spring_stop.3mf",
+      "mode": "100644",
+      "gitObject": "4f00b62fffaa5901af26e7a97ef18159dc6ebe9b"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/seated_spring/scene.json",
+      "mode": "100644",
+      "gitObject": "22f9db7d1cbf7cd6299aeef178c03f66abfff6f3"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/seated_spring/workflow.json",
+      "mode": "100644",
+      "gitObject": "f15a0bd018ce8eaa32fffd272de468d5536dd18e"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/secure_snap/README.md",
+      "mode": "100644",
+      "gitObject": "4343ff956a8369535e7f504f9eda8459e66dde4b"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/secure_snap/all_petg_parts.3mf",
+      "mode": "100644",
+      "gitObject": "d095a28d3f511c3a20bab4a061e416d9f4feb488"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/secure_snap/design_spec.yaml",
+      "mode": "100644",
+      "gitObject": "a93d0343f81190cad73b07a6434475c36d253844"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/secure_snap/dimensions.json",
+      "mode": "100644",
+      "gitObject": "dd394cf61d6699b9349e42ba939233c767539f95"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/secure_snap/make_secure_foot.py",
+      "mode": "100644",
+      "gitObject": "f5b1804e0c459f0709860ee64e19f2edee0e9c14"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/secure_snap/petg_foot.3mf",
+      "mode": "100644",
+      "gitObject": "9acd606301675692d4a7cdfb2c7a2cc56feb7514"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/secure_snap/petg_guide.3mf",
+      "mode": "100644",
+      "gitObject": "5d96285cf1af5071d731342d7ae96572327111fe"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/secure_snap/petg_plunger.3mf",
+      "mode": "100644",
+      "gitObject": "c0dfa740cc5a3ea9db30efb101d96e37348d3a8c"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/secure_snap/petg_spring_stop.3mf",
+      "mode": "100644",
+      "gitObject": "d6ee29b25402cbfef346c89a2d4a240f8c84644e"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/secure_snap/scene.json",
+      "mode": "100644",
+      "gitObject": "831b838c9f7f239b9e822688bdb7b329d0eaf310"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/secure_snap/workflow.json",
+      "mode": "100644",
+      "gitObject": "74c2f9f1a9a6d39abc26a1c1be0f4438f1f925be"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/snap_spring/README.md",
+      "mode": "100644",
+      "gitObject": "303f9ffeed5be2c0f2f368b9ecb57fba964f171f"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/snap_spring/all_petg_parts.3mf",
+      "mode": "100644",
+      "gitObject": "9f8d2220003812a0f58ecba0325b7254176007dd"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/snap_spring/design_spec.yaml",
+      "mode": "100644",
+      "gitObject": "5eda9b9bb5e3cb8a64f9a229a236ec6ba97a3a48"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/snap_spring/dimensions.json",
+      "mode": "100644",
+      "gitObject": "6d855b8b320a7aca11176927ee4c1a969e3f9516"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/snap_spring/make_snap_foot.py",
+      "mode": "100644",
+      "gitObject": "fde7a0e0c4b0533449aedcbc430e80b7308d8785"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/snap_spring/petg_foot.3mf",
+      "mode": "100644",
+      "gitObject": "0b8f352efc3ac95ec344b0fb7866dac1717db255"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/snap_spring/petg_guide.3mf",
+      "mode": "100644",
+      "gitObject": "dca2d15f2a54dc655ac58dbf88658b0836a6a659"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/snap_spring/petg_plunger.3mf",
+      "mode": "100644",
+      "gitObject": "03f851a1d06aa8338a52b5b24d480b656fd07599"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/snap_spring/petg_spring_stop.3mf",
+      "mode": "100644",
+      "gitObject": "536702d1e37c540f4b2e54c15bbfb37bf8c38b30"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/snap_spring/scene.json",
+      "mode": "100644",
+      "gitObject": "5d03120e5cd12cee36b7097ddac16c0448ff7b75"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/sensor_full_foot/snap_spring/workflow.json",
+      "mode": "100644",
+      "gitObject": "bbe971092e686f491f40248cdf86c3044b210a60"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/yaw_alignment_key/README.md",
+      "mode": "100644",
+      "gitObject": "0b5f9bb4c5d3887b10f111f2c4fae484a60e7ad1"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/yaw_alignment_key/bambu/alignment-tools-H2D-PETG.3mf",
+      "mode": "100644",
+      "gitObject": "2c356bc19f0f8a6c811b659ad140b9177847c96f"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/yaw_alignment_key/bambu/alignment-tools-flat-v2-H2D-PETG.3mf",
+      "mode": "100644",
+      "gitObject": "6fe1d020c48b1b00f67ecadc6a018e34de04cb10"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/yaw_alignment_key/bambu/alignment-tools-flat-v2-layout.3mf",
+      "mode": "100644",
+      "gitObject": "79f8e30ae70a9580e38a131508ffac1fb296c671"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/yaw_alignment_key/bambu/alignment-tools-layout.3mf",
+      "mode": "100644",
+      "gitObject": "eeccf3b82a9ff20531b168d5b4e7c8970344a214"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/yaw_alignment_key/bambu/flat-v2-layout.json",
+      "mode": "100644",
+      "gitObject": "4d4eb08d357b951459badb74bd3d9ba653a75a89"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/yaw_alignment_key/bambu/layout.json",
+      "mode": "100644",
+      "gitObject": "296512be9121d9620c7b2f56f14addc6fb556429"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/yaw_alignment_key/bambu/make_plate.py",
+      "mode": "100644",
+      "gitObject": "0b365baaa0d282c7241adb94e131e29d8fccef1e"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/yaw_alignment_key/bambu/plate_1.gcode",
+      "mode": "100644",
+      "gitObject": "79b71738fb0350efad9a465cb1cde18b44c9d72d"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/yaw_alignment_key/bambu/process.json",
+      "mode": "100644",
+      "gitObject": "0ed693d7156223bb44272cc5becf1d3574b0f921"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/yaw_alignment_key/bambu/result.json",
+      "mode": "100644",
+      "gitObject": "ad27001babb9bff1217148bf6a39d90d7c00c86a"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/yaw_alignment_key/build.py",
+      "mode": "100644",
+      "gitObject": "bef28259eddc5861e67ae09ff3bae612e2e24a37"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/yaw_alignment_key/checks.json",
+      "mode": "100644",
+      "gitObject": "c4e78408ffa7d1d6d71f0e3398663f73f8799160"
+    },
+    {
+      "path": "hexapod_walker/prototype_sts3215/concepts/yaw_alignment_key/scene.json",
+      "mode": "100644",
+      "gitObject": "f2b733e04ac8ca55d18667f1633f06c04124e149"
+    }
+  ],
+  "validation": {
+    "pythonParsed": 13,
+    "jsonParsed": 41,
+    "archivesChecked": 44,
+    "credentialPatternMatches": 0,
+    "workingTreeFiles": 64
+  },
+  "otherWorkspaces": "Nine related checkouts inspected; other eight clean. Existing calibration, motor, horn-limiter, tracker and BuildViz GitHub checkpoints verified."
+}

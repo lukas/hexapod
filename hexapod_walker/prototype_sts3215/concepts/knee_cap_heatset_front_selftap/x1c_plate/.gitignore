@@ -1,0 +1,5 @@
+# Regenerable CLI scratch; the deliverable 3MF includes the verified toolpaths.
+*.log
+plate_1.gcode
+result.json
+plate_1_*.png

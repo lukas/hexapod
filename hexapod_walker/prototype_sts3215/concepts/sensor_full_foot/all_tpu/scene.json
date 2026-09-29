@@ -1,0 +1,134 @@
+{
+  "name": "Two-part all-TPU contact foot \u2014 95A prototype",
+  "buildId": "prototype_sts3215/sensor-full-foot",
+  "units": "mm",
+  "center": [
+    0,
+    0,
+    8
+  ],
+  "meshes": [
+    {
+      "id": "tpu_sensor_cup",
+      "url": "tpu_sensor_cup.stl"
+    },
+    {
+      "id": "tpu_socket_and_return",
+      "url": "tpu_socket_and_return.stl"
+    },
+    {
+      "id": "sensor_reference",
+      "url": "sensor_reference.stl"
+    },
+    {
+      "id": "carbon_tube_reference",
+      "url": "carbon_tube_reference.stl"
+    }
+  ],
+  "instances": [
+    {
+      "id": "tpu_sensor_cup",
+      "meshId": "tpu_sensor_cup",
+      "partType": "tpu_sensor_cup",
+      "name": "tpu sensor cup",
+      "color": "#e9a13d",
+      "cots": false,
+      "transform": [
+        1.0,
+        -0.0,
+        -0.0,
+        0.0,
+        0.0,
+        -1.0,
+        -1.2246467991473532e-16,
+        0.0,
+        0.0,
+        1.2246467991473532e-16,
+        -1.0,
+        0.0,
+        0.0,
+        -2.449293598294708e-16,
+        2.0000000000000013,
+        1.0
+      ]
+    },
+    {
+      "id": "tpu_socket_and_return",
+      "meshId": "tpu_socket_and_return",
+      "partType": "tpu_socket_and_return",
+      "name": "tpu socket and return",
+      "color": "#945dc7",
+      "cots": false,
+      "transform": [
+        1.0,
+        -0.0,
+        -0.0,
+        0.0,
+        0.0,
+        -1.0,
+        -1.2246467991473532e-16,
+        0.0,
+        0.0,
+        1.2246467991473532e-16,
+        -1.0,
+        0.0,
+        0.0,
+        -3.269807047156569e-15,
+        26.700000762939453,
+        1.0
+      ]
+    },
+    {
+      "id": "sensor_reference",
+      "meshId": "sensor_reference",
+      "partType": "sensor_reference",
+      "name": "sensor reference",
+      "color": "#249796",
+      "cots": true,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "id": "carbon_tube_reference",
+      "meshId": "carbon_tube_reference",
+      "partType": "carbon_tube_reference",
+      "name": "carbon tube reference",
+      "color": "#40454b",
+      "cots": true,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  ]
+}

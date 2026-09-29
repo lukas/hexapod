@@ -1,0 +1,292 @@
+{
+  "printer": "Bambu Lab X1 Carbon",
+  "nozzle_mm": 0.4,
+  "material": "PETG",
+  "bed": "Textured PEI Plate",
+  "plate_count": 1,
+  "part_count": 6,
+  "orientation": "Flange down; 180 degrees about source X",
+  "spacing_mm": 12,
+  "slice_success": true,
+  "slicer_warnings": [],
+  "stats": [
+    "; model printing time: 9h 13m 5s; total estimated time: 9h 21m 25s",
+    "; total filament length [mm] : 55325.31",
+    "; total filament volume [cm^3] : 133072.96",
+    "; total filament weight [g] : 169.00"
+  ],
+  "support_checks": {
+    "support_segments": 144377,
+    "screw_bores_checked": 48,
+    "bore_sections_checked": 72,
+    "support_in_screw_bores": 0
+  },
+  "source_build": "prototype_sts3215/premade-chorn-56",
+  "source_version": "v38",
+  "source_sha256": "8106497cf755929ebab489b1b264ceb62d155095871f86ca06026817d7001476",
+  "source_url": "https://buildviz.cwd1f0-new-cluster.coreweave.app/builds/_assets/8106497cf755929ebab489b1b264ceb62d155095871f86ca06026817d7001476.stl",
+  "geometry_changed": false,
+  "parts": [
+    {
+      "name": "yaw_retainer_1",
+      "bounds_mm": [
+        [
+          27.5,
+          68.0,
+          0.0
+        ],
+        [
+          86.5,
+          122.0,
+          34.0
+        ]
+      ],
+      "volume_mm3": 20031.205848766578,
+      "bed_contact_mm2": 998.1021078625217,
+      "source_to_plate": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          75.0
+        ],
+        [
+          0.0,
+          -1.0,
+          -1.2246467991473532e-16,
+          95.0
+        ],
+        [
+          0.0,
+          1.2246467991473532e-16,
+          -1.0,
+          -5.9999999999999964
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ]
+    },
+    {
+      "name": "yaw_retainer_2",
+      "bounds_mm": [
+        [
+          98.5,
+          68.0,
+          0.0
+        ],
+        [
+          157.5,
+          122.0,
+          34.0
+        ]
+      ],
+      "volume_mm3": 20031.205848766564,
+      "bed_contact_mm2": 998.1021078625217,
+      "source_to_plate": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          146.0
+        ],
+        [
+          0.0,
+          -1.0,
+          -1.2246467991473532e-16,
+          95.0
+        ],
+        [
+          0.0,
+          1.2246467991473532e-16,
+          -1.0,
+          -5.9999999999999964
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ]
+    },
+    {
+      "name": "yaw_retainer_3",
+      "bounds_mm": [
+        [
+          169.5,
+          68.0,
+          0.0
+        ],
+        [
+          228.5,
+          122.0,
+          34.0
+        ]
+      ],
+      "volume_mm3": 20031.20584876658,
+      "bed_contact_mm2": 998.1021078625217,
+      "source_to_plate": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          217.0
+        ],
+        [
+          0.0,
+          -1.0,
+          -1.2246467991473532e-16,
+          95.0
+        ],
+        [
+          0.0,
+          1.2246467991473532e-16,
+          -1.0,
+          -5.9999999999999964
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ]
+    },
+    {
+      "name": "yaw_retainer_4",
+      "bounds_mm": [
+        [
+          27.5,
+          134.0,
+          0.0
+        ],
+        [
+          86.5,
+          188.0,
+          34.0
+        ]
+      ],
+      "volume_mm3": 20031.205848766578,
+      "bed_contact_mm2": 998.1021078625217,
+      "source_to_plate": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          75.0
+        ],
+        [
+          0.0,
+          -1.0,
+          -1.2246467991473532e-16,
+          161.0
+        ],
+        [
+          0.0,
+          1.2246467991473532e-16,
+          -1.0,
+          -5.9999999999999964
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ]
+    },
+    {
+      "name": "yaw_retainer_5",
+      "bounds_mm": [
+        [
+          98.5,
+          134.0,
+          0.0
+        ],
+        [
+          157.5,
+          188.0,
+          34.0
+        ]
+      ],
+      "volume_mm3": 20031.205848766564,
+      "bed_contact_mm2": 998.1021078625217,
+      "source_to_plate": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          146.0
+        ],
+        [
+          0.0,
+          -1.0,
+          -1.2246467991473532e-16,
+          161.0
+        ],
+        [
+          0.0,
+          1.2246467991473532e-16,
+          -1.0,
+          -5.9999999999999964
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ]
+    },
+    {
+      "name": "yaw_retainer_6",
+      "bounds_mm": [
+        [
+          169.5,
+          134.0,
+          0.0
+        ],
+        [
+          228.5,
+          188.0,
+          34.0
+        ]
+      ],
+      "volume_mm3": 20031.20584876658,
+      "bed_contact_mm2": 998.1021078625217,
+      "source_to_plate": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          217.0
+        ],
+        [
+          0.0,
+          -1.0,
+          -1.2246467991473532e-16,
+          161.0
+        ],
+        [
+          0.0,
+          1.2246467991473532e-16,
+          -1.0,
+          -5.9999999999999964
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ]
+    }
+  ],
+  "printer_contacted": false,
+  "physical_fit_tested": false,
+  "output": "yaw_retainers_6x_X1C_PETG.3mf"
+}

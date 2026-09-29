@@ -1,0 +1,224 @@
+{
+  "name": "Snap-on foot with self-seating spring insert",
+  "buildId": "prototype_sts3215/sensor-full-foot",
+  "units": "mm",
+  "center": [
+    0,
+    0,
+    12
+  ],
+  "meshes": [
+    {
+      "id": "petg_foot",
+      "url": "petg_foot.stl"
+    },
+    {
+      "id": "petg_guide",
+      "url": "petg_guide.stl"
+    },
+    {
+      "id": "petg_plunger",
+      "url": "petg_plunger.stl"
+    },
+    {
+      "id": "petg_spring_stop",
+      "url": "petg_spring_stop.stl"
+    },
+    {
+      "id": "carbon_tube_reference",
+      "url": "carbon_tube_reference.stl"
+    },
+    {
+      "id": "spring_reference",
+      "url": "spring_reference.stl"
+    },
+    {
+      "id": "sensor_reference",
+      "url": "sensor_reference.stl"
+    }
+  ],
+  "instances": [
+    {
+      "id": "petg_foot",
+      "meshId": "petg_foot",
+      "partType": "petg_foot",
+      "name": "petg foot",
+      "cots": false,
+      "color": "#e9a13d",
+      "transform": [
+        1.0,
+        -0.0,
+        -0.0,
+        0.0,
+        0.0,
+        -1.0,
+        -1.2246467991473532e-16,
+        0.0,
+        0.0,
+        1.2246467991473532e-16,
+        -1.0,
+        0.0,
+        0.0,
+        -1.959434878635765e-15,
+        16.0,
+        1.0
+      ]
+    },
+    {
+      "id": "petg_guide",
+      "meshId": "petg_guide",
+      "partType": "petg_guide",
+      "name": "petg guide",
+      "cots": false,
+      "color": "#97aac3",
+      "transform": [
+        1.0,
+        -0.0,
+        -0.0,
+        0.0,
+        0.0,
+        -1.0,
+        -1.2246467991473532e-16,
+        0.0,
+        0.0,
+        1.2246467991473532e-16,
+        -1.0,
+        0.0,
+        0.0,
+        -3.429011037612589e-15,
+        28.0,
+        1.0
+      ]
+    },
+    {
+      "id": "petg_plunger",
+      "meshId": "petg_plunger",
+      "partType": "petg_plunger",
+      "name": "petg plunger",
+      "cots": false,
+      "color": "#dd617c",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        2.200000047683716,
+        1.0
+      ]
+    },
+    {
+      "id": "petg_spring_stop",
+      "meshId": "petg_spring_stop",
+      "partType": "petg_spring_stop",
+      "name": "petg spring stop",
+      "cots": false,
+      "color": "#9d71d6",
+      "transform": [
+        1.0,
+        -0.0,
+        -0.0,
+        0.0,
+        0.0,
+        -1.0,
+        -1.2246467991473532e-16,
+        0.0,
+        0.0,
+        1.2246467991473532e-16,
+        -1.0,
+        0.0,
+        0.0,
+        -2.7554552980815448e-15,
+        22.5,
+        1.0
+      ]
+    },
+    {
+      "id": "carbon_tube_reference",
+      "meshId": "carbon_tube_reference",
+      "partType": "carbon_tube_reference",
+      "name": "carbon tube reference",
+      "cots": true,
+      "color": "#40454b",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "id": "spring_reference",
+      "meshId": "spring_reference",
+      "partType": "spring_reference",
+      "name": "spring reference",
+      "cots": true,
+      "color": "#dddddd",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "id": "sensor_reference",
+      "meshId": "sensor_reference",
+      "partType": "sensor_reference",
+      "name": "sensor reference",
+      "cots": true,
+      "color": "#249796",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  ]
+}

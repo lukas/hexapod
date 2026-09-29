@@ -1,0 +1,122 @@
+{
+  "printer": "Bambu Lab X1 Carbon",
+  "nozzle_mm": 0.4,
+  "material": "PETG",
+  "bed": "Textured PEI Plate",
+  "slice_success": true,
+  "slicer_warnings": [],
+  "stats": [
+    "; model printing time: 2h 55m 39s; total estimated time: 3h 3m 59s",
+    "; total filament length [mm] : 18628.05",
+    "; total filament volume [cm^3] : 44805.71",
+    "; total filament weight [g] : 56.90"
+  ],
+  "toolpath_checks": {
+    "support_segments": 2019,
+    "bores_checked": 10,
+    "support_in_functional_bores": 0,
+    "cap_support_disabled": true
+  },
+  "source_build": "prototype_sts3215/premade-chorn-56",
+  "source_version": "v38",
+  "geometry_changed": false,
+  "parts": [
+    {
+      "part": "femur_ovh_body",
+      "quantity": 1,
+      "source_sha256": "8c43f3d8a2daa5fc43c9c1b25b19b31632e3fd235784817b74f0da2ea2e5efed",
+      "source_url": "https://buildviz.cwd1f0-new-cluster.coreweave.app/builds/_assets/8c43f3d8a2daa5fc43c9c1b25b19b31632e3fd235784817b74f0da2ea2e5efed.stl",
+      "rotation_x_deg": 90,
+      "volume_mm3": 40235.66621347873,
+      "bed_contact_mm2": 2593.644715194707,
+      "source_to_plate": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          -7.049999237060547
+        ],
+        [
+          0.0,
+          6.123233995736766e-17,
+          -1.0,
+          145.1500005722046
+        ],
+        [
+          0.0,
+          1.0,
+          6.123233995736766e-17,
+          16.899999618530273
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "bounds_mm": [
+        [
+          56.45000076293945,
+          99.99999904632568,
+          0.0
+        ],
+        [
+          124.14999771118164,
+          156.00000095367432,
+          33.79999923706055
+        ]
+      ]
+    },
+    {
+      "part": "knee_clamp_cap_ovh",
+      "quantity": 1,
+      "source_sha256": "38eeb58892996beb5bae3d80f1e486d3634e38c820efdaa954062b4020ab07fe",
+      "source_url": "https://buildviz.cwd1f0-new-cluster.coreweave.app/builds/_assets/38eeb58892996beb5bae3d80f1e486d3634e38c820efdaa954062b4020ab07fe.stl",
+      "rotation_x_deg": -90,
+      "volume_mm3": 20479.036318327522,
+      "bed_contact_mm2": 2120.59279349584,
+      "source_to_plate": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          167.8499984741211
+        ],
+        [
+          0.0,
+          6.123233995736766e-17,
+          1.0,
+          111.60000038146973
+        ],
+        [
+          0.0,
+          -1.0,
+          6.123233995736766e-17,
+          21.899999618530273
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "bounds_mm": [
+        [
+          136.14999771118164,
+          106.10000038146973,
+          0.0
+        ],
+        [
+          199.54999923706055,
+          149.89999961853027,
+          16.899999618530273
+        ]
+      ]
+    }
+  ],
+  "printer_contacted": false,
+  "physical_fit_tested": false,
+  "output": "metal_femur_and_cap_v38_X1C_PETG.3mf"
+}

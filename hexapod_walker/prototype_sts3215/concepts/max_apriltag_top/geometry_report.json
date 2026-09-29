@@ -1,6 +1,6 @@
 {
   "pass": true,
-  "tag_id": 0,
+  "tag_id": 504,
   "outer_tag_mm": 98,
   "black_square_mm": 78.4,
   "cell_mm": 9.8,
@@ -12,10 +12,10 @@
   "registration_lip_preserved": true,
   "closed_internal_openings": 9,
   "external_bounds_unchanged": true,
-  "colour_partition_error_mm3": 0.0068760456051677465,
+  "colour_partition_error_mm3": 0.006553795305080712,
   "new_material_collisions": [],
   "decoded_ids": [
-    0
+    504
   ],
   "limitations": "CAD-derived hatch variant. No physical fit or overhead-leg motion test; update tracker black-square size to 0.0784 m.",
   "h2d_slice_pass": true

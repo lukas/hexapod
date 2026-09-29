@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "parts": {
+    "tpu_sensor_cup": {
+      "kind": "printed",
+      "label": "tpu sensor cup",
+      "material": "TPU 95A (user confirmed hardness; brand unspecified)"
+    },
+    "tpu_socket_and_return": {
+      "kind": "printed",
+      "label": "tpu socket and return",
+      "material": "TPU 95A (user confirmed hardness; brand unspecified)"
+    },
+    "sensor_reference": {
+      "kind": "purchased",
+      "label": "sensor reference"
+    },
+    "carbon_tube_reference": {
+      "kind": "purchased",
+      "label": "carbon tube reference"
+    }
+  },
+  "instructions": [
+    {
+      "id": "assembly",
+      "title": "Two-part TPU prototype",
+      "text": "Designed for user-confirmed TPU 95A. Print the cup sensor-face down and socket top-rim down using the provided orientations; inspect the internal rod-seat ledge and bellows overhangs in the slicer. The sensor backing, socket and pad need dense fill; compliance is in the thin modeled return wall. Seat the 8/6 mm carbon tube on the internal shoulder, 17.2 mm below the top; secure the tube-to-socket interface with a material-compatible adhesive after checking a sample bond. Attach the 10 mm sensor flat to the cup, preserving its vent/active surface. Align wire opening, place the socket over the sensor, and stretch the lower cuff over the cup rim into its circumferential groove. No screws or metal spring; do not glue the flexing joint. Verify cuff engagement all around. Nominal sensor plus adhesive is 0.2 mm and pad gap is 0.2 mm. Bench-test unloaded baseline, return after sustained compression, gentle straight/angled contacts, pull-off retention and bumper contact. TPU bumper contact is not a rigid force limit. Deformation and load capacity are unvalidated."
+    }
+  ]
+}

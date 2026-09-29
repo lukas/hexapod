@@ -1,0 +1,74 @@
+{
+  "error_string": "Success.",
+  "export_time": 0,
+  "layer_height": 0.20000000298023224,
+  "plate_index": 1,
+  "prepare_time": 22,
+  "return_code": 0,
+  "sliced_plates": [
+    {
+      "feature_type_times": {
+        "Bottom surface": 4449.63916015625,
+        "Bridge": 3600.150634765625,
+        "Custom": 35.05239486694336,
+        "Flush": 63.19999694824219,
+        "Gap infill": 0.2933032512664795,
+        "Inner wall": 1117.0648193359375,
+        "Internal solid infill": 13129.361328125,
+        "Outer wall": 1431.5621337890625,
+        "Prime tower": 166.9984130859375,
+        "Sparse infill": 4383.4228515625,
+        "Top surface": 4997.9970703125,
+        "Travel": 1300.415771484375,
+        "Undefined": 1284.898681640625
+      },
+      "filament_change_times": 0,
+      "filaments": [
+        {
+          "filament_id": "GFL99",
+          "id": 1,
+          "main_used_g": 206.1748046875,
+          "total_used_g": 206.95692443847656
+        },
+        {
+          "filament_id": "GFL99",
+          "id": 2,
+          "main_used_g": 26.397855758666992,
+          "total_used_g": 26.54737091064453
+        }
+      ],
+      "generate_support_material_time": 1,
+      "id": 1,
+      "infill_time": 802,
+      "layer_filament_change": 0,
+      "main_predication": 34376.7421875,
+      "make_perimeters_time": 39,
+      "obj_cached_cnt": 0,
+      "objects": [
+        {
+          "bbox": {
+            "depth": 318.0,
+            "height": 3.0,
+            "width": 258.0,
+            "x": 26.0,
+            "y": 1.0,
+            "z": 0.0
+          },
+          "id": 5,
+          "name": "tag36h11_400",
+          "triangle_count": 21898
+        }
+      ],
+      "sliced_time": 1328,
+      "sliced_time_with_cache": 384,
+      "total_predication": 34626.4453125,
+      "triangle_count": 21898,
+      "warning_message": ""
+    }
+  ],
+  "sparse_infill_density": 25.0,
+  "upward_compatible_machine": [
+    "Bambu Lab H2D Pro 0.4 nozzle"
+  ],
+  "wall_loops": 3
+}

@@ -164,6 +164,27 @@ def main() -> int:
                          "plumbing (RL_GOALS.md's allowed non-motion "
                          "category), not a new scripted motion or "
                          "reward change -- no training touched.")
+    ap.add_argument("--curve-speed", type=float, default=0.0,
+                    help="SIMULTANEOUS translate+turn probe (walkcurr "
+                         "Next, 2026-09-30 -- true curved walking is "
+                         "still the open Goal-2 frontier; mixwalk05's "
+                         "single-policy joint-mixing shape is closed "
+                         "2/2 FAIL, but no one has yet zero-shot-"
+                         "tested the FROZEN acq5-seedsweep turn "
+                         "specialist on a command it never trained on: "
+                         "every yaw_offset training episode hard-zeros "
+                         "vx/vy [walk_task.py's yaw-offset draw], so a "
+                         "nonzero value here is genuinely OOD for that "
+                         "checkpoint, not a re-dose of anything closed). "
+                         "Default 0.0 = bit-exact prior behavior (traj."
+                         "vx/vy stay hard-zeroed during the turn "
+                         "segment). >0 sets a constant body-frame "
+                         "forward vx (m/s, via heading_to_vxvy at "
+                         "heading=0) for the WHOLE turn segment while "
+                         "it still targets/holds the same yaw-offset -- "
+                         "no new training, both policies stay frozen, "
+                         "this changes only the eval-time command fed "
+                         "to the already-trained turn specialist.")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--stochastic", action="store_true",
                     help="both policies predict stochastically "
@@ -363,20 +384,27 @@ def main() -> int:
                      if rec["fall"] is None else None)
 
     def run_turn(state: PhysicalState, ep_seed: int,
-                offset_deg: float) -> dict:
+                offset_deg: float, curve_speed: float = 0.0) -> dict:
         obs = reanchor(env_turn, "walk", state, ep_seed)
         if hasattr(turn, "reset"):
             turn.reset()
         traj = env_turn._goal_traj
         delta = math.radians(offset_deg)
+        cvx, cvy = heading_to_vxvy(curve_speed, 0.0)
         n_steps = max(1, int(round(args.turn_episode_s / env_turn.dt)))
         errs = []
         contact_hist, pad_xy_hist = [], []
-        rec = {"fall": None, "target_deg": offset_deg}
+        chassis0 = env_turn.data.xpos[env_turn._chassis_bid, :2].copy()
+        rec = {"fall": None, "target_deg": offset_deg,
+               "curve_speed": curve_speed}
         for _ in range(n_steps):
             if hasattr(traj, "vx"):
-                traj.vx[:] = 0.0
-                traj.vy[:] = 0.0
+                # curve_speed=0.0 (default) reproduces the prior
+                # hard-zeroed behavior bit-exactly; >0 is the
+                # simultaneous translate+turn OOD probe (see
+                # --curve-speed help).
+                traj.vx[:] = cvx
+                traj.vy[:] = cvy
             if getattr(traj, "wz", None) is not None:
                 traj.wz[:] = 0.0
             if getattr(traj, "yaw_offset", None) is not None:
@@ -395,6 +423,8 @@ def main() -> int:
                 rec["fall"] = str(
                     info.get("termination_reason") or "episode_end")
                 break
+        rec["net_disp_m"] = round(float(np.hypot(
+            *(env_turn.data.xpos[env_turn._chassis_bid, :2] - chassis0))), 4)
         q4 = errs[-max(1, len(errs) // 4):] if errs else []
         rec["err_q4_mean_rad"] = (round(float(np.mean(q4)), 4)
                                   if q4 else None)
@@ -439,7 +469,8 @@ def main() -> int:
                 break
             offset_deg = offsets[off_i % len(offsets)]
             off_i += 1
-            turn_rec, state = run_turn(state, ep_seed, offset_deg)
+            turn_rec, state = run_turn(state, ep_seed, offset_deg,
+                                       curve_speed=args.curve_speed)
             turn_rec["seg"] = "turn"
             segs.append(turn_rec)
             if want_strips and ep == 0:
@@ -471,6 +502,9 @@ def main() -> int:
                            f"{len(turn_segs)}",
         "turn_converged": f"{sum(s['converged'] for s in turn_segs)}/"
                           f"{len(turn_segs)}",
+        "turn_net_disp_m_median": (
+            round(float(np.median([s["net_disp_m"] for s in turn_segs])), 4)
+            if turn_segs else None),
     }
     print(f"[walk_turn_compose] SUMMARY {results['summary']}")
 

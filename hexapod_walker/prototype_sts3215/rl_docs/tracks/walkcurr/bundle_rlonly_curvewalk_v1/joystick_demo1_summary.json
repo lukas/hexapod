@@ -1,0 +1,82 @@
+{
+  "script": "demo1",
+  "compat": {
+    "walk_env_obs": 72,
+    "walk_model_obs": 72,
+    "turn_env_obs": 74,
+    "turn_model_obs": 74,
+    "walk_compatible": true,
+    "turn_compatible": true
+  },
+  "segments": [
+    {
+      "role": "walk",
+      "label": "forward",
+      "fall": null,
+      "gait_valid": true,
+      "sacrificed_legs": [],
+      "success": true
+    },
+    {
+      "role": "turn",
+      "label": "turn-left",
+      "fall": null,
+      "target_deg": 30.0,
+      "clamped": true,
+      "err_q4_mean_rad": 0.0191,
+      "gait_valid": false,
+      "sacrificed_legs": [
+        3
+      ],
+      "success": false
+    },
+    {
+      "role": "walk",
+      "label": "forward",
+      "fall": null,
+      "gait_valid": true,
+      "sacrificed_legs": [],
+      "success": true
+    },
+    {
+      "role": "turn",
+      "label": "turn-right",
+      "fall": null,
+      "target_deg": -30.0,
+      "clamped": true,
+      "err_q4_mean_rad": 0.0215,
+      "gait_valid": true,
+      "sacrificed_legs": [],
+      "success": true
+    },
+    {
+      "role": "walk",
+      "label": "reverse",
+      "fall": null,
+      "gait_valid": true,
+      "sacrificed_legs": [],
+      "success": true
+    },
+    {
+      "role": "turn",
+      "label": "curve-left",
+      "fall": null,
+      "target_deg": 30.0,
+      "clamped": true,
+      "err_q4_mean_rad": 0.0235,
+      "gait_valid": true,
+      "sacrificed_legs": [],
+      "success": true
+    },
+    {
+      "role": "walk",
+      "label": "stop",
+      "fall": null,
+      "gait_valid": true,
+      "sacrificed_legs": [],
+      "success": true
+    }
+  ],
+  "zero_fall": true,
+  "all_gait_valid": false
+}

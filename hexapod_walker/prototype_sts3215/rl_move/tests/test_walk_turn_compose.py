@@ -13,13 +13,18 @@ from rl_move.sim.eval_walk_turn_compose import (
 
 
 def test_forward_schedule_shape_and_total_time():
-    sched = forward_schedule(0.06)
+    sched = forward_schedule(0.06, 0.0)
     assert len(sched) == 3
-    # settle (0 speed), hold (commanded speed), stop (0 speed)
+    # settle (0 speed), hold (commanded vx/vy), stop (0 speed)
     assert sched[0][1] == 0.0 and sched[0][2] == 0.0
     assert sched[1][1] == 0.06 and sched[1][2] == 0.0
     assert sched[2][1] == 0.0 and sched[2][2] == 0.0
     assert sum(s for s, _, _ in sched) == 8.0  # 1.0 + 6.0 + 1.0
+
+
+def test_forward_schedule_carries_nonzero_vy_for_off_axis_headings():
+    sched = forward_schedule(0.04, -0.04)
+    assert sched[1][1:] == (0.04, -0.04)
 
 
 def test_duty_swings_all_planted_no_swings():

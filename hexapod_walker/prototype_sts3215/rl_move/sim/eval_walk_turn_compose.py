@@ -71,8 +71,8 @@ CONTACT_N = 0.5   # same threshold eval_checkpoint.py / eval_lifecycle_
                   # handoff_rlonly.py use for touch-sensor contact
 
 
-def forward_schedule(speed: float):
-    return [(FWD_SETTLE_S, 0.0, 0.0), (FWD_HOLD_S, speed, 0.0),
+def forward_schedule(vx: float, vy: float):
+    return [(FWD_SETTLE_S, 0.0, 0.0), (FWD_HOLD_S, vx, vy),
             (FWD_STOP_S, 0.0, 0.0)]
 
 
@@ -111,6 +111,23 @@ def main() -> int:
                     help="forward segment commanded speed, m/s "
                          "(default = bundle_rlonly_v2's own trained "
                          "band, goal.walk_speed_{min,max}_m_s=0.06)")
+    ap.add_argument("--heading-deg", type=float, default=0.0,
+                    help="forward segment commanded body-frame heading "
+                         "in degrees, 0=forward (default, bit-exact "
+                         "prior behavior); +-45/+-90/+-135/180 match "
+                         "eval_checkpoint.py's heading convention -- "
+                         "the walk champion's own closed off-axis "
+                         "mechanism-class failures apply at nonzero "
+                         "headings unless --rot60 is also set")
+    ap.add_argument("--rot60", action="store_true",
+                    help="wrap the forward (--walk) policy in "
+                         "rot60.Rot60Policy (default off = bit-exact "
+                         "unwrapped champion) -- rot60_fullcircle's "
+                         "own validated fix for the closed chronic "
+                         "off-forward front-pair-sacrifice failure, "
+                         "tested here composed with a turn-and-hold "
+                         "segment instead of the walk role in "
+                         "isolation")
     ap.add_argument("--turn-offset-deg", type=float, default=None,
                     help="fixed turn-segment target offset in degrees "
                          "(default None = cycle through the turn "
@@ -141,7 +158,7 @@ def main() -> int:
     from .eval_checkpoint import _sacrificed_legs
     from .eval_lifecycle_handoff_rlonly import (
         PhysicalState, _build_env, _set_mix, apply_physical_state,
-        capture_physical_state,
+        capture_physical_state, heading_to_vxvy,
     )
     if args.walk_recipe == "rlonly_v2":
         from .cfg_recipe_walk50hz_rlonly_v2 import CFG_ARGS as WALK_ARGS
@@ -167,6 +184,9 @@ def main() -> int:
 
     walk = load_checkpoint_auto(args.walk, device="cpu")
     turn = load_checkpoint_auto(args.turn, device="cpu")
+    if args.rot60:
+        from .rot60 import Rot60Policy
+        walk = Rot60Policy(walk)
     n_walk_env = int(env_walk.observation_space.shape[0])
     n_turn_env = int(env_turn.observation_space.shape[0])
     n_walk_model = int(walk.observation_space.shape[0])
@@ -242,10 +262,12 @@ def main() -> int:
         if hasattr(walk, "reset"):
             walk.reset()
         traj = env_walk._goal_traj
-        rec = {"fall": None, "trk_err": 0.0}
+        rec = {"fall": None, "trk_err": 0.0,
+               "heading_deg": args.heading_deg}
         n_err = 0
         contact_hist, pad_xy_hist = [], []
-        for seconds, vx, vy in forward_schedule(args.speed):
+        cmd_vx, cmd_vy = heading_to_vxvy(args.speed, args.heading_deg)
+        for seconds, vx, vy in forward_schedule(cmd_vx, cmd_vy):
             for _ in range(max(1, int(round(seconds / env_walk.dt)))):
                 if hasattr(traj, "vx"):
                     traj.vx[:] = vx

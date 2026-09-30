@@ -140,6 +140,30 @@ def main() -> int:
                          "gated episode length, so the tail-quartile "
                          "convergence read is comparable to that "
                          "checkpoint's own isolated gate)")
+    ap.add_argument("--settle-grounded-s", type=float, default=0.0,
+                    help="EXTEND the forward segment's stop phase "
+                         "(beyond FWD_STOP_S) up to this many extra "
+                         "seconds, one tick at a time, stopping early "
+                         "the moment all six feet register contact "
+                         "SIMULTANEOUSLY on the same tick (default 0.0 "
+                         "= off, bit-exact prior behavior). Root-cause "
+                         "fix (2026-09-30 walkcurr Next item 2, "
+                         "leg-3-unload-during-hold dig-in): the fixed "
+                         "1.0s stop phase can end with a leg still "
+                         "mid-swing (airborne) at the exact reanchor "
+                         "tick handed to the turn specialist, which "
+                         "was only ever reset from its own fully-"
+                         "planted starts -- an OOD posture it "
+                         "sometimes resolves by permanently parking "
+                         "that leg rather than replanting it (income-"
+                         "only walk_leg_duty_ratio reward reduces but "
+                         "does not zero the cost, so it is a rare, "
+                         "non-fall local optimum, not a crash). "
+                         "Waiting for a fully-grounded tick before "
+                         "reanchoring is role-selection/state-capture "
+                         "plumbing (RL_GOALS.md's allowed non-motion "
+                         "category), not a new scripted motion or "
+                         "reward change -- no training touched.")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--stochastic", action="store_true",
                     help="both policies predict stochastically "
@@ -175,7 +199,8 @@ def main() -> int:
     # fall (found during smoke-testing this tool: a 4.0s turn segment
     # against episode_seconds=4.0 truncated on the segment's own final
     # tick and was wrongly recorded as fall="episode_end").
-    fwd_episode_s = FWD_SETTLE_S + FWD_HOLD_S + FWD_STOP_S + 2.0
+    fwd_episode_s = (FWD_SETTLE_S + FWD_HOLD_S + FWD_STOP_S
+                     + max(0.0, args.settle_grounded_s) + 2.0)
     env_walk = _build_env(WALK_ARGS, episode_seconds=fwd_episode_s,
                           seed=args.seed, render=want_strips)
     env_turn = _build_env(TURN_ARGS,
@@ -291,6 +316,38 @@ def main() -> int:
                     break
             if rec["fall"]:
                 break
+        if not rec["fall"] and args.settle_grounded_s > 0.0:
+            # Extra grounded-settle window (see --settle-grounded-s
+            # help): keep commanding stop (vx=vy=0, same as the
+            # schedule's own last phase) one tick at a time until every
+            # foot has contact on the SAME tick, or the budget runs
+            # out -- whichever first. Ticks appended to the same
+            # contact_hist/pad_xy_hist the gait-validity read below
+            # already uses (all zero-cmd, consistent with the phase
+            # they extend).
+            settle_ticks = max(1, int(round(
+                args.settle_grounded_s / env_walk.dt)))
+            for _ in range(settle_ticks):
+                if hasattr(traj, "vx"):
+                    traj.vx[:] = 0.0
+                    traj.vy[:] = 0.0
+                if getattr(traj, "wz", None) is not None:
+                    traj.wz[:] = 0.0
+                a, _ = walk.predict(obs, deterministic=deterministic)
+                obs, _rw, term, trunc, info = env_walk.step(a)
+                grab(env_walk)
+                tick_contact = [
+                    float(env_walk.data.sensordata[adr]) > CONTACT_N
+                    for adr in env_walk._touch_adr]
+                contact_hist.append(tick_contact)
+                pad_xy_hist.append(
+                    [env_walk.data.xpos[b, :2].copy() for b in pads_walk])
+                if term or trunc:
+                    rec["fall"] = str(
+                        info.get("termination_reason") or "episode_end")
+                    break
+                if all(tick_contact):
+                    break
         rec["trk_err"] = round(rec["trk_err"] / max(n_err, 1), 4)
         contact = np.asarray(contact_hist, dtype=bool)
         pad_xy = np.asarray(pad_xy_hist)

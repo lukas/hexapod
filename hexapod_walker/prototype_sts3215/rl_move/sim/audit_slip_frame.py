@@ -59,6 +59,8 @@ from pathlib import Path
 
 import numpy as np
 
+from hexapod_core.joint_frame import joint_index
+
 from .servo_model import SimServoParams
 from .walk_task import SimHexapodJointWalkEnv
 
@@ -137,7 +139,7 @@ def run_episode(env, model, *, deterministic: bool, pads, pad_geoms,
     # actual knee-frame shift this episode (hip slots of q_nom): the
     # magnitude the pre-fix sharded worker bug displaced knee obs by.
     qn = env._q_nom
-    knee_shift_probe.append([round(float(qn[3 * l + 1]), 4)
+    knee_shift_probe.append([round(float(qn[joint_index(l, "hip")]), 4)
                              for l in range(6)])
     T = env._max_steps if hasattr(env, "_max_steps") else 10 ** 6
     contact_hist, force_hist = [], []

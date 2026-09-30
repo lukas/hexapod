@@ -29,6 +29,8 @@ import time
 
 import numpy as np
 
+from hexapod_core.joint_frame import joint_index
+
 
 def _xcorr_lag(a, b, dt, max_lag_s=0.6):
     a = a - a.mean()
@@ -102,8 +104,9 @@ def main(argv=None) -> int:
         goals = raw["C"][bi].copy()
         if args.knee_plus_hip:
             for leg in range(6):
-                goals[:, 3 * leg + 2] += goals[:, 3 * leg + 1]
-                pre[3 * leg + 2] += pre[3 * leg + 1]
+                hip_i, knee_i = joint_index(leg, "hip"), joint_index(leg, "knee")
+                goals[:, knee_i] += goals[:, hip_i]
+                pre[knee_i] += pre[hip_i]
         replay = dict(t=t_rel, goals=goals, plant=pre,
                       speed=float(np.median(raw["S"][bi])),
                       acc=float(np.median(raw["A"][bi])),

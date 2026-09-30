@@ -1,27 +1,29 @@
-# Pinned pre-existing 'not slow' suite failures (meta 2026-09-28, 30 failed/2837 passed).
+# Pinned pre-existing 'not slow' suite failures (meta 2026-09-28, 30 failed/2837
+# passed baseline; updated 2026-09-30: 15 remain -- 12 fixed by the
+# HEXAPOD_SAFETY_MAX_DELTA_Q_DEG testpin regression fix (RL_LOG 09-30 ~13:2x /
+# OPERATOR_QUESTIONS 09-30 ~13:2x, verified via full-suite before/after diff),
+# 2 (test_teacher_speed_scales.py) already fixed before this update (30->28
+# gap the same note's survey found but did not itself explain), 1
+# (test_joint_contract.py hand-rolled-index-math guard) fixed this cycle by
+# replacing the flagged 3*leg+k arithmetic in audit_slip_frame.py /
+# probe_stance_actuator.py with hexapod_core.joint_frame.joint_index -- a
+# static source-scan test, not order-dependent, safe to drop without a fresh
+# full-suite run. The remaining 15 (course_income wz-arc, rot60 equivariance,
+# sim_env leg-chassis-collision x2 + foot-geom-radius, walk_turn_kernel_neutral
+# stillness-subsidy, walkscratch_easy_pilot x7, plus the 2 known flakes) are
+# each individually PASSING in isolation (spot-checked 2026-09-30) but still
+# listed here unremoved: their earlier full-suite read failed them, isolation
+# pass does not prove the full-suite behavior is fixed (walkscratch_easy_pilot
+# is confirmed order-dependent; the others are not yet re-confirmed against a
+# completed full run), so they stay pinned pending that dedicated dig-in.
 # Consumed by: ops.sh testdiff [pytest-q-log]. Fix a test -> delete its line here.
 rl_move/tests/test_course_disp_semantics.py::test_real_failed_checkpoint_ema_inert_disp_active
 rl_move/tests/test_course_income_semantics.py::test_wz_arc_moderate_turn_earns_near_full_income
-rl_move/tests/test_eval_checkpoint_seq_walk_metrics.py::test_legacy_single_mode_walk_matches_old_whole_episode_formula
-rl_move/tests/test_eval_checkpoint_slip_per_leg.py::test_slip_per_m_per_leg_has_six_legs_and_sums_to_aggregate
-rl_move/tests/test_joint_contract.py::test_no_hand_rolled_joint_or_servo_index_math
-rl_move/tests/test_mode_onehot.py::test_cmd_flag_routes_settle_to_hold_then_ramp_to_walk
-rl_move/tests/test_mode_onehot.py::test_cmd_flag_turn_in_place_routes_to_walk
-rl_move/tests/test_mode_onehot.py::test_turn_cmd_flag_combined_tick_stays_walk
-rl_move/tests/test_mode_onehot.py::test_turn_cmd_flag_lights_turn_during_turn_in_place
-rl_move/tests/test_mode_seq.py::test_lower_to_rise_switch_reanchors
-rl_move/tests/test_mode_seq_stance.py::test_lower_to_rise_targets_remaining_rise
 rl_move/tests/test_np_policy.py::test_dual_gru_numpy_sequence_matches_torch_and_threads_both_cores
 rl_move/tests/test_rot60.py::test_mujoco_dynamics_equivariance
 rl_move/tests/test_sim_env.py::test_foot_geom_radius_override_default_off_and_dosed
 rl_move/tests/test_sim_env.py::test_leg_chassis_collision_inert_in_plant_stance
 rl_move/tests/test_sim_env.py::test_leg_chassis_collision_masks_and_scope
-rl_move/tests/test_sim_env.py::test_park_duty_charges_pinned_legs_only
-rl_move/tests/test_sim_env.py::test_phase_contact_reward_pays_agreement
-rl_move/tests/test_teacher_speed_scales.py::test_cfg_default_is_identity_teacher
-rl_move/tests/test_teacher_speed_scales.py::test_cfg_doses_reach_the_teacher
-rl_move/tests/test_walk_idle_terminate.py::test_default_off_never_terminates_on_a_static_stand
-rl_move/tests/test_walk_idle_terminate.py::test_off_by_default_matches_zero_key_absent
 rl_move/tests/test_walk_turn_kernel_neutral.py::test_full_gate_zeroes_stillness_subsidy_on_turn_tick
 rl_move/tests/test_walkscratch_easy_pilot.py::test_duty_gate_healthy_six_leg_gait_unpriced
 rl_move/tests/test_walkscratch_easy_pilot.py::test_duty_gate_strong_floor_healthy_gait_still_unpriced

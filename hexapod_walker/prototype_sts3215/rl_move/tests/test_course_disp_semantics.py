@@ -287,6 +287,27 @@ _S1CONT1_CFGSET = [
     "reward.k_walk_course_disp=2.0",
     "reward.walk_course_disp_window_s=1.5",
     "reward.walk_course_disp_min_speed_m_s=0.02",
+    # Actuator/slew contract pin (2026-09-30 dig-in): this checkpoint has
+    # no `.training_complete.json` sidecar in this checkout (a 08-29
+    # artifact, before the sidecar/motor-contract record existed), so
+    # `eval_checkpoint`'s own `pin_trained_bus_profile`/`pin_trained_slew`
+    # auto-pins (trained_profile.py) find nothing to restore from and
+    # silently fall through to whatever config.yaml's CURRENT defaults
+    # are. The 2026-09-27 servo-profile refit + slew-contract widen moved
+    # those defaults (bus.write_speed/write_acc 400/20 -> 2000/80,
+    # safety.max_delta_q_deg 0.375 -> 1.76 @100 Hz) well past what this
+    # checkpoint actually trained and was diagnosed under -- a faster,
+    # snappier actuator changes the real rollout (measured: k_walk_course
+    # EMA activation rose from the diagnostic's own 0/5899 to 1068/5899
+    # once the ambient defaults drifted), which is a test-isolation bug,
+    # not a re-repro of the original finding. Pin explicitly to the
+    # 2026-08-29 ambient defaults this recipe actually ran under (same
+    # convention as `test_course_income_semantics.py`'s `_bank_actuator`/
+    # `safety.max_delta_q_deg` pins) so this test keeps validating the
+    # DIG-IN's real historical finding regardless of future default
+    # drift.
+    "bus.write_speed=400", "bus.write_acc=20",
+    "safety.max_delta_q_deg=0.375",
 ]
 
 

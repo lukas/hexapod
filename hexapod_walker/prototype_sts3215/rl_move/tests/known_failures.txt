@@ -1,23 +1,39 @@
 # Pinned pre-existing 'not slow' suite failures (meta 2026-09-28, 30 failed/2837
-# passed baseline; updated 2026-09-30: 15 remain -- 12 fixed by the
-# HEXAPOD_SAFETY_MAX_DELTA_Q_DEG testpin regression fix (RL_LOG 09-30 ~13:2x /
-# OPERATOR_QUESTIONS 09-30 ~13:2x, verified via full-suite before/after diff),
-# 2 (test_teacher_speed_scales.py) already fixed before this update (30->28
-# gap the same note's survey found but did not itself explain), 1
-# (test_joint_contract.py hand-rolled-index-math guard) fixed this cycle by
-# replacing the flagged 3*leg+k arithmetic in audit_slip_frame.py /
-# probe_stance_actuator.py with hexapod_core.joint_frame.joint_index -- a
-# static source-scan test, not order-dependent, safe to drop without a fresh
-# full-suite run. The remaining 15 (course_income wz-arc, rot60 equivariance,
-# sim_env leg-chassis-collision x2 + foot-geom-radius, walk_turn_kernel_neutral
-# stillness-subsidy, walkscratch_easy_pilot x7, plus the 2 known flakes) are
-# each individually PASSING in isolation (spot-checked 2026-09-30) but still
-# listed here unremoved: their earlier full-suite read failed them, isolation
-# pass does not prove the full-suite behavior is fixed (walkscratch_easy_pilot
-# is confirmed order-dependent; the others are not yet re-confirmed against a
-# completed full run), so they stay pinned pending that dedicated dig-in.
+# passed baseline). History: 12 fixed by the HEXAPOD_SAFETY_MAX_DELTA_Q_DEG
+# testpin regression fix (RL_LOG 09-30 ~13:2x), 2 (test_teacher_speed_scales.py)
+# already fixed before that, 1 (test_joint_contract.py hand-rolled-index-math
+# guard) fixed by swapping audit_slip_frame.py/probe_stance_actuator.py's
+# 3*leg+k arithmetic for hexapod_core.joint_frame.joint_index -- 30 -> 15
+# (RL_LOG 09-30 ~14:1x). Updated 2026-09-30 (later refill cycle): fixed 1 more
+# (test_course_disp_semantics.py, see below) and individually RE-VERIFIED the
+# remaining 14 standalone (not just spot-checked) -- they split into three
+# buckets the next dig-in must not conflate:
+#  (a) GENUINELY order-dependent (PASS alone, reconfirmed 2026-09-30): rot60
+#      equivariance, sim_env leg-chassis-collision x2 + foot-geom-radius,
+#      walk_turn_kernel_neutral stillness-subsidy. Still needs the dedicated
+#      dig-in for the shared test-order/state-leak mechanism -- these 4 are
+#      the real targets.
+#  (b) walkscratch_easy_pilot x7: ALSO order-dependent, but the leak is
+#      WITHIN this one file -- running the file alone gives 12 failures (a
+#      different, overlapping set), not exactly these 7; the 7 pinned below
+#      are what the authoritative full-suite run actually failed. Same class
+#      of dig-in as (a), scoped to this file's own module-level state.
+#  (c) NOT order-dependent -- FAIL standalone too, deterministically
+#      (reconfirmed 2026-09-30); each is its own already-tracked, deliberately
+#      deferred item -- do not fold either into the (a)/(b) dig-in:
+#      - test_course_income_semantics.py::test_wz_arc_moderate_turn_earns_near_full_income:
+#        the 2026-09-27 servo-profile refit + slew-contract widen made the
+#        honest scripted teacher faster/swayier than this reward bank's
+#        calibration envelope (commit 996695fe3 already documents "fails on
+#        pristine main in isolation"; RL_GOALS.md "SERVO WRITE-PROFILE
+#        CONTRACT" names the fix as recalibrating the bank for the 2000/80
+#        teacher -- a measurement/design task, not attempted here).
+#      - test_np_policy.py::test_dual_gru_numpy_sequence_matches_torch_and_threads_both_cores:
+#        borderline float32 tolerance (atol=3e-7; measured mismatch 3.87e-7,
+#        1 of 5 elements) -- a known tight-tolerance flake (RL_LOG 09-30
+#        ~13:2x), not a behavior bug; fix is loosening the atol, not
+#        attempted here.
 # Consumed by: ops.sh testdiff [pytest-q-log]. Fix a test -> delete its line here.
-rl_move/tests/test_course_disp_semantics.py::test_real_failed_checkpoint_ema_inert_disp_active
 rl_move/tests/test_course_income_semantics.py::test_wz_arc_moderate_turn_earns_near_full_income
 rl_move/tests/test_np_policy.py::test_dual_gru_numpy_sequence_matches_torch_and_threads_both_cores
 rl_move/tests/test_rot60.py::test_mujoco_dynamics_equivariance

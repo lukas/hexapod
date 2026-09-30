@@ -31,7 +31,13 @@ RAISED = {"bus": {"servo_vel_max_counts_s": "write_speed",
 
 # ---------------------------------------------------------------- helper
 
-def test_contract_default_reports_stock_config():
+def test_contract_default_reports_stock_config(monkeypatch):
+    # This test's whole point is the REAL config.yaml stock value, not
+    # this suite's HEXAPOD_SAFETY_MAX_DELTA_Q_DEG pin (2026-09-30,
+    # tests/conftest.py -- pins the PRIMITIVE-family calibrated suite
+    # back to the legacy 0.375 slew; irrelevant here, same reasoning as
+    # why HEXAPOD_CONTROL_HZ is deliberately never set by conftest).
+    monkeypatch.delenv("HEXAPOD_SAFETY_MAX_DELTA_Q_DEG", raising=False)
     c = motor_contract()
     base = SimServoParams.load().per_joint("vel_max_deg_s")
     # 2026-09-27: stock config = the 2000/80 write contract with the

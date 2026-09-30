@@ -38,6 +38,29 @@ def load_config(path: str | Path | None = None) -> dict[str, Any]:
     if hz:
         data.setdefault("control", {})["hz"] = float(hz) if "." in hz \
             else int(hz)
+    # HEXAPOD_SAFETY_MAX_DELTA_Q_DEG override (2026-09-30, primitive-family
+    # calibrated-suite regression DIG-IN): mirrors the SAME HEXAPOD_
+    # MODEL_SOURCE/HEXAPOD_CONTROL_HZ pattern for the SAME class of bug.
+    # config.yaml's `safety.max_delta_q_deg` default flipped 0.375 -> 1.76
+    # on 2026-09-27 (commit 867835836, "we should open it up for faster
+    # movement" -- a real hardware-bus-speed change, correct for the mesh
+    # family it targets). The calibrated PRIMITIVE-family test suite
+    # (`tests/conftest.py`) builds fresh envs with `load_config()` and no
+    # trained-artifact stamp to pin against, so it silently inherited the
+    # new, much larger per-tick rate cap; root-caused via `git bisect` +
+    # cross-model-family replay to a concrete mechanism (not conjecture):
+    # a ZERO-action tick is a rate-limited move TOWARD a fixed commanded
+    # pose, and the wider cap now snaps the PRIMITIVE model's start pose
+    # there fast enough to trip its tilt/fall detector inside the opening
+    # 1s zero-command hold -- 100% reproducible
+    # (`test_phase_contact_reward_pays_agreement` terminates at tick 28 of
+    # 300 with `HEXAPOD_MODEL_SOURCE=primitive`, never with mesh/default).
+    # Unset (everywhere except the pinned test suite) is a no-op -- bit-
+    # exact, whatever config.yaml says; this does not touch the new mesh/
+    # hardware default. Only `tests/conftest.py` sets this.
+    max_dq = os.environ.get("HEXAPOD_SAFETY_MAX_DELTA_Q_DEG", "").strip()
+    if max_dq:
+        data.setdefault("safety", {})["max_delta_q_deg"] = float(max_dq)
     return data
 
 

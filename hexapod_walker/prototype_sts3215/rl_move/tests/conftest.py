@@ -30,10 +30,30 @@ to 37 at hz=25) — the hz flip is at most a partial contributor, not the
 full explanation, and blindly pinning to the old rate is unvalidated and
 was reverted rather than shipped. Root cause of the 54-test regression
 is still OPEN; see OPERATOR_QUESTIONS.md 2026-08-25.
+
+NOTE (2026-09-30 DIG-IN, this one IS enabled): a full-suite run found 28
+newly-failing tests (was ~2 known flakes as of 09-30 ~04:5x) that `git
+bisect` + cross-model-family replay root-caused to commit 867835836
+(2026-09-27, operator: "we should open it up for faster movement") —
+config.yaml's `safety.max_delta_q_deg` default flipped 0.375 -> 1.76 to
+match the real servo bus speed for the mesh/hardware family. This
+PRIMITIVE-pinned suite builds fresh envs via `load_config()` with no
+trained-artifact stamp to pin the legacy slew back, so it silently
+inherited the wider cap; unlike the 08-25 HEXAPOD_CONTROL_HZ case above,
+this one is a confirmed, complete, mechanistic explanation (a zero-
+action tick snaps the PRIMITIVE model's start pose toward its commanded
+target fast enough to trip the fall detector inside the opening 1s
+zero-command hold — 100% reproducible, e.g.
+`test_phase_contact_reward_pays_agreement` terminates at tick 28/300
+with `HEXAPOD_MODEL_SOURCE=primitive`, never with mesh/default), so
+pinning it here is a validated fix, not an unvalidated guess. Only
+affects `HEXAPOD_MODEL_SOURCE=primitive`-pinned test envs; the new 1.76
+default for real (mesh/hardware) runs is untouched.
 """
 import os
 
 os.environ.setdefault("HEXAPOD_MODEL_SOURCE", "primitive")
+os.environ.setdefault("HEXAPOD_SAFETY_MAX_DELTA_Q_DEG", "0.375")
 
 
 # ---------------------------------------------------------------------------

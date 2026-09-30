@@ -6,6 +6,7 @@ resampling on actually redraws the commanded heading at least once
 over a multi-segment rollout and reports it. Short env-integration
 smoke test (few seconds of sim), not a full 60s floor read."""
 import json
+import os
 import sys
 
 import pytest
@@ -22,10 +23,30 @@ def _run(tmp_path, extra_args, seconds=6.0, seed=0):
     ] + extra_args
     old_argv = sys.argv
     sys.argv = argv
+    # probe_dir_floor.main() hard-sets (not setdefault) HEXAPOD_MODEL_SOURCE/
+    # HEXAPOD_CONTROL_HZ and never restores them -- harmless for its real
+    # one-shot-CLI-process usage, but calling main() in-process here leaked
+    # "mesh"/"100" past this test onto every later test in the same pytest
+    # session (found 2026-09-30: a full-suite-order-dependent FAIL in
+    # test_rot60.py/test_sim_env.py/test_walk_turn_kernel_neutral.py that
+    # never reproduced standalone -- those tests trust conftest.py's
+    # session-wide primitive/25Hz pin and don't re-assert it themselves).
+    # Save/restore here, the same prev-value convention
+    # test_walkscratch_easy_pilot.py's _make_env already uses.
+    _prev_ms = os.environ.get("HEXAPOD_MODEL_SOURCE")
+    _prev_hz = os.environ.get("HEXAPOD_CONTROL_HZ")
     try:
         pdf.main()
     finally:
         sys.argv = old_argv
+        if _prev_ms is None:
+            os.environ.pop("HEXAPOD_MODEL_SOURCE", None)
+        else:
+            os.environ["HEXAPOD_MODEL_SOURCE"] = _prev_ms
+        if _prev_hz is None:
+            os.environ.pop("HEXAPOD_CONTROL_HZ", None)
+        else:
+            os.environ["HEXAPOD_CONTROL_HZ"] = _prev_hz
     return json.loads(out_path.read_text())
 
 

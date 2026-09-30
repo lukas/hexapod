@@ -124,6 +124,7 @@ class TripodGait:
         combined_selective_omega_boost: float = 1.0,
         combined_group_duty_skew: float = 0.0,
         stance_unload_frac: float = 0.0,
+        stance_unload_frac_per_leg=None,
     ):
         self.period = period
         self.lift = lift
@@ -336,6 +337,39 @@ class TripodGait:
         # -- 0.45 keeps the constant-rate segment's rate factor
         # (1/(1-frac/2)) sane and leaves a nonzero constant-rate lead-in.
         self.stance_unload_frac = _clip(float(stance_unload_frac), 0.0, 0.45)
+        # standwalk Next item 1(a) (2026-09-30, per-leg draw-conditioned
+        # generalization of the global ``stance_unload_frac`` above --
+        # see rl_docs/tracks/standwalk/STATUS.md "Concrete next artifact"
+        # for the full derivation): the scoping pass that reached this
+        # knob found the ceil225 sacrificed-leg footfall target is NOT
+        # kinematically unreachable (21deg hip / 48deg knee margin still
+        # held at 2x ceil225 dose), pointing the mechanism at a per-leg
+        # DYNAMIC/timing budget instead of a shared global one -- a leg
+        # that drew a LARGER `joint_zero_bias_deg`/`link_len_leg_pct`
+        # magnitude this episode needs more stance-tail unload than a
+        # leg that drew near zero, but the scalar above gives every leg
+        # the SAME dose regardless of its own draw. This optional
+        # per-leg override keys the tail fraction to leg index ``i``
+        # instead: ``None`` (default) leaves ``_stance_prog`` reading
+        # the shared scalar for every leg, bit-exact identical to
+        # before this parameter existed (no new float path, no
+        # constructor validation cost beyond a `len()` check). Reuses
+        # the SAME stance-only (never swing/liftoff-timing) shape as
+        # the global knob for the identical stability-invariant reason
+        # given there: the per-leg VALUE changes, but which phase
+        # interval is swing vs stance never does, so the 3-up/3-down
+        # support-polygon partition is exactly as safe-by-construction
+        # per leg as it is globally.
+        if stance_unload_frac_per_leg is None:
+            self._stance_unload_frac_per_leg = None
+        else:
+            vals = list(stance_unload_frac_per_leg)
+            if len(vals) != 6:
+                raise ValueError(
+                    "stance_unload_frac_per_leg must have exactly 6 "
+                    f"entries (one per leg), got {len(vals)}")
+            self._stance_unload_frac_per_leg = [
+                _clip(float(v), 0.0, 0.45) for v in vals]
         self.vx = vx
         self.vy = vy
         self.omega = omega
@@ -485,7 +519,7 @@ class TripodGait:
             return None
         return 0 if counts[0] > counts[1] else 1
 
-    def _stance_prog(self, s: float) -> float:
+    def _stance_prog(self, s: float, leg_idx: int | None = None) -> float:
         """Stance horizontal-progress profile at normalized stance
         position ``s`` in [0, 1] (0 = touchdown, 1 = liftoff). Legacy
         (``stance_unload_frac<=0.0``) is the exact bit-identical
@@ -496,8 +530,17 @@ class TripodGait:
         velocity by ``s=1`` -- the triangular tail covers ``r*frac/2``
         of the sweep, so total displacement (0.5 -> -0.5) and total
         stance duration both match the legacy profile exactly for any
-        ``frac``, including 0."""
-        frac = self.stance_unload_frac
+        ``frac``, including 0.
+
+        ``leg_idx``, if given AND a per-leg override was supplied to
+        the constructor (standwalk Next item 1(a)), reads THAT leg's
+        own fraction instead of the shared scalar; every existing
+        caller that omits ``leg_idx`` (or any gait built without the
+        override) is bit-exact identical to before this parameter
+        existed."""
+        per_leg = self._stance_unload_frac_per_leg
+        frac = (self.stance_unload_frac if (per_leg is None or leg_idx is None)
+                else per_leg[leg_idx])
         if frac <= 0.0:
             return 0.5 - s
         r = 1.0 / (1.0 - 0.5 * frac)
@@ -529,7 +572,7 @@ class TripodGait:
                 dz = self.lift * self.lift_scale[i] * ramp_amp * math.sin(math.pi * s)
             else:
                 s = (phi - math.pi) / math.pi
-                prog = self._stance_prog(s)
+                prog = self._stance_prog(s, i)
                 dz = 0.0
         else:
             # Re-timed path: ONE shared boundary on the phase circle
@@ -560,7 +603,7 @@ class TripodGait:
                 own_width = width1 if leg_is_group0 else width0
                 local = (theta - width0) if leg_is_group0 else theta
                 s = local / own_width
-                prog = self._stance_prog(s)
+                prog = self._stance_prog(s, i)
                 dz = 0.0
         a_i = self.leg_angles[i]
         sa, ca = math.sin(a_i), math.cos(a_i)

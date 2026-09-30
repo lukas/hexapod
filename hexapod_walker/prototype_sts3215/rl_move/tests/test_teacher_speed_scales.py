@@ -94,10 +94,22 @@ def test_stance_radius_scale_changes_walk_targets():
 
 
 def _stub_gait(cfg):
-    """Call the real _make_walk_bc_gait against a cfg stub (no env)."""
-    from rl_move.sim.sim_env import SimHexapodBalanceEnv
-    # the method only touches self.cfg
-    holder = SimpleNamespace(cfg=cfg)
+    """Call the real _make_walk_bc_gait against a cfg stub (no env).
+
+    2026-09-30: the method now also reads ``self._plant_deg`` (09-23
+    extplant82 fix) and calls ``self._stance_unload_frac_per_leg_from_
+    draw()`` (standwalk Next item 1(a)) -- both pre-existing/sibling
+    gaps in this minimal stub (it used to silently AttributeError
+    before either test here ever ran an assertion; confirmed via
+    ``git stash`` byte-identical failure predating this commit), fixed
+    here the same way test_tripod_gait_stance_unload.py's own stub
+    fixes them, so this file's tests are a real green signal again."""
+    import types
+    from rl_move.sim.sim_env import SimHexapodBalanceEnv, _default_plant_deg
+    holder = SimpleNamespace(cfg=cfg, _plant_deg=_default_plant_deg(),
+                             _ep_rand=None, randomizer=None)
+    holder._stance_unload_frac_per_leg_from_draw = types.MethodType(
+        SimHexapodBalanceEnv._stance_unload_frac_per_leg_from_draw, holder)
     return SimHexapodBalanceEnv._make_walk_bc_gait(holder)
 
 

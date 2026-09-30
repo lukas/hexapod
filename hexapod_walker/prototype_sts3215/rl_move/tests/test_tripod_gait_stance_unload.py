@@ -119,8 +119,12 @@ def _stub_gait(cfg):
     regression from this commit, not fixed in that file, but trivial
     to avoid here so THIS mechanism's own cfg-wiring tests are a real
     green signal rather than inheriting a stale crash)."""
+    import types
     from rl_move.sim.sim_env import SimHexapodBalanceEnv, _default_plant_deg
-    holder = SimpleNamespace(cfg=cfg, _plant_deg=_default_plant_deg())
+    holder = SimpleNamespace(cfg=cfg, _plant_deg=_default_plant_deg(),
+                             _ep_rand=None, randomizer=None)
+    holder._stance_unload_frac_per_leg_from_draw = types.MethodType(
+        SimHexapodBalanceEnv._stance_unload_frac_per_leg_from_draw, holder)
     return SimHexapodBalanceEnv._make_walk_bc_gait(holder)
 
 
@@ -134,3 +138,103 @@ def test_cfg_dose_reaches_the_teacher():
         "bc_anchor_teacher_stance_unload_frac": 0.25,
     }})
     assert g.stance_unload_frac == 0.25
+
+
+# --- standwalk Next item 1(a): per-leg draw-conditioned override -----------
+
+def test_per_leg_override_is_bit_exact_off_by_default():
+    ref = _make()
+    dosed = _make(stance_unload_frac_per_leg=None)
+    _walk(ref)
+    _walk(dosed)
+    for t in (0.0, 0.1, 0.5, 1.1):
+        assert ref.desired_deg(t) == dosed.desired_deg(t)
+
+
+def test_per_leg_override_matches_uniform_scalar():
+    scalar = _make(stance_unload_frac=0.3)
+    per_leg = _make(stance_unload_frac_per_leg=[0.3] * 6)
+    _walk(scalar)
+    _walk(per_leg)
+    for t in (0.1, 0.3, 0.7, 1.2):
+        assert scalar.desired_deg(t) == per_leg.desired_deg(t)
+
+
+def test_per_leg_override_differs_per_leg():
+    # legs 1/3/5 dosed, 0/2/4 at legacy zero -- only the dosed legs'
+    # stance targets should move relative to an all-zero gait, and
+    # only while THAT leg is actually in stance (phase=0.0 puts the
+    # odd-parity tripod {1,3,5} in stance, even-parity {0,2,4} in
+    # swing, per the tripod=i%2 phi computation in _foot_target_in_body).
+    plain = _make()
+    dosed = _make(stance_unload_frac_per_leg=[0.0, 0.4, 0.0, 0.4, 0.0, 0.4])
+    _walk(plain)
+    _walk(dosed)
+    for i in range(6):
+        plain._phase = 0.0
+        dosed._phase = 0.0
+        plain._elapsed = dosed._elapsed = 10.0  # past the swing ramp-in
+        dx_p, dy_p, _ = plain._foot_target_in_body(i, 0.08, 0.0, 0.0)
+        dx_d, dy_d, _ = dosed._foot_target_in_body(i, 0.08, 0.0, 0.0)
+        moved = abs(dx_p - dx_d) > 1e-9 or abs(dy_p - dy_d) > 1e-9
+        assert moved == (i in (1, 3, 5)), i
+
+
+def test_per_leg_override_clips_and_validates_length():
+    g = _make(stance_unload_frac_per_leg=[0.9, -0.2, 0.2, 0.0, 0.0, 0.0])
+    assert g._stance_unload_frac_per_leg == [0.45, 0.0, 0.2, 0.0, 0.0, 0.0]
+    try:
+        _make(stance_unload_frac_per_leg=[0.1] * 5)
+        assert False, "expected ValueError for wrong length"
+    except ValueError:
+        pass
+
+
+def _stub_gait_with_draw(cfg, *, link_scale, zero_bias_deg,
+                         link_len_leg_pct, joint_zero_bias_deg):
+    """Same stub as ``_stub_gait`` but with an ``_ep_rand``/
+    ``randomizer`` pair attached so
+    ``_stance_unload_frac_per_leg_from_draw`` has a draw to read --
+    mechanics only, no MuJoCo, no real DomainRandomizer sampling."""
+    import types
+    import numpy as np
+    from rl_move.sim.sim_env import SimHexapodBalanceEnv, _default_plant_deg
+    ep_rand = SimpleNamespace(
+        link_scale=np.asarray(link_scale, dtype=float),
+        joint_zero_bias_rad=np.radians(np.asarray(zero_bias_deg,
+                                                   dtype=float)))
+    ranges = SimpleNamespace(link_len_leg_pct=link_len_leg_pct,
+                             joint_zero_bias_deg=joint_zero_bias_deg)
+    randomizer = SimpleNamespace(ranges=ranges)
+    holder = SimpleNamespace(cfg=cfg, _plant_deg=_default_plant_deg(),
+                             _ep_rand=ep_rand, randomizer=randomizer)
+    holder._stance_unload_frac_per_leg_from_draw = types.MethodType(
+        SimHexapodBalanceEnv._stance_unload_frac_per_leg_from_draw, holder)
+    return SimHexapodBalanceEnv._make_walk_bc_gait(holder)
+
+
+def test_per_leg_dose_default_is_identity():
+    g = _stub_gait_with_draw(
+        {}, link_scale=[[1.0, 1.0, 1.0]] * 6, zero_bias_deg=[0.0] * 18,
+        link_len_leg_pct=0.1, joint_zero_bias_deg=5.0)
+    assert g._stance_unload_frac_per_leg is None
+
+
+def test_per_leg_dose_scales_with_this_legs_own_draw():
+    link_scale = [[1.0, 1.0, 1.0]] * 6
+    zero_bias_deg = [0.0] * 18
+    # leg 2 drew the full joint_zero_bias_deg ceiling on one joint;
+    # every other leg drew nothing.
+    zero_bias_deg[3 * 2] = 5.0
+    g = _stub_gait_with_draw(
+        {"train": {
+            "bc_anchor_teacher_stance_unload_frac_per_leg_dose": 0.4,
+        }}, link_scale=link_scale, zero_bias_deg=zero_bias_deg,
+        link_len_leg_pct=0.1, joint_zero_bias_deg=5.0)
+    per_leg = g._stance_unload_frac_per_leg
+    assert per_leg is not None
+    for i in range(6):
+        if i == 2:
+            assert abs(per_leg[i] - 0.4 * 0.5) < 1e-9, per_leg
+        else:
+            assert per_leg[i] == 0.0, per_leg

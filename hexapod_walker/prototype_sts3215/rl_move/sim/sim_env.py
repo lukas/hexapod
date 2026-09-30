@@ -3842,6 +3842,50 @@ class SimHexapodBalanceEnv(_GymBase):
             is_rsi = False
         return min(max(j, 0), len(ref["q"]) - 1), is_rsi
 
+    def _stance_unload_frac_per_leg_from_draw(self):
+        """Per-leg ``stance_unload_frac`` array for
+        ``train.bc_anchor_teacher_stance_unload_frac_per_leg_dose``
+        (standwalk Next item 1(a), 2026-09-30), or ``None`` (legacy,
+        bit-exact off) when the dose is 0 or there is no active DR
+        draw/randomizer (e.g. eval with DR disabled).
+
+        Mirrors ``_compute_hard_draw_mult``'s difficulty-fraction shape
+        (link-length-span-over-ceiling and zero-bias-over-ceiling,
+        averaged, clipped to [0, 1]) but evaluated PER LEG instead of
+        pooled across all six: leg ``i``'s own ``link_scale[i]`` triple
+        and its own 3 joints of ``joint_zero_bias_rad`` (indices
+        ``3*i:3*i+3``) against the SAME configured ceilings the global
+        helper uses, so a leg that drew a near-nominal geometry gets a
+        near-zero unload tail while a leg that drew near the DR
+        ceiling gets close to the full ``dose``. Reuses the exact same
+        two axes because they are the ones already shown (CURRENT_
+        TRUTHS 2026-09-26 draw_feasibility.py finding) to dominate
+        gait-validity prediction from the draw alone -- not a new,
+        untested difficulty proxy."""
+        dose = float(cfg_get(
+            self.cfg, "train",
+            "bc_anchor_teacher_stance_unload_frac_per_leg_dose",
+            default=0.0) or 0.0)
+        if dose == 0.0 or self._ep_rand is None or self.randomizer is None:
+            return None
+        ranges = self.randomizer.ranges
+        link_pct = float(getattr(ranges, "link_len_leg_pct", 0.0))
+        bias_deg = float(getattr(ranges, "joint_zero_bias_deg", 0.0))
+        link_scale = np.asarray(self._ep_rand.link_scale, dtype=float)
+        zero_bias_rad = np.asarray(self._ep_rand.joint_zero_bias_rad,
+                                    dtype=float)
+        out = []
+        for i in range(6):
+            leg_link_dev = float(np.max(np.abs(link_scale[i] - 1.0)))
+            link_frac = (leg_link_dev / link_pct) if link_pct > 0 else 0.0
+            leg_bias_deg = float(np.max(np.abs(
+                zero_bias_rad[3 * i:3 * i + 3]))) * RAD2DEG
+            bias_frac = (leg_bias_deg / bias_deg) if bias_deg > 0 else 0.0
+            difficulty = float(np.clip(0.5 * (link_frac + bias_frac),
+                                       0.0, 1.0))
+            out.append(dose * difficulty)
+        return out
+
     def _make_walk_bc_gait(self):
         """Canonical robot-coordinate gait for the walk BC anchor.
 
@@ -3941,7 +3985,19 @@ class SimHexapodBalanceEnv(_GymBase):
         signature with a WHEN-timing fix, after additive reward
         pricing and contact-solver-iteration levers both came back
         CANARY FAIL - inert on this exact lineage. Default 0.0 =
-        legacy identity (bit-exact off)."""
+        legacy identity (bit-exact off).
+
+        ``train.bc_anchor_teacher_stance_unload_frac_per_leg_dose``
+        (standwalk Next item 1(a), 2026-09-30 -- see ``TripodGait.
+        __init__``'s ``stance_unload_frac_per_leg`` docstring for the
+        mechanism): generalizes the scalar knob above from ONE shared
+        dose to a per-leg dose keyed to THIS EPISODE's own drawn
+        ``joint_zero_bias_deg``/``link_len_leg_pct`` magnitude for
+        that leg, via ``_stance_unload_frac_per_leg_from_draw`` below.
+        Default 0.0 = legacy identity (the helper returns ``None``, so
+        ``TripodGait`` gets no per-leg override and reads the plain
+        scalar above for every leg, bit-exact unchanged)."""
+        stance_unload_per_leg = self._stance_unload_frac_per_leg_from_draw()
         from hexapod_core.tripod_gait import TripodGait
         _g = TripodGait(
             vx=0.0,
@@ -3965,7 +4021,8 @@ class SimHexapodBalanceEnv(_GymBase):
                 default=1.0)),
             stance_unload_frac=float(cfg_get(
                 self.cfg, "train", "bc_anchor_teacher_stance_unload_frac",
-                default=0.0)))
+                default=0.0)),
+            stance_unload_frac_per_leg=stance_unload_per_leg)
         _g.sync_plant_stance(float(self._plant_deg[1]),
                              float(self._plant_deg[2]))
         _g.reset_phase()

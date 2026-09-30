@@ -1229,6 +1229,7 @@ class RlApi:
     def rl_policy_move(self, *, mode: str = "stand", vx: float = 0.03,
                        vy: float = 0.0, duration_s: float = 6.0,
                        rot60: bool = True, turn: str | None = None,
+                       yaw_offset_deg: float | None = None,
                        tilt_trip_deg: float | None = None,
                        extra_hold_s: float = 0.0,
                        learned: bool = False) -> dict:
@@ -1250,6 +1251,12 @@ class RlApi:
         trained 0.06 band) and duration_s (clamped 3..20 s).
         ``turn`` (walk only): "left"/"right" = mirror-selection arc
         turn, "hold" = heading hold; None = the unchanged naked path.
+        ``yaw_offset_deg`` (walk only, mutually exclusive with
+        ``turn``): a discrete relative-heading turn-and-hold command
+        for a ``walk_yaw_offset_cmd`` export (must be one of that
+        policy's own trained ``walk_yaw_offset_set`` degrees); vx/vy
+        must be 0 for this contract (stationary turn-and-hold, see
+        rl_policy.run_policy_move).
         The OPERATOR MUST BE WATCHING — this is the explicit order.
         """
         mode = (mode or "stand").strip().lower()
@@ -1332,6 +1339,9 @@ class RlApi:
                     duration_s=float(duration_s), rot60=bool(rot60))
                 if turn:
                     self._demo_params["turn"] = str(turn)
+                if yaw_offset_deg is not None:
+                    self._demo_params["yaw_offset_deg"] = float(
+                        yaw_offset_deg)
             else:
                 if tilt_trip_deg:
                     self._demo_params["tilt_trip_deg"] = float(tilt_trip_deg)
@@ -1385,6 +1395,9 @@ class RlApi:
                     vx=float(vx), vy=float(vy),
                     duration_s=float(duration_s), rot60=bool(rot60),
                     turn=(str(turn) if turn else None),
+                    yaw_offset_deg=(float(yaw_offset_deg)
+                                    if yaw_offset_deg is not None
+                                    else None),
                     weights_path=weights_path,
                     tilt_trip_deg=(float(tilt_trip_deg)
                                    if tilt_trip_deg else None),

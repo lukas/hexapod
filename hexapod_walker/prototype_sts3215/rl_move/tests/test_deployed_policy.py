@@ -5,10 +5,12 @@ import pytest
 
 from rl_move.deployed_policy import (
     WALK_OBS_DIMS,
+    YAW_OFFSET_SCALE,
     phase_clock_runs,
     policy_mode_onehot,
     supports_mode_command,
     supports_yaw_command,
+    supports_yaw_offset_command,
     walk_observation_tail,
 )
 from rl_move.np_policy import MODE_ONEHOT_ORDER
@@ -55,6 +57,44 @@ def test_capability_and_phase_gates():
     assert phase_clock_runs(
         75, 0.0, 0.0, 0.2, phase_run_on_yaw=True)
     assert not phase_clock_runs(72, 0.08, 0.0)
+
+
+def test_obs74_yaw_offset_tail_replaces_phase_not_adds_to_it():
+    # Default (yaw_offset_cmd=False): unchanged phase-clock tail.
+    default_tail = walk_observation_tail(74, 0.0, 0.0, math.pi / 2)
+    np.testing.assert_allclose(default_tail, [0, 0, 0, 0, 1, 0], atol=1e-7)
+    # yaw_offset_cmd=True: same width (6), different tail semantics --
+    # [target, remaining] / (pi/2), no sin/cos anywhere.
+    offset_tail = walk_observation_tail(
+        74, 0.0, 0.0, math.pi / 2, yaw_offset_cmd=True,
+        yaw_offset_target=math.pi / 4, yaw_offset_remaining=-math.pi / 8)
+    assert offset_tail.shape == (6,)
+    np.testing.assert_allclose(offset_tail, [0, 0, 0, 0, 0.5, -0.25],
+                               atol=1e-7)
+
+
+def test_yaw_offset_cmd_rejected_off_its_one_defined_width():
+    with pytest.raises(ValueError, match="only defined at obs_dim 74"):
+        walk_observation_tail(75, 0.0, 0.0, 0.0, yaw_offset_cmd=True)
+
+
+def test_yaw_offset_cmd_never_runs_a_phase_clock():
+    assert not phase_clock_runs(74, 0.2, 0.0, yaw_offset_cmd=True)
+    assert not phase_clock_runs(
+        74, 0.2, 0.0, 0.3, phase_run_on_yaw=True, yaw_offset_cmd=True)
+    # Same width without the flag still runs the ordinary phase contract.
+    assert phase_clock_runs(74, 0.2, 0.0)
+
+
+def test_supports_yaw_offset_command_is_width_74_only():
+    assert supports_yaw_offset_command(74)
+    for obs_dim in (72, 75, 81, 93):
+        assert not supports_yaw_offset_command(obs_dim)
+
+
+def test_yaw_offset_scale_matches_walk_task():
+    from rl_move.sim.walk_task import YAW_OFFSET_SCALE as sim_scale
+    assert YAW_OFFSET_SCALE == pytest.approx(sim_scale)
 
 
 def test_unknown_mode_and_bad_fault_vector_fail_closed():

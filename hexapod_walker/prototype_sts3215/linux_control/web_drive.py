@@ -1239,7 +1239,13 @@ class Handler(BaseHTTPRequestHandler):
                     # "right" = arc turn, "hold" = heading hold;
                     # absent = today's naked path, bit-identical.
                     turn=(str(data["turn"]).strip().lower()
-                          if data.get("turn") else None)))
+                          if data.get("turn") else None),
+                    # discrete relative-heading turn-and-hold command
+                    # (walk_yaw_offset_cmd export only); mutually
+                    # exclusive with turn=, vx/vy must be 0.
+                    yaw_offset_deg=(float(data["yaw_offset_deg"])
+                                    if data.get("yaw_offset_deg") is not None
+                                    else None)))
         elif path == "/api/rl/set_stance":
             try:
                 data = json.loads(body or "{}") if body else {}

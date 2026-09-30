@@ -64,7 +64,8 @@ for _p in (_HERE.parent, _HERE):
 from rl_move.config import cfg_get, load_config            # noqa: E402
 from rl_move.deployed_policy import (                      # noqa: E402
     WALK_OBS_DIMS, WALK_PHASE_OBS_DIMS, WALK_VEL_SCALE,
-    WALK_YAW_SCALE, phase_clock_runs, supports_yaw_command,
+    WALK_YAW_OFFSET_OBS_DIM, WALK_YAW_SCALE, phase_clock_runs,
+    supports_yaw_command, supports_yaw_offset_command,
     walk_observation_tail,
 )
 from rl_move.env import TaskGoal, build_obs                # noqa: E402
@@ -2230,6 +2231,30 @@ class ChiralitySelector:
             self.switches += 1
         return self.active
 
+
+class YawOffsetTracker:
+    """Live tracker for a discrete relative-heading turn-and-hold command.
+
+    Mirrors ``walk_reward_yaw.yaw_offset_kernel``'s
+    ``env._yaw_offset_achieved`` integration (cumulative body-frame yaw
+    rotation from measured gyro z, rad) against a fixed ``target_rad``
+    captured once at construction -- the ``walk_yaw_offset_cmd`` obs-74
+    contract's ``[target, remaining]`` tail (rl_move/deployed_policy.py
+    ``walk_observation_tail``). Achieved starts at 0 every episode, same
+    as the sim's own reset (``walk_task.py`` ``self._yaw_offset_achieved
+    = 0.0``); there is no wraparound handling because trained offsets
+    (``walk_yaw_offset_set``, degrees) stay well under one full turn.
+    """
+
+    def __init__(self, target_rad: float):
+        self.target_rad = float(target_rad)
+        self.achieved_rad = 0.0
+
+    def update(self, gyro_z: float, dt: float) -> tuple[float, float]:
+        """Integrate achieved rotation, return (target, remaining) rad."""
+        self.achieved_rad += float(gyro_z) * dt
+        return self.target_rad, self.target_rad - self.achieved_rad
+
 # Drive session (MuJoCo-viewer-style held-key driving, operator 08-11).
 # The browser holds arrow keys -> POST /api/rl/drive/cmd heartbeats carry
 # the live (vx, vy); release -> (0, 0) -> the hold path. The loop NEVER
@@ -2263,6 +2288,55 @@ DRIVE_HEIGHT_RATE_MPS = 0.010
 DRIVE_HEIGHT_MIN_M = -0.045
 DRIVE_HEIGHT_MAX_M = 0.030
 DRIVE_HEIGHT_EPS_M = 0.003
+
+
+def _resolve_yaw_offset_request(
+        policy_meta: dict, yaw_offset_deg: float | None,
+        turn: str | None, vx: float, vy: float,
+) -> tuple[bool, float, str | None]:
+    """Validate a walk_yaw_offset_cmd request against one policy's meta.
+
+    Pure/hermetic (no bus, no policy object) so it is directly unit
+    testable; ``_run_policy_move_impl`` is the only caller. Returns
+    ``(walk_yaw_offset_cmd, target_rad, error)``: ``error`` is ``None``
+    on success, in which case the caller uses ``target_rad`` to build a
+    :class:`YawOffsetTracker`; on a non-None error every other field is
+    meaningless and the caller returns ``{"ok": False, "error": error}``
+    unchanged. ``walk_yaw_offset_cmd`` is echoed back so the caller
+    doesn't have to re-read ``policy_meta`` itself.
+    """
+    walk_yaw_offset_cmd = bool(policy_meta.get("walk_yaw_offset_cmd"))
+    if not walk_yaw_offset_cmd:
+        if yaw_offset_deg is not None:
+            return False, 0.0, (
+                "policy has no walk_yaw_offset_cmd contract; "
+                "yaw_offset_deg is not supported")
+        return False, 0.0, None
+    walk_obs = policy_meta.get("obs_dim")
+    if not supports_yaw_offset_command(walk_obs):
+        return False, 0.0, (
+            "policy sets walk_yaw_offset_cmd but obs "
+            f"{walk_obs} != {WALK_YAW_OFFSET_OBS_DIM}")
+    if turn is not None:
+        return False, 0.0, (
+            "turn= is not supported for a walk_yaw_offset_cmd policy "
+            "(discrete relative-heading turn-and-hold, not a "
+            "rate-based mirror-arc turn)")
+    offset_set = policy_meta.get("walk_yaw_offset_set") or []
+    allowed_deg = {0.0, *(float(v) for v in offset_set)}
+    req_deg = float(yaw_offset_deg) if yaw_offset_deg is not None else 0.0
+    if not any(abs(req_deg - v) < 1e-6 for v in allowed_deg):
+        return False, 0.0, (
+            f"yaw_offset_deg {req_deg!r} is not one of this policy's "
+            f"trained offsets {sorted(allowed_deg)} "
+            "(meta.walk_yaw_offset_set)")
+    if abs(vx) > 1e-9 or abs(vy) > 1e-9:
+        return False, 0.0, (
+            "walk_yaw_offset_cmd is a stationary turn-and-hold "
+            "contract: vx and vy must be 0 (the training episode "
+            "forces the linear command to 0 -- see "
+            "walk_reward_yaw.yaw_offset_kernel)")
+    return True, math.radians(req_deg), None
 
 
 def _policy_walk_speed_band(policy: "NumpyPolicy") -> tuple[float, float]:
@@ -2540,18 +2614,24 @@ def _walk_vel_ref(t: float, total_s: float,
 
 
 def _walk_obs_tail(walk_obs: int, vx_r: float, vy_r: float, phase: float,
-                   wz_r: float = 0.0, *, mode: str = "walk") -> np.ndarray:
+                   wz_r: float = 0.0, *, mode: str = "walk",
+                   yaw_offset_cmd: bool = False,
+                   yaw_offset_target: float = 0.0,
+                   yaw_offset_remaining: float = 0.0) -> np.ndarray:
     """The deploy-side tail for sim walk observations."""
     return walk_observation_tail(
-        walk_obs, vx_r, vy_r, phase, wz_r, mode=mode)
+        walk_obs, vx_r, vy_r, phase, wz_r, mode=mode,
+        yaw_offset_cmd=yaw_offset_cmd,
+        yaw_offset_target=yaw_offset_target,
+        yaw_offset_remaining=yaw_offset_remaining)
 
 
 def _walk_phase_runs(walk_obs: int, vx_r: float, vy_r: float,
-                     wz_r: float = 0.0, *, phase_run_on_yaw: bool = False
-                     ) -> bool:
+                     wz_r: float = 0.0, *, phase_run_on_yaw: bool = False,
+                     yaw_offset_cmd: bool = False) -> bool:
     return phase_clock_runs(
         walk_obs, vx_r, vy_r, wz_r,
-        phase_run_on_yaw=phase_run_on_yaw)
+        phase_run_on_yaw=phase_run_on_yaw, yaw_offset_cmd=yaw_offset_cmd)
 
 
 def _json_safe(value):
@@ -3319,6 +3399,7 @@ def _run_policy_move_impl(drive, mode: str, *, on_progress=None,
                           vy: float = 0.0,
                           duration_s: float = 6.0, rot60: bool = True,
                           turn: str | None = None,
+                          yaw_offset_deg: float | None = None,
                           weights_path: Path | None = None,
                           tilt_trip_deg: float | None = None,
                           extra_hold_s: float = 0.0,
@@ -3332,6 +3413,18 @@ def _run_policy_move_impl(drive, mode: str, *, on_progress=None,
     rot-60 canonicalizer, else the trained +/-30 deg wedge only) and
     duration_s. ``rot60=False`` runs the naked policy (A/B baseline
     for a hardware parity session) — wedge headings only.
+    ``yaw_offset_deg`` (walk only): the discrete relative-heading
+    turn-and-hold command for a ``walk_yaw_offset_cmd`` export (obs-74
+    turn-and-hold family, walkcurr's ``acq5-seedsweep`` lineage — NOT
+    the rate-based ``turn=`` mirror-arc mechanism below, mutually
+    exclusive with it). Must be one of the export's own trained
+    ``meta.walk_yaw_offset_set`` degrees (or omitted/0 = hold the
+    starting heading); vx/vy must be exactly 0 (this contract trains
+    stationary-only, s_ref forced to 0 -- see walk_reward_yaw.
+    yaw_offset_kernel). A ``YawOffsetTracker`` integrates the achieved
+    rotation from live gyro-z every tick, same channel/shape as the
+    sim's privileged ``env._body_wz()`` integration, into the policy's
+    ``[target, remaining]`` obs tail (rl_move/deployed_policy.py).
     ``turn`` (walk only): None = today's naked path, bit-identical;
     "left"/"right" = constant-chirality arc turn (~2 deg/s, the
     gait's own drift steered by naked-vs-mirrored selection);
@@ -3358,6 +3451,13 @@ def _run_policy_move_impl(drive, mode: str, *, on_progress=None,
     if turn is not None and turn not in ("left", "right", "hold"):
         return {"ok": False,
                 "error": f"bad turn {turn!r} (left / right / hold)"}
+    if yaw_offset_deg is not None and mode != "walk":
+        return {"ok": False, "error": "yaw_offset_deg= is walk-only"}
+    if yaw_offset_deg is not None and turn is not None:
+        return {"ok": False,
+                "error": ("turn= and yaw_offset_deg= are mutually "
+                          "exclusive (rate-based mirror-arc turn vs. "
+                          "discrete relative-heading turn-and-hold)")}
     on_progress = on_progress or (lambda p: None)
     abort_check = abort_check or (lambda: False)
     bus = drive.bus
@@ -3376,6 +3476,18 @@ def _run_policy_move_impl(drive, mode: str, *, on_progress=None,
             return {"ok": False,
                     "error": (f"{Path(wpath).name} is not a walk policy "
                               f"(obs {walk_obs} not in {WALK_OBS_DIMS})")}
+        # Width 74 is ambiguous (rl_move/deployed_policy.py module
+        # docstring): an explicit meta.walk_yaw_offset_cmd=True opts it
+        # OUT of the phase-clock contract below and into the discrete
+        # turn-and-hold offset contract instead. See
+        # _resolve_yaw_offset_request's own docstring/tests.
+        walk_yaw_offset_cmd, yaw_offset_target_rad, yoff_err = (
+            _resolve_yaw_offset_request(policy.meta, yaw_offset_deg,
+                                        turn, vx, vy))
+        if yoff_err is not None:
+            return {"ok": False,
+                    "error": f"{Path(wpath).name}: {yoff_err}"}
+        req_deg = math.degrees(yaw_offset_target_rad)
         # Phase lineages append [sin, cos] of a clock that advances
         # at meta["phase_hz"] while a velocity is commanded — the exact
         # contract of the sim's goal.walk_phase_obs=1. That line trains
@@ -3383,8 +3495,10 @@ def _run_policy_move_impl(drive, mode: str, *, on_progress=None,
         # so it always runs naked. phase_hz MUST come from the export
         # meta: the sim default (1.0 Hz) is NOT this line's clock
         # (0.1666667 Hz) and a wrong clock is a silently broken gait.
+        # walk_yaw_offset_cmd checkpoints have no clock at all (see
+        # above) so they never need phase_hz.
         phase_hz = 0.0
-        if walk_obs in WALK_PHASE_OBS_DIMS:
+        if walk_obs in WALK_PHASE_OBS_DIMS and not walk_yaw_offset_cmd:
             if "phase_hz" not in policy.meta:
                 return {"ok": False,
                         "error": (f"{Path(wpath).name} is obs-{walk_obs} "
@@ -3765,7 +3879,8 @@ def _run_policy_move_impl(drive, mode: str, *, on_progress=None,
         }} if stand_handoff_enabled else {}),
         **({"vx": round(vx, 3), "vy": round(vy, 3),
             "rot60": canon is not None,
-            **({"turn": turn} if turn else {})}
+            **({"turn": turn} if turn else {}),
+            **({"yaw_offset_deg": req_deg} if walk_yaw_offset_cmd else {})}
            if mode == "walk" else {}),
     }, debug=debug)
     t_next = time.monotonic()
@@ -3773,6 +3888,8 @@ def _run_policy_move_impl(drive, mode: str, *, on_progress=None,
     phase = 0.0        # walk phase clock (phase-observation policies only)
     phase_run_on_yaw = bool(float(policy.meta.get("walk_phase_run_on_yaw",
                                                   0.0)))
+    yaw_tracker = (YawOffsetTracker(yaw_offset_target_rad)
+                  if walk_yaw_offset_cmd else None)
     for i in range(n_ticks):
         if abort_check():
             # Operator stop: HOLD pose (torque stays on); X still limps.
@@ -3793,13 +3910,22 @@ def _run_policy_move_impl(drive, mode: str, *, on_progress=None,
                 turn_sign = 1.0 if turn == "left" else -1.0
                 wz_r = turn_sign * float(policy.meta.get(
                     "walk_yaw_max_rad_s", WALK_YAW_SCALE))
+            yoff_target = yoff_remaining = 0.0
+            if yaw_tracker is not None:
+                yoff_target, yoff_remaining = yaw_tracker.update(
+                    float(state.imu_gyro[2]), timing.policy_dt)
             obs = build_obs(cfg, state, q_nom, prev_action, goal=goal,
                             tilt_ref=tilt_ref0)
             obs = np.concatenate(
-                [obs, _walk_obs_tail(walk_obs, vx_r, vy_r, phase, wz_r)]
+                [obs, _walk_obs_tail(
+                    walk_obs, vx_r, vy_r, phase, wz_r,
+                    yaw_offset_cmd=walk_yaw_offset_cmd,
+                    yaw_offset_target=yoff_target,
+                    yaw_offset_remaining=yoff_remaining)]
             ).astype(np.float32)
             if _walk_phase_runs(walk_obs, vx_r, vy_r, wz_r,
-                                phase_run_on_yaw=phase_run_on_yaw):
+                                phase_run_on_yaw=phase_run_on_yaw,
+                                yaw_offset_cmd=walk_yaw_offset_cmd):
                 phase_after = (phase + 2.0 * math.pi * phase_hz
                                * timing.policy_dt) \
                     % (2.0 * math.pi)
@@ -4119,6 +4245,10 @@ def _run_policy_move_impl(drive, mode: str, *, on_progress=None,
                 if selector is not None:
                     ref_txt += (f" {selector.active[:3]}"
                                 f" hd={math.degrees(selector.heading):+.0f}")
+                if yaw_tracker is not None:
+                    ref_txt += (
+                        f" yoff_tgt={math.degrees(yaw_tracker.target_rad):+.0f}"
+                        f" rem={math.degrees(yoff_remaining):+.1f}deg")
             else:
                 progress_phase = (
                     "curl" if mode == "stand" and t < prof["hold_s"]
@@ -4314,6 +4444,7 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
                     abort_check=None, vx: float = 0.03, vy: float = 0.0,
                     duration_s: float = 6.0, rot60: bool = True,
                     turn: str | None = None,
+                    yaw_offset_deg: float | None = None,
                     weights_path: Path | None = None,
                     tilt_trip_deg: float | None = None,
                     extra_hold_s: float = 0.0,
@@ -4327,6 +4458,7 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
                 drive, mode, on_progress=on_progress,
                 abort_check=abort_check, vx=vx, vy=vy,
                 duration_s=duration_s, rot60=rot60, turn=turn,
+                yaw_offset_deg=yaw_offset_deg,
                 weights_path=weights_path, tilt_trip_deg=tilt_trip_deg,
                 extra_hold_s=extra_hold_s,
                 allow_step_stand_start=allow_step_stand_start,

@@ -738,6 +738,42 @@ class Trial:
             raise RuntimeError(f"walk {name} failed: {result}")
         self.three_fresh_health_samples(require_armed=True)
 
+    def yaw_offset_leg(self, offset_deg: float) -> None:
+        """Stationary discrete relative-heading turn-and-hold leg.
+
+        Timed-transport-only twin of ``timed_leg`` for a
+        ``walk_yaw_offset_cmd`` export (obs-74 turn-and-hold family):
+        posts ``/api/rl/walk`` with vx=vy=0 and ``yaw_offset_deg`` set
+        instead of a translation command. The board-side contract
+        (``_resolve_yaw_offset_request``) requires vx/vy exactly 0 and
+        rejects any ``turn=`` combination, so this never overlaps with
+        ``timed_leg``/``drive_leg``.
+        """
+        self.phase = f"yaw_offset_{offset_deg:g}"
+        self.event("walk_request", {
+            "vx_m_s": 0.0, "vy_m_s": 0.0,
+            "duration_s": self.args.duration_s, "yaw_offset_deg": offset_deg,
+        })
+        started_unix_s = time.time()
+        reply = self.request("/api/rl/walk", {
+            "vx": 0.0, "vy": 0.0, "duration_s": self.args.duration_s,
+            "yaw_offset_deg": offset_deg,
+        })
+        if not isinstance(reply, dict) or not reply.get("ok"):
+            raise RuntimeError(f"yaw_offset {offset_deg:g} refused: {reply}")
+        result = self.wait_job(self.phase, self.args.duration_s + 20.0)
+        logs = self.pull_policy_logs(started_unix_s, "rl_walk_")
+        entry = {
+            "phase": self.phase,
+            "request": {"vx": 0.0, "vy": 0.0, "yaw_offset_deg": offset_deg},
+            "result": result, "robot_logs": logs,
+        }
+        self.results.append(entry)
+        self.snapshot(f"after_{self.phase}")
+        if not result.get("ok"):
+            raise RuntimeError(f"yaw_offset {offset_deg:g} failed: {result}")
+        self.three_fresh_health_samples(require_armed=True)
+
     def drive_start_payload(
             self, *, active_duration_s: float | None = None) -> dict[str, Any]:
         self._drive_command_owner = uuid.uuid4().hex
@@ -1338,8 +1374,15 @@ def main() -> int:
     )
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument(
-        "--phases", nargs="+", choices=(*DIRECTIONS, "course"),
+        "--phases", nargs="+", choices=(*DIRECTIONS, "course", "yaw_offset"),
         default=["forward"],
+    )
+    parser.add_argument(
+        "--yaw-offset-deg", nargs="+", type=float, default=None,
+        help=("degrees consumed in order, one per 'yaw_offset' entry in "
+              "--phases (stationary discrete relative-heading turn-and-"
+              "hold leg; requires a walk_yaw_offset_cmd export and "
+              "--walk-transport timed, vx/vy forced to 0)"),
     )
     parser.add_argument("--speed-m-s", type=float, default=0.08)
     parser.add_argument("--duration-s", type=float, default=3.0)
@@ -1409,6 +1452,19 @@ def main() -> int:
         parser.error("--learned-rise-tilt-trip-deg must be in [5, 30]")
     if args.joystick_start_phase and not args.joystick_response:
         parser.error("--joystick-start-phase requires --joystick-response")
+    yaw_offset_count = args.phases.count("yaw_offset")
+    if yaw_offset_count:
+        if args.walk_transport != "timed":
+            parser.error("'yaw_offset' phase requires --walk-transport timed")
+        if args.yaw_offset_deg is None:
+            parser.error("'yaw_offset' phase requires --yaw-offset-deg")
+        if len(args.yaw_offset_deg) < yaw_offset_count:
+            parser.error(
+                f"--phases uses 'yaw_offset' {yaw_offset_count} time(s) but "
+                f"--yaw-offset-deg only gives {len(args.yaw_offset_deg)} value(s)"
+            )
+    elif args.yaw_offset_deg is not None:
+        parser.error("--yaw-offset-deg requires a 'yaw_offset' entry in --phases")
 
     stamp = time.strftime("%Y%m%d_%H%M%S")
     output_dir = args.output_dir / f"rl_walk_trial_{stamp}"
@@ -1430,9 +1486,12 @@ def main() -> int:
         if args.joystick_response:
             trial.joystick_response()
         else:
+            yaw_offset_values = iter(args.yaw_offset_deg or [])
             for phase in args.phases:
                 if phase == "course":
                     trial.direction_course()
+                elif phase == "yaw_offset":
+                    trial.yaw_offset_leg(next(yaw_offset_values))
                 elif args.walk_transport == "drive":
                     trial.drive_leg(phase)
                 else:

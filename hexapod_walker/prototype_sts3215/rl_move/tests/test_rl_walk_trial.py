@@ -839,3 +839,93 @@ def test_summary_exposes_actual_engaged_duration(tmp_path):
 
     summary = json.loads((tmp_path / "summary.json").read_text())
     assert summary["actual_engaged_duration_s"] == pytest.approx(3.05)
+
+
+def _yaw_offset_trial():
+    trial = walk_trial.Trial.__new__(walk_trial.Trial)
+    trial.args = SimpleNamespace(duration_s=6.0)
+    trial.results = []
+    trial.event = lambda *_args, **_kwargs: None
+    trial.snapshot = lambda *_args, **_kwargs: None
+    trial.pull_policy_logs = lambda *_args, **_kwargs: []
+    trial.three_fresh_health_samples = lambda **_kwargs: []
+    return trial
+
+
+def test_yaw_offset_leg_posts_zero_translation_with_the_requested_degrees():
+    trial = _yaw_offset_trial()
+    requests = []
+
+    def request(path, body):
+        requests.append((path, body))
+        return {"ok": True}
+
+    trial.request = request
+    trial.wait_job = lambda *_args, **_kwargs: {"ok": True}
+
+    trial.yaw_offset_leg(45.0)
+
+    assert requests == [
+        ("/api/rl/walk", {"vx": 0.0, "vy": 0.0, "duration_s": 6.0,
+                           "yaw_offset_deg": 45.0}),
+    ]
+    assert trial.results[0]["request"] == {
+        "vx": 0.0, "vy": 0.0, "yaw_offset_deg": 45.0,
+    }
+
+
+def test_yaw_offset_leg_raises_on_refusal():
+    trial = _yaw_offset_trial()
+    trial.request = lambda *_a, **_k: {"ok": False, "error": "bad offset"}
+    with pytest.raises(RuntimeError, match="refused"):
+        trial.yaw_offset_leg(-30.0)
+
+
+def test_yaw_offset_leg_raises_when_the_episode_itself_fails():
+    trial = _yaw_offset_trial()
+    trial.request = lambda *_a, **_k: {"ok": True}
+    trial.wait_job = lambda *_a, **_k: {"ok": False, "error": "fell"}
+    with pytest.raises(RuntimeError, match="failed"):
+        trial.yaw_offset_leg(30.0)
+
+
+def _cli_args(tmp_path, *extra):
+    return ["trial", "--output-dir", str(tmp_path), *extra]
+
+
+def test_yaw_offset_deg_without_a_yaw_offset_phase_is_refused(tmp_path, monkeypatch):
+    monkeypatch.setattr(sys, "argv", _cli_args(
+        tmp_path, "--phases", "forward", "--yaw-offset-deg", "30"))
+    with pytest.raises(SystemExit) as error:
+        walk_trial.main()
+    assert error.value.code == 2
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_yaw_offset_phase_without_yaw_offset_deg_is_refused(tmp_path, monkeypatch):
+    monkeypatch.setattr(sys, "argv", _cli_args(
+        tmp_path, "--phases", "yaw_offset"))
+    with pytest.raises(SystemExit) as error:
+        walk_trial.main()
+    assert error.value.code == 2
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_yaw_offset_phase_count_must_not_exceed_given_degrees(tmp_path, monkeypatch):
+    monkeypatch.setattr(sys, "argv", _cli_args(
+        tmp_path, "--phases", "yaw_offset", "yaw_offset",
+        "--yaw-offset-deg", "30"))
+    with pytest.raises(SystemExit) as error:
+        walk_trial.main()
+    assert error.value.code == 2
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_yaw_offset_phase_requires_timed_transport(tmp_path, monkeypatch):
+    monkeypatch.setattr(sys, "argv", _cli_args(
+        tmp_path, "--phases", "yaw_offset", "--yaw-offset-deg", "30",
+        "--walk-transport", "drive"))
+    with pytest.raises(SystemExit) as error:
+        walk_trial.main()
+    assert error.value.code == 2
+    assert list(tmp_path.iterdir()) == []

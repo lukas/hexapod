@@ -1,0 +1,71 @@
+{
+ "schema": "hexapod.transfer_candidate.v1",
+ "candidate_name": "walkcurr-rlonly-walk-turn-compose-curvewalk-v1",
+ "parent_goal": "rl_only",
+ "supersedes": null,
+ "candidate_is_composition_not_single_policy": true,
+ "no_physical_robot_motion_performed": true,
+ "training_lineage_contract": "walkcurr rl_only (tracks.json): both composed policies are independently-trained clean-RL checkpoints, no gait clock/BC teacher/motion prior/AMP reward anywhere in either lineage. The forward-walk role is bundle_rlonly_v2's own champion (see that bundle's manifest for its lineage contract). The turn-and-hold role is `cw-walkyaw50hz-rlonly-scratch-sac-s5-easedterm-tipmix05-yawbox30-bodyassist-ysema1-term400-gapincome-yawoffset-bothleggate-acq5-seedsweep` (walkcurr's standing recipe champion, from-scratch SAC, same no-demo/no-clock contract; recipe module `rl_move/sim/cfg_recipe_walkyaw50hz_acq5_seedsweep.py`). This manifest adds NO new training and NO new weights: it is a RUNTIME composition (role-selection plumbing, explicitly allowed as non-motion plumbing under RL_GOALS.md's rl_only clarification) alternating which of the two frozen checkpoints is live, on the SAME goal_task walk env family (mode stays 'walk' throughout -- no rise/lower lifecycle grammar; that gap is owned by todaypolicy).",
+ "components": [
+  {
+   "role": "forward walk (translate at trained heading/speed)",
+   "controller": "rl_move/sim/policies/ppo_goal_cw_walk50hz_rlonly_crutchoff_s0_warmadapt_acq1.zip",
+   "checkpoint_sha256": "a91b3c1d8909a9f456ee02f137a5e0e7165b7a94b5402ae337aa3f6e5f183885",
+   "source_bundle": "rl_docs/tracks/walkcurr/bundle_rlonly_v2",
+   "exported_np_policy": "linux_control/policies/walkscratch_rlonly_widen8_crutchoff_s0_warmadapt_50hz_acq1.json"
+  },
+  {
+   "role": "turn-and-hold (stationary/curved heading-offset tracking)",
+   "controller": "rl_move/sim/policies/ppo_goal_cw_walkyaw50hz_rlonly_scratch_sac_s5_easedterm_tipmix05_yawbox30_bodyassist_ysema1_term400_gapincome_yawoffset_bothleggate_acq5_seedsweep.zip",
+   "checkpoint_sha256": "1128ce5ae13fe92f31d44e55de30a874a1057b2c160ccf980d87ee48a0342bbd",
+   "source_bundle": null,
+   "exported_np_policy": null,
+   "note": "walkcurr's recorded recipe champion (STATUS.md 'Now' section); no bundle directory or exported np-JSON exists yet for it in isolation -- only used here as a frozen composition role. Exporting an np-JSON for this checkpoint is unbuilt work, flagged in transfer_blockers_or_work below."
+  }
+ ],
+ "composition_mechanism": {
+  "tool": "rl_move/sim/eval_walk_turn_compose.py",
+  "type": "segment-alternating role composition, two env instances, cross-env physical-state reanchor at each boundary",
+  "description": "Two SimHexapodJointWalkEnv instances (one per role's own versioned cfg-set recipe -- cfg_recipe_walk50hz_rlonly_v2 / cfg_recipe_walkyaw50hz_acq5_seedsweep, whose SimServoParams/_act_to_q caches differ: box_yaw 15 vs 30deg, term_penalty 24 vs 400, safety.max_roll/pitch 30 vs 45 -- so they cannot hot-swap mid-episode on one live env, exactly eval_lifecycle_handoff_rlonly.py's own precedent). At each segment boundary the raw physical state (qpos/qvel/ctrl/act + safety slew memory) is copied across via the SAME capture_physical_state/apply_physical_state helpers, optionally through --settle-grounded-s (opt-in, waits for a fully-grounded tick before reanchor; default off, bit-exact prior behavior -- built 2026-09-30, does not change this candidate's own numbers, see caveats below). No scripted joint trajectory, teacher target, or demonstration enters the composition at any point.",
+  "curve_speed_flag": "--curve-speed feeds the FROZEN turn-and-hold checkpoint a nonzero body-frame vx SIMULTANEOUSLY with its yaw-offset target during the turn segment -- a command combination absent from its own training (every yaw-offset training episode hard-zeros vx/vy). This is zero-shot OOD generalization of an existing checkpoint, not a new policy. --curve-speed 0.0 recovers the original stationary stop-turn-go schedule (the 'bundle_rlonly_stopturngo_v1' framing named in walkcurr/STATUS.md 2026-09-30 before the curved-walking read superseded it same-cycle) -- both command profiles are the SAME two checkpoints and the SAME tool, differing only in this one eval-time flag, so this single manifest covers both."
+ },
+ "gate_summary": {
+  "harness": "rl_move/sim/eval_walk_turn_compose.py, forward segment = eval_checkpoint's walk bar (tracking error + strict gait_valid); turn segment = acq5 gate's own bar (terminal-quartile |walk_yaw_offset_err|<=0.05rad + gait_valid_relaxed_hold); whole-session = zero-fall rate.",
+  "stationary_stop_turn_go_heading0_det_sto_n12x2cycles": {
+   "report": "logs/ckpt_eval/walk_turn_compose_v1_{det,sto}.json",
+   "det": "zero_fall 12/12, forward 24/24, turn 23/24 (1 single-leg unload during hold, still converged, 0 falls)",
+   "sto": "zero_fall 12/12, forward 24/24, turn 24/24"
+  },
+  "stationary_stop_turn_go_full_8way_heading_det_n3_per_heading": {
+   "report": "logs/ckpt_eval/walk_turn_compose_rot60_h{0,45,-45,90,-90,135,-135,180}_det.json (+ _settlefix variants)",
+   "result": "zero_fall 24/24 episodes, forward 48/48, turn 46/48 (2 misses total, same single-leg-3-unload-during-hold pattern; --settle-grounded-s reanchor fix tested and gives the IDENTICAL 46/48 total -- moved which 2 episodes miss (fixed the original 3, 2 new ones appeared elsewhere) rather than the rate, root-caused to the turn checkpoint's own stance asymmetry, not a handoff-timing artifact; non-gating, 0/48 falls either way"
+  },
+  "curved_walking_det_sto_n12x2cycles_curve_speed_0.06": {
+   "report": "logs/ckpt_eval/walk_turn_curve_probe_{det_n12,sto_n12}.json",
+   "det": "zero_fall 12/12, turn segments 24/24 gait_valid/converged/err_q4<=0.05rad (BETTER than the stationary read -- the leg-3-unload quirk did not reproduce), net_disp_m range [0.135,0.722]m over the 20s segment",
+   "sto": "zero_fall 12/12, turn segments 24/24, net_disp_m range [0.176,0.524]m"
+  },
+  "curved_walking_2x_trained_speed_det_n8_curve_speed_0.12": {
+   "report": "logs/ckpt_eval/walk_turn_curve_probe_2x_n8.json",
+   "result": "zero_fall 8/8, turn segments 16/16, net_disp_m range [0.159,0.755]m -- robust at double the trained forward speed, still doubly OOD (nonzero vx AND above-trained magnitude)"
+  },
+  "verdict": "Both command profiles (stationary stop-turn-go and simultaneous curved walk) compose cleanly: 0 falls across every read (100 episodes / ~212 segments total), forward segments always clean, turn segments 93/96 stationary + 64/64 curved. Curved walking is real displacement at the new heading, not drift-while-holding."
+ },
+ "video_evidence": {
+  "note": "This candidate's evidence to date is scalar/JSON only (frame-strip/mp4 rendering not yet run for this composition tool) -- unlike bundle_rlonly_v2/bundle_rlonly_lifecycle_v1 which do have strips+mp4. Flagged in transfer_blockers_or_work: render at least one det-mode strip or mp4 per profile before treating this as visually verified, per RESEARCH_RULES 'unwatched success = unverified'."
+ },
+ "known_caveat_leg3_unload_during_hold": "Root-caused 2026-09-30 (CPU-only dig-in, eval_walk_turn_compose.py + --settle-grounded-s): the 2/48 (stationary, full-heading panel) misses are a converged-stance asymmetry intrinsic to the turn-and-hold checkpoint itself (surfaces stochastically depending on the exact converged stance, always leg 3), not a composition-boundary/handoff-timing artifact -- forcing a fully-grounded reanchor before handoff does not change the incidence. Non-gating (0 falls in every read). If revisited, the next lever is the acq5-seedsweep recipe's own per-leg stance-symmetry term or a harder gait_valid bar during ITS OWN training, not more composition plumbing.",
+ "transfer_blockers_or_work": [
+  "This is a SIM-ONLY composition result (CPU MuJoCo, mesh_mjx model, no GPU spend, no physical robot motion). No physical acceptance is claimed.",
+  "The turn-and-hold role has no exported np-JSON policy yet (only the raw SB3 .zip is validated here) -- Robot Lab or a follow-up cloud cycle must run export_policy_np.py on it (matching the forward role's already-exported walkscratch_rlonly_widen8_crutchoff_s0_warmadapt_50hz_acq1.json) and re-verify parity before any physical drive.",
+  "The two roles' motor/safety contracts differ (box_yaw 15 vs 30deg, term_penalty 24 vs 400, safety.max_roll/pitch 30 vs 45) -- exactly bundle_rlonly_lifecycle_v1's own precedent -- any physical composed runtime must actually SWITCH the active cfg/safety contract at each segment boundary, not run one contract throughout.",
+  "No rise/lower lifecycle grammar in this candidate (mode stays 'walk' the whole session) -- composing with a stand/lower role is a separate open piece owned by todaypolicy/standwalk, not this bundle.",
+  "Curved-walking mode is a turn-then-walk-at-the-new-heading profile within each 20s segment (yaw converges, then it walks straight at the new heading), not a continuously-arcing path; only tested at the turn role's own 8 trained offsets and two speeds (0.06/0.12 m/s), not combined with the forward role's own off-forward headings simultaneously.",
+  "No frame-strip/mp4 video rendered yet for this tool's output (see video_evidence above) -- render before treating as visually verified."
+ ],
+ "next": [
+  "Cloud: export the turn-and-hold checkpoint to np-JSON and re-verify parity, closing the first transfer_blocker above.",
+  "Cloud (optional, cheap): render a det-mode frame strip/mp4 per profile (stationary + curved) via eval_walk_turn_compose.py for visual verification.",
+  "Robot Lab: once np-export lands, this composition (either curve_speed=0 stop-turn-go or curve_speed=0.06 simultaneous-command profile) is ready for guarded-runner physical-handoff review alongside the other walkcurr/standwalk candidates -- needs the same per-role motor-contract-switch runtime plumbing already flagged for bundle_rlonly_lifecycle_v1."
+ ]
+}

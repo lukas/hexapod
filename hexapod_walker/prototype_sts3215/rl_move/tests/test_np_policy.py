@@ -36,10 +36,10 @@ def _policy(training_hz=25.0):
     }
 
 
-def _nlayer_policy(activation="elu", hidden=(4, 3)):
+def _nlayer_policy(activation="elu", hidden=(4, 3), obs_dim=68, extra_meta=None):
     rng = np.random.default_rng(0)
     layers = []
-    in_dim = 68
+    in_dim = obs_dim
     for h in hidden:
         layers.append({
             "W": pack_f32(rng.normal(size=(h, in_dim)).astype(np.float32)),
@@ -48,12 +48,13 @@ def _nlayer_policy(activation="elu", hidden=(4, 3)):
         in_dim = h
     return {
         "meta": {
-            "obs_dim": 68,
+            "obs_dim": obs_dim,
             "act_dim": 18,
             "activation": activation,
             "training_hz": 100.0,
             "joint_frame": "robot_abs",
             "joint_contract": "robot_abs_tibia_v2",
+            **(extra_meta or {}),
         },
         "layers": layers,
         "Wout": pack_f32(rng.normal(size=(18, in_dim)).astype(np.float32)),
@@ -85,9 +86,39 @@ def test_nlayer_mlp_dispatches_through_load_np_policy(tmp_path):
 
 
 def test_nlayer_mlp_rejects_bad_activation():
-    obj = _nlayer_policy(activation="relu")
+    obj = _nlayer_policy(activation="sigmoid")
     errs, _ = validate_np_policy(obj)
     assert any("activation" in e for e in errs)
+
+
+def test_nlayer_mlp_accepts_relu_activation():
+    """ReLU is a valid nlayer hidden activation (the SAC actor shape)."""
+    obj = _nlayer_policy(activation="relu")
+    errs, info = validate_np_policy(obj)
+    assert errs == []
+    assert info["hidden"] == [4, 3]
+    model = NumpyMLPNLayerModel(obj)
+    action, _ = model.predict(np.zeros(68, dtype=np.float32))
+    assert action.shape == (18,)
+    assert np.all(np.abs(action) <= 1.0)  # default output_squash="clip"
+
+
+def test_nlayer_mlp_output_squash_tanh_never_clips():
+    obj = _nlayer_policy(activation="relu")
+    obj["meta"]["output_squash"] = "tanh"
+    errs, _ = validate_np_policy(obj)
+    assert errs == []
+    model = NumpyMLPNLayerModel(obj)
+    rng = np.random.default_rng(1)
+    action = model.act(rng.normal(size=68, scale=50.0))
+    assert np.all(np.abs(action) < 1.0)  # strict: tanh is an open interval
+
+
+def test_nlayer_mlp_rejects_bad_output_squash():
+    obj = _nlayer_policy(activation="relu")
+    obj["meta"]["output_squash"] = "softmax"
+    errs, _ = validate_np_policy(obj)
+    assert any("output_squash" in e for e in errs)
 
 
 def test_nlayer_mlp_rejects_shape_mismatch():
@@ -98,6 +129,34 @@ def test_nlayer_mlp_rejects_shape_mismatch():
     obj["layers"][1]["W"] = pack_f32(bad[:, :-1])
     errs, _ = validate_np_policy(obj)
     assert any("shape" in e for e in errs)
+
+
+def test_obs74_yaw_offset_cmd_skips_phase_hz_requirement():
+    """width 74 is ambiguous (phase-clock family vs walkcurr's static
+    yaw-offset [target, error] pair) -- an explicit walk_yaw_offset_cmd
+    opts out of the phase_hz contract instead of forcing a fake clock
+    rate onto a checkpoint that has no clock."""
+    obj = _nlayer_policy(activation="relu", obs_dim=74, extra_meta={
+        "walk_yaw_offset_cmd": True,
+        "walk_yaw_offset_set": [15, 30, 45, 90, -15, -30, -45, -90],
+    })
+    errs, _ = validate_np_policy(obj)
+    assert errs == []
+
+
+def test_obs74_yaw_offset_cmd_requires_offset_set():
+    obj = _nlayer_policy(activation="relu", obs_dim=74, extra_meta={
+        "walk_yaw_offset_cmd": True,
+    })
+    errs, _ = validate_np_policy(obj)
+    assert any("walk_yaw_offset_set" in e for e in errs)
+
+
+def test_obs74_without_yaw_offset_cmd_still_requires_phase_hz():
+    """Unchanged behavior for the pre-existing phase-clock family."""
+    obj = _nlayer_policy(activation="relu", obs_dim=74)
+    errs, _ = validate_np_policy(obj)
+    assert any("phase_hz" in e for e in errs)
 
 
 def test_nlayer_mlp_legacy_two_layer_tanh_still_uses_old_format():

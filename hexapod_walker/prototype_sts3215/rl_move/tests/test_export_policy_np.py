@@ -272,6 +272,73 @@ def test_export_deep_elu_mlp_uses_generic_layers_format(tmp_path):
     assert worst < 1e-5
 
 
+def test_export_sac_actor_uses_tanh_squashed_generic_layers(tmp_path):
+    """SAC's deterministic actor (tanh(mu(latent_pi(obs)))) exports through
+    the generic N-layer format with output_squash="tanh" -- the walkyaw
+    turn-and-hold champion family (walkcurr) is a SAC checkpoint and had
+    no export path before this test/mechanism landed (2026-09-30)."""
+    from stable_baselines3 import SAC
+
+    model = SAC(
+        "MlpPolicy", _ExportEnv(74), learning_starts=0,
+        train_freq=1, batch_size=8, seed=13, device="cpu",
+        policy_kwargs={"net_arch": [10, 9, 7]})
+    _stamp(model)
+    checkpoint = tmp_path / "sac.zip"
+    artifact = tmp_path / "sac.json"
+    model.save(checkpoint)
+
+    payload = export(
+        str(checkpoint), str(artifact), training_hz=50.0,
+        extra_meta={"phase_hz": 1.333333})
+
+    assert "layers" in payload and "W1" not in payload
+    assert payload["meta"]["architecture"] == "mlp"
+    assert payload["meta"]["activation"] == "relu"
+    assert payload["meta"]["output_squash"] == "tanh"
+    assert payload["meta"]["hidden"] == [10, 9, 7]
+
+    errors, info = validate_np_policy(json.loads(artifact.read_text()))
+    assert errors == []
+    assert info["hidden"] == [10, 9, 7]
+
+    loaded = load_np_policy(artifact)
+    assert isinstance(loaded, NumpyMLPNLayerModel)
+    assert loaded.recurrent is False
+
+    rng = np.random.default_rng(2)
+    worst = 0.0
+    for _ in range(50):
+        probe = rng.normal(0, 1, 74).astype(np.float32)
+        a_np = loaded.act(probe)
+        a_sb3, _ = model.predict(probe, deterministic=True)
+        worst = max(worst, float(np.max(np.abs(a_np - a_sb3))))
+        assert np.all(np.abs(a_np) <= 1.0)  # tanh squash, never clipped
+    assert worst < 1e-5
+
+
+def test_export_sac_actor_refuses_non_unit_action_space(tmp_path):
+    """This project's servo contract is exactly Box(-1, 1); a SAC actor
+    trained on a different range would silently mis-scale under the
+    tanh-only formula, so the exporter must refuse it loudly instead."""
+    from stable_baselines3 import SAC
+
+    class _WideEnv(_ExportEnv):
+        def __init__(self):
+            super().__init__(74)
+            self.action_space = spaces.Box(-2.0, 2.0, (18,), dtype=np.float32)
+
+    model = SAC(
+        "MlpPolicy", _WideEnv(), learning_starts=0,
+        train_freq=1, batch_size=8, seed=17, device="cpu",
+        policy_kwargs={"net_arch": [8, 8]})
+    _stamp(model)
+    checkpoint = tmp_path / "sac_wide.zip"
+    model.save(checkpoint)
+    with pytest.raises(ValueError, match=r"\[-1, 1\]"):
+        export(str(checkpoint), str(tmp_path / "no.json"), training_hz=50.0)
+
+
 def test_generic_hidden_layers_refuses_mixed_activation():
     """A hand-built Tanh-then-ELU stack must fail loudly, not silently.
 
@@ -294,9 +361,21 @@ def test_generic_hidden_layers_refuses_unsupported_activation():
 
     from rl_move.sim.export_policy_np import _generic_hidden_layers
 
-    net = nn.Sequential(nn.Linear(4, 3), nn.ReLU())
+    net = nn.Sequential(nn.Linear(4, 3), nn.Sigmoid())
     with pytest.raises(ValueError, match="unsupported activation"):
         _generic_hidden_layers(net, name="MLP actor")
+
+
+def test_generic_hidden_layers_accepts_relu():
+    """ReLU is exportable (the SAC actor's own latent_pi activation)."""
+    import torch.nn as nn
+
+    from rl_move.sim.export_policy_np import _generic_hidden_layers
+
+    net = nn.Sequential(nn.Linear(4, 3), nn.ReLU())
+    linears, activation = _generic_hidden_layers(net, name="MLP actor")
+    assert activation == "relu"
+    assert len(linears) == 1
 
 
 def test_export_refuses_unstamped_checkpoint(tmp_path):

@@ -101,7 +101,16 @@ _NLAYER_ACTIVATIONS = {
     "tanh": np.tanh,
     # torch.nn.ELU default alpha=1.0: x if x>0 else exp(x)-1.
     "elu": lambda x: np.where(x > 0.0, x, np.expm1(x)),
+    "relu": lambda x: np.maximum(x, 0.0),
 }
+
+# The generic N-layer MLP head's final squash: "clip" (default, matches
+# every PPO actor exported to date -- a raw linear mean action clipped to
+# [-1, 1]) or "tanh" (SAC's deterministic actor is tanh(mu(latent_pi(obs)));
+# this project's SAC action spaces are exactly [-1, 1], so tanh IS the
+# actor's own squash, not an approximation of it). Absent -> "clip", so
+# every existing artifact stays byte-for-byte unchanged.
+_NLAYER_OUTPUT_SQUASH = ("clip", "tanh")
 
 
 def _erf(x: np.ndarray) -> np.ndarray:
@@ -163,6 +172,26 @@ def unpack_f32(obj, *, name: str = "array") -> np.ndarray:
 
 def _phase_meta_errors(meta: dict, obs: int, errs: list[str]) -> None:
     if obs not in PHASE_OBS:
+        return
+    # Width 74 is ambiguous by count alone: the established "phase-walk"
+    # family (a real advancing gait-phase clock, goal.walk_phase_obs=1)
+    # and the walkcurr acq5-seedsweep turn-and-hold family (goal.
+    # walk_yaw_offset_frac=1, N_YAW_OFFSET_OBS=2 -- a static per-episode
+    # [target, live error] pair, never a clock) both land on 72+2=74
+    # (rl_move/sim/walk_task.py). Requiring phase_hz unconditionally
+    # would force a fabricated clock rate onto a checkpoint that has no
+    # clock at all. An explicit meta.walk_yaw_offset_cmd=true opts a
+    # width-74 export OUT of the phase-clock contract and into this one
+    # instead (mirrors width 75/81's own explicit walk_yaw_cmd flag).
+    if obs == 74 and meta.get("walk_yaw_offset_cmd") is True:
+        offset_set = meta.get("walk_yaw_offset_set")
+        if not (isinstance(offset_set, list) and offset_set and all(
+                isinstance(v, (int, float)) and not isinstance(v, bool)
+                for v in offset_set)):
+            errs.append(
+                "obs 74 with walk_yaw_offset_cmd=true requires a "
+                "non-empty numeric meta.walk_yaw_offset_set (the "
+                "trained relative-heading offsets, degrees)")
         return
     try:
         phase_hz = float(meta["phase_hz"])
@@ -571,6 +600,11 @@ def validate_np_policy(obj) -> tuple[list[str], dict]:
                 "meta.activation must be one of "
                 f"{sorted(_NLAYER_ACTIVATIONS)} for the layers format, "
                 f"got {activation!r}")
+        output_squash = meta.get("output_squash", "clip")
+        if output_squash not in _NLAYER_OUTPUT_SQUASH:
+            errs.append(
+                "meta.output_squash must be one of "
+                f"{_NLAYER_OUTPUT_SQUASH}, got {output_squash!r}")
     elif architecture == ARCH_TRANSFORMER:
         if activation not in _NLAYER_ACTIVATIONS:
             errs.append(
@@ -788,6 +822,10 @@ class NumpyMLPNLayerModel:
         if activation not in _NLAYER_ACTIVATIONS:
             raise ValueError(f"unsupported activation {activation!r}")
         self._act_fn = _NLAYER_ACTIVATIONS[activation]
+        output_squash = str(self.meta.get("output_squash", "clip"))
+        if output_squash not in _NLAYER_OUTPUT_SQUASH:
+            raise ValueError(f"unsupported output_squash {output_squash!r}")
+        self._output_squash = output_squash
         self.observation_space = _Space(int(self.meta["obs_dim"]))
         self.action_space = _Space(int(self.meta.get("act_dim", 18)))
         self.hidden = [int(W.shape[0]) for W, _ in self.layers]
@@ -800,7 +838,10 @@ class NumpyMLPNLayerModel:
         h = np.asarray(obs, dtype=np.float64)
         for W, b in self.layers:
             h = self._act_fn(W @ h + b)
-        return np.clip(self.Wo @ h + self.bo, -1.0, 1.0)
+        z = self.Wo @ h + self.bo
+        if self._output_squash == "tanh":
+            return np.tanh(z)
+        return np.clip(z, -1.0, 1.0)
 
     def predict(self, obs, deterministic: bool = True, **_kw):
         return self.act(np.asarray(obs, dtype=np.float64)), None

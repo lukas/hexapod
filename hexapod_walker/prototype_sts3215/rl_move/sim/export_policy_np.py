@@ -105,10 +105,12 @@ def _generic_hidden_layers(net, *, name: str):
             this_name = "tanh"
         elif isinstance(act, nn.ELU):
             this_name = "elu"
+        elif isinstance(act, nn.ReLU):
+            this_name = "relu"
         else:
             raise ValueError(
                 f"{name}: unsupported activation {act!r} at index {i + 1} "
-                "(only Tanh/ELU are exportable)")
+                "(only Tanh/ELU/ReLU are exportable)")
         if activation_name is None:
             activation_name = this_name
         elif activation_name != this_name:
@@ -208,6 +210,44 @@ def _mlp_payload_nlayer(pol, meta: dict) -> dict:
         ],
         "Wout": _tpack(pol.action_net.weight),
         "bout": _tpack(pol.action_net.bias),
+    }
+
+
+def _sac_mlp_payload(pol, meta: dict) -> dict:
+    """SAC's deterministic actor: ``tanh(mu(latent_pi(obs)))``.
+
+    Verified numerically against ``SAC.predict(obs, deterministic=True)``
+    (max abs diff ~6e-8 over random obs) -- this project's SAC action
+    spaces are exactly ``Box(-1, 1)`` so the actor's own tanh squash IS
+    the final output with no additional scale/bias, unlike environments
+    with asymmetric bounds. Reuses the generic N-layer ``"layers"``
+    format (``output_squash="tanh"``, ``activation="relu"``) so every
+    existing MLP-nlayer runtime/validator path (parity, np_policy
+    loader) already exercises it unchanged.
+    """
+    from stable_baselines3.sac.policies import SACPolicy
+
+    if not isinstance(pol, SACPolicy):
+        raise TypeError(f"expected SACPolicy, got {type(pol)}")
+    low, high = pol.action_space.low, pol.action_space.high
+    if not (np.allclose(low, -1.0) and np.allclose(high, 1.0)):
+        raise ValueError(
+            "SAC export assumes an exact [-1, 1] action space (this "
+            f"project's servo contract); got low={low!r} high={high!r}")
+    actor = pol.actor
+    linears, activation = _generic_hidden_layers(
+        actor.latent_pi, name="SAC actor latent_pi")
+    meta["hidden"] = [int(lin.out_features) for lin in linears]
+    meta["activation"] = activation
+    meta["output_squash"] = "tanh"
+    return {
+        "meta": meta,
+        "layers": [
+            {"W": _tpack(lin.weight), "b": _tpack(lin.bias)}
+            for lin in linears
+        ],
+        "Wout": _tpack(actor.mu.weight),
+        "bout": _tpack(actor.mu.bias),
     }
 
 
@@ -558,6 +598,8 @@ def export(policy_path: str, out_path: str, *, name: str = "",
             "cannot be relabeled during export")
     pol = model.policy
     from .transformer_policy import TransformerActorCriticPolicy
+    from stable_baselines3.sac.policies import SACPolicy
+    is_sac_actor = isinstance(pol, SACPolicy)
     if isinstance(pol, TransformerActorCriticPolicy):
         architecture = ARCH_TRANSFORMER
     elif getattr(pol, "lstm_actor", None) is not None:
@@ -632,6 +674,7 @@ def export(policy_path: str, out_path: str, *, name: str = "",
                if architecture == ARCH_SINGLE_GRU
                else _transformer_payload(pol, meta)
                if architecture == ARCH_TRANSFORMER
+               else _sac_mlp_payload(pol, meta) if is_sac_actor
                else _mlp_payload(pol, meta))
     errors, _ = validate_np_policy(payload)
     if errors:

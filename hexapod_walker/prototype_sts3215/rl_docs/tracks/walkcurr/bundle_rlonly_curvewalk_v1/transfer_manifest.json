@@ -19,8 +19,9 @@
    "controller": "rl_move/sim/policies/ppo_goal_cw_walkyaw50hz_rlonly_scratch_sac_s5_easedterm_tipmix05_yawbox30_bodyassist_ysema1_term400_gapincome_yawoffset_bothleggate_acq5_seedsweep.zip",
    "checkpoint_sha256": "1128ce5ae13fe92f31d44e55de30a874a1057b2c160ccf980d87ee48a0342bbd",
    "source_bundle": null,
-   "exported_np_policy": null,
-   "note": "walkcurr's recorded recipe champion (STATUS.md 'Now' section); no bundle directory or exported np-JSON exists yet for it in isolation -- only used here as a frozen composition role. Exporting an np-JSON for this checkpoint is unbuilt work, flagged in transfer_blockers_or_work below."
+   "exported_np_policy": "linux_control/policies/walkyaw50hz_rlonly_turnhold_acq5_seedsweep_s5.json",
+   "exported_np_policy_sha256": "aa2be96da686ec784e6fc4435948b0338f98a2c9c55656f894099deb7b7d4f10",
+   "export_notes": "BUILT 2026-09-30 (this cycle) -- this checkpoint is SAC (algorithm mislabeled in its own filename prefix ppo_goal_cw_*, verified via zip contents: actor/critic/ent_coef optimizer state), the FIRST SAC checkpoint export attempted anywhere in this project; export_policy_np.py/np_policy.py had no SAC actor path at all (only PPO MlpPolicy/GRU/dual-GRU/transformer). Added `_sac_mlp_payload` (SAC's deterministic actor tanh(mu(latent_pi(obs))), verified numerically ~6e-8 max diff vs SB3 for random obs -- this project's SAC action spaces are exactly Box(-1,1) so tanh IS the actor's own squash, no extra scale/bias) reusing the existing generic N-layer `layers` format with a new additive `meta.output_squash` field (\"clip\" default = unchanged prior behavior, \"tanh\" = new). Also added `relu` to the nlayer activation set (SAC's own latent_pi activation) and an explicit `meta.walk_yaw_offset_cmd`/`walk_yaw_offset_set` contract disambiguating obs-width-74's TWO colliding families (the pre-existing phase-clock family, which needs phase_hz, vs this checkpoint's static per-episode [target,error] yaw-offset pair, which has no clock at all -- forcing a fabricated phase_hz onto it would have been actively wrong metadata). export_policy_np.py --training-hz 50 --inner-hz 50 --extra-meta '{\"walk_yaw_offset_cmd\":true,\"walk_yaw_offset_set\":[15,30,45,90,-15,-30,-45,-90]}', net-arch 256,256,128, parity 4.66e-06 over 200 random obs (bar 1e-5). All new mechanics covered by new tests in test_np_policy.py/test_export_policy_np.py (full suite green except two pre-existing unrelated flakes -- test_dual_gru_numpy_sequence_matches_torch_and_threads_both_cores float-tolerance flake and test_course_disp_semantics.py::test_real_failed_checkpoint_ema_inert_disp_active, both reproduce identically on the pre-change tree). NOTE: this export is weights-only parity evidence -- the robot-side linux_control runtime has no consumer for a walk_yaw_offset_cmd observation yet (no joystick-driven relative-heading-offset command source exists in linux_control/ today); that plumbing is separate, larger, not-yet-scoped Robot-Lab-side work and is NOT claimed done here."
   }
  ],
  "composition_mechanism": {
@@ -52,20 +53,29 @@
   "verdict": "Both command profiles (stationary stop-turn-go and simultaneous curved walk) compose cleanly: 0 falls across every read (100 episodes / ~212 segments total), forward segments always clean, turn segments 93/96 stationary + 64/64 curved. Curved walking is real displacement at the new heading, not drift-while-holding."
  },
  "video_evidence": {
-  "note": "This candidate's evidence to date is scalar/JSON only (frame-strip/mp4 rendering not yet run for this composition tool) -- unlike bundle_rlonly_v2/bundle_rlonly_lifecycle_v1 which do have strips+mp4. Flagged in transfer_blockers_or_work: render at least one det-mode strip or mp4 per profile before treating this as visually verified, per RESEARCH_RULES 'unwatched success = unverified'."
+  "note": "RENDERED 2026-09-30 (this cycle): one det-mode frame-strip pair (forward + turn segment, cycle0+cycle1) per profile via `--strips`, n=2 episodes each, seed 0. Stationary: zero_fall 2/2, forward 4/4, turn 3/4 (same single-leg-3-unload-during-hold quirk already root-caused/closed as non-gating), net_disp_m_median 0.49. Curved (--curve-speed 0.06): zero_fall 2/2, forward 4/4, turn 4/4, net_disp_m_median 0.34. Eyeballed both turn strips: stationary shows clean in-place rotation across frames, all six legs cycling; curved shows real lateral displacement across the strip (not drift-while-holding) with a visible forward-velocity vector, matching the scalar net_disp_m evidence -- no skating/dragging/paddle-creep visible at this frame rate.",
+  "paths": [
+   "logs/ckpt_eval/walk_turn_compose_strips/stationary_det/ep0_cycle0_turn.png",
+   "logs/ckpt_eval/walk_turn_compose_strips/stationary_det/ep0_cycle1_turn.png",
+   "logs/ckpt_eval/walk_turn_compose_strips/curved_det/ep0_cycle0_turn.png",
+   "logs/ckpt_eval/walk_turn_compose_strips/curved_det/ep0_cycle1_turn.png"
+  ],
+  "reports": [
+   "logs/ckpt_eval/walk_turn_compose_strips/stationary_det.json",
+   "logs/ckpt_eval/walk_turn_compose_strips/curved_det.json"
+  ]
  },
  "known_caveat_leg3_unload_during_hold": "Root-caused 2026-09-30 (CPU-only dig-in, eval_walk_turn_compose.py + --settle-grounded-s): the 2/48 (stationary, full-heading panel) misses are a converged-stance asymmetry intrinsic to the turn-and-hold checkpoint itself (surfaces stochastically depending on the exact converged stance, always leg 3), not a composition-boundary/handoff-timing artifact -- forcing a fully-grounded reanchor before handoff does not change the incidence. Non-gating (0 falls in every read). If revisited, the next lever is the acq5-seedsweep recipe's own per-leg stance-symmetry term or a harder gait_valid bar during ITS OWN training, not more composition plumbing.",
  "transfer_blockers_or_work": [
   "This is a SIM-ONLY composition result (CPU MuJoCo, mesh_mjx model, no GPU spend, no physical robot motion). No physical acceptance is claimed.",
-  "The turn-and-hold role has no exported np-JSON policy yet (only the raw SB3 .zip is validated here) -- Robot Lab or a follow-up cloud cycle must run export_policy_np.py on it (matching the forward role's already-exported walkscratch_rlonly_widen8_crutchoff_s0_warmadapt_50hz_acq1.json) and re-verify parity before any physical drive.",
+  "RESOLVED 2026-09-30: the turn-and-hold role's np-JSON export + parity now exist (see its component entry above). REMAINING gap, not yet built anywhere: the robot-side linux_control runtime has no consumer for a walk_yaw_offset_cmd observation (no joystick-driven relative-heading-offset command source in linux_control/ today) -- exporting the weights did not create that plumbing.",
   "The two roles' motor/safety contracts differ (box_yaw 15 vs 30deg, term_penalty 24 vs 400, safety.max_roll/pitch 30 vs 45) -- exactly bundle_rlonly_lifecycle_v1's own precedent -- any physical composed runtime must actually SWITCH the active cfg/safety contract at each segment boundary, not run one contract throughout.",
   "No rise/lower lifecycle grammar in this candidate (mode stays 'walk' the whole session) -- composing with a stand/lower role is a separate open piece owned by todaypolicy/standwalk, not this bundle.",
   "Curved-walking mode is a turn-then-walk-at-the-new-heading profile within each 20s segment (yaw converges, then it walks straight at the new heading), not a continuously-arcing path; only tested at the turn role's own 8 trained offsets and two speeds (0.06/0.12 m/s), not combined with the forward role's own off-forward headings simultaneously.",
-  "No frame-strip/mp4 video rendered yet for this tool's output (see video_evidence above) -- render before treating as visually verified."
+  "RESOLVED 2026-09-30: det-mode frame strips rendered and eyeballed for both profiles (see video_evidence above)."
  ],
  "next": [
-  "Cloud: export the turn-and-hold checkpoint to np-JSON and re-verify parity, closing the first transfer_blocker above.",
-  "Cloud (optional, cheap): render a det-mode frame strip/mp4 per profile (stationary + curved) via eval_walk_turn_compose.py for visual verification.",
-  "Robot Lab: once np-export lands, this composition (either curve_speed=0 stop-turn-go or curve_speed=0.06 simultaneous-command profile) is ready for guarded-runner physical-handoff review alongside the other walkcurr/standwalk candidates -- needs the same per-role motor-contract-switch runtime plumbing already flagged for bundle_rlonly_lifecycle_v1."
+  "Robot Lab / a future cloud cycle: build the joystick-side walk_yaw_offset_cmd command source and per-role motor-contract-switch runtime (the one remaining plumbing gap named above) before any physical drive of this composition.",
+  "Robot Lab: once that plumbing lands, this composition (either curve_speed=0 stop-turn-go or curve_speed=0.06 simultaneous-command profile) is ready for guarded-runner physical-handoff review alongside the other walkcurr/standwalk candidates."
  ]
 }

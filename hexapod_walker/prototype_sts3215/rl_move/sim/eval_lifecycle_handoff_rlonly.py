@@ -96,6 +96,7 @@ from pathlib import Path
 
 import numpy as np
 
+from rl_move.config import cfg_get
 from rl_move.robot_state import N_JOINTS, over_current_reading
 
 PHASE_A_S = 12.5     # stance rise+settle horizon (mirrors eval_handoff.py)
@@ -535,6 +536,27 @@ def main() -> int:
                          "trip_summary can classify the hot joint as "
                          "pinned-at-its-mechanical-limit vs mid-range "
                          "(2026-10-01 L1-hip root-cause follow-up).")
+    ap.add_argument("--minload-trace-dir", type=Path, default=None,
+                    help="DIAGNOSTIC ONLY (default None = off, zero "
+                         "extra cost/output when unset): for EVERY "
+                         "lower-phase episode regardless of outcome "
+                         "(unlike --current-trace-dir, which only "
+                         "dumps FAILED episodes), write "
+                         "<dir>/<arm>_<ep>_<lower_ok|lower_fall>.json "
+                         "with the per-tick worst-over-feet touch force "
+                         "(env._minload_min_force_now(floor_n), the "
+                         "EXACT quantity the hold_min_load EMA tracks) "
+                         "plus the per-leg raw touch-sensor forces. "
+                         "Lets a later offline replay check whether "
+                         "safety.hold_min_load_apply_lower=1 (2026-10-01 "
+                         "L1-hip fix) would have false-fired on "
+                         "HEALTHY direct-arm episodes under the "
+                         "PARENT checkpoint (no minload-lower applied "
+                         "during this rollout) at any candidate "
+                         "term_s/grace_s/floor_n -- without spending "
+                         "GPU on a new training run per candidate. "
+                         "walkcurr/STATUS.md Next 1 follow-up to the "
+                         "minloadlower-acq1 FAIL.")
     args = ap.parse_args()
 
     import mujoco
@@ -722,16 +744,37 @@ def main() -> int:
         term = trunc = False
         info: dict = {}
         want_trace = args.current_trace_dir is not None
+        want_minload = args.minload_trace_dir is not None
+        minload_floor_n = float(cfg_get(
+            env_lower.cfg, "safety", "hold_min_load_terminate_n",
+            default=0.3))
         current_trace: list = []
         qvel_trace: list = []
         height_trace_mm: list = []
         qpos_trace: list = []
         contact_trace: list = []
+        minforce_trace: list = []
+        perleg_force_trace: list = []
+        minload_qpos_trace: list = []
+        minload_qvel_trace: list = []
         n_steps = max(1, int(round(args.lower_episode_s / env_lower.dt)))
         for _ in range(n_steps):
             a, _ = lower.predict(obs[:n_lower], deterministic=deterministic)
             obs, _rw, term, trunc, info = env_lower.step(a)
             grab(env_lower)
+            if want_minload:
+                minforce_trace.append(
+                    env_lower._minload_min_force_now(minload_floor_n))
+                perleg_force_trace.append([
+                    max(float(env_lower.data.sensordata[adr]), 0.0)
+                    if adr >= 0 else float("nan")
+                    for adr in env_lower._touch_adr])
+                minload_qpos_trace.append(
+                    np.asarray(env_lower.data.qpos[env_lower._qadr],
+                              dtype=float).copy())
+                minload_qvel_trace.append(
+                    np.asarray(env_lower.data.qvel[6:6 + N_JOINTS],
+                              dtype=float).copy())
             if want_trace:
                 cur = over_current_reading(env_lower._state)
                 current_trace.append(
@@ -783,10 +826,37 @@ def main() -> int:
             args.current_trace_dir.mkdir(parents=True, exist_ok=True)
             out = args.current_trace_dir / f"{name}_{lower_fall}.json"
             out.write_text(json.dumps(dump))
+        lower_ok = (not term) and abs(h_err_mm) <= 15.0
+        if want_minload and minforce_trace:
+            minload_dump = {
+                "name": name, "lower_fall": lower_fall,
+                "lower_ok": lower_ok,
+                "n_ticks": len(minforce_trace),
+                "dt": env_lower.dt,
+                "minload_floor_n": minload_floor_n,
+                "min_force_trace_n": [round(float(v), 4)
+                                      for v in minforce_trace],
+                "perleg_force_trace_n": [
+                    [round(float(v), 4) for v in row]
+                    for row in perleg_force_trace],
+                "qpos_trace_rad": [
+                    [round(float(v), 4) for v in row]
+                    for row in minload_qpos_trace],
+                "qvel_trace_rad_s": [
+                    [round(float(v), 4) for v in row]
+                    for row in minload_qvel_trace],
+                "joint_limit_rad": (lower_joint_limit_rad.round(4).tolist()
+                                    if lower_joint_limit_rad is not None
+                                    else None),
+            }
+            args.minload_trace_dir.mkdir(parents=True, exist_ok=True)
+            tag = lower_fall if lower_fall is not None else "ok"
+            out2 = args.minload_trace_dir / f"{name}_{tag}.json"
+            out2.write_text(json.dumps(minload_dump))
         return {
             "lower_fall": lower_fall,
             "lower_height_err_end_mm": h_err_mm,
-            "lower_ok": (not term) and abs(h_err_mm) <= 15.0,
+            "lower_ok": lower_ok,
         }
 
     pads_walk = [env_walk.model.body(f"L{i}_pad").id for i in range(6)]

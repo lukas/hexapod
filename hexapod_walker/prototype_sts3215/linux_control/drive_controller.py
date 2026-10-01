@@ -150,6 +150,9 @@ class DriveController:
         self.armed = False
         self.mode = "idle"  # idle | stand | walk
         self._lock = threading.Lock()
+        # A walk that was told to stop keeps ticking the gait at zero velocity until this monotonic
+        # deadline, so both leg groups re-pin at the neutral stance before the hold (see handle "J 0").
+        self._settle_until: float | None = None
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._loop_overruns = 0
@@ -763,11 +766,7 @@ class DriveController:
             # Keep the gait loop alive while its current swing finishes and
             # both groups repin at the neutral planted stance. J 0 follows
             # only after this bounded phase-aware settle interval.
-            self.gait.stop()
-            self._vx = self._vy = self._omega = 0.0
-            period = max(0.4, float(getattr(self.gait, "period", 3.2)))
-            settle_s = 1.5 * period + 0.5
-            self.status = f"settling gait to neutral ({settle_s:.2f}s)"
+            settle_s = self._begin_settle()
             return f"gaitstop_s={settle_s:.3f}"
 
         if cmd == "J" and len(parts) >= 4:
@@ -794,19 +793,24 @@ class DriveController:
             moving = abs(vx) + abs(vy) + abs(om) > 1e-4
             was_walking = self.mode == "walk"
             if not moving:
+                if was_walking:
+                    # Never freeze the legs mid-stride: a frozen stop left a
+                    # swing leg's yaw 35 deg from the walk-ready stance and the
+                    # next walk was refused until a full sit + stand
+                    # (hexapod1, 2026-09-28). Keep the gait ticking at zero
+                    # velocity for one settle interval so both groups re-pin
+                    # at the neutral planted stance; _loop then holds there.
+                    if self._settle_until is None:
+                        self._begin_settle()
+                    return "J"
                 self.gait.stop()
                 self._vx = self._vy = self._omega = 0.0
-                if was_walking:
-                    # Do not seed a stop from the MCU's asynchronous position
-                    # cache. Under a dense gait stream that cache can lag by
-                    # an entire swing and command a planted leg toward an old
-                    # pose. Reissue the last command the servos already had.
-                    self._write_pose(list(self._last_pose), speed=250, acc=30)
                 self.mode = "idle"
-                self.status = (
-                    f"walk stopped[{self._gait_desc()}] quiet hold"
-                    if was_walking else "quiet hold")
+                self.status = "quiet hold"
                 return "J"
+            if was_walking and self._settle_until is not None:
+                # a new velocity during the settle simply resumes the walk
+                self._settle_until = None
             if moving and not was_walking:
                 refused = self._refuse_walk_if_not_ready()
                 if refused:
@@ -999,6 +1003,31 @@ class DriveController:
             time.sleep(0.45)
 
     # -- background loop -----------------------------------------------------
+    def _begin_settle(self) -> float:
+        """Stop commanding velocity but keep the gait loop alive for one
+        phase-aware settle interval; returns the interval in seconds."""
+        self.gait.stop()
+        self._vx = self._vy = self._omega = 0.0
+        period = max(0.4, float(getattr(self.gait, "period", 3.2)))
+        settle_s = 1.5 * period + 0.5
+        self._settle_until = time.monotonic() + settle_s
+        self.status = (f"walk stopping[{self._gait_desc()}]: settling gait "
+                       f"to neutral ({settle_s:.2f}s)")
+        return settle_s
+
+    def _finish_settle_if_due(self, tick: float, pose: list[float]) -> bool:
+        """Called from the walk tick: once the settle deadline has passed,
+        hold the settled pose and leave walk mode. The hold pose is the
+        gait's own last command (never the MCU's asynchronous position
+        cache, which can lag by a swing)."""
+        if self._settle_until is None or tick < self._settle_until:
+            return False
+        self._settle_until = None
+        self._last_pose = list(pose)
+        self.mode = "idle"
+        self.status = f"walk stopped[{self._gait_desc()}] quiet hold"
+        return True
+
     def _loop(self) -> None:
         t0 = time.monotonic()
         deadline = t0
@@ -1018,7 +1047,9 @@ class DriveController:
                         speed=SCRIPTED_WALK_SPEED_COUNTS_S,
                         acc=SCRIPTED_WALK_ACC_UNITS,
                     )
+                    self._finish_settle_if_due(tick, pose)
                 elif armed and mode == "stand":
+                    self._settle_until = None
                     # Occasional re-hold so stance doesn't droop. This
                     # must match the tall walk-ready stance used by
                     # Stand/RL walk and scripted J drive.
@@ -1032,6 +1063,7 @@ class DriveController:
                         self._sample_hold_snapshot()
                 else:
                     stand_hold_t = tick
+                    self._settle_until = None
                     # armed + idle (the lab's STEP stand leaves the drive here): same 50 Hz snapshot
                     # sampling as a stand hold, so a static planted hold has its IMU noise floor logged
                     if (armed and mode == "idle" and SCRIPTED_SNAPSHOT_WRITES

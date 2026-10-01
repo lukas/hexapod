@@ -146,7 +146,12 @@ def test_gait1_accepts_raised_60mm_s_envelope_only_for_gait1():
     assert fluid_drive.gait.stride_max == fluid_drive.gait.STRIDE_MAX == 0.080
 
 
-def test_neutral_j_after_walk_enters_quiet_hold_not_stand_pulse():
+def test_neutral_j_after_walk_settles_then_quiet_holds():
+    """J 0 while walking must NOT freeze the legs mid-stride: the gait keeps
+    ticking at zero velocity for one settle interval (legs re-pin at the
+    neutral stance), then the loop holds there. A frozen stop left a swing
+    leg 35 deg from walk-ready and the next walk was refused (2026-09-28)."""
+    import time as _time
     drive = DriveController(dry_run=True)
     drive.armed = True
 
@@ -154,10 +159,55 @@ def test_neutral_j_after_walk_enters_quiet_hold_not_stand_pulse():
     assert drive.mode == "walk"
 
     assert drive.handle("J 0 0 0 0") == "J"
-
-    assert drive.mode == "idle"
+    assert drive.mode == "walk"                      # still ticking the gait...
+    assert drive._settle_until is not None           # noqa: SLF001  ...until the settle deadline
     assert drive._vx == 0.0  # noqa: SLF001
     assert drive._vy == 0.0  # noqa: SLF001
+    assert "settling" in drive.status
+
+    # a second J 0 during the settle does not restart the clock
+    until = drive._settle_until  # noqa: SLF001
+    assert drive.handle("J 0 0 0 0") == "J"
+    assert drive._settle_until == until  # noqa: SLF001
+
+    # the walk tick before the deadline keeps walking mode; past it, quiet hold
+    pose = drive.gait.desired_deg(0.0)
+    assert drive._finish_settle_if_due(until - 0.01, pose) is False  # noqa: SLF001
+    assert drive.mode == "walk"
+    assert drive._finish_settle_if_due(until + 0.01, pose) is True   # noqa: SLF001
+    assert drive.mode == "idle"
+    assert drive._settle_until is None  # noqa: SLF001
+    assert drive.status.endswith("quiet hold")
+    assert drive._last_pose == list(pose)  # noqa: SLF001
+
+
+def test_moving_j_during_settle_resumes_without_preflight():
+    """A new velocity during the settle just resumes the walk: no walk-ready
+    refusal, no stand needed (the 'walk more' case)."""
+    drive = DriveController(dry_run=False)
+    drive.bus = FakeBus([0.0] * 18)      # present pose far from walk-ready...
+    drive.armed = True
+    drive.mode = "walk"                  # ...but we are mid-walk
+    drive.gait.set_velocity(vx=0.03, vy=0.0, omega=0.0)
+    assert drive.handle("J 0 0 0 0") == "J"
+    assert drive._settle_until is not None  # noqa: SLF001
+    assert drive.handle("J 30 0 0 0") == "J"
+    assert drive.mode == "walk"
+    assert drive._settle_until is None  # noqa: SLF001
+    assert drive._vx == 0.03  # noqa: SLF001
+
+
+def test_gaitstop_arms_the_same_settle_and_holds_by_itself():
+    drive = DriveController(dry_run=True)
+    drive.armed = True
+    assert drive.handle("J 30 0 0 0") == "J"
+    reply = drive.handle("GAITSTOP")
+    assert reply.startswith("gaitstop_s=")
+    assert drive._settle_until is not None  # noqa: SLF001
+    assert drive.mode == "walk"
+    pose = drive.gait.desired_deg(0.0)
+    assert drive._finish_settle_if_due(drive._settle_until + 0.01, pose)  # noqa: SLF001
+    assert drive.mode == "idle"
     assert drive._omega == 0.0  # noqa: SLF001
     assert "quiet hold" in drive.status
 

@@ -106,3 +106,38 @@ be stale (see the bus-profile bug above; unclear what profile produced
 it) and should be re-verified, not assumed, before being cited again.
 `bundle_rlonly_lifecycle_v2/transfer_manifest.json` reflects this
 corrected, modest-evidence framing, not a GO claim.
+
+## Follow-up (2026-10-01, refill cycle, zero GPU spend): entry-state
+does NOT predict the trip leg -- CLOSES that avenue
+This doc's own Conclusion named walk-exit entry-pose diversity as
+"left as a next step, not a new mechanism to design from scratch."
+Built `probe_lowerrole_entrystate_vs_trip.py` (pure array analysis,
+mechanics-tested, `test_probe_lowerrole_entrystate_vs_trip.py`) and ran
+it over all 37 collected `*_over_current.json` traces (all 4
+checkpoint x seed combinations above): z-score each of the 18 joint
+qpos (and separately qvel) columns across the 37 failing episodes,
+take the max |z| per leg as that leg's handoff-time "abnormality", and
+rank the leg the SafetyLayer actually tripped on against its 5
+cousins. Result: **no signal, either reading** -- static pose mean
+rank 4.03 (chance == 3.5; the trip leg is if anything the LESS
+abnormal one, not more; only 2/37 episodes have the trip leg as the
+single most-abnormal leg), velocity mean rank 3.68 (flat, within noise
+of chance). Checked the exact tripping JOINT's own z-score too (not
+just leg-max): mean |z| 0.84, max 1.70 across all 37 -- no outlier
+ever exceeds |z|=2. Body roll/pitch at handoff are also small and
+unremarkable (std ~1.1deg, no extreme draws).
+
+**This decisively closes the entry-pose/entry-velocity-diversity
+avenue**: whatever makes the lower-role policy occasionally drive an
+arbitrary leg's hip/knee into sustained high current during descent is
+NOT predictable from a static or first-derivative snapshot of the
+walk-exit handoff state. Per this doc's existing Conclusion, the
+remaining live hypothesis is the DESCENT DYNAMICS/reward-shaping
+itself (`reward.k_current_hot`/`current_hot_a`, already active in both
+recipes at 1.0/2.0 -- note this is already a per-servo concentration
+price, "6 legs cool costs nothing, one hot hurts", not the sum/average
+shape a naive re-dose might assume) rather than anything fixable by
+conditioning on, or diversifying away from, the handoff pose. No new
+lower-role stabilization idea is scoped from this result alone; it
+rules one out rather than opening one. Tool: `uv run python -m
+rl_move.sim.probe_lowerrole_entrystate_vs_trip <trace_dir>...`.

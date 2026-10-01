@@ -257,3 +257,67 @@ def test_trip_summary_hot_run_resets_if_joint_dips_below_threshold():
 def test_trip_summary_rejects_empty_trace():
     with pytest.raises(ValueError):
         trip_summary(np.zeros((0, 18)), max_current=2.5)
+
+
+def test_trip_summary_omits_stall_classification_when_arrays_absent():
+    trace = np.zeros((4, 18))
+    trace[:, 7] = [0.5, 1.0, 3.0, 3.2]
+    out = trip_summary(trace, max_current=2.5)
+    assert "stall_classification" not in out
+    assert "hot_qvel_med_rad_s" not in out
+
+
+def test_trip_summary_classifies_corroborated_stall():
+    # Joint 7 hot for the trailing 2 ticks; near-zero qvel throughout
+    # and the chassis height barely moves over that window -- a real
+    # stall, not a rail image of a still-working joint.
+    trace = np.zeros((4, 18))
+    trace[:, 7] = [0.5, 1.0, 3.0, 3.2]
+    qvel = np.zeros((4, 18))
+    qvel[:, 7] = [0.3, 0.2, 0.01, 0.02]
+    height_mm = np.array([100.0, 95.0, 90.0, 89.8])
+    out = trip_summary(trace, max_current=2.5, qvel_trace=qvel,
+                       height_trace_mm=height_mm)
+    assert out["stall_classification"] == "CORROBORATED_STALL"
+    assert out["hot_qvel_med_rad_s"] == pytest.approx(0.015, abs=1e-3)
+    assert out["hot_window_height_delta_mm"] == pytest.approx(-0.2, abs=1e-3)
+
+
+def test_trip_summary_classifies_rail_moving_when_joint_still_turning():
+    # Same current trace, but the joint is still clearly turning during
+    # the hot window -- high modeled load, not a stall.
+    trace = np.zeros((4, 18))
+    trace[:, 7] = [0.5, 1.0, 3.0, 3.2]
+    qvel = np.zeros((4, 18))
+    qvel[:, 7] = [0.3, 0.2, 0.9, 1.1]
+    height_mm = np.array([100.0, 95.0, 90.0, 89.8])
+    out = trip_summary(trace, max_current=2.5, qvel_trace=qvel,
+                       height_trace_mm=height_mm)
+    assert out["stall_classification"] == "RAIL_MOVING"
+
+
+def test_trip_summary_classifies_rail_moving_when_body_still_descending():
+    # Joint itself is static but the body is still making real height
+    # progress over the hot window -- not a dead stall either.
+    trace = np.zeros((4, 18))
+    trace[:, 7] = [0.5, 1.0, 3.0, 3.2]
+    qvel = np.zeros((4, 18))
+    qvel[:, 7] = [0.3, 0.2, 0.01, 0.01]
+    height_mm = np.array([100.0, 95.0, 70.0, 50.0])
+    out = trip_summary(trace, max_current=2.5, qvel_trace=qvel,
+                       height_trace_mm=height_mm)
+    assert out["stall_classification"] == "RAIL_MOVING"
+
+
+def test_trip_summary_rejects_mismatched_qvel_length():
+    trace = np.zeros((4, 18))
+    with pytest.raises(ValueError):
+        trip_summary(trace, max_current=2.5, qvel_trace=np.zeros((3, 18)),
+                    height_trace_mm=np.zeros(4))
+
+
+def test_trip_summary_rejects_mismatched_height_length():
+    trace = np.zeros((4, 18))
+    with pytest.raises(ValueError):
+        trip_summary(trace, max_current=2.5, qvel_trace=np.zeros((4, 18)),
+                    height_trace_mm=np.zeros(3))

@@ -137,7 +137,11 @@ def joint_label(j: int) -> str:
     return f"L{leg_of(j)} {axis_of(j)}"
 
 
-def trip_summary(current_trace: np.ndarray, max_current: float) -> dict:
+def trip_summary(current_trace: np.ndarray, max_current: float,
+                 qvel_trace: np.ndarray | None = None,
+                 height_trace_mm: np.ndarray | None = None,
+                 stall_qvel: float = 0.05,
+                 min_height_delta_mm: float = 5.0) -> dict:
     """Walkcurr/todaypolicy over_current FORENSICS (2026-10-01): pure
     array analysis of a (T, 18) trip-relevant current trace (the SAME
     signal ``SafetyLayer`` keys its ``over_current`` termination on --
@@ -168,6 +172,35 @@ def trip_summary(current_trace: np.ndarray, max_current: float) -> dict:
                                genuinely-terminated trace; kept as a
                                named field so a caller slicing a longer
                                held trace can reuse this function)
+
+    OPTIONAL stall corroboration (2026-10-01, forensics follow-up): per
+    the operator's 2026-09-04 ``audit_over_current.py`` directive, "a
+    bit-exact 2.64 A trip is the torque-estimator's RAIL IMAGE, not
+    independent evidence of an unsafe stall" -- the lower-role
+    forensics item never applied that same corroboration to its own
+    over_current count. When ``qvel_trace`` (T, 18) -- the SAME joints,
+    actuated-only, no floating-base offset -- and ``height_trace_mm``
+    (T,) are both given, classify the trailing ``hot_run_ticks`` window
+    on ``final_joint`` the same way ``audit_over_current.classify_trace``
+    does for a genuine stall, but WITHOUT the npz/lowpass-deconvolution
+    machinery (this trace already IS the exact trip signal, not a
+    torque proxy needing inversion) and without the rising-only height
+    bias (a descent counts as "progressing" too, not just a rise):
+      hot_qvel_med_rad_s        -- median |qvel| of final_joint over
+                                    the trailing hot window
+      hot_window_height_delta_mm -- signed chassis-height change over
+                                    that same window
+      stall_classification      -- "CORROBORATED_STALL" if the joint
+                                    was essentially static (median
+                                    |qvel| < stall_qvel) AND the body
+                                    made no progress (|height delta| <=
+                                    min_height_delta_mm) over the
+                                    window; else "RAIL_MOVING" (hot but
+                                    still doing work -- not dispositive
+                                    evidence of an unsafe stall per the
+                                    same operator directory).
+    Omitted entirely (no keys added) when either optional array is None
+    -- existing callers/tests are unaffected.
     """
     arr = np.abs(np.asarray(current_trace, dtype=float))
     if arr.ndim != 2 or arr.shape[0] == 0:
@@ -183,7 +216,7 @@ def trip_summary(current_trace: np.ndarray, max_current: float) -> dict:
             hot_run += 1
         else:
             break
-    return {
+    out = {
         "per_joint_max": per_joint_max.round(3).tolist(),
         "per_joint_max_tick": per_joint_max_tick.tolist(),
         "final_joint": final_joint,
@@ -192,6 +225,29 @@ def trip_summary(current_trace: np.ndarray, max_current: float) -> dict:
         "hot_run_ticks": hot_run,
         "trip_frac": round((t_last + 1) / arr.shape[0], 4),
     }
+    if qvel_trace is not None and height_trace_mm is not None:
+        qarr = np.asarray(qvel_trace, dtype=float)
+        if qarr.shape[0] != arr.shape[0]:
+            raise ValueError("qvel_trace must have the same T as "
+                             "current_trace")
+        harr = np.asarray(height_trace_mm, dtype=float)
+        if harr.shape[0] != arr.shape[0]:
+            raise ValueError("height_trace_mm must have the same T as "
+                             "current_trace")
+        w0 = t_last - hot_run + 1 if hot_run > 0 else t_last
+        hot_qvel_med = float(np.median(np.abs(qarr[w0:t_last + 1,
+                                                    final_joint])))
+        h_window = harr[w0:t_last + 1]
+        h_delta = (float(h_window[-1] - h_window[0])
+                  if h_window.shape[0] > 1 else 0.0)
+        static = hot_qvel_med < stall_qvel
+        progressing = abs(h_delta) > min_height_delta_mm
+        out["hot_qvel_med_rad_s"] = round(hot_qvel_med, 4)
+        out["hot_window_height_delta_mm"] = round(h_delta, 2)
+        out["stall_classification"] = ("CORROBORATED_STALL"
+                                       if static and not progressing
+                                       else "RAIL_MOVING")
+    return out
 
 
 def heading_to_vxvy(speed: float, heading_deg: float) -> tuple[float, float]:
@@ -596,10 +652,15 @@ def main() -> int:
         When ``args.current_trace_dir`` is set (over_current FORENSICS,
         walkcurr/STATUS.md Next 1), also collects the per-tick
         trip-relevant current reading (``over_current_reading`` -- the
-        SAME array the SafetyLayer's own over_current trip reads) and,
-        on a FAILED episode only, writes it + ``trip_summary()`` + the
-        walk-exit qpos/qvel to ``<dir>/<name>_<lower_fall>.json``. Zero
-        cost/behavior change when the flag is unset (default)."""
+        SAME array the SafetyLayer's own over_current trip reads) PLUS
+        the per-tick actuated-joint qvel and chassis height (2026-10-01
+        stall-corroboration follow-up: lets ``trip_summary`` apply the
+        same CORROBORATED_STALL/RAIL_MOVING classification the operator's
+        2026-09-04 ``audit_over_current.py`` directive already requires
+        before treating a bit-exact 2.64 A trip as a real unsafe stall)
+        and, on a FAILED episode only, writes it all + ``trip_summary()``
+        + the walk-exit qpos/qvel to ``<dir>/<name>_<lower_fall>.json``.
+        Zero cost/behavior change when the flag is unset (default)."""
         obs = lower_handoff_obs(state)
         if hasattr(lower, "reset"):
             lower.reset()
@@ -607,6 +668,8 @@ def main() -> int:
         info: dict = {}
         want_trace = args.current_trace_dir is not None
         current_trace: list = []
+        qvel_trace: list = []
+        height_trace_mm: list = []
         n_steps = max(1, int(round(args.lower_episode_s / env_lower.dt)))
         for _ in range(n_steps):
             a, _ = lower.predict(obs[:n_lower], deterministic=deterministic)
@@ -617,6 +680,12 @@ def main() -> int:
                 current_trace.append(
                     (np.zeros(N_JOINTS) if cur is None
                      else np.asarray(cur, dtype=float)).copy())
+                qvel_trace.append(
+                    np.asarray(env_lower.data.qvel[6:6 + N_JOINTS],
+                              dtype=float).copy())
+                height_trace_mm.append(
+                    1000.0 * float(env_lower.data.xpos[
+                        env_lower._chassis_bid, 2]))
             if term or trunc:
                 break
         h_err_mm = round(1000.0 * (
@@ -626,6 +695,8 @@ def main() -> int:
                       if term else None)
         if want_trace and lower_fall is not None and current_trace:
             trace_arr = np.stack(current_trace)
+            qvel_arr = np.stack(qvel_trace)
+            height_arr = np.asarray(height_trace_mm)
             dump = {
                 "name": name, "lower_fall": lower_fall,
                 "n_ticks": int(trace_arr.shape[0]),
@@ -635,7 +706,8 @@ def main() -> int:
                 "walk_exit_qvel": state.qvel.tolist(),
                 "current_trace_a": trace_arr.round(3).tolist(),
                 "trip_summary": trip_summary(
-                    trace_arr, env_lower.safety.max_current),
+                    trace_arr, env_lower.safety.max_current,
+                    qvel_trace=qvel_arr, height_trace_mm=height_arr),
             }
             args.current_trace_dir.mkdir(parents=True, exist_ok=True)
             out = args.current_trace_dir / f"{name}_{lower_fall}.json"

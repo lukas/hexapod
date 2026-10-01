@@ -55,3 +55,8 @@ def test_launch_overrides_match_walkcurr_stance50hz_stack():
     assert LAUNCH_OVERRIDES[("env", "model_source")] == "mesh_mjx"
     assert LAUNCH_OVERRIDES[("control", "hz")] == 50.0
     assert LAUNCH_OVERRIDES[("safety", "max_delta_q_deg")] == 0.75
+    # Pinned 2026-10-01: the lineage's implicit bus contract (pre-09-26
+    # config.yaml default bump 400/20 -> 2000/80) -- without this explicit
+    # pin a future rerun would silently replay under the new default.
+    assert LAUNCH_OVERRIDES[("bus", "write_speed")] == 400.0
+    assert LAUNCH_OVERRIDES[("bus", "write_acc")] == 20.0

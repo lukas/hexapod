@@ -51,6 +51,17 @@ LAUNCH_OVERRIDES = {
     ("env", "model_source"): "mesh_mjx",
     ("control", "hz"): 50.0,
     ("safety", "max_delta_q_deg"): 0.75,
+    # Pinned explicitly 2026-10-01: this script predates the 2026-09-26
+    # config.yaml bus.write_speed/write_acc default bump (400/20 ->
+    # 2000/80). At write time the lineage's implicit default WAS 400/20
+    # (no --cfg-set needed then); loading today's config default here
+    # instead would silently replay the open-loop physics under a
+    # faster/different actuator contract than the lineage ever ran --
+    # the same stale-bus-pin bug found+fixed 2026-10-01 in
+    # cfg_recipe_stance50hz_rlonly_lowerrole_scratch_sac_drramp.py /
+    # probe_currentcap29_flatonly.py (see OPERATOR_QUESTIONS).
+    ("bus", "write_speed"): 400.0,
+    ("bus", "write_acc"): 20.0,
 }
 
 EPISODE_SECONDS = 15.0

@@ -62,6 +62,15 @@ LAUNCH_OVERRIDES = {
     ("safety", "max_delta_q_deg"): 0.75,
     ("safety", "max_current_a"): 2.9,
     ("actions", "max_height_mm"): 88.0,
+    # Pinned explicitly 2026-10-01: this script predates the 2026-09-26
+    # config.yaml bus.write_speed/write_acc default bump (400/20 ->
+    # 2000/80); at write time the lineage's implicit default WAS 400/20.
+    # Same stale-bus-pin bug found+fixed 2026-10-01 in
+    # cfg_recipe_stance50hz_rlonly_lowerrole_scratch_sac_drramp.py /
+    # probe_currentcap29_flatonly.py (see OPERATOR_QUESTIONS) -- without
+    # this, a rerun today would silently replay under the new default.
+    ("bus", "write_speed"): 400.0,
+    ("bus", "write_acc"): 20.0,
 }
 
 EPISODE_SECONDS = 15.0

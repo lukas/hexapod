@@ -96,6 +96,8 @@ from pathlib import Path
 
 import numpy as np
 
+from rl_move.robot_state import N_JOINTS, over_current_reading
+
 PHASE_A_S = 12.5     # stance rise+settle horizon (mirrors eval_handoff.py)
 STUMBLE_S = 2.0
 DEFAULT_HOLD_S = 6.0   # matches the original forward-only default exactly
@@ -122,6 +124,74 @@ def sacrificed_legs(contact: np.ndarray, pad_xy: np.ndarray) -> list[int]:
         swings[f] = int(np.sum(d == -1))
     return [f for f in range(6)
             if duty[f] < 0.10 or (duty[f] > 0.95 and swings[f] == 0)]
+
+
+def joint_label(j: int) -> str:
+    """``"L<leg> <axis>"`` for joint index ``j`` (0-17) -- same naming
+    convention as ``safety._joint_name`` (not imported directly so this
+    module keeps its existing zero extra-import footprint over
+    ``hexapod_core.joint_frame``), reused here so forensics output
+    reads in the same vocabulary as a live ``over_current`` safety-trip
+    log line."""
+    from hexapod_core.joint_frame import axis_of, leg_of
+    return f"L{leg_of(j)} {axis_of(j)}"
+
+
+def trip_summary(current_trace: np.ndarray, max_current: float) -> dict:
+    """Walkcurr/todaypolicy over_current FORENSICS (2026-10-01): pure
+    array analysis of a (T, 18) trip-relevant current trace (the SAME
+    signal ``SafetyLayer`` keys its ``over_current`` termination on --
+    ``over_current_signal`` if present else ``servo_current``, see
+    ``robot_state.over_current_reading``), answering "which joint
+    tripped, and how long had it already been hot" for one failing
+    episode. No mujoco/env dependency -- testable with a synthetic
+    array.
+
+    Returns (all per-joint arrays length 18):
+      per_joint_max       -- max |current| over the whole trace
+      per_joint_max_tick   -- tick index of that max
+      final_joint          -- argmax(|current|) at the LAST tick (the
+                               joint the safety layer was tracking when
+                               the episode ended, matching its own
+                               ``max(current_ids, key=...)`` rule)
+      final_joint_label    -- "L<leg> <axis>" for ``final_joint``
+      final_current_a      -- that joint's current at the last tick
+      hot_run_ticks        -- length of the trailing run of consecutive
+                               ticks (ending at the last tick) where
+                               ``final_joint`` alone already exceeded
+                               ``max_current`` (how long it was already
+                               cooking before the trip, in ticks)
+      trip_frac            -- (last tick index + 1) / T, i.e. how far
+                               through the captured trace the trip
+                               landed (this trace already stops AT
+                               termination, so this is always 1.0 for a
+                               genuinely-terminated trace; kept as a
+                               named field so a caller slicing a longer
+                               held trace can reuse this function)
+    """
+    arr = np.abs(np.asarray(current_trace, dtype=float))
+    if arr.ndim != 2 or arr.shape[0] == 0:
+        raise ValueError("current_trace must be a non-empty (T, 18) array")
+    t_last = arr.shape[0] - 1
+    per_joint_max = arr.max(axis=0)
+    per_joint_max_tick = arr.argmax(axis=0)
+    final_joint = int(np.argmax(arr[t_last]))
+    final_current_a = float(arr[t_last, final_joint])
+    hot_run = 0
+    for t in range(t_last, -1, -1):
+        if arr[t, final_joint] > max_current:
+            hot_run += 1
+        else:
+            break
+    return {
+        "per_joint_max": per_joint_max.round(3).tolist(),
+        "per_joint_max_tick": per_joint_max_tick.tolist(),
+        "final_joint": final_joint,
+        "final_joint_label": joint_label(final_joint),
+        "final_current_a": round(final_current_a, 3),
+        "hot_run_ticks": hot_run,
+        "trip_frac": round((t_last + 1) / arr.shape[0], 4),
+    }
 
 
 def heading_to_vxvy(speed: float, heading_deg: float) -> tuple[float, float]:
@@ -343,6 +413,21 @@ def main() -> int:
                          "not a proposed production handoff -- a real "
                          "fix belongs in the lower role's own training "
                          "curriculum, not this eval harness.")
+    ap.add_argument("--current-trace-dir", type=Path, default=None,
+                    help="DIAGNOSTIC ONLY (default None = off, zero "
+                         "extra cost/output when unset): for every "
+                         "FAILED lower-phase episode (lower_fall is "
+                         "not None), write "
+                         "<dir>/<arm>_<ep>_<lower_fall>.json with the "
+                         "full per-tick (T,18) trip-relevant current "
+                         "trace (the same signal the SafetyLayer trips "
+                         "on, robot_state.over_current_reading) plus "
+                         "``trip_summary()`` (which joint, how long it "
+                         "was already hot) and the walk-exit qpos/qvel "
+                         "fed into the lower role, for the walkcurr/"
+                         "todaypolicy over_current FORENSICS item "
+                         "(STATUS.md Next 1): which joints trip, at "
+                         "what phase, from which walk-exit pose.")
     args = ap.parse_args()
 
     import mujoco
@@ -502,29 +587,61 @@ def main() -> int:
                       env_lower._prev_action, goal=env_lower._current_goal(),
                       tilt_ref=env_lower._tilt_ref0), reset=True)
 
-    def lower_phase(state: PhysicalState) -> dict:
+    def lower_phase(state: PhysicalState, name: str = "ep") -> dict:
         """Drive the `lower` role for its own full trained episode
         length starting from the walk episode's ending physical state.
         Success bar mirrors eval_checkpoint.py's `_success("lower", ...)`
-        rule of thumb: not terminated AND |height_err_end_mm|<=15."""
+        rule of thumb: not terminated AND |height_err_end_mm|<=15.
+
+        When ``args.current_trace_dir`` is set (over_current FORENSICS,
+        walkcurr/STATUS.md Next 1), also collects the per-tick
+        trip-relevant current reading (``over_current_reading`` -- the
+        SAME array the SafetyLayer's own over_current trip reads) and,
+        on a FAILED episode only, writes it + ``trip_summary()`` + the
+        walk-exit qpos/qvel to ``<dir>/<name>_<lower_fall>.json``. Zero
+        cost/behavior change when the flag is unset (default)."""
         obs = lower_handoff_obs(state)
         if hasattr(lower, "reset"):
             lower.reset()
         term = trunc = False
         info: dict = {}
+        want_trace = args.current_trace_dir is not None
+        current_trace: list = []
         n_steps = max(1, int(round(args.lower_episode_s / env_lower.dt)))
         for _ in range(n_steps):
             a, _ = lower.predict(obs[:n_lower], deterministic=deterministic)
             obs, _rw, term, trunc, info = env_lower.step(a)
             grab(env_lower)
+            if want_trace:
+                cur = over_current_reading(env_lower._state)
+                current_trace.append(
+                    (np.zeros(N_JOINTS) if cur is None
+                     else np.asarray(cur, dtype=float)).copy())
             if term or trunc:
                 break
         h_err_mm = round(1000.0 * (
             float(env_lower.data.xpos[env_lower._chassis_bid, 2])
             - (env_lower._z0 + env_lower._h_target)), 1)
+        lower_fall = (str(info.get("termination_reason") or "end")
+                      if term else None)
+        if want_trace and lower_fall is not None and current_trace:
+            trace_arr = np.stack(current_trace)
+            dump = {
+                "name": name, "lower_fall": lower_fall,
+                "n_ticks": int(trace_arr.shape[0]),
+                "n_steps_budget": n_steps,
+                "lower_episode_s": args.lower_episode_s,
+                "walk_exit_qpos": state.qpos.tolist(),
+                "walk_exit_qvel": state.qvel.tolist(),
+                "current_trace_a": trace_arr.round(3).tolist(),
+                "trip_summary": trip_summary(
+                    trace_arr, env_lower.safety.max_current),
+            }
+            args.current_trace_dir.mkdir(parents=True, exist_ok=True)
+            out = args.current_trace_dir / f"{name}_{lower_fall}.json"
+            out.write_text(json.dumps(dump))
         return {
-            "lower_fall": (str(info.get("termination_reason") or "end")
-                           if term else None),
+            "lower_fall": lower_fall,
             "lower_height_err_end_mm": h_err_mm,
             "lower_ok": (not term) and abs(h_err_mm) <= 15.0,
         }
@@ -620,7 +737,7 @@ def main() -> int:
             lower_ran = False
             if lower is not None and rec.get("fall") is None:
                 walk_end_state = capture_physical_state(env_walk)
-                rec.update(lower_phase(walk_end_state))
+                rec.update(lower_phase(walk_end_state, name=name))
                 lower_ran = True
             if (want_strips or want_video) and ep == 0:
                 if lower_ran:

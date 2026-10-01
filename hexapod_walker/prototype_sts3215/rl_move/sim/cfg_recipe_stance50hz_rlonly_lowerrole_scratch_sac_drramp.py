@@ -36,9 +36,22 @@ from __future__ import annotations
 # fields, so this list must NOT borrow that module's BASE_CFG_ARGS
 # wholesale (verified against the ledger's own extra_args, not
 # assumed from lineage similarity).
+#
+# AMBIENT-DEFAULT PIN (added 2026-10-01, walkcurr over_current
+# forensics, same reasoning/precedent as probe_currentcap29_flatonly.py's
+# own 2026-10-01 pin): this checkpoint acquired 2026-09-24, BEFORE the
+# operator's 2026-09-26 evening bus-default bump (f77d8e987, 400/20 ->
+# 2000/80) and has no training sidecar for trained_profile.py's
+# auto-pin to recover from -- "config.yaml's own current defaults"
+# (the comment above) is no longer the SAME value it was at train
+# time. Pinning the true historical ambient value explicitly; this is
+# NOT part of the original --cfg-set (the launch command passed
+# neither flag, because it didn't need to yet).
 CFG_ARGS: list[str] = [
     "env.model_source=mesh_mjx",
     "control.hz=50",
+    "bus.write_speed=400",
+    "bus.write_acc=20",
     "safety.max_delta_q_deg=0.75",
     "actions.max_height_mm=88",
     "goal.rise_height_mm=[79,87]",

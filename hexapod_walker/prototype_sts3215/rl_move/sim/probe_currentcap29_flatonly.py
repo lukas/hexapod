@@ -44,9 +44,28 @@ from pathlib import Path
 # the FIRST pair is the recipe's own base split, the SECOND
 # (FLATONLY_OVERRIDE_ARGS) forces the flat-only probe on top of it,
 # exactly like every prior hand-run probe in this saga.
+# AMBIENT-DEFAULT PIN (added 2026-10-01, walkcurr over_current
+# forensics): the ORIGINAL launch command never passed bus.write_speed/
+# write_acc because config.yaml's default WAS 400/20 at train time
+# (currentcap29 family trained/acquired 2026-09-13/14). The operator's
+# 2026-09-26 evening commit (f77d8e987) moved that default to 2000/80
+# for the robot's scripted-gait contract; this checkpoint predates that
+# commit and has no `.training_complete.json` sidecar for
+# `trained_profile.pin_trained_bus_profile` to auto-recover the old
+# value from, so any eval that relies on "config.yaml's current
+# default" (as this module's own prior comment put it) now silently
+# replays it under a DIFFERENT, faster actuator contract than it
+# trained with -- exactly the failure mode `trained_profile.py`'s own
+# docstring warns about. Pinned explicitly here (same remediation
+# `test_real_failed_checkpoint_ema_inert_disp_active` already applied
+# 2026-09-30 for an analogous pre-09-27 checkpoint) rather than left
+# implicit. This is restoring the TRUE historical ambient value, not
+# adding a new recorded-command flag.
 BASE_CFG_ARGS: list[str] = [
     "env.model_source=mesh_mjx",
     "control.hz=50",
+    "bus.write_speed=400",
+    "bus.write_acc=20",
     "safety.max_delta_q_deg=0.75",
     "actions.max_height_mm=88",
     "goal.rise_height_mm=[79,87]",

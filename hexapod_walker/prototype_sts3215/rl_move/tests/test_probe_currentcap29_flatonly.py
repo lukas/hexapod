@@ -43,6 +43,18 @@ def test_model_source_and_control_hz_present():
     assert "control.hz=50" in args
 
 
+def test_ambient_bus_profile_pinned_to_pre_20260927_default():
+    # 2026-10-01 forensics fix: this checkpoint trained before the
+    # operator's 2026-09-26 bus-default bump (400/20 -> 2000/80, commit
+    # f77d8e987) and carries no training sidecar for trained_profile.py
+    # to auto-recover the old value from -- an eval that silently fell
+    # through to config.yaml's CURRENT default would replay it under a
+    # different, faster actuator contract than it trained with.
+    args = set(BASE_CFG_ARGS)
+    assert "bus.write_speed=400" in args
+    assert "bus.write_acc=20" in args
+
+
 def test_build_argv_shape():
     argv = build_argv("some/ckpt.zip", out="logs/ckpt_eval/x_flatonly_det",
                        dr_scale=0.0, stochastic=False)

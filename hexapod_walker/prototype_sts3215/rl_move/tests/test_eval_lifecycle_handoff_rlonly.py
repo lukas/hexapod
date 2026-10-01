@@ -12,7 +12,9 @@ from rl_move.sim.eval_lifecycle_handoff_rlonly import (
     apply_physical_state,
     capture_physical_state,
     heading_to_vxvy,
+    joint_label,
     sacrificed_legs,
+    trip_summary,
     write_mp4,
     zeroed_qvel_state,
 )
@@ -192,6 +194,13 @@ def test_lower_cfg_recipe_excludes_ramp_and_obs_keys():
     assert "control.hz=50" in CFG_ARGS
     assert not any(k.startswith("env.dr_stage_ramp_steps") for k in CFG_ARGS)
     assert not any(k.startswith("obs.") for k in CFG_ARGS)
+    # 2026-10-01 forensics fix: this checkpoint trained before the
+    # operator's 2026-09-26 bus-default bump (f77d8e987) and has no
+    # training sidecar to auto-recover the old 400/20 profile from --
+    # pinned explicitly so this eval harness doesn't silently replay
+    # it under today's 2000/80 default.
+    assert "bus.write_speed=400" in CFG_ARGS
+    assert "bus.write_acc=20" in CFG_ARGS
 
 
 def test_write_mp4_empty_frames_is_noop(tmp_path):
@@ -206,3 +215,45 @@ def test_write_mp4_writes_a_nonempty_file(tmp_path):
     write_mp4(frames, out, fps=25)
     assert out.exists()
     assert out.stat().st_size > 0
+
+
+def test_joint_label_matches_safety_joint_name_convention():
+    # L0 yaw/hip/knee is indices 0/1/2 (hexapod_core.joint_frame order,
+    # same as safety._joint_name's own f"L{leg} {axis}" format).
+    assert joint_label(0) == "L0 yaw"
+    assert joint_label(1) == "L0 hip"
+    assert joint_label(2) == "L0 knee"
+    assert joint_label(16) == "L5 hip"
+
+
+def test_trip_summary_picks_the_hot_joint_at_the_last_tick():
+    # 4 ticks, 18 joints, all quiet except joint 7 which ramps hot and
+    # stays over threshold (2.5 A) for the last 2 ticks -- the episode
+    # "terminated" exactly when this trace was captured (termination
+    # landed on the last row), mirroring a real over_current trip.
+    trace = np.zeros((4, 18))
+    trace[:, 7] = [0.5, 1.0, 3.0, 3.2]
+    out = trip_summary(trace, max_current=2.5)
+    assert out["final_joint"] == 7
+    assert out["final_joint_label"] == joint_label(7)
+    assert out["final_current_a"] == pytest.approx(3.2)
+    assert out["hot_run_ticks"] == 2
+    assert out["trip_frac"] == pytest.approx(1.0)
+    assert len(out["per_joint_max"]) == 18
+    assert out["per_joint_max"][7] == pytest.approx(3.2)
+
+
+def test_trip_summary_hot_run_resets_if_joint_dips_below_threshold():
+    trace = np.zeros((5, 18))
+    # joint 3 spikes once, dips back down, then spikes again at the end
+    # -- hot_run_ticks must only count the TRAILING consecutive run,
+    # not the total number of over-threshold ticks (which is 3).
+    trace[:, 3] = [3.0, 0.1, 3.0, 3.0, 3.0]
+    out = trip_summary(trace, max_current=2.5)
+    assert out["final_joint"] == 3
+    assert out["hot_run_ticks"] == 3
+
+
+def test_trip_summary_rejects_empty_trace():
+    with pytest.raises(ValueError):
+        trip_summary(np.zeros((0, 18)), max_current=2.5)

@@ -321,3 +321,78 @@ def test_trip_summary_rejects_mismatched_height_length():
     with pytest.raises(ValueError):
         trip_summary(trace, max_current=2.5, qvel_trace=np.zeros((4, 18)),
                     height_trace_mm=np.zeros(3))
+
+
+# --- qpos/joint-limit proximity (2026-10-01 L1-hip root-cause follow-up) ---
+
+def _limit_table(n=18, lo=-1.4, hi=0.52):
+    lim = np.zeros((n, 2))
+    lim[:, 0] = lo
+    lim[:, 1] = hi
+    return lim
+
+
+def test_trip_summary_omits_limit_fields_when_arrays_absent():
+    trace = np.zeros((4, 18))
+    trace[:, 7] = [0.5, 1.0, 3.0, 3.2]
+    out = trip_summary(trace, max_current=2.5)
+    assert "near_joint_limit" not in out
+    assert "hot_qpos_med_rad" not in out
+
+
+def test_trip_summary_flags_near_joint_limit_when_pinned_at_hi_bound():
+    # Joint 7 hot for the trailing 2 ticks; qpos sits at 0.50 rad during
+    # that window, 0.02 rad from the 0.52 rad upper hinge bound -- a
+    # genuine "pinned at the mechanical stop" reading.
+    trace = np.zeros((4, 18))
+    trace[:, 7] = [0.5, 1.0, 3.0, 3.2]
+    qpos = np.zeros((4, 18))
+    qpos[:, 7] = [0.1, 0.3, 0.50, 0.50]
+    out = trip_summary(trace, max_current=2.5, qpos_trace=qpos,
+                       joint_limit_rad=_limit_table())
+    assert out["near_joint_limit"] is True
+    assert out["limit_margin_rad"] == pytest.approx(0.02, abs=1e-6)
+    assert out["joint_limit_lo_rad"] == pytest.approx(-1.4)
+    assert out["joint_limit_hi_rad"] == pytest.approx(0.52)
+    assert out["hot_qpos_med_rad"] == pytest.approx(0.50)
+
+
+def test_trip_summary_not_near_limit_when_qpos_is_mid_range():
+    # Same hot joint/window, but qpos sits mid-range (-0.44, the limit
+    # table's own midpoint) -- fighting a load with room to move, not
+    # pinned at either bound.
+    trace = np.zeros((4, 18))
+    trace[:, 7] = [0.5, 1.0, 3.0, 3.2]
+    qpos = np.zeros((4, 18))
+    qpos[:, 7] = [0.1, 0.3, -0.44, -0.44]
+    out = trip_summary(trace, max_current=2.5, qpos_trace=qpos,
+                       joint_limit_rad=_limit_table())
+    assert out["near_joint_limit"] is False
+    assert out["limit_margin_rad"] == pytest.approx(0.96, abs=1e-6)
+
+
+def test_trip_summary_limit_fields_independent_of_qvel_height_fields():
+    # Supplying ONLY qpos/joint_limit (no qvel/height) must still add
+    # the limit fields without requiring the stall-classification pair.
+    trace = np.zeros((4, 18))
+    trace[:, 7] = [0.5, 1.0, 3.0, 3.2]
+    qpos = np.zeros((4, 18))
+    qpos[:, 7] = [0.1, 0.3, 0.50, 0.50]
+    out = trip_summary(trace, max_current=2.5, qpos_trace=qpos,
+                       joint_limit_rad=_limit_table())
+    assert "near_joint_limit" in out
+    assert "stall_classification" not in out
+
+
+def test_trip_summary_rejects_mismatched_qpos_length():
+    trace = np.zeros((4, 18))
+    with pytest.raises(ValueError):
+        trip_summary(trace, max_current=2.5, qpos_trace=np.zeros((3, 18)),
+                    joint_limit_rad=_limit_table())
+
+
+def test_trip_summary_rejects_malformed_joint_limit_shape():
+    trace = np.zeros((4, 18))
+    with pytest.raises(ValueError):
+        trip_summary(trace, max_current=2.5, qpos_trace=np.zeros((4, 18)),
+                    joint_limit_rad=np.zeros((18, 3)))

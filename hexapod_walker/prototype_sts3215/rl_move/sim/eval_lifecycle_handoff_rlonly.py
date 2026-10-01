@@ -141,7 +141,10 @@ def trip_summary(current_trace: np.ndarray, max_current: float,
                  qvel_trace: np.ndarray | None = None,
                  height_trace_mm: np.ndarray | None = None,
                  stall_qvel: float = 0.05,
-                 min_height_delta_mm: float = 5.0) -> dict:
+                 min_height_delta_mm: float = 5.0,
+                 qpos_trace: np.ndarray | None = None,
+                 joint_limit_rad: np.ndarray | None = None,
+                 near_limit_margin_rad: float = 0.05) -> dict:
     """Walkcurr/todaypolicy over_current FORENSICS (2026-10-01): pure
     array analysis of a (T, 18) trip-relevant current trace (the SAME
     signal ``SafetyLayer`` keys its ``over_current`` termination on --
@@ -201,6 +204,32 @@ def trip_summary(current_trace: np.ndarray, max_current: float,
                                     same operator directory).
     Omitted entirely (no keys added) when either optional array is None
     -- existing callers/tests are unaffected.
+
+    OPTIONAL joint-limit proximity (2026-10-01, L1-hip root-cause
+    follow-up named in ``lowerrole_overcurrent_systemid_2026-10-01/
+    SUMMARY.md``): answers "is ``final_joint`` being driven toward its
+    MuJoCo hinge range limit (an architecture/bias artifact), or is it
+    sitting mid-range fighting an asymmetric load with room to move (a
+    reward-pricing/coordination artifact)?" When ``qpos_trace`` (T, 18,
+    raw MuJoCo hinge angle -- NOT the robot_abs logical convention;
+    ``jnt_range`` bounds this coordinate directly) and
+    ``joint_limit_rad`` ((18, 2), ``(lo, hi)`` per joint, e.g.
+    ``model.jnt_range[joint_ids(model)]``) are both given, adds:
+      hot_qpos_med_rad       -- median qpos of ``final_joint`` over the
+                                 same trailing hot window used above
+      joint_limit_lo_rad/joint_limit_hi_rad -- that joint's own range
+      limit_margin_rad       -- distance from ``hot_qpos_med_rad`` to
+                                 the NEARER of the two bounds (can be
+                                 negative only from float roundoff at an
+                                 exact limit; MuJoCo clamps qpos inside
+                                 ``jnt_range`` so this is >=0 in practice)
+      near_joint_limit       -- True if ``limit_margin_rad <
+                                 near_limit_margin_rad`` (default 0.05
+                                 rad ~= 2.9 deg) -- a real "pinned at the
+                                 mechanical stop" reading, not a loose
+                                 threshold tuned to the data.
+    Omitted when either array is None, independent of the qvel/height
+    option above (a caller can supply one, both, or neither).
     """
     arr = np.abs(np.asarray(current_trace, dtype=float))
     if arr.ndim != 2 or arr.shape[0] == 0:
@@ -247,6 +276,23 @@ def trip_summary(current_trace: np.ndarray, max_current: float,
         out["stall_classification"] = ("CORROBORATED_STALL"
                                        if static and not progressing
                                        else "RAIL_MOVING")
+    if qpos_trace is not None and joint_limit_rad is not None:
+        qparr = np.asarray(qpos_trace, dtype=float)
+        if qparr.shape[0] != arr.shape[0]:
+            raise ValueError("qpos_trace must have the same T as "
+                             "current_trace")
+        lim = np.asarray(joint_limit_rad, dtype=float)
+        if lim.shape != (arr.shape[1], 2):
+            raise ValueError("joint_limit_rad must have shape (n_joints, 2)")
+        w0 = t_last - hot_run + 1 if hot_run > 0 else t_last
+        hot_qpos_med = float(np.median(qparr[w0:t_last + 1, final_joint]))
+        lo, hi = float(lim[final_joint, 0]), float(lim[final_joint, 1])
+        margin = min(hot_qpos_med - lo, hi - hot_qpos_med)
+        out["hot_qpos_med_rad"] = round(hot_qpos_med, 4)
+        out["joint_limit_lo_rad"] = round(lo, 4)
+        out["joint_limit_hi_rad"] = round(hi, 4)
+        out["limit_margin_rad"] = round(margin, 4)
+        out["near_joint_limit"] = bool(margin < near_limit_margin_rad)
     return out
 
 
@@ -483,7 +529,12 @@ def main() -> int:
                          "fed into the lower role, for the walkcurr/"
                          "todaypolicy over_current FORENSICS item "
                          "(STATUS.md Next 1): which joints trip, at "
-                         "what phase, from which walk-exit pose.")
+                         "what phase, from which walk-exit pose. Also "
+                         "captures the per-tick raw MuJoCo hinge qpos "
+                         "trace + the model's own jnt_range table so "
+                         "trip_summary can classify the hot joint as "
+                         "pinned-at-its-mechanical-limit vs mid-range "
+                         "(2026-10-01 L1-hip root-cause follow-up).")
     args = ap.parse_args()
 
     import mujoco
@@ -515,12 +566,16 @@ def main() -> int:
     env_walk = _build_env(WALK_CFG_ARGS, episode_seconds=walk_episode_s,
                            seed=args.seed, render=want_render)
     env_lower = None
+    lower_joint_limit_rad = None
     if args.lower is not None:
         from .cfg_recipe_stance50hz_rlonly_lowerrole_scratch_sac_drramp \
             import CFG_ARGS as LOWER_CFG_ARGS
         env_lower = _build_env(LOWER_CFG_ARGS,
                                 episode_seconds=args.lower_episode_s,
                                 seed=args.seed, render=want_render)
+        from .servo_model import joint_ids
+        lower_joint_limit_rad = env_lower.model.jnt_range[
+            joint_ids(env_lower.model)].copy()
 
     stance = load_checkpoint_auto(args.stance, device="cpu")
     walk = load_checkpoint_auto(args.walk, device="cpu")
@@ -670,6 +725,8 @@ def main() -> int:
         current_trace: list = []
         qvel_trace: list = []
         height_trace_mm: list = []
+        qpos_trace: list = []
+        contact_trace: list = []
         n_steps = max(1, int(round(args.lower_episode_s / env_lower.dt)))
         for _ in range(n_steps):
             a, _ = lower.predict(obs[:n_lower], deterministic=deterministic)
@@ -686,6 +743,13 @@ def main() -> int:
                 height_trace_mm.append(
                     1000.0 * float(env_lower.data.xpos[
                         env_lower._chassis_bid, 2]))
+                qpos_trace.append(
+                    np.asarray(env_lower.data.qpos[env_lower._qadr],
+                              dtype=float).copy())
+                contact_trace.append(
+                    [float(env_lower.data.sensordata[adr]) > CONTACT_N
+                     if adr >= 0 else False
+                     for adr in env_lower._touch_adr])
             if term or trunc:
                 break
         h_err_mm = round(1000.0 * (
@@ -697,6 +761,8 @@ def main() -> int:
             trace_arr = np.stack(current_trace)
             qvel_arr = np.stack(qvel_trace)
             height_arr = np.asarray(height_trace_mm)
+            qpos_arr = np.stack(qpos_trace)
+            contact_arr = np.asarray(contact_trace, dtype=bool)
             dump = {
                 "name": name, "lower_fall": lower_fall,
                 "n_ticks": int(trace_arr.shape[0]),
@@ -705,9 +771,14 @@ def main() -> int:
                 "walk_exit_qpos": state.qpos.tolist(),
                 "walk_exit_qvel": state.qvel.tolist(),
                 "current_trace_a": trace_arr.round(3).tolist(),
+                "qpos_trace_rad": qpos_arr.round(4).tolist(),
+                "joint_limit_rad": lower_joint_limit_rad.round(4).tolist(),
+                "contact_trace": contact_arr.tolist(),
                 "trip_summary": trip_summary(
                     trace_arr, env_lower.safety.max_current,
-                    qvel_trace=qvel_arr, height_trace_mm=height_arr),
+                    qvel_trace=qvel_arr, height_trace_mm=height_arr,
+                    qpos_trace=qpos_arr,
+                    joint_limit_rad=lower_joint_limit_rad),
             }
             args.current_trace_dir.mkdir(parents=True, exist_ok=True)
             out = args.current_trace_dir / f"{name}_{lower_fall}.json"

@@ -211,9 +211,41 @@ def hold_minload_termination(env, status, terminated):
         default=0.0)) > 0.0
     minload_short_k = float(cfg_get(
         env.cfg, "reward", "k_hold_min_load_short", default=0.0))
+    # LOWER-mode extension (2026-10-01, walkcurr over_current L1-hip
+    # root-cause follow-up: `lowerrole_overcurrent_qpos_limit_2026-10-01/
+    # SUMMARY.md`). All 4/5 CORROBORATED_STALL over_current traces on
+    # the `lower`-role drramp recipe are the SAME mechanism: L1's hip
+    # pinned at (0.037 rad past) its own mechanical upper limit while
+    # that leg's foot sits AIRBORNE (duty 0.02-0.06 over the whole 15s
+    # episode, <0.10 -- the SAME "sacrificed leg" reading
+    # `sacrificed_legs()`/`eval_checkpoint.py`'s own gait-validity gate
+    # already uses elsewhere) -- the lower-role policy permanently
+    # parks one leg during descent and the parked leg's hip simply
+    # rails against its own hinge stop under sustained command. This
+    # min-load termination ALREADY EXISTS and is ALREADY CONFIGURED in
+    # the lower-role recipe (`reward.hold_feet_load`/
+    # `safety.hold_min_load_terminate_{s,n,grace_s}` are all set in
+    # `cfg_recipe_stance50hz_rlonly_lowerrole_scratch_sac_drramp.py`,
+    # copied from the sibling stance/hold recipe) -- it simply never
+    # FIRES during `lower` mode because this gate only ever matched
+    # `mode == "hold"`. `safety.hold_min_load_apply_lower=1` (default 0
+    # = legacy, bit-exact: no existing lower-role config sets this key,
+    # so every prior checkpoint/eval is unaffected) extends the SAME
+    # gate to also cover `lower` mode, reusing the existing EMA/
+    # grace/floor state (`_hold_minload_ema`/`_hold_minload_low_s` are
+    # already generically initialized for every joint_goal env at
+    # reset, not walk-specific -- see sim_env.py's own reset path) so
+    # the descending policy is charged exactly like a hold-mode policy
+    # the moment it tries to permanently park a leg, instead of only
+    # discovering the cost once that leg's hip is already jammed
+    # against its mechanical stop.
+    minload_apply_lower = float(cfg_get(
+        env.cfg, "safety", "hold_min_load_apply_lower", default=0.0)) > 0.0
+    mode_now = (getattr(env._goal_traj, "mode", "")
+               if env._goal_traj is not None else "")
     minload_in_hold = (env._goal_traj is not None
-                       and getattr(env._goal_traj, "mode", "")
-                       == "hold")
+                       and (mode_now == "hold"
+                            or (minload_apply_lower and mode_now == "lower")))
     minload_floor_n = float(cfg_get(
         env.cfg, "safety", "hold_min_load_terminate_n",
         default=0.3))

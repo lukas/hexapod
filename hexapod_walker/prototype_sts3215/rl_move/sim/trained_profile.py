@@ -114,7 +114,8 @@ def pin_trained_slew(cfg: dict, checkpoint_path, *, caller_keys=(), log=print) -
     return val
 
 
-_SAFETY_KEYS = ("max_delta_q_deg", "hip_min_deg", "knee_hinge_max_deg")
+_SAFETY_KEYS = ("max_delta_q_deg", "hip_min_deg", "knee_hinge_max_deg",
+                "hip_pitch_max_deg")
 
 
 def trained_cfg_values(checkpoint_path, dotted_keys) -> dict[str, float]:

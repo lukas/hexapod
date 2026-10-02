@@ -91,6 +91,54 @@ def test_set_envelope_only_tightens():
     assert legacy.set_envelope(-52.0, 125.0) == (-52.0, 125.0)
 
 
+def test_hip_pitch_max_deg_unset_is_the_legacy_servo_clip():
+    # Default (unset): the servo-expressible hip-pitch ceiling (+40 deg),
+    # matching the legacy primitive model's own MJCF hip range -- no gap
+    # there, so this is bit-exact with pre-2026-10-02 behavior.
+    gate = SafetyLayer(_cfg())
+    q0 = _pose(0.0, 40.0) * DEG
+    gate._last_safe = q0.copy()
+    q, st = gate.filter(_pose(39.9, 40.0) * DEG, _state(q0))
+    assert st.ok and q[1] == pytest.approx(39.9 * DEG)
+    q, st = gate.filter(_pose(45.0, 45.0) * DEG, _state(q0))
+    assert q[1] == pytest.approx(40.0 * DEG)   # clipped at the old 40 deg ceiling
+
+
+def test_hip_pitch_max_deg_tightens_only_the_hip_axis_upward_bound():
+    # 2026-10-02 walkcurr L1-hip root-cause: the mesh model's own MJCF hip
+    # range stops at +29.8 deg (0.52 rad), 10.2 deg tighter than the servo
+    # ceiling this clip used unconditionally before -- a policy could
+    # command into that dead zone and fight the mesh model's own (soft)
+    # joint-limit constraint for sustained high torque/current.
+    gate = SafetyLayer(_cfg(hip_pitch_max_deg=29.8))
+    q0 = _pose(0.0, 40.0) * DEG
+    gate._last_safe = q0.copy()
+    # a command inside the new, tighter ceiling passes through untouched
+    q, st = gate.filter(_pose(20.0, 40.0) * DEG, _state(q0))
+    assert st.ok and q[1] == pytest.approx(20.0 * DEG)
+    gate._last_safe = q.copy()
+    # a command past it is clipped to the new ceiling, not the old one
+    q, st = gate.filter(_pose(35.0, 40.0) * DEG, _state(q0))
+    assert q[1] == pytest.approx(29.8 * DEG)
+    # the knee axis (unrelated) is untouched by this key
+    assert q[2] == pytest.approx(40.0 * DEG)
+    # a looser value than the servo default is a no-op (this key only
+    # tightens, same contract as hip_min_deg/knee_hinge_max_deg above)
+    loose = SafetyLayer(_cfg(hip_pitch_max_deg=90.0))
+    q0b = _pose(0.0, 40.0) * DEG
+    loose._last_safe = q0b.copy()
+    q, _ = loose.filter(_pose(45.0, 40.0) * DEG, _state(q0b))
+    assert q[1] == pytest.approx(40.0 * DEG)   # still the servo ceiling
+
+
+def test_hip_pitch_max_deg_round_trips_through_trained_safety_contract(tmp_path):
+    from rl_move.sim.trained_profile import trained_safety_contract
+    ck = tmp_path / "sac_goal_z.zip"; ck.write_bytes(b"0")  # no sidecar
+    cmd = ("uv run python -m rl_move.sim.train_ppo_mjx "
+           "--cfg-set safety.hip_pitch_max_deg=29.8")
+    assert trained_safety_contract(str(ck), cmd) == {"hip_pitch_max_deg": 29.8}
+
+
 def test_trained_safety_contract_from_command_and_sidecar(tmp_path):
     from rl_move.sim.trained_profile import trained_safety_contract
     ck = tmp_path / "ppo_goal_x.zip"; ck.write_bytes(b"0")

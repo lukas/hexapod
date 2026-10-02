@@ -75,6 +75,41 @@ class SafetyLayer:
             self.envelope_deg = hardware_envelope.tightest(
                 (float(hip_min) if hip_min is not None else hardware_envelope.SERVO_HIP_MIN_DEG,
                  float(hinge_max) if hinge_max is not None else hardware_envelope.SERVO_KNEE_HINGE_MAX_DEG))
+        # Hip-pitch UPPER clip (2026-10-02, walkcurr L1-hip root-cause
+        # follow-up): the mesh model (env.model_source=mesh/mesh_mjx,
+        # DEFAULT since 2026-08-24) gives the hip-pitch joint a real
+        # CAD-derived upper stop of +0.52 rad / 29.8 deg
+        # (mesh_mujoco/hexapod_mesh.xml, every leg) -- tighter than the
+        # servo-expressible range this clip has always used
+        # (AXIS_LIMITS_DEG hip +40 deg / 0.698 rad, correct for the
+        # legacy primitive model, whose own MJCF hip range IS +0.70 rad
+        # -- no gap there). The gap is a ~10 deg dead zone the mesh
+        # model's own physical joint-limit CONSTRAINT stops but this
+        # clip does not, letting a policy command into it; MuJoCo's
+        # limit is a soft (not rigid) constraint, so the command can
+        # still partially penetrate while demanding continuous
+        # restoring torque -- the lowerrole-rl_only L1-hip
+        # CORROBORATED_STALL forensics (`lowerrole_overcurrent_
+        # qpos_limit_2026-10-01`) found exactly this signature: qpos
+        # 0.557 rad, 0.037 rad PAST this same 0.52 rad bound, sustained
+        # 2.6-2.64 A for up to 1.76 s. Same precedent as the
+        # hip_min_deg/knee_hinge_max_deg hardware envelope above (built
+        # 2026-09-27 for the mirror-image knee-hinge gap) -- here for
+        # the mesh model's own MJCF limit rather than a robot-measured
+        # stop. Default None = unset = legacy clip, bit-exact; ONLY
+        # tightens (a looser value than the servo default is a no-op
+        # because AXIS_LIMITS_DEG is still the outer bound via `min`).
+        hip_pitch_max_deg = cfg_get(cfg, "safety", "hip_pitch_max_deg",
+                                    default=None)
+        self._joint_limit_lo_rad = _JOINT_LIMIT_LO_RAD
+        if hip_pitch_max_deg is None:
+            self._joint_limit_hi_rad = _JOINT_LIMIT_HI_RAD
+        else:
+            cap = math.radians(float(hip_pitch_max_deg))
+            hi = _JOINT_LIMIT_HI_RAD.copy()
+            pitch_idx = np.arange(1, N_JOINTS, 3)  # AXES=(yaw,hip,knee)
+            hi[pitch_idx] = np.minimum(hi[pitch_idx], cap)
+            self._joint_limit_hi_rad = hi
         # Entry slew ramp (08-13, takeoff-transient instrumentation —
         # operator ruling "staged gait-entry transition"): the 08-11
         # bench tapes show the walk policy saturates the full
@@ -540,7 +575,7 @@ class SafetyLayer:
         q = self._last_safe + dq
 
         # Joint limits (deg in AXIS_LIMITS).
-        q = np.clip(q, _JOINT_LIMIT_LO_RAD, _JOINT_LIMIT_HI_RAD)
+        q = np.clip(q, self._joint_limit_lo_rad, self._joint_limit_hi_rad)
         if self.envelope_deg is not None:
             # hinge-frame stops: hip >= hip_min, knee_abs - hip <= hinge max
             q = hardware_envelope.clip_robot_abs(

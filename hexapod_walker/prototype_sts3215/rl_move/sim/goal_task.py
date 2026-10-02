@@ -255,8 +255,21 @@ class GoalGenerator:
             g.get("lower_start_bank_frac", 0.0))
         # Slow on purpose: "gently, without banging" is the task. The
         # tracking kernel penalizes running ahead of the ramp, so a
-        # 5 s descent IS the gentleness constraint.
-        self.lower_ramp_s = 5.0
+        # 5 s descent IS the gentleness constraint. Exposed as a cfg
+        # override (2026-10-02, walkcurr lower-role over_current
+        # forensics: all 3 per-joint current-magnitude/concentration
+        # levers -- k_current_hot [active], k_torque_headroom
+        # [SEED-PRUNED], k_load_even [monotonically worse], plus the
+        # obs.current_sense capability channel -- are now closed on
+        # this exact lineage's RAIL_MOVING-concentrated-on-L5-hip
+        # failure; this is the first TRAJECTORY-level lever: a slower
+        # commanded descent schedule reduces the per-tick height-
+        # tracking-driven torque demand that the rearmost leg's hip
+        # absorbs disproportionately, without touching reward pricing
+        # or giving the policy a new sensed channel. Default 5.0 =
+        # bit-exact prior behavior when unset, same contract as
+        # rise_ramp_s immediately above.
+        self.lower_ramp_s = float(g.get("lower_ramp_s", 5.0))
         # Goal-profile jitter (model tour, 08-11: the deployed stance
         # checkpoint passes every training-profile gate yet stalls its
         # belly rise at 55 mm and tips over on sit under play.py's

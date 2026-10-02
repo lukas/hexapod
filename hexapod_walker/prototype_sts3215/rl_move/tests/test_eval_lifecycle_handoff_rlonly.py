@@ -9,6 +9,7 @@ import pytest
 
 from rl_move.sim.eval_lifecycle_handoff_rlonly import (
     PhysicalState,
+    _compose_lower_cfg_args,
     apply_physical_state,
     capture_physical_state,
     heading_to_vxvy,
@@ -396,3 +397,17 @@ def test_trip_summary_rejects_malformed_joint_limit_shape():
     with pytest.raises(ValueError):
         trip_summary(trace, max_current=2.5, qpos_trace=np.zeros((4, 18)),
                     joint_limit_rad=np.zeros((18, 3)))
+
+
+def test_compose_lower_cfg_args_default_none_is_bit_exact():
+    recipe = ["a=1", "b=2"]
+    assert _compose_lower_cfg_args(recipe, None) == ["a=1", "b=2"]
+    # must be a fresh list, not the same object (caller mutation safety)
+    assert _compose_lower_cfg_args(recipe, None) is not recipe
+
+
+def test_compose_lower_cfg_args_appends_after_recipe_so_override_wins():
+    recipe = ["safety.hip_pitch_max_deg=None"]
+    out = _compose_lower_cfg_args(recipe, ["safety.hip_pitch_max_deg=29.8"])
+    assert out == ["safety.hip_pitch_max_deg=None",
+                   "safety.hip_pitch_max_deg=29.8"]

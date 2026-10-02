@@ -75,32 +75,53 @@ class SafetyLayer:
             self.envelope_deg = hardware_envelope.tightest(
                 (float(hip_min) if hip_min is not None else hardware_envelope.SERVO_HIP_MIN_DEG,
                  float(hinge_max) if hinge_max is not None else hardware_envelope.SERVO_KNEE_HINGE_MAX_DEG))
-        # Hip-pitch UPPER clip (2026-10-02, walkcurr L1-hip root-cause
-        # follow-up): the mesh model (env.model_source=mesh/mesh_mjx,
-        # DEFAULT since 2026-08-24) gives the hip-pitch joint a real
-        # CAD-derived upper stop of +0.52 rad / 29.8 deg
-        # (mesh_mujoco/hexapod_mesh.xml, every leg) -- tighter than the
-        # servo-expressible range this clip has always used
-        # (AXIS_LIMITS_DEG hip +40 deg / 0.698 rad, correct for the
-        # legacy primitive model, whose own MJCF hip range IS +0.70 rad
-        # -- no gap there). The gap is a ~10 deg dead zone the mesh
-        # model's own physical joint-limit CONSTRAINT stops but this
-        # clip does not, letting a policy command into it; MuJoCo's
-        # limit is a soft (not rigid) constraint, so the command can
-        # still partially penetrate while demanding continuous
-        # restoring torque -- the lowerrole-rl_only L1-hip
-        # CORROBORATED_STALL forensics (`lowerrole_overcurrent_
-        # qpos_limit_2026-10-01`) found exactly this signature: qpos
-        # 0.557 rad, 0.037 rad PAST this same 0.52 rad bound, sustained
-        # 2.6-2.64 A for up to 1.76 s. Same precedent as the
-        # hip_min_deg/knee_hinge_max_deg hardware envelope above (built
-        # 2026-09-27 for the mirror-image knee-hinge gap) -- here for
-        # the mesh model's own MJCF limit rather than a robot-measured
-        # stop. Default None = unset = legacy clip, bit-exact; ONLY
-        # tightens (a looser value than the servo default is a no-op
-        # because AXIS_LIMITS_DEG is still the outer bound via `min`).
+        # Hip-pitch UPPER clip (built 2026-10-02, ADOPTED 2026-10-02 same
+        # cycle per RESEARCH_RULES "Code changes" -- this entry's own
+        # motivating run, hippitchmax-acq1-r2-cont1 s0/s1, verdicted
+        # PARTIAL: the exploit this targets is CONFIRMED gone (0/122
+        # composed over_current traces classify CORROBORATED_STALL across
+        # both seeds, vs the parent's pooled 5/37 share), even though a
+        # DIFFERENT composed-robustness metric regressed -- see that
+        # run's ledger verdict. walkcurr L1-hip root-cause: the mesh
+        # model (env.model_source=mesh/mesh_mjx, DEFAULT since 2026-08-24)
+        # gives the hip-pitch joint a real CAD-derived upper stop of
+        # +0.52 rad / 29.8 deg (mesh_mujoco/hexapod_mesh.xml, every leg)
+        # -- tighter than the servo-expressible range this clip used
+        # UNCONDITIONALLY before (AXIS_LIMITS_DEG hip +40 deg / 0.698
+        # rad, correct for the legacy primitive model, whose own MJCF
+        # hip range IS +0.70 rad -- no gap there). The gap is a ~10 deg
+        # dead zone the mesh model's own physical joint-limit CONSTRAINT
+        # stops but this clip did not, letting a policy command into it;
+        # MuJoCo's limit is soft (not rigid), so the command could still
+        # partially penetrate while demanding continuous restoring
+        # torque -- the lowerrole-rl_only L1-hip CORROBORATED_STALL
+        # forensics (`lowerrole_overcurrent_qpos_limit_2026-10-01`) found
+        # exactly this signature: qpos 0.557 rad, 0.037 rad PAST this
+        # same 0.52 rad bound, sustained 2.6-2.64 A for up to 1.76 s.
+        #
+        # ADOPTION DESIGN: unlike hip_min_deg/knee_hinge_max_deg (real
+        # per-robot MEASURED stops, model-source-agnostic -- those stay
+        # an explicit opt-in set once in config.yaml), the correct
+        # hip-pitch cap is a MODEL FACT that genuinely differs by
+        # env.model_source (29.8 deg is right for mesh/mesh_mjx, WRONG
+        # for primitive, whose own MJCF really does extend to 40 deg --
+        # a flat config.yaml scalar would wrongly tighten primitive
+        # lineages too, breaking the CONTINUITY RULE's bit-exact-under-
+        # primitive contract). So the adopted default is DERIVED from
+        # model_source automatically, no cfg-set required on any launch
+        # command going forward: mesh/mesh_mjx -> 29.8 deg, primitive ->
+        # the untouched legacy servo ceiling (bit-exact). The explicit
+        # ``safety.hip_pitch_max_deg`` cfg-set key remains as an override
+        # escape hatch (only tightens further, same contract as before;
+        # used e.g. by eval_lifecycle_handoff_rlonly.py's --lower-cfg
+        # when composing an env whose recipe module predates this
+        # adoption) but is no longer required for correctness.
         hip_pitch_max_deg = cfg_get(cfg, "safety", "hip_pitch_max_deg",
                                     default=None)
+        if hip_pitch_max_deg is None:
+            from .sim.servo_model import resolve_model_source
+            if resolve_model_source(cfg) in ("mesh", "mesh_mjx"):
+                hip_pitch_max_deg = 29.8
         self._joint_limit_lo_rad = _JOINT_LIMIT_LO_RAD
         if hip_pitch_max_deg is None:
             self._joint_limit_hi_rad = _JOINT_LIMIT_HI_RAD

@@ -391,6 +391,17 @@ def apply_physical_state(env, state: PhysicalState) -> None:
     env.safety._last_safe = state.last_safe.copy()
 
 
+def _compose_lower_cfg_args(recipe_cfg_args: list[str],
+                             extra_cfg: list[str] | None) -> list[str]:
+    """``--lower-recipe``'s own fixed CFG_ARGS list, plus any ``--lower-
+    cfg`` overrides appended after it (so cfg_set's own later-duplicate-
+    key-wins parsing lets an override win). Pulled out of ``main()`` so
+    this plumbing (the actual fix for the train/eval cfg-mismatch bug
+    found 2026-10-02 on the hippitchmax lower-role arms) is unit-
+    testable without constructing a real mujoco env."""
+    return list(recipe_cfg_args) + list(extra_cfg or [])
+
+
 def _build_env(cfg_args: list[str], *, episode_seconds: float, seed: int,
                render: bool):
     from rl_move.config import load_config
@@ -504,6 +515,27 @@ def main() -> int:
                     help="lower-role episode length in seconds, "
                          "matching this recipe's own trained "
                          "--episode-seconds (default 15.0)")
+    ap.add_argument("--lower-cfg", action="append", default=None,
+                    help="EXTRA cfg-set override(s) (k=v, repeatable) "
+                         "applied ON TOP OF --lower-recipe's own "
+                         "versioned CFG_ARGS when building env_lower. "
+                         "Default None = bit-exact legacy behavior "
+                         "(recipe's CFG_ARGS only). Needed whenever the "
+                         "--lower checkpoint was actually trained with "
+                         "a NEW safety/env cfg key that postdates the "
+                         "fixed recipe module's own verbatim list (e.g. "
+                         "safety.hip_pitch_max_deg=29.8 for the "
+                         "2026-10-02 hippitchmax lower-role arms) -- "
+                         "without this, env_lower silently reverts to "
+                         "the OLD/default value for that key, a real "
+                         "train/eval cfg mismatch the recipe module's "
+                         "own fixed-list design (by construction) can't "
+                         "catch. Root-caused 2026-10-02: the "
+                         "hippitchmax-acq1-r2-cont1 composed gate read "
+                         "0/36 lower_ok on BOTH direct and (same-role-"
+                         "clean-reset) plant arms, a uniformity that "
+                         "pointed at an eval-env construction bug "
+                         "rather than genuine policy failure.")
     ap.add_argument("--diag-zero-lower-qvel", action="store_true",
                     help="DIAGNOSTIC ONLY (default off = bit-exact): "
                          "zero qpos/qvel's velocity component at the "
@@ -594,7 +626,9 @@ def main() -> int:
     if args.lower is not None:
         from .cfg_recipe_stance50hz_rlonly_lowerrole_scratch_sac_drramp \
             import CFG_ARGS as LOWER_CFG_ARGS
-        env_lower = _build_env(LOWER_CFG_ARGS,
+        lower_cfg_args = _compose_lower_cfg_args(LOWER_CFG_ARGS,
+                                                  args.lower_cfg)
+        env_lower = _build_env(lower_cfg_args,
                                 episode_seconds=args.lower_episode_s,
                                 seed=args.seed, render=want_render)
         from .servo_model import joint_ids

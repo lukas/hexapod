@@ -31,6 +31,12 @@ def _cfg(**safety):
     return {"safety": s, "control": {"hz": 50}}
 
 
+def _cfg_env(model_source, **safety):
+    cfg = _cfg(**safety)
+    cfg["env"] = {"model_source": model_source}
+    return cfg
+
+
 def _pose(hip, knee_abs, yaw=0.0):
     return np.array([yaw, hip, knee_abs] * 6, dtype=float)
 
@@ -91,17 +97,42 @@ def test_set_envelope_only_tightens():
     assert legacy.set_envelope(-52.0, 125.0) == (-52.0, 125.0)
 
 
-def test_hip_pitch_max_deg_unset_is_the_legacy_servo_clip():
-    # Default (unset): the servo-expressible hip-pitch ceiling (+40 deg),
-    # matching the legacy primitive model's own MJCF hip range -- no gap
-    # there, so this is bit-exact with pre-2026-10-02 behavior.
-    gate = SafetyLayer(_cfg())
+def test_hip_pitch_max_deg_unset_on_primitive_is_the_legacy_servo_clip():
+    # Default (unset) + env.model_source=primitive: the servo-expressible
+    # hip-pitch ceiling (+40 deg), matching the legacy primitive model's
+    # own MJCF hip range -- no gap there, so this stays bit-exact with
+    # pre-2026-10-02 behavior (CONTINUITY RULE: resumed pre-08-24
+    # lineages always set primitive and must not change).
+    gate = SafetyLayer(_cfg_env("primitive"))
     q0 = _pose(0.0, 40.0) * DEG
     gate._last_safe = q0.copy()
     q, st = gate.filter(_pose(39.9, 40.0) * DEG, _state(q0))
     assert st.ok and q[1] == pytest.approx(39.9 * DEG)
     q, st = gate.filter(_pose(45.0, 45.0) * DEG, _state(q0))
     assert q[1] == pytest.approx(40.0 * DEG)   # clipped at the old 40 deg ceiling
+
+
+def test_hip_pitch_max_deg_unset_on_mesh_defaults_to_298_deg(monkeypatch):
+    # ADOPTED 2026-10-02: unset + env.model_source default (mesh/mesh_mjx)
+    # now auto-derives the model's own CAD hip-pitch ceiling (+29.8 deg)
+    # with NO cfg-set required -- the exact mechanism the hippitchmax-
+    # acq1-r2-cont1 run (ledger, walkcurr) verified kills the L1-hip
+    # CORROBORATED_STALL exploit (0/122 composed traces, both seeds).
+    # conftest.py pins HEXAPOD_MODEL_SOURCE=primitive for the whole suite
+    # (env var outranks cfg in resolve_model_source) -- override it here,
+    # same convention as test_model_source.py, to exercise the mesh path.
+    monkeypatch.delenv("HEXAPOD_MODEL_SOURCE", raising=False)
+    gate = SafetyLayer(_cfg_env("mesh"))
+    q0 = _pose(0.0, 40.0) * DEG
+    gate._last_safe = q0.copy()
+    q, st = gate.filter(_pose(35.0, 40.0) * DEG, _state(q0))
+    assert q[1] == pytest.approx(29.8 * DEG)   # clipped at the NEW ceiling
+    # plain _cfg() (no env section at all) resolves the same way --
+    # resolve_model_source's own default is "mesh"
+    gate2 = SafetyLayer(_cfg())
+    gate2._last_safe = q0.copy()
+    q2, _ = gate2.filter(_pose(35.0, 40.0) * DEG, _state(q0))
+    assert q2[1] == pytest.approx(29.8 * DEG)
 
 
 def test_hip_pitch_max_deg_tightens_only_the_hip_axis_upward_bound():

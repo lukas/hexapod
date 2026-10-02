@@ -132,10 +132,6 @@ SNAP_ATTRS = (
     # own EMA + sustained-low-seconds counter, universal (every task
     # class supports hold mode) — see sim_env._reset_finalize.
     "_hold_minload_ema", "_hold_minload_low_s",
-    # LOWER-mode joint-limit-stall termination (2026-10-01): per-joint
-    # (N_JOINTS,) consecutive-seconds-near-limit-and-static counter —
-    # see sim_env._reset_finalize.
-    "_lower_jlimit_low_s",
 )
 
 

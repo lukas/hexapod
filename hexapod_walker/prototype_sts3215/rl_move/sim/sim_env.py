@@ -46,7 +46,7 @@ from .domain_rand import (DomainRandomizer, EpisodeRandomization,
 from .deployed_transport import DeployedTransport
 from .servo_model import (
     ServoProfile, SimServoParams, apply_params_to_model, build_model,
-    joint_ids, joint_qpos_addrs, joint_qvel_addrs, lowest_collidable_z,
+    joint_qpos_addrs, joint_qvel_addrs, lowest_collidable_z,
     position_actuator_ids, resolve_model_source, write_acc_for_speed,
 )
 from .struct_compliance import StructCompliance
@@ -73,7 +73,6 @@ from .balance_reward_hold import (
 )
 from .balance_terminations import (
     collapse_terminations, hold_minload_termination,
-    lower_joint_limit_termination,
     terminal_settlement_reward, walk_idle_and_leg_duty_terminations,
 )
 from .balance_reward_posture import (
@@ -544,13 +543,6 @@ class SimHexapodBalanceEnv(_GymBase):
         self._substeps = max(1, int(round(self.dt / self.model.opt.timestep)))
         self._qadr = joint_qpos_addrs(self.model)
         self._vadr = joint_qvel_addrs(self.model)
-        # Model-constant per-joint MJCF hinge limits (lo, hi) rad, cached
-        # once (safety.lower_joint_limit_terminate_s, 2026-10-01 lower-
-        # role over_current L1-hip false-positive follow-up). Never
-        # per-episode/DR-mutated (grepped: jnt_range is read-only
-        # everywhere else too), so NOT a SNAP_ATTRS entry.
-        self._joint_limit_rad = self.model.jnt_range[
-            joint_ids(self.model)].copy()
         self._pos_act = position_actuator_ids(self.model)
         self._leg_mount_flex_addrs = leg_mount_flex_addresses(
             self.model, required=False)
@@ -2594,21 +2586,6 @@ class SimHexapodBalanceEnv(_GymBase):
         # SimHexapodJointWalkEnv) — snapshot via mjx_host.SNAP_ATTRS.
         self._hold_minload_ema = 0.0
         self._hold_minload_low_s = 0.0
-        # LOWER-mode joint-limit-stall termination bookkeeping
-        # (safety.lower_joint_limit_terminate_s, 2026-10-01). Per-joint
-        # consecutive seconds spent BOTH near its own mechanical hinge
-        # limit AND effectively static (qvel-based) -- the exact
-        # CORROBORATED_STALL signature eval_lifecycle_handoff_rlonly.
-        # trip_summary() already classifies post-hoc, reused here as a
-        # LIVE termination instead of a force/duty proxy
-        # (safety.hold_min_load_apply_lower, the closed 2026-10-01
-        # minloadlower-acq1 FAIL: false-fires on ~100% of ALL lower
-        # episodes, healthy or not, because min-over-feet force reads
-        # near-zero almost continuously under this policy family's
-        # normal asymmetric per-leg loading -- load magnitude alone
-        # cannot discriminate a genuine stuck-at-limit stall from
-        # ordinary per-leg weight-shift). Default 0.0 = off, bit-exact.
-        self._lower_jlimit_low_s = np.zeros(N_JOINTS)
         # Continuity variant (safety.hold_min_load_ema_continuous,
         # 09-04): seed the EMA from the MEASURED min-over-feet force at
         # the settled spawn instead of 0.0, so the very first ticks
@@ -4380,7 +4357,6 @@ class SimHexapodBalanceEnv(_GymBase):
         terminated = collapse_terminations(self, h_rel, status, terminated)
         (minload_short_k, minload_in_hold, minload_floor_n,
          terminated) = hold_minload_termination(self, status, terminated)
-        terminated = lower_joint_limit_termination(self, status, terminated)
         terminated = walk_idle_and_leg_duty_terminations(self, status,
             terminated)
         unload_f = None

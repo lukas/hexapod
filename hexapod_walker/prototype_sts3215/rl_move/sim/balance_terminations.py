@@ -224,9 +224,20 @@ def hold_minload_termination(env, status, terminated):
     # {s0,s1}-drramp-minloadlower-acq1`, both SEED-PRUNED; ledger has
     # the full evidence). Removed rather than kept dark per
     # RESEARCH_RULES "Code changes" (a key no live config sets after
-    # its motivating run is verdicted is dead code). Replaced by
-    # `lower_joint_limit_termination` below, which keys on
-    # near-own-hinge-limit + qvel-static instead of load.
+    # its motivating run is verdicted is dead code). A follow-up
+    # (`safety.lower_joint_limit_terminate_s`, near-own-hinge-limit +
+    # qvel-static instead of load) was tried next and also REMOVED
+    # 2026-10-02: it behaved exactly as designed in training (rare,
+    # correct-target firing; never itself the trip cause under the
+    # composed gate) but the composed direct-arm lower_ok rate still
+    # regressed sharply on BOTH seeds (s0: 24/36 -> 14/36; s1: 16/36 ->
+    # 0/36) with over_current failures shifting almost entirely to
+    # RAIL_MOVING (still-turning, high-torque) rather than the
+    # CORROBORATED_STALL the mechanism targeted -- composed/walk-exit
+    # entry-state generalization, not the stall-vs-load discriminator,
+    # is the live gap (`cw-stance50hz-rlonly-lowerrole-scratch-sac-
+    # {s0,s1}-drramp-jointlimitlower-acq1-cont1{,-r2}`; ledger has the
+    # full evidence).
     mode_now = (getattr(env._goal_traj, "mode", "")
                if env._goal_traj is not None else "")
     minload_in_hold = (env._goal_traj is not None
@@ -261,88 +272,6 @@ def hold_minload_termination(env, status, terminated):
                 status.terminate = True
                 status.reason = "hold_min_load"
     return minload_short_k, minload_in_hold, minload_floor_n, terminated
-
-
-def lower_joint_limit_termination(env, status, terminated):
-    """LOWER-mode joint-limit-stall termination (2026-10-01, walkcurr
-    over_current L1-hip false-positive follow-up to
-    `safety.hold_min_load_apply_lower`'s closed FAIL).
-
-    `hold_min_load_apply_lower` (2026-10-01) tried reusing the hold
-    role's min-over-feet FORCE termination for `lower` mode, reasoning
-    from the L1-hip root-cause finding (a permanently sacrificed leg's
-    hip jams 0.037 rad past its own 0.52 rad hinge limit while that
-    foot stays airborne the whole episode). That arm's own from-
-    scratch retrain FAILED both seeds (SEED-PRUNED, reward collapsing
-    from a transient ~120 peak back to ~30-54): a CPU-only replay tool
-    (`eval_lifecycle_handoff_rlonly.py --minload-trace-dir`) showed the
-    min-over-feet EMA reads below its 0.3 N floor on 97-100% of ticks
-    of EVERY captured episode, healthy or not, even at EMA tau up to
-    5 s -- this policy family's normal lower-mode descent relies on
-    long stretches of per-leg load asymmetry (several legs read ~0 N
-    median even in `lower_ok` episodes) that the hold role's static-
-    stance assumption (all six feet roughly evenly loaded at all
-    times) does not hold for a dynamic multi-leg descent. A per-leg
-    (not min-over-feet) EMA variant was tried offline too and still
-    false-fired on the majority of one seed's healthy episodes (that
-    seed routinely runs one leg's hip near its OWN limit, unloaded,
-    for 2-4 s stretches, while still visibly moving/functional --
-    exactly the already-validated RAIL_MOVING pattern
-    `eval_lifecycle_handoff_rlonly.trip_summary()`'s own 2026-10-01
-    CORROBORATED_STALL/RAIL_MOVING split distinguishes from a genuine
-    stall).
-
-    This termination reuses that EXACT, already-validated conjunction
-    (near its own mechanical hinge limit AND qvel-static, both
-    sustained) as a LIVE per-tick check instead of a post-hoc
-    classifier, tracking EACH joint's own continuous near-limit+static
-    duration independently (never a cross-leg minimum) -- the same
-    offline replay against the 4 real CORROBORATED_STALL trace JSONs
-    already on disk confirms all 4 satisfy both conditions
-    (hot_qvel_med_rad_s 0.0072-0.0116 rad/s, near_joint_limit=True) over
-    their hot window, while a healthy-episode spot-check (12 episodes,
-    2 seeds) shows only 2/12 false-fire, both within ~1-4 s of the
-    natural 15 s episode end (harmless) -- a materially smaller and
-    later false-positive footprint than either force-based design's
-    near-universal ~2 s firing.
-
-    Default `safety.lower_joint_limit_terminate_s=0.0` = off, bit-exact
-    (no existing config sets any of this termination's keys; zero new
-    state read/behavior change for any other task/mode)."""
-    term_s = float(cfg_get(env.cfg, "safety",
-                           "lower_joint_limit_terminate_s", default=0.0))
-    if term_s <= 0.0 or terminated:
-        return terminated
-    mode_now = (getattr(env._goal_traj, "mode", "")
-               if env._goal_traj is not None else "")
-    if mode_now != "lower":
-        return terminated
-    grace_s = float(cfg_get(env.cfg, "safety",
-                            "lower_joint_limit_grace_s", default=1.0))
-    if (env._step_i - env._seg_entry_step) * env.dt < grace_s:
-        env._lower_jlimit_low_s[:] = 0.0
-        return terminated
-    margin_rad = float(cfg_get(env.cfg, "safety",
-                               "lower_joint_limit_margin_rad",
-                               default=0.05))
-    stall_qvel = float(cfg_get(env.cfg, "safety",
-                               "lower_joint_limit_stall_qvel",
-                               default=0.05))
-    q = env.data.qpos[env._qadr]
-    v = env.data.qvel[env._vadr]
-    lo = env._joint_limit_rad[:, 0]
-    hi = env._joint_limit_rad[:, 1]
-    margin = np.minimum(q - lo, hi - q)
-    bad = (margin < margin_rad) & (np.abs(v) < stall_qvel)
-    env._lower_jlimit_low_s = np.where(bad,
-                                        env._lower_jlimit_low_s + env.dt,
-                                        0.0)
-    if np.any(env._lower_jlimit_low_s >= term_s):
-        terminated = True
-        status.ok = False
-        status.terminate = True
-        status.reason = "lower_joint_limit"
-    return terminated
 
 
 def walk_idle_and_leg_duty_terminations(env, status, terminated):

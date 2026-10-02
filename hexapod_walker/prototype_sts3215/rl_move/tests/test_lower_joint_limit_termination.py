@@ -8,10 +8,12 @@ per-tick check instead of a force/duty proxy. Default OFF (bit-exact;
 no existing config sets this key). See
 ``rl_docs/tracks/walkcurr/STATUS.md`` Next 1 for why the force-based
 ``hold_min_load_apply_lower`` alternative was closed instead (false-
-fires on ~100% of ALL lower episodes, healthy or not).
+fires on ~100% of ALL lower episodes, healthy or not; that cfg key and
+its dedicated test were removed 2026-10-02 per RESEARCH_RULES "Code
+changes" once its motivating run was verdicted and not adopted).
 
-Same hand-built ``mode_seq`` rise->lower harness as
-``test_hold_minload_apply_lower.py`` (not imported -- kept
+Same hand-built ``mode_seq`` rise->lower harness as the removed
+``test_hold_minload_apply_lower.py`` used (not imported -- kept
 self-contained per RESEARCH_RULES "Tests")."""
 from __future__ import annotations
 

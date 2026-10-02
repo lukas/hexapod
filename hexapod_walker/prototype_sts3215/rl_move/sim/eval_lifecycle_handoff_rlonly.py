@@ -547,16 +547,18 @@ def main() -> int:
                          "(env._minload_min_force_now(floor_n), the "
                          "EXACT quantity the hold_min_load EMA tracks) "
                          "plus the per-leg raw touch-sensor forces. "
-                         "Lets a later offline replay check whether "
-                         "safety.hold_min_load_apply_lower=1 (2026-10-01 "
-                         "L1-hip fix) would have false-fired on "
-                         "HEALTHY direct-arm episodes under the "
-                         "PARENT checkpoint (no minload-lower applied "
-                         "during this rollout) at any candidate "
-                         "term_s/grace_s/floor_n -- without spending "
-                         "GPU on a new training run per candidate. "
-                         "walkcurr/STATUS.md Next 1 follow-up to the "
-                         "minloadlower-acq1 FAIL.")
+                         "Lets an offline replay check candidate "
+                         "min-over-feet-force termination thresholds "
+                         "against HEALTHY direct-arm episodes without "
+                         "spending GPU per candidate -- this is how "
+                         "the 2026-10-01 `hold_min_load_apply_lower` "
+                         "LOWER-mode extension was shown to false-fire "
+                         "on ~100pct of ticks of every lower episode "
+                         "(walkcurr/STATUS.md Next 1); that cfg key "
+                         "was removed 2026-10-02 once its motivating "
+                         "run (minloadlower-acq1) was verdicted and not "
+                         "adopted, but this trace tool stays generically "
+                         "useful for any future load-based candidate.")
     args = ap.parse_args()
 
     import mujoco

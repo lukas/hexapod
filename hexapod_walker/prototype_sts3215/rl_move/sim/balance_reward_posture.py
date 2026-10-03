@@ -32,53 +32,25 @@ def posture_support_load_headroom_reward(env, goal, parts, reward):
                              default=0.0))
     k_even = float(cfg_get(env.cfg, "reward", "k_load_even",
                            default=0.0))
-    # reward.k_load_rotate (walkcurr track, 2026-10-03 — the lower-role
-    # terminal-support forensics (lowerrole_terminal_support_forensics_
-    # 2026-10-02) found the composed champion converges to a FIXED,
-    # universal 2-leg (L2+L5) high-current terminal stance, present
-    # EQUALLY in passing and failing episodes: the over_current trip is
-    # a SUSTAINED-duration rail check against a converged, near-minimal-
-    # current-for-this-config load, so whether a given hold crosses the
-    # trip's time threshold is a narrow margin/dwell-variance question.
-    # Both prior reward-shaping attempts on this exact pathology priced
-    # MAGNITUDE/COUNT at a single instant (k_load_even's Herfindahl
-    # concentration index, k_stance_count's feet-above-floor count) and
-    # both destabilized the policy's only discovered stable config into
-    # tilt failures (CLOSED, monotone-bad dose-response) — because
-    # either term's optimum asks for MORE feet loaded simultaneously,
-    # which this stance apparently cannot afford. This term is a
-    # mathematically different object: it prices IDENTITY PERSISTENCE,
-    # not simultaneous count or magnitude. Reusing the already-tested
-    # `torque_headroom_debt_step` leaky integrator (same shape as
-    # `k_torque_headroom`, fed a binary "currently one of the two
-    # highest-loaded eligible legs" membership signal instead of a
-    # current reading): debt rises only while the SAME leg stays in the
-    # top-2-loaded set continuously, decays once it rotates out. The
-    # policy's cheapest way to hold debt near zero over a long hold is
-    # to periodically SWAP which two legs carry the habitual 2-leg
-    # load — never asking for a 3rd/4th foot to bear weight at any
-    # single instant, unlike the two closed terms. Self-gating by
-    # construction: ordinary tripod-gait walking already rotates which
-    # legs are loaded every ~0.3-0.5s (far under the time constant
-    # below), so this term is expected to be near-zero outside a long
-    # static hold without any mode check. Default 0.0 = off, bit-exact
-    # (the debt array is only allocated/updated when enabled, same
-    # convention as `_torque_debt` above).
-    k_rotate = float(cfg_get(env.cfg, "reward", "k_load_rotate",
-                             default=0.0))
-    if (k_margin > 0.0 or k_even > 0.0 or k_rotate > 0.0):
+    # reward.k_load_rotate: CLOSED 2026-10-03 (walkcurr track). Tried as
+    # a structurally different lever on the lower-role's fixed 2-leg
+    # (L2+L5) terminal-support habit (identity persistence rather than
+    # magnitude/count, reusing `torque_headroom_debt_step`) after
+    # `k_load_even`/`k_stance_count` both destabilized it. Two-dose
+    # bracket (1.0/3.0, from-scratch) both FAILED the composed gate
+    # worse than baseline (7/36 and 0/36 vs 26/36) with the same
+    # tilt-destabilization collapse — monotone-bad like the other two.
+    # Key deleted; see ledger verdicts on
+    # cw-stance50hz-rlonly-lowerrole-scratch-sac-s0-drramp-loadrotate{10,30}-acq1.
+    if (k_margin > 0.0 or k_even > 0.0):
         skip = int(goal.unload_leg) if (
             goal is not None and goal.unload_leg is not None) else -1
         forces, feet_xy = [], []
-        leg_forces = np.zeros(6)
-        eligible = np.zeros(6, dtype=bool)
         for i in range(6):
             if i == skip or env._touch_adr[i] < 0:
                 continue
             f = max(float(env.data.sensordata[env._touch_adr[i]]), 0.0)
             forces.append(f)
-            leg_forces[i] = f
-            eligible[i] = True
             if f > 0.5 and env._pad_bids[i] >= 0:
                 feet_xy.append(env.data.xpos[env._pad_bids[i], :2])
         if k_margin > 0.0 and len(feet_xy) >= 3:
@@ -101,31 +73,6 @@ def posture_support_load_headroom_reward(env, goal, parts, reward):
             r_even = -k_even * (hhi - 1.0 / len(forces))
             parts["reward_load_even"] = r_even
             reward += r_even
-        if k_rotate > 0.0:
-            membership = np.zeros(6)
-            n_eligible = int(np.sum(eligible))
-            if ftot > 1.0 and n_eligible >= 2:
-                # Top-2 by force among eligible legs only.
-                idx = np.where(eligible)[0]
-                top2 = idx[np.argsort(leg_forces[idx])[-2:]]
-                membership[top2] = 1.0
-            if (getattr(env, "_load_rotate_debt", None) is None
-                    or env._load_rotate_debt.shape != membership.shape):
-                env._load_rotate_debt = np.zeros_like(membership)
-            # tau_s=2.0: slower than ordinary tripod-swing cadence
-            # (~0.3-0.5s/leg) so normal walking never meaningfully
-            # charges this debt, fast enough relative to the ~9s
-            # post-ramp hold this term targets to actually price a
-            # sustained same-pair habit within one episode.
-            tau_s = 2.0
-            alpha_d = min(max(env.dt, 0.0), tau_s) / tau_s
-            env._load_rotate_debt = torque_headroom_debt_step(
-                env._load_rotate_debt, membership, 0.5, 0.5, alpha_d)
-            r_rotate = -k_rotate * float(np.sum(env._load_rotate_debt ** 2))
-            parts["reward_load_rotate"] = r_rotate
-            parts["load_rotate_debt_max"] = float(
-                np.max(env._load_rotate_debt))
-            reward += r_rotate
     # Per-actuator torque-HEADROOM debt (standwalk track, 2026-09-11 —
     # the structural mechanism named after both `k_current_hot` (dose
     # bracket b23k12/k6/b23k36) and `k_load_even` (dose bracket 2/8/

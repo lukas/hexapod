@@ -3495,44 +3495,6 @@ class SimHexapodBalanceEnv(_GymBase):
                 clipped + self.rng.normal(0.0, self._ep_rand.action_noise,
                                           self.n_act), -1.0, 1.0)
 
-        # Hold-phase action smoothing (actions.lower_hold_action_ema_
-        # alpha, 2026-10-03, walkcurr lower-role terminal-support
-        # forensics item 1g's architecture-redesign escalation): the
-        # forensics doc found near-IDENTICAL per-leg force magnitudes
-        # in passing vs failing post-ramp-hold episodes and attributed
-        # the over_current trip to fine-grained per-tick control-noise/
-        # dwell variance around a narrow safety margin, not to WHICH
-        # stance the policy picked (lowerrole_terminal_support_
-        # forensics_2026-10-02/SUMMARY.md). All 3 reward-term levers
-        # and the item's own gate text name the next lever as
-        # structural -- "a different observation/action
-        # parameterization for the hold phase" -- not another reward
-        # dose. This is that lever: an EMA filter on the policy's OWN
-        # previously-applied action (no external/scripted reference,
-        # rl_only-clean) damps tick-to-tick dither during the hold
-        # without moving the mean/converged setpoint, so it cannot
-        # change WHICH legs bear load -- only how noisily the
-        # actuators chase that setpoint. Gated on the CURRENT tick's
-        # height ref already equalling the episode's final target,
-        # which is true for every lower-episode start-kind (ramped,
-        # partial, hold_only, belly-start) once the hold begins, with
-        # no new per-tick state. Default 0.0 = OFF, bit-exact (block
-        # never runs).
-        _hold_ema_alpha = float(cfg_get(self.cfg, "actions",
-                                        "lower_hold_action_ema_alpha",
-                                        default=0.0))
-        if (_hold_ema_alpha > 0.0 and self._goal_traj is not None
-                and getattr(self._goal_traj, "mode", "") == "lower"):
-            _hold_goal_now = self._current_goal()
-            _hold_h_target = float(
-                np.asarray(self._goal_traj.height)[-1])
-            if (_hold_goal_now is not None
-                    and abs(float(_hold_goal_now.height_ref)
-                            - _hold_h_target) < 1e-4):
-                clipped = (_hold_ema_alpha * self._prev_action
-                          + (1.0 - _hold_ema_alpha) * clipped
-                          ).astype(clipped.dtype)
-
         q_prop, q_ok, q_reason = self._act_to_q(clipped)
         if getattr(self, "debug_pipeline_record", False):
             # Action-pipeline probe hook (2026-09-08 walkcurr action-

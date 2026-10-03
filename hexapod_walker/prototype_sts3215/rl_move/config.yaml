@@ -44,14 +44,6 @@ actions:
   # polygon or the unload (weight-shift) task is physically impossible.
   max_x_mm: 40.0
   max_y_mm: 40.0
-  # lower_hold_action_ema_alpha (2026-10-03, walkcurr lower-role
-  # terminal-support forensics item 1g's architecture-redesign
-  # escalation): EMA smoothing weight on the PREVIOUS applied action,
-  # engaged only during a "lower"-mode episode's post-ramp HOLD (the
-  # current tick's height ref already at the episode's final target --
-  # see sim_env.py's _step_begin for the exact gate). 0.0 = OFF,
-  # bit-exact (no filtering, identical to every prior checkpoint).
-  lower_hold_action_ema_alpha: 0.0
 
 # Goal-conditioned lean / rise / weight-shift task (sim/goal_task.py).
 goal:

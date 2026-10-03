@@ -2576,6 +2576,7 @@ class SimHexapodBalanceEnv(_GymBase):
         self._height_vel_mps = 0.0
         self._trip_cur_filt = None
         self._torque_debt = None
+        self._load_rotate_debt = None
         self._prev_current_rate = None
         self._imu_prev_v = None
         self._imu_f_accum[:] = 0.0

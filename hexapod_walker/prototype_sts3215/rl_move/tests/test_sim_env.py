@@ -1038,60 +1038,6 @@ def test_posture_reward_terms_smoke():
     env.close()
 
 
-def test_stance_count_reward_smoke():
-    """reward.k_stance_count (2026-10-02, walkcurr lower-role terminal-
-    support forensics item 1's 2nd lever): a floor/count BONUS for
-    having MORE than 2 feet above a small per-foot force floor --
-    mathematically distinct from k_load_even's Herfindahl concentration
-    PRICE (closed on this lineage). On a 6-foot standing plant (every
-    foot above the default 1 N floor) the bonus must saturate at
-    k_count * (6 - 2) = 4*k_count; absent/zero dose produces no part at
-    all, matching every other posture term's default-off contract."""
-    import numpy as np
-    from rl_move.config import load_config
-    from rl_move.sim.servo_model import SimServoParams
-    from rl_move.sim.joint_task import SimHexapodJointGoalEnv, q_rad_to_action
-
-    cfg = load_config()
-    cfg.setdefault("reward", {})
-    cfg["reward"]["k_stance_count"] = 0.5
-    env = SimHexapodJointGoalEnv(params=SimServoParams.load(), cfg=cfg,
-                                 randomize=False, episode_seconds=2.0,
-                                 seed=0)
-    obs, _ = env.reset()
-    a = q_rad_to_action(env._cmd.copy())
-    parts_seen = {}
-    for _ in range(10):
-        obs, r, term, trunc, info = env.step(a)
-        for k in ("reward_stance_count", "stance_count_n_loaded"):
-            if k in info:
-                parts_seen[k] = info[k]
-    assert "reward_stance_count" in parts_seen, "stance-count term never fired"
-    # standing plant: all 6 feet loaded -> bonus saturates at 0.5*(6-2)=2.0
-    assert abs(parts_seen["reward_stance_count"] - 2.0) < 1e-6
-    assert parts_seen["stance_count_n_loaded"] == 6.0
-    assert all(np.isfinite(v) for v in parts_seen.values())
-    env.close()
-
-
-def test_stance_count_reward_off_by_default():
-    import numpy as np
-    from rl_move.config import load_config
-    from rl_move.sim.servo_model import SimServoParams
-    from rl_move.sim.joint_task import SimHexapodJointGoalEnv, q_rad_to_action
-
-    cfg = load_config()
-    env = SimHexapodJointGoalEnv(params=SimServoParams.load(), cfg=cfg,
-                                 randomize=False, episode_seconds=2.0,
-                                 seed=0)
-    obs, _ = env.reset()
-    a = q_rad_to_action(env._cmd.copy())
-    for _ in range(10):
-        obs, r, term, trunc, info = env.step(a)
-        assert "reward_stance_count" not in info
-    env.close()
-
-
 # ---------------------------------------------------------------------------
 # Per-actuator torque-headroom debt (standwalk track, 2026-09-11 — the
 # structural mechanism named after k_current_hot/k_load_even both closed

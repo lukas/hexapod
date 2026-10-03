@@ -906,6 +906,33 @@ class SimHexapodBalanceEnv(_GymBase):
         self._body_pose_assist_active = (
             _bpa_target > 0.0 or self._body_pose_assist_ramp is not None)
 
+        # dr.ext_push_modes (2026-10-03, walkcurr lower-role terminal-
+        # support forensics follow-up: the converged, universal 2-leg
+        # (L2+L5) terminal stance is a structural habit, not a per-
+        # episode mistake -- all 3 reward-shaping levers on it (k_
+        # current_hot, k_load_even, k_stance_count) and 2 curriculum/
+        # trajectory levers (entry-bank, lower_ramp_s) are closed. This
+        # key lets the existing M3 push-recovery mechanism
+        # (`_ext_push_force_n`, previously HARDCODED to walk-mode
+        # episodes only) also fire during OTHER modes (e.g. "lower"),
+        # a genuinely different mechanism class: a mid-episode external
+        # force perturbation during the post-ramp HOLD, not a reward
+        # term, not an entry-state curriculum, not an observation
+        # channel. Comma-separated mode-name string, default "walk" ==
+        # the exact legacy gate, byte-identical when unset. Read off
+        # the randomizer's own (possibly cfg-overridden, DR-stage-ramp-
+        # scaled-through -- see RandRanges.scaled) ranges when one
+        # exists so --cfg-set dr.ext_push_modes=... and the staged-DR
+        # ramp both reach it the SAME way every other dr.* field does;
+        # falls back to a direct cfg read (legacy default, matches
+        # every pre-existing call site) when there is no randomizer.
+        _modes_src = (self.randomizer.ranges.ext_push_modes
+                     if self.randomizer is not None
+                     else cfg_get(self.cfg, "dr", "ext_push_modes",
+                                 default="walk"))
+        self._ext_push_modes = frozenset(
+            s.strip() for s in str(_modes_src).split(",") if s.strip())
+
         # Residual-blend GATED anneal (2026-09-09, assistfade rung 3
         # "blend-schedule fix" — rl_docs/tracks/assistfade/STATUS.md
         # 09-09 ~07:5x closure: 6/6 per-leg reward-shaping addons FAIL
@@ -1438,17 +1465,20 @@ class SimHexapodBalanceEnv(_GymBase):
         the first ~1.5s that reproduces the hardware TAKEOFF wobble),
         this fires once (or, with dr.ext_push_repeat_max>1, several
         times -- see EpisodeRandomization.ext_push_extra) at random
-        point(s) LATER in a walk-mode episode on a policy that is
-        already walking -- the actual "shove it mid-stride and see if
-        it recovers" test. Stateless per tick (pure function of
-        _ep_rand + _step_i); zero outside every pulse's window ->
-        pool-restore safe, same as its sibling. The pulses are sampled
-        non-overlapping (see domain_rand.sample), so at most one term
-        is ever nonzero -- summing is just the simplest way to combine
-        them without a branch per pulse."""
+        point(s) LATER in the episode on a policy that is already
+        walking (or, with dr.ext_push_modes widened past the "walk"
+        default -- see __init__ -- holding another goal mode, e.g.
+        "lower") -- the actual "shove it and see if it recovers" test.
+        Stateless per tick (pure function of _ep_rand + _step_i); zero
+        outside every pulse's window -> pool-restore safe, same as its
+        sibling. The pulses are sampled non-overlapping (see
+        domain_rand.sample), so at most one term is ever nonzero --
+        summing is just the simplest way to combine them without a
+        branch per pulse."""
         er = self._ep_rand
         if (er is None or self._goal_traj is None
-                or getattr(self._goal_traj, "mode", "") != "walk"):
+                or getattr(self._goal_traj, "mode", "")
+                not in self._ext_push_modes):
             return (0.0, 0.0)
         t = self._step_i * self.dt
         fx = fy = 0.0

@@ -329,6 +329,92 @@ def test_push_measurably_perturbs_chassis_vs_push_off_twin():
         env_off.close()
 
 
+# ------------------------------------------------- dr.ext_push_modes (10-03)
+# Mode gate made configurable (2026-10-03, walkcurr lower-role terminal-
+# support forensics follow-up): the mechanism above was HARDCODED to
+# "walk" mode only; dr.ext_push_modes (comma-separated string, default
+# "walk") lets it also fire during other goal modes (e.g. "lower") for
+# the first non-reward/non-curriculum/non-observation lever on that
+# lineage's converged 2-leg terminal-stance habit. Default unchanged
+# ("walk" only) -> every test above (all written before this key
+# existed) keeps passing unmodified, confirmed by the full-file run.
+
+def _env_with_modes(modes: str | None, *, seed: int = 0):
+    from rl_move.config import load_config
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+
+    cfg = load_config()
+    if modes is not None:
+        cfg.setdefault("dr", {})["ext_push_modes"] = modes
+    env = SimHexapodJointWalkEnv(cfg, seed=seed, randomize=True)
+    gen = env._goal_gen
+    for name in dir(gen):
+        if name.startswith("p_") and isinstance(getattr(gen, name),
+                                                 (int, float)):
+            setattr(gen, name, 0.0)
+    gen.p_walk = 1.0
+    return env
+
+
+def test_ext_push_modes_default_is_walk_only():
+    env = _env_with_modes(None)
+    try:
+        env.reset(seed=0)
+        assert env._ext_push_modes == frozenset({"walk"})
+    finally:
+        env.close()
+
+
+def test_ext_push_modes_default_still_excludes_lower():
+    # Regression guard: an unset key must behave exactly like the old
+    # hardcoded "== 'walk'" check -- "lower" (and any non-walk mode)
+    # stays excluded with no cfg override.
+    env = _env_with_modes(None)
+    try:
+        env.reset(seed=0)
+        env._ep_rand = _er(ext_push_peak_n=20.0, ext_push_dur_s=0.2,
+                           ext_push_start_s=1.0, ext_push_dir_rad=0.3)
+        env._step_i = int(1.1 / env.dt)
+        env._goal_traj.mode = "lower"
+        assert env._ext_push_force_n() == (0.0, 0.0)
+    finally:
+        env.close()
+
+
+def test_ext_push_modes_cfg_override_enables_lower():
+    env = _env_with_modes("lower")
+    try:
+        env.reset(seed=0)
+        assert env._ext_push_modes == frozenset({"lower"})
+        env._ep_rand = _er(ext_push_peak_n=20.0, ext_push_dur_s=0.2,
+                           ext_push_start_s=1.0, ext_push_dir_rad=0.3)
+        env._step_i = int(1.1 / env.dt)
+        env._goal_traj.mode = "lower"
+        assert env._ext_push_force_n() != (0.0, 0.0)
+        # narrowed the allow-list to "lower" only -> "walk" now excluded
+        env._goal_traj.mode = "walk"
+        assert env._ext_push_force_n() == (0.0, 0.0)
+    finally:
+        env.close()
+
+
+def test_ext_push_modes_cfg_override_comma_list_enables_both():
+    env = _env_with_modes("walk, lower")
+    try:
+        env.reset(seed=0)
+        assert env._ext_push_modes == frozenset({"walk", "lower"})
+        env._ep_rand = _er(ext_push_peak_n=20.0, ext_push_dur_s=0.2,
+                           ext_push_start_s=1.0, ext_push_dir_rad=0.3)
+        env._step_i = int(1.1 / env.dt)
+        for m in ("walk", "lower"):
+            env._goal_traj.mode = m
+            assert env._ext_push_force_n() != (0.0, 0.0)
+        env._goal_traj.mode = "hold"
+        assert env._ext_push_force_n() == (0.0, 0.0)
+    finally:
+        env.close()
+
+
 def test_repeat_max_float_from_cfg_set_does_not_crash():
     # --cfg-set dr.ext_push_repeat_max=3 reaches RandRanges as FLOAT 3.0
     # (cfg_set._parse_cfg_set coerces scalars to float; sim_env's

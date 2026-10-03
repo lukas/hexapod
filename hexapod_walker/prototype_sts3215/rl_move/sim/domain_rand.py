@@ -490,6 +490,15 @@ class RandRanges:
     ext_push_repeat_max: int = 1
     ext_push_gap_s: tuple[float, float] = (1.0, 3.0)
     ext_push_horizon_s: float = 13.0
+    # Which goal MODE(s) the push above is allowed to fire in
+    # (2026-10-03, walkcurr lower-role terminal-support forensics
+    # follow-up): comma-separated mode-name string, categorical like
+    # joint_backlash_group below, not a magnitude -- does not shrink
+    # with the curriculum. Default "walk" == the mechanism's original
+    # hardcoded gate (sim_env._ext_push_force_n), byte-identical when
+    # unset. Widen to e.g. "lower" (or "walk,lower") via --cfg-set
+    # dr.ext_push_modes=... to study push-recovery in a non-walk mode.
+    ext_push_modes: str = "walk"
     # Per-foot friction / per-leg torque-saturation asymmetry (2026-09-13
     # speed sim-to-real order; PanelBounds families the training DR never
     # had). Independent per-foot / per-leg draws inside the range; (1,1)
@@ -845,6 +854,9 @@ class RandRanges:
             ext_push_repeat_max=self.ext_push_repeat_max,
             ext_push_gap_s=self.ext_push_gap_s,
             ext_push_horizon_s=self.ext_push_horizon_s,
+            # Categorical mode allow-list, not a magnitude -- same
+            # convention as joint_backlash_group below.
+            ext_push_modes=self.ext_push_modes,
             # New-family ranges shrink toward nominal like every other
             # multiplicative range; the struct overlay follows the
             # probability-ramps/dose-does-not convention.

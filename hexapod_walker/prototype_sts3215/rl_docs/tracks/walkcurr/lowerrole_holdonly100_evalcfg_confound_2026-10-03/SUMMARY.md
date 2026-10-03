@@ -175,3 +175,17 @@ ARGS behavior unchanged).
    by separate cycles rather than through the 2026-10-03 auto-harness,
    so are LESS likely affected, but this was not verified; flag before
    relying on their exact numbers for a new decision.
+   **RESOLVED same-day (refill cycle, zero GPU):** checked every
+   `entrybank020`-family ledger entry (the only other closed lower-
+   role lever touching a `goal.lower_*` episode-sampling key; grepped
+   all `goal.lower_partial_frac`/`goal.lower_belly_start_frac` ledger
+   entries -- none exist, those keys were never actually trained/
+   scored as a named lever despite existing in code). Confirmed each
+   entrybank020 verdict's own text (e.g. ledger
+   `004531`/`004532-..-entrybank020-noqvelrestore-acq1`) calls
+   `eval_lifecycle_handoff_rlonly.py --lower` directly with an
+   explicit `n=12/arm`, not the `pod_eval.py lifecyclegate`
+   auto-launcher (which this SUMMARY's Part 1 dates as "wired
+   2026-10-03", i.e. it postdates every entrybank020 run by days) --
+   confirmed NOT affected by this confound. The entrybank020 closure
+   stands as scored. No other closed verdict needs re-checking.

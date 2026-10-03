@@ -1,0 +1,100 @@
+[direct] ep0 rise_ok=True fall=None trk=0.1114 dist=0.794 tilt2s=5.4 hmin2s=114.8 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=-10.8
+[direct] ep1 rise_ok=True fall=None trk=0.1094 dist=0.974 tilt2s=4.6 hmin2s=114.7 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=-9.1
+[direct] ep2 rise_ok=True fall=None trk=0.1099 dist=0.768 tilt2s=4.8 hmin2s=114.8 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=0.9
+[direct] ep3 rise_ok=True fall=None trk=0.1092 dist=0.7 tilt2s=4.5 hmin2s=114.8 gait_valid=True sacrificed=[] lower_fall=over_current lower_h_err_mm=-7.4
+[direct] ep4 rise_ok=True fall=None trk=0.1096 dist=0.906 tilt2s=4.6 hmin2s=114.8 gait_valid=True sacrificed=[] lower_fall=tilt_pitch lower_h_err_mm=13.0
+[direct] ep5 rise_ok=True fall=None trk=0.1096 dist=0.803 tilt2s=4.6 hmin2s=114.8 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=-4.5
+[direct] ep6 rise_ok=True fall=None trk=0.1065 dist=0.843 tilt2s=4.3 hmin2s=114.8 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=-8.8
+[direct] ep7 rise_ok=True fall=None trk=0.1129 dist=0.801 tilt2s=5.3 hmin2s=114.8 gait_valid=True sacrificed=[] lower_fall=tilt_pitch lower_h_err_mm=-9.4
+[direct] ep8 rise_ok=True fall=None trk=0.1113 dist=0.869 tilt2s=4.4 hmin2s=114.7 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=-8.6
+[direct] ep9 rise_ok=True fall=None trk=0.1052 dist=0.819 tilt2s=4.6 hmin2s=114.8 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=-1.9
+[direct] ep10 rise_ok=True fall=None trk=0.1087 dist=0.809 tilt2s=4.6 hmin2s=114.8 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=-4.6
+[direct] ep11 rise_ok=True fall=None trk=0.0978 dist=0.744 tilt2s=4.6 hmin2s=114.8 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=-5.9
+[direct] ep12 rise_ok=True fall=None trk=0.1089 dist=0.856 tilt2s=4.8 hmin2s=114.8 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=-6.3
+[direct] ep13 rise_ok=True fall=None trk=0.1091 dist=0.804 tilt2s=5.3 hmin2s=114.8 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=-4.7
+[direct] ep14 rise_ok=True fall=None trk=0.1066 dist=0.83 tilt2s=4.5 hmin2s=114.7 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=-5.6
+[direct] ep15 rise_ok=True fall=None trk=0.0984 dist=0.706 tilt2s=4.8 hmin2s=114.8 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=-12.5
+[direct] ep16 rise_ok=True fall=None trk=0.1021 dist=0.763 tilt2s=4.8 hmin2s=114.8 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=-14.9
+[direct] ep17 rise_ok=True fall=None trk=0.0996 dist=0.705 tilt2s=4.2 hmin2s=114.8 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=-10.5
+[direct] ep18 rise_ok=True fall=None trk=0.104 dist=0.703 tilt2s=5.2 hmin2s=114.8 gait_valid=True sacrificed=[] lower_fall=over_current lower_h_err_mm=-7.9
+[direct] ep19 rise_ok=True fall=None trk=0.1098 dist=0.892 tilt2s=5.2 hmin2s=114.8 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=-10.7
+[plant ] ep0 rise_ok=- fall=None trk=0.0916 dist=0.653 tilt2s=4.2 hmin2s=111.3 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=-6.9
+[plant ] ep1 rise_ok=- fall=None trk=0.0999 dist=0.705 tilt2s=4.7 hmin2s=111.4 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=-6.1
+[plant ] ep2 rise_ok=- fall=None trk=0.0979 dist=0.742 tilt2s=4.2 hmin2s=111.4 gait_valid=True sacrificed=[] lower_fall=tilt_pitch lower_h_err_mm=-6.3
+[plant ] ep3 rise_ok=- fall=None trk=0.1053 dist=0.84 tilt2s=3.0 hmin2s=111.4 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=-3.6
+[plant ] ep4 rise_ok=- fall=None trk=0.0957 dist=0.672 tilt2s=3.9 hmin2s=111.3 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=0.1
+[plant ] ep5 rise_ok=- fall=None trk=0.0999 dist=0.705 tilt2s=4.7 hmin2s=111.4 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=-6.1
+[plant ] ep6 rise_ok=- fall=None trk=0.0947 dist=0.673 tilt2s=4.1 hmin2s=111.4 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=-9.8
+[plant ] ep7 rise_ok=- fall=None trk=0.0947 dist=0.673 tilt2s=4.1 hmin2s=111.4 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=-9.8
+[plant ] ep8 rise_ok=- fall=None trk=0.0999 dist=0.705 tilt2s=4.7 hmin2s=111.4 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=-6.1
+[plant ] ep9 rise_ok=- fall=None trk=0.1053 dist=0.84 tilt2s=3.0 hmin2s=111.4 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=-3.6
+[plant ] ep10 rise_ok=- fall=None trk=0.0974 dist=0.679 tilt2s=4.3 hmin2s=111.4 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=-7.5
+[plant ] ep11 rise_ok=- fall=None trk=0.1 dist=0.653 tilt2s=3.5 hmin2s=111.3 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=-0.6
+[plant ] ep12 rise_ok=- fall=None trk=0.0957 dist=0.672 tilt2s=3.9 hmin2s=111.3 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=0.1
+[plant ] ep13 rise_ok=- fall=None trk=0.0979 dist=0.742 tilt2s=4.2 hmin2s=111.4 gait_valid=True sacrificed=[] lower_fall=tilt_pitch lower_h_err_mm=-6.3
+[plant ] ep14 rise_ok=- fall=None trk=0.0979 dist=0.742 tilt2s=4.2 hmin2s=111.4 gait_valid=True sacrificed=[] lower_fall=tilt_pitch lower_h_err_mm=-6.3
+[plant ] ep15 rise_ok=- fall=None trk=0.1053 dist=0.84 tilt2s=3.0 hmin2s=111.4 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=-3.6
+[plant ] ep16 rise_ok=- fall=None trk=0.0974 dist=0.679 tilt2s=4.3 hmin2s=111.4 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=-7.5
+[plant ] ep17 rise_ok=- fall=None trk=0.0947 dist=0.673 tilt2s=4.1 hmin2s=111.4 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=-9.8
+[plant ] ep18 rise_ok=- fall=None trk=0.0979 dist=0.742 tilt2s=4.2 hmin2s=111.4 gait_valid=True sacrificed=[] lower_fall=tilt_pitch lower_h_err_mm=-6.3
+[plant ] ep19 rise_ok=- fall=None trk=0.1 dist=0.653 tilt2s=3.5 hmin2s=111.3 gait_valid=True sacrificed=[] lower_fall=None lower_h_err_mm=-0.6
+{
+ "direct": {
+  "episodes": 20,
+  "rise_valid_plant": 20,
+  "rise_failed_pre_handoff": 0,
+  "handoff_falls": 0,
+  "gait_valid": 20,
+  "sacrificed_legs_union": [],
+  "trk_err_band": [
+   0.098,
+   0.113
+  ],
+  "dist_band": [
+   0.7,
+   0.974
+  ],
+  "stumble_tilt_band": [
+   4.2,
+   5.4
+  ],
+  "lower_attempted": 20,
+  "lower_falls": 4,
+  "lower_ok": 16,
+  "lower_height_err_end_mm_band": [
+   -14.9,
+   13.0
+  ]
+ },
+ "plant": {
+  "episodes": 20,
+  "rise_valid_plant": 0,
+  "rise_failed_pre_handoff": 0,
+  "handoff_falls": 0,
+  "gait_valid": 20,
+  "sacrificed_legs_union": [],
+  "trk_err_band": [
+   0.092,
+   0.105
+  ],
+  "dist_band": [
+   0.653,
+   0.84
+  ],
+  "stumble_tilt_band": [
+   3.0,
+   4.7
+  ],
+  "lower_attempted": 20,
+  "lower_falls": 4,
+  "lower_ok": 16,
+  "lower_height_err_end_mm_band": [
+   -9.8,
+   0.1
+  ]
+ }
+}
+LIFECYCLE HANDOFF (direct, no scripted blend): CLEAN — no falls after switching on the stance role's pose
+LIFECYCLE GAIT VALIDITY (direct, no sacrificed leg): CLEAN
+LIFECYCLE LOWER (direct, rise->walk->lower, 3 clean-RL roles): 16/20 ok, 4 falls (err band [-14.9, 13.0])
+wrote rl_docs/tracks/walkcurr/lowerrole_truechamp_fulldir_n20_2026-10-03/raw/rot60lower/hneg90.json

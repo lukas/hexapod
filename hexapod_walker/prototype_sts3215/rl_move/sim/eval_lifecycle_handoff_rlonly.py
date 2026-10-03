@@ -536,6 +536,24 @@ def main() -> int:
                          "clean-reset) plant arms, a uniformity that "
                          "pointed at an eval-env construction bug "
                          "rather than genuine policy failure.")
+    ap.add_argument("--lower-rot60", action="store_true",
+                    help="wrap the `lower` role in "
+                         "rot60_lower.Rot60LowerPolicy, sector k fixed "
+                         "at the walk->lower handoff from the WALK "
+                         "role's own final rot60.Rot60Policy.k (default "
+                         "off = bit-exact unwrapped lower checkpoint). "
+                         "Requires --rot60 and --lower both set (the "
+                         "walk role must itself be sector-canonicalized "
+                         "for there to be a k to read). Scoped fix for "
+                         "the 2026-10-03 heading-sign forensics finding "
+                         "(walkcurr/STATUS.md Next 1): the composed "
+                         "`lower_ok` collapse on NEGATIVE headings is "
+                         "hypothesized to be a frame-alignment mismatch "
+                         "between the walk role's own canonical frame "
+                         "and the lower role's fixed real-leg habit, "
+                         "not a lower-role training defect -- see "
+                         "rot60_lower.py's module docstring for the "
+                         "full argument.")
     ap.add_argument("--diag-zero-lower-qvel", action="store_true",
                     help="DIAGNOSTIC ONLY (default off = bit-exact): "
                          "zero qpos/qvel's velocity component at the "
@@ -592,6 +610,8 @@ def main() -> int:
                          "adopted, but this trace tool stays generically "
                          "useful for any future load-based candidate.")
     args = ap.parse_args()
+    if args.lower_rot60 and not (args.rot60 and args.lower is not None):
+        ap.error("--lower-rot60 requires both --rot60 and --lower")
 
     import mujoco
 
@@ -773,10 +793,21 @@ def main() -> int:
         before treating a bit-exact 2.64 A trip as a real unsafe stall)
         and, on a FAILED episode only, writes it all + ``trip_summary()``
         + the walk-exit qpos/qvel to ``<dir>/<name>_<lower_fall>.json``.
-        Zero cost/behavior change when the flag is unset (default)."""
+        Zero cost/behavior change when the flag is unset (default).
+
+        ``args.lower_rot60`` (default off, bit-exact when unset): wraps
+        `lower` in ``rot60_lower.Rot60LowerPolicy`` with the sector k
+        read from the WALK role's own final ``Rot60Policy.k`` right
+        here at the handoff (the walk drive loop has already finished
+        for this episode, so ``walk.k`` holds its LAST sector -- see
+        rot60_lower.py's module docstring)."""
         obs = lower_handoff_obs(state)
-        if hasattr(lower, "reset"):
-            lower.reset()
+        lower_model = lower
+        if args.lower_rot60:
+            from .rot60_lower import Rot60LowerPolicy
+            lower_model = Rot60LowerPolicy(lower, walk.k)
+        if hasattr(lower_model, "reset"):
+            lower_model.reset()
         term = trunc = False
         info: dict = {}
         want_trace = args.current_trace_dir is not None
@@ -795,7 +826,8 @@ def main() -> int:
         minload_qvel_trace: list = []
         n_steps = max(1, int(round(args.lower_episode_s / env_lower.dt)))
         for _ in range(n_steps):
-            a, _ = lower.predict(obs[:n_lower], deterministic=deterministic)
+            a, _ = lower_model.predict(obs[:n_lower],
+                                       deterministic=deterministic)
             obs, _rw, term, trunc, info = env_lower.step(a)
             grab(env_lower)
             if want_minload:
@@ -960,6 +992,7 @@ def main() -> int:
                       "lower": (str(args.lower) if args.lower else None),
                       "speed": args.speed, "heading_deg": args.heading_deg,
                       "rot60": bool(args.rot60),
+                      "lower_rot60": bool(args.lower_rot60),
                       "diag_zero_lower_qvel": bool(args.diag_zero_lower_qvel),
                       "deterministic": deterministic,
                       "episodes": []}

@@ -1,0 +1,193 @@
+{
+ "stance": "rl_move/sim/policies/ppo_goal_cw_stance50hz_rlonly_currentcap29_s5_klrollback05_acq15m.zip",
+ "walk": "rl_move/sim/policies/ppo_goal_cw_walk50hz_slew_smooth_s0.zip",
+ "walk_recipe": "slew_smooth_s0",
+ "lower": "rl_move/sim/policies/ppo_goal_cw_stance50hz_rlonly_lowerrole_scratch_sac_s3_drramp_holdonly100_acq1.zip",
+ "speed": 0.06,
+ "heading_deg": 180.0,
+ "rot60": true,
+ "diag_zero_lower_qvel": false,
+ "deterministic": true,
+ "episodes": [
+  {
+   "arm": "direct",
+   "ep": 0,
+   "rise_valid_plant": true,
+   "rise_fail": [],
+   "rise_height_err_mm": 5.8,
+   "fall": null,
+   "trk_err": 0.1089,
+   "dist_m": 0.71,
+   "stumble_max_tilt_deg": 5.4,
+   "stumble_min_height_mm": 114.8,
+   "sacrificed_legs": [],
+   "gait_valid": true,
+   "lower_fall": null,
+   "lower_height_err_end_mm": 1.7,
+   "lower_ok": true
+  },
+  {
+   "arm": "direct",
+   "ep": 1,
+   "rise_valid_plant": true,
+   "rise_fail": [],
+   "rise_height_err_mm": -1.6,
+   "fall": null,
+   "trk_err": 0.1081,
+   "dist_m": 0.794,
+   "stumble_max_tilt_deg": 4.6,
+   "stumble_min_height_mm": 114.7,
+   "sacrificed_legs": [],
+   "gait_valid": true,
+   "lower_fall": null,
+   "lower_height_err_end_mm": 3.9,
+   "lower_ok": true
+  },
+  {
+   "arm": "direct",
+   "ep": 2,
+   "rise_valid_plant": true,
+   "rise_fail": [],
+   "rise_height_err_mm": 5.1,
+   "fall": null,
+   "trk_err": 0.1031,
+   "dist_m": 0.435,
+   "stumble_max_tilt_deg": 5.9,
+   "stumble_min_height_mm": 114.8,
+   "sacrificed_legs": [],
+   "gait_valid": true,
+   "lower_fall": null,
+   "lower_height_err_end_mm": -3.7,
+   "lower_ok": true
+  },
+  {
+   "arm": "direct",
+   "ep": 3,
+   "rise_valid_plant": true,
+   "rise_fail": [],
+   "rise_height_err_mm": 1.3,
+   "fall": null,
+   "trk_err": 0.1106,
+   "dist_m": 0.7,
+   "stumble_max_tilt_deg": 4.5,
+   "stumble_min_height_mm": 114.8,
+   "sacrificed_legs": [],
+   "gait_valid": true,
+   "lower_fall": null,
+   "lower_height_err_end_mm": 1.9,
+   "lower_ok": true
+  },
+  {
+   "arm": "plant",
+   "ep": 0,
+   "fall": null,
+   "trk_err": 0.1071,
+   "dist_m": 0.827,
+   "stumble_max_tilt_deg": 4.0,
+   "stumble_min_height_mm": 111.3,
+   "sacrificed_legs": [],
+   "gait_valid": true,
+   "lower_fall": null,
+   "lower_height_err_end_mm": -1.1,
+   "lower_ok": true
+  },
+  {
+   "arm": "plant",
+   "ep": 1,
+   "fall": null,
+   "trk_err": 0.1068,
+   "dist_m": 0.842,
+   "stumble_max_tilt_deg": 4.5,
+   "stumble_min_height_mm": 111.4,
+   "sacrificed_legs": [],
+   "gait_valid": true,
+   "lower_fall": null,
+   "lower_height_err_end_mm": -6.9,
+   "lower_ok": true
+  },
+  {
+   "arm": "plant",
+   "ep": 2,
+   "fall": null,
+   "trk_err": 0.0918,
+   "dist_m": 0.74,
+   "stumble_max_tilt_deg": 4.5,
+   "stumble_min_height_mm": 111.4,
+   "sacrificed_legs": [],
+   "gait_valid": true,
+   "lower_fall": null,
+   "lower_height_err_end_mm": -2.0,
+   "lower_ok": true
+  },
+  {
+   "arm": "plant",
+   "ep": 3,
+   "fall": null,
+   "trk_err": 0.1065,
+   "dist_m": 0.684,
+   "stumble_max_tilt_deg": 4.5,
+   "stumble_min_height_mm": 111.4,
+   "sacrificed_legs": [],
+   "gait_valid": true,
+   "lower_fall": null,
+   "lower_height_err_end_mm": 1.4,
+   "lower_ok": true
+  }
+ ],
+ "summary": {
+  "direct": {
+   "episodes": 4,
+   "rise_valid_plant": 4,
+   "rise_failed_pre_handoff": 0,
+   "handoff_falls": 0,
+   "gait_valid": 4,
+   "sacrificed_legs_union": [],
+   "trk_err_band": [
+    0.103,
+    0.111
+   ],
+   "dist_band": [
+    0.435,
+    0.794
+   ],
+   "stumble_tilt_band": [
+    4.5,
+    5.9
+   ],
+   "lower_attempted": 4,
+   "lower_falls": 0,
+   "lower_ok": 4,
+   "lower_height_err_end_mm_band": [
+    -3.7,
+    3.9
+   ]
+  },
+  "plant": {
+   "episodes": 4,
+   "rise_valid_plant": 0,
+   "rise_failed_pre_handoff": 0,
+   "handoff_falls": 0,
+   "gait_valid": 4,
+   "sacrificed_legs_union": [],
+   "trk_err_band": [
+    0.092,
+    0.107
+   ],
+   "dist_band": [
+    0.684,
+    0.842
+   ],
+   "stumble_tilt_band": [
+    4.0,
+    4.5
+   ],
+   "lower_attempted": 4,
+   "lower_falls": 0,
+   "lower_ok": 4,
+   "lower_height_err_end_mm_band": [
+    -6.9,
+    1.4
+   ]
+  }
+ }
+}

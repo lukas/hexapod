@@ -1,0 +1,3 @@
+-rw-r--r-- 1 root root 2462495 Sep 14 18:00 rl_move/sim/policies/ppo_goal_cw_stance50hz_rlonly_currentcap29_s5_klrollback05_acq15m.zip
+-rw-r--r-- 1 root root 5575449 Oct  3 15:47 rl_move/sim/policies/ppo_goal_cw_stance50hz_rlonly_lowerrole_scratch_sac_s3_drramp_holdonly100_acq1.zip
+-rw-r--r-- 1 root root 4469269 Sep 20 22:54 rl_move/sim/policies/ppo_goal_cw_walk50hz_slew_smooth_s0.zip

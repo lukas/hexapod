@@ -1,0 +1,194 @@
+{
+ "stance": "rl_move/sim/policies/ppo_goal_cw_stance50hz_rlonly_currentcap29_s5_klrollback05_acq15m.zip",
+ "walk": "rl_move/sim/policies/ppo_goal_cw_walk50hz_slew_smooth_s0.zip",
+ "walk_recipe": "slew_smooth_s0",
+ "lower": "rl_move/sim/policies/ppo_goal_cw_stance50hz_rlonly_lowerrole_scratch_sac_s3_drramp_holdonly100_acq1.zip",
+ "speed": 0.06,
+ "heading_deg": 180.0,
+ "rot60": true,
+ "lower_rot60": false,
+ "diag_zero_lower_qvel": false,
+ "deterministic": true,
+ "episodes": [
+  {
+   "arm": "direct",
+   "ep": 0,
+   "rise_valid_plant": true,
+   "rise_fail": [],
+   "rise_height_err_mm": 5.5,
+   "fall": null,
+   "trk_err": 0.1046,
+   "dist_m": 0.735,
+   "stumble_max_tilt_deg": 3.9,
+   "stumble_min_height_mm": 114.8,
+   "sacrificed_legs": [],
+   "gait_valid": true,
+   "lower_fall": null,
+   "lower_height_err_end_mm": -22.2,
+   "lower_ok": false
+  },
+  {
+   "arm": "direct",
+   "ep": 1,
+   "rise_valid_plant": true,
+   "rise_fail": [],
+   "rise_height_err_mm": 1.2,
+   "fall": null,
+   "trk_err": 0.1015,
+   "dist_m": 0.753,
+   "stumble_max_tilt_deg": 4.1,
+   "stumble_min_height_mm": 114.7,
+   "sacrificed_legs": [],
+   "gait_valid": true,
+   "lower_fall": "over_current",
+   "lower_height_err_end_mm": -11.8,
+   "lower_ok": false
+  },
+  {
+   "arm": "direct",
+   "ep": 2,
+   "rise_valid_plant": true,
+   "rise_fail": [],
+   "rise_height_err_mm": 3.5,
+   "fall": null,
+   "trk_err": 0.0972,
+   "dist_m": 0.733,
+   "stumble_max_tilt_deg": 5.0,
+   "stumble_min_height_mm": 114.8,
+   "sacrificed_legs": [],
+   "gait_valid": true,
+   "lower_fall": null,
+   "lower_height_err_end_mm": -21.2,
+   "lower_ok": false
+  },
+  {
+   "arm": "direct",
+   "ep": 3,
+   "rise_valid_plant": true,
+   "rise_fail": [],
+   "rise_height_err_mm": -0.9,
+   "fall": null,
+   "trk_err": 0.1141,
+   "dist_m": 0.854,
+   "stumble_max_tilt_deg": 5.7,
+   "stumble_min_height_mm": 114.7,
+   "sacrificed_legs": [],
+   "gait_valid": true,
+   "lower_fall": "tilt_pitch",
+   "lower_height_err_end_mm": -13.7,
+   "lower_ok": false
+  },
+  {
+   "arm": "plant",
+   "ep": 0,
+   "fall": null,
+   "trk_err": 0.1065,
+   "dist_m": 0.684,
+   "stumble_max_tilt_deg": 4.5,
+   "stumble_min_height_mm": 111.4,
+   "sacrificed_legs": [],
+   "gait_valid": true,
+   "lower_fall": null,
+   "lower_height_err_end_mm": -14.6,
+   "lower_ok": true
+  },
+  {
+   "arm": "plant",
+   "ep": 1,
+   "fall": null,
+   "trk_err": 0.1068,
+   "dist_m": 0.767,
+   "stumble_max_tilt_deg": 4.4,
+   "stumble_min_height_mm": 111.3,
+   "sacrificed_legs": [],
+   "gait_valid": true,
+   "lower_fall": "over_current",
+   "lower_height_err_end_mm": -17.8,
+   "lower_ok": false
+  },
+  {
+   "arm": "plant",
+   "ep": 2,
+   "fall": null,
+   "trk_err": 0.1065,
+   "dist_m": 0.684,
+   "stumble_max_tilt_deg": 4.5,
+   "stumble_min_height_mm": 111.4,
+   "sacrificed_legs": [],
+   "gait_valid": true,
+   "lower_fall": null,
+   "lower_height_err_end_mm": -14.6,
+   "lower_ok": true
+  },
+  {
+   "arm": "plant",
+   "ep": 3,
+   "fall": null,
+   "trk_err": 0.1068,
+   "dist_m": 0.842,
+   "stumble_max_tilt_deg": 4.5,
+   "stumble_min_height_mm": 111.4,
+   "sacrificed_legs": [],
+   "gait_valid": true,
+   "lower_fall": "over_current",
+   "lower_height_err_end_mm": -17.4,
+   "lower_ok": false
+  }
+ ],
+ "summary": {
+  "direct": {
+   "episodes": 4,
+   "rise_valid_plant": 4,
+   "rise_failed_pre_handoff": 0,
+   "handoff_falls": 0,
+   "gait_valid": 4,
+   "sacrificed_legs_union": [],
+   "trk_err_band": [
+    0.097,
+    0.114
+   ],
+   "dist_band": [
+    0.733,
+    0.854
+   ],
+   "stumble_tilt_band": [
+    3.9,
+    5.7
+   ],
+   "lower_attempted": 4,
+   "lower_falls": 2,
+   "lower_ok": 0,
+   "lower_height_err_end_mm_band": [
+    -22.2,
+    -11.8
+   ]
+  },
+  "plant": {
+   "episodes": 4,
+   "rise_valid_plant": 0,
+   "rise_failed_pre_handoff": 0,
+   "handoff_falls": 0,
+   "gait_valid": 4,
+   "sacrificed_legs_union": [],
+   "trk_err_band": [
+    0.106,
+    0.107
+   ],
+   "dist_band": [
+    0.684,
+    0.842
+   ],
+   "stumble_tilt_band": [
+    4.4,
+    4.5
+   ],
+   "lower_attempted": 4,
+   "lower_falls": 2,
+   "lower_ok": 2,
+   "lower_height_err_end_mm_band": [
+    -17.8,
+    -14.6
+   ]
+  }
+ }
+}

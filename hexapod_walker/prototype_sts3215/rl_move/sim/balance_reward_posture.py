@@ -32,7 +32,25 @@ def posture_support_load_headroom_reward(env, goal, parts, reward):
                              default=0.0))
     k_even = float(cfg_get(env.cfg, "reward", "k_load_even",
                            default=0.0))
-    if (k_margin > 0.0 or k_even > 0.0):
+    # Stance-COUNT bonus (2026-10-02, walkcurr lower-role terminal-
+    # support forensics item 1's 2nd named-but-unbuilt lever): the
+    # forensics doc found the champion's terminal stance converges to
+    # a FIXED, universal 2-leg (L2+L5) high-current prop in passing
+    # AND failing episodes alike, and that `k_load_even`'s Herfindahl
+    # concentration PRICE (closed, all 3 doses) destabilized the
+    # policy's only stable configuration into tilt failures instead of
+    # discovering a flatter one. This term is a mathematically
+    # different object on purpose: a floor/count BONUS (reward having
+    # MORE than 2 feet above a small per-foot force floor), not a
+    # concentration penalty over the full distribution — softer
+    # pressure toward a wider stance that does not grade the 2-leg
+    # habit itself at all (bonus is exactly 0 there) and does not
+    # punish any one foot for carrying more load, only for having FEW
+    # feet carrying ANY load. Dense, mode-independent (same routing as
+    # k_support_margin/k_load_even). Default 0.0 = feature off.
+    k_count = float(cfg_get(env.cfg, "reward", "k_stance_count",
+                            default=0.0))
+    if (k_margin > 0.0 or k_even > 0.0 or k_count > 0.0):
         skip = int(goal.unload_leg) if (
             goal is not None and goal.unload_leg is not None) else -1
         forces, feet_xy = [], []
@@ -63,6 +81,15 @@ def posture_support_load_headroom_reward(env, goal, parts, reward):
             r_even = -k_even * (hhi - 1.0 / len(forces))
             parts["reward_load_even"] = r_even
             reward += r_even
+        if k_count > 0.0 and len(forces) > 0:
+            floor_n = float(cfg_get(env.cfg, "reward",
+                                    "stance_count_floor_n", default=1.0))
+            n_loaded = int(sum(1 for f in forces if f > floor_n))
+            bonus_n = max(0, n_loaded - 2)
+            r_count = k_count * float(bonus_n)
+            parts["reward_stance_count"] = r_count
+            parts["stance_count_n_loaded"] = float(n_loaded)
+            reward += r_count
     # Per-actuator torque-HEADROOM debt (standwalk track, 2026-09-11 —
     # the structural mechanism named after both `k_current_hot` (dose
     # bracket b23k12/k6/b23k36) and `k_load_even` (dose bracket 2/8/

@@ -554,6 +554,30 @@ def main() -> int:
                          "not a lower-role training defect -- see "
                          "rot60_lower.py's module docstring for the "
                          "full argument.")
+    ap.add_argument("--lower-specialist", type=Path, default=None,
+                    help="OPTIONAL composed sub-controller (2026-10-04, "
+                         "walkcurr/STATUS.md Next 6, lowerrole_"
+                         "terminal_support_forensics_2026-10-02 item 1): "
+                         "a SEPARATELY trained terminal-hold specialist "
+                         "checkpoint (goal.lower_term_bank + "
+                         "goal.lower_term_start_frac=1.0 at train time) "
+                         "that takes over from --lower at a fixed tick "
+                         "(--lower-specialist-switch-s) for the "
+                         "remainder of the lower-phase episode, via "
+                         "two_stage_lower_policy.TwoStageLowerPolicy. "
+                         "Default None = bit-exact single-checkpoint "
+                         "--lower behavior. Requires --lower.")
+    ap.add_argument("--lower-specialist-switch-s", type=float,
+                    default=7.0,
+                    help="wall-clock seconds into the lower-phase "
+                         "episode at which control switches from "
+                         "--lower to --lower-specialist (default 7.0 = "
+                         "the lowerrole_sac_drramp recipe's own fixed "
+                         "goal.lower_hold_s=1.0 + default goal."
+                         "lower_ramp_s=5.0 ramp-completion tick plus a "
+                         "1.0s settle margin -- recompute if either "
+                         "recipe default changes). Ignored when "
+                         "--lower-specialist is unset.")
     ap.add_argument("--diag-zero-lower-qvel", action="store_true",
                     help="DIAGNOSTIC ONLY (default off = bit-exact): "
                          "zero qpos/qvel's velocity component at the "
@@ -662,6 +686,18 @@ def main() -> int:
         walk = Rot60Policy(walk)
     lower = (load_checkpoint_auto(args.lower, device="cpu")
              if args.lower is not None else None)
+    if args.lower_specialist is not None:
+        if lower is None:
+            raise SystemExit("--lower-specialist requires --lower")
+        from .two_stage_lower_policy import TwoStageLowerPolicy
+        specialist = load_checkpoint_auto(args.lower_specialist,
+                                          device="cpu")
+        switch_tick = int(round(args.lower_specialist_switch_s
+                                / env_lower.dt))
+        lower = TwoStageLowerPolicy(lower, specialist,
+                                    switch_tick=switch_tick)
+        print(f"[lower-specialist] {args.lower_specialist} takes over "
+              f"at tick {switch_tick} ({args.lower_specialist_switch_s}s)")
     n_stance = int(stance.observation_space.shape[0])
     n_env_rise = int(env_rise.observation_space.shape[0])
     n_env_walk = int(env_walk.observation_space.shape[0])

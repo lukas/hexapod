@@ -100,6 +100,31 @@ def spawn_pose_q_start(env, start_at):
         qvel_bank = env._lower_start_bank_qvel()
         env._pending_bank_qvel_mj = (
             None if qvel_bank is None else qvel_bank[bi].copy())
+    elif start_at == "lower_term":
+        # Terminal-hold specialist start (2026-10-04, goal.
+        # lower_term_bank/lower_term_start_frac -- UNLIKE every other
+        # bank branch here, the row index is NOT drawn independently:
+        # goal_task.sample() already drew it (env._goal_traj.
+        # term_bank_idx) because the height-ref schedule it built is
+        # flat at THAT row's own recorded target -- an independent draw
+        # here would spawn a pose at the wrong commanded height.
+        bank = env._lower_term_bank()
+        if bank is None:
+            raise RuntimeError(
+                "start_at='lower_term' requires goal.lower_term_bank")
+        bi = int(env._goal_traj.term_bank_idx)
+        if not (0 <= bi < len(bank)):
+            raise RuntimeError(
+                f"start_at='lower_term': term_bank_idx {bi} out of "
+                f"range for a bank of {len(bank)} rows")
+        q_start = bank[bi].copy()
+        q_start += env.rng.uniform(-2.0, 2.0, N_JOINTS) * DEG2RAD
+        if env._ep_rand is not None:
+            q_start = q_start + env._ep_rand.start_offset_rad
+        q_start = env._clip_to_joint_limits(q_start)
+        qvel_bank = env._lower_term_bank_qvel()
+        env._pending_bank_qvel_mj = (
+            None if qvel_bank is None else qvel_bank[bi].copy())
     elif start_at == "hold_bank":
         # Composed-session HOLD entry start (2026-09-25, goal.
         # hold_start_bank -- goal_task.sample()'s "hold" branch

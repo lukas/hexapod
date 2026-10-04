@@ -2051,6 +2051,45 @@ class SimHexapodBalanceEnv(_GymBase):
         self._lower_start_bank()
         return self._lower_bank_qvel_cache
 
+    def _lower_term_bank(self) -> np.ndarray | None:
+        """Harvested post-ramp CONVERGED lower-hold poses (2026-10-04,
+        goal.lower_term_bank/lower_term_start_frac -- the terminal-hold
+        specialist analogue of _lower_start_bank, see goal_task.py's
+        GoalGenerator docstring for the full rationale). Same lazy-cache
+        contract; the companion ``target_m`` array is loaded
+        independently by GoalGenerator._term_bank_targets() (no env
+        handle there) -- this method only owns q_rad/qvel_mujoco, the
+        two arrays spawn_pose_q_start actually needs."""
+        if hasattr(self, "_lower_term_bank_cache"):
+            return self._lower_term_bank_cache
+        path = cfg_get(self.cfg, "goal", "lower_term_bank", default=None)
+        bank, qvel_bank = None, None
+        if path:
+            arr, npz = _load_robot_abs_q_npz(
+                str(path), source="lower_term_bank")
+            if arr.ndim != 2 or arr.shape[1] != N_JOINTS or len(arr) == 0:
+                raise ValueError(
+                    f"lower_term_bank {path}: expected (K,{N_JOINTS}) "
+                    f"q_rad, got {arr.shape}")
+            bank = arr
+            if "qvel_mujoco" in npz.files:
+                qvel_bank = np.asarray(npz["qvel_mujoco"], dtype=float)
+                if qvel_bank.shape != bank.shape:
+                    npz.close()
+                    raise ValueError(
+                        f"lower_term_bank {path}: qvel_mujoco shape "
+                        f"{qvel_bank.shape} != q_rad shape {bank.shape}")
+            npz.close()
+        self._lower_term_bank_cache = bank
+        self._lower_term_bank_qvel_cache = qvel_bank
+        return bank
+
+    def _lower_term_bank_qvel(self) -> np.ndarray | None:
+        """Companion qvel array for _lower_term_bank (see
+        _lower_start_bank_qvel)."""
+        self._lower_term_bank()
+        return self._lower_term_bank_qvel_cache
+
     def _hold_start_bank(self) -> np.ndarray | None:
         """Harvested composed-session hold-entry poses (2026-09-25,
         goal.hold_start_bank/hold_start_bank_frac; same lazy-cache

@@ -75,6 +75,11 @@ class GoalTrajectory:
     # start joints (0 = belly-flat zero pose, 1 = full crouch). Bridge
     # starts for the rise reverse-curriculum.
     start_curl: float = 0.0
+    # start_at="lower_term" only: which row of goal.lower_term_bank this
+    # episode drew (the height schedule above and balance_reset's spawn
+    # pose must agree on the SAME row -- see lower_term_bank docstring).
+    # -1 = unset/not applicable, the only value any other start_at uses.
+    term_bank_idx: int = -1
 
     def at(self, step: int) -> TaskGoal:
         i = min(max(step, 0), len(self.roll) - 1)
@@ -253,6 +258,37 @@ class GoalGenerator:
         self.lower_start_bank = str(g.get("lower_start_bank", "") or "")
         self.lower_start_bank_frac = float(
             g.get("lower_start_bank_frac", 0.0))
+        # Terminal-hold specialist start bank (2026-10-04, walkcurr
+        # lowerrole_terminal_support_forensics_2026-10-02 item 1 /
+        # STATUS Next 6 "composed sub-controller dedicated to the
+        # terminal-hold phase"): unlike lower_start_bank above (whose
+        # harvested poses are "standing-height-ish", a mid-descent
+        # walk-exit substitute for the plant spawn, keeping the normal
+        # full ramp-down height schedule), this bank holds ALREADY-
+        # CONVERGED post-ramp terminal poses (q_rad + qvel_mujoco +
+        # target_m, harvested by harvest_lower_term_bank.py from a
+        # trained lower champion's own successful rollouts) paired
+        # 1:1 with the exact height-ref target each row was captured
+        # at. With probability goal.lower_term_start_frac the episode
+        # spawns AT that row (start_at="lower_term") with a height ref
+        # FLAT at the row's own target_m for the WHOLE episode (no
+        # pre-descent hold, no ramp) -- isolated practice at only the
+        # long post-ramp HOLD sub-skill, decoupled from the ramp-down
+        # dynamics that destabilized every reward-pricing lever tried
+        # against the converged 2-leg(L2+L5) terminal-support habit in
+        # situ (k_current_hot/k_load_even/k_stance_count, all CLOSED).
+        # Default 0.0/"" = feature off, bit-exact (conditional draw,
+        # same lower_start_bank_frac convention). The row index is
+        # drawn HERE (not in balance_reset's spawn_pose_q_start, unlike
+        # every other bank) and stashed on the trajectory
+        # (term_bank_idx) because, uniquely to this bank, the pose AND
+        # the height-ref schedule must agree on which row -- drawing
+        # twice independently (as lower_bank's "standing-height-ish"
+        # contract tolerates) would mismatch pose vs commanded target.
+        self.lower_term_bank = str(g.get("lower_term_bank", "") or "")
+        self.lower_term_start_frac = float(
+            g.get("lower_term_start_frac", 0.0))
+        self._term_bank_target_cache: np.ndarray | None = None
         # Slow on purpose: "gently, without banging" is the task. The
         # tracking kernel penalizes running ahead of the ramp, so a
         # 5 s descent IS the gentleness constraint. Exposed as a cfg
@@ -419,6 +455,33 @@ class GoalGenerator:
         return {"frac": f, "flat_frac": self.rise_flat_frac,
                 "partial_frac": self.rise_partial_frac}
 
+    def _term_bank_targets(self) -> np.ndarray:
+        """Lazy-load+cache ``target_m`` from ``goal.lower_term_bank``
+        (the companion height-ref array to the q_rad/qvel_mujoco rows
+        env._lower_term_bank() separately loads for the actual spawn
+        pose -- see that method's docstring for why the two loads are
+        kept independent). Only ever called when lower_term_start_frac
+        > 0 and a path is configured (the sample()-site caller already
+        short-circuits), so an unset run never touches this."""
+        if self._term_bank_target_cache is not None:
+            return self._term_bank_target_cache
+        npz = np.load(self.lower_term_bank)
+        try:
+            if "target_m" not in npz.files:
+                raise ValueError(
+                    f"lower_term_bank {self.lower_term_bank}: missing "
+                    "target_m array (re-harvest with "
+                    "harvest_lower_term_bank.py)")
+            arr = np.asarray(npz["target_m"], dtype=float)
+        finally:
+            npz.close()
+        if arr.ndim != 1 or len(arr) == 0:
+            raise ValueError(
+                f"lower_term_bank {self.lower_term_bank}: target_m "
+                f"must be 1-D non-empty, got {arr.shape}")
+        self._term_bank_target_cache = arr
+        return arr
+
     @staticmethod
     def _jittered_s(rng: np.random.Generator, base_s: float,
                     jitter: float) -> float:
@@ -578,6 +641,7 @@ class GoalGenerator:
         height = np.zeros(n_steps)
         unload_leg: int | None = None
         start_at = "plant"
+        term_bank_idx = -1
         ramp = self._ramp(n_steps, dt)
         if mode == "lean":
             roll = rng.uniform(-self.max_roll, self.max_roll) * ramp
@@ -631,9 +695,26 @@ class GoalGenerator:
             # code — same class of shift as any new sampled feature).
             belly = rng.random() < float(getattr(
                 self, "lower_belly_start_frac", 0.0))
+            # Terminal-hold specialist start (see lower_term_bank/
+            # lower_term_start_frac docstring above). Conditional draw
+            # (bank path + frac>0 only, same short-circuit convention
+            # as lower_start_bank_frac) so an unset run's rng stream is
+            # untouched.
+            term_bank_path = str(getattr(self, "lower_term_bank", "")
+                                 or "")
+            term_frac = float(getattr(self, "lower_term_start_frac",
+                                      0.0))
+            term = (bool(term_bank_path) and term_frac > 0.0
+                   and rng.random() < term_frac)
             if belly:
                 start_at = "zero"
                 height = np.zeros(n_steps)
+            elif term:
+                targets = self._term_bank_targets()
+                term_bank_idx = int(rng.integers(len(targets)))
+                target = float(targets[term_bank_idx])
+                start_at = "lower_term"
+                height = np.full(n_steps, target)
             else:
                 target = -rng.uniform(*self.lower_m)
                 hold_n = max(1, int(round(self.lower_hold_s / dt)))
@@ -774,7 +855,8 @@ class GoalGenerator:
                               height=height, unload_leg=unload_leg,
                               lift_legs=lift_legs,
                               start_at=start_at, crouch_dz=crouch_dz,
-                              start_curl=start_curl)
+                              start_curl=start_curl,
+                              term_bank_idx=term_bank_idx)
 
 
 class SimHexapodGoalEnv(SimHexapodBalanceEnv):

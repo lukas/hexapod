@@ -206,6 +206,30 @@ def _build_arg_parser() -> argparse.ArgumentParser:
                          "'post_lower' for rise_start_bank, "
                          "'post_rise_hold' for hold_start_bank, 'bank' "
                          "for walk_entry_bank)")
+    ap.add_argument("--recurrent-sac", action="store_true",
+                    help="--algo sac only: from-scratch GRU actor+critic "
+                         "(recurrent_sac.RecurrentSAC) with a REAL hidden "
+                         "state threaded across real rollout ticks "
+                         "(reset at episode boundaries), trained via "
+                         "zero-start truncated BPTT over a sequence-aware "
+                         "replay buffer (see recurrent_sac.py module "
+                         "docstring). From-scratch only in v1: refuses "
+                         "--init-from. Ignores --net-arch/--activation-fn "
+                         "(its own --rsac-hidden-size is the one "
+                         "architecture knob) and --sac-bank-downweight "
+                         "(incompatible replay-buffer class). Default "
+                         "off; plain --algo sac is unaffected.")
+    ap.add_argument("--rsac-hidden-size", type=int, default=128,
+                    help="--recurrent-sac: GRU hidden units (actor and "
+                         "each of the twin critics get their OWN, "
+                         "independent single-layer GRUCell of this size)")
+    ap.add_argument("--rsac-seq-len", type=int, default=16,
+                    help="--recurrent-sac: training window length in "
+                         "ticks (zero-start truncated BPTT -- see module "
+                         "docstring's 'zero-start' simplification note; "
+                         "default 16 = 0.32s at 50Hz, matching the "
+                         "closed obs.history_frames=16 probe's window "
+                         "for a clean comparison)")
     # Update-path protection (08-17, operator-approved
     # fb_20260817T005114 after the scratch3 late-run collapse; all
     # default OFF = legacy single-group optimizer, bit-exact).
@@ -1190,6 +1214,45 @@ def _build_sac_model(args, venv, net_arch, extra_pk, tb_dir):
     transitions in the .zip) -- only the actor/critic/entropy weights
     transfer; ``learning_starts`` still gates the first gradient step.
     """
+    if getattr(args, "recurrent_sac", False):
+        if args.init_from is not None:
+            raise SystemExit("--recurrent-sac is from-scratch only "
+                             "(v1): drop --init-from")
+        if float(getattr(args, "sac_bank_downweight", 1.0)) < 1.0:
+            raise SystemExit("--recurrent-sac is incompatible with "
+                             "--sac-bank-downweight (SequenceReplayBuffer "
+                             "is a different replay-buffer class)")
+        from rl_move.sim.recurrent_sac import RecurrentSAC, RecurrentSACPolicy
+        _sac_ent = args.sac_ent_coef
+        try:
+            _sac_ent = float(_sac_ent)
+        except (TypeError, ValueError):
+            pass
+        model = RecurrentSAC(
+            RecurrentSACPolicy, venv,
+            buffer_size=args.sac_buffer_size,
+            batch_size=args.batch_size,
+            learning_rate=args.lr,
+            gamma=(0.99 if args.gamma is None else args.gamma),
+            tau=args.sac_tau,
+            train_freq=(args.sac_train_freq, "step"),
+            gradient_steps=args.sac_gradient_steps,
+            learning_starts=args.sac_learning_starts,
+            ent_coef=_sac_ent,
+            seq_len=args.rsac_seq_len,
+            policy_kwargs=dict(hidden_size=args.rsac_hidden_size),
+            seed=args.seed, verbose=1, device=args.device,
+            tensorboard_log=tb_dir)
+        print(f"[mjx-train] recurrent SAC (GRU actor+critic, from-"
+              f"scratch): hidden_size={args.rsac_hidden_size} "
+              f"seq_len={args.rsac_seq_len} buffer "
+              f"{args.sac_buffer_size:,}, train_freq "
+              f"{args.sac_train_freq} vec-step(s) x {venv.num_envs} "
+              f"envs, grad_steps {args.sac_gradient_steps}, "
+              f"learning_starts {args.sac_learning_starts:,}, ent_coef "
+              f"{args.sac_ent_coef}, tau {args.sac_tau}, batch "
+              f"{args.batch_size}")
+        return model
     from stable_baselines3 import SAC
     _sac_ent = args.sac_ent_coef
     try:
@@ -2882,6 +2945,8 @@ def main(argv: list[str] | None = None) -> int:
                              "checkpoint's own activation")
         extra_pk["activation_fn"] = _activation_fn(args.activation_fn)
         print(f"[mjx-train] MLP activation: {args.activation_fn}")
+    if args.recurrent_sac and args.algo != "sac":
+        raise SystemExit("--recurrent-sac requires --algo sac")
     if args.algo == "sac":
         # Plain-MLP from-scratch OR plain-full-checkpoint warm start only
         # (walkcurr turn-sequencing follow-up, 2026-09-24: SAC.load() over

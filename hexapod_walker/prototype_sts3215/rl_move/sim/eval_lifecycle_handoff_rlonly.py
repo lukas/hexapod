@@ -676,7 +676,7 @@ def main() -> int:
         FRAME_ROBOT_ABS, JOINT_CONTRACT, mujoco_rel_rad_to_robot_abs_deg,
     )
     from rl_move.env import build_obs
-    from .gru_policy import load_checkpoint_auto
+    from .gru_policy import load_checkpoint_auto, wrap_recurrent_predictor
     if args.walk_recipe == "slew_smooth_s0":
         from .cfg_recipe_walk50hz_slew_smooth_s0 import (
             CFG_ARGS as WALK_CFG_ARGS,
@@ -715,19 +715,34 @@ def main() -> int:
         lower_joint_limit_rad = env_lower.model.jnt_range[
             joint_ids(env_lower.model)].copy()
 
-    stance = load_checkpoint_auto(args.stance, device="cpu")
-    walk = load_checkpoint_auto(args.walk, device="cpu")
+    # wrap_recurrent_predictor is a no-op passthrough for every plain
+    # (feedforward) checkpoint this harness has ever been pointed at;
+    # it only activates (threading a real hidden state across this
+    # episode's ticks, reset at episode start via the hasattr(reset)
+    # checks already below) for a recurrent (GRU) stance/walk/lower/
+    # specialist checkpoint -- the lower role's recurrent-SAC lineage
+    # (recurrent_sac.py, 2026-10-04) is the first one that needs this;
+    # stance/walk were never previously wrapped here (a latent
+    # "lobotomy" gap for a hypothetical recurrent stance/walk
+    # checkpoint, same bug class RecurrentPredictor's own docstring
+    # warns about elsewhere) -- fixed for free, zero behavior change
+    # for any existing feedforward checkpoint.
+    stance = wrap_recurrent_predictor(
+        load_checkpoint_auto(args.stance, device="cpu"))
+    walk = wrap_recurrent_predictor(
+        load_checkpoint_auto(args.walk, device="cpu"))
     if args.rot60:
         from .rot60 import Rot60Policy
         walk = Rot60Policy(walk)
-    lower = (load_checkpoint_auto(args.lower, device="cpu")
+    lower = (wrap_recurrent_predictor(
+                load_checkpoint_auto(args.lower, device="cpu"))
              if args.lower is not None else None)
     if args.lower_specialist is not None:
         if lower is None:
             raise SystemExit("--lower-specialist requires --lower")
         from .two_stage_lower_policy import TwoStageLowerPolicy
-        specialist = load_checkpoint_auto(args.lower_specialist,
-                                          device="cpu")
+        specialist = wrap_recurrent_predictor(load_checkpoint_auto(
+            args.lower_specialist, device="cpu"))
         switch_tick = int(round(args.lower_specialist_switch_s
                                 / env_lower.dt))
         lower = TwoStageLowerPolicy(lower, specialist,

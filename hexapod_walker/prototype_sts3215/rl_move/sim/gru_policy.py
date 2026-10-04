@@ -1891,7 +1891,16 @@ def load_checkpoint_auto(path: str | Path, device: str = "cpu", env=None):
     """
     cls = None
     kwargs = dict(env=env, device=device)
-    if is_sac_checkpoint(path):
+    from .recurrent_sac import is_recurrent_sac_checkpoint
+    if is_recurrent_sac_checkpoint(path):
+        # MUST be checked before is_sac_checkpoint: RecurrentSACPolicy
+        # is its own BasePolicy subclass (not a stable_baselines3.sac.
+        # policies.SACPolicy subclass), so is_sac_checkpoint(path) is
+        # False for it anyway -- this ordering just documents the
+        # precedence explicitly rather than relying on that accident.
+        from .recurrent_sac import RecurrentSAC
+        cls = RecurrentSAC
+    elif is_sac_checkpoint(path):
         from stable_baselines3 import SAC
         cls = SAC
     elif is_recurrent_checkpoint(path):

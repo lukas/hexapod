@@ -97,7 +97,7 @@ from pathlib import Path
 import numpy as np
 
 from rl_move.config import cfg_get
-from rl_move.robot_state import N_JOINTS, over_current_reading
+from rl_move.robot_state import DEG2RAD, N_JOINTS, over_current_reading
 
 PHASE_A_S = 12.5     # stance rise+settle horizon (mirrors eval_handoff.py)
 STUMBLE_S = 2.0
@@ -633,12 +633,48 @@ def main() -> int:
                          "run (minloadlower-acq1) was verdicted and not "
                          "adopted, but this trace tool stays generically "
                          "useful for any future load-based candidate.")
+    ap.add_argument("--term-bank-harvest-out", type=Path, default=None,
+                    help="DIAGNOSTIC/DATA-COLLECTION ONLY (default None "
+                         "= off, zero extra cost/behavior change when "
+                         "unset): harvest a `goal.lower_term_bank`-"
+                         "compatible npz (q_rad robot_abs, qvel_mujoco, "
+                         "target_m -- same format as harvest_lower_"
+                         "term_bank.py's output) from THIS composed "
+                         "rise->walk->lower run's own REAL per-tick "
+                         "trajectory, instead of an isolated standalone "
+                         "lower-only episode. Samples every --term-bank-"
+                         "sample-every-s seconds starting at --lower-"
+                         "specialist-switch-s (the same tick a two-stage "
+                         "specialist would take over) through episode "
+                         "end, from every episode (both arms) that ends "
+                         "lower_ok, using whatever --lower checkpoint is "
+                         "driving (do NOT also pass --lower-specialist "
+                         "when harvesting -- the point is to capture the "
+                         "champion's OWN genuine composed post-switch-"
+                         "tick trajectory, not a specialist's). Fixes "
+                         "the termspecialist-sac-s0-canary2m CANARY FAIL "
+                         "- MECHANISM root cause (2026-10-04): the "
+                         "original harvest_lower_term_bank.py draws "
+                         "states from an ISOLATED lower-only episode "
+                         "(no walk handoff) at t>=7.5s, while the "
+                         "composed eval switches control at t=7.0s -- "
+                         "both a different entry-state distribution AND "
+                         "a tick the old bank never covered at all.")
+    ap.add_argument("--term-bank-sample-every-s", type=float, default=0.3,
+                    help="sampling period for --term-bank-harvest-out "
+                         "(default 0.3s, matches harvest_lower_term_"
+                         "bank.py's own default)")
     args = ap.parse_args()
     if args.lower_rot60 and not (args.rot60 and args.lower is not None):
         ap.error("--lower-rot60 requires both --rot60 and --lower")
+    if args.term_bank_harvest_out is not None and args.lower is None:
+        ap.error("--term-bank-harvest-out requires --lower")
 
     import mujoco
 
+    from hexapod_core.joint_frame import (
+        FRAME_ROBOT_ABS, JOINT_CONTRACT, mujoco_rel_rad_to_robot_abs_deg,
+    )
     from rl_move.env import build_obs
     from .gru_policy import load_checkpoint_auto
     if args.walk_recipe == "slew_smooth_s0":
@@ -812,6 +848,11 @@ def main() -> int:
                       env_lower._prev_action, goal=env_lower._current_goal(),
                       tilt_ref=env_lower._tilt_ref0), reset=True)
 
+    term_bank_all_q: list = []
+    term_bank_all_qvel: list = []
+    term_bank_all_target: list = []
+    term_bank_episodes_ok = [0]
+
     def lower_phase(state: PhysicalState, name: str = "ep") -> dict:
         """Drive the `lower` role for its own full trained episode
         length starting from the walk episode's ending physical state.
@@ -848,6 +889,7 @@ def main() -> int:
         info: dict = {}
         want_trace = args.current_trace_dir is not None
         want_minload = args.minload_trace_dir is not None
+        want_term_bank = args.term_bank_harvest_out is not None
         minload_floor_n = float(cfg_get(
             env_lower.cfg, "safety", "hold_min_load_terminate_n",
             default=0.3))
@@ -860,12 +902,32 @@ def main() -> int:
         perleg_force_trace: list = []
         minload_qpos_trace: list = []
         minload_qvel_trace: list = []
+        term_bank_q_rows: list = []
+        term_bank_qvel_rows: list = []
+        term_bank_target_rows: list = []
+        term_bank_next_sample_s = args.lower_specialist_switch_s
         n_steps = max(1, int(round(args.lower_episode_s / env_lower.dt)))
         for _ in range(n_steps):
             a, _ = lower_model.predict(obs[:n_lower],
                                        deterministic=deterministic)
             obs, _rw, term, trunc, info = env_lower.step(a)
             grab(env_lower)
+            if want_term_bank:
+                t_lower = env_lower._step_i * env_lower.dt
+                if (t_lower >= term_bank_next_sample_s
+                        and t_lower < args.lower_episode_s):
+                    q_deg = mujoco_rel_rad_to_robot_abs_deg(
+                        env_lower.data.qpos[env_lower._qadr])
+                    term_bank_q_rows.append(
+                        np.asarray(q_deg, dtype=float))
+                    term_bank_qvel_rows.append(
+                        np.asarray(env_lower.data.qvel[env_lower._vadr],
+                                  dtype=float))
+                    term_bank_target_rows.append(float(
+                        env_lower._goal_traj.height[min(
+                            env_lower._step_i,
+                            len(env_lower._goal_traj.height) - 1)]))
+                    term_bank_next_sample_s += args.term_bank_sample_every_s
             if want_minload:
                 minforce_trace.append(
                     env_lower._minload_min_force_now(minload_floor_n))
@@ -931,6 +993,11 @@ def main() -> int:
             out = args.current_trace_dir / f"{name}_{lower_fall}.json"
             out.write_text(json.dumps(dump))
         lower_ok = (not term) and abs(h_err_mm) <= 15.0
+        if want_term_bank and lower_ok and term_bank_q_rows:
+            term_bank_all_q.extend(term_bank_q_rows)
+            term_bank_all_qvel.extend(term_bank_qvel_rows)
+            term_bank_all_target.extend(term_bank_target_rows)
+            term_bank_episodes_ok[0] += 1
         if want_minload and minforce_trace:
             minload_dump = {
                 "name": name, "lower_fall": lower_fall,
@@ -1135,6 +1202,35 @@ def main() -> int:
               f"{d_low_ok}/{d_low} ok, {d_low_falls} falls "
               f"(err band {direct.get('lower_height_err_end_mm_band')})"
               if d_low else "NOT ATTEMPTED (walk phase itself fell)")
+    if args.term_bank_harvest_out is not None:
+        if not term_bank_all_q:
+            raise RuntimeError(
+                "--term-bank-harvest-out: harvested zero rows -- no "
+                "lower_ok composed episode reached the "
+                "--lower-specialist-switch-s sample window")
+        q_deg_arr = np.stack(term_bank_all_q, axis=0)
+        qvel_arr = np.stack(term_bank_all_qvel, axis=0)
+        target_arr = np.asarray(term_bank_all_target, dtype=float)
+        if q_deg_arr.shape[1] != N_JOINTS or qvel_arr.shape != q_deg_arr.shape:
+            raise ValueError(
+                f"shape mismatch: q_deg {q_deg_arr.shape}, qvel "
+                f"{qvel_arr.shape}, expected (K,{N_JOINTS}) both")
+        args.term_bank_harvest_out.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(args.term_bank_harvest_out,
+                 q_rad=q_deg_arr * DEG2RAD, qvel_mujoco=qvel_arr,
+                 target_m=target_arr, joint_frame=FRAME_ROBOT_ABS,
+                 joint_contract=JOINT_CONTRACT,
+                 source_lower=str(args.lower),
+                 source_composed=True,
+                 switch_s=args.lower_specialist_switch_s,
+                 episodes=2 * args.episodes,
+                 episodes_ok=term_bank_episodes_ok[0],
+                 sample_every_s=args.term_bank_sample_every_s)
+        print(f"wrote {args.term_bank_harvest_out}: {q_deg_arr.shape[0]} "
+              f"rows from {term_bank_episodes_ok[0]}/{2 * args.episodes} "
+              f"lower_ok composed episode(s) (both arms, real "
+              f"rise->walk->lower trajectories, sampled from t>="
+              f"{args.lower_specialist_switch_s}s)")
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(json.dumps(results, indent=1))

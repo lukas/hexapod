@@ -253,28 +253,6 @@ class GoalGenerator:
         self.lower_start_bank = str(g.get("lower_start_bank", "") or "")
         self.lower_start_bank_frac = float(
             g.get("lower_start_bank_frac", 0.0))
-        # HOLD-PHASE-ONLY curriculum (2026-10-02, lowerrole terminal-
-        # support forensics item 1: `lowerrole_terminal_support_
-        # forensics_2026-10-02/SUMMARY.md` found the champion's
-        # terminal stance is a FIXED universal 2-leg (L2+L5) high-
-        # current prop present identically in passing and failing
-        # episodes — a converged habit, not a per-episode mistake —
-        # and named weak credit assignment on the long post-ramp HOLD
-        # sub-skill (diluted across the preceding descent every
-        # episode) as an untried, unbuilt lever, the `rise_from_h`
-        # "stand up from where you are" trick applied to lower/hold
-        # instead of rise). With probability lower_hold_only_frac, a
-        # (non-belly) lower episode skips the descent ramp entirely and
-        # starts ALREADY at the full target depth, height ref flat at
-        # target for the WHOLE episode — concentrated, undiluted
-        # practice at exactly the sustained-hold sub-skill. Default 0.0
-        # = feature off; the draw is CONDITIONAL (only taken when this
-        # key is configured, same convention as lower_start_bank_frac
-        # above) so an off/legacy lineage's rng stream is byte-for-byte
-        # untouched. Mutually exclusive with lower_partial_frac/
-        # lower_start_bank below (decided first, per-episode).
-        self.lower_hold_only_frac = float(
-            g.get("lower_hold_only_frac", 0.0))
         # Slow on purpose: "gently, without banging" is the task. The
         # tracking kernel penalizes running ahead of the ramp, so a
         # 5 s descent IS the gentleness constraint. Exposed as a cfg
@@ -658,46 +636,33 @@ class GoalGenerator:
                 height = np.zeros(n_steps)
             else:
                 target = -rng.uniform(*self.lower_m)
-                # goal.lower_hold_only_frac (see __init__ docstring):
-                # decided FIRST, before any of the ramp/partial/bank
-                # machinery below, and its draw is CONDITIONAL (only
-                # taken when configured) so an off lineage's stream is
-                # untouched from this point on.
-                hold_only = False
-                if self.lower_hold_only_frac > 0.0:
-                    hold_only = rng.random() < self.lower_hold_only_frac
-                if hold_only:
+                hold_n = max(1, int(round(self.lower_hold_s / dt)))
+                ramp_n = max(1, int(round(self._jittered_s(
+                    rng, self.lower_ramp_s, self.lower_ramp_jitter)
+                    / dt)))
+                # Mid-descent draw (unconditional, see lower_partial_
+                # frac above): a fraction of THIS episode's own target
+                # depth, so the start pose and the ref it resumes from
+                # match exactly (no tracking-error jump at reset).
+                lower_partial = rng.random() < float(
+                    self.lower_partial_frac)
+                lower_partial_pf = float(rng.uniform(
+                    self.lower_partial_min_frac,
+                    self.lower_partial_max_frac))
+                if lower_partial:
                     start_at = "crouch"
-                    lower_partial_depth = -target
+                    lower_partial_depth = lower_partial_pf * (-target)
                     height = np.full(n_steps, target)
+                    height[:hold_n] = -lower_partial_depth
+                    end = min(hold_n + ramp_n, n_steps)
+                    height[hold_n:end] = np.linspace(
+                        -lower_partial_depth, target, end - hold_n)
                 else:
-                    hold_n = max(1, int(round(self.lower_hold_s / dt)))
-                    ramp_n = max(1, int(round(self._jittered_s(
-                        rng, self.lower_ramp_s, self.lower_ramp_jitter)
-                        / dt)))
-                    # Mid-descent draw (unconditional, see lower_partial_
-                    # frac above): a fraction of THIS episode's own target
-                    # depth, so the start pose and the ref it resumes from
-                    # match exactly (no tracking-error jump at reset).
-                    lower_partial = rng.random() < float(
-                        self.lower_partial_frac)
-                    lower_partial_pf = float(rng.uniform(
-                        self.lower_partial_min_frac,
-                        self.lower_partial_max_frac))
-                    if lower_partial:
-                        start_at = "crouch"
-                        lower_partial_depth = lower_partial_pf * (-target)
-                        height = np.full(n_steps, target)
-                        height[:hold_n] = -lower_partial_depth
-                        end = min(hold_n + ramp_n, n_steps)
-                        height[hold_n:end] = np.linspace(
-                            -lower_partial_depth, target, end - hold_n)
-                    else:
-                        height = np.full(n_steps, target)
-                        height[:hold_n] = 0.0
-                        end = min(hold_n + ramp_n, n_steps)
-                        height[hold_n:end] = np.linspace(
-                            0.0, target, end - hold_n)
+                    height = np.full(n_steps, target)
+                    height[:hold_n] = 0.0
+                    end = min(hold_n + ramp_n, n_steps)
+                    height[hold_n:end] = np.linspace(
+                        0.0, target, end - hold_n)
                 # Composed-session LOWER entry exposure (2026-09-23,
                 # standwalk STATUS ~18:3x, same finding/mechanism class
                 # as goal.rise_start_bank/goal.walk_entry_bank above:
@@ -721,7 +686,7 @@ class GoalGenerator:
                                 or "")
                 bank_frac = float(getattr(self, "lower_start_bank_frac",
                                           0.0))
-                if (not hold_only and bank_path and bank_frac > 0.0
+                if (bank_path and bank_frac > 0.0
                         and rng.random() < bank_frac):
                     start_at = "lower_bank"
         crouch_dz = 0.0

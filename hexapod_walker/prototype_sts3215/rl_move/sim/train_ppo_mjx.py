@@ -2538,6 +2538,52 @@ def main(argv: list[str] | None = None) -> int:
                   "— the policy will NEVER train at the full DR "
                   "ranges in this run")
 
+    # CURRENT-MARGIN RAMP (2026-10-05, walkcurr lower-role L2+L5
+    # terminal-support over_current habit -- see SafetyLayer.__init__'s
+    # safety.max_current_ramp_steps block for the mechanism/why: every
+    # reward/observation/trajectory/action-space/architecture lever on
+    # this exact failure is closed; this is the untried MARGIN axis,
+    # same trainer-driven shape as the proven dr-stage-ramp fix above.
+    _cm_ramp_steps = 0
+    if env_kw.get("cfg") is not None:
+        from rl_move.config import cfg_get as _cfg_get_cm
+        _cm_ramp_steps = int(float(_cfg_get_cm(
+            env_kw["cfg"], "safety", "max_current_ramp_steps",
+            default=0) or 0))
+
+    def _cm_frac_at(step: int) -> float:
+        return min(1.0, float(step) / float(_cm_ramp_steps))
+
+    _cm_last = {"frac": None}
+
+    def _cm_ramp_apply(target_venv, step: int) -> dict | None:
+        """Broadcast the current-margin frac for ``step`` to every env.
+        No pool flush needed -- the ramp only moves a termination
+        threshold, never the reset distribution. No-op when the ramp
+        is off or the quantized frac is unchanged since the last
+        broadcast."""
+        if _cm_ramp_steps <= 0:
+            return None
+        f = round(_cm_frac_at(step), 4)
+        if _cm_last["frac"] == f:
+            return None
+        max_current_a = target_venv.env_method(
+            "apply_current_margin_frac", f)[0]
+        _cm_last["frac"] = f
+        return {"frac": f, "max_current_a": max_current_a}
+
+    if _cm_ramp_steps > 0:
+        s0 = _cm_ramp_apply(venv, 0)
+        print(f"[current-margin-ramp] armed: {_cm_ramp_steps:,} global "
+              "env steps from a wide over-current trip threshold down "
+              f"to the real safety.max_current_a; step-0 threshold="
+              f"{s0['max_current_a']:.2f}A")
+        if _cm_ramp_steps >= args.steps:
+            print("[current-margin-ramp] WARNING: "
+                  f"safety.max_current_ramp_steps ({_cm_ramp_steps:,}) "
+                  f">= --steps ({args.steps:,}) — the policy will "
+                  "NEVER train at the real current margin in this run")
+
     # RISE start-distribution RAMP (2026-09-14, walkcurr flat-start
     # rise over_current gap — see goal_task.py's GoalGenerator.
     # __init__ block for the mechanism/why: the cap-based action-
@@ -4010,6 +4056,40 @@ def main(argv: list[str] | None = None) -> int:
                         "dr_stage_ramp/fault_prob": vals["fault_prob"]})
 
         callbacks.append(_DrStageRampCb())
+    if _cm_ramp_steps > 0:
+        class _CurrentMarginRampCb(BaseCallback):
+            """Advance the current-margin ramp once per rollout (see
+            the arming block after venv construction). Broadcasts only
+            on quantized-frac change. Stops after 1.0 is applied. W&B
+            gets the live threshold under current_margin_ramp/*."""
+
+            def __init__(self):
+                super().__init__()
+                self._finished = False
+
+            def _on_step(self) -> bool:
+                return True
+
+            def _on_rollout_end(self) -> None:
+                if self._finished:
+                    return
+                vals = _cm_ramp_apply(venv, self.num_timesteps)
+                if vals is None:
+                    return
+                if vals["frac"] >= 1.0:
+                    self._finished = True
+                    print("[current-margin-ramp] ramp complete @ "
+                          f"{self.num_timesteps:,} steps — training "
+                          "at the real current margin from here on")
+                if run is not None:
+                    import wandb
+                    wandb.log({
+                        "global_step": self.num_timesteps,
+                        "current_margin_ramp/frac": vals["frac"],
+                        "current_margin_ramp/max_current_a":
+                            vals["max_current_a"]})
+
+        callbacks.append(_CurrentMarginRampCb())
     if _rs_ramp_steps > 0:
         class _RiseStartRampCb(BaseCallback):
             """Advance the rise start-pose ramp once per rollout (see

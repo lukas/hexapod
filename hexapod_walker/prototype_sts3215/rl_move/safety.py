@@ -178,6 +178,53 @@ class SafetyLayer:
         self.max_temp = float(cfg_get(cfg, "safety", "max_temp_c", default=65))
         self.max_current = float(
             cfg_get(cfg, "safety", "max_current_a", default=2.5))
+        # CURRENT-MARGIN RAMP (2026-10-05, walkcurr lower-role L2+L5
+        # terminal-support over_current habit -- see lowerrole_
+        # terminal_support_forensics_2026-10-02/SUMMARY.md: per-leg
+        # force magnitudes on the converged 2-leg terminal stance are
+        # IDENTICAL in passing vs over_current-failing episodes; the
+        # trip is "fine-grained per-tick control-noise/dwell variance
+        # around a narrow safety margin", not a bad stance choice.
+        # Every reward-pricing (k_current_hot/k_load_even/
+        # k_stance_count), observation (current_sense), trajectory
+        # (lower_ramp_s/lower_hold_only_frac/term-bank), action-space
+        # (lower_hold_action_ema_alpha) and architecture (recurrent
+        # SAC) lever against this exact failure is closed (STATUS.md
+        # 2026-10-0{2,3,4,5}) -- none of them touch the MARGIN itself.
+        # This is the untried axis: a trainer-driven curriculum
+        # (same shape as the proven env.dr_stage_ramp_steps fix for an
+        # analogous "too-hard-too-early" collapse) that starts training
+        # with a WIDER current trip threshold (so early noisy exploring
+        # near the terminal stance is not constantly terminated/
+        # punished before the policy can learn a low-variance hold) and
+        # anneals it down to the real `max_current_a` by
+        # `max_current_ramp_steps` global env steps -- by the time the
+        # threshold reaches the true hardware limit, training should
+        # have already shaped a lower-variance converged controller
+        # instead of fighting the full termination pressure from tick
+        # 0. Default OFF (`max_current_ramp_steps<=0`): `max_current`
+        # stays exactly `max_current_a` forever, bit-exact legacy
+        # behavior, zero new state touched. Armed only via
+        # `safety.max_current_ramp_a` (> max_current_a) +
+        # `safety.max_current_ramp_steps` (> 0); the trainer calls
+        # `set_current_margin_frac(frac)` once per rollout (same cadence
+        # as `apply_dr_stage_frac`), frac 0 = the wide ramp start,
+        # frac 1 = exactly the real target (bit-identical endpoint).
+        self._max_current_target = self.max_current
+        self._max_current_ramp_a = float(cfg_get(
+            cfg, "safety", "max_current_ramp_a", default=0.0))
+        self._max_current_ramp_steps = float(cfg_get(
+            cfg, "safety", "max_current_ramp_steps", default=0) or 0)
+        if self._max_current_ramp_steps > 0:
+            if self._max_current_ramp_a <= self._max_current_target:
+                raise ValueError(
+                    "safety.max_current_ramp_steps > 0 needs "
+                    "safety.max_current_ramp_a > safety.max_current_a "
+                    f"(got ramp_a={self._max_current_ramp_a} <= "
+                    f"target={self._max_current_target}) -- a margin "
+                    "ramp that does not start wider than the target "
+                    "has nothing to anneal")
+            self.max_current = self._max_current_ramp_a
         # Over-current terminates only when SUSTAINED. STS3215s tolerate
         # short excursions past 2.5 A harmlessly (the cooked knee took
         # minutes at ~7 A); the per-tick effort penalty already punishes
@@ -303,6 +350,26 @@ class SafetyLayer:
         self._over_current_moving_grace_ticks = max(
             0, int(round(self._over_current_moving_grace_s * sample_hz)))
         return self._over_current_trip_ticks
+
+    def set_current_margin_frac(self, frac: float) -> float:
+        """Move the over-current trip threshold to ``frac`` of the
+        armed margin ramp (0 = the wide ``max_current_ramp_a`` start,
+        1 = exactly ``max_current_a``); see the ``__init__`` block for
+        the mechanism. Returns the resulting ``max_current`` (A).
+        Raises when the ramp is not armed -- a silently-ignored
+        broadcast is the dropped-cfg failure class this codebase
+        avoids elsewhere (``apply_dr_stage_frac`` docstring)."""
+        if self._max_current_ramp_steps <= 0:
+            raise RuntimeError(
+                "set_current_margin_frac called but safety."
+                "max_current_ramp_steps is not set (>0) -- the "
+                "current-margin ramp is not armed")
+        f = min(max(float(frac), 0.0), 1.0)
+        self.max_current = (
+            self._max_current_target
+            + (1.0 - f) * (self._max_current_ramp_a
+                          - self._max_current_target))
+        return self.max_current
 
     def estop(self) -> None:
         self._estop = True

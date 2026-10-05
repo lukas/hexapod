@@ -3371,6 +3371,16 @@ class SimHexapodBalanceEnv(_GymBase):
                 "bad_start_prob": float(ranges.bad_start_prob),
                 "fault_prob": float(ranges.fault_prob)}
 
+    def apply_current_margin_frac(self, frac: float) -> float:
+        """Broadcast the current-margin ramp fraction (see
+        ``SafetyLayer.set_current_margin_frac``/``safety.
+        max_current_ramp_steps`` in ``SafetyLayer.__init__`` for the
+        mechanism) to this env's safety filter. Trainer-driven, same
+        cadence/contract as ``apply_dr_stage_frac`` -- affects only the
+        over-current TERMINATION threshold, never the reset
+        distribution, so no reset-pool flush is needed."""
+        return self.safety.set_current_margin_frac(frac)
+
     def _step_begin(self, action):
         """Pre-physics half of step: action validation, IK, safety
         filter, and the servo command. Returns ``(early, ctx)`` —

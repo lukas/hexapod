@@ -318,6 +318,58 @@ class GoalGenerator:
         # rl_move.sim.eval_session (the interactive-protocol gate).
         self.rise_ramp_jitter = float(g.get("rise_ramp_jitter", 0.0))
         self.lower_ramp_jitter = float(g.get("lower_ramp_jitter", 0.0))
+        # LOWER-ROLE TERMINAL-HOLD WOBBLE (2026-10-05, walkcurr/
+        # STATUS.md Next 1 / lowerrole_terminal_support_forensics_
+        # 2026-10-02 + lowerrole_hold_entropy_scoping_2026-10-04): the
+        # converged universal 2-leg (L2+L5) terminal-support habit is a
+        # STATIC attractor under a perfectly flat (roll=pitch=0)
+        # post-ramp hold reference -- every reward-price lever against
+        # it (k_current_hot/k_load_even/k_stance_count/k_load_rotate)
+        # and every episode-sampling/curriculum lever (lower_term_bank
+        # specialist, hold-phase-mix) is now CLOSED, and a mid-hold
+        # EXTERNAL PUSH perturbation (dr.ext_push_modes=lower) made it
+        # WORSE (destabilized the only known stable config rather than
+        # finding a cheaper one). This is a structurally different
+        # class from all of those: a small CONTINUOUS roll/pitch
+        # reference wobble (sum-of-sines, reusing the existing `track`
+        # goal's own `_track_channel` generator -- the same mechanism
+        # already trained and priced via the ordinary tilt-tracking
+        # kernel for the `lean`/`track` goal kinds, not a new reward
+        # term, new observation channel, or episode-sampling mix)
+        # applied ONLY during the POST-RAMP hold/settle window (the
+        # exact ~9s window the forensics doc measured the habit in,
+        # i.e. from when the height ramp reaches `target` to episode
+        # end). Unlike ext_push (a sudden external force disturbance
+        # outside the policy's own reference-tracking objective), this
+        # keeps the SAME tracking reward the policy already optimizes
+        # but denies it a static target to rest on — tracking a moving
+        # attitude reference accurately while all weight sits on two
+        # fixed feet is a different, harder constraint than holding a
+        # flat reference, so the hoped-for effect is that the cheapest
+        # way to track the wobble becomes engaging >=3 feet rather than
+        # that the wobble itself is priced. goal.lower_hold_wobble_deg
+        # (default 0.0 = OFF, bit-exact: _lower_hold_wobble is not even
+        # called, so zero extra rng draws, matching every other
+        # conditional-draw key in this file) = the sum-of-sines
+        # amplitude cap in degrees (same `max_roll`/`max_pitch` action-
+        # envelope cap already enforced for `lean`/`track`).
+        # goal.lower_hold_wobble_period_s = [lo, hi] seconds per sine
+        # component (default [1.5, 3.0] — faster than `track`'s default
+        # [2.5, 8.0] because the natural tripod leg-rotation cadence
+        # named in the now-closed k_load_rotate hypothesis is ~0.3-0.5s
+        # and this is meant to force redistribution well inside a 9s
+        # hold, not to merely drift). The wobble ramps in/out over a
+        # fixed 1.0 s raised-cosine window at both ends of the hold
+        # segment (never a step change) so no new discontinuity is
+        # introduced at the ramp-end seam or episode end.
+        # Tests: rl_move/tests/test_lower_hold_wobble.py.
+        self.lower_hold_wobble_deg = float(g.get(
+            "lower_hold_wobble_deg", 0.0))
+        wobble_period = cfg_range(
+            g.get("lower_hold_wobble_period_s", [1.5, 3.0]),
+            "goal.lower_hold_wobble_period_s")
+        self.lower_hold_wobble_period_s = (float(wobble_period[0]),
+                                           float(wobble_period[1]))
         # COMMANDABLE STANDING HEIGHT (08-25, operator MCP request
         # fb_20260825T195117_3dce6e: "once standing, move the body
         # up/down to a specified height; from a shaky/non-solid stand,
@@ -604,17 +656,61 @@ class GoalGenerator:
         return height
 
     def _track_channel(self, rng: np.random.Generator, n_steps: int,
-                       dt: float, amp_max: float) -> np.ndarray:
+                       dt: float, amp_max: float,
+                       period_s: tuple[float, float] | None = None
+                       ) -> np.ndarray:
         t = np.arange(n_steps) * dt
         out = np.zeros(n_steps)
+        lo, hi = period_s if period_s is not None else self.period_s
         for _ in range(int(rng.integers(1, 3))):
             amp = rng.uniform(0.3, 1.0) * amp_max
-            period = rng.uniform(*self.period_s)
+            period = rng.uniform(lo, hi)
             phase = rng.uniform(0.0, 2.0 * math.pi)
             out += amp * np.sin(2.0 * math.pi * t / period + phase)
         # Sum of sines can exceed the reachable envelope: clip, then the
         # ramp (applied by caller) removes the initial discontinuity.
         return np.clip(out, -amp_max, amp_max)
+
+    def _lower_hold_wobble(self, rng: np.random.Generator, n_steps: int,
+                           dt: float) -> tuple[np.ndarray, np.ndarray]:
+        """Small continuous roll/pitch sum-of-sines reference for the
+        lower role's POST-RAMP hold/settle window (`goal.
+        lower_hold_wobble_deg`; see that key's docstring in __init__
+        for the full rationale). Caller guarantees this is only
+        invoked when the dose is > 0, so the (otherwise unconditional)
+        rng draws below never fire for an unset run. Independent
+        roll/pitch channels (separate rng draws -> different phase/
+        period per axis), each ramped in/out over a fixed 1.0 s
+        raised-cosine window at both ends so there is never a step
+        discontinuity at the ramp-end seam or at episode end."""
+        base_amp = max(self.lower_hold_wobble_deg, 0.0) * DEG2RAD
+        if base_amp <= 0.0 or n_steps <= 0:
+            z = np.zeros(max(n_steps, 0))
+            return z, z
+        # Same per-axis cap `track`/`lean` already enforce (self.max_roll/
+        # max_pitch, set in __init__ from goal.max_ref_deg x the body-IK
+        # action envelope) so a mis-set dose can never ask for a
+        # reference outside what the body-IK can reach.
+        amp_roll = min(base_amp, self.max_roll)
+        amp_pitch = min(base_amp, self.max_pitch)
+        roll_w = self._track_channel(rng, n_steps, dt, amp_roll,
+                                     self.lower_hold_wobble_period_s)
+        pitch_w = self._track_channel(rng, n_steps, dt, amp_pitch,
+                                      self.lower_hold_wobble_period_s)
+        edge_n = min(max(1, int(round(1.0 / dt))), max(n_steps // 2, 1))
+        envelope = np.ones(n_steps)
+        if edge_n > 0 and n_steps >= 2 * edge_n:
+            ramp_in = np.linspace(0.0, 1.0, edge_n, endpoint=False)
+            envelope[:edge_n] = ramp_in
+            envelope[-edge_n:] = ramp_in[::-1]
+        elif n_steps > 1:
+            # Window too short for a full in+out edge each: a single
+            # symmetric triangular taper covering the whole segment,
+            # still zero at both boundaries.
+            half = np.linspace(0.0, 1.0, (n_steps + 1) // 2,
+                               endpoint=False)
+            envelope = np.concatenate([half, half[::-1]])[:n_steps]
+        return roll_w * envelope, pitch_w * envelope
 
     def sample(self, rng: np.random.Generator, n_steps: int,
                dt: float, force_mode: str | None = None) -> GoalTrajectory:
@@ -744,6 +840,21 @@ class GoalGenerator:
                     end = min(hold_n + ramp_n, n_steps)
                     height[hold_n:end] = np.linspace(
                         0.0, target, end - hold_n)
+                # Terminal-hold wobble (goal.lower_hold_wobble_deg, see
+                # __init__ docstring): applies to BOTH the partial and
+                # full-descent paths above (both define `end` the same
+                # way) -- the POST-RAMP tail [end:n_steps) is exactly
+                # the window the terminal-support forensics doc
+                # measured the converged 2-leg habit in. Guarded at the
+                # call site (not just inside the helper) so an unset
+                # run draws zero extra rng values, same short-circuit
+                # convention as every other conditional key in this
+                # file.
+                if self.lower_hold_wobble_deg > 0.0 and end < n_steps:
+                    roll_w, pitch_w = self._lower_hold_wobble(
+                        rng, n_steps - end, dt)
+                    roll[end:n_steps] = roll_w
+                    pitch[end:n_steps] = pitch_w
                 # Composed-session LOWER entry exposure (2026-09-23,
                 # standwalk STATUS ~18:3x, same finding/mechanism class
                 # as goal.rise_start_bank/goal.walk_entry_bank above:

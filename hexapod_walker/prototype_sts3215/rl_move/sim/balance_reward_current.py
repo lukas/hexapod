@@ -9,6 +9,8 @@ import numpy as np
 from rl_move.config import cfg_get
 from rl_move.robot_state import over_current_reading
 
+from .balance_helpers import current_streak_ticks_step
+
 
 def current_penalties(env, parts, reward):
     """Per-servo hot-current, pre-tuck and current-rate prices; moved
@@ -138,4 +140,60 @@ def current_penalties(env, parts, reward):
         r_cur_rate = -k_cur_rate * float(np.sum(over_rate ** 2))
         parts["reward_current_rate"] = r_cur_rate
         reward += r_cur_rate
+    # Current-streak (hard-reset consecutive-tick) debt (walkcurr
+    # track, 2026-10-05 -- the lower-role L2+L5 terminal-support
+    # forensics, `lowerrole_terminal_support_forensics_2026-10-02`:
+    # the converged 2-leg stance's per-leg force/current magnitudes
+    # are IDENTICAL in passing vs over_current-failing episodes, and
+    # the trip itself (`SafetyLayer._over_current_ticks`) is a
+    # CONSECUTIVE-tick counter that hard-resets to 0 on any tick the
+    # max per-joint current drops back at/under the rail -- so a
+    # policy that periodically relieves the loaded leg(s) for even a
+    # single tick never trips, with NO change to its average current
+    # or support-leg identity. Every reward lever tried against this
+    # habit before this one priced MAGNITUDE (`k_current_hot`,
+    # instantaneous) or a smoothly-decaying EMA (`k_torque_headroom`,
+    # `k_load_rotate`) or load DISTRIBUTION across legs (`k_load_even`,
+    # `k_stance_count`) -- all closed. None of those are the same
+    # mathematical object as this: an EMA barely moves on a single
+    # relief tick in EITHER direction (the same "a brief spike barely
+    # moves it" symmetry also means "a brief relief barely un-moves
+    # it"), so it cannot differentially reward the exact
+    # break-the-streak strategy that actually avoids the real trip;
+    # concentration/count terms fight the policy's only discovered
+    # stable support config instead of letting it keep that config and
+    # just interrupt the streak. This term instead mirrors the
+    # SAFETY LAYER'S OWN counter exactly (`current_streak_ticks_step`,
+    # same hard-reset-on-dip semantics as `SafetyLayer.
+    # _over_current_ticks`) and prices its fraction of the real trip
+    # duration with a steep power, so cost stays ~0 until the streak
+    # is a large fraction of the trip window and then rises sharply --
+    # directly rewarding "interrupt the streak before it trips"
+    # without taxing ordinary sustained-but-broken current use
+    # anywhere else. Bit-exact OFF by default (reward.k_current_streak
+    # =0): no state allocated, no behavior change for any existing
+    # checkpoint/lineage. Enable: --cfg-set reward.k_current_streak=<k>
+    # [--cfg-set reward.current_streak_a=<amps, default 2.5 = safety.
+    # max_current_a>] [--cfg-set reward.current_streak_trip_s=<s,
+    # default 2.0 = safety.over_current_trip_s>]
+    # [--cfg-set reward.current_streak_power=<p, default 4.0>].
+    # Tests: rl_move/tests/test_current_streak_reward.py.
+    k_streak = float(cfg_get(
+        env.cfg, "reward", "k_current_streak", default=0.0))
+    if k_streak > 0.0 and env._state.servo_current is not None:
+        streak_a = float(cfg_get(
+            env.cfg, "reward", "current_streak_a", default=2.5))
+        trip_s = float(cfg_get(
+            env.cfg, "reward", "current_streak_trip_s", default=2.0))
+        power = float(cfg_get(
+            env.cfg, "reward", "current_streak_power", default=4.0))
+        trip_ticks = max(1, int(round(trip_s / max(env.dt, 1e-9))))
+        prev_ticks = int(getattr(env, "_current_streak_ticks", 0))
+        env._current_streak_ticks = current_streak_ticks_step(
+            prev_ticks, over_current_reading(env._state), streak_a)
+        frac = min(float(env._current_streak_ticks) / trip_ticks, 1.0)
+        r_streak = -k_streak * (frac ** power)
+        parts["reward_current_streak"] = r_streak
+        parts["current_streak_frac"] = frac
+        reward += r_streak
     return reward

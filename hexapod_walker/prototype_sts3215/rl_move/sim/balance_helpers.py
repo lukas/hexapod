@@ -117,6 +117,32 @@ def torque_headroom_debt_step(prev_debt: np.ndarray, current_abs: np.ndarray,
     return prev_debt + alpha_d * (redness - prev_debt)
 
 
+def current_streak_ticks_step(prev_ticks: int, current_abs: np.ndarray,
+                               threshold_a: float) -> int:
+    """One HARD-RESET update of the scalar over-threshold streak counter
+    (``reward.k_current_streak``, walkcurr track, 2026-10-05).
+
+    Mirrors ``SafetyLayer``'s own ``_over_current_ticks`` mechanic
+    EXACTLY (``safety.py``: ``check_servo_health``): each tick, take the
+    MAX per-joint current magnitude across all joints; if it exceeds
+    ``threshold_a`` the streak grows by one tick, otherwise it resets to
+    0 -- no partial credit, no decay. This is a DIFFERENT mathematical
+    object from ``torque_headroom_debt_step``'s leaky-integrator EMA:
+    the EMA barely moves on a brief one-tick dip in EITHER direction (by
+    the same symmetry that makes "a brief spike barely moves it" also
+    make "a brief relief barely un-moves it"), so it cannot
+    differentially reward the exact strategy that actually avoids the
+    real trip -- a momentary break in an otherwise-sustained high
+    current that resets the hard consecutive-tick counter before it
+    reaches the trip threshold. This counter is pure/stateless (caller
+    owns persistence + reset) so it is unit-testable without a live
+    physics/reward pipeline.
+    """
+    peak = float(np.max(np.abs(np.asarray(current_abs, dtype=float)))) \
+        if np.size(current_abs) else 0.0
+    return (int(prev_ticks) + 1) if peak > threshold_a else 0
+
+
 def current_headroom_income_factor(cur_peak_a: float, cap_a: float,
                                     margin_a: float) -> float:
     """Instantaneous income-discount factor for

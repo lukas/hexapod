@@ -1,45 +1,22 @@
-# Pinned pre-existing 'not slow' suite failures. RESOLVED 2026-09-30 (refill
-# dig-in, 14 -> 2): root-caused the real order-dependent mechanism the prior
-# note's bucket (a) flagged (rot60 equivariance, sim_env leg-chassis-collision
-# x2 + foot-geom-radius, walk_turn_kernel_neutral stillness-subsidy) --
-# `probe_dir_floor.py main()` hard-sets (not setdefault, never restored)
-# `HEXAPOD_MODEL_SOURCE`/`HEXAPOD_CONTROL_HZ`; `test_probe_dir_floor.py`
-# calls that `main()` IN-PROCESS, so once it ran, every later test in the
-# same pytest session that trusts conftest.py's session-wide primitive/25Hz
-# pin instead silently got "mesh"/"100" -- confirmed via bisection on
-# collection order (a prefix ending partway through
-# test_probe_dir_floor.py flips rot60's own isolated-pass to a fail).
-# Fixed by save/restoring both env vars around the in-process `main()` call
-# in the test (same prev-value convention `test_walkscratch_easy_pilot.py`'s
-# `_make_env` already used) -- zero production-code change, the real script
-# is a one-shot CLI process for which the leak was always harmless. Full
-# suite reconfirmed clean at 2930 passed / 2 failed (RL_LOG 2026-09-30).
-# The prior note's bucket (b) claim (walkscratch_easy_pilot "12 failures,
-# order-dependent within the file") did NOT reproduce on re-test -- the file
-# alone gives the exact same 7 as the full suite, deterministically, twice.
-# Those 7 were rollout-ranking comparators (pinned MEASURED outcomes, not
-# code mechanics -- RESEARCH_RULES "Tests" rule 2, the same forbidden
-# category `2db416ccc` already retired two tests from this exact file for)
-# validating a since-closed pilot cohort (easy0905) and, for the two
-# duty-gate tests, a mechanism (`reward.walk_duty_gate`) `walk_task.py`'s own
-# per-leg-duty-ratio-charge comment documents as one of 11 CLOSED FAIL
-# income-multiplying levers. Retired (deleted), not re-doses -- see that
-# file's own RETIREMENT NOTE docstring.
-# Remaining 2 are NOT order-dependent (FAIL standalone, deterministically)
-# and are each already-tracked, deliberately deferred elsewhere -- do not
-# re-open either as a suite-hygiene item:
-#  - test_course_income_semantics.py::test_wz_arc_moderate_turn_earns_near_full_income:
-#    the 2026-09-27 servo-profile refit + slew-contract widen made the
-#    honest scripted teacher faster/swayier than this reward bank's
-#    calibration envelope (commit 996695fe3 already documents "fails on
-#    pristine main in isolation"; RL_GOALS.md "SERVO WRITE-PROFILE
-#    CONTRACT" names the fix as recalibrating the bank for the 2000/80
-#    teacher -- a measurement/design task, not attempted here).
-#  - test_np_policy.py::test_dual_gru_numpy_sequence_matches_torch_and_threads_both_cores:
-#    borderline float32 tolerance (atol=3e-7; measured mismatch 3.87e-7,
-#    1 of 5 elements) -- a known tight-tolerance flake (RL_LOG 09-30
-#    ~13:2x), not a behavior bug; fix is loosening the atol, not
-#    attempted here.
-# Consumed by: ops.sh testdiff [pytest-q-log]. Fix a test -> delete its line here.
+# Pinned pre-existing 'not slow' suite failures, consumed by `ops.sh testdiff`
+# (run the suite once, diff FAILED/ERROR ids against this file; fix a test ->
+# delete its line here). History/root-causes: git log on this file (the
+# 2026-09-30 order-dependence dig-in note lives in its prior revision).
+# Baseline refreshed 2026-10-05 meta: 7 failed / 3033 passed at HEAD 6292846b0.
+#  - course_income arc-turn: 2026-09-27 servo-profile refit made the honest
+#    scripted teacher outrun this reward bank's calibration envelope; fix is
+#    recalibrating the bank for the 2000/80 teacher (RL_GOALS.md "SERVO
+#    WRITE-PROFILE CONTRACT"), tracked, deliberately deferred.
+#  - np_policy dual-gru threads: float32 tolerance flake (atol=3e-7, measured
+#    3.87e-7 on 1/5 elements); fix is loosening atol, deliberately deferred.
+#  - 5x walkscratch_easy_pilot: rollout-ranking comparators (RESEARCH_RULES
+#    "Tests" forbidden category; same file already had 7 retired 09-30) that
+#    regressed with post-09-30 config default changes; candidate for
+#    retirement by a normal cycle, not silently re-pinned forever.
 rl_move/tests/test_course_income_semantics.py::test_wz_arc_moderate_turn_earns_near_full_income
 rl_move/tests/test_np_policy.py::test_dual_gru_numpy_sequence_matches_torch_and_threads_both_cores
+rl_move/tests/test_walkscratch_easy_pilot.py::test_easy_travel_beats_every_stationary_form
+rl_move/tests/test_walkscratch_easy_pilot.py::test_easy_heading_track_beats_fixed_after_resample
+rl_move/tests/test_walkscratch_easy_pilot.py::test_easy_heading_wide_track_beats_fixed_after_resample
+rl_move/tests/test_walkscratch_easy_pilot.py::test_easy_heading_med_track_beats_fixed_after_resample
+rl_move/tests/test_walkscratch_easy_pilot.py::test_duty_gate_twins_are_honest

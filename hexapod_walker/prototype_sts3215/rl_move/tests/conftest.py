@@ -72,6 +72,28 @@ import pytest  # noqa: E402
 _UNSAFE = re.compile(r"[^A-Za-z0-9._-]")
 
 
+def pytest_collection_modifyitems(config, items):
+    """Refuse accidental SERIAL full-suite runs (meta 2026-10-05).
+
+    The full suite is ~3k tests: serial takes 12-60 min and wedges a
+    decision cycle into background/wait-poll turns (measured twice on
+    10-04/10-05, ~15 min + ~$2 each). ``ops.sh testfull`` (xdist -n 32)
+    runs it in ~5 min and ``ops.sh testdiff`` diffs failures against
+    ``known_failures.txt``. Small targeted runs are unaffected; set
+    ``HEXAPOD_SERIAL_SUITE=1`` to deliberately run the suite serially.
+    """
+    if (len(items) > 500
+            and not os.environ.get("PYTEST_XDIST_WORKER")
+            and not os.environ.get("HEXAPOD_SERIAL_SUITE")
+            and not getattr(config.option, "numprocesses", None)
+            and not getattr(config.option, "collectonly", False)):
+        raise pytest.UsageError(
+            f"{len(items)} tests collected with no xdist workers: use "
+            "`/workspace/hexapod-orchestrator/orchestrator/ops.sh testfull` "
+            "(~5 min parallel) or `ops.sh testdiff` (suite + baseline diff). "
+            "HEXAPOD_SERIAL_SUITE=1 overrides.")
+
+
 @pytest.fixture
 def state_ledger(tmp_path, monkeypatch):
     """Temp state dir behind ``HEXAPOD_STATE_DIR``; returns ``write(entries) -> Path``.

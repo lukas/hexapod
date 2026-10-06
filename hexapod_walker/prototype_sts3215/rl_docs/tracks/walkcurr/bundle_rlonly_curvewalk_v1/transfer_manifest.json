@@ -81,7 +81,11 @@
         "report": "logs/ckpt_eval/walk_turn_curve_probe_2x_n8_hippitchfix_ft1.json",
         "result": "zero_fall 8/8, turn_success 16/16 -- matches the pre-regression checkpoint's own 16/16."
       },
-      "not_yet_rerun": "Finding 2's slew_smooth_s0 walk-role swap comparison (vs this new turn checkpoint) was not repeated this cycle -- still reflects the superseded checkpoint under the legacy-hip ablation only."
+      "finding2_slewsmooth_walkrole_swap_recheck": {
+        "report": "logs/ckpt_eval/walk_turn_compose_slewsmooth_hippitchfix_ft1_det.json",
+        "cfg": "walk role = ppo_goal_cw_walk50hz_slew_smooth_s0.zip (--walk-recipe slew_smooth_s0), turn role = this ft1 checkpoint, --rot60 --settle-grounded-s 1.0, no cfg overrides (current-default hip-pitch), episodes 12 cycles 2, det",
+        "result": "zero_fall 12/12, forward 24/24, turn_success 24/24, turn_gait_valid 24/24, turn_converged 24/24 -- PERFECT, better than Finding 1's own matched-legacy-hip read of 20/24 for this exact walk-role swap. The small secondary slew_smooth_s0 degradation Finding 2 named (reward-shaping/max_delta_q_deg contract mismatch) does not reproduce against the fine-tuned turn checkpoint -- either the fine-tune incidentally hardened the turn role against the walk-role's different handoff state distribution, or n=24 is too small to separate a small effect from noise at the ceiling. Not yet re-run at n>24 to tell those apart, but either way this closes Finding 2's open question as a non-blocker: the turn role now composes perfectly with BOTH walk-role candidates, so the unified rise+walk+turn+lower candidate's walk-role choice can be made on OTHER grounds (todaypolicy's own promoted slew_smooth_s0 vs crutchoff tradeoffs), not gated by this composition."
+      }
     }
   },
   "video_evidence": {

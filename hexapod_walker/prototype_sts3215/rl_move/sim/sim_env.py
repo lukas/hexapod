@@ -595,6 +595,14 @@ class SimHexapodBalanceEnv(_GymBase):
         self._stickslip_prev_xy: np.ndarray | None = None
         self._stickslip_active = False
 
+        # Per-joint actuator thermal-derate state (motor.thermal_derate_
+        # enable, see _apply_thermal_derate). Bit-exact OFF by default --
+        # array stays unallocated (None) and the model is never mutated
+        # unless an episode has the mechanism active.
+        self._thermal_derate_active = False
+        self._thermal_heat: np.ndarray | None = None
+        self._thermal_base_forcerange: np.ndarray | None = None
+
         # Transient per-leg foot-catch/stumble event (dr.foot_catch_
         # force_n / -group, see domain_rand.EpisodeRandomization and
         # sim_env._update_foot_catch_state / _advance). Reuses
@@ -2494,6 +2502,19 @@ class SimHexapodBalanceEnv(_GymBase):
             float(er_ss.foot_stickslip_vel_ref_mps)
             if er_ss is not None else 0.02)
         self._stickslip_prev_xy = None
+        # Per-joint actuator thermal derate (motor.thermal_derate_enable,
+        # see _apply_thermal_derate docstring for the full mechanism).
+        # Guarded no-op whenever disabled (the default) -- no array
+        # allocated, no forcerange baseline captured, no model mutation.
+        self._thermal_derate_active = bool(float(cfg_get(
+            self.cfg, "motor", "thermal_derate_enable", default=0.0)) > 0.0)
+        if self._thermal_derate_active:
+            self._thermal_heat = np.zeros(len(self._pos_act), dtype=float)
+            self._thermal_base_forcerange = (
+                self.model.actuator_forcerange[self._pos_act].copy())
+        else:
+            self._thermal_heat = None
+            self._thermal_base_forcerange = None
         # Transient foot-catch/stumble event (dr.foot_catch_force_n):
         # only claim the pad-body xfrc rows for episodes that actually
         # drew a nonzero magnitude this episode (same "owns_row"
@@ -3680,6 +3701,83 @@ class SimHexapodBalanceEnv(_GymBase):
         self.model.geom_friction[self._stickslip_foot_gids, 0] = (
             self._stickslip_base_mu * mult)
 
+    def _apply_thermal_derate(self) -> None:
+        """Per-CONTROL-TICK actuator torque-capacity derate driven by
+        sustained per-joint current (``motor.thermal_derate_enable``,
+        walkcurr lower-role L2+L5 terminal-support habit, 2026-10-06 --
+        see rl_docs/tracks/walkcurr/STATUS.md Next 3: every reward/
+        observation/trajectory/action-space/architecture/margin-pricing/
+        sampling-mix/reference-shaping lever tried against this habit
+        is CLOSED; this is a structurally different family -- an
+        env-DYNAMICS consequence, not a reward price, observation
+        channel, sampling mix, or goal-reference shape.
+
+        Real STS3215-class servos derate available torque when driven
+        near their current limit for a sustained window (winding
+        heating); this models that directly: a per-joint leaky-
+        integrator "heat" state in [0, 1] rises toward 1 (time constant
+        ``motor.thermal_derate_tau_rise_s``) while THIS tick's
+        ``over_current_reading`` exceeds ``motor.thermal_derate_a_thresh``,
+        and decays toward 0 otherwise (time constant
+        ``motor.thermal_derate_tau_fall_s``) -- same leaky-integrator
+        shape as ``torque_headroom_debt_step``, but consumed as a LIVE
+        ``model.actuator_forcerange`` multiplier (``1 - max_frac*heat``
+        of this episode's post-DR baseline torque limit) instead of a
+        reward penalty. A joint that stays near the current rail for
+        several seconds (the observed L2/L5 terminal habit, ~13-17N
+        sustained for ~9s of the 15s episode, ``lowerrole_terminal_
+        support_forensics_2026-10-02``) loses real torque capacity and
+        must either find a lower-current stance or lose the stance -- a
+        hard physical consequence reward-shaping cannot be "paid off"
+        to avoid (unlike every closed reward lever against this exact
+        habit, which the policy's converged value landscape simply
+        absorbed or treated as a reason to destabilize instead).
+
+        Self-referential only (this env's own per-tick current reading
+        vs a fixed threshold, one-tick lagged like ``_apply_foot_
+        stickslip``/``_update_foot_catch_state`` -- never a look-ahead):
+        no scripted trajectory, no motion prior, no gait clock, so this
+        stays ``rl_only``-clean on the same grounds already ruled for
+        ``k_current_streak``.
+
+        Guarded no-op whenever this episode drew the mechanism inactive
+        (the default) -- costs one attribute check. Bit-exact OFF by
+        default (``motor.thermal_derate_enable=0``). Enable:
+        ``--cfg-set motor.thermal_derate_enable=1``
+        [``--cfg-set motor.thermal_derate_a_thresh=<amps, default 1.5>``]
+        [``--cfg-set motor.thermal_derate_tau_rise_s=<s, default 1.5>``]
+        [``--cfg-set motor.thermal_derate_tau_fall_s=<s, default 1.0>``]
+        [``--cfg-set motor.thermal_derate_max_frac=<0..1, default 0.4>``].
+        Tests: rl_move/tests/test_thermal_derate.py.
+        """
+        if not self._thermal_derate_active or self._thermal_heat is None:
+            return
+        cur = over_current_reading(self._state)
+        if cur is None:
+            return
+        a_thresh = float(cfg_get(
+            self.cfg, "motor", "thermal_derate_a_thresh", default=1.5))
+        tau_rise = max(float(cfg_get(
+            self.cfg, "motor", "thermal_derate_tau_rise_s",
+            default=1.5)), 1e-6)
+        tau_fall = max(float(cfg_get(
+            self.cfg, "motor", "thermal_derate_tau_fall_s",
+            default=1.0)), 1e-6)
+        max_frac = float(cfg_get(
+            self.cfg, "motor", "thermal_derate_max_frac", default=0.4))
+        over = np.asarray(cur, dtype=float) > a_thresh
+        alpha_rise = 1.0 - np.exp(-self.dt / tau_rise)
+        alpha_fall = 1.0 - np.exp(-self.dt / tau_fall)
+        alpha = np.where(over, alpha_rise, alpha_fall)
+        target = np.where(over, 1.0, 0.0)
+        self._thermal_heat += alpha * (target - self._thermal_heat)
+        np.clip(self._thermal_heat, 0.0, 1.0, out=self._thermal_heat)
+        scale = 1.0 - max_frac * self._thermal_heat
+        self.model.actuator_forcerange[self._pos_act, 0] = (
+            self._thermal_base_forcerange[:, 0] * scale)
+        self.model.actuator_forcerange[self._pos_act, 1] = (
+            self._thermal_base_forcerange[:, 1] * scale)
+
     def _update_foot_catch_state(self) -> None:
         """Per-CONTROL-TICK liftoff detector driving the transient
         foot-catch/stumble event (dr.foot_catch_force_n, see
@@ -3721,6 +3819,7 @@ class SimHexapodBalanceEnv(_GymBase):
         if early is not None:
             return self._post_step(early)
         self._apply_foot_stickslip()
+        self._apply_thermal_derate()
         self._update_foot_catch_state()
         self._advance()
         return self._post_step(self._step_finish(ctx))

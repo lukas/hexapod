@@ -165,6 +165,24 @@ safety:
   body_pose_assist_max_nm: 15.0
   body_pose_assist_ramp_steps: 0
 
+motor:
+  # Per-joint actuator THERMAL DERATE (2026-10-06, walkcurr lower-role
+  # L2+L5 terminal-support habit -- rl_docs/tracks/walkcurr/STATUS.md
+  # Next 3: every reward/observation/trajectory/action-space/
+  # architecture/margin-pricing/sampling-mix/reference-shaping lever
+  # against this habit is CLOSED; this is a structurally different
+  # family -- an env-DYNAMICS consequence (live actuator_forcerange
+  # multiplier), not a reward price. See sim_env.SimHexapodBalanceEnv.
+  # _apply_thermal_derate for the full mechanism/contract-compliance
+  # argument. Default OFF (thermal_derate_enable=0) = bit-exact: no
+  # state allocated, no model mutation, no behavior change for any
+  # existing checkpoint/lineage. Tests: test_thermal_derate.py.
+  thermal_derate_enable: 0.0
+  thermal_derate_a_thresh: 1.5
+  thermal_derate_tau_rise_s: 1.5
+  thermal_derate_tau_fall_s: 1.0
+  thermal_derate_max_frac: 0.4
+
 reward:
   # 2026-08-07 redesign: the only substantial POSITIVE term is the task
   # kernel — k_track * exp(-err²/2σ²), a product of Gaussians over every

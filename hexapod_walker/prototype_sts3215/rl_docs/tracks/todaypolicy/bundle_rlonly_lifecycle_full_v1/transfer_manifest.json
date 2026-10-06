@@ -1,0 +1,63 @@
+{
+  "schema": "hexapod.transfer_candidate.v1",
+  "candidate_name": "walkcurr-rlonly-lifecycle-full-stance-s5-walk-slewsmooth-s0-turn-acq5seedsweep-s5-hippitchfix-ft1-lower-thermalderate50-s2-v1",
+  "parent_goal": "rl_only",
+  "supersedes": null,
+  "candidate_is_composition_not_single_policy": true,
+  "no_physical_robot_motion_performed": true,
+  "status": "NEW 2026-10-06 (refill cycle, zero GPU spend). First-ever single-session composition of all FOUR rl_only roles (rise+hold -> walk -> turn-and-hold -> controlled lower) -- closes the gap both STATUS.md and walkcurr/STATUS.md named ('bundle_rlonly_lifecycle_v2 has rise+walk+lower but no turn; bundle_rlonly_curvewalk_v1 has walk+turn but no rise/lower; nobody has stitched all four'). Built by generalizing the two existing pairwise composition tools' own cross-env-reanchor precedent (eval_lifecycle_handoff_rlonly.py's rise->walk->lower chain, eval_walk_turn_compose.py's walk<->turn chain) into one new tool, not a new mechanism. SIM-ONLY, forward-heading (0deg) read so far; 8-heading off-axis confirmation sweep launched same cycle (see transfer_blockers_or_work) before this is cited as full-direction evidence.",
+  "training_lineage_contract": "walkcurr rl_only (tracks.json): all FOUR composed roles are independently-trained clean-RL checkpoints, no BC/AMP/demo/gait-clock anywhere in any role's own lineage -- this manifest adds no new training/weights, only a 3rd cross-env reanchor handoff (walk->turn) alongside the two bundle_rlonly_lifecycle_v2 already established (rise->walk, walk->lower). stance = bundle_rlonly_stance_v1's currentcap29-s5-klrollback05-acq15m. walk = bundle_rlonly_v2/slew_smooth_s0 (wrapped in rot60.Rot60Policy, the already-validated full-direction fix). turn = walkcurr's acq5-seedsweep-s5 recipe champion's hippitchfix-ft1 continuation (cw-walkyaw50hz-rlonly-scratch-sac-s5-acq5-seedsweep-hippitchfix-ft1, PASS 2026-10-06 -- the post-regression-fix checkpoint that recovers bundle_rlonly_curvewalk_v1's composed gate under the current safety.hip_pitch_max_deg=29.8 default). lower = thermalderate50-s2 (bundle_rlonly_lifecycle_v2's current adopted champion).",
+  "components": [
+    {
+      "role": "stance (rise-from-flat + hold-standing)",
+      "controller": "rl_move/sim/policies/ppo_goal_cw_stance50hz_rlonly_currentcap29_s5_klrollback05_acq15m.zip",
+      "checkpoint_sha256": "dae9ee1a5d760f1b66f597e5554c088ab31e5805392d0fb908d77f014d75dd6f",
+      "source_bundle": "rl_docs/tracks/walkcurr/bundle_rlonly_stance_v1"
+    },
+    {
+      "role": "walk (forward joystick walk, 50Hz hardware-transfer reference, rot60-wrapped)",
+      "controller": "rl_move/sim/policies/ppo_goal_cw_walk50hz_slew_smooth_s0.zip",
+      "checkpoint_sha256": "e11a723fda95076fa1f865d6fa365c0ff31fee42b045a96a2e72446b3aeb7ad5",
+      "source_bundle": "rl_docs/tracks/walkcurr/bundle_rlonly_v2/slew_smooth_s0"
+    },
+    {
+      "role": "turn-and-hold (stationary heading-offset tracking)",
+      "controller": "rl_move/sim/policies/ppo_goal_cw_walkyaw50hz_rlonly_scratch_sac_s5_acq5_seedsweep_hippitchfix_ft1.zip",
+      "checkpoint_sha256": "65769715c05a6ce180cbd17b2f5fba78d9270aa91552b10eb639573d3c6d77c8",
+      "source_bundle": "rl_docs/tracks/walkcurr (ops.sh index story cw-walkyaw50hz-rlonly-scratch-sac-s5-acq5-seedsweep-hippitchfix-ft1)"
+    },
+    {
+      "role": "lower (controlled descent from turn-exit state back to sit)",
+      "controller": "rl_move/sim/policies/ppo_goal_cw_stance50hz_rlonly_lowerrole_scratch_sac_s2_drramp_thermalderate50_acq1.zip",
+      "checkpoint_sha256": "1e6b12f41ad22378128db416e66ef412217d8105414902705b4112a074d7241f",
+      "source_bundle": "rl_docs/tracks/todaypolicy/bundle_rlonly_lifecycle_v2",
+      "note": "Trained with motor.thermal_derate_enable=1/thermal_derate_max_frac=0.5 -- a physics key that MUST be replayed at eval (this bundle's own harness auto-applies it as a default, see eval_lifecycle_full_rlonly.py's --lower-cfg help) or the champion runs under the wrong actuator model and over_current-fails (confirmed the hard way smoke-testing this tool before trusting its first number: 5/36 without the replay -> 33/36 with it, same checkpoint)."
+    }
+  ],
+  "composition_mechanism": {
+    "tool": "rl_move/sim/eval_lifecycle_full_rlonly.py (new, 2026-10-06)",
+    "type": "direct handoff x3 (stance->walk, walk->turn, turn->lower), no scripted blend",
+    "description": "Four SimHexapodJointWalkEnv instances, one per role's own exact recorded cfg-set recipe (each differs in actuator/safety/task cfg cached at env __init__ -- bus profile, safety.max_delta_q_deg, box_yaw, motor.thermal_derate_*). At each of the three handoff ticks the raw physical state (qpos/qvel/ctrl/act + SafetyLayer._last_safe slew memory) is copied from the outgoing env into a freshly-reset incoming env (the established cross-env reanchor trick, imported from eval_lifecycle_handoff_rlonly.py, not re-derived), then mj_forward + a rebuilt observation. No joint trajectory is scripted at any handoff. The walk segment optionally extends its stop phase up to --settle-grounded-s until all six feet contact simultaneously before handing to turn (eval_walk_turn_compose.py's own leg-3-unload-during-hold fix, reused)."
+  },
+  "gate_summary": {
+    "harness": "rl_move/sim/eval_lifecycle_full_rlonly.py, single 'direct' arm (full rise->walk->turn->lower chain; the two already-established pairwise plant controls -- walk's own clean reset in eval_lifecycle_handoff_rlonly.py, turn's own clean reset in eval_walk_turn_compose.py -- already exist on those tools and are not re-run here).",
+    "forward_heading_det_n36_seed0": {
+      "report": "logs/ckpt_eval/lifecycle_full_rlonly_v1_h0_det.json",
+      "result": "rise 36/36, walk 36/36 (gait_valid), turn 36/36 (gait_valid + converged, Q4 mean yaw-offset err well under the 0.05rad bar), lower 33/36 (91.7%). zero_fall_episodes 33/36.",
+      "failure_detail": "3 residual failures: 1 height-miss-without-fall (-15.8mm, just past the 15mm bar) + 2 tilt_roll falls. ZERO over_current -- matches the thermalderate50-s2 champion's own established failure-mode signature exactly (walkcurr/STATUS.md: 'Residual 12/108 failures are mostly pre-existing height-miss-without-fall (9) plus rare tilt_roll falls (3, 2.8%)'). The turn segment insertion costs NOTHING vs that role's own standalone rise->walk->lower number (33/36 was literally this seed's own official forward-only gate score) -- no new turn-interaction pathology detected at this n."
+    },
+    "verdict": "First full 4-role rl_only lifecycle composition: 91.7% zero-fall end-to-end (forward heading), matching the lower role's own already-accepted standalone composed rate bit-for-bit, with the same already-characterized residual failure signature. Evidence FOR the full lifecycle being compositionally free (no new interaction cost from adding the turn segment), NOT yet full-direction evidence (see blockers)."
+  },
+  "transfer_blockers_or_work": [
+    "FORWARD-HEADING ONLY so far (heading_deg=0.0) -- the 8-heading off-axis confirmation sweep every other champion on this track needed before being trusted/promoted (lowerrole_truechamp_fulldir_n20_2026-10-03, lowerrole_thermalderate50_fulldir_n20_2026-10-06) was launched the same cycle this manifest was created; see STATUS docs for its result before citing this as full-direction evidence.",
+    "Each role's own motor/safety contract differs (stance/lower bus 400/20, walk bus 4096/1000, turn its own acq5-seedsweep contract; safety.max_delta_q_deg/hip_pitch_max_deg vary) -- any physical composed runtime must switch the active contract at each of the three handoffs, not run one contract throughout (the same caveat bundle_rlonly_lifecycle_v2/curvewalk_v1 already name, now x3 handoffs instead of x1/x2). No such runtime is built -- Robot-Lab-owned per walkcurr/STATUS.md Next item 1.",
+    "This is a SIM-ONLY composition result (CPU MuJoCo, mesh_mjx model, no GPU spend, no physical robot motion). No physical acceptance is claimed.",
+    "No video/strip evidence generated yet for this specific 4-role chain (the tool supports --strips; not run this cycle to keep the first read fast) -- a demo video is a cheap follow-up once the off-axis read lands, same convention bundle_rlonly_curvewalk_v1's joystick_demo1.mp4 set.",
+    "Turn-offset cycles through the acq5-seedsweep recipe's own OFFSET_SET_DEG (15/30/45/90 deg family) one per episode, not a fixed single offset -- this is the SAME convention eval_walk_turn_compose.py's own registered gate already uses, not a new easier test."
+  ],
+  "next": [
+    "Off-axis (8-heading) confirmation sweep: in flight same cycle this manifest was created (zero GPU, CPU-only, ops.sh localbg). Read its result before promoting this from EVIDENCE to a Robot-Lab-ready candidate.",
+    "Once off-axis is read: decide whether to fold this into bundle_rlonly_lifecycle_v2 directly (add a turn capability to that bundle) or keep it as its own named full-chain candidate; both point at the same four checkpoints, so this is a naming/manifest-consolidation decision, not a new experiment.",
+    "A unified rise+walk+turn+lower physical runtime (per-role motor-contract switch) stays Robot-Lab-owned per walkcurr/STATUS.md Next item 1 -- do not build it on the cloud side."
+  ]
+}

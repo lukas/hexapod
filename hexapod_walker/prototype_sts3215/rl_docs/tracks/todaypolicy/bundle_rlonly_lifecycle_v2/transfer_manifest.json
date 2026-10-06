@@ -61,10 +61,11 @@
    "strips/direct_0.png",
    "strips/plant_0.png"
   ],
-  "visual_read": "1fps strip + full-fps mp4, episode 0, seed 0, det (this specific episode happened to be clean -- NOT representative of the ~1-in-3 failure rate measured above, which needs the n18x2 numeric read, not the video, to judge): flat start -> rise -> settled hold (blue arrow) -> forward walk (green arrow) -> controlled lower (blue down-arrows, final 3 frames) -> settled low/sit pose. Level throughout, no roll-over, all six legs visible/consistent, no height/tilt discontinuity across either handoff.",
+  "refreshed_2026-10-06": "strips/video regenerated against the NOW-current `lower` component (thermalderate50-s2, --lower-cfg motor.thermal_derate_enable=1/thermal_derate_max_frac=0.5, --rot60, --walk-recipe slew_smooth_s0, episodes=2 seed=0 det) -- the prior s0-drramp-acq1 evidence this superseded is preserved verbatim, not deleted, under archive_s0_drramp_video_2026-10-01/ (same dir, det_n2_report.json + direct_0/plant_0 .mp4/.png). New det_n2 numeric result: det_n2_report_thermalderate50_s2.json, direct 2/2 lower_ok, plant 2/2 lower_ok, 0 falls both arms -- consistent with, not a substitute for, the n=160/arm statistical read in lower_component_swap_2026-10-06 above.",
+  "visual_read": "1fps strip + full-fps mp4, episode 0, seed 0, det, thermalderate50-s2 lower component (this specific episode happened to be clean, consistent with the panel's 95.6%/96.2% aggregate rate, not cherry-picked from a worse distribution like the old evidence's ~72-76%): flat start -> rise -> settled hold (blue arrow) -> forward walk (green arrow) -> controlled lower (blue down-arrows, final frames) -> settled low/sit pose. Level throughout, no roll-over, all six legs visible/consistent, no height/tilt discontinuity across either handoff.",
   "mp4": {
-   "direct_0.mp4": "composed rise->walk->lower, episode 0 det, full fps (50)",
-   "plant_0.mp4": "walk-role's own clean reset -> lower control arm, episode 0 det, full fps (50)"
+   "direct_0.mp4": "composed rise->walk->lower, episode 0 det, full fps (50), thermalderate50-s2 lower component",
+   "plant_0.mp4": "walk-role's own clean reset -> lower control arm, episode 0 det, full fps (50), thermalderate50-s2 lower component"
   }
  },
  "forensics": "rl_docs/tracks/walkcurr/lowerrole_overcurrent_forensics_2026-10-01/SUMMARY.md",

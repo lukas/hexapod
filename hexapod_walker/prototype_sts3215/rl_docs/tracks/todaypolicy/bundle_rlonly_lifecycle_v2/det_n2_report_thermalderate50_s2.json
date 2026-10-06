@@ -1,0 +1,132 @@
+{
+ "stance": "rl_move/sim/policies/ppo_goal_cw_stance50hz_rlonly_currentcap29_s5_klrollback05_acq15m.zip",
+ "walk": "rl_move/sim/policies/ppo_goal_cw_walk50hz_slew_smooth_s0.zip",
+ "walk_recipe": "slew_smooth_s0",
+ "lower": "rl_move/sim/policies/ppo_goal_cw_stance50hz_rlonly_lowerrole_scratch_sac_s2_drramp_thermalderate50_acq1.zip",
+ "speed": 0.06,
+ "heading_deg": 0.0,
+ "rot60": true,
+ "lower_rot60": false,
+ "diag_zero_lower_qvel": false,
+ "deterministic": true,
+ "episodes": [
+  {
+   "arm": "direct",
+   "ep": 0,
+   "rise_valid_plant": true,
+   "rise_fail": [],
+   "rise_height_err_mm": 5.8,
+   "fall": null,
+   "trk_err": 0.1103,
+   "dist_m": 0.852,
+   "stumble_max_tilt_deg": 5.4,
+   "stumble_min_height_mm": 114.8,
+   "sacrificed_legs": [],
+   "gait_valid": true,
+   "lower_fall": null,
+   "lower_height_err_end_mm": 2.1,
+   "lower_ok": true
+  },
+  {
+   "arm": "direct",
+   "ep": 1,
+   "rise_valid_plant": true,
+   "rise_fail": [],
+   "rise_height_err_mm": -1.6,
+   "fall": null,
+   "trk_err": 0.1096,
+   "dist_m": 0.848,
+   "stumble_max_tilt_deg": 4.6,
+   "stumble_min_height_mm": 114.7,
+   "sacrificed_legs": [],
+   "gait_valid": true,
+   "lower_fall": null,
+   "lower_height_err_end_mm": -8.2,
+   "lower_ok": true
+  },
+  {
+   "arm": "plant",
+   "ep": 0,
+   "fall": null,
+   "trk_err": 0.1041,
+   "dist_m": 0.81,
+   "stumble_max_tilt_deg": 3.8,
+   "stumble_min_height_mm": 111.3,
+   "sacrificed_legs": [],
+   "gait_valid": true,
+   "lower_fall": null,
+   "lower_height_err_end_mm": -6.8,
+   "lower_ok": true
+  },
+  {
+   "arm": "plant",
+   "ep": 1,
+   "fall": null,
+   "trk_err": 0.1019,
+   "dist_m": 0.757,
+   "stumble_max_tilt_deg": 3.9,
+   "stumble_min_height_mm": 111.4,
+   "sacrificed_legs": [],
+   "gait_valid": true,
+   "lower_fall": null,
+   "lower_height_err_end_mm": -6.9,
+   "lower_ok": true
+  }
+ ],
+ "summary": {
+  "direct": {
+   "episodes": 2,
+   "rise_valid_plant": 2,
+   "rise_failed_pre_handoff": 0,
+   "handoff_falls": 0,
+   "gait_valid": 2,
+   "sacrificed_legs_union": [],
+   "trk_err_band": [
+    0.11,
+    0.11
+   ],
+   "dist_band": [
+    0.848,
+    0.852
+   ],
+   "stumble_tilt_band": [
+    4.6,
+    5.4
+   ],
+   "lower_attempted": 2,
+   "lower_falls": 0,
+   "lower_ok": 2,
+   "lower_height_err_end_mm_band": [
+    -8.2,
+    2.1
+   ]
+  },
+  "plant": {
+   "episodes": 2,
+   "rise_valid_plant": 0,
+   "rise_failed_pre_handoff": 0,
+   "handoff_falls": 0,
+   "gait_valid": 2,
+   "sacrificed_legs_union": [],
+   "trk_err_band": [
+    0.102,
+    0.104
+   ],
+   "dist_band": [
+    0.757,
+    0.81
+   ],
+   "stumble_tilt_band": [
+    3.8,
+    3.9
+   ],
+   "lower_attempted": 2,
+   "lower_falls": 0,
+   "lower_ok": 2,
+   "lower_height_err_end_mm_band": [
+    -6.9,
+    -6.8
+   ]
+  }
+ }
+}

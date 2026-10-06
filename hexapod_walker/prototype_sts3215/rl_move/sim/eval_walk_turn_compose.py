@@ -99,8 +99,17 @@ def main() -> int:
                          "checkpoint (obs/action contract = "
                          "cfg_recipe_walkyaw50hz_acq5_seedsweep unless "
                          "--turn-recipe overrides)")
-    ap.add_argument("--walk-recipe", choices=("rlonly_v2",),
-                    default="rlonly_v2")
+    ap.add_argument("--walk-recipe", choices=("rlonly_v2",
+                                              "slew_smooth_s0"),
+                    default="rlonly_v2",
+                    help="which versioned walk-role cfg-set recipe to "
+                         "build env_walk from (default rlonly_v2 = "
+                         "bundle_rlonly_v2/crutchoff-s0-warmadapt-acq1, "
+                         "the checkpoint this gate was originally "
+                         "validated against; slew_smooth_s0 = the "
+                         "bundle_rlonly_lifecycle_v2 promoted walk "
+                         "role -- pass --walk pointing at the matching "
+                         "checkpoint's .zip too)")
     ap.add_argument("--turn-recipe", choices=("acq5_seedsweep",),
                     default="acq5_seedsweep")
     ap.add_argument("--episodes", type=int, default=12)
@@ -189,6 +198,18 @@ def main() -> int:
     ap.add_argument("--stochastic", action="store_true",
                     help="both policies predict stochastically "
                          "(default deterministic)")
+    ap.add_argument("--walk-cfg", action="append", default=None,
+                    help="extra k=v cfg-set override(s) appended after "
+                         "--walk-recipe's own CFG_ARGS when building "
+                         "env_walk (default None = bit-exact recipe "
+                         "behavior) -- same override convention as "
+                         "eval_lifecycle_handoff_rlonly.py's --lower-cfg, "
+                         "e.g. to replay/ablate a shared-default change "
+                         "(safety.hip_pitch_max_deg) that postdates a "
+                         "frozen checkpoint's own training recipe")
+    ap.add_argument("--turn-cfg", action="append", default=None,
+                    help="same as --walk-cfg, applied to env_turn "
+                         "instead")
     ap.add_argument("--strips", type=Path, default=None,
                     help="dir for 1 fps frame-strip PNGs (episode 0 "
                          "only)")
@@ -202,11 +223,15 @@ def main() -> int:
     from .gru_policy import load_checkpoint_auto
     from .eval_checkpoint import _sacrificed_legs
     from .eval_lifecycle_handoff_rlonly import (
-        PhysicalState, _build_env, _set_mix, apply_physical_state,
-        capture_physical_state, heading_to_vxvy,
+        PhysicalState, _build_env, _compose_lower_cfg_args, _set_mix,
+        apply_physical_state, capture_physical_state, heading_to_vxvy,
     )
     if args.walk_recipe == "rlonly_v2":
         from .cfg_recipe_walk50hz_rlonly_v2 import CFG_ARGS as WALK_ARGS
+    elif args.walk_recipe == "slew_smooth_s0":
+        from .cfg_recipe_walk50hz_slew_smooth_s0 import (
+            CFG_ARGS as WALK_ARGS,
+        )
     if args.turn_recipe == "acq5_seedsweep":
         from .cfg_recipe_walkyaw50hz_acq5_seedsweep import (
             CFG_ARGS as TURN_ARGS, OFFSET_SET_DEG,
@@ -222,11 +247,14 @@ def main() -> int:
     # tick and was wrongly recorded as fall="episode_end").
     fwd_episode_s = (FWD_SETTLE_S + FWD_HOLD_S + FWD_STOP_S
                      + max(0.0, args.settle_grounded_s) + 2.0)
-    env_walk = _build_env(WALK_ARGS, episode_seconds=fwd_episode_s,
-                          seed=args.seed, render=want_strips)
-    env_turn = _build_env(TURN_ARGS,
-                          episode_seconds=args.turn_episode_s + 2.0,
-                          seed=args.seed, render=want_strips)
+    env_walk = _build_env(
+        _compose_lower_cfg_args(WALK_ARGS, args.walk_cfg),
+        episode_seconds=fwd_episode_s, seed=args.seed,
+        render=want_strips)
+    env_turn = _build_env(
+        _compose_lower_cfg_args(TURN_ARGS, args.turn_cfg),
+        episode_seconds=args.turn_episode_s + 2.0, seed=args.seed,
+        render=want_strips)
 
     walk = load_checkpoint_auto(args.walk, device="cpu")
     turn = load_checkpoint_auto(args.turn, device="cpu")
@@ -448,6 +476,9 @@ def main() -> int:
               else [args.turn_offset_deg])
     results = {
         "walk_ckpt": str(args.walk), "turn_ckpt": str(args.turn),
+        "walk_recipe": args.walk_recipe, "turn_recipe": args.turn_recipe,
+        "walk_cfg": args.walk_cfg, "turn_cfg": args.turn_cfg,
+        "rot60": args.rot60, "settle_grounded_s": args.settle_grounded_s,
         "compat": compat, "cycles": args.cycles, "speed": args.speed,
         "turn_episode_s": args.turn_episode_s,
         "deterministic": deterministic, "episodes": [],

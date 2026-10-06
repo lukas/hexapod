@@ -1,92 +1,94 @@
 {
- "schema": "hexapod.transfer_candidate.v1",
- "candidate_name": "walkcurr-rlonly-walk-turn-compose-curvewalk-v1",
- "parent_goal": "rl_only",
- "supersedes": null,
- "candidate_is_composition_not_single_policy": true,
- "no_physical_robot_motion_performed": true,
- "training_lineage_contract": "walkcurr rl_only (tracks.json): both composed policies are independently-trained clean-RL checkpoints, no gait clock/BC teacher/motion prior/AMP reward anywhere in either lineage. The forward-walk role is bundle_rlonly_v2's own champion (see that bundle's manifest for its lineage contract). The turn-and-hold role is `cw-walkyaw50hz-rlonly-scratch-sac-s5-easedterm-tipmix05-yawbox30-bodyassist-ysema1-term400-gapincome-yawoffset-bothleggate-acq5-seedsweep` (walkcurr's standing recipe champion, from-scratch SAC, same no-demo/no-clock contract; recipe module `rl_move/sim/cfg_recipe_walkyaw50hz_acq5_seedsweep.py`). This manifest adds NO new training and NO new weights: it is a RUNTIME composition (role-selection plumbing, explicitly allowed as non-motion plumbing under RL_GOALS.md's rl_only clarification) alternating which of the two frozen checkpoints is live, on the SAME goal_task walk env family (mode stays 'walk' throughout -- no rise/lower lifecycle grammar; that gap is owned by todaypolicy).",
- "components": [
-  {
-   "role": "forward walk (translate at trained heading/speed)",
-   "controller": "rl_move/sim/policies/ppo_goal_cw_walk50hz_rlonly_crutchoff_s0_warmadapt_acq1.zip",
-   "checkpoint_sha256": "a91b3c1d8909a9f456ee02f137a5e0e7165b7a94b5402ae337aa3f6e5f183885",
-   "source_bundle": "rl_docs/tracks/walkcurr/bundle_rlonly_v2",
-   "exported_np_policy": "linux_control/policies/walkscratch_rlonly_widen8_crutchoff_s0_warmadapt_50hz_acq1.json"
-  },
-  {
-   "role": "turn-and-hold (stationary/curved heading-offset tracking)",
-   "controller": "rl_move/sim/policies/ppo_goal_cw_walkyaw50hz_rlonly_scratch_sac_s5_easedterm_tipmix05_yawbox30_bodyassist_ysema1_term400_gapincome_yawoffset_bothleggate_acq5_seedsweep.zip",
-   "checkpoint_sha256": "1128ce5ae13fe92f31d44e55de30a874a1057b2c160ccf980d87ee48a0342bbd",
-   "source_bundle": null,
-   "exported_np_policy": "linux_control/policies/walkyaw50hz_rlonly_turnhold_acq5_seedsweep_s5.json",
-   "exported_np_policy_sha256": "aa2be96da686ec784e6fc4435948b0338f98a2c9c55656f894099deb7b7d4f10",
-   "export_notes": "BUILT 2026-09-30 (this cycle) -- this checkpoint is SAC (algorithm mislabeled in its own filename prefix ppo_goal_cw_*, verified via zip contents: actor/critic/ent_coef optimizer state), the FIRST SAC checkpoint export attempted anywhere in this project; export_policy_np.py/np_policy.py had no SAC actor path at all (only PPO MlpPolicy/GRU/dual-GRU/transformer). Added `_sac_mlp_payload` (SAC's deterministic actor tanh(mu(latent_pi(obs))), verified numerically ~6e-8 max diff vs SB3 for random obs -- this project's SAC action spaces are exactly Box(-1,1) so tanh IS the actor's own squash, no extra scale/bias) reusing the existing generic N-layer `layers` format with a new additive `meta.output_squash` field (\"clip\" default = unchanged prior behavior, \"tanh\" = new). Also added `relu` to the nlayer activation set (SAC's own latent_pi activation) and an explicit `meta.walk_yaw_offset_cmd`/`walk_yaw_offset_set` contract disambiguating obs-width-74's TWO colliding families (the pre-existing phase-clock family, which needs phase_hz, vs this checkpoint's static per-episode [target,error] yaw-offset pair, which has no clock at all -- forcing a fabricated phase_hz onto it would have been actively wrong metadata). export_policy_np.py --training-hz 50 --inner-hz 50 --extra-meta '{\"walk_yaw_offset_cmd\":true,\"walk_yaw_offset_set\":[15,30,45,90,-15,-30,-45,-90]}', net-arch 256,256,128, parity 4.66e-06 over 200 random obs (bar 1e-5). All new mechanics covered by new tests in test_np_policy.py/test_export_policy_np.py (full suite green except two pre-existing unrelated flakes -- test_dual_gru_numpy_sequence_matches_torch_and_threads_both_cores float-tolerance flake and test_course_disp_semantics.py::test_real_failed_checkpoint_ema_inert_disp_active, both reproduce identically on the pre-change tree). NOTE: this export is weights-only parity evidence -- the robot-side linux_control runtime has no consumer for a walk_yaw_offset_cmd observation yet (no joystick-driven relative-heading-offset command source exists in linux_control/ today); that plumbing is separate, larger, not-yet-scoped Robot-Lab-side work and is NOT claimed done here."
-  }
- ],
- "composition_mechanism": {
-  "tool": "rl_move/sim/eval_walk_turn_compose.py",
-  "type": "segment-alternating role composition, two env instances, cross-env physical-state reanchor at each boundary",
-  "description": "Two SimHexapodJointWalkEnv instances (one per role's own versioned cfg-set recipe -- cfg_recipe_walk50hz_rlonly_v2 / cfg_recipe_walkyaw50hz_acq5_seedsweep, whose SimServoParams/_act_to_q caches differ: box_yaw 15 vs 30deg, term_penalty 24 vs 400, safety.max_roll/pitch 30 vs 45 -- so they cannot hot-swap mid-episode on one live env, exactly eval_lifecycle_handoff_rlonly.py's own precedent). At each segment boundary the raw physical state (qpos/qvel/ctrl/act + safety slew memory) is copied across via the SAME capture_physical_state/apply_physical_state helpers, optionally through --settle-grounded-s (opt-in, waits for a fully-grounded tick before reanchor; default off, bit-exact prior behavior -- built 2026-09-30, does not change this candidate's own numbers, see caveats below). No scripted joint trajectory, teacher target, or demonstration enters the composition at any point.",
-  "curve_speed_flag": "--curve-speed feeds the FROZEN turn-and-hold checkpoint a nonzero body-frame vx SIMULTANEOUSLY with its yaw-offset target during the turn segment -- a command combination absent from its own training (every yaw-offset training episode hard-zeros vx/vy). This is zero-shot OOD generalization of an existing checkpoint, not a new policy. --curve-speed 0.0 recovers the original stationary stop-turn-go schedule (the 'bundle_rlonly_stopturngo_v1' framing named in walkcurr/STATUS.md 2026-09-30 before the curved-walking read superseded it same-cycle) -- both command profiles are the SAME two checkpoints and the SAME tool, differing only in this one eval-time flag, so this single manifest covers both."
- },
- "gate_summary": {
-  "harness": "rl_move/sim/eval_walk_turn_compose.py, forward segment = eval_checkpoint's walk bar (tracking error + strict gait_valid); turn segment = acq5 gate's own bar (terminal-quartile |walk_yaw_offset_err|<=0.05rad + gait_valid_relaxed_hold); whole-session = zero-fall rate.",
-  "stationary_stop_turn_go_heading0_det_sto_n12x2cycles": {
-   "report": "logs/ckpt_eval/walk_turn_compose_v1_{det,sto}.json",
-   "det": "zero_fall 12/12, forward 24/24, turn 23/24 (1 single-leg unload during hold, still converged, 0 falls)",
-   "sto": "zero_fall 12/12, forward 24/24, turn 24/24"
-  },
-  "stationary_stop_turn_go_full_8way_heading_det_n3_per_heading": {
-   "report": "logs/ckpt_eval/walk_turn_compose_rot60_h{0,45,-45,90,-90,135,-135,180}_det.json (+ _settlefix variants)",
-   "result": "zero_fall 24/24 episodes, forward 48/48, turn 46/48 (2 misses total, same single-leg-3-unload-during-hold pattern; --settle-grounded-s reanchor fix tested and gives the IDENTICAL 46/48 total -- moved which 2 episodes miss (fixed the original 3, 2 new ones appeared elsewhere) rather than the rate, root-caused to the turn checkpoint's own stance asymmetry, not a handoff-timing artifact; non-gating, 0/48 falls either way"
-  },
-  "curved_walking_det_sto_n12x2cycles_curve_speed_0.06": {
-   "report": "logs/ckpt_eval/walk_turn_curve_probe_{det_n12,sto_n12}.json",
-   "det": "zero_fall 12/12, turn segments 24/24 gait_valid/converged/err_q4<=0.05rad (BETTER than the stationary read -- the leg-3-unload quirk did not reproduce), net_disp_m range [0.135,0.722]m over the 20s segment",
-   "sto": "zero_fall 12/12, turn segments 24/24, net_disp_m range [0.176,0.524]m"
-  },
-  "curved_walking_2x_trained_speed_det_n8_curve_speed_0.12": {
-   "report": "logs/ckpt_eval/walk_turn_curve_probe_2x_n8.json",
-   "result": "zero_fall 8/8, turn segments 16/16, net_disp_m range [0.159,0.755]m -- robust at double the trained forward speed, still doubly OOD (nonzero vx AND above-trained magnitude)"
-  },
-  "curved_walking_combined_with_full_8way_forward_heading_det_n3_per_heading_curve_speed_0.06": {
-   "report": "logs/ckpt_eval/walk_turn_compose_rot60_curve_h{0,45,90,135,180,-45,-90,-135}_det.json",
-   "result": "CLOSES the 'not combined with off-forward headings simultaneously' caveat below (2026-09-30 refill cycle, CPU-only, zero GPU spend, no code change -- --rot60/--heading-deg and --curve-speed already composed without modification). zero_fall 24/24 episodes, forward 48/48, turn 46/48 (misses at h=135/h=-90, same single-leg-3-unload-during-hold signature already root-caused as the turn checkpoint's own stance asymmetry -- identical 2/48 rate to the stationary-hold full-heading panel, not a heading/curve interaction). net_disp_m median 0.32-0.46m across all 8 headings -- real displacement at every commanded heading, not just heading=0."
-  },
-  "verdict": "Both command profiles (stationary stop-turn-go and simultaneous curved walk) compose cleanly: 0 falls across every read (124 episodes / ~236 segments total), forward segments always clean, turn segments 93/96 stationary(heading=0) + 46/48 stationary(full 8-way heading) + 64/64 curved(heading=0) + 46/48 curved(full 8-way heading). Curved walking is real displacement at the new heading, not drift-while-holding, and now confirmed across the full 8-way heading set as well as heading=0."
- },
- "video_evidence": {
-  "note": "RENDERED 2026-09-30 (this cycle): one det-mode frame-strip pair (forward + turn segment, cycle0+cycle1) per profile via `--strips`, n=2 episodes each, seed 0. Stationary: zero_fall 2/2, forward 4/4, turn 3/4 (same single-leg-3-unload-during-hold quirk already root-caused/closed as non-gating), net_disp_m_median 0.49. Curved (--curve-speed 0.06): zero_fall 2/2, forward 4/4, turn 4/4, net_disp_m_median 0.34. Eyeballed both turn strips: stationary shows clean in-place rotation across frames, all six legs cycling; curved shows real lateral displacement across the strip (not drift-while-holding) with a visible forward-velocity vector, matching the scalar net_disp_m evidence -- no skating/dragging/paddle-creep visible at this frame rate.",
-  "paths": [
-   "logs/ckpt_eval/walk_turn_compose_strips/stationary_det/ep0_cycle0_turn.png",
-   "logs/ckpt_eval/walk_turn_compose_strips/stationary_det/ep0_cycle1_turn.png",
-   "logs/ckpt_eval/walk_turn_compose_strips/curved_det/ep0_cycle0_turn.png",
-   "logs/ckpt_eval/walk_turn_compose_strips/curved_det/ep0_cycle1_turn.png"
+  "schema": "hexapod.transfer_candidate.v1",
+  "candidate_name": "walkcurr-rlonly-walk-turn-compose-curvewalk-v1",
+  "parent_goal": "rl_only",
+  "supersedes": null,
+  "candidate_is_composition_not_single_policy": true,
+  "no_physical_robot_motion_performed": true,
+  "training_lineage_contract": "walkcurr rl_only (tracks.json): both composed policies are independently-trained clean-RL checkpoints, no gait clock/BC teacher/motion prior/AMP reward anywhere in either lineage. The forward-walk role is bundle_rlonly_v2's own champion (see that bundle's manifest for its lineage contract). The turn-and-hold role is `cw-walkyaw50hz-rlonly-scratch-sac-s5-easedterm-tipmix05-yawbox30-bodyassist-ysema1-term400-gapincome-yawoffset-bothleggate-acq5-seedsweep` (walkcurr's standing recipe champion, from-scratch SAC, same no-demo/no-clock contract; recipe module `rl_move/sim/cfg_recipe_walkyaw50hz_acq5_seedsweep.py`). This manifest adds NO new training and NO new weights: it is a RUNTIME composition (role-selection plumbing, explicitly allowed as non-motion plumbing under RL_GOALS.md's rl_only clarification) alternating which of the two frozen checkpoints is live, on the SAME goal_task walk env family (mode stays 'walk' throughout -- no rise/lower lifecycle grammar; that gap is owned by todaypolicy).",
+  "components": [
+    {
+      "role": "forward walk (translate at trained heading/speed)",
+      "controller": "rl_move/sim/policies/ppo_goal_cw_walk50hz_rlonly_crutchoff_s0_warmadapt_acq1.zip",
+      "checkpoint_sha256": "a91b3c1d8909a9f456ee02f137a5e0e7165b7a94b5402ae337aa3f6e5f183885",
+      "source_bundle": "rl_docs/tracks/walkcurr/bundle_rlonly_v2",
+      "exported_np_policy": "linux_control/policies/walkscratch_rlonly_widen8_crutchoff_s0_warmadapt_50hz_acq1.json"
+    },
+    {
+      "role": "turn-and-hold (stationary/curved heading-offset tracking)",
+      "controller": "rl_move/sim/policies/ppo_goal_cw_walkyaw50hz_rlonly_scratch_sac_s5_easedterm_tipmix05_yawbox30_bodyassist_ysema1_term400_gapincome_yawoffset_bothleggate_acq5_seedsweep.zip",
+      "checkpoint_sha256": "1128ce5ae13fe92f31d44e55de30a874a1057b2c160ccf980d87ee48a0342bbd",
+      "source_bundle": null,
+      "exported_np_policy": "linux_control/policies/walkyaw50hz_rlonly_turnhold_acq5_seedsweep_s5.json",
+      "exported_np_policy_sha256": "aa2be96da686ec784e6fc4435948b0338f98a2c9c55656f894099deb7b7d4f10",
+      "export_notes": "BUILT 2026-09-30 (this cycle) -- this checkpoint is SAC (algorithm mislabeled in its own filename prefix ppo_goal_cw_*, verified via zip contents: actor/critic/ent_coef optimizer state), the FIRST SAC checkpoint export attempted anywhere in this project; export_policy_np.py/np_policy.py had no SAC actor path at all (only PPO MlpPolicy/GRU/dual-GRU/transformer). Added `_sac_mlp_payload` (SAC's deterministic actor tanh(mu(latent_pi(obs))), verified numerically ~6e-8 max diff vs SB3 for random obs -- this project's SAC action spaces are exactly Box(-1,1) so tanh IS the actor's own squash, no extra scale/bias) reusing the existing generic N-layer `layers` format with a new additive `meta.output_squash` field (\"clip\" default = unchanged prior behavior, \"tanh\" = new). Also added `relu` to the nlayer activation set (SAC's own latent_pi activation) and an explicit `meta.walk_yaw_offset_cmd`/`walk_yaw_offset_set` contract disambiguating obs-width-74's TWO colliding families (the pre-existing phase-clock family, which needs phase_hz, vs this checkpoint's static per-episode [target,error] yaw-offset pair, which has no clock at all -- forcing a fabricated phase_hz onto it would have been actively wrong metadata). export_policy_np.py --training-hz 50 --inner-hz 50 --extra-meta '{\"walk_yaw_offset_cmd\":true,\"walk_yaw_offset_set\":[15,30,45,90,-15,-30,-45,-90]}', net-arch 256,256,128, parity 4.66e-06 over 200 random obs (bar 1e-5). All new mechanics covered by new tests in test_np_policy.py/test_export_policy_np.py (full suite green except two pre-existing unrelated flakes -- test_dual_gru_numpy_sequence_matches_torch_and_threads_both_cores float-tolerance flake and test_course_disp_semantics.py::test_real_failed_checkpoint_ema_inert_disp_active, both reproduce identically on the pre-change tree). NOTE: this export is weights-only parity evidence -- the robot-side linux_control runtime has no consumer for a walk_yaw_offset_cmd observation yet (no joystick-driven relative-heading-offset command source exists in linux_control/ today); that plumbing is separate, larger, not-yet-scoped Robot-Lab-side work and is NOT claimed done here."
+    }
   ],
-  "reports": [
-   "logs/ckpt_eval/walk_turn_compose_strips/stationary_det.json",
-   "logs/ckpt_eval/walk_turn_compose_strips/curved_det.json"
-  ]
- },
- "interactive_joystick_demo": {
-  "note": "BUILT+RENDERED 2026-09-30 (this cycle): new tool `rl_move/sim/joystick_demo_compose.py` closes RL_GOALS.md's 'interactive joystick sim demo with a viewable video' deliverable for this candidate -- it takes an ORDERED JOYSTICK COMMAND TIMELINE (vx, vy, wz per segment, the same (forward, lateral, yaw-rate) triple a real joystick reports) rather than `eval_walk_turn_compose.py`'s own fixed forward-then-turn alternation, and renders one continuous mp4 (not just 1fps contact-sheet strips). Same two frozen checkpoints, zero GPU spend, CPU-only MuJoCo. Pure role-switch logic (`resolve_roles`: |wz|<=1e-6 -> WALK role via heading_to_vxvy's own inverse; |wz|>1e-6 -> TURN role, with the commanded yaw RATE integrated over the segment duration into one heading-OFFSET target, clamped to the turn checkpoint's own trained +-30deg authority band) is a pure function, covered by 12 new mechanics tests (`rl_move/tests/test_joystick_demo_compose.py`, <0.1s, no mujoco). The `demo1` script (7 segments: forward, turn-left, forward, turn-right, reverse, curve-left (turn+translate combined), stop -- covering direction changes/turns/stops/restarts per RL_GOALS.md's own demo wording) rendered end-to-end: zero_fall 7/7 segments (matches every other read of these two checkpoints), gait_valid 6/7 (1 miss on the first turn-left segment -- the SAME already-root-caused single-leg-3-unload-during-hold quirk from `known_caveat_leg3_unload_during_hold` below, non-gating, no fall, still converged, err_q4_mean_rad 0.0191). Frame strip eyeballed: clean forward walk, level body through both turns, visible velocity-vector arrows tracking the commanded direction, no skating/dragging visible.",
-  "video": "rl_docs/tracks/walkcurr/bundle_rlonly_curvewalk_v1/joystick_demo1.mp4 (2588 frames @ 50fps, ~52s)",
-  "summary_json": "rl_docs/tracks/walkcurr/bundle_rlonly_curvewalk_v1/joystick_demo1_summary.json",
-  "repro": "uv run python -m rl_move.sim.joystick_demo_compose --walk rl_move/sim/policies/ppo_goal_cw_walk50hz_rlonly_crutchoff_s0_warmadapt_acq1.zip --turn rl_move/sim/policies/ppo_goal_cw_walkyaw50hz_rlonly_scratch_sac_s5_easedterm_tipmix05_yawbox30_bodyassist_ysema1_term400_gapincome_yawoffset_bothleggate_acq5_seedsweep.zip --script demo1 --seed 0 --out <out.mp4> --summary-out <out.json>",
-  "scope": "This is the SIM half of RL_GOALS.md's demo requirement (interactive joystick sim demo, viewable video, reproducible launch path). It does NOT touch the physical half (bounded recorded physical joystick trial) or the linux_control runtime gap named below -- a real joystick still has no wired command source on the robot side."
- },
- "known_caveat_leg3_unload_during_hold": "Root-caused 2026-09-30 (CPU-only dig-in, eval_walk_turn_compose.py + --settle-grounded-s): the 2/48 (stationary, full-heading panel) misses are a converged-stance asymmetry intrinsic to the turn-and-hold checkpoint itself (surfaces stochastically depending on the exact converged stance, always leg 3), not a composition-boundary/handoff-timing artifact -- forcing a fully-grounded reanchor before handoff does not change the incidence. Non-gating (0 falls in every read). If revisited, the next lever is the acq5-seedsweep recipe's own per-leg stance-symmetry term or a harder gait_valid bar during ITS OWN training, not more composition plumbing.",
- "transfer_blockers_or_work": [
-  "This is a SIM-ONLY composition result (CPU MuJoCo, mesh_mjx model, no GPU spend, no physical robot motion). No physical acceptance is claimed.",
-  "RESOLVED 2026-09-30: the turn-and-hold role's np-JSON export + parity now exist (see its component entry above). REMAINING gap, not yet built anywhere: the robot-side linux_control runtime has no consumer for a walk_yaw_offset_cmd observation (no joystick-driven relative-heading-offset command source in linux_control/ today) -- exporting the weights did not create that plumbing.",
-  "The two roles' motor/safety contracts differ (box_yaw 15 vs 30deg, term_penalty 24 vs 400, safety.max_roll/pitch 30 vs 45) -- exactly bundle_rlonly_lifecycle_v1's own precedent -- any physical composed runtime must actually SWITCH the active cfg/safety contract at each segment boundary, not run one contract throughout.",
-  "No rise/lower lifecycle grammar in this candidate (mode stays 'walk' the whole session) -- composing with a stand/lower role is a separate open piece owned by todaypolicy/standwalk, not this bundle.",
-  "Curved-walking mode is a turn-then-walk-at-the-new-heading profile within each 20s segment (yaw converges, then it walks straight at the new heading), not a continuously-arcing path; only tested at the turn role's own 8 trained offsets and two speeds (0.06/0.12 m/s), RESOLVED 2026-09-30: now also tested combined with the forward role's own full 8-way off-forward heading set simultaneously (see gate_summary.curved_walking_combined_with_full_8way_forward_heading_det_n3_per_heading_curve_speed_0.06 above) -- same 2/48 leg-3 rate, no new failure mode. Still only tested at the two speeds (0.06/0.12 m/s), not at a continuously-varying offset command.",
-  "RESOLVED 2026-09-30: det-mode frame strips rendered and eyeballed for both profiles (see video_evidence above)."
- ],
- "next": [
-  "Robot Lab / a future cloud cycle: build the joystick-side walk_yaw_offset_cmd command source and per-role motor-contract-switch runtime (the one remaining plumbing gap named above) before any physical drive of this composition.",
-  "Robot Lab: once that plumbing lands, this composition (either curve_speed=0 stop-turn-go or curve_speed=0.06 simultaneous-command profile) is ready for guarded-runner physical-handoff review alongside the other walkcurr/standwalk candidates."
- ]
+  "composition_mechanism": {
+    "tool": "rl_move/sim/eval_walk_turn_compose.py",
+    "type": "segment-alternating role composition, two env instances, cross-env physical-state reanchor at each boundary",
+    "description": "Two SimHexapodJointWalkEnv instances (one per role's own versioned cfg-set recipe -- cfg_recipe_walk50hz_rlonly_v2 / cfg_recipe_walkyaw50hz_acq5_seedsweep, whose SimServoParams/_act_to_q caches differ: box_yaw 15 vs 30deg, term_penalty 24 vs 400, safety.max_roll/pitch 30 vs 45 -- so they cannot hot-swap mid-episode on one live env, exactly eval_lifecycle_handoff_rlonly.py's own precedent). At each segment boundary the raw physical state (qpos/qvel/ctrl/act + safety slew memory) is copied across via the SAME capture_physical_state/apply_physical_state helpers, optionally through --settle-grounded-s (opt-in, waits for a fully-grounded tick before reanchor; default off, bit-exact prior behavior -- built 2026-09-30, does not change this candidate's own numbers, see caveats below). No scripted joint trajectory, teacher target, or demonstration enters the composition at any point.",
+    "curve_speed_flag": "--curve-speed feeds the FROZEN turn-and-hold checkpoint a nonzero body-frame vx SIMULTANEOUSLY with its yaw-offset target during the turn segment -- a command combination absent from its own training (every yaw-offset training episode hard-zeros vx/vy). This is zero-shot OOD generalization of an existing checkpoint, not a new policy. --curve-speed 0.0 recovers the original stationary stop-turn-go schedule (the 'bundle_rlonly_stopturngo_v1' framing named in walkcurr/STATUS.md 2026-09-30 before the curved-walking read superseded it same-cycle) -- both command profiles are the SAME two checkpoints and the SAME tool, differing only in this one eval-time flag, so this single manifest covers both."
+  },
+  "gate_summary": {
+    "harness": "rl_move/sim/eval_walk_turn_compose.py, forward segment = eval_checkpoint's walk bar (tracking error + strict gait_valid); turn segment = acq5 gate's own bar (terminal-quartile |walk_yaw_offset_err|<=0.05rad + gait_valid_relaxed_hold); whole-session = zero-fall rate.",
+    "stationary_stop_turn_go_heading0_det_sto_n12x2cycles": {
+      "report": "logs/ckpt_eval/walk_turn_compose_v1_{det,sto}.json",
+      "det": "zero_fall 12/12, forward 24/24, turn 23/24 (1 single-leg unload during hold, still converged, 0 falls)",
+      "sto": "zero_fall 12/12, forward 24/24, turn 24/24"
+    },
+    "stationary_stop_turn_go_full_8way_heading_det_n3_per_heading": {
+      "report": "logs/ckpt_eval/walk_turn_compose_rot60_h{0,45,-45,90,-90,135,-135,180}_det.json (+ _settlefix variants)",
+      "result": "zero_fall 24/24 episodes, forward 48/48, turn 46/48 (2 misses total, same single-leg-3-unload-during-hold pattern; --settle-grounded-s reanchor fix tested and gives the IDENTICAL 46/48 total -- moved which 2 episodes miss (fixed the original 3, 2 new ones appeared elsewhere) rather than the rate, root-caused to the turn checkpoint's own stance asymmetry, not a handoff-timing artifact; non-gating, 0/48 falls either way"
+    },
+    "curved_walking_det_sto_n12x2cycles_curve_speed_0.06": {
+      "report": "logs/ckpt_eval/walk_turn_curve_probe_{det_n12,sto_n12}.json",
+      "det": "zero_fall 12/12, turn segments 24/24 gait_valid/converged/err_q4<=0.05rad (BETTER than the stationary read -- the leg-3-unload quirk did not reproduce), net_disp_m range [0.135,0.722]m over the 20s segment",
+      "sto": "zero_fall 12/12, turn segments 24/24, net_disp_m range [0.176,0.524]m"
+    },
+    "curved_walking_2x_trained_speed_det_n8_curve_speed_0.12": {
+      "report": "logs/ckpt_eval/walk_turn_curve_probe_2x_n8.json",
+      "result": "zero_fall 8/8, turn segments 16/16, net_disp_m range [0.159,0.755]m -- robust at double the trained forward speed, still doubly OOD (nonzero vx AND above-trained magnitude)"
+    },
+    "curved_walking_combined_with_full_8way_forward_heading_det_n3_per_heading_curve_speed_0.06": {
+      "report": "logs/ckpt_eval/walk_turn_compose_rot60_curve_h{0,45,90,135,180,-45,-90,-135}_det.json",
+      "result": "CLOSES the 'not combined with off-forward headings simultaneously' caveat below (2026-09-30 refill cycle, CPU-only, zero GPU spend, no code change -- --rot60/--heading-deg and --curve-speed already composed without modification). zero_fall 24/24 episodes, forward 48/48, turn 46/48 (misses at h=135/h=-90, same single-leg-3-unload-during-hold signature already root-caused as the turn checkpoint's own stance asymmetry -- identical 2/48 rate to the stationary-hold full-heading panel, not a heading/curve interaction). net_disp_m median 0.32-0.46m across all 8 headings -- real displacement at every commanded heading, not just heading=0."
+    },
+    "verdict": "Both command profiles (stationary stop-turn-go and simultaneous curved walk) compose cleanly: 0 falls across every read (124 episodes / ~236 segments total), forward segments always clean, turn segments 93/96 stationary(heading=0) + 46/48 stationary(full 8-way heading) + 64/64 curved(heading=0) + 46/48 curved(full 8-way heading). Curved walking is real displacement at the new heading, not drift-while-holding, and now confirmed across the full 8-way heading set as well as heading=0."
+  },
+  "video_evidence": {
+    "note": "RENDERED 2026-09-30 (this cycle): one det-mode frame-strip pair (forward + turn segment, cycle0+cycle1) per profile via `--strips`, n=2 episodes each, seed 0. Stationary: zero_fall 2/2, forward 4/4, turn 3/4 (same single-leg-3-unload-during-hold quirk already root-caused/closed as non-gating), net_disp_m_median 0.49. Curved (--curve-speed 0.06): zero_fall 2/2, forward 4/4, turn 4/4, net_disp_m_median 0.34. Eyeballed both turn strips: stationary shows clean in-place rotation across frames, all six legs cycling; curved shows real lateral displacement across the strip (not drift-while-holding) with a visible forward-velocity vector, matching the scalar net_disp_m evidence -- no skating/dragging/paddle-creep visible at this frame rate.",
+    "paths": [
+      "logs/ckpt_eval/walk_turn_compose_strips/stationary_det/ep0_cycle0_turn.png",
+      "logs/ckpt_eval/walk_turn_compose_strips/stationary_det/ep0_cycle1_turn.png",
+      "logs/ckpt_eval/walk_turn_compose_strips/curved_det/ep0_cycle0_turn.png",
+      "logs/ckpt_eval/walk_turn_compose_strips/curved_det/ep0_cycle1_turn.png"
+    ],
+    "reports": [
+      "logs/ckpt_eval/walk_turn_compose_strips/stationary_det.json",
+      "logs/ckpt_eval/walk_turn_compose_strips/curved_det.json"
+    ]
+  },
+  "interactive_joystick_demo": {
+    "note": "BUILT+RENDERED 2026-09-30 (this cycle): new tool `rl_move/sim/joystick_demo_compose.py` closes RL_GOALS.md's 'interactive joystick sim demo with a viewable video' deliverable for this candidate -- it takes an ORDERED JOYSTICK COMMAND TIMELINE (vx, vy, wz per segment, the same (forward, lateral, yaw-rate) triple a real joystick reports) rather than `eval_walk_turn_compose.py`'s own fixed forward-then-turn alternation, and renders one continuous mp4 (not just 1fps contact-sheet strips). Same two frozen checkpoints, zero GPU spend, CPU-only MuJoCo. Pure role-switch logic (`resolve_roles`: |wz|<=1e-6 -> WALK role via heading_to_vxvy's own inverse; |wz|>1e-6 -> TURN role, with the commanded yaw RATE integrated over the segment duration into one heading-OFFSET target, clamped to the turn checkpoint's own trained +-30deg authority band) is a pure function, covered by 12 new mechanics tests (`rl_move/tests/test_joystick_demo_compose.py`, <0.1s, no mujoco). The `demo1` script (7 segments: forward, turn-left, forward, turn-right, reverse, curve-left (turn+translate combined), stop -- covering direction changes/turns/stops/restarts per RL_GOALS.md's own demo wording) rendered end-to-end: zero_fall 7/7 segments (matches every other read of these two checkpoints), gait_valid 6/7 (1 miss on the first turn-left segment -- the SAME already-root-caused single-leg-3-unload-during-hold quirk from `known_caveat_leg3_unload_during_hold` below, non-gating, no fall, still converged, err_q4_mean_rad 0.0191). Frame strip eyeballed: clean forward walk, level body through both turns, visible velocity-vector arrows tracking the commanded direction, no skating/dragging visible.",
+    "video": "rl_docs/tracks/walkcurr/bundle_rlonly_curvewalk_v1/joystick_demo1.mp4 (2588 frames @ 50fps, ~52s)",
+    "summary_json": "rl_docs/tracks/walkcurr/bundle_rlonly_curvewalk_v1/joystick_demo1_summary.json",
+    "repro": "uv run python -m rl_move.sim.joystick_demo_compose --walk rl_move/sim/policies/ppo_goal_cw_walk50hz_rlonly_crutchoff_s0_warmadapt_acq1.zip --turn rl_move/sim/policies/ppo_goal_cw_walkyaw50hz_rlonly_scratch_sac_s5_easedterm_tipmix05_yawbox30_bodyassist_ysema1_term400_gapincome_yawoffset_bothleggate_acq5_seedsweep.zip --script demo1 --seed 0 --out <out.mp4> --summary-out <out.json>",
+    "scope": "This is the SIM half of RL_GOALS.md's demo requirement (interactive joystick sim demo, viewable video, reproducible launch path). It does NOT touch the physical half (bounded recorded physical joystick trial) or the linux_control runtime gap named below -- a real joystick still has no wired command source on the robot side."
+  },
+  "known_caveat_leg3_unload_during_hold": "Root-caused 2026-09-30 (CPU-only dig-in, eval_walk_turn_compose.py + --settle-grounded-s): the 2/48 (stationary, full-heading panel) misses are a converged-stance asymmetry intrinsic to the turn-and-hold checkpoint itself (surfaces stochastically depending on the exact converged stance, always leg 3), not a composition-boundary/handoff-timing artifact -- forcing a fully-grounded reanchor before handoff does not change the incidence. Non-gating (0 falls in every read). If revisited, the next lever is the acq5-seedsweep recipe's own per-leg stance-symmetry term or a harder gait_valid bar during ITS OWN training, not more composition plumbing.",
+  "transfer_blockers_or_work": [
+    "This is a SIM-ONLY composition result (CPU MuJoCo, mesh_mjx model, no GPU spend, no physical robot motion). No physical acceptance is claimed.",
+    "RESOLVED 2026-09-30: the turn-and-hold role's np-JSON export + parity now exist (see its component entry above). REMAINING gap, not yet built anywhere: the robot-side linux_control runtime has no consumer for a walk_yaw_offset_cmd observation (no joystick-driven relative-heading-offset command source in linux_control/ today) -- exporting the weights did not create that plumbing.",
+    "The two roles' motor/safety contracts differ (box_yaw 15 vs 30deg, term_penalty 24 vs 400, safety.max_roll/pitch 30 vs 45) -- exactly bundle_rlonly_lifecycle_v1's own precedent -- any physical composed runtime must actually SWITCH the active cfg/safety contract at each segment boundary, not run one contract throughout.",
+    "No rise/lower lifecycle grammar in this candidate (mode stays 'walk' the whole session) -- composing with a stand/lower role is a separate open piece owned by todaypolicy/standwalk, not this bundle.",
+    "Curved-walking mode is a turn-then-walk-at-the-new-heading profile within each 20s segment (yaw converges, then it walks straight at the new heading), not a continuously-arcing path; only tested at the turn role's own 8 trained offsets and two speeds (0.06/0.12 m/s), RESOLVED 2026-09-30: now also tested combined with the forward role's own full 8-way off-forward heading set simultaneously (see gate_summary.curved_walking_combined_with_full_8way_forward_heading_det_n3_per_heading_curve_speed_0.06 above) -- same 2/48 leg-3 rate, no new failure mode. Still only tested at the two speeds (0.06/0.12 m/s), not at a continuously-varying offset command.",
+    "RESOLVED 2026-09-30: det-mode frame strips rendered and eyeballed for both profiles (see video_evidence above)."
+  ],
+  "next": [
+    "BLOCKING (2026-10-06): before any physical handoff review or further composition built on this candidate, resolve the hip_pitch_max_deg composed-gate regression named in head_tree_regression_2026-10-06 -- either a short turn-role fine-tune under the corrected (29.8deg) envelope, or a fresh re-registration of this gate's numbers on the current tree. See walkcurr/STATUS.md Next item 4.",
+    "Robot Lab / a future cloud cycle: build the joystick-side walk_yaw_offset_cmd command source and per-role motor-contract-switch runtime (the one remaining plumbing gap named above) before any physical drive of this composition.",
+    "Robot Lab: once that plumbing lands, this composition (either curve_speed=0 stop-turn-go or curve_speed=0.06 simultaneous-command profile) is ready for guarded-runner physical-handoff review alongside the other walkcurr/standwalk candidates."
+  ],
+  "head_tree_regression_2026-10-06": "Re-verification (refill cycle, zero GPU, CPU-only, same harness eval_walk_turn_compose.py): this candidate's registered gate_summary numbers do NOT reproduce on the current tree. The ORIGINAL pairing (crutchoff_s0_warmadapt_acq1 walk + acq5-seedsweep-s5 turn, same invocation as walk_turn_compose_v1_det.json) now reads turn_success 7/24 (was 23/24) -- root-caused via a clean A/B override (--walk-cfg/--turn-cfg safety.hip_pitch_max_deg=40.0 restores 23/24 almost exactly) to the intervening 2026-10-02 safety.hip_pitch_max_deg adoption (mesh/mesh_mjx auto 29.8deg, tighter than the 40deg this checkpoint trained/gated under), the SAME mechanism class already named for the lower role's own composed-gate regression (hippitchmax-acq1-r2-cont1, PARTIAL). Zero falls and full yaw convergence hold in every read -- this is a non-fall gait_valid-only (leg-3 duty/swing sacrifice) regression, not a safety regression, and not caused by anything new in this manifest's own composition. Full detail: rl_docs/tracks/walkcurr/curvewalk_turnhold_hippitchmax_regression_2026-10-06/SUMMARY.md. Historical gate_summary/video_evidence below stand as an accurate record of 2026-09-30 behavior; they are NOT a live read of the checkpoint's current composed behavior until this is resolved (see next[], item prepended below)."
 }

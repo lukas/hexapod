@@ -370,6 +370,42 @@ class GoalGenerator:
             "goal.lower_hold_wobble_period_s")
         self.lower_hold_wobble_period_s = (float(wobble_period[0]),
                                            float(wobble_period[1]))
+        # LOWER-ROLE TERMINAL-HOLD TILT BIAS (2026-10-06, walkcurr/
+        # STATUS.md Next 3 directional-goal-reference candidate, queued
+        # after BOTH lower_hold_wobble_deg doses closed on the 3-seed
+        # population read -- see that key's docstring above for the
+        # full L2+L5 terminal-support-habit background). Unlike
+        # wobble's zero-mean oscillation, this is a CONSTANT (non-
+        # oscillating) signed roll-OR-pitch offset applied during the
+        # SAME post-ramp hold window, meant to test whether persistently
+        # biasing the attitude reference toward a particular side
+        # (rather than merely denying a static target) pushes the
+        # policy's converged terminal stance off the L2+L5 diagonal
+        # (L2 rear-left/L5 front-right are diametrically opposite body-
+        # frame anchors; see lowerrole_terminal_support_forensics_
+        # 2026-10-02/SUMMARY.md) and onto a different leg pair. A
+        # directional single-axis probe (roll vs pitch, + vs -) is
+        # screened simultaneously as four single-seed arms rather than
+        # guessing the exact escape vector from geometry alone.
+        # goal.lower_hold_tilt_bias_deg (default 0.0 = OFF, bit-exact:
+        # the helper is not called and draws zero rng -- in fact this
+        # signal is itself fully deterministic given n_steps/dt, so it
+        # never touches the Generator stream even when enabled) = the
+        # signed bias magnitude in degrees (same max_roll/max_pitch
+        # action-envelope cap as wobble/track/lean). goal.
+        # lower_hold_tilt_bias_axis in {"roll","pitch"} selects which
+        # channel receives the bias (default "roll"). Same 1.0s raised-
+        # cosine ramp in/out at both hold-window edges as wobble, so no
+        # new discontinuity at the ramp-end seam or episode end.
+        # Tests: rl_move/tests/test_lower_hold_tilt_bias.py.
+        self.lower_hold_tilt_bias_deg = float(g.get(
+            "lower_hold_tilt_bias_deg", 0.0))
+        self.lower_hold_tilt_bias_axis = str(g.get(
+            "lower_hold_tilt_bias_axis", "roll"))
+        if self.lower_hold_tilt_bias_axis not in ("roll", "pitch"):
+            raise ValueError(
+                "goal.lower_hold_tilt_bias_axis must be 'roll' or "
+                f"'pitch', got {self.lower_hold_tilt_bias_axis!r}")
         # COMMANDABLE STANDING HEIGHT (08-25, operator MCP request
         # fb_20260825T195117_3dce6e: "once standing, move the body
         # up/down to a specified height; from a shaky/non-solid stand,
@@ -712,6 +748,43 @@ class GoalGenerator:
             envelope = np.concatenate([half, half[::-1]])[:n_steps]
         return roll_w * envelope, pitch_w * envelope
 
+    def _lower_hold_tilt_bias(self, n_steps: int,
+                              dt: float) -> tuple[np.ndarray, np.ndarray]:
+        """Persistent (non-oscillating) roll OR pitch tilt bias for the
+        lower role's POST-RAMP hold/settle window (`goal.
+        lower_hold_tilt_bias_deg`/`_axis`; see __init__ docstring for
+        the full rationale). Unlike `_lower_hold_wobble` (zero-mean
+        sum-of-sines, rng-driven), this is a CONSTANT signed offset --
+        directional, not oscillating -- and fully deterministic given
+        n_steps/dt, so it takes no `rng` argument and draws nothing
+        from the Generator stream even when enabled (stricter than
+        wobble's bit-exact-when-OFF guarantee). Caller guarantees
+        `lower_hold_tilt_bias_deg != 0`. Same 1.0s raised-cosine ramp
+        in/out at both window edges as wobble, so no new discontinuity
+        at the ramp-end seam or episode end."""
+        bias = float(self.lower_hold_tilt_bias_deg) * DEG2RAD
+        if bias == 0.0 or n_steps <= 0:
+            z = np.zeros(max(n_steps, 0))
+            return z, z
+        cap = (self.max_roll if self.lower_hold_tilt_bias_axis == "roll"
+               else self.max_pitch)
+        bias = max(-cap, min(cap, bias))
+        edge_n = min(max(1, int(round(1.0 / dt))), max(n_steps // 2, 1))
+        envelope = np.ones(n_steps)
+        if edge_n > 0 and n_steps >= 2 * edge_n:
+            ramp_in = np.linspace(0.0, 1.0, edge_n, endpoint=False)
+            envelope[:edge_n] = ramp_in
+            envelope[-edge_n:] = ramp_in[::-1]
+        elif n_steps > 1:
+            half = np.linspace(0.0, 1.0, (n_steps + 1) // 2,
+                               endpoint=False)
+            envelope = np.concatenate([half, half[::-1]])[:n_steps]
+        sig = bias * envelope
+        z = np.zeros(n_steps)
+        if self.lower_hold_tilt_bias_axis == "roll":
+            return sig, z
+        return z, sig
+
     def sample(self, rng: np.random.Generator, n_steps: int,
                dt: float, force_mode: str | None = None) -> GoalTrajectory:
         # "quad" appended with p=0 by default: a zero-probability entry
@@ -855,6 +928,17 @@ class GoalGenerator:
                         rng, n_steps - end, dt)
                     roll[end:n_steps] = roll_w
                     pitch[end:n_steps] = pitch_w
+                # Terminal-hold tilt bias (goal.lower_hold_tilt_bias_deg,
+                # see __init__ docstring): same post-ramp window/edge
+                # convention as wobble immediately above, composes with
+                # it via += (both default OFF so ordinary runs are
+                # unaffected either way). Guarded at the call site so an
+                # unset run skips the helper entirely.
+                if self.lower_hold_tilt_bias_deg != 0.0 and end < n_steps:
+                    roll_b, pitch_b = self._lower_hold_tilt_bias(
+                        n_steps - end, dt)
+                    roll[end:n_steps] += roll_b
+                    pitch[end:n_steps] += pitch_b
                 # Composed-session LOWER entry exposure (2026-09-23,
                 # standwalk STATUS ~18:3x, same finding/mechanism class
                 # as goal.rise_start_bank/goal.walk_entry_bank above:

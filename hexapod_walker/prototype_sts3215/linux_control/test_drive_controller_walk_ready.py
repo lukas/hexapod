@@ -195,6 +195,19 @@ def test_gamepad_dead_client_stops_and_cannot_resume(leased_drive):
     assert drive.handle(f"JLEASE {token} 30 0 0").startswith("refused JLEASE")
 
 
+def test_gamepad_selects_gait_that_plants_all_feet_on_stop(leased_drive):
+    drive, token, now = leased_drive
+    assert drive._gait_id == 1
+    assert drive.handle(f"JLEASE {token} 30 0 0") == "JLEASE"
+    for tick in range(601):
+        drive.gait.desired_deg(tick / 100.0)
+    assert drive.handle(f"JLEASE STOP {token}") == "JLEASE stopped"
+    duration = drive._gamepad_settle_until - now[0]
+    for tick in range(601, 602 + int(duration * 100)):
+        final_pose = drive.gait.desired_deg(tick / 100.0)
+    assert max(abs(a - b) for a, b in zip(final_pose, walk_start_pose_degrees())) < 0.01
+
+
 def test_gamepad_neutral_heartbeats_keep_owner_and_resume(leased_drive):
     drive, token, now = leased_drive
     assert drive.handle(f"JLEASE {token} 30 0 0") == "JLEASE"

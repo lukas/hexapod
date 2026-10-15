@@ -8,7 +8,7 @@ firmware enough that the web UI can stay familiar:
   P                    stand / park (planted stance)
   C                    centre all joints to 0°
   J vx vy omega [gait] live drive (vx,vy in mm/s; omega rad/s)
-  JLEASE BEGIN <token> opt-in gamepad owner; requires armed stationary robot
+  JLEASE BEGIN <token> opt-in GAIT 1 gamepad owner; requires armed stationary robot
   JLEASE <token> vx vy omega  drive heartbeat; expires after 0.75 s
   JLEASE STOP <token> controlled gait stop and hold; invalidates owner
   K <lift_mm>          swing foot lift
@@ -710,6 +710,13 @@ class DriveController:
                 return "need stand before gamepad drive"
             if self.mode not in ("idle", "stand"):
                 return "refused JLEASE: robot is already moving"
+            # Only the no-slip gait promises a planted neutral stop. The
+            # legacy tripod keeps swinging at zero velocity. Select under
+            # the same lock as ownership, so another client cannot swap the
+            # gait between selection and acquisition.
+            result = self._set_gait(1)
+            if result.startswith("refused"):
+                return result
             self._gamepad_token = token
             self._gamepad_deadline = now + GAMEPAD_LEASE_TIMEOUT_S
             return "JLEASE"

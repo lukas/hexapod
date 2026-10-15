@@ -517,16 +517,80 @@ tuning only while stopped, then start the next walk.
 
 ## Onboard Bluetooth Xbox
 
-Pair once on the board (`bluetoothctl`), then:
+The controller pairs directly with the Uno Q. `hexapod-xbox` reads its Linux
+input device and sends commands to the existing local web server; the web
+server remains the only motor-bus owner. No laptop or browser is needed after
+setup. Starting the service or connecting a controller never arms or moves
+the robot.
+
+After deploying the matching `xbox_drive.py`, `drive_controller.py`, and
+`web_drive.py`, install the opt-in service **on the board**:
 
 ```bash
-adb shell
+ssh arduino@hexapod2.local
 cd ~/hexapod_sts/linux_control
-PYTHONPATH=vendor:../motor_setup:.:.. uv run python xbox_drive.py --list
-PYTHONPATH=vendor:../motor_setup:.:.. uv run python xbox_drive.py
+bash systemd/install_xbox.sh
 ```
 
-(User is already in the `input` group on stock Uno Q images.)
+Pair once with a Bluetooth-capable Xbox controller. Turn it on and hold its
+pairing button until the Xbox light flashes rapidly. In `bluetoothctl`:
+
+```text
+power on
+agent NoInputNoOutput
+default-agent
+pairable on
+scan on
+```
+
+Wait for `Xbox Wireless Controller`, then use **its** address below:
+
+```text
+pair XX:XX:XX:XX:XX:XX
+trust XX:XX:XX:XX:XX:XX
+connect XX:XX:XX:XX:XX:XX
+scan off
+pairable off
+quit
+```
+
+BlueZ remembers the pairing; turning on the controller reconnects it. The
+service waits for the input device and reopens it after a disconnect. Pairing
+command reference: [BlueZ bluetoothctl](https://github.com/bluez/bluez/blob/master/doc/bluetoothctl.rst).
+
+| Control | Action |
+| --- | --- |
+| Hold RB + Y for one second | Stand, using the web UI's guarded transition |
+| Center sticks, then hold LB | Enable driving; keep LB held |
+| Left stick | Forward/back and sideways (30 / 18 mm/s maximum) |
+| Right stick horizontal | Turn (0.35 rad/s maximum) |
+| Release LB or press B | Finish the current gait step and hold |
+| Hold RB + X for one second | Lower with the existing STEP sit-down |
+| Back/View or Xbox button | Emergency limp (torque off) |
+
+Stand/lower require LB released and neutral sticks. After a stop or reconnect,
+release the buttons and center the sticks before engaging LB again. Driving
+selects the no-slip tripod gait. Calibration is never mapped to a button.
+The existing zero calibration and verified starting pose are still required
+before standing, just as with the web UI.
+
+Every drive command renews a 0.75-second server lease. A missing heartbeat
+starts a controlled gait stop and hold; an expired session cannot restart
+from delayed commands. The web UI's emergency stop remains available.
+
+```bash
+systemctl status hexapod-xbox
+journalctl -u hexapod-xbox -f
+/home/arduino/.local/bin/uv run python xbox_drive.py --list
+```
+
+For a no-motion input check, stop the service first, then run
+`/home/arduino/.local/bin/uv run python xbox_drive.py --dry-run`. This prints
+intended HTTP commands without opening any network connection. Restart the
+service afterward. The unit grants the `input` group; a manual invocation
+needs that group too. Multiple compatible pads require choosing one with
+`--device` in a service override. An unsupported axis layout reports an error
+instead of guessing which axis steers.
 
 ## Wi‑Fi (optional)
 

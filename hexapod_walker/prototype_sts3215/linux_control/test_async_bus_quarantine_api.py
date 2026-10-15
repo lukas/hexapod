@@ -235,6 +235,110 @@ def test_gamepad_begin_refuses_running_worker(gamepad_web, monkeypatch):
     assert not gamepad_web.gamepad_lease_busy()
 
 
+@pytest.fixture
+def pose_web(gamepad_web, monkeypatch):
+    from api.gamepad_pose import GamepadPose
+    drive = gamepad_web
+    drive.dry_run = False
+    drive.bus = _CountingBus()
+    drive.bus.read_snapshot = lambda: {"pos_deg": dict.fromkeys(range(18), 12.0), "pos_age_ms": 0}
+    bench = BenchAPI(drive)
+    monkeypatch.setattr(bench, "robot_state", lambda: {"demo": {"running": False}})
+    monkeypatch.setattr(bench, "demo_state", lambda: {})
+    drive.gamepad_pose = GamepadPose(bench)
+    monkeypatch.setattr(web_drive_module, "BENCH", bench)
+    return drive, bench
+
+
+def _prepare_pose():
+    code, _, body = _http_request("/api/gamepad/pose", method="POST",
+                                body={"action": "prepare", "pose": "stand"})
+    assert code == 200
+    result = json.loads(body)
+    assert result["state"] == "prepared"
+    return result["token"]
+
+
+def test_pose_api_prepare_is_motion_free_and_excludes_motion(pose_web):
+    drive, _ = pose_web
+    token = _prepare_pose()
+    assert not drive.bus.calls
+    assert drive.gamepad_lease_busy()
+    for path in ("/api/zero", "/api/standup", "/api/setup/scan"):
+        code, _, _ = _http_request(path, method="POST", body={})
+        assert code == 409
+    code, _, body = _http_request("/cmd", method="POST", body="JLEASE BEGIN another-owner-1234")
+    assert code == 409 and b"gamepad pose" in body
+    code, _, body = _http_request("/api/gamepad/pose", method="POST",
+                                body={"action": "stop", "token": token})
+    assert code == 200 and json.loads(body)["state"] == "stopping"
+    assert not drive.gamepad_lease_busy()
+
+
+@pytest.mark.parametrize("path,body", [("/cmd", "X"), ("/api/demo/stop", {})])
+def test_pose_prepared_token_dies_on_canonical_stop(pose_web, path, body):
+    drive, _ = pose_web
+    token = _prepare_pose()
+    code, _, _ = _http_request(path, method="POST", body=body)
+    assert code == 200
+    code, _, body = _http_request("/api/gamepad/pose", method="POST",
+                                body={"action": "renew", "token": token})
+    assert code == 200 and json.loads(body)["state"] == "error"
+    assert drive.gamepad_pose.job["thread"] is None
+    assert not drive.gamepad_lease_busy()
+    assert not any(call == ("enable_all_torque", True) for call in drive.bus.calls)
+
+
+def test_pose_stop_bypasses_setup_and_quarantine(pose_web, monkeypatch):
+    drive, bench = pose_web
+    token = _prepare_pose()
+    monkeypatch.setattr(bench, "bus_access_state", lambda **kw: {"bus_quarantined": True})
+    web_drive_module.POST_STATE["setup"] = True
+    code, _, _ = _http_request("/api/gamepad/pose", method="POST",
+                              body={"action": "stop", "token": token})
+    assert code == 200
+    assert drive.gamepad_pose.job["abort"].is_set()
+    assert not drive.bus.calls
+
+
+def test_pose_prepare_cannot_race_inflight_post(pose_web):
+    drive, _ = pose_web
+    web_drive_module.POST_STATE["active"] = 1
+    code, _, body = _http_request("/api/gamepad/pose", method="POST",
+                                body={"action": "prepare", "pose": "stand"})
+    assert code == 409 and b"busy" in body
+    assert drive.gamepad_pose.job is None
+
+
+def test_pose_ping_advertises_protocol(pose_web):
+    code, _, body = _http_request("/api/ping")
+    assert code == 200
+    assert json.loads(body)["scripted_gamepad_pose"] == {"version": 1, "timeout_s": 0.75}
+
+
+def test_pose_endpoint_renews_and_stops_its_own_busy_worker(pose_web, monkeypatch):
+    from api import gamepad_pose
+    class ParkedThread:
+        def __init__(self, **kw):
+            self.alive = False
+        def start(self):
+            self.alive = True
+        def is_alive(self):
+            return self.alive
+    monkeypatch.setattr(gamepad_pose, "threading", types.SimpleNamespace(Thread=ParkedThread))
+    drive, _ = pose_web
+    token = _prepare_pose()
+    for _ in range(2):
+        code, _, body = _http_request("/api/gamepad/pose", method="POST",
+                                    body={"action": "renew", "token": token})
+        assert code == 200 and json.loads(body)["state"] == "running"
+        assert drive.gamepad_lease_busy()
+    code, _, body = _http_request("/api/gamepad/pose", method="POST",
+                                body={"action": "stop", "token": token})
+    assert code == 200 and json.loads(body)["state"] == "stopping"
+    assert drive.gamepad_lease_busy()
+
+
 def test_telemetry_get_forwards_decoded_marker_id(monkeypatch) -> None:
     requested: list[str | None] = []
 

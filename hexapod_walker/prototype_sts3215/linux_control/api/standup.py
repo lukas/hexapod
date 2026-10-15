@@ -153,7 +153,8 @@ class StandupApi:
         else:
             standing = None
         if not down and standing:
-            res = self.go_zero(pose="stand", force=force)
+            res = (self.go_zero(pose="stand", force=force) if sync_gen is None else
+                   self._step_to_rl_walk_ready_start_sync(abort_check=self._demo_abort.is_set))
             res["route"] = "stand_adjust"
             res["standing"] = standing
             return res
@@ -246,6 +247,10 @@ class StandupApi:
         def _worker():
             d = self.drive
             with d._lock:
+                if self._demo_abort.is_set() or gen != self._demo_gen:
+                    return {"ok": False, "aborted": True, "error": "stand/lower stopped before launch"}
+                if sync_gen is not None and not d.armed:
+                    return {"ok": False, "aborted": True, "error": "inline stand/lower lost armed ownership"}
                 d.mode = "demo"
                 d.gait.stop()
                 if not d.armed:
@@ -324,10 +329,12 @@ class StandupApi:
                             q_lift[joint_index(lg, "hip")] -= 6.0
                         _write_pose(d.bus, q_lift, live,
                                     speed=400, acc=50)
-                        time.sleep(0.4)
+                        if self._demo_abort.wait(0.4):
+                            return False
                         _write_pose(d.bus, target_q, live,
                                     speed=300, acc=40)
-                        time.sleep(0.45)
+                        if self._demo_abort.wait(0.45):
+                            return False
                     return True
 
                 # PURSUE — stream the interpolated keyframe path at

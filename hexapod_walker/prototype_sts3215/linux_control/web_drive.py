@@ -515,6 +515,8 @@ class Handler(BaseHTTPRequestHandler):
             from drive_controller import GAMEPAD_LEASE_TIMEOUT_S
             self._json(200, {"ok": True, "service": "hexapod-web",
                              "scripted_gamepad_lease": {
+                                 "version": 1, "timeout_s": GAMEPAD_LEASE_TIMEOUT_S},
+                             "scripted_gamepad_pose": {
                                  "version": 1, "timeout_s": GAMEPAD_LEASE_TIMEOUT_S}})
         elif path == "/api/bus/status":
             # Ownership status only: never reads or writes the serial bus and
@@ -795,7 +797,7 @@ class Handler(BaseHTTPRequestHandler):
         # Ordinary requests retain their existing concurrency.
         setup = self.path.split("?", 1)[0].startswith("/api/setup/")
         with POST_LOCK:
-            busy = (POST_STATE["setup"] or (setup and POST_STATE["active"] > 0)) and self.path.split("?", 1)[0] != "/cmd"
+            busy = (POST_STATE["setup"] or (setup and POST_STATE["active"] > 0)) and self.path.split("?", 1)[0] not in ("/cmd", "/api/gamepad/pose")
             if (DRIVE is not None and (setup or self._request_requires_bus())
                     and DRIVE.gamepad_lease_busy()):
                 busy = True
@@ -826,7 +828,7 @@ class Handler(BaseHTTPRequestHandler):
             if setup_busy:
                 self._json(409, {'ok': False, 'error': 'Motor setup is busy.'})
                 return
-        if SETUP is not None:
+        if SETUP is not None and path != "/api/gamepad/pose":
             try:
                 SETUP.require_setup_for(path, body)
             except ValueError as e:
@@ -861,7 +863,35 @@ class Handler(BaseHTTPRequestHandler):
         if (path != "/cmd" and self._request_requires_bus()
                 and self._reject_quarantined_bus()):
             return
-        if path in ("/api/setup/scan", "/api/setup/assign", "/api/setup/wiggle"):
+        if path == "/api/gamepad/pose":
+            data = body_obj
+            if not isinstance(data, dict):
+                self._json(400, {"ok": False, "error": "Expected a JSON object"})
+                return
+            manager = getattr(DRIVE, "gamepad_pose", None)
+            if manager is None:
+                self._json(503, {"ok": False, "error": "Gamepad pose service unavailable"})
+                return
+            # Stop remains available during setup/bus quarantine. It only
+            # sets the worker's sticky cancellation, never starts bus work.
+            if data.get("action") != "stop":
+                if self._reject_quarantined_bus():
+                    return
+                try:
+                    if SETUP is not None:
+                        SETUP.require_setup_for(path, body)
+                except ValueError as error:
+                    self._json(409, {"ok": False, "error": str(error)})
+                    return
+            if data.get("action") == "prepare":
+                with POST_LOCK:
+                    result = ({"ok": False, "error": "Another operation is busy"}
+                              if POST_STATE["setup"] or POST_STATE["active"] > 1
+                              else manager.request(data))
+            else:
+                result = manager.request(data)
+            self._json(200 if result.get("ok") else 409, result)
+        elif path in ("/api/setup/scan", "/api/setup/assign", "/api/setup/wiggle"):
             try:
                 data = json.loads(body or "{}")
                 if not isinstance(data, dict):
@@ -1546,6 +1576,8 @@ def _main_after_bus(args) -> None:
     from motor_setup.registry import REGISTRY_PATH
     SETUP = MotorSetup(DRIVE, BENCH, REGISTRY_PATH)
     DRIVE.bench = BENCH
+    from api.gamepad_pose import GamepadPose
+    DRIVE.gamepad_pose = GamepadPose(BENCH)
     telemetry_auto = os.environ.get(
         "HEXAPOD_TELEMETRY_AUTO", "1").strip().lower()
     have_bus = DRIVE.bus is not None

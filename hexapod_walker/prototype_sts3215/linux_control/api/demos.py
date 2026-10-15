@@ -227,6 +227,10 @@ class DemosApi:
         """Abort the demo thread. Do NOT touch the bus here — concurrent
         SyncWrite + HOLD was hanging the MCU bridge and leaving status at
         ``stopping`` forever."""
+        with self.drive._lock:
+            pose = getattr(self.drive, "gamepad_pose", None)
+            if pose is not None:
+                pose.cancel_locked()
         prev = self._demo_name or ""
         ok = self._preempt_demo_thread(reason=prev or "stop", timeout=4.0)
         try:

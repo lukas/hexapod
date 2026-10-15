@@ -39,7 +39,9 @@ def rig(monkeypatch):
     calls = []
     drive = SimpleNamespace(
         _lock=threading.Lock(), _gamepad_token=None, _gamepad_settle_until=None,
-        mode="idle", dry_run=False, bus=SimpleNamespace(read_snapshot=lambda: snapshot()), armed=False,
+        mode="idle", dry_run=False,
+        bus=SimpleNamespace(read_snapshot=lambda: snapshot(),
+                            enable_all_torque=lambda enabled: calls.append(("torque", enabled))), armed=False,
         gait=SimpleNamespace(stop=lambda: calls.append(("gait_stop",))),
         _torque_all=lambda enabled: calls.append(("torque", enabled)),
         _write_pose=lambda positions, **kwargs: calls.append(("write", list(positions), kwargs)),
@@ -132,6 +134,33 @@ def test_deadline_expiration_is_sticky_even_if_clock_or_late_renew_changes(rig):
     assert not abort.renew() and abort.is_set()
 
 
+def test_renew_during_wait_preserves_the_full_requested_dwell(monkeypatch):
+    now, waits = [0.0], []
+    abort = pose_api.DeadlineAbort(lambda: now[0])
+    def wait(event, timeout):
+        waits.append(timeout)
+        if len(waits) == 1:
+            now[0] = 0.5
+            assert abort.renew()
+            now[0] = 0.75
+        else:
+            now[0] += timeout
+        return False
+    monkeypatch.setattr(threading.Event, "wait", wait)
+    assert not abort.wait(1.2)
+    assert waits == pytest.approx([0.75, 0.45])
+    assert now[0] == pytest.approx(1.2)
+
+
+def test_repeated_incomplete_sweep_is_not_three_fresh_fault_votes(rig):
+    token = prepare(rig)
+    request(rig, "renew", token)
+    rig.drive.bus.read_snapshot = lambda: {"seq": 123, "pos_age_ms": 0, "pos_deg": {}}
+    rig.manager.job["thread"].run()
+    assert ("command", "X") in rig.calls
+    assert "did not become fresh and complete" in rig.manager.job["result"]["error"]
+
+
 def test_stop_before_delayed_worker_launch_prevents_torque_enable(rig):
     token = prepare(rig)
     request(rig, "renew", token)
@@ -153,6 +182,20 @@ def test_estop_before_delayed_launch_never_rearms(rig):
     worker.run()
     assert rig.calls == []
     assert not rig.drive.armed
+
+
+def test_failed_initial_bulk_arm_issues_limp_without_per_joint_enable_retry(rig):
+    token = prepare(rig)
+    request(rig, "renew", token)
+    def failed_arm(enabled):
+        assert enabled
+        rig.calls.append(("failed_bulk_arm",))
+        raise TimeoutError("TA enable ACK lost")
+    rig.drive.bus.enable_all_torque = failed_arm
+    rig.manager.job["thread"].run()
+    assert rig.calls == [("failed_bulk_arm",), ("command", "X")]
+    assert not rig.drive.armed
+    assert rig.manager.job["state"] == "error"
 
 
 def test_stop_during_worker_keeps_exclusion_until_measured_hold_finishes(rig):
@@ -293,6 +336,34 @@ def test_sit_uses_existing_step_lower_without_arming_or_zeroing(rig):
     assert not any(call[0] == "torque" for call in rig.calls)
 
 
+@pytest.mark.parametrize("cancelled", [False, True])
+def test_real_inline_standup_cannot_rearm_or_launch_after_cancel(rig, cancelled):
+    from api.standup import StandupApi
+    bench = rig.bench
+    bench._lock = threading.Lock()
+    bench._load_standup = lambda: {"modes": {"step": {"keyframes": [{"q_deg": [0.0] * 18, "s": 1.0}]}}}
+    rig.drive.armed = cancelled
+    if cancelled:
+        bench._demo_abort.set()
+    result = StandupApi.standup(bench, direction="down", force=True, sync_gen=bench._demo_gen)
+    assert not result["ok"] and result["aborted"]
+    assert rig.calls == []
+
+
+def test_real_inline_upright_stand_stays_synchronous(rig):
+    from api.standup import StandupApi
+    bench = rig.bench
+    bench._load_standup = lambda: {"modes": {"step": {"keyframes": []}}}
+    bench._present_pose18 = lambda: ([1.0] * 18, [])
+    bench._normal_standing_pose = lambda present: {"standing": True}
+    bench._step_to_rl_walk_ready_start_sync = lambda **kw: {"ok": True, "inline": True}
+    def async_forbidden(**kw):
+        pytest.fail("inline stand escaped to an asynchronous job")
+    bench.go_zero = async_forbidden
+    result = StandupApi.standup(bench, sync_gen=bench._demo_gen)
+    assert result["ok"] and result["inline"]
+
+
 @pytest.mark.parametrize("helper", ["enable", "limit", "pose", "stream"])
 def test_scripted_scope_denies_each_write_boundary_before_bus_io(monkeypatch, helper):
     import inplace_demos as demos
@@ -312,6 +383,53 @@ def test_scripted_scope_denies_each_write_boundary_before_bus_io(monkeypatch, he
             demos._write_pose(bus, [1.0] * 18, {2})
         else:
             demos.PoseStreamer().write(bus, [1.0] * 18, {2})
+
+
+@pytest.mark.parametrize("kind", ["enable", "limit"])
+def test_torque_scope_rechecks_between_individual_packets(rig, kind):
+    import inplace_demos as demos
+    token = prepare(rig)
+    request(rig, "renew", token)
+    rig.drive.armed = True
+    job = rig.manager.job
+    packets = []
+    def first_packet(*args):
+        packets.append(args)
+        job["abort"].set()
+    bus = SimpleNamespace(pkt=SimpleNamespace(write1ByteTxRx=first_packet,
+                                             write2ByteTxRx=first_packet))
+    with demos.scripted_motion_scope(lambda: rig.manager._write_guard(job)):
+        with pytest.raises(pose_api.PoseCancelled):
+            if kind == "enable":
+                demos._enable_torque(bus, set(range(2, 20)))
+            else:
+                demos._set_torque_limit(bus, set(range(2, 20)), 300)
+    assert len(packets) == 1
+
+
+@pytest.mark.parametrize("feedback", [snapshot([None] + [1.0] * 17),
+                                      snapshot([float("nan")] + [1.0] * 17),
+                                      snapshot(age=65535)])
+def test_scoped_legacy_guard_hold_refuses_incomplete_or_stale_pose(feedback):
+    import inplace_demos as demos
+    bus = SimpleNamespace(read_snapshot=lambda: feedback)
+    @contextmanager
+    def allowed():
+        yield
+    with demos.scripted_motion_scope(allowed):
+        with pytest.raises(RuntimeError, match="complete fresh encoder"):
+            demos._read_pose(bus, set(range(2, 20)))
+
+
+def test_scoped_guard_hold_reads_complete_pose_without_substituting_zero():
+    import inplace_demos as demos
+    positions = [float(i + 2) for i in range(18)]
+    bus = SimpleNamespace(read_snapshot=lambda: snapshot(positions))
+    @contextmanager
+    def allowed():
+        yield
+    with demos.scripted_motion_scope(allowed):
+        assert demos._read_pose(bus, set(range(2, 20))) == positions
 
 
 def test_running_renew_and_stop_do_not_wait_for_telemetry_drive_lock(rig):

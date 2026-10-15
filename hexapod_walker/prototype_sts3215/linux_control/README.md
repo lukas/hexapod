@@ -519,9 +519,9 @@ tuning only while stopped, then start the next walk.
 
 The controller pairs directly with the Uno Q. `hexapod-xbox` reads its Linux
 input device and sends commands to the existing local web server; the web
-server remains the only motor-bus owner. No laptop or browser is needed after
-setup. Starting the service or connecting a controller never arms or moves
-the robot.
+server remains the only motor-bus owner. Use the web UI's Stand control first;
+walking then works directly from the controller without a browser connection.
+Starting the service or connecting a controller never arms or moves the robot.
 
 After deploying the matching `xbox_drive.py`, `drive_controller.py`, and
 `web_drive.py`, install the opt-in service **on the board**:
@@ -560,19 +560,18 @@ command reference: [BlueZ bluetoothctl](https://github.com/bluez/bluez/blob/mast
 
 | Control | Action |
 | --- | --- |
-| Hold RB + Y for one second | Stand, using the web UI's guarded transition |
 | Center sticks, then hold LB | Enable driving; keep LB held |
 | Left stick | Forward/back and sideways (30 / 18 mm/s maximum) |
 | Right stick horizontal | Turn (0.35 rad/s maximum) |
 | Release LB or press B | Finish the current gait step and hold |
-| Hold RB + X for one second | Lower with the existing STEP sit-down |
 | Back/View or Xbox button | Emergency limp (torque off) |
 
-Stand/lower require LB released and neutral sticks. After a stop or reconnect,
-release the buttons and center the sticks before engaging LB again. Driving
-selects the no-slip tripod gait. Calibration is never mapped to a button.
+After a stop or reconnect, release the buttons and center the sticks before
+engaging LB again. Driving selects the no-slip tripod gait. Stand, lower and
+calibration remain in the web UI: their existing asynchronous APIs cannot
+guarantee cancellation if a controller disconnects while a request starts.
 The existing zero calibration and verified starting pose are still required
-before standing, just as with the web UI.
+before standing.
 
 Every drive command renews a 0.75-second server lease. A missing heartbeat
 starts a controlled gait stop and hold; an expired session cannot restart

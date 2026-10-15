@@ -38,6 +38,9 @@ from __future__ import annotations
 
 import argparse
 import bisect
+from contextlib import contextmanager
+from contextvars import ContextVar
+from functools import wraps
 import math
 import os
 import random
@@ -45,6 +48,32 @@ import statistics
 import sys
 import time
 from pathlib import Path
+
+_scripted_write_guard = ContextVar("scripted_write_guard", default=None)
+
+
+@contextmanager
+def scripted_motion_scope(guard):
+    """Optional worker-local admission check at each motor write boundary."""
+    token = _scripted_write_guard.set(guard)
+    try:
+        yield
+    finally:
+        _scripted_write_guard.reset(token)
+
+
+def _guarded_scripted_write(fn):
+    @wraps(fn)
+    def guarded(*args, **kwargs):
+        guard = _scripted_write_guard.get()
+        if guard is None:
+            return fn(*args, **kwargs)
+        with guard():
+            # PoseStreamer calls _write_pose on its first frame; the outer
+            # check owns the plain drive Lock for the entire nested write.
+            with scripted_motion_scope(None):
+                return fn(*args, **kwargs)
+    return guarded
 
 _HERE = Path(__file__).resolve().parent
 _ROOT = _HERE.parent
@@ -688,17 +717,29 @@ def _emit_motion_cmd(label: str, q: list[float],
         pass
 
 
+@_guarded_scripted_write
+def _enable_one_torque(bus, sid):
+    bus.pkt.write1ByteTxRx(sid, ADDR_TORQUE_ENABLE, 1)
+
+
 def _enable_torque(bus: FeetechBus, live: set[int]) -> None:
     for sid in sorted(live):
-        bus.pkt.write1ByteTxRx(sid, ADDR_TORQUE_ENABLE, 1)
+        _enable_one_torque(bus, sid)
+
+
+@_guarded_scripted_write
+def _set_one_torque_limit(bus, sid, limit):
+    try:
+        bus.pkt.write2ByteTxRx(sid, ADDR_TORQUE_LIMIT, int(limit))
+    except Exception:
+        pass
 
 
 def _set_torque_limit(bus: FeetechBus, live: set[int], limit: int) -> None:
     for sid in sorted(live):
-        try:
-            bus.pkt.write2ByteTxRx(sid, ADDR_TORQUE_LIMIT, int(limit))
-        except Exception:
-            pass
+        # Each packet rechecks the lease. The guard is outside the legacy
+        # IO-error handler so cancellation cannot be swallowed by it.
+        _set_one_torque_limit(bus, sid, limit)
 
 
 def configure_stream_profile(bus: FeetechBus) -> bool:
@@ -770,6 +811,7 @@ def _glide_speed_acc(start: list[float], goal: list[float], live: set[int],
     return normalize_speed(speed), normalize_acc(acc)
 
 
+@_guarded_scripted_write
 def _write_pose(bus: FeetechBus, degrees: list[float], live: set[int],
                 *, speed: int = 250, acc: int = 20,
                 speeds: list[int] | None = None) -> None:
@@ -813,6 +855,7 @@ class PoseStreamer:
         self.last_raw = None
         self.last_written_goal = {}
 
+    @_guarded_scripted_write
     def write(self, bus: FeetechBus, degrees: list[float], live: set[int],
               *, dt: float = DT,
               deadband: float | None = None,
@@ -893,6 +936,17 @@ class PoseStreamer:
 
 def _read_pose(bus: FeetechBus, live: set[int]) -> list[float]:
     """Present joint angles, robot_abs (deg); missing IDs → 0."""
+    if _scripted_write_guard.get() is not None:
+        # A leased worker must not let a legacy guard-stop replace missing
+        # feedback with absolute zero targets. Its owner performs the
+        # bounded measured-hold/telemetry-loss cleanup after this refusal.
+        snapshot = bus.read_snapshot() or {}
+        positions = snapshot.get("pos_deg") or {}
+        pose = [positions.get(j) for j in range(N_JOINTS)]
+        if (float(snapshot.get("pos_age_ms", math.inf)) > 500
+                or any(v is None or not math.isfinite(v) for v in pose)):
+            raise RuntimeError("Leased motion requires complete fresh encoder feedback")
+        return pose
     # MCU stream bridge: one cached snapshot beats 18 round trips.
     read_snapshot = getattr(bus, "read_snapshot", None)
     if callable(read_snapshot):

@@ -168,6 +168,7 @@ class DriveController:
         self._gamepad_token: str | None = None
         self._gamepad_deadline = 0.0
         self._gamepad_settle_until: float | None = None
+        self.gamepad_pose = None  # installed by the web bench
         self._vx = self._vy = self._omega = 0.0
         self._gait_id = 0            # 0 = tripod (drag), 1 = no-slip
         self._noslip_alpha = 0.0     # body-motion overlap (no-slip only)
@@ -673,7 +674,8 @@ class DriveController:
     def gamepad_lease_busy(self) -> bool:
         """Reserve motion ownership through the final controlled stop."""
         with self._lock:
-            return self._gamepad_token is not None or self._gamepad_settle_until is not None
+            return (self._gamepad_token is not None or self._gamepad_settle_until is not None
+                    or (self.gamepad_pose is not None and self.gamepad_pose.busy_locked()))
 
     def _gamepad_stop_locked(self, now: float, *, release: bool) -> None:
         if release:
@@ -687,6 +689,8 @@ class DriveController:
             self.status = "gamepad stopped; settling gait to neutral"
 
     def _gamepad_tick_locked(self, now: float) -> None:
+        if self.gamepad_pose is not None:
+            self.gamepad_pose.tick_locked()
         if self._gamepad_token is not None and now >= self._gamepad_deadline:
             self._gamepad_stop_locked(now, release=True)
         if (self._gamepad_settle_until is not None
@@ -763,9 +767,18 @@ class DriveController:
             if cmd in ("X", "DISARM", "RELAX", "HOLD"):
                 self._gamepad_token = None
                 self._gamepad_settle_until = None
+                if self.gamepad_pose is not None:
+                    self.gamepad_pose.cancel_locked()
+                    if cmd == "HOLD" and self.gamepad_pose.busy_locked():
+                        return "gamepad pose stopping; measured hold follows worker exit"
                 return self._handle_locked(line)
             now = time.monotonic()
             self._gamepad_tick_locked(now)
+            if self.gamepad_pose is not None and self.gamepad_pose.busy_locked():
+                if cmd == "GAITSTOP" or (cmd == "J" and parts[1:] == ["0", "0", "0"]):
+                    self.gamepad_pose.cancel_locked()
+                    return "gamepad pose stopping"
+                return "refused: gamepad pose active or stopping; release controls first"
             if cmd == "JLEASE":
                 return self._gamepad_command_locked(parts, now)
             if self._gamepad_token is not None or self._gamepad_settle_until is not None:

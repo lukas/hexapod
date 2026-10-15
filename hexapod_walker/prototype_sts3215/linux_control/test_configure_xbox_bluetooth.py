@@ -10,6 +10,12 @@ import pytest
 import configure_xbox_bluetooth as setup
 
 MAC = "14:B5:CD:E8:70:07"
+IDENTITY = "[General]\nIdentityResolvingKey=" + "ab" * 16 + "\n"
+
+
+def write_identity(path, contents=IDENTITY, *, mode=0o600):
+    path.write_text(contents)
+    path.chmod(mode)
 
 
 @pytest.fixture
@@ -56,9 +62,8 @@ def test_kernel_crypto_independent_identity_and_exact_config_backup(files, capsy
 
 def test_valid_existing_identity_preserved_byte_for_byte(files):
     config, storage, identity = files
-    original = "# identity comment\n[General]\nIdentityResolvingKey=" + "ab" * 16 + "\n"
-    identity.write_text(original)
-    identity.chmod(0o600)
+    original = "# identity comment\n" + IDENTITY
+    write_identity(identity, original)
     inode = identity.stat().st_ino
     assert setup.configure_files(MAC, config=config, storage=storage)[0] is False
     assert identity.read_text() == original and identity.stat().st_ino == inode
@@ -73,8 +78,7 @@ def test_valid_existing_identity_preserved_byte_for_byte(files):
 def test_invalid_identity_refused_without_overwrite_or_leaking_contents(files, contents):
     config, storage, identity = files
     original_config = config.read_bytes()
-    identity.write_text(contents)
-    identity.chmod(0o600)
+    write_identity(identity, contents)
     with pytest.raises(ValueError) as error:
         setup.configure_files(MAC, config=config, storage=storage)
     assert "secret" not in str(error.value) and "private-broken-value" not in str(error.value)
@@ -85,8 +89,7 @@ def test_invalid_identity_refused_without_overwrite_or_leaking_contents(files, c
 
 def test_refuses_insecure_identity_permissions_and_symlink(files):
     config, storage, identity = files
-    identity.write_text("[General]\nIdentityResolvingKey=" + "ab" * 16 + "\n")
-    identity.chmod(0o644)
+    write_identity(identity, mode=0o644)
     with pytest.raises(ValueError, match="0600"):
         setup.configure_files(MAC, config=config, storage=storage)
     identity.unlink()
@@ -99,8 +102,7 @@ def test_concurrently_created_identity_never_overwritten(files, monkeypatch):
     _config, _storage, identity = files
     original = "[General]\nIdentityResolvingKey=" + "cd" * 16 + "\n"
     def concurrent_link(source, destination):
-        Path(destination).write_text(original)
-        Path(destination).chmod(0o600)
+        write_identity(Path(destination), original)
         raise FileExistsError
     monkeypatch.setattr(setup.os, "link", concurrent_link)
     assert setup.ensure_identity(identity) is False

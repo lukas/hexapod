@@ -512,7 +512,10 @@ class Handler(BaseHTTPRequestHandler):
                              "tuck_r": CAL.get("tuck_r")})
         elif path == "/api/ping":
             # Lightweight heartbeat — no bus traffic.
-            self._json(200, {"ok": True, "service": "hexapod-web"})
+            from drive_controller import GAMEPAD_LEASE_TIMEOUT_S
+            self._json(200, {"ok": True, "service": "hexapod-web",
+                             "scripted_gamepad_lease": {
+                                 "version": 1, "timeout_s": GAMEPAD_LEASE_TIMEOUT_S}})
         elif path == "/api/bus/status":
             # Ownership status only: never reads or writes the serial bus and
             # intentionally remains HTTP 200 while quarantine is active.
@@ -793,13 +796,16 @@ class Handler(BaseHTTPRequestHandler):
         setup = self.path.split("?", 1)[0].startswith("/api/setup/")
         with POST_LOCK:
             busy = (POST_STATE["setup"] or (setup and POST_STATE["active"] > 0)) and self.path.split("?", 1)[0] != "/cmd"
+            if (DRIVE is not None and (setup or self._request_requires_bus())
+                    and DRIVE.gamepad_lease_busy()):
+                busy = True
             if not busy:
                 POST_STATE["active"] += 1
                 if setup:
                     POST_STATE["setup"] = True
         if busy:
             self.close_connection = True  # request body has not been consumed
-            self._json(409, {"ok": False, "error": "Motor setup or another operation is busy; retry shortly."})
+            self._json(409, {"ok": False, "error": "Motor setup, gamepad drive or another operation is busy; stop it and retry."})
             return
         try:
             self._do_POST()
@@ -922,7 +928,16 @@ class Handler(BaseHTTPRequestHandler):
                         busy = demo.get("name") or activity or "active job"
                         self._send(409, f"refused J: robot busy with {busy}")
                         return
-                ok, msg = LINK.send(line)
+                if line.upper().startswith("JLEASE BEGIN "):
+                    # Lease acquisition and the existing worker admission
+                    # counter share this lock: neither can race the other.
+                    with POST_LOCK:
+                        if POST_STATE["active"] > 1:
+                            ok, msg = False, "refused JLEASE: another operation is busy"
+                        else:
+                            ok, msg = LINK.send(line)
+                else:
+                    ok, msg = LINK.send(line)
                 bus_state = self._bus_quarantine_state(recover=False) or {}
                 if bus_state.get("bus_quarantined"):
                     self._send(

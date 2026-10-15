@@ -6,6 +6,8 @@ basic tripod gait from a low/sit pose.
 """
 from __future__ import annotations
 
+import pytest
+
 
 from drive_controller import (
     DEMO_TRIPOD_LIFT_M,
@@ -160,6 +162,104 @@ def test_neutral_j_after_walk_enters_quiet_hold_not_stand_pulse():
     assert drive._vy == 0.0  # noqa: SLF001
     assert drive._omega == 0.0  # noqa: SLF001
     assert "quiet hold" in drive.status
+
+
+@pytest.fixture
+def leased_drive(monkeypatch):
+    monkeypatch.setenv("HEXAPOD_MODEL_SOURCE", "sts3215")
+    now = [100.0]
+    monkeypatch.setattr("drive_controller.time.monotonic", lambda: now[0])
+    drive = DriveController(dry_run=True)
+    drive.armed = True
+    token = "test-gamepad-session-0001"
+    assert drive.handle(f"JLEASE BEGIN {token}") == "JLEASE"
+    return drive, token, now
+
+
+def test_gamepad_dead_client_stops_and_cannot_resume(leased_drive):
+    drive, token, now = leased_drive
+    assert drive.handle(f"JLEASE {token} 30 0 0") == "JLEASE"
+    now[0] += 0.751
+    # The loop runs this independently of HTTP or the gamepad process.
+    drive._gamepad_tick_locked(now[0])
+    assert drive.mode == "walk"
+    assert drive.armed
+    assert drive._vx == drive._vy == drive._omega == 0.0
+    assert drive.gamepad_lease_busy()
+    assert drive.handle(f"JLEASE {token} 30 0 0").startswith("refused JLEASE")
+    assert drive.handle("JLEASE BEGIN different-owner-0002").startswith("refused JLEASE")
+    now[0] = drive._gamepad_settle_until + 0.001
+    drive._gamepad_tick_locked(now[0])
+    assert drive.mode == "idle" and drive.armed
+    assert not drive.gamepad_lease_busy()
+    assert drive.handle(f"JLEASE {token} 30 0 0").startswith("refused JLEASE")
+
+
+def test_gamepad_neutral_heartbeats_keep_owner_and_resume(leased_drive):
+    drive, token, now = leased_drive
+    assert drive.handle(f"JLEASE {token} 30 0 0") == "JLEASE"
+    assert drive.handle(f"JLEASE {token} 0 0 0") == "JLEASE"
+    settling_until = drive._gamepad_settle_until
+    for _ in range(15):
+        now[0] += 0.4
+        assert drive.handle(f"JLEASE {token} 0 0 0") == "JLEASE"
+    assert now[0] > settling_until
+    assert drive.mode == "idle" and drive.armed
+    assert drive.handle(f"JLEASE {token} 30 0 0") == "JLEASE"
+    assert drive.mode == "walk"
+    assert drive._gamepad_settle_until is None
+
+
+@pytest.mark.parametrize("command", ["J 0 0 0", "JLEASE STOP test-gamepad-session-0001"])
+def test_gamepad_release_invalidates_lease_and_holds_after_settle(leased_drive, command):
+    drive, token, now = leased_drive
+    drive.handle(f"JLEASE {token} 30 0 0")
+    assert not drive.handle(command).startswith("refused")
+    assert drive._gamepad_token is None
+    assert drive._gamepad_settle_until > now[0]
+    now[0] = drive._gamepad_settle_until + 0.001
+    drive._gamepad_tick_locked(now[0])
+    assert drive.mode == "idle" and drive.armed
+
+
+def test_gamepad_lease_does_not_expire_legacy_joystick(monkeypatch):
+    monkeypatch.setenv("HEXAPOD_MODEL_SOURCE", "sts3215")
+    drive = DriveController(dry_run=True)
+    drive.armed = True
+    assert drive.handle("J 30 0 0") == "J"
+    drive._gamepad_tick_locked(float("inf"))
+    assert drive.mode == "walk" and drive._vx == 0.03
+
+
+@pytest.mark.parametrize("command", ["J 30 0 0", "ARM", "P", "GAIT 1", "JLEASE BEGIN another-owner-0002"])
+def test_gamepad_lease_excludes_other_motion_owners(leased_drive, command):
+    drive, token, now = leased_drive
+    deadline = drive._gamepad_deadline
+    assert drive.handle(command).startswith("refused")
+    assert drive._gamepad_token == token
+    assert drive._gamepad_deadline == deadline
+
+
+@pytest.mark.parametrize("axes", ["nan 0 0", "0 inf 0", "0 0 -inf", "bad 0 0", "0 0"])
+def test_gamepad_bad_velocity_cannot_extend_lease(leased_drive, axes):
+    drive, token, now = leased_drive
+    deadline = drive._gamepad_deadline
+    now[0] += 0.25
+    assert drive.handle(f"JLEASE {token} {axes}").startswith("bad JLEASE")
+    assert drive._gamepad_deadline == deadline
+
+
+@pytest.mark.parametrize("command", ["X", "HOLD"])
+def test_gamepad_safety_override_cancels_pending_settle(leased_drive, command, monkeypatch):
+    drive, token, now = leased_drive
+    drive.handle(f"JLEASE {token} 30 0 0")
+    drive.handle(f"JLEASE STOP {token}")
+    now[0] = drive._gamepad_settle_until + 1
+    writes = []
+    monkeypatch.setattr(drive, "_write_pose", lambda *args, **kwargs: writes.append(args))
+    assert drive.handle(command) in ("limp", "hold")
+    assert writes == []  # no watchdog write may precede an emergency command
+    assert not drive.gamepad_lease_busy()
 
 
 def test_settle_keeps_gait_loop_live_and_zeroes_velocity():

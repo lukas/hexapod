@@ -8,6 +8,9 @@ firmware enough that the web UI can stay familiar:
   P                    stand / park (planted stance)
   C                    centre all joints to 0°
   J vx vy omega [gait] live drive (vx,vy in mm/s; omega rad/s)
+  JLEASE BEGIN <token> opt-in gamepad owner; requires armed stationary robot
+  JLEASE <token> vx vy omega  drive heartbeat; expires after 0.75 s
+  JLEASE STOP <token> controlled gait stop and hold; invalidates owner
   K <lift_mm>          swing foot lift
   GTUNE key=value ...  tune GAIT 0 high-step tripod while stopped. Keys:
                        period, lift, stride, ramp, vx, vy, omega.
@@ -47,6 +50,7 @@ firmware enough that the web UI can stay familiar:
 """
 from __future__ import annotations
 
+import math
 import os
 import sys
 import threading
@@ -125,6 +129,7 @@ DEMO_TRIPOD_MAX_OMEGA_RAD_S = DEFAULT_DEMO_TRIPOD.max_omega_rad_s
 # Stand uses the acquisition route; direct /cmd P now targets the tall
 # walk-ready pose and still refuses if that would yank too far.
 MAX_SAFE_DELTA_DEG = 90.0
+GAMEPAD_LEASE_TIMEOUT_S = 0.75
 
 
 def _advance_periodic_deadline(deadline: float, now: float,
@@ -160,6 +165,9 @@ class DriveController:
         self._snapshot_writes = 0
         self._snapshot_misses = 0
         self._hold_snapshots = 0
+        self._gamepad_token: str | None = None
+        self._gamepad_deadline = 0.0
+        self._gamepad_settle_until: float | None = None
         self._vx = self._vy = self._omega = 0.0
         self._gait_id = 0            # 0 = tripod (drag), 1 = no-slip
         self._noslip_alpha = 0.0     # body-motion overlap (no-slip only)
@@ -662,11 +670,104 @@ class DriveController:
         return f"gait {self._gait_desc()}"
 
     # -- command API ---------------------------------------------------------
+    def gamepad_lease_busy(self) -> bool:
+        """Reserve motion ownership through the final controlled stop."""
+        with self._lock:
+            return self._gamepad_token is not None or self._gamepad_settle_until is not None
+
+    def _gamepad_stop_locked(self, now: float, *, release: bool) -> None:
+        if release:
+            self._gamepad_token = None
+        if self.armed and self.mode == "walk":
+            self.gait.stop()
+            self._vx = self._vy = self._omega = 0.0
+            if self._gamepad_settle_until is None:
+                period = max(0.4, float(getattr(self.gait, "period", 3.2)))
+                self._gamepad_settle_until = now + 1.5 * period + 0.5
+            self.status = "gamepad stopped; settling gait to neutral"
+
+    def _gamepad_tick_locked(self, now: float) -> None:
+        if self._gamepad_token is not None and now >= self._gamepad_deadline:
+            self._gamepad_stop_locked(now, release=True)
+        if (self._gamepad_settle_until is not None
+                and now >= self._gamepad_settle_until):
+            self._gamepad_settle_until = None
+            if self.armed and self.mode == "walk":
+                self.mode = "idle"
+                self.gait.stop()
+                self._vx = self._vy = self._omega = 0.0
+                self._write_pose(list(self._last_pose), speed=250, acc=30)
+                self.status = "gamepad stopped; quiet hold"
+
+    def _gamepad_command_locked(self, parts: list[str], now: float) -> str:
+        if len(parts) == 3 and parts[1].upper() == "BEGIN":
+            token = parts[2]
+            if not 16 <= len(token) <= 128 or not all(c.isalnum() or c in "-_" for c in token):
+                return "bad JLEASE token: use a fresh UUID"
+            if self._gamepad_token is not None or self._gamepad_settle_until is not None:
+                return "refused JLEASE: another gamepad lease is active or stopping"
+            if not self.armed:
+                return "need stand before gamepad drive"
+            if self.mode not in ("idle", "stand"):
+                return "refused JLEASE: robot is already moving"
+            self._gamepad_token = token
+            self._gamepad_deadline = now + GAMEPAD_LEASE_TIMEOUT_S
+            return "JLEASE"
+        if len(parts) == 3 and parts[1].upper() == "STOP":
+            if parts[2] != self._gamepad_token:
+                return "refused JLEASE: expired or different owner; release and re-engage deadman"
+            self._gamepad_stop_locked(now, release=True)
+            return "JLEASE stopped"
+        if len(parts) != 5:
+            return "bad JLEASE: expected token vx_mm_s vy_mm_s omega_rad_s"
+        if parts[1] != self._gamepad_token:
+            return "refused JLEASE: expired or different owner; release and re-engage deadman"
+        try:
+            values = [float(value) for value in parts[2:]]
+        except ValueError:
+            return "bad JLEASE: velocities must be finite numbers"
+        if not all(math.isfinite(value) for value in values):
+            return "bad JLEASE: velocities must be finite numbers"
+        if not self.armed:
+            self._gamepad_token = None
+            self._gamepad_settle_until = None
+            return "need stand before gamepad drive"
+        if sum(abs(value) for value in values) <= 1e-4:
+            self._gamepad_stop_locked(now, release=False)
+            result = "J"
+        else:
+            # Valid live input may resume its own neutral-stick settle. A
+            # released or expired lease can never get this far.
+            self._gamepad_settle_until = None
+            result = self._handle_locked("J " + " ".join(parts[2:]))
+        if result != "J":
+            self._gamepad_stop_locked(now, release=True)
+            return result
+        self._gamepad_deadline = now + GAMEPAD_LEASE_TIMEOUT_S
+        return "JLEASE"
+
     def handle(self, line: str) -> str:
         line = (line or "").strip()
         if not line:
             return "empty"
         with self._lock:
+            parts = line.split()
+            cmd = parts[0].upper()
+            if cmd in ("X", "DISARM", "RELAX", "HOLD"):
+                self._gamepad_token = None
+                self._gamepad_settle_until = None
+                return self._handle_locked(line)
+            now = time.monotonic()
+            self._gamepad_tick_locked(now)
+            if cmd == "JLEASE":
+                return self._gamepad_command_locked(parts, now)
+            if self._gamepad_token is not None or self._gamepad_settle_until is not None:
+                if cmd == "GAITSTOP" or (cmd == "J" and len(parts) >= 4
+                        and all(value in ("0", "0.0", "-0", "-0.0") for value in parts[1:4])):
+                    self._gamepad_stop_locked(now, release=True)
+                    return "J" if cmd == "J" else "gamepad stopped"
+                else:
+                    return "refused: gamepad lease active or stopping; release its deadman first"
             return self._handle_locked(line)
 
     def _handle_locked(self, line: str) -> str:
@@ -967,6 +1068,7 @@ class DriveController:
             tick = time.monotonic()
             self._loop_ticks += 1
             with self._lock:
+                self._gamepad_tick_locked(tick)
                 mode = self.mode
                 armed = self.armed
                 if mode == "demo":

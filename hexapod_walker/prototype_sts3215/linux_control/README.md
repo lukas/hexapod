@@ -517,16 +517,79 @@ tuning only while stopped, then start the next walk.
 
 ## Onboard Bluetooth Xbox
 
-Pair once on the board (`bluetoothctl`), then:
+The controller pairs directly with the Uno Q. `hexapod-xbox` reads its Linux
+input device and sends commands to the existing local web server; the web
+server remains the only motor-bus owner. Use the web UI's Stand control first;
+walking then works directly from the controller without a browser connection.
+Starting the service or connecting a controller never arms or moves the robot.
+
+After deploying the matching `xbox_drive.py`, `drive_controller.py`, and
+`web_drive.py`, install the opt-in service **on the board**:
 
 ```bash
-adb shell
+ssh arduino@hexapod2.local
 cd ~/hexapod_sts/linux_control
-PYTHONPATH=vendor:../motor_setup:.:.. uv run python xbox_drive.py --list
-PYTHONPATH=vendor:../motor_setup:.:.. uv run python xbox_drive.py
+bash systemd/install_xbox.sh
 ```
 
-(User is already in the `input` group on stock Uno Q images.)
+Pair once with a Bluetooth-capable Xbox controller. Turn it on and hold its
+pairing button until the Xbox light flashes rapidly. In `bluetoothctl`:
+
+```text
+power on
+agent NoInputNoOutput
+default-agent
+pairable on
+scan on
+```
+
+Wait for `Xbox Wireless Controller`, then use **its** address below:
+
+```text
+pair XX:XX:XX:XX:XX:XX
+trust XX:XX:XX:XX:XX:XX
+connect XX:XX:XX:XX:XX:XX
+scan off
+pairable off
+quit
+```
+
+BlueZ remembers the pairing; turning on the controller reconnects it. The
+service waits for the input device and reopens it after a disconnect. Pairing
+command reference: [BlueZ bluetoothctl](https://github.com/bluez/bluez/blob/master/doc/bluetoothctl.rst).
+
+| Control | Action |
+| --- | --- |
+| Center sticks, then hold LB | Enable driving; keep LB held |
+| Left stick | Forward/back and sideways (30 / 18 mm/s maximum) |
+| Right stick horizontal | Turn (0.35 rad/s maximum) |
+| Release LB or press B | Finish the current gait step and hold |
+| Back/View or Xbox button | Emergency limp (torque off) |
+
+After a stop or reconnect, release the buttons and center the sticks before
+engaging LB again. Driving selects the no-slip tripod gait. Stand, lower and
+calibration remain in the web UI: their existing asynchronous APIs cannot
+guarantee cancellation if a controller disconnects while a request starts.
+The existing zero calibration and verified starting pose are still required
+before standing.
+
+Every drive command renews a 0.75-second server lease. A missing heartbeat
+starts a controlled gait stop and hold; an expired session cannot restart
+from delayed commands. The web UI's emergency stop remains available.
+
+```bash
+systemctl status hexapod-xbox
+journalctl -u hexapod-xbox -f
+/home/arduino/.local/bin/uv run python xbox_drive.py --list
+```
+
+For a no-motion input check, stop the service first, then run
+`/home/arduino/.local/bin/uv run python xbox_drive.py --dry-run`. This prints
+intended HTTP commands without opening any network connection. Restart the
+service afterward. The unit grants the `input` group; a manual invocation
+needs that group too. Multiple compatible pads require choosing one with
+`--device` in a service override. An unsupported axis layout reports an error
+instead of guessing which axis steers.
 
 ## Wi‑Fi (optional)
 
@@ -567,3 +630,45 @@ Then open `http://<board-ip>:8080` (and `https://…:8443` for gamepad).
 
 Learning stack lives in `../../sts/` (MuJoCo + residual PPO).  Strategy notes:
 `RL_PLAN.md` in https://github.com/lukas/hexapod-orchestrator (single RL plan doc; sim↔real facts in its Appendix A).
+
+## Optional Xbox BLE bond repair
+
+If an older Xbox BLE controller pairs but keeps blinking, drops its bond, or
+sends no input, `configure_xbox_bluetooth.py` applies the settings reported in
+[xpadneo issue 449](https://github.com/atar-axis/xpadneo/issues/449):
+`Privacy=device`, `JustWorksRepairing=confirm`, and LE interval 7–9, latency 0,
+supervision timeout 200. This is an explicit troubleshooting option: these
+are global BlueZ settings, so the ordinary Xbox service installer does not
+apply them.
+
+On the board, first identify its adapter with `bluetoothctl list`, then close
+all interactive `bluetoothctl` sessions. Substitute that adapter's MAC below
+(the board's address, not the controller's):
+
+```bash
+cd ~/hexapod_sts/linux_control
+sudo systemctl stop bluetooth.service
+sudo /home/arduino/.local/bin/uv run python configure_xbox_bluetooth.py --adapter AA:BB:CC:DD:EE:FF
+sudo btmgmt info
+```
+
+The helper requires Bluetooth to be stopped, backs up `main.conf` beside the
+original, preserves unrelated settings/comments, and restarts Bluetooth after
+writing. The restart also covers a D-Bus client reactivating the daemon during
+setup. In `btmgmt info`, check the intended adapter's **current settings** for
+`privacy`; merely listing privacy under **supported settings** is insufficient.
+If absent, inspect `sudo journalctl -u bluetooth -b --no-pager` before pairing.
+
+An existing valid adapter identity is preserved unchanged. If none exists,
+the helper creates a random, root-only identity in BlueZ's normal format;
+it never prints the key. Invalid identities are refused rather than replaced.
+Do not delete an adapter identity to troubleshoot one controller: existing
+bonds may rely on it. For a failed controller pairing, remove only that device
+with `bluetoothctl remove CONTROLLER_MAC`, enter the controller's pairing mode,
+then pair and trust it. For later reconnects, use its Xbox button without
+entering pairing mode. Check `xbox_drive.py --list` after pairing and verify
+actual input with `--dry-run` before enabling drive control.
+
+To undo the global settings, stop Bluetooth, copy the printed
+`main.conf.xbox-backup-*` file back to `/etc/bluetooth/main.conf`, then restart
+Bluetooth. Keep the adapter identity and existing device bonds.

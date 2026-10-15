@@ -1,0 +1,20 @@
+[Unit]
+Description=Hexapod onboard Bluetooth Xbox controller
+After=bluetooth.service hexapod-web.service
+Wants=bluetooth.service hexapod-web.service
+PartOf=hexapod-web.service
+
+[Service]
+Type=simple
+User=arduino
+Group=arduino
+SupplementaryGroups=input
+WorkingDirectory=/home/arduino/hexapod_sts/linux_control
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/arduino/.local/bin/uv run python /home/arduino/hexapod_sts/linux_control/xbox_drive.py
+Restart=always
+RestartSec=3
+TimeoutStopSec=5
+
+[Install]
+WantedBy=multi-user.target

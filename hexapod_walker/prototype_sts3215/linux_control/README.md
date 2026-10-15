@@ -567,3 +567,45 @@ Then open `http://<board-ip>:8080` (and `https://…:8443` for gamepad).
 
 Learning stack lives in `../../sts/` (MuJoCo + residual PPO).  Strategy notes:
 `RL_PLAN.md` in https://github.com/lukas/hexapod-orchestrator (single RL plan doc; sim↔real facts in its Appendix A).
+
+## Optional Xbox BLE bond repair
+
+If an older Xbox BLE controller pairs but keeps blinking, drops its bond, or
+sends no input, `configure_xbox_bluetooth.py` applies the settings reported in
+[xpadneo issue 449](https://github.com/atar-axis/xpadneo/issues/449):
+`Privacy=device`, `JustWorksRepairing=confirm`, and LE interval 7–9, latency 0,
+supervision timeout 200. This is an explicit troubleshooting option: these
+are global BlueZ settings, so the ordinary Xbox service installer does not
+apply them.
+
+On the board, first identify its adapter with `bluetoothctl list`, then close
+all interactive `bluetoothctl` sessions. Substitute that adapter's MAC below
+(the board's address, not the controller's):
+
+```bash
+cd ~/hexapod_sts/linux_control
+sudo systemctl stop bluetooth.service
+sudo /home/arduino/.local/bin/uv run python configure_xbox_bluetooth.py --adapter AA:BB:CC:DD:EE:FF
+sudo btmgmt info
+```
+
+The helper requires Bluetooth to be stopped, backs up `main.conf` beside the
+original, preserves unrelated settings/comments, and restarts Bluetooth after
+writing. The restart also covers a D-Bus client reactivating the daemon during
+setup. In `btmgmt info`, check the intended adapter's **current settings** for
+`privacy`; merely listing privacy under **supported settings** is insufficient.
+If absent, inspect `sudo journalctl -u bluetooth -b --no-pager` before pairing.
+
+An existing valid adapter identity is preserved unchanged. If none exists,
+the helper creates a random, root-only identity in BlueZ's normal format;
+it never prints the key. Invalid identities are refused rather than replaced.
+Do not delete an adapter identity to troubleshoot one controller: existing
+bonds may rely on it. For a failed controller pairing, remove only that device
+with `bluetoothctl remove CONTROLLER_MAC`, enter the controller's pairing mode,
+then pair and trust it. For later reconnects, use its Xbox button without
+entering pairing mode. Check `xbox_drive.py --list` after pairing and verify
+actual input with `--dry-run` before enabling drive control.
+
+To undo the global settings, stop Bluetooth, copy the printed
+`main.conf.xbox-backup-*` file back to `/etc/bluetooth/main.conf`, then restart
+Bluetooth. Keep the adapter identity and existing device bonds.

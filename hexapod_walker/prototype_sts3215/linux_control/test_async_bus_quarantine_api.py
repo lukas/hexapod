@@ -191,6 +191,50 @@ def _http_request(path: str, *, method: str = "GET", body=None):
     return handler._code, handler._headers, handler.wfile.getvalue()
 
 
+@pytest.fixture
+def gamepad_web(monkeypatch):
+    monkeypatch.setenv("HEXAPOD_MODEL_SOURCE", "sts3215")
+    drive = DriveController(dry_run=True)
+    drive.armed = True
+    monkeypatch.setattr(web_drive_module, "DRIVE", drive)
+    monkeypatch.setattr(web_drive_module, "BENCH", None)
+    monkeypatch.setattr(web_drive_module, "SETUP", None)
+    monkeypatch.setattr(web_drive_module, "LINK", web_drive_module.Link(drive))
+    monkeypatch.setattr(web_drive_module, "POST_STATE", {"active": 0, "setup": False})
+    return drive
+
+
+def test_gamepad_api_advertises_lease_and_preserves_estop(gamepad_web):
+    code, _, raw = _http_request("/api/ping")
+    assert code == 200
+    assert json.loads(raw)["scripted_gamepad_lease"] == {"version": 1, "timeout_s": 0.75}
+    code, _, raw = _http_request("/cmd", method="POST", body="JLEASE BEGIN api-gamepad-token-0001")
+    assert code == 200 and raw == b"JLEASE"
+    code, _, raw = _http_request("/cmd", method="POST", body="JLEASE api-gamepad-token-0001 nan 0 0")
+    assert code == 409 and raw.startswith(b"bad JLEASE")
+    code, _, _ = _http_request("/api/standup", method="POST", body={"direction": "up"})
+    assert code == 409
+    code, _, raw = _http_request("/cmd", method="POST", body="X")
+    assert code == 200 and raw == b"limp"
+    assert not gamepad_web.armed and not gamepad_web.gamepad_lease_busy()
+
+
+def test_gamepad_begin_cannot_race_inflight_post(gamepad_web):
+    web_drive_module.POST_STATE["active"] = 1
+    code, _, raw = _http_request("/cmd", method="POST", body="JLEASE BEGIN api-gamepad-token-0001")
+    assert code == 409 and b"another operation is busy" in raw
+    assert not gamepad_web.gamepad_lease_busy()
+    assert web_drive_module.POST_STATE["active"] == 1
+
+
+def test_gamepad_begin_refuses_running_worker(gamepad_web, monkeypatch):
+    bench = types.SimpleNamespace(robot_state=lambda: {"demo": {"running": True, "name": "standup"}})
+    monkeypatch.setattr(web_drive_module, "BENCH", bench)
+    code, _, raw = _http_request("/cmd", method="POST", body="JLEASE BEGIN api-gamepad-token-0001")
+    assert code == 409 and b"robot busy with standup" in raw
+    assert not gamepad_web.gamepad_lease_busy()
+
+
 def test_telemetry_get_forwards_decoded_marker_id(monkeypatch) -> None:
     requested: list[str | None] = []
 

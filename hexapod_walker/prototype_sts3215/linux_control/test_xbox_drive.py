@@ -15,12 +15,12 @@ def pad(*, held=(), left_y=0):
     return x.InputGate(axes, x.ABS_RX, set(held))
 
 
-def frame(gate, *, keys=None, axes=None, now=0):
+def frame(gate, *, keys=None, axes=None):
     if keys is not None:
         gate.buttons = set(keys)
     for code, value in (axes or {}).items():
-        gate.event(x.EV_ABS, code, value, now)
-    return gate.event(x.EV_SYN, x.SYN_REPORT, 0, now)
+        gate.event(x.EV_ABS, code, value)
+    return gate.event(x.EV_SYN, x.SYN_REPORT, 0)
 
 
 def test_bluetooth_right_stick_is_z_when_triggers_are_brake_gas():
@@ -88,7 +88,7 @@ def test_stop_buttons_disable_held_deadman_and_need_fresh_release(button, action
 def test_fresh_neutral_pose_chord_runs_only_while_rb_is_held(button, pose):
     gate = pad()
     frame(gate)
-    assert frame(gate, keys={x.BTN_TR, button}, now=1) == []
+    assert frame(gate, keys={x.BTN_TR, button}) == []
     assert gate.pose == pose
     assert not gate.engaged
     frame(gate, keys={x.BTN_TR})  # Face button may be released.
@@ -129,8 +129,8 @@ def test_pose_cancellation_latches_off_until_fresh_release(keys, axes):
 
 def test_snapshot_of_held_pose_chord_never_starts_a_pose():
     gate = pad(held={x.BTN_TR, x.BTN_Y})
-    frame(gate, now=0)
-    assert frame(gate, now=2) == []
+    frame(gate)
+    assert frame(gate) == []
     assert gate.pose is None
 
 
@@ -138,11 +138,11 @@ def test_syn_dropped_stops_then_ignores_events_until_resnapshot():
     gate = pad()
     frame(gate)
     frame(gate, keys={x.BTN_TL})
-    assert gate.event(x.EV_SYN, x.SYN_DROPPED, 0, 1) == ["stop"]
+    assert gate.event(x.EV_SYN, x.SYN_DROPPED, 0) == ["stop"]
     assert not gate.engaged
-    assert gate.event(x.EV_KEY, x.BTN_Y, 1, 1) == []
+    assert gate.event(x.EV_KEY, x.BTN_Y, 1) == []
     with pytest.raises(x.ControlError, match="lost input events"):
-        frame(gate, now=1)
+        frame(gate)
 
 
 class RecordingClient(x.WebClient):
@@ -241,96 +241,71 @@ def test_explicit_stop_and_emergency_use_canonical_web_handlers():
     assert client.sent[-1] == ("/cmd", "X")
 
 
-def test_input_loop_stall_cannot_send_another_heartbeat(monkeypatch):
-    client = RecordingClient()
-    device = SimpleNamespace(fd=123, axes=pad().axes, turn_axis=x.ABS_RX, buttons=set())
-    clock = iter([0, 1])
-    monkeypatch.setattr(x.time, "monotonic", lambda: next(clock))
-    monkeypatch.setattr(x.select, "select", lambda *args: ([], [], []))
-    with pytest.raises(x.ControlError, match="stalled"):
-        x.run_device(device, client, SimpleNamespace(max_vx=30, max_vy=18, max_omega=.35))
-    assert client.sent == []
-
-
 def packed(*events, seconds=1):
     return b"".join(x.EVENT.pack(seconds, 0, typ, code, value) for typ, code, value in events)
 
 
-def test_release_beyond_first_64_queued_events_prevents_any_drive(monkeypatch):
-    client = RecordingClient()
-    device = SimpleNamespace(fd=123, axes=pad().axes, turn_axis=x.ABS_RX, buttons=set())
-    events = [(x.EV_KEY, x.BTN_TL, 1), (x.EV_SYN, x.SYN_REPORT, 0)]
-    events += [(x.EV_ABS, x.ABS_Y, -100), (x.EV_SYN, x.SYN_REPORT, 0)] * 31
-    assert len(events) == 64
-    reads = iter([packed(*events), packed((x.EV_KEY, x.BTN_TL, 0), (x.EV_SYN, x.SYN_REPORT, 0)), None])
-    def read(*args):
-        data = next(reads)
-        if data is None:
-            raise BlockingIOError
-        return data
-    selections = iter([([123], [], []), None])
-    def select(*args):
-        result = next(selections)
-        if result is None:
-            raise OSError("end test")
-        return result
-    monkeypatch.setattr(x.time, "monotonic", lambda: 1)
-    monkeypatch.setattr(x.select, "select", select)
-    monkeypatch.setattr(x.os, "read", read)
-    with pytest.raises(OSError, match="end test"):
-        x.run_device(device, client, SimpleNamespace(max_vx=30, max_vy=18, max_omega=.35))
+@pytest.fixture
+def input_loop(monkeypatch):
+    def run(*polls, ticks=None, raises=OSError, match="end test"):
+        """Each poll contains read chunks, drained to EAGAIN before the next poll."""
+        polls = iter(polls)
+        pending = iter(())
+
+        def select(*args):
+            nonlocal pending
+            try:
+                chunks = next(polls)
+            except StopIteration:
+                raise OSError("end test") from None
+            pending = iter(chunks)
+            return ([123] if chunks else [], [], [])
+
+        def read(*args):
+            try:
+                return next(pending)
+            except StopIteration:
+                raise BlockingIOError from None
+
+        clock = iter(ticks) if ticks is not None else None
+        monkeypatch.setattr(x.time, "monotonic", lambda: next(clock) if clock is not None else 1)
+        monkeypatch.setattr(x.select, "select", select)
+        monkeypatch.setattr(x.os, "read", read)
+        client = RecordingClient()
+        device = SimpleNamespace(fd=123, axes=pad().axes, turn_axis=x.ABS_RX, buttons=set())
+        with pytest.raises(raises, match=match):
+            x.run_device(device, client, SimpleNamespace(max_vx=30, max_vy=18, max_omega=.35))
+        return client
+    return run
+
+
+def test_input_loop_stall_cannot_send_another_heartbeat(input_loop):
+    client = input_loop([], ticks=[0, 1], raises=x.ControlError, match="stalled")
     assert client.sent == []
 
 
-def test_release_during_begin_is_drained_before_first_velocity(monkeypatch):
-    client = RecordingClient()
-    device = SimpleNamespace(fd=123, axes=pad().axes, turn_axis=x.ABS_RX, buttons=set())
-    reads = iter([
-        packed((x.EV_KEY, x.BTN_TL, 1), (x.EV_SYN, x.SYN_REPORT, 0)), None,
-        packed((x.EV_KEY, x.BTN_TL, 0), (x.EV_SYN, x.SYN_REPORT, 0)), None])
-    def read(*args):
-        data = next(reads)
-        if data is None:
-            raise BlockingIOError
-        return data
-    selections = iter([([123], [], []), ([123], [], []), None])
-    def select(*args):
-        result = next(selections)
-        if result is None:
-            raise OSError("end test")
-        return result
-    monkeypatch.setattr(x.time, "monotonic", lambda: 1)
-    monkeypatch.setattr(x.select, "select", select)
-    monkeypatch.setattr(x.os, "read", read)
-    with pytest.raises(OSError, match="end test"):
-        x.run_device(device, client, SimpleNamespace(max_vx=30, max_vy=18, max_omega=.35))
+def test_release_beyond_first_64_queued_events_prevents_any_drive(input_loop):
+    events = [(x.EV_KEY, x.BTN_TL, 1), (x.EV_SYN, x.SYN_REPORT, 0)]
+    events += [(x.EV_ABS, x.ABS_Y, -100), (x.EV_SYN, x.SYN_REPORT, 0)] * 31
+    assert len(events) == 64
+    release = packed((x.EV_KEY, x.BTN_TL, 0), (x.EV_SYN, x.SYN_REPORT, 0))
+    client = input_loop([packed(*events), release])
+    assert client.sent == []
+
+
+def test_release_during_begin_is_drained_before_first_velocity(input_loop):
+    press = packed((x.EV_KEY, x.BTN_TL, 1), (x.EV_SYN, x.SYN_REPORT, 0))
+    release = packed((x.EV_KEY, x.BTN_TL, 0), (x.EV_SYN, x.SYN_REPORT, 0))
+    client = input_loop([press], [release])
     assert len(client.sent) == 2
     assert client.sent[0][1].startswith("JLEASE BEGIN ")
     assert client.sent[1][1].startswith("JLEASE STOP ")
 
 
-def test_release_during_pose_preparation_prevents_worker_start(monkeypatch):
-    client = RecordingClient()
-    device = SimpleNamespace(fd=123, axes=pad().axes, turn_axis=x.ABS_RX, buttons=set())
-    reads = iter([
-        packed((x.EV_KEY, x.BTN_TR, 1), (x.EV_KEY, x.BTN_Y, 1), (x.EV_SYN, x.SYN_REPORT, 0)), None,
-        packed((x.EV_KEY, x.BTN_TR, 0), (x.EV_SYN, x.SYN_REPORT, 0)), None])
-    def read(*args):
-        data = next(reads)
-        if data is None:
-            raise BlockingIOError
-        return data
-    selections = iter([([123], [], []), ([123], [], []), None])
-    def select(*args):
-        result = next(selections)
-        if result is None:
-            raise OSError("end test")
-        return result
-    monkeypatch.setattr(x.time, "monotonic", lambda: 1)
-    monkeypatch.setattr(x.select, "select", select)
-    monkeypatch.setattr(x.os, "read", read)
-    with pytest.raises(OSError, match="end test"):
-        x.run_device(device, client, SimpleNamespace(max_vx=30, max_vy=18, max_omega=.35))
+def test_release_during_pose_preparation_prevents_worker_start(input_loop):
+    press = packed((x.EV_KEY, x.BTN_TR, 1), (x.EV_KEY, x.BTN_Y, 1), (x.EV_SYN, x.SYN_REPORT, 0))
+    release = packed((x.EV_KEY, x.BTN_TR, 0), (x.EV_SYN, x.SYN_REPORT, 0))
+    client = input_loop([press], [release])
     assert [body["action"] for _, body in client.sent] == ["prepare", "stop"]
 
 

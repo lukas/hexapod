@@ -39,6 +39,7 @@ EVENT = struct.Struct("llHHi")
 HEARTBEAT_S = 0.1
 HTTP_TIMEOUT_S = 0.35
 MAX_EVENT_AGE_S = 0.25
+LEASE_TIMEOUT_S = 0.75
 RESET_BUTTONS = {BTN_TL, BTN_TR, BTN_B, BTN_X, BTN_Y, BTN_SELECT, BTN_MODE}
 
 
@@ -153,7 +154,7 @@ class InputGate:
         self.ready = self.engaged = False
         self.pose = None
 
-    def event(self, typ: int, code: int, value: int, now: float) -> list[str]:
+    def event(self, typ: int, code: int, value: int) -> list[str]:
         if typ == EV_SYN and code == SYN_DROPPED:
             self.block()
             self.dropped = True
@@ -170,10 +171,10 @@ class InputGate:
             else:
                 self.buttons.discard(code)
         elif typ == EV_SYN and code == SYN_REPORT:
-            return self.frame(now)
+            return self.frame()
         return []
 
-    def frame(self, now: float) -> list[str]:
+    def frame(self) -> list[str]:
         pressed = self.buttons - self.previous
         self.previous = set(self.buttons)
         if pressed & {BTN_SELECT, BTN_MODE}:
@@ -196,7 +197,7 @@ class InputGate:
             self.ready = True
         if BTN_TR in self.buttons and pressed & {BTN_X, BTN_Y}:
             target = BTN_Y if BTN_Y in pressed else BTN_X
-            if (self.ready and self.neutral() and not self.engaged
+            if (self.ready and self.neutral()
                     and not self.buttons & (RESET_BUTTONS - {BTN_TR, target})):
                 self.pose = "stand" if target == BTN_Y else "sit"
                 self.ready = False
@@ -224,7 +225,6 @@ class WebClient:
         self.dry_run = dry_run
         self.token = None
         self.pose_token = None
-        self.lease_timeout_s = 0.75
 
     def request(self, path: str, body: str | dict | None = None):
         method = "GET" if body is None else "POST"
@@ -240,7 +240,7 @@ class WebClient:
                 text = response.read().decode()
         except urllib.error.HTTPError as exc:
             raise ControlError(f"{path}: HTTP {exc.code}: {exc.read().decode(errors='replace')}") from exc
-        except (OSError, urllib.error.URLError) as exc:
+        except OSError as exc:
             raise ControlError(f"{path}: {exc}; check web_drive at {self.base}.") from exc
         if path == "/cmd":
             if text.startswith(("refused", "need ", "bad ", "unknown")):
@@ -259,24 +259,23 @@ class WebClient:
         if self.dry_run:
             return
         lease = result.get("scripted_gamepad_lease") or {}
-        if lease.get("version") != 1 or lease.get("timeout_s") != 0.75:
+        if lease.get("version") != 1 or lease.get("timeout_s") != LEASE_TIMEOUT_S:
             raise ControlError("web_drive lacks the 0.75s gamepad lease watchdog; deploy matching web_drive and drive_controller first.")
         pose = result.get("scripted_gamepad_pose") or {}
-        if pose.get("version") != 1 or pose.get("timeout_s") != 0.75:
+        if pose.get("version") != 1 or pose.get("timeout_s") != LEASE_TIMEOUT_S:
             raise ControlError("web_drive lacks leased gamepad stand/sit support; deploy matching server code first.")
-        self.lease_timeout_s = float(lease["timeout_s"])
 
     def prepare_pose(self, pose: str):
         if self.token is not None or self.pose_token is not None:
             raise ControlError("Release all controls before starting a pose transition.")
         result = self.request("/api/gamepad/pose", {"action": "prepare", "pose": pose})
         if self.dry_run:
-            result = {"token": uuid.uuid4().hex, "state": "prepared", "timeout_s": .75}
+            result = {"token": uuid.uuid4().hex, "state": "prepared", "timeout_s": LEASE_TIMEOUT_S}
         token = result.get("token")
         if not isinstance(token, str) or len(token) != 32 or any(c not in "0123456789abcdef" for c in token):
             raise ControlError("Pose preparation returned no valid reservation; deploy matching server code.")
         self.pose_token = token
-        if result.get("state") != "prepared" or result.get("timeout_s") != .75:
+        if result.get("state") != "prepared" or result.get("timeout_s") != LEASE_TIMEOUT_S:
             raise ControlError("Pose reservation protocol mismatch; deploy matching server code.")
 
     def renew_pose(self) -> str:
@@ -351,7 +350,7 @@ def drain_input(device: Device, gate: InputGate, client: WebClient):
                 gate.block()
                 client.stop()
                 raise ControlError("Stale gamepad input; reconnecting, release LB and center sticks.")
-            for action in gate.event(typ, code, value, now):
+            for action in gate.event(typ, code, value):
                 client.action(action)
 
 
@@ -359,11 +358,11 @@ def run_device(device: Device, client: WebClient, args):
     gate = InputGate(device.axes, device.turn_axis, device.buttons)
     next_send = 0.0
     last_tick = time.monotonic()
-    gate.frame(last_tick)
+    gate.frame()
     while True:
         readable, _, _ = select.select([device.fd], [], [], 0.025)
         now = time.monotonic()
-        if now - last_tick >= client.lease_timeout_s:
+        if now - last_tick >= LEASE_TIMEOUT_S:
             gate.block()
             client.stop()
             raise ControlError("Input loop stalled; release LB and center sticks before reconnecting.")
@@ -371,7 +370,7 @@ def run_device(device: Device, client: WebClient, args):
         if readable:
             drain_input(device, gate, client)
         now = time.monotonic()
-        if now - last_tick >= client.lease_timeout_s:
+        if now - last_tick >= LEASE_TIMEOUT_S:
             gate.block()
             client.stop()
             raise ControlError("Input handling stalled; release LB and center sticks before reconnecting.")

@@ -934,17 +934,24 @@ class PoseStreamer:
         return wrote
 
 
+def fresh_snapshot_pose(snapshot: dict) -> list[float] | None:
+    """Return a complete encoder pose no older than 500 ms, or refuse it."""
+    positions = snapshot.get("pos_deg") or {}
+    pose = [positions.get(j) for j in range(N_JOINTS)]
+    if (float(snapshot.get("pos_age_ms", math.inf)) <= 500
+            and all(v is not None and math.isfinite(v) for v in pose)):
+        return pose
+    return None
+
+
 def _read_pose(bus: FeetechBus, live: set[int]) -> list[float]:
     """Present joint angles, robot_abs (deg); missing IDs → 0."""
     if _scripted_write_guard.get() is not None:
         # A leased worker must not let a legacy guard-stop replace missing
         # feedback with absolute zero targets. Its owner performs the
         # bounded measured-hold/telemetry-loss cleanup after this refusal.
-        snapshot = bus.read_snapshot() or {}
-        positions = snapshot.get("pos_deg") or {}
-        pose = [positions.get(j) for j in range(N_JOINTS)]
-        if (float(snapshot.get("pos_age_ms", math.inf)) > 500
-                or any(v is None or not math.isfinite(v) for v in pose)):
+        pose = fresh_snapshot_pose(bus.read_snapshot() or {})
+        if pose is None:
             raise RuntimeError("Leased motion requires complete fresh encoder feedback")
         return pose
     # MCU stream bridge: one cached snapshot beats 18 round trips.

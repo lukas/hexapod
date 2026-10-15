@@ -1,12 +1,10 @@
 """Opt-in hold-to-run ownership of the existing synchronous stand/lower jobs."""
 from contextlib import contextmanager
-import math
 import threading
 import time
 import uuid
 
 from drive_controller import GAMEPAD_LEASE_TIMEOUT_S
-from hexapod_core.joint_frame import N_JOINTS
 
 
 class PoseCancelled(RuntimeError):
@@ -78,6 +76,29 @@ class GamepadPose:
         return {"ok": True, "token": job["token"], "state": job["state"],
                 "timeout_s": GAMEPAD_LEASE_TIMEOUT_S, "result": job.get("result")}
 
+    def _prepare_locked(self, pose):
+        d, b = self.drive, self.bench
+        if pose not in ("stand", "sit"):
+            return {"ok": False, "error": "pose must be stand or sit"}
+        if (self.busy_locked() or d._gamepad_token is not None
+                or d._gamepad_settle_until is not None
+                or (b._demo_thread and b._demo_thread.is_alive())
+                or b._drive_active()
+                or d.mode not in ("idle", "stand")):
+            return {"ok": False, "error": "Robot is busy or stopping; release controls and retry"}
+        if d.dry_run or d.bus is None:
+            return {"ok": False, "error": "No motor bus connected"}
+        if not callable(getattr(d.bus, "read_snapshot", None)):
+            return {"ok": False, "error": "Gamepad poses require the MCU bulk snapshot bus"}
+        if not callable(getattr(d.bus, "enable_all_torque", None)):
+            return {"ok": False, "error": "Gamepad poses require bounded bulk torque control"}
+        if pose == "sit" and not d.armed:
+            return {"ok": False, "error": "Sit requires an already armed robot"}
+        self.job = dict(token=uuid.uuid4().hex, pose=pose,
+                        abort=DeadlineAbort(self.clock), thread=None,
+                        state="prepared", live=True, gen=b._demo_gen)
+        return self._reply(self.job)
+
     def request(self, data):
         if not isinstance(data, dict):
             return {"ok": False, "error": "Expected a JSON object"}
@@ -102,35 +123,12 @@ class GamepadPose:
                     return {**self._reply(job), "state": "stopping"}
                 return self._reply(job)
         with d._lock:
-            self.tick_locked()
             if action == "prepare":
-                pose = data.get("pose")
-                if pose not in ("stand", "sit"):
-                    return {"ok": False, "error": "pose must be stand or sit"}
-                if (self.busy_locked() or d._gamepad_token is not None
-                        or d._gamepad_settle_until is not None
-                        or (b._demo_thread and b._demo_thread.is_alive())
-                        or b._drive_active() or b._running_calibration_name()
-                        or d.mode not in ("idle", "stand")):
-                    return {"ok": False, "error": "Robot is busy or stopping; release controls and retry"}
-                if d.dry_run or d.bus is None:
-                    return {"ok": False, "error": "No motor bus connected"}
-                if not callable(getattr(d.bus, "read_snapshot", None)):
-                    return {"ok": False, "error": "Gamepad poses require the MCU bulk snapshot bus"}
-                if not callable(getattr(d.bus, "enable_all_torque", None)):
-                    return {"ok": False, "error": "Gamepad poses require bounded bulk torque control"}
-                if pose == "sit" and not d.armed:
-                    return {"ok": False, "error": "Sit requires an already armed robot"}
-                self.job = dict(token=uuid.uuid4().hex, pose=pose,
-                                abort=DeadlineAbort(self.clock), thread=None,
-                                state="prepared", live=True, gen=b._demo_gen)
-                return self._reply(self.job)
+                return self._prepare_locked(data.get("pose"))
+            self.tick_locked()
             job = self.job
             if not job or data.get("token") != job["token"]:
                 return {"ok": False, "error": "Unknown pose token; release controls and prepare again"}
-            if action == "stop":
-                self.cancel_locked()
-                return self._reply(job)
             if action != "renew":
                 return {"ok": False, "error": "action must be prepare, renew, or stop"}
             if job["state"] in ("done", "error", "stopping"):
@@ -162,30 +160,21 @@ class GamepadPose:
             yield
 
     def _finish_hold(self, job):
+        from inplace_demos import fresh_snapshot_pose
         d, b = self.drive, self.bench
-        with d._lock:
-            if job["gen"] != b._demo_gen or not d.armed:
-                return
         # Complete measured positions only. Missing feedback must never turn
         # into the historical helper's synthetic zero-degree target.
         # MCU read_snapshot is one fresh transaction with a 0.5 s reply
         # timeout. Do not expand missing feedback into per-joint retries.
-        failed_samples = 0
-        seen_sequences = set()
         for _ in range(3):
             with d._lock:
                 if job["gen"] != b._demo_gen or not d.armed:
                     return
             try:
-                snapshot = d.bus.read_snapshot() or {}
-                positions = snapshot.get("pos_deg") or {}
-                pose = [positions.get(j) for j in range(N_JOINTS)]
-                complete = (float(snapshot.get("pos_age_ms", math.inf)) <= 500
-                            and all(v is not None and math.isfinite(v) for v in pose))
+                pose = fresh_snapshot_pose(d.bus.read_snapshot() or {})
             except Exception:
-                snapshot = {}
-                complete = False
-            if complete:
+                pose = None
+            if pose is not None:
                 with d._lock:
                     if job["gen"] != b._demo_gen or not d.armed:
                         return
@@ -193,21 +182,13 @@ class GamepadPose:
                     d.mode = "idle"
                     d.status = "gamepad pose stopped; measured hold"
                 return
-            # A fresh transaction may still contain the MCU's same cached
-            # servo sweep. Never count that as another missing-ID vote.
-            sequence = snapshot.get("seq")
-            if not snapshot or (sequence is not None and sequence not in seen_sequences):
-                failed_samples += 1
-            seen_sequences.add(sequence)
         with d._lock:
             if job["gen"] != b._demo_gen or not d.armed:
                 return
-            # Three failed fresh samples OR feedback that never becomes
-            # verifiable within the bounded reads: canonical limp path.
+            # Repeated cached sweeps are not distinct missing-ID votes.
+            # This is the stop-unverifiable path after three bounded reads.
             d._handle_locked("X")
-        reason = ("Three incomplete fresh snapshots" if failed_samples == 3 else
-                  "Snapshot feedback did not become fresh and complete")
-        raise RuntimeError(reason + "; stop unverified, limp requested")
+        raise RuntimeError("Stop could not be verified after three snapshot attempts; limp requested")
 
     def _run(self, job):
         from inplace_demos import scripted_motion_scope

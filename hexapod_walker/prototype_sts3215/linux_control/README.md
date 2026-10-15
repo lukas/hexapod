@@ -519,12 +519,12 @@ tuning only while stopped, then start the next walk.
 
 The controller pairs directly with the Uno Q. `hexapod-xbox` reads its Linux
 input device and sends commands to the existing local web server; the web
-server remains the only motor-bus owner. Use the web UI's Stand control first;
-walking then works directly from the controller without a browser connection.
+server remains the only motor-bus owner. Standing, walking and sitting work
+directly from the controller without a browser connection.
 Starting the service or connecting a controller never arms or moves the robot.
 
-After deploying the matching `xbox_drive.py`, `drive_controller.py`, and
-`web_drive.py`, install the opt-in service **on the board**:
+After deploying the matching server bundle (including `api/`, `motor_setup/`
+and `xbox_drive.py`), install the opt-in service **on the board**:
 
 ```bash
 ssh arduino@hexapod2.local
@@ -564,18 +564,26 @@ command reference: [BlueZ bluetoothctl](https://github.com/bluez/bluez/blob/mast
 | Left stick | Forward/back and sideways (30 / 18 mm/s maximum) |
 | Right stick horizontal | Turn (0.35 rad/s maximum) |
 | Release LB or press B | Finish the current gait step and hold |
+| Center sticks, hold RB, tap Y | Stand; keep RB held until finished |
+| Center sticks, hold RB, tap X | Sit; keep RB held until finished |
+| Release RB or move a stick during stand/sit | Cancel the transition and hold |
 | Back/View or Xbox button | Emergency limp (torque off) |
 
 After a stop or reconnect, release the buttons and center the sticks before
-engaging LB again. Driving selects the no-slip tripod gait. Stand, lower and
-calibration remain in the web UI: their existing asynchronous APIs cannot
-guarantee cancellation if a controller disconnects while a request starts.
+engaging LB again. Driving selects the no-slip tripod gait. Release LB and
+let walking stop before using a pose chord. Stand/sit requires centered
+sticks and a fresh chord; holding buttons through reconnect cannot start it.
 The existing zero calibration and verified starting pose are still required
-before standing.
+before standing. Calibration remains in the web UI.
 
 Every drive command renews a 0.75-second server lease. A missing heartbeat
 starts a controlled gait stop and hold; an expired session cannot restart
-from delayed commands. The web UI's emergency stop remains available.
+from delayed commands. Stand/sit uses a separate reservation with the same
+timeout: preparation never moves, and activation happens only after another
+input check. Releasing RB, pressing B, losing input, or missing heartbeats
+cancels the job; canceled or expired tokens cannot restart it. Release all
+controls after completion before starting another action. The web UI's
+emergency stop remains available.
 
 ```bash
 systemctl status hexapod-xbox

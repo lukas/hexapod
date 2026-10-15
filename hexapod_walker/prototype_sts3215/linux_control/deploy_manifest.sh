@@ -17,6 +17,7 @@
 LC_FILES=(
   drive_controller.py cpg_controller_loader.py
   mcu_feetech_bus.py async_bus_guard.py bench_api.py web_drive.py xbox_drive.py
+  configure_xbox_bluetooth.py
   motor_setup_api.py webui_config.py requirements-robot.txt
   joint_calibrate.py plant_calibrate.py geometry_plant.py imu_calibrate.py
   event_log.py telemetry_recorder.py async_bus_guard.py

@@ -4,7 +4,8 @@
 No bus ownership, automatic arm, calibration, or startup motion.
 Hold LB with neutral sticks, then use left stick to walk and right stick to
 turn. Release LB or press B to stop. Back / Xbox is emergency limp.
-Use the web UI to stand before driving and to lower afterwards.
+With centered sticks, hold RB and tap Y to stand or X to sit; keep RB held
+until finished. Releasing RB or moving a stick cancels the transition.
 
     uv run python linux_control/xbox_drive.py --list
     uv run python linux_control/xbox_drive.py --api http://127.0.0.1:8080
@@ -142,6 +143,7 @@ class InputGate:
         self.previous = set(buttons)
         self.ready = False
         self.engaged = False
+        self.pose = None
         self.dropped = False
 
     def neutral(self) -> bool:
@@ -149,6 +151,7 @@ class InputGate:
 
     def block(self):
         self.ready = self.engaged = False
+        self.pose = None
 
     def event(self, typ: int, code: int, value: int, now: float) -> list[str]:
         if typ == EV_SYN and code == SYN_DROPPED:
@@ -179,11 +182,29 @@ class InputGate:
         if BTN_B in pressed:
             self.block()
             return ["stop_all"]
-        if self.engaged and BTN_TL not in self.buttons:
+        if self.pose is not None:
+            target = BTN_Y if self.pose == "stand" else BTN_X
+            if (BTN_TR not in self.buttons or not self.neutral()
+                    or self.buttons & (RESET_BUTTONS - {BTN_TR, target})):
+                self.block()
+                return ["stop"]
+            return []
+        if self.engaged and (BTN_TL not in self.buttons or BTN_TR in self.buttons):
             self.block()
             return ["stop"]
         if not self.ready and self.neutral() and not self.buttons & RESET_BUTTONS:
             self.ready = True
+        if BTN_TR in self.buttons and pressed & {BTN_X, BTN_Y}:
+            target = BTN_Y if BTN_Y in pressed else BTN_X
+            if (self.ready and self.neutral() and not self.engaged
+                    and not self.buttons & (RESET_BUTTONS - {BTN_TR, target})):
+                self.pose = "stand" if target == BTN_Y else "sit"
+                self.ready = False
+            else:
+                self.block()
+            return []
+        if BTN_TR in self.buttons and not self.neutral():
+            self.block()
         if BTN_TL in pressed:
             if self.ready and self.neutral() and not self.buttons & (RESET_BUTTONS - {BTN_TL}):
                 self.engaged = True
@@ -202,6 +223,7 @@ class WebClient:
         self.base = base.rstrip("/")
         self.dry_run = dry_run
         self.token = None
+        self.pose_token = None
         self.lease_timeout_s = 0.75
 
     def request(self, path: str, body: str | dict | None = None):
@@ -239,7 +261,34 @@ class WebClient:
         lease = result.get("scripted_gamepad_lease") or {}
         if lease.get("version") != 1 or lease.get("timeout_s") != 0.75:
             raise ControlError("web_drive lacks the 0.75s gamepad lease watchdog; deploy matching web_drive and drive_controller first.")
+        pose = result.get("scripted_gamepad_pose") or {}
+        if pose.get("version") != 1 or pose.get("timeout_s") != 0.75:
+            raise ControlError("web_drive lacks leased gamepad stand/sit support; deploy matching server code first.")
         self.lease_timeout_s = float(lease["timeout_s"])
+
+    def prepare_pose(self, pose: str):
+        if self.token is not None or self.pose_token is not None:
+            raise ControlError("Release all controls before starting a pose transition.")
+        result = self.request("/api/gamepad/pose", {"action": "prepare", "pose": pose})
+        if self.dry_run:
+            result = {"token": uuid.uuid4().hex, "state": "prepared", "timeout_s": .75}
+        token = result.get("token")
+        if not isinstance(token, str) or len(token) != 32 or any(c not in "0123456789abcdef" for c in token):
+            raise ControlError("Pose preparation returned no valid reservation; deploy matching server code.")
+        self.pose_token = token
+        if result.get("state") != "prepared" or result.get("timeout_s") != .75:
+            raise ControlError("Pose reservation protocol mismatch; deploy matching server code.")
+
+    def renew_pose(self) -> str:
+        if self.pose_token is None:
+            raise ControlError("No pose reservation; release all controls before trying again.")
+        result = self.request("/api/gamepad/pose", {"action": "renew", "token": self.pose_token})
+        state = "running" if self.dry_run else result.get("state")
+        if state == "error":
+            raise ControlError(f"Pose transition failed: {result.get('result') or result.get('error')}")
+        if state not in ("prepared", "running", "stopping", "done"):
+            raise ControlError("Unknown pose reservation state; release controls and check server version.")
+        return state
 
     def begin(self):
         # Remember the token before sending: even a timed-out BEGIN must be stopped.
@@ -255,13 +304,16 @@ class WebClient:
     def stop(self, *, explicit: bool = False):
         errors = []
         token, self.token = self.token, None
+        pose_token, self.pose_token = self.pose_token, None
         # Do not acquire, arm or alter another session on a quiet disconnect.
         commands = []
+        if pose_token:
+            commands.append(("/api/gamepad/pose", {"action": "stop", "token": pose_token}))
         if token:
             commands.append(("/cmd", f"JLEASE STOP {token}"))
-        if explicit:
+        if explicit and not pose_token:
             commands.append(("/api/demo/stop", {}))
-        if explicit and not token:
+        if explicit and not token and not pose_token:
             commands.append(("/cmd", "J 0 0 0"))
         for path, body in commands:
             try:
@@ -274,6 +326,7 @@ class WebClient:
     def action(self, action: str):
         if action == "limp":
             self.token = None
+            self.pose_token = None
             self.request("/cmd", "X")
         elif action in ("stop", "stop_all"):
             self.stop(explicit=action == "stop_all")
@@ -322,7 +375,19 @@ def run_device(device: Device, client: WebClient, args):
             gate.block()
             client.stop()
             raise ControlError("Input handling stalled; release LB and center sticks before reconnecting.")
-        if gate.engaged and now >= next_send:
+        if gate.pose is not None and now >= next_send:
+            if client.pose_token is None:
+                # Preparation cannot move. Drain queued releases again before
+                # the first renewal is allowed to start the reserved worker.
+                client.prepare_pose(gate.pose)
+                continue
+            state = client.renew_pose()
+            next_send = time.monotonic() + HEARTBEAT_S
+            if state in ("done", "stopping"):
+                gate.block()
+                client.stop()
+                print(f"[xbox] pose {state}; release controls and center sticks.", flush=True)
+        elif gate.engaged and now >= next_send:
             if client.token is None:
                 client.begin()
                 # BEGIN can take a network round trip. Drain any release that
@@ -356,7 +421,7 @@ def main(argv=None):
     client = WebClient(args.api, dry_run=args.dry_run)
     signal.signal(signal.SIGTERM, _terminate)
     print("[xbox] LB + neutral to engage; sticks walk/turn; release LB or B stops. "
-          "Back/Xbox = LIMP. Use web UI Stand/Lower.", flush=True)
+          "RB + Y stands, RB + X sits; keep RB held. Back/Xbox = LIMP.", flush=True)
     previous_error = None
     try:
         while True:

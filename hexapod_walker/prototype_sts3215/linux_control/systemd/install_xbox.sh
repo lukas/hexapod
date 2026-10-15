@@ -13,6 +13,8 @@ with urllib.request.urlopen("http://127.0.0.1:8080/api/ping", timeout=3) as resp
     info = json.load(response)
 if info.get("scripted_gamepad_lease", {}).get("version") != 1:
     raise SystemExit("Deploy and restart hexapod-web with gamepad lease support before installing Xbox control.")
+if info.get("scripted_gamepad_pose", {}).get("version") != 1:
+    raise SystemExit("Deploy and restart hexapod-web with leased gamepad stand/sit support before installing Xbox control.")
 PY
 
 sudo systemctl enable --now bluetooth.service

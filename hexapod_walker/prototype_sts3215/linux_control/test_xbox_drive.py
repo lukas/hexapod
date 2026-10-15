@@ -84,22 +84,54 @@ def test_stop_buttons_disable_held_deadman_and_need_fresh_release(button, action
     assert gate.engaged
 
 
-@pytest.mark.parametrize("button", [x.BTN_Y, x.BTN_X])
-def test_face_and_shoulder_chords_never_start_a_pose(button):
+@pytest.mark.parametrize("button,pose", [(x.BTN_Y, "stand"), (x.BTN_X, "sit")])
+def test_fresh_neutral_pose_chord_runs_only_while_rb_is_held(button, pose):
     gate = pad()
     frame(gate)
     assert frame(gate, keys={x.BTN_TR, button}, now=1) == []
-    assert frame(gate, now=4) == []
-    frame(gate, keys=set())
-    frame(gate, keys={x.BTN_TL, x.BTN_TR, button}, now=5)
-    assert frame(gate, now=10) == []
+    assert gate.pose == pose
     assert not gate.engaged
+    frame(gate, keys={x.BTN_TR})  # Face button may be released.
+    assert gate.pose == pose
+    assert frame(gate, keys=set()) == ["stop"]
+    assert gate.pose is None
+
+
+@pytest.mark.parametrize("keys,axes", [
+    ({x.BTN_TL, x.BTN_TR, x.BTN_Y}, {}),
+    ({x.BTN_TR, x.BTN_Y, x.BTN_X}, {}),
+    ({x.BTN_TR, x.BTN_Y}, {x.ABS_Y: 100}),
+])
+def test_conflicting_or_non_neutral_pose_chord_cannot_start(keys, axes):
+    gate = pad()
+    frame(gate)
+    frame(gate, keys=keys, axes=axes)
+    assert gate.pose is None
+    assert not gate.engaged
+
+
+@pytest.mark.parametrize("keys,axes", [
+    ({x.BTN_TL, x.BTN_TR}, {}),
+    ({x.BTN_TR, x.BTN_X}, {}),
+    ({x.BTN_TR}, {x.ABS_RX: 100}),
+])
+def test_pose_cancellation_latches_off_until_fresh_release(keys, axes):
+    gate = pad()
+    frame(gate)
+    frame(gate, keys={x.BTN_TR, x.BTN_Y})
+    assert frame(gate, keys=keys, axes=axes) == ["stop"]
+    frame(gate, keys={x.BTN_TR, x.BTN_Y}, axes={x.ABS_RX: 0})
+    assert gate.pose is None
+    frame(gate, keys=set())
+    frame(gate, keys={x.BTN_TR, x.BTN_Y})
+    assert gate.pose == "stand"
 
 
 def test_snapshot_of_held_pose_chord_never_starts_a_pose():
     gate = pad(held={x.BTN_TR, x.BTN_Y})
     frame(gate, now=0)
     assert frame(gate, now=2) == []
+    assert gate.pose is None
 
 
 def test_syn_dropped_stops_then_ignores_events_until_resnapshot():
@@ -123,7 +155,10 @@ class RecordingClient(x.WebClient):
         self.sent.append((path, body))
         if self.reject_drive and isinstance(body, str) and body.startswith("JLEASE "):
             raise x.ControlError("expired lease")
-        return {"scripted_gamepad_lease": {"version": 1, "timeout_s": .75}}
+        if path == "/api/gamepad/pose":
+            return {"token": "a" * 32, "state": "prepared" if body["action"] == "prepare" else "running", "timeout_s": .75}
+        return {"scripted_gamepad_lease": {"version": 1, "timeout_s": .75},
+                "scripted_gamepad_pose": {"version": 1, "timeout_s": .75}}
 
 
 def test_no_startup_command_and_no_rearm_or_calibration():
@@ -165,7 +200,30 @@ def test_dry_run_never_touches_network_including_stop_and_emergency(monkeypatch)
     client.begin()
     client.drive((10, 0, 0))
     client.action("stop_all")
+    client.prepare_pose("stand")
+    assert client.renew_pose() == "running"
+    client.action("stop_all")
     client.action("limp")
+
+
+def test_pose_stop_cancels_own_reservation_without_global_demo_stop():
+    client = RecordingClient()
+    client.prepare_pose("sit")
+    token = client.pose_token
+    assert client.sent == [("/api/gamepad/pose", {"action": "prepare", "pose": "sit"})]
+    client.renew_pose()
+    client.stop(explicit=True)
+    assert client.sent[-2:] == [
+        ("/api/gamepad/pose", {"action": "renew", "token": token}),
+        ("/api/gamepad/pose", {"action": "stop", "token": token})]
+    assert client.pose_token is None
+
+
+def test_old_server_cannot_drive_without_pose_watchdog(monkeypatch):
+    client = x.WebClient("http://never.invalid")
+    monkeypatch.setattr(client, "request", lambda *args: {"scripted_gamepad_lease": {"version": 1, "timeout_s": .75}})
+    with pytest.raises(x.ControlError, match="leased gamepad stand/sit"):
+        client.check_server()
 
 
 def test_missing_watchdog_refuses_before_any_motion(monkeypatch):
@@ -249,6 +307,31 @@ def test_release_during_begin_is_drained_before_first_velocity(monkeypatch):
     assert len(client.sent) == 2
     assert client.sent[0][1].startswith("JLEASE BEGIN ")
     assert client.sent[1][1].startswith("JLEASE STOP ")
+
+
+def test_release_during_pose_preparation_prevents_worker_start(monkeypatch):
+    client = RecordingClient()
+    device = SimpleNamespace(fd=123, axes=pad().axes, turn_axis=x.ABS_RX, buttons=set())
+    reads = iter([
+        packed((x.EV_KEY, x.BTN_TR, 1), (x.EV_KEY, x.BTN_Y, 1), (x.EV_SYN, x.SYN_REPORT, 0)), None,
+        packed((x.EV_KEY, x.BTN_TR, 0), (x.EV_SYN, x.SYN_REPORT, 0)), None])
+    def read(*args):
+        data = next(reads)
+        if data is None:
+            raise BlockingIOError
+        return data
+    selections = iter([([123], [], []), ([123], [], []), None])
+    def select(*args):
+        result = next(selections)
+        if result is None:
+            raise OSError("end test")
+        return result
+    monkeypatch.setattr(x.time, "monotonic", lambda: 1)
+    monkeypatch.setattr(x.select, "select", select)
+    monkeypatch.setattr(x.os, "read", read)
+    with pytest.raises(OSError, match="end test"):
+        x.run_device(device, client, SimpleNamespace(max_vx=30, max_vy=18, max_omega=.35))
+    assert [body["action"] for _, body in client.sent] == ["prepare", "stop"]
 
 
 def test_old_kernel_timestamp_stops_and_demands_resnapshot(monkeypatch):

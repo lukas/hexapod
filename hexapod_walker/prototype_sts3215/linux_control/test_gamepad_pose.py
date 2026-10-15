@@ -1,0 +1,333 @@
+"""Leased pose ownership mechanics; no physical IO, sleeps, or worker races."""
+from contextlib import contextmanager
+import threading
+from types import SimpleNamespace
+
+import pytest
+
+from api import gamepad_pose as pose_api
+
+
+def snapshot(positions=None, *, age=1):
+    positions = [float(i + 1) for i in range(18)] if positions is None else positions
+    return {"pos_deg": dict(enumerate(positions)), "pos_age_ms": age}
+
+
+class ParkedThread:
+    def __init__(self, *, target, args, daemon):
+        self.target, self.args = target, args
+        self.alive = False
+
+    def start(self):
+        self.alive = True
+
+    def is_alive(self):
+        return self.alive
+
+    def run(self):
+        try:
+            self.target(*self.args)
+        finally:
+            self.alive = False
+
+
+@pytest.fixture
+def rig(monkeypatch):
+    monkeypatch.setenv("HEXAPOD_MODEL_SOURCE", "sts3215")
+    monkeypatch.setattr(pose_api.threading, "Thread", ParkedThread)
+    now = [100.0]
+    calls = []
+    drive = SimpleNamespace(
+        _lock=threading.Lock(), _gamepad_token=None, _gamepad_settle_until=None,
+        mode="idle", dry_run=False, bus=SimpleNamespace(read_snapshot=lambda: snapshot()), armed=False,
+        gait=SimpleNamespace(stop=lambda: calls.append(("gait_stop",))),
+        _torque_all=lambda enabled: calls.append(("torque", enabled)),
+        _write_pose=lambda positions, **kwargs: calls.append(("write", list(positions), kwargs)),
+    )
+    def command(line):
+        calls.append(("command", line))
+        drive.armed = False
+        drive.mode = "idle"
+    drive._handle_locked = command
+    bench = SimpleNamespace(
+        drive=drive, _demo_thread=None, _demo_gen=0, _demo_abort=threading.Event(),
+        _drive_active=lambda: False, _running_calibration_name=lambda: None,
+        _bus_hot_begin=lambda: None, _bus_hot_end=lambda: None,
+        _acquire_start=lambda *args, **kwargs: {"ok": True},
+        standup=lambda **kwargs: {"ok": True},
+    )
+    manager = pose_api.GamepadPose(bench, clock=lambda: now[0])
+    return SimpleNamespace(manager=manager, bench=bench, drive=drive, now=now, calls=calls)
+
+
+def prepare(rig, pose="stand"):
+    response = rig.manager.request({"action": "prepare", "pose": pose})
+    assert response["ok"] and response["state"] == "prepared"
+    return response["token"]
+
+
+def request(rig, action, token):
+    return rig.manager.request({"action": action, "token": token})
+
+
+def test_prepare_is_motion_free_and_token_exclusive(rig):
+    token = prepare(rig)
+    assert rig.calls == [] and not rig.drive.armed
+    assert rig.bench._demo_thread is None
+    assert not rig.manager.request({"action": "prepare", "pose": "stand"})["ok"]
+    assert not request(rig, "renew", "someone-else")["ok"]
+    assert rig.manager.job["token"] == token
+
+
+@pytest.mark.parametrize("state", ["walk", "demo"])
+def test_prepare_rejects_active_drive_mode(rig, state):
+    rig.drive.mode = state
+    assert not rig.manager.request({"action": "prepare", "pose": "stand"})["ok"]
+    assert rig.calls == []
+
+
+@pytest.mark.parametrize("blocked", ["lease", "settling", "worker", "rl", "calibration", "no_bus", "dry_run"])
+def test_prepare_rejects_existing_owner_or_unavailable_bus(rig, blocked):
+    if blocked == "lease":
+        rig.drive._gamepad_token = "other"
+    elif blocked == "settling":
+        rig.drive._gamepad_settle_until = 101
+    elif blocked == "worker":
+        rig.bench._demo_thread = SimpleNamespace(is_alive=lambda: True)
+    elif blocked == "rl":
+        rig.bench._drive_active = lambda: True
+    elif blocked == "calibration":
+        rig.bench._running_calibration_name = lambda: "calibration"
+    elif blocked == "no_bus":
+        rig.drive.bus = None
+    else:
+        rig.drive.dry_run = True
+    assert not rig.manager.request({"action": "prepare", "pose": "stand"})["ok"]
+    assert rig.calls == []
+
+
+def test_sit_never_arms_an_unarmed_robot(rig):
+    assert not rig.manager.request({"action": "prepare", "pose": "sit"})["ok"]
+    assert rig.calls == []
+
+
+@pytest.mark.parametrize("stop", ["stop", "expire"])
+def test_reservation_cannot_launch_after_stop_or_expiry(rig, stop):
+    token = prepare(rig)
+    if stop == "stop":
+        request(rig, "stop", token)
+    else:
+        rig.now[0] += pose_api.GAMEPAD_LEASE_TIMEOUT_S
+    result = request(rig, "renew", token)
+    assert result["state"] == "error"
+    assert rig.manager.job["thread"] is None
+    assert rig.calls == []
+
+
+def test_deadline_expiration_is_sticky_even_if_clock_or_late_renew_changes(rig):
+    abort = pose_api.DeadlineAbort(lambda: rig.now[0])
+    rig.now[0] += pose_api.GAMEPAD_LEASE_TIMEOUT_S
+    assert abort.wait(0)
+    rig.now[0] -= 0.5
+    assert not abort.renew() and abort.is_set()
+
+
+def test_stop_before_delayed_worker_launch_prevents_torque_enable(rig):
+    token = prepare(rig)
+    request(rig, "renew", token)
+    worker = rig.manager.job["thread"]
+    request(rig, "stop", token)
+    assert request(rig, "renew", token)["state"] == "stopping"
+    assert not rig.manager.request({"action": "prepare", "pose": "stand"})["ok"]
+    worker.run()
+    assert rig.calls == [] and not rig.drive.armed
+    assert rig.manager.job["state"] == "error"
+
+
+def test_estop_before_delayed_launch_never_rearms(rig):
+    token = prepare(rig)
+    request(rig, "renew", token)
+    rig.bench._demo_gen += 1
+    rig.drive.armed = False
+    worker = rig.manager.job["thread"]
+    worker.run()
+    assert rig.calls == []
+    assert not rig.drive.armed
+
+
+def test_stop_during_worker_keeps_exclusion_until_measured_hold_finishes(rig):
+    token = prepare(rig)
+    request(rig, "renew", token)
+    def move(*args, **kwargs):
+        request(rig, "stop", token)
+        assert request(rig, "renew", token)["state"] == "stopping"
+        assert not rig.manager.request({"action": "prepare", "pose": "stand"})["ok"]
+        return {"ok": False, "error": "stopped"}
+    def read_pose():
+        # Position reads run without holding the plain drive lock.
+        assert rig.drive._lock.acquire(blocking=False)
+        rig.drive._lock.release()
+        assert rig.manager.busy_locked()
+        assert not rig.manager.request({"action": "prepare", "pose": "stand"})["ok"]
+        return snapshot()
+    rig.bench._acquire_start = move
+    rig.drive.bus.read_snapshot = read_pose
+    rig.manager.job["thread"].run()
+    writes = [call for call in rig.calls if call[0] == "write"]
+    assert writes == [("write", [float(i + 1) for i in range(18)], {"speed": 250, "acc": 30})]
+    assert rig.drive.mode == "idle"
+    assert rig.manager.job["result"]["aborted"]
+
+
+def test_expiry_during_blocked_work_cannot_be_renewed_and_still_holds_measured(rig):
+    token = prepare(rig)
+    request(rig, "renew", token)
+    def move(*args, **kwargs):
+        rig.now[0] += pose_api.GAMEPAD_LEASE_TIMEOUT_S
+        assert request(rig, "renew", token)["state"] == "stopping"
+        return {"ok": True}
+    rig.bench._acquire_start = move
+    rig.manager.job["thread"].run()
+    assert rig.manager.job["result"]["aborted"]
+    assert any(call[0] == "write" for call in rig.calls)
+
+
+@pytest.mark.parametrize("positions,age", [([1.0] * 17, 1), ([None] + [1.0] * 17, 1), ([float("nan")] + [1.0] * 17, 1), ([1.0] * 18, 501)])
+def test_three_bad_final_snapshots_never_substitute_zero_and_limp(rig, positions, age):
+    token = prepare(rig)
+    request(rig, "renew", token)
+    reads = []
+    def read():
+        reads.append(True)
+        return snapshot(positions, age=age)
+    rig.drive.bus.read_snapshot = read
+    rig.manager.job["thread"].run()
+    assert not any(call[0] == "write" for call in rig.calls)
+    assert rig.manager.job["result"]["hold_unverified"]
+    assert len(reads) == 3
+    assert ("command", "X") in rig.calls
+    assert not rig.drive.armed
+    assert not rig.manager.busy_locked()
+
+
+def test_estop_during_final_feedback_read_suppresses_late_hold_write(rig):
+    token = prepare(rig)
+    request(rig, "renew", token)
+    def read_pose():
+        rig.bench._demo_gen += 1
+        rig.drive.armed = False
+        return snapshot([2.0] * 18)
+    rig.drive.bus.read_snapshot = read_pose
+    rig.manager.job["thread"].run()
+    assert not any(call[0] == "write" for call in rig.calls)
+    assert not rig.drive.armed
+
+
+def test_pose_streamer_nested_write_acquires_plain_guard_once_and_restores_scope(monkeypatch):
+    import inplace_demos as demos
+    monkeypatch.setenv("HEXAPOD_MODEL_SOURCE", "sts3215")
+    calls = []
+    lock = threading.Lock()
+    @contextmanager
+    def guard():
+        assert lock.acquire(blocking=False), "nested motor helper reacquired the plain lock"
+        calls.append("guard")
+        try:
+            yield
+        finally:
+            lock.release()
+    bus = SimpleNamespace(trims=[0.0] * 18, pkt=SimpleNamespace(
+        SyncWritePosEx=lambda *args: calls.append("write"),
+        groupSyncWrite=SimpleNamespace(txPacket=lambda: None, clearParam=lambda: None)))
+    with demos.scripted_motion_scope(guard):
+        demos.PoseStreamer().write(bus, [1.0] * 18, set(demos.SERVO_IDS))
+    assert calls.count("guard") == 1 and calls.count("write") == 18
+    demos._write_pose(bus, [1.0] * 18, set(demos.SERVO_IDS))
+    assert calls.count("guard") == 1  # Other workers do not inherit the scope.
+
+
+def test_one_incomplete_snapshot_recovers_without_limp(rig):
+    token = prepare(rig)
+    request(rig, "renew", token)
+    responses = iter([snapshot([None] * 18), snapshot([3.0] * 18)])
+    rig.drive.bus.read_snapshot = lambda: next(responses)
+    rig.manager.job["thread"].run()
+    assert not any(call[0] == "command" for call in rig.calls)
+    assert [call[1] for call in rig.calls if call[0] == "write"] == [[3.0] * 18]
+    assert rig.manager.job["state"] == "done"
+
+
+def test_failed_limp_after_three_bad_reads_keeps_unverified_stop_exclusive(rig):
+    token = prepare(rig)
+    request(rig, "renew", token)
+    rig.drive.bus.read_snapshot = lambda: snapshot([None] * 18)
+    def failed_limp(line):
+        raise OSError("torque transaction failed")
+    rig.drive._handle_locked = failed_limp
+    rig.manager.job["thread"].run()
+    assert rig.manager.job["result"]["hold_unverified"]
+    assert rig.manager.busy_locked()
+    assert not rig.manager.request({"action": "prepare", "pose": "stand"})["ok"]
+
+
+def test_ownership_lasts_through_actual_worker_exit(rig):
+    token = prepare(rig)
+    request(rig, "renew", token)
+    def finish_hot_bus():
+        assert rig.manager.job["state"] == "done"
+        assert rig.manager.busy_locked()  # Result ready does not mean thread exited.
+        assert not rig.manager.request({"action": "prepare", "pose": "stand"})["ok"]
+    rig.bench._bus_hot_end = finish_hot_bus
+    rig.manager.job["thread"].run()
+    assert not rig.manager.busy_locked()
+
+
+def test_sit_uses_existing_step_lower_without_arming_or_zeroing(rig):
+    rig.drive.armed = True
+    token = prepare(rig, "sit")
+    request(rig, "renew", token)
+    calls = []
+    rig.bench.standup = lambda **kwargs: calls.append(kwargs) or {"ok": True}
+    rig.manager.job["thread"].run()
+    assert calls == [{"mode": "step", "speed": 10.0, "direction": "down", "sync_gen": rig.bench._demo_gen}]
+    assert not any(call[0] == "torque" for call in rig.calls)
+
+
+@pytest.mark.parametrize("helper", ["enable", "limit", "pose", "stream"])
+def test_scripted_scope_denies_each_write_boundary_before_bus_io(monkeypatch, helper):
+    import inplace_demos as demos
+    monkeypatch.setenv("HEXAPOD_MODEL_SOURCE", "sts3215")
+    @contextmanager
+    def cancelled():
+        raise pose_api.PoseCancelled("expired")
+        yield  # pragma: no cover
+    # No bus members: any attempted bus access would fail this test.
+    bus = object()
+    with demos.scripted_motion_scope(cancelled), pytest.raises(pose_api.PoseCancelled):
+        if helper == "enable":
+            demos._enable_torque(bus, {2})
+        elif helper == "limit":
+            demos._set_torque_limit(bus, {2}, 300)
+        elif helper == "pose":
+            demos._write_pose(bus, [1.0] * 18, {2})
+        else:
+            demos.PoseStreamer().write(bus, [1.0] * 18, {2})
+
+
+def test_running_renew_and_stop_do_not_wait_for_telemetry_drive_lock(rig):
+    token = prepare(rig)
+    request(rig, "renew", token)
+    actual_lock = rig.drive._lock
+    class FailIfReacquired:
+        def __enter__(self):
+            pytest.fail("heartbeat/stop attempted the drive lock held by telemetry")
+        def __exit__(self, *args):
+            pass
+    with actual_lock:
+        rig.drive._lock = FailIfReacquired()
+        rig.now[0] += 0.1
+        assert request(rig, "renew", token)["state"] == "running"
+        assert request(rig, "stop", token)["state"] == "stopping"
+        assert rig.manager.job["abort"].is_set()
+        assert request(rig, "renew", token)["state"] == "stopping"
+    rig.drive._lock = actual_lock
